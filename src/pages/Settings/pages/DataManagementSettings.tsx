@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/layout/PageHeader"
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -52,6 +52,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
 
   useEffect(() => {
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ実行
   }, [])
 
   const fetchData = async () => {

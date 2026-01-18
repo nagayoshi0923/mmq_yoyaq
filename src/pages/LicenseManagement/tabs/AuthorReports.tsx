@@ -77,6 +77,7 @@ export function AuthorReports() {
   // データ取得
   useEffect(() => {
     loadData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear, selectedMonth])
 
   const loadData = async () => {

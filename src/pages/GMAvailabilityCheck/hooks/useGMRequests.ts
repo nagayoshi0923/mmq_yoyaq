@@ -287,6 +287,7 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
       loadGMRequests()
       loadStores()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
   return {

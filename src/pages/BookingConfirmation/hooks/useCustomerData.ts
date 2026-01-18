@@ -68,6 +68,7 @@ export function useCustomerData({ userId, userEmail }: UseCustomerDataProps) {
     if (userId || userEmail) {
       loadCustomerInfo()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, userEmail])
 
   return {

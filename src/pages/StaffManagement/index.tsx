@@ -171,6 +171,7 @@ export function StaffManagement() {
   useEffect(() => {
     loadStores()
     loadScenarios()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 検索・フィルタの状態を自動保存
@@ -232,6 +233,7 @@ export function StaffManagement() {
         onReinvite: handleReinviteStaff
       }
     ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ハンドラーは安定した参照を持つ
     [stores, getScenarioName, getAuthStatus, handleReinviteStaff]
   )
 

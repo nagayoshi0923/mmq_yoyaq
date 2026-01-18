@@ -63,6 +63,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
 
   useEffect(() => {
     loadData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadData = async () => {

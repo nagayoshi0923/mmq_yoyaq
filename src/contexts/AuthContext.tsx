@@ -292,6 +292,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         broadcastChannelRef.current = null
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ実行、内部関数はコールバック内で使用
   }, [refreshSession])
 
   async function getInitialSession() {

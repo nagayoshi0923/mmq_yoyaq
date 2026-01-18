@@ -131,6 +131,7 @@ export function PrivateBookingManagement() {
     
     initializeRequest()
     return () => { if (timer) clearTimeout(timer) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRequest])
 
   // シナリオの対応店舗を取得
@@ -241,6 +242,7 @@ export function PrivateBookingManagement() {
     
     updateConflicts()
     return () => { if (timer) clearTimeout(timer) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStoreId, selectedGMId])
 
   // 選択可能な最初の候補日時を自動選択

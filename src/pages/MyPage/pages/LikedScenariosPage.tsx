@@ -45,6 +45,7 @@ export function WantToPlayPage() {
     if (user?.id) {
       fetchWantToPlayScenarios()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
   }, [user])
 
   const fetchWantToPlayScenarios = async () => {

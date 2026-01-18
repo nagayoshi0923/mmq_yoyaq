@@ -299,7 +299,9 @@ export function ScenarioManagement() {
     onDelete: openDeleteDialog,
     onImageUpload: handleImageUpload,
     onImageRemove: handleImageRemove
-  }, storeMap, scenarioStats), [displayMode, storeMap, scenarioStats])
+  }, storeMap, scenarioStats),
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- ハンドラーは安定した参照を持つ
+  [displayMode, storeMap, scenarioStats])
 
   // スクロール位置の保存と復元
   useEffect(() => {

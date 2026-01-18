@@ -129,6 +129,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
   // 月が変わったら再読み込み
   useEffect(() => {
     loadTransactions()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth])
   
   // トランザクションを追加

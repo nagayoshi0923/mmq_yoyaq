@@ -744,6 +744,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     if (isOpen) {
       reloadAssignments()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
   const handleSave = async () => {

@@ -178,6 +178,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   const selectedDateEvents = useMemo(() => {
     if (!selectedDate) return []
     return getEventsForDate(selectedDate)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, mySchedule])
 
   const handleDateClick = (date: Date) => {

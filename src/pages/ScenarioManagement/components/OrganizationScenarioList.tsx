@@ -675,6 +675,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         </div>
       )
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [onEdit, handleStatusChange])
 
   if (loading) {

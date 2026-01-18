@@ -172,6 +172,7 @@ export function BookingConfirmation({
     if (pendingSubmit) {
       onSubmit()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingSubmit])
 
   // キャンセル待ち登録ハンドラー

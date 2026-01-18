@@ -109,6 +109,7 @@ export function ShiftSubmission() {
     ) {
       setCurrentDate(targetMonth)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [globalSettings])
 
   // テーブル用のデータ変換

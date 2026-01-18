@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/layout/PageHeader"
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -124,6 +124,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
 
   useEffect(() => {
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- storeId変更時のみ実行
   }, [storeId])
 
   const fetchData = async () => {

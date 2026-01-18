@@ -63,6 +63,7 @@ export function ReservationDetailPage() {
   useEffect(() => {
     if (!reservationId) return
     fetchReservation()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reservationId変更時のみ実行
   }, [reservationId])
 
   const fetchReservation = async () => {

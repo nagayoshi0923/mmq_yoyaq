@@ -118,6 +118,7 @@ export default function MyPage() {
     if (user?.email) {
       fetchData()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
   }, [user])
 
   const fetchData = async () => {

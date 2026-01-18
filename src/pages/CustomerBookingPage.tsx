@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -144,25 +144,16 @@ export function CustomerBookingPage() {
   const [storeFilter, setStoreFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('all')
 
-  useEffect(() => {
-    loadPublicEvents()
-    loadStores()
-  }, [])
-
-  useEffect(() => {
-    applyFilters()
-  }, [events, searchTerm, storeFilter, dateFilter])
-
-  const loadStores = async () => {
+  const loadStores = useCallback(async () => {
     try {
       const data = await storeApi.getAll()
       setStores(data)
     } catch (error) {
       logger.error('店舗データの読み込みエラー:', error)
     }
-  }
+  }, [])
 
-  const loadPublicEvents = async () => {
+  const loadPublicEvents = useCallback(async () => {
     try {
       setIsLoading(true)
       
@@ -228,7 +219,7 @@ export function CustomerBookingPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   const calculateDuration = (startTime: string, endTime: string): number => {
     const [startHour, startMin] = startTime.split(':').map(Number)
@@ -236,7 +227,7 @@ export function CustomerBookingPage() {
     return (endHour * 60 + endMin) - (startHour * 60 + startMin)
   }
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...events]
 
     // 検索フィルター
@@ -276,7 +267,18 @@ export function CustomerBookingPage() {
     }
 
     setFilteredEvents(filtered)
-  }
+  }, [events, searchTerm, storeFilter, dateFilter])
+
+  // 初期データロード
+  useEffect(() => {
+    loadPublicEvents()
+    loadStores()
+  }, [loadPublicEvents, loadStores])
+
+  // フィルター適用
+  useEffect(() => {
+    applyFilters()
+  }, [applyFilters])
 
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr)

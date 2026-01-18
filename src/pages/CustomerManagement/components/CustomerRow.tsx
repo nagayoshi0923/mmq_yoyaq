@@ -23,6 +23,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
     if (isExpanded && reservations.length === 0) {
       fetchReservations()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded])
 
   const fetchReservations = async () => {

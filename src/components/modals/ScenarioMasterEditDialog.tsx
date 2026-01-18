@@ -5,7 +5,7 @@
  * 
  * ScenarioEditDialogV2と同じスタイルを使用
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -140,7 +140,7 @@ export function ScenarioMasterEditDialog({
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
   // マスタIDリスト（矢印キーでの切り替え用）
-  const masterIdList = sortedMasterIds || []
+  const masterIdList = useMemo(() => sortedMasterIds || [], [sortedMasterIds])
 
   // ファイルアップロード処理（共通）
   const handleFilesUpload = async (files: File[]) => {
@@ -261,6 +261,7 @@ export function ScenarioMasterEditDialog({
     // captureフェーズで登録して、他のコンポーネントより先にキャッチ
     window.addEventListener('keydown', handleKeyDown, true)
     return () => window.removeEventListener('keydown', handleKeyDown, true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, onMasterChange, masterId, masterIdList])
 
   useEffect(() => {
@@ -272,6 +273,7 @@ export function ScenarioMasterEditDialog({
         setCharacters([])
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, masterId])
 
   const fetchData = async () => {

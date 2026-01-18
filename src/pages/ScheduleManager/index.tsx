@@ -429,6 +429,7 @@ export function ScheduleManager() {
         )
       )
     ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 必要な依存のみ
     [scheduleTableProps.viewConfig.stores, scheduleTableProps.dataProvider.getEventsForSlot, monthDays]
   )
   const { selectedCategory, setSelectedCategory, categoryCounts } = useCategoryFilter(allEventsForMonth)
@@ -483,6 +484,7 @@ export function ScheduleManager() {
       
       return events
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategory, selectedGMs, gmList])
 
   // 店舗フィルター適用版の店舗リスト

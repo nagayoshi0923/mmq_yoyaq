@@ -360,6 +360,7 @@ ${scenariosText}
   // データ取得
   useEffect(() => {
     loadData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear, selectedMonth, organizationId])
 
   const loadData = async () => {

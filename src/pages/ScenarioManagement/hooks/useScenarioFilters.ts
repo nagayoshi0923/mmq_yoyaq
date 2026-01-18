@@ -104,6 +104,7 @@ export function useScenarioFilters(scenarios: Scenario[], scenarioStats?: Record
       if (aValue > bValue) return sortState.direction === 'asc' ? 1 : -1
       return 0
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredScenarios, sortState])
 
   return {

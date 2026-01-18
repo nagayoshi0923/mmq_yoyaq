@@ -16,12 +16,14 @@ export function GmHistoryPage() {
     if (user?.email) {
       fetchStaffInfo()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
   }, [user])
 
   useEffect(() => {
     if (staffInfo?.id) {
       fetchPlayedScenarios()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- staffInfo変更時のみ実行
   }, [staffInfo])
 
   const fetchStaffInfo = async () => {

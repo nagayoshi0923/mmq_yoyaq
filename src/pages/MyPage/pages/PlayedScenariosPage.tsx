@@ -32,6 +32,7 @@ export function PlayedScenariosPage() {
     if (user?.email) {
       fetchPlayedScenarios()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
   }, [user])
 
   const fetchPlayedScenarios = async () => {

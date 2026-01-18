@@ -203,6 +203,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
           cellClassName: col.cellClassName,
         },
       })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- columnsのみ依存
     [columns]
   )
 

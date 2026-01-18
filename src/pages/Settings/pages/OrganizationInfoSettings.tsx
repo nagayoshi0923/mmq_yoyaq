@@ -3,7 +3,7 @@
  * 自組織の基本情報と管理者招待を管理
  */
 import { logger } from '@/utils/logger'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

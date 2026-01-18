@@ -280,6 +280,7 @@ export function PerformanceModal({
     if (formData.venue || stores.length > 0) {
       loadBusinessHoursSettings()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.venue, stores])
 
   // デフォルト時間設定のフォールバック（設定がロードされていない場合に使用）
@@ -391,6 +392,7 @@ export function PerformanceModal({
         reservation_name: ''  // 予約者名（初期値は空）
       })
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, event, initialData, getDefaultsForDate, isTimeSlotSettingsLoading])
 
   // 終了時間を自動計算する関数

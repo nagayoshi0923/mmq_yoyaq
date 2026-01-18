@@ -68,6 +68,7 @@ export function SettingsPage() {
       fetchCustomerInfo()
       fetchLinkedProviders()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
   }, [user])
 
   // 連携されているログインプロバイダーを取得

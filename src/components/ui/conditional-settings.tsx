@@ -230,6 +230,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
       updateNewItem('condition', conditionOptions[0].value)
     }
     if (!newItem.status) updateNewItem('status', 'ready')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

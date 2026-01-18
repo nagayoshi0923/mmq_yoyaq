@@ -70,19 +70,17 @@ export function SlotMemoInput({
     if (isEditing) {
       adjustHeight()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, memo, adjustHeight])
 
   // デバウンス保存
   const debouncedSave = useCallback(
-    (() => {
-      let timer: NodeJS.Timeout
-      return (newMemo: string) => {
-        clearTimeout(timer)
-        timer = setTimeout(() => {
-          saveEmptySlotMemo(date, storeId, timeSlot, newMemo)
-        }, 500)
-      }
-    })(),
+    (newMemo: string) => {
+      const timer = setTimeout(() => {
+        saveEmptySlotMemo(date, storeId, timeSlot, newMemo)
+      }, 500)
+      return () => clearTimeout(timer)
+    },
     [date, storeId, timeSlot]
   )
 

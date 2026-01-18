@@ -48,6 +48,7 @@ export function useMonthNavigation() {
   /**
    * 月の日付リスト（メモ化）
    */
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- currentDate変更時のみ再計算
   const monthDays = useMemo(() => generateMonthDays(), [currentDate])
 
   /**

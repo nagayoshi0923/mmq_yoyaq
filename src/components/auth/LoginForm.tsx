@@ -12,8 +12,8 @@ import { determineUserRole } from '@/utils/authUtils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link } from 'react-router-dom'
 import { 
-  Mail, Lock, ArrowRight, Eye, EyeOff, 
-  Sparkles, AlertCircle, CheckCircle, Loader2, User, Phone
+  ArrowRight, Eye, EyeOff, 
+  Sparkles, AlertCircle, CheckCircle, Loader2
 } from 'lucide-react'
 
 // ソーシャルログインアイコン
@@ -460,23 +460,20 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                     <label htmlFor="customerName" className="block text-sm font-medium text-gray-700 mb-1.5">
                       お名前 <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <Input
-                        id="customerName"
-                        type="text"
-                        value={customerName}
-                        onChange={(e) => {
-                          setCustomerName(e.target.value)
-                          if (e.target.value.trim()) setNameError('')
-                        }}
-                        required
-                        autoComplete="name"
-                        placeholder="山田 太郎"
-                        className={`pl-10 h-12 ${nameError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                        style={{ borderRadius: 0 }}
-                      />
-                    </div>
+                    <Input
+                      id="customerName"
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => {
+                        setCustomerName(e.target.value)
+                        if (e.target.value.trim()) setNameError('')
+                      }}
+                      required
+                      autoComplete="name"
+                      placeholder="山田 太郎"
+                      className={`h-12 ${nameError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                      style={{ borderRadius: 0 }}
+                    />
                     {nameError && (
                       <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
                         <AlertCircle className="w-3 h-3" />
@@ -493,23 +490,20 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                       電話番号 <span className="text-red-500">*</span>
                       <span className="text-xs text-gray-500 ml-2">（当日連絡用）</span>
                     </label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <Input
-                        id="customerPhone"
-                        type="tel"
-                        value={customerPhone}
-                        onChange={(e) => {
-                          setCustomerPhone(e.target.value)
-                          if (e.target.value.trim()) setPhoneError('')
-                        }}
-                        required
-                        autoComplete="tel"
-                        placeholder="090-1234-5678"
-                        className={`pl-10 h-12 ${phoneError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                        style={{ borderRadius: 0 }}
-                      />
-                    </div>
+                    <Input
+                      id="customerPhone"
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => {
+                        setCustomerPhone(e.target.value)
+                        if (e.target.value.trim()) setPhoneError('')
+                      }}
+                      required
+                      autoComplete="tel"
+                      placeholder="090-1234-5678"
+                      className={`h-12 ${phoneError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                      style={{ borderRadius: 0 }}
+                    />
                     {phoneError && (
                       <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
                         <AlertCircle className="w-3 h-3" />
@@ -524,24 +518,21 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
                     メールアドレス
                   </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value)
-                        validateEmail(e.target.value)
-                      }}
-                      onBlur={(e) => validateEmail(e.target.value)}
-                      required
-                      autoComplete="email"
-                      placeholder="your@email.com"
-                      className={`pl-10 h-12 ${emailError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                      style={{ borderRadius: 0 }}
-                    />
-                  </div>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      validateEmail(e.target.value)
+                    }}
+                    onBlur={(e) => validateEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    placeholder="your@email.com"
+                    className={`h-12 ${emailError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                    style={{ borderRadius: 0 }}
+                  />
                   {emailError && (
                     <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
@@ -557,7 +548,6 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                       パスワード
                     </label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <Input
                         id="password"
                         type={showPassword ? 'text' : 'password'}
@@ -571,7 +561,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                         minLength={6}
                         autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                         placeholder={mode === 'signup' ? '6文字以上' : 'パスワード'}
-                        className={`pl-10 pr-10 h-12 ${passwordError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                        className={`pr-10 h-12 ${passwordError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                         style={{ borderRadius: 0 }}
                       />
                       <button
@@ -602,25 +592,22 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                     <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1.5">
                       パスワード（確認）
                     </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <Input
-                        id="confirmPassword"
-                        type={showPassword ? 'text' : 'password'}
-                        value={confirmPassword}
-                        onChange={(e) => {
-                          setConfirmPassword(e.target.value)
-                          validateConfirmPassword(e.target.value)
-                        }}
-                        onBlur={(e) => validateConfirmPassword(e.target.value)}
-                        required
-                        minLength={6}
-                        autoComplete="new-password"
-                        placeholder="パスワードを再入力"
-                        className={`pl-10 h-12 ${confirmPasswordError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                        style={{ borderRadius: 0 }}
-                      />
-                    </div>
+                    <Input
+                      id="confirmPassword"
+                      type={showPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value)
+                        validateConfirmPassword(e.target.value)
+                      }}
+                      onBlur={(e) => validateConfirmPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      placeholder="パスワードを再入力"
+                      className={`h-12 ${confirmPasswordError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                      style={{ borderRadius: 0 }}
+                    />
                     {confirmPasswordError && (
                       <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
                         <AlertCircle className="w-3 h-3" />

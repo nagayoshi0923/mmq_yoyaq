@@ -156,6 +156,7 @@ export function ReservationList({
     }
     
     loadReservations()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, event?.id, event?.is_private_request, event?.reservation_id])
 
   // 顧客名を取得する関数
@@ -202,6 +203,7 @@ export function ReservationList({
         setNewParticipant(prev => ({ ...prev, payment_method: 'staff' }))
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newParticipant.customer_name, staff])
 
   // 予約データからスタッフ参加者を抽出して親に通知（DBをシングルソースとする）

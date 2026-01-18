@@ -75,6 +75,7 @@ export function useStaffAuthStatus(userIds: (string | null)[]) {
     } finally {
       setIsLoading(false)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userIds.join(',')])
 
   useEffect(() => {

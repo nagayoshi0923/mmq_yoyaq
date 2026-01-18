@@ -427,6 +427,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     if (availableStoreIdsArray.length === 0) return stores.length === 0
     
     return availableStoreIdsArray.some(storeId => checkStoreAvailability(storeId))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, getTimeSlotFromLabel, stores, isWithinBusinessHours])
 
   // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分）

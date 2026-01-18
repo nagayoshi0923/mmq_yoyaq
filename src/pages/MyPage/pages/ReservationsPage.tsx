@@ -89,6 +89,7 @@ export function ReservationsPage() {
     if (user?.email) {
       fetchReservations()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
   }, [user])
 
   const fetchReservations = async () => {

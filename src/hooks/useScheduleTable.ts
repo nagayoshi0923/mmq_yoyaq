@@ -52,7 +52,7 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     fetchSchedule
   } = scheduleData
   
-  const shiftData = shiftDataHook?.shiftData ?? {}
+  const shiftData = useMemo(() => shiftDataHook?.shiftData ?? {}, [shiftDataHook?.shiftData])
   const { handleSaveMemo, getMemo } = memoManager
 
   // イベント操作

@@ -88,6 +88,7 @@ export function GMAvailabilityCheck() {
         updateCandidateAvailability(request, storeId)
       }
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requests, stores])
 
   if (isLoading) {
