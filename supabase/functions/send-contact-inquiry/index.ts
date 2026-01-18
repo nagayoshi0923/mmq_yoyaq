@@ -193,12 +193,13 @@ ${message}
       { status: 200, headers: corsHeaders }
     )
 
-  } catch (error: any) {
-    console.error('❌ Error:', error?.message || error)
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('❌ Error:', errorMessage)
     return new Response(
       JSON.stringify({
         success: false,
-        error: error?.message || 'お問い合わせの送信に失敗しました',
+        error: errorMessage || 'お問い合わせの送信に失敗しました',
       }),
       { status: 500, headers: corsHeaders }
     )

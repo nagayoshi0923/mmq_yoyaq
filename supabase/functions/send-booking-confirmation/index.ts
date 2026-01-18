@@ -238,12 +238,13 @@ Murder Mystery Queue (MMQ)
       { headers: corsHeaders, status: 200 }
     )
 
-  } catch (error: any) {
-    console.error('❌ Error:', error?.message || error)
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('❌ Error:', errorMessage)
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error?.message || 'メール送信に失敗しました' 
+        error: errorMessage || 'メール送信に失敗しました' 
       }),
       { headers: corsHeaders, status: 400 }
     )

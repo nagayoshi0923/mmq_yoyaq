@@ -85,7 +85,8 @@ export function useReservationStats() {
                 }
               }
             } catch (e) {
-              // 日付パースエラーは無視
+              // 日付パースエラーは無視（不正なデータのスキップ）
+              logger.warn('予約日時のパースに失敗:', curr.requested_datetime)
             }
           }
 

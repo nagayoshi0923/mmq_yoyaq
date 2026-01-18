@@ -154,7 +154,7 @@ export async function verifyAuth(
         role: 'unknown',
       },
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('認証エラー:', error)
     return {
       success: false,

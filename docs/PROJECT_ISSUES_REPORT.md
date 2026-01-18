@@ -55,28 +55,31 @@
 | ✅ alert()残存 | 2026-01-18 | toast.error()に置換（MyPage） |
 | ✅ N+1クエリ | 確認済み | 既にバッチクエリで最適化済み |
 | ✅ setTimeout未クリーンアップ（部分） | 2026-01-18 | useScrollRestoration修正 |
+| ✅ useEffectの依存配列警告 | 2026-01-19 | 66件のexhaustive-deps警告を全て解消 |
+| ✅ マジックナンバー（AuthContext） | 2026-01-18 | SESSION_REFRESH_INTERVAL_MS等の定数化 |
+| ✅ 環境変数の文書化 | 2026-01-18 | .env.example作成 |
 
 ---
 
 ## 1. セキュリティの問題
 
-### 🔴 1.1 Supabase認証情報のハードコード
+### ✅ 1.1 Supabase認証情報のハードコード （対応済み確認）
 
-**ファイル**: `src/lib/supabase.ts` (4-5行目)
+**確認日**: 2026-01-18
+
+**現状**: 環境変数バリデーションが既に実装済み
 
 ```typescript
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cznpcewciwywcqcxktba.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6...'
+// src/lib/supabase.ts - 環境変数のバリデーション
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables')
+}
 ```
 
-**問題点**:
-- 本番環境のSupabase URLとAnon Keyがコードにハードコードされている
-- 環境変数が設定されていない場合、自動的に本番環境に接続してしまう
-- Anon Keyはpublicですが、URLの露出はセキュリティリスクになりうる
-
-**推奨対応**:
-- フォールバック値を削除し、環境変数が未設定の場合はエラーを投げる
-- 本番URLは環境変数からのみ取得するように変更
+このイシューは対応済みでした（既にフォールバック値は削除済み）。
 
 ---
 
@@ -118,20 +121,20 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIU
 
 ---
 
-### 🟡 2.3 apiErrorHandlerの型問題
+### ✅ 2.3 apiErrorHandlerの型問題 （対応済み確認）
 
-**ファイル**: `src/lib/apiErrorHandler.ts` (65-66行目)
+**確認日**: 2026-01-18
+
+**現状**: 型安全な実装済み
 
 ```typescript
-const code = error.code || error.status
-const message = error.message || 'エラーが発生しました'
+// エラーオブジェクトからプロパティを安全に取得
+const errorObj = error as { code?: string | number; status?: string | number; message?: string }
+const code = errorObj.code || errorObj.status
+const message = errorObj.message || 'エラーが発生しました'
 ```
 
-**問題点**:
-- `error` が `any` として扱われている（パラメータ型は `unknown` だが、プロパティアクセスで型チェック無視）
-
-**推奨対応**:
-- 型ガードを追加して安全にプロパティアクセス
+型アサーションで安全にプロパティアクセスを行っている。
 
 ---
 
@@ -222,17 +225,15 @@ useEffect(() => {
 
 ---
 
-### 🟡 4.3 useEffectの過剰使用
+### ✅ 4.3 useEffectの依存配列警告 （対応完了）
 
-**該当箇所**: 276箇所（108ファイル）
+**対応日**: 2026-01-19
 
-**問題点**:
-- 一部のuseEffectは不要な再レンダリングを引き起こす可能性
-- 依存配列の管理が複雑になりやすい
-
-**推奨対応**:
-- 可能な場合はuseMemoやuseCallbackで代替
-- useEffectの依存配列を見直し
+**対応内容**:
+- 66件のexhaustive-deps警告を全て解消
+- useCallbackでラップ: CustomerBookingPage, useEventOperations等
+- eslint-disable-next-line追加: 意図的な依存省略箇所
+- useMemoでラップ: 論理式が依存を変える可能性のある箇所
 
 ---
 
@@ -298,23 +299,19 @@ logger.log('営業時間設定を読み込みました:', businessHoursData)
 
 ## 6. エラーハンドリングの問題
 
-### 🟡 6.1 catchブロックでのエラー無視
+### ✅ 6.1 catchブロックでのエラー無視 （対応完了）
 
-**ファイル**: `src/hooks/useReservationStats.ts` (76-78行目)
+**対応日**: 2026-01-19
+
+**対応内容**:
+- logger.warnでエラーを記録するように修正
 
 ```typescript
 } catch (e) {
-  // 日付パースエラーは無視
+  // 日付パースエラーは無視（不正なデータのスキップ）
+  logger.warn('予約日時のパースに失敗:', curr.requested_datetime)
 }
 ```
-
-**問題点**:
-- エラーを完全に無視している
-- デバッグが困難になる
-
-**推奨対応**:
-- 最低限loggerでエラーを記録
-- 必要に応じてユーザーへの通知
 
 ---
 
@@ -332,19 +329,20 @@ logger.log('営業時間設定を読み込みました:', businessHoursData)
 
 ---
 
-### 🟢 6.3 Edge Functionsでの型なしエラー
+### ✅ 6.3 Edge Functionsでの型なしエラー （対応完了）
 
-**ファイル**: `supabase/functions/invite-staff/index.ts` (382行目)
+**対応日**: 2026-01-19
+
+**対応内容**:
+- 5ファイルの `catch (error: any)` を `catch (error: unknown)` に変更
+- 型ガード `error instanceof Error` を追加してエラーメッセージを安全に取得
 
 ```typescript
-} catch (error: any) {
+} catch (error: unknown) {
+  const errorMessage = error instanceof Error ? error.message : String(error)
+  console.error('❌ Error:', errorMessage)
+}
 ```
-
-**問題点**:
-- エラーを `any` として扱っている
-
-**推奨対応**:
-- `unknown` を使用して型ガードを追加
 
 ---
 
@@ -367,30 +365,17 @@ logger.log('営業時間設定を読み込みました:', businessHoursData)
 
 ---
 
-### 🟡 7.2 マジックナンバー
+### ✅ 7.2 マジックナンバー （対応完了）
 
-**例**:
+**対応日**: 2026-01-18
+
+**対応内容**:
+- AuthContext.tsxの数値を定数化
 ```typescript
-// src/contexts/AuthContext.tsx (56行目)
-if (now - lastRefreshRef.current < 30000) {
-
-// src/contexts/AuthContext.tsx (91行目)
-const loadingTimeout = setTimeout(() => { ... }, 300)
-
-// src/contexts/AuthContext.tsx (298行目)
-const timeoutMs = 1000
-```
-
-**問題点**:
-- 数値の意味が分かりにくい
-- 変更時に漏れが発生しやすい
-
-**推奨対応**:
-- 定数として定義
-```typescript
-const SESSION_REFRESH_INTERVAL_MS = 30000
-const AUTH_LOADING_TIMEOUT_MS = 300
-const ROLE_FETCH_TIMEOUT_MS = 1000
+const SESSION_REFRESH_INTERVAL_MS = 30000  // 30秒
+const AUTH_LOADING_TIMEOUT_MS = 300        // 300ms
+const ROLE_FETCH_TIMEOUT_MS = 1000         // 1秒
+const AUTH_RETRY_DELAY_MS = 100            // 100ms
 ```
 
 ---
@@ -517,28 +502,24 @@ company_email: 'info@queens-waltz.jp',
 
 ---
 
-### 🟡 10.2 環境変数の文書化
+### ✅ 10.2 環境変数の文書化 （対応完了）
 
-**ファイル**: `env.example`
+**対応日**: 2026-01-18
 
-**問題点**:
-- Supabase関連の環境変数のみ記載
-- Discord Bot Token、Google Sheets API Keyなどが未記載
-
-**推奨対応**:
-- 必要なすべての環境変数を `env.example` に記載
-- 各環境変数の説明を追加
+**対応内容**:
+- `.env.example`を作成し、すべての環境変数を記載
+- 各変数の説明・用途をコメントで追加
+- VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_DEBUG, VITE_DISCORD_BOT_TOKEN, VITE_GOOGLE_SHEETS_API_KEY
 
 ---
 
-### 🟢 10.3 ログ出力の一貫性
+### ✅ 10.3 ログ出力の一貫性 （対応完了）
 
-**問題点**:
-- `console.log` と `logger.log` が混在
-- ログレベル（info, warn, error）の使い分けが不統一
+**対応日**: 2026-01-18
 
-**推奨対応**:
-- すべてのログを `logger` ユーティリティ経由に統一
+**対応内容**:
+- 137箇所のconsole.log/error/warnをloggerに統一
+- 残りはlogger.ts自体（loggerの実装）とmain.tsx（Service Worker）のみ
 
 ---
 
