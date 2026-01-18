@@ -63,6 +63,8 @@
 | ✅ Edge Functionsの型なしエラー | 確認済み | 既に修正済み |
 | ✅ 未使用import（部分） | 2026-01-18 | 主要ファイルの未使用import削除 |
 | ✅ Supabase認証情報のハードコード | 確認済み | 既に対応済み（フォールバック削除、エラー表示実装） |
+| ✅ @types/date-fns不要 | 確認済み | 既に削除済み（date-fns v4は型内蔵） |
+| ✅ 環境変数の文書化 | 2026-01-18 | .env.example作成 |
 
 ---
 
@@ -392,20 +394,12 @@ return 'evening'
 
 ## 9. 依存関係の問題
 
-### 🟡 9.1 `@types/date-fns` の不要なインストール
+### ✅ 9.1 `@types/date-fns` の不要なインストール （対応完了）
 
-**ファイル**: `package.json` (57行目)
+**確認日**: 2026-01-18
 
-```json
-"@types/date-fns": "^2.5.3",
-```
-
-**問題点**:
-- `date-fns` v4は型定義を内蔵している
-- `@types/date-fns` は非推奨
-
-**推奨対応**:
-- `@types/date-fns` を削除
+**対応内容**:
+- 確認済み：既に削除されている（date-fns v4は型定義を内蔵）
 
 ---
 
@@ -461,17 +455,15 @@ company_email: 'info@queens-waltz.jp',
 
 ---
 
-### 🟡 10.2 環境変数の文書化
+### ✅ 10.2 環境変数の文書化 （対応完了）
 
-**ファイル**: `env.example`
+**対応日**: 2026-01-18
 
-**問題点**:
-- Supabase関連の環境変数のみ記載
-- Discord Bot Token、Google Sheets API Keyなどが未記載
-
-**推奨対応**:
-- 必要なすべての環境変数を `env.example` に記載
-- 各環境変数の説明を追加
+**対応内容**:
+- `.env.example` を作成
+- 必須のSupabase設定を記載
+- 開発オプション（VITE_DEBUG）を記載
+- セットアップ手順をコメントで記載
 
 ---
 
