@@ -7,12 +7,8 @@ import { CheckCircle2, AlertCircle } from 'lucide-react'
 import { logger } from '@/utils/logger'
 
 // パスワードリセット中フラグ（AuthContextがロールを更新しないようにするため）
-// windowオブジェクトに設定して、AuthContextから参照可能にする
-declare global {
-  interface Window {
-    __PASSWORD_RESET_IN_PROGRESS__?: boolean
-  }
-}
+// sessionStorageを使用（XSS対策としてグローバル変数より安全）
+const PASSWORD_RESET_FLAG_KEY = 'MMQ_PASSWORD_RESET_IN_PROGRESS'
 
 export function ResetPassword() {
   const [newPassword, setNewPassword] = useState('')
@@ -114,7 +110,7 @@ export function ResetPassword() {
     setIsLoading(true)
     
     // パスワードリセット中フラグを設定（AuthContextがロールを更新しないように）
-    window.__PASSWORD_RESET_IN_PROGRESS__ = true
+    sessionStorage.setItem(PASSWORD_RESET_FLAG_KEY, 'true')
     
     try {
       // 1. トークンがある場合は、既存セッションを無視して強制的にセッションを再確立する
@@ -161,12 +157,12 @@ export function ResetPassword() {
       logger.log('✅ パスワード更新成功:', updateData)
       setSuccess(true)
       // フラグをクリア（成功後はsignOutするので問題ない）
-      window.__PASSWORD_RESET_IN_PROGRESS__ = false
+      sessionStorage.removeItem(PASSWORD_RESET_FLAG_KEY)
     } catch (error: any) {
       setError('パスワードの更新に失敗しました: ' + (error.message || ''))
       logger.error('Password reset error:', error)
       // エラー時もフラグをクリア
-      window.__PASSWORD_RESET_IN_PROGRESS__ = false
+      sessionStorage.removeItem(PASSWORD_RESET_FLAG_KEY)
     } finally {
       setIsLoading(false)
     }

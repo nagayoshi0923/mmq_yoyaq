@@ -14,12 +14,8 @@ function getOrganizationSlugFromUrl(): string {
   return bookingMatch ? bookingMatch[1] : 'queens-waltz'
 }
 
-// グローバル変数の型定義
-declare global {
-  interface Window {
-    __PASSWORD_RESET_IN_PROGRESS__?: boolean
-  }
-}
+// パスワードリセット中フラグのキー（sessionStorage使用）
+const PASSWORD_RESET_FLAG_KEY = 'MMQ_PASSWORD_RESET_IN_PROGRESS'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -176,7 +172,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         
         // パスワードリセット中はロール更新をスキップ（一時セッションでロールが変わるのを防ぐ）
-        if (window.__PASSWORD_RESET_IN_PROGRESS__) {
+        if (sessionStorage.getItem(PASSWORD_RESET_FLAG_KEY)) {
           logger.log('⏭️ パスワードリセット中のためスキップ:', event)
           return
         }
