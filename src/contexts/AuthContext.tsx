@@ -17,6 +17,10 @@ function getOrganizationSlugFromUrl(): string {
 // パスワードリセット中フラグのキー（sessionStorage使用）
 const PASSWORD_RESET_FLAG_KEY = 'MMQ_PASSWORD_RESET_IN_PROGRESS'
 
+// 認証関連の定数（マジックナンバー回避）
+const SESSION_REFRESH_INTERVAL_MS = 30000  // セッション更新の最小間隔（30秒）
+const AUTH_RETRY_DELAY_MS = 100            // 認証リトライの待機時間（100ms）
+
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean
@@ -103,9 +107,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // 手動セッションリフレッシュ関数
   const refreshSession = useCallback(async () => {
     const now = Date.now()
-    // 30秒以内に既にリフレッシュした場合はスキップ
-    if (now - lastRefreshRef.current < 30000) {
-      logger.log('⏭️ セッションリフレッシュ: 30秒以内に既に実行済み、スキップ')
+    // 一定時間以内に既にリフレッシュした場合はスキップ
+    if (now - lastRefreshRef.current < SESSION_REFRESH_INTERVAL_MS) {
+      logger.log(`⏭️ セッションリフレッシュ: ${SESSION_REFRESH_INTERVAL_MS / 1000}秒以内に既に実行済み、スキップ`)
       return
     }
     
@@ -776,7 +780,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       // 少し待機してからログイン（セッションクリアの完了を確実にする）
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise(resolve => setTimeout(resolve, AUTH_RETRY_DELAY_MS))
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
