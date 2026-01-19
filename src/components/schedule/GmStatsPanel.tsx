@@ -67,7 +67,7 @@ export const GmStatsPanel = memo(function GmStatsPanel({
                     'strikethrough' in cat && cat.strikethrough && "line-through"
                   )}
                 >
-                  {cat.shortLabel}
+                  {cat.label}
                   <span className="opacity-70">{value}</span>
                 </span>
               )
