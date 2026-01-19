@@ -742,25 +742,15 @@ export function ScheduleManager() {
             )}
           </div>
           
-          {/* アクションボタン */}
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
-            <Button 
-              variant="outline" 
+          {/* アクションボタン - 連結グループ */}
+          <div className="hidden sm:flex items-center h-9 border border-input rounded-lg overflow-hidden bg-background shrink-0 ml-auto">
+            <button
               onClick={() => setIsImportModalOpen(true)}
               title="インポート"
-              className="h-8 w-8 p-0"
+              className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors"
             >
               <Upload className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={handleFillAllSeats}
-              disabled={isFillingSeats}
-              title="中止以外を満席にする"
-              className="h-8 px-3 text-sm hidden sm:inline-flex whitespace-nowrap"
-            >
-              {isFillingSeats ? '処理中...' : '全満席'}
-            </Button>
+            </button>
           </div>
         </div>
 
