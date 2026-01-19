@@ -34,10 +34,10 @@ const categoryToGmStatKey: Record<string, keyof GmStatsData['totals']> = {
   gmtest: 'gmtestWorking',
 }
 
-// 役割統計の定義（編集ダイアログと色を統一）
+// 役割統計の定義
 const roleStats = [
   { key: 'participant', label: '参加', color: 'text-green-700', bgColor: 'bg-green-100' },
-  { key: 'observer', label: '見学', color: 'text-purple-700', bgColor: 'bg-purple-100' },
+  { key: 'observer', label: '見学', color: 'text-indigo-700', bgColor: 'bg-indigo-100' },
   { key: 'cancelled', label: '中止', color: 'text-gray-500', bgColor: 'bg-gray-100', strikethrough: true },
 ] as const
 
@@ -215,7 +215,7 @@ const GmBadge = memo(function GmBadge({
         </span>
       )}
       {gm.observer > 0 && (
-        <span className="px-0.5 rounded text-[9px] bg-purple-100 text-purple-700">
+        <span className="px-0.5 rounded text-[9px] bg-indigo-100 text-indigo-700">
           {gm.observer}
         </span>
       )}

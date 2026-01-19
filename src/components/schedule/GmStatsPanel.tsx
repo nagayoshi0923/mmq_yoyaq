@@ -20,9 +20,9 @@ const statCategories = [
   { key: 'privateWorking', label: '貸切', shortLabel: '貸', color: 'text-purple-700', bgColor: 'bg-purple-100' },
   { key: 'gmtestWorking', label: 'GMテスト', shortLabel: 'テ', color: 'text-orange-700', bgColor: 'bg-orange-100' },
   { key: 'otherWorking', label: 'その他', shortLabel: '他', color: 'text-slate-700', bgColor: 'bg-slate-100' },
-  // 役割別（編集ダイアログと色を統一）
+  // 役割別
   { key: 'participant', label: '参加', shortLabel: '参', color: 'text-green-700', bgColor: 'bg-green-100' },
-  { key: 'observer', label: '見学', shortLabel: '見', color: 'text-purple-700', bgColor: 'bg-purple-100' },
+  { key: 'observer', label: '見学', shortLabel: '見', color: 'text-indigo-700', bgColor: 'bg-indigo-100' },
   { key: 'cancelled', label: '中止', shortLabel: '中', color: 'text-gray-500', bgColor: 'bg-gray-100', strikethrough: true },
 ] as const
 
@@ -124,14 +124,14 @@ export const GmStatsPanel = memo(function GmStatsPanel({
                         {gm.otherWorking}
                       </span>
                     )}
-                    {/* 役割別（編集ダイアログと色を統一） */}
+                    {/* 役割別 */}
                     {gm.participant > 0 && (
                       <span className="px-0.5 rounded text-[9px] bg-green-100 text-green-700">
                         {gm.participant}
                       </span>
                     )}
                     {gm.observer > 0 && (
-                      <span className="px-0.5 rounded text-[9px] bg-purple-100 text-purple-700">
+                      <span className="px-0.5 rounded text-[9px] bg-indigo-100 text-indigo-700">
                         {gm.observer}
                       </span>
                     )}
@@ -244,14 +244,14 @@ const GmStatRow = memo(function GmStatRow({ gm }: { gm: GmStatsItem }) {
             その他 {gm.otherWorking}
           </span>
         )}
-        {/* 役割別（編集ダイアログと色を統一） */}
+        {/* 役割別 */}
         {gm.participant > 0 && (
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
             参加 {gm.participant}
           </span>
         )}
         {gm.observer > 0 && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700">
             見学 {gm.observer}
           </span>
         )}
