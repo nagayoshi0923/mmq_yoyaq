@@ -94,9 +94,9 @@ export const CategoryGmStatsBar = memo(function CategoryGmStatsBar({
         {/* セパレータ */}
         <span className="text-muted-foreground/30 shrink-0">|</span>
 
-        {/* その他出勤 */}
+        {/* その他出勤（MTGの色に統一） */}
         {gmStats.totals.otherWorking > 0 && (
-          <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[10px] font-medium whitespace-nowrap bg-slate-100 text-slate-700">
+          <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[10px] font-medium whitespace-nowrap bg-cyan-100 text-cyan-700">
             その他
             <span className="opacity-70">{gmStats.totals.otherWorking}</span>
           </span>
@@ -204,7 +204,7 @@ const GmBadge = memo(function GmBadge({
         </span>
       )}
       {gm.otherWorking > 0 && (
-        <span className="px-0.5 rounded text-[9px] bg-slate-100 text-slate-700">
+        <span className="px-0.5 rounded text-[9px] bg-cyan-100 text-cyan-700">
           {gm.otherWorking}
         </span>
       )}
