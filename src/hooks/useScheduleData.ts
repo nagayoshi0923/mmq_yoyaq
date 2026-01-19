@@ -6,6 +6,7 @@ import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
+import { handleSupabaseError, getUserFriendlyMessage, logApiError } from '@/lib/apiErrorHandler'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff } from '@/types'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
@@ -845,6 +846,10 @@ export function useScheduleData(currentDate: Date) {
           }
         ]
         setEvents(mockEvents)
+      } catch (error) {
+        const apiError = handleSupabaseError(error, 'スケジュールデータの取得に失敗しました')
+        logApiError(apiError, { scope: 'useScheduleData.loadEvents' })
+        setError(getUserFriendlyMessage(apiError))
       } finally {
         setIsLoading(false)
         initialLoadComplete.current = true // 初回読み込み完了をマーク

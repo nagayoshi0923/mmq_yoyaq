@@ -216,6 +216,7 @@ export function CustomerBookingPage() {
       setEvents(events)
     } catch (error) {
       logger.error('公演データの読み込みエラー:', error)
+      showToast.error('公演データの読み込みに失敗しました')
     } finally {
       setIsLoading(false)
     }
