@@ -813,8 +813,9 @@ export function useScheduleData(currentDate: Date) {
         
         setEvents([...formattedEvents, ...filteredPrivateEvents] as ScheduleEvent[])
       } catch (err) {
-        logger.error('公演データの読み込みエラー:', err)
-        setError('公演データの読み込みに失敗しました')
+        const apiError = handleSupabaseError(err, 'スケジュールデータの取得に失敗しました')
+        logApiError(apiError, { scope: 'useScheduleData.loadEvents' })
+        setError(getUserFriendlyMessage(apiError))
         
         // エラー時はモックデータを使用
         const mockEvents: ScheduleEvent[] = [
@@ -846,10 +847,6 @@ export function useScheduleData(currentDate: Date) {
           }
         ]
         setEvents(mockEvents)
-      } catch (error) {
-        const apiError = handleSupabaseError(error, 'スケジュールデータの取得に失敗しました')
-        logApiError(apiError, { scope: 'useScheduleData.loadEvents' })
-        setError(getUserFriendlyMessage(apiError))
       } finally {
         setIsLoading(false)
         initialLoadComplete.current = true // 初回読み込み完了をマーク
