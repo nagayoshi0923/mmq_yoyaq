@@ -41,8 +41,7 @@ import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
 import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { HistoryModal } from '@/components/schedule/modal/HistoryModal'
-import { CategoryTabs } from '@/components/schedule/CategoryTabs'
-import { GmStatsPanel } from '@/components/schedule/GmStatsPanel'
+import { CategoryGmStatsBar } from '@/components/schedule/CategoryGmStatsBar'
 import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
@@ -754,17 +753,13 @@ export function ScheduleManager() {
           </div>
         </div>
 
-        {/* カテゴリータブ + GM統計（コンパクト） */}
-        <div className="py-0.5 border-t border-muted/50 space-y-0.5">
-          <CategoryTabs
+        {/* カテゴリ + GM統計（統合バー） */}
+        <div className="py-0.5 border-t border-muted/50">
+          <CategoryGmStatsBar
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}
             categoryCounts={categoryCounts}
-            compact
-          />
-          <GmStatsPanel
-            data={gmStats}
-            compact
+            gmStats={gmStats}
             selectedStaffIds={selectedGMs}
             onStaffClick={(staffId) => {
               setSelectedGMs(prev => 
