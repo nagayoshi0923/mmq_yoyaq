@@ -15,6 +15,6 @@ export { staffApi } from './staffApi'
 export { memoApi } from './memoApi'
 export { salesApi } from './salesApi'
 
-// scheduleApiは大きいため、旧api.tsに残す（段階的に分割予定）
-export { scheduleApi } from '../api'
+// scheduleApi
+export { scheduleApi } from './scheduleApi'
 
