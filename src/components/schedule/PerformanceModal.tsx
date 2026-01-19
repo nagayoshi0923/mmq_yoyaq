@@ -863,7 +863,7 @@ export function PerformanceModal({
                     .map((gm: string, index: number) => {
                     const role = formData.gmRoles?.[gm] || 'main'
                     const badgeStyle = role === 'observer'
-                      ? 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200'
+                      ? 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-200'
                       : role === 'reception'
                         ? 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200'
                         : role === 'staff'
@@ -956,7 +956,7 @@ export function PerformanceModal({
                               </p>
                             )}
                             {role === 'observer' && (
-                              <p className="text-[10px] text-purple-600 bg-purple-50 p-1 rounded">
+                              <p className="text-[10px] text-indigo-600 bg-indigo-50 p-1 rounded">
                                 ※見学のみ（参加者にカウントされない）
                               </p>
                             )}
