@@ -657,83 +657,88 @@ export function ScheduleManager() {
           </div>
           
           {/* 区切り線 */}
-          <div className="hidden sm:block h-6 w-px bg-border mx-1" />
+          <div className="hidden sm:block h-6 w-px bg-border mx-2" />
           
-          {/* フィルター */}
-          <div className="hidden sm:flex items-center gap-2 flex-1">
+          {/* フィルター - 連結グループ */}
+          <div className="hidden sm:flex items-center border border-input rounded-lg overflow-hidden bg-background flex-1">
             {gmList.length > 0 && (
-              <MultiSelect
-                options={(() => {
-                  const shiftData = scheduleTableProps.dataProvider.shiftData || {}
-                  const staffWithShift = new Set<string>()
-                  Object.values(shiftData).forEach((staffList: Staff[]) => {
-                    staffList.forEach(s => staffWithShift.add(s.id))
-                  })
-                  return [...gmList]
-                    .sort((a, b) => {
-                      const aHasShift = staffWithShift.has(a.id)
-                      const bHasShift = staffWithShift.has(b.id)
-                      if (aHasShift && !bHasShift) return -1
-                      if (!aHasShift && bHasShift) return 1
-                      return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
+              <div className="flex-1 border-r border-input">
+                <MultiSelect
+                  options={(() => {
+                    const shiftData = scheduleTableProps.dataProvider.shiftData || {}
+                    const staffWithShift = new Set<string>()
+                    Object.values(shiftData).forEach((staffList: Staff[]) => {
+                      staffList.forEach(s => staffWithShift.add(s.id))
                     })
-                    .map((staff) => {
-                      const hasShift = staffWithShift.has(staff.id)
-                      return {
-                        id: staff.id,
-                        name: staff.display_name || staff.name,
-                        displayInfo: hasShift ? (
-                          <span className="text-[9px] text-green-600">●</span>
-                        ) : undefined,
-                        displayInfoSearchText: hasShift ? '提出済' : undefined
-                      }
-                    })
-                })()}
-                selectedValues={selectedGMs}
-                onSelectionChange={setSelectedGMs}
-                placeholder="スタッフ"
-                closeOnSelect={false}
-                useIdAsValue={true}
-                className="h-8 w-60"
-              />
+                    return [...gmList]
+                      .sort((a, b) => {
+                        const aHasShift = staffWithShift.has(a.id)
+                        const bHasShift = staffWithShift.has(b.id)
+                        if (aHasShift && !bHasShift) return -1
+                        if (!aHasShift && bHasShift) return 1
+                        return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
+                      })
+                      .map((staff) => {
+                        const hasShift = staffWithShift.has(staff.id)
+                        return {
+                          id: staff.id,
+                          name: staff.display_name || staff.name,
+                          displayInfo: hasShift ? (
+                            <span className="text-[9px] text-green-600">●</span>
+                          ) : undefined,
+                          displayInfoSearchText: hasShift ? '提出済' : undefined
+                        }
+                      })
+                  })()}
+                  selectedValues={selectedGMs}
+                  onSelectionChange={setSelectedGMs}
+                  placeholder="スタッフ"
+                  closeOnSelect={false}
+                  useIdAsValue={true}
+                  className="h-9 w-full border-0 rounded-none shadow-none"
+                />
+              </div>
             )}
             
             {scheduleTableProps.viewConfig.stores.length > 0 && (
-              <StoreMultiSelect
-                stores={scheduleTableProps.viewConfig.stores}
-                selectedStoreIds={selectedStores}
-                onStoreIdsChange={setSelectedStores}
-                hideLabel={true}
-                placeholder="店舗"
-                emptyText=""
-                className="h-8 w-60"
-              />
+              <div className="flex-1 border-r border-input">
+                <StoreMultiSelect
+                  stores={scheduleTableProps.viewConfig.stores}
+                  selectedStoreIds={selectedStores}
+                  onStoreIdsChange={setSelectedStores}
+                  hideLabel={true}
+                  placeholder="店舗"
+                  emptyText=""
+                  className="h-9 w-full border-0 rounded-none shadow-none"
+                />
+              </div>
             )}
             
             {shiftStaffOptions.length > 0 && (
-              <MultiSelect
-                options={shiftStaffOptions}
-                selectedValues={selectedShiftStaff}
-                onSelectionChange={setSelectedShiftStaff}
-                placeholder="出勤者"
-                closeOnSelect={false}
-                useIdAsValue={true}
-                className="h-8 w-60"
-              />
+              <div className="flex-1">
+                <MultiSelect
+                  options={shiftStaffOptions}
+                  selectedValues={selectedShiftStaff}
+                  onSelectionChange={setSelectedShiftStaff}
+                  placeholder="出勤者"
+                  closeOnSelect={false}
+                  useIdAsValue={true}
+                  className="h-9 w-full border-0 rounded-none shadow-none"
+                />
+              </div>
             )}
             
             {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedShiftStaff.length > 0) && (
-              <Button
-                variant="ghost"
+              <button
                 onClick={() => {
                   setSelectedGMs([])
                   setSelectedStores([])
                   setSelectedShiftStaff([])
                 }}
-                className="h-8 px-2 text-sm text-muted-foreground"
+                className="h-9 px-3 text-sm text-muted-foreground hover:bg-accent transition-colors border-l border-input whitespace-nowrap"
               >
                 クリア
-              </Button>
+              </button>
             )}
           </div>
           
