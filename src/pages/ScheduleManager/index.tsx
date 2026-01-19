@@ -602,58 +602,58 @@ export function ScheduleManager() {
       {/* ツールバー（sticky） */}
       <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b -mx-[10px] px-[10px]">
         <div className="flex items-center h-12 gap-2">
-          {/* 月切り替え */}
-          <div className="flex items-center shrink-0">
-            <Button
-              variant="outline"
+          {/* 月切り替え - 連結ボタングループ */}
+          <div className="flex items-center shrink-0 border border-input rounded-lg overflow-hidden bg-background">
+            <button
               onClick={() => {
                 const newDate = new Date(currentDate)
                 newDate.setMonth(newDate.getMonth() - 1)
                 setCurrentDate(newDate)
               }}
-              className="h-8 w-8 p-0 rounded-md"
+              className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-r border-input"
               title="前月"
             >
               <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <select
-              value={currentDate.getFullYear()}
-              onChange={(e) => {
-                const newDate = new Date(currentDate)
-                newDate.setFullYear(parseInt(e.target.value))
-                setCurrentDate(newDate)
-              }}
-              className="h-8 w-20 px-2 text-sm font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer mx-1"
-            >
-              {Array.from({ length: 10 }, (_, i) => 2021 + i).map(y => (
-                <option key={y} value={y}>{y}年</option>
-              ))}
-            </select>
-            <select
-              value={currentDate.getMonth() + 1}
-              onChange={(e) => {
-                const newDate = new Date(currentDate)
-                newDate.setMonth(parseInt(e.target.value) - 1)
-                setCurrentDate(newDate)
-              }}
-              className="h-8 w-16 px-2 text-sm font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer"
-            >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                <option key={m} value={m}>{m}月</option>
-              ))}
-            </select>
-            <Button
-              variant="outline"
+            </button>
+            <div className="flex items-center px-1">
+              <select
+                value={currentDate.getFullYear()}
+                onChange={(e) => {
+                  const newDate = new Date(currentDate)
+                  newDate.setFullYear(parseInt(e.target.value))
+                  setCurrentDate(newDate)
+                }}
+                className="h-9 w-[70px] px-1 text-sm font-semibold bg-transparent hover:bg-accent transition-colors cursor-pointer text-center appearance-none"
+              >
+                {Array.from({ length: 10 }, (_, i) => 2021 + i).map(y => (
+                  <option key={y} value={y}>{y}年</option>
+                ))}
+              </select>
+              <select
+                value={currentDate.getMonth() + 1}
+                onChange={(e) => {
+                  const newDate = new Date(currentDate)
+                  newDate.setMonth(parseInt(e.target.value) - 1)
+                  setCurrentDate(newDate)
+                }}
+                className="h-9 w-[50px] px-1 text-sm font-semibold bg-transparent hover:bg-accent transition-colors cursor-pointer text-center appearance-none"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <option key={m} value={m}>{m}月</option>
+                ))}
+              </select>
+            </div>
+            <button
               onClick={() => {
                 const newDate = new Date(currentDate)
                 newDate.setMonth(newDate.getMonth() + 1)
                 setCurrentDate(newDate)
               }}
-              className="h-8 w-8 p-0 rounded-md ml-1"
+              className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-l border-input"
               title="次月"
             >
               <ChevronRight className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
           
           {/* 区切り線 */}
