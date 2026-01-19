@@ -322,7 +322,7 @@ const GM_ROLE_OPTIONS = [
   { value: 'sub', label: 'サブGM', color: 'bg-blue-100 text-blue-800' },
   { value: 'reception', label: '受付', color: 'bg-orange-100 text-orange-800' },
   { value: 'staff', label: 'スタッフ', color: 'bg-green-100 text-green-800' },
-  { value: 'observer', label: '見学', color: 'bg-purple-100 text-purple-800' },
+  { value: 'observer', label: '見学', color: 'bg-indigo-100 text-indigo-800' },
 ]
 
 export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImportComplete }: ImportScheduleModalProps) {
