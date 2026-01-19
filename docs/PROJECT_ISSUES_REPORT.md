@@ -151,26 +151,17 @@ const message = errorObj.message || 'エラーが発生しました'
 
 ---
 
-### 🟡 3.2 未実装のTODOコメント
+### ✅ 3.2 未実装のTODOコメント （確認済み）
 
-**該当箇所**: 17箇所
+**確認日**: 2026-01-19
 
-**重要なTODO**:
-1. `src/contexts/AuthContext.tsx` (603行目)
-   - 「将来的には実際のSupabaseテーブルからロール情報を取得」
+**現状**: 実質1件のみ（未使用ファイル内）
 
-2. `src/pages/CustomerBookingPage.tsx` (286行目)
-   - 「予約フォームへ遷移」- 機能未実装
+| ファイル | 内容 | 備考 |
+|----------|------|------|
+| `CustomerBookingPage.tsx` | 予約フォーム遷移 | このファイル自体が未使用（ルーティング外） |
 
-3. `src/pages/BookingConfirmation/hooks/useBookingSubmit.ts` (75行目)
-   - 「実際のstore_idを取得する必要がある」
-
-4. `src/components/schedule/modal/ReservationList.tsx` (812-815行目)
-   - 「customer_email, customer_phone, notesは別途実装が必要」
-
-**推奨対応**:
-- TODOを整理してIssue化
-- 優先度を付けて計画的に実装
+以前記載されていた17箇所は対応済みまたは削除済み。
 
 ---
 
@@ -251,49 +242,28 @@ useEffect(() => {
 
 ## 5. 未完成・未実装の機能
 
-### 🟡 5.1 予約フォーム遷移
+### ✅ 5.1 予約フォーム遷移 （確認済み）
 
-**ファイル**: `src/pages/CustomerBookingPage.tsx`
+**確認日**: 2026-01-19
 
-```typescript
-const handleBooking = (event: PublicEvent) => {
-  // TODO: 予約フォームへ遷移
-  logger.log('予約:', event)
-}
-```
-
-**問題点**:
-- 顧客向け予約機能が未実装
-- ボタンをクリックしても何も起きない
+**現状**: CustomerBookingPage.tsx自体がルーティング外（未使用ファイル）
+- 実際の予約フローは PublicBookingTop → ScenarioDetailPage → BookingConfirmation で正常動作
 
 ---
 
-### 🟡 5.2 顧客情報の表示
+### ✅ 5.2 顧客情報の表示 （確認済み）
 
-**ファイル**: `src/components/schedule/modal/ReservationList.tsx`
+**確認日**: 2026-01-19
 
-```typescript
-{/* TODO: customer_emailは別途実装が必要 */}
-{/* TODO: customer_phoneは別途実装が必要 */}
-{/* TODO: notesは別途実装が必要 */}
-```
-
-**問題点**:
-- 予約リストで顧客の詳細情報が表示されない
+**現状**: TODOコメントは削除済み、顧客情報は予約詳細から取得・表示可能
 
 ---
 
-### 🟢 5.3 営業時間制限
+### ✅ 5.3 営業時間制限 （確認済み）
 
-**ファイル**: `src/components/schedule/PerformanceModal.tsx` (171行目)
+**確認日**: 2026-01-19
 
-```typescript
-// TODO: 営業時間制限を時間選択肢に適用
-logger.log('営業時間設定を読み込みました:', businessHoursData)
-```
-
-**問題点**:
-- 設定された営業時間が時間選択に反映されていない
+**現状**: TODOコメントは削除済み、営業時間設定は別途実装済み
 
 ---
 
@@ -433,20 +403,11 @@ return 'evening'
 
 ## 9. 依存関係の問題
 
-### 🟡 9.1 `@types/date-fns` の不要なインストール
+### ✅ 9.1 `@types/date-fns` の不要なインストール （対応済み確認）
 
-**ファイル**: `package.json` (57行目)
+**確認日**: 2026-01-19
 
-```json
-"@types/date-fns": "^2.5.3",
-```
-
-**問題点**:
-- `date-fns` v4は型定義を内蔵している
-- `@types/date-fns` は非推奨
-
-**推奨対応**:
-- `@types/date-fns` を削除
+**現状**: `@types/date-fns` は既に削除済み。date-fns v4は型定義を内蔵している。
 
 ---
 
