@@ -5,17 +5,25 @@ import type { Staff } from '@/types'
 export interface GmStatsItem {
   staffId: string
   staffName: string
-  working: number    // 出勤（main/sub/reception）
-  cancelled: number  // 中止
-  participant: number // 参加（staff）
-  observer: number   // 見学（observer）
-  total: number      // 合計
+  // カテゴリ別出勤数
+  openWorking: number      // オープン公演
+  privateWorking: number   // 貸切公演
+  gmtestWorking: number    // GMテスト
+  otherWorking: number     // その他（trip, testplay, venue_rental等）
+  // 役割別
+  cancelled: number        // 中止
+  participant: number      // 参加（staff）
+  observer: number         // 見学（observer）
+  total: number            // 合計
 }
 
 export interface GmStatsData {
   byGm: GmStatsItem[]
   totals: {
-    working: number
+    openWorking: number
+    privateWorking: number
+    gmtestWorking: number
+    otherWorking: number
     cancelled: number
     participant: number
     observer: number
@@ -26,7 +34,10 @@ export interface GmStatsData {
  * GMの出勤統計を計算するフック
  * 
  * 分類:
- * - 出勤: main/sub/receptionとして担当（中止でない）
+ * - オープン: open公演でmain/sub/receptionとして担当
+ * - 貸切: private公演でmain/sub/receptionとして担当
+ * - GMテスト: gmtest公演でmain/sub/receptionとして担当
+ * - その他: 上記以外の公演でmain/sub/receptionとして担当
  * - 中止: 担当イベントが中止
  * - 参加: staffとしてイベントに参加
  * - 見学: observerとしてイベントに参加
@@ -51,7 +62,10 @@ export function useGmStats(events: ScheduleEvent[], gmList: Staff[]): GmStatsDat
       statsMap.set(gm.id, {
         staffId: gm.id,
         staffName: name,
-        working: 0,
+        openWorking: 0,
+        privateWorking: 0,
+        gmtestWorking: 0,
+        otherWorking: 0,
         cancelled: 0,
         participant: 0,
         observer: 0,
@@ -65,6 +79,7 @@ export function useGmStats(events: ScheduleEvent[], gmList: Staff[]): GmStatsDat
       
       const gmRoles = event.gm_roles || {}
       const isCancelled = event.is_cancelled
+      const category = event.category || 'open'
       
       event.gms.forEach(gm => {
         // GMがIDか名前かを判定
@@ -89,7 +104,10 @@ export function useGmStats(events: ScheduleEvent[], gmList: Staff[]): GmStatsDat
           statsMap.set(staffId, {
             staffId,
             staffName,
-            working: 0,
+            openWorking: 0,
+            privateWorking: 0,
+            gmtestWorking: 0,
+            otherWorking: 0,
             cancelled: 0,
             participant: 0,
             observer: 0,
@@ -111,8 +129,22 @@ export function useGmStats(events: ScheduleEvent[], gmList: Staff[]): GmStatsDat
           // 参加
           stats.participant++
         } else {
-          // 出勤（main/sub/reception）
-          stats.working++
+          // 出勤（main/sub/reception）- カテゴリ別に振り分け
+          switch (category) {
+            case 'open':
+              stats.openWorking++
+              break
+            case 'private':
+              stats.privateWorking++
+              break
+            case 'gmtest':
+              stats.gmtestWorking++
+              break
+            default:
+              // trip, testplay, venue_rental, venue_rental_free, package等
+              stats.otherWorking++
+              break
+          }
         }
         
         stats.total++
@@ -121,7 +153,10 @@ export function useGmStats(events: ScheduleEvent[], gmList: Staff[]): GmStatsDat
     
     // 合計を計算
     const totals = {
-      working: 0,
+      openWorking: 0,
+      privateWorking: 0,
+      gmtestWorking: 0,
+      otherWorking: 0,
       cancelled: 0,
       participant: 0,
       observer: 0
@@ -132,7 +167,10 @@ export function useGmStats(events: ScheduleEvent[], gmList: Staff[]): GmStatsDat
       .sort((a, b) => b.total - a.total) // 合計が多い順
     
     byGm.forEach(stats => {
-      totals.working += stats.working
+      totals.openWorking += stats.openWorking
+      totals.privateWorking += stats.privateWorking
+      totals.gmtestWorking += stats.gmtestWorking
+      totals.otherWorking += stats.otherWorking
       totals.cancelled += stats.cancelled
       totals.participant += stats.participant
       totals.observer += stats.observer

@@ -12,12 +12,17 @@ interface GmStatsPanelProps {
   onStaffClick?: (staffId: string) => void
 }
 
-// 統計カテゴリの定義
+// 統計カテゴリの定義（公演カテゴリ別 + 役割別）
 const statCategories = [
-  { key: 'working', label: '出勤', color: 'text-blue-700', bgColor: 'bg-blue-100' },
-  { key: 'cancelled', label: '中止', color: 'text-gray-500', bgColor: 'bg-gray-100' },
-  { key: 'participant', label: '参加', color: 'text-green-700', bgColor: 'bg-green-100' },
-  { key: 'observer', label: '見学', color: 'text-orange-700', bgColor: 'bg-orange-100' },
+  // 公演カテゴリ別出勤
+  { key: 'openWorking', label: 'オープン', shortLabel: 'オ', color: 'text-blue-700', bgColor: 'bg-blue-100' },
+  { key: 'privateWorking', label: '貸切', shortLabel: '貸', color: 'text-purple-700', bgColor: 'bg-purple-100' },
+  { key: 'gmtestWorking', label: 'GMテスト', shortLabel: 'テ', color: 'text-orange-700', bgColor: 'bg-orange-100' },
+  { key: 'otherWorking', label: 'その他', shortLabel: '他', color: 'text-cyan-700', bgColor: 'bg-cyan-100' },
+  // 役割別
+  { key: 'participant', label: '参加', shortLabel: '参', color: 'text-green-700', bgColor: 'bg-green-100' },
+  { key: 'observer', label: '見学', shortLabel: '見', color: 'text-yellow-700', bgColor: 'bg-yellow-100' },
+  { key: 'cancelled', label: '中止', shortLabel: '中', color: 'text-gray-500', bgColor: 'bg-gray-100', strikethrough: true },
 ] as const
 
 export const GmStatsPanel = memo(function GmStatsPanel({
@@ -50,18 +55,23 @@ export const GmStatsPanel = memo(function GmStatsPanel({
             GM:
           </span>
           <div className="flex gap-0.5 shrink-0">
-            {statCategories.map(cat => (
-              <span
-                key={cat.key}
-                className={cn(
-                  "inline-flex items-center gap-0.5 px-1 py-0 rounded text-[10px] font-medium whitespace-nowrap",
-                  cat.bgColor, cat.color
-                )}
-              >
-                {cat.label}
-                <span className="opacity-70">{data.totals[cat.key]}</span>
-              </span>
-            ))}
+            {statCategories.map(cat => {
+              const value = data.totals[cat.key as keyof typeof data.totals]
+              if (value === 0) return null
+              return (
+                <span
+                  key={cat.key}
+                  className={cn(
+                    "inline-flex items-center gap-0.5 px-1 py-0 rounded text-[10px] font-medium whitespace-nowrap",
+                    cat.bgColor, cat.color,
+                    'strikethrough' in cat && cat.strikethrough && "line-through"
+                  )}
+                >
+                  {cat.shortLabel}
+                  <span className="opacity-70">{value}</span>
+                </span>
+              )
+            })}
           </div>
           <span className="text-[10px] text-muted-foreground ml-auto shrink-0 flex items-center gap-0.5">
             {data.byGm.length}名
@@ -89,25 +99,44 @@ export const GmStatsPanel = memo(function GmStatsPanel({
                     )}
                   >
                     <span className="truncate max-w-[60px]">{gm.staffName}</span>
-                    <span className={cn(
-                      "px-0.5 rounded text-[9px]",
-                      isSelected ? "bg-primary-foreground/20" : "bg-blue-100 text-blue-700"
-                    )}>
-                      {gm.working}
-                    </span>
-                    {gm.cancelled > 0 && (
-                      <span className="px-0.5 rounded text-[9px] bg-gray-100 text-gray-500 line-through">
-                        {gm.cancelled}
+                    {/* カテゴリ別出勤数 */}
+                    {gm.openWorking > 0 && (
+                      <span className={cn(
+                        "px-0.5 rounded text-[9px]",
+                        isSelected ? "bg-primary-foreground/20" : "bg-blue-100 text-blue-700"
+                      )}>
+                        {gm.openWorking}
                       </span>
                     )}
+                    {gm.privateWorking > 0 && (
+                      <span className="px-0.5 rounded text-[9px] bg-purple-100 text-purple-700">
+                        {gm.privateWorking}
+                      </span>
+                    )}
+                    {gm.gmtestWorking > 0 && (
+                      <span className="px-0.5 rounded text-[9px] bg-orange-100 text-orange-700">
+                        {gm.gmtestWorking}
+                      </span>
+                    )}
+                    {gm.otherWorking > 0 && (
+                      <span className="px-0.5 rounded text-[9px] bg-cyan-100 text-cyan-700">
+                        {gm.otherWorking}
+                      </span>
+                    )}
+                    {/* 役割別 */}
                     {gm.participant > 0 && (
                       <span className="px-0.5 rounded text-[9px] bg-green-100 text-green-700">
                         {gm.participant}
                       </span>
                     )}
                     {gm.observer > 0 && (
-                      <span className="px-0.5 rounded text-[9px] bg-orange-100 text-orange-700">
+                      <span className="px-0.5 rounded text-[9px] bg-yellow-100 text-yellow-700">
                         {gm.observer}
+                      </span>
+                    )}
+                    {gm.cancelled > 0 && (
+                      <span className="px-0.5 rounded text-[9px] bg-gray-100 text-gray-500 line-through">
+                        {gm.cancelled}
                       </span>
                     )}
                   </button>
@@ -132,12 +161,23 @@ export const GmStatsPanel = memo(function GmStatsPanel({
           <Users className="h-4 w-4" />
           GM出勤統計
         </h3>
-        <div className="flex items-center gap-3 text-sm">
-          {statCategories.map(cat => (
-            <span key={cat.key} className={cn("font-medium", cat.color)}>
-              {cat.label}: {data.totals[cat.key]}
-            </span>
-          ))}
+        <div className="flex items-center gap-2 text-sm flex-wrap">
+          {statCategories.map(cat => {
+            const value = data.totals[cat.key as keyof typeof data.totals]
+            if (value === 0) return null
+            return (
+              <span 
+                key={cat.key} 
+                className={cn(
+                  "font-medium",
+                  cat.color,
+                  'strikethrough' in cat && cat.strikethrough && "line-through"
+                )}
+              >
+                {cat.label}: {value}
+              </span>
+            )
+          })}
         </div>
       </div>
       
@@ -181,25 +221,42 @@ const GmStatRow = memo(function GmStatRow({ gm }: { gm: GmStatsItem }) {
       </span>
       
       {/* 統計バッジ */}
-      <div className="flex items-center gap-1 flex-1">
-        {gm.working > 0 && (
+      <div className="flex items-center gap-1 flex-1 flex-wrap">
+        {/* カテゴリ別出勤数 */}
+        {gm.openWorking > 0 && (
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
-            出勤 {gm.working}
+            オープン {gm.openWorking}
           </span>
         )}
-        {gm.cancelled > 0 && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 line-through">
-            中止 {gm.cancelled}
+        {gm.privateWorking > 0 && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700">
+            貸切 {gm.privateWorking}
           </span>
         )}
+        {gm.gmtestWorking > 0 && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-700">
+            GMテスト {gm.gmtestWorking}
+          </span>
+        )}
+        {gm.otherWorking > 0 && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-100 text-cyan-700">
+            その他 {gm.otherWorking}
+          </span>
+        )}
+        {/* 役割別 */}
         {gm.participant > 0 && (
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
             参加 {gm.participant}
           </span>
         )}
         {gm.observer > 0 && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-700">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-700">
             見学 {gm.observer}
+          </span>
+        )}
+        {gm.cancelled > 0 && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 line-through">
+            中止 {gm.cancelled}
           </span>
         )}
       </div>
