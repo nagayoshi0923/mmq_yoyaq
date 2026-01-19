@@ -694,7 +694,7 @@ export function ScheduleManager() {
                 placeholder="スタッフ"
                 closeOnSelect={false}
                 useIdAsValue={true}
-                className="h-7 text-xs w-[76px]"
+                className="h-7 text-xs w-[90px]"
               />
             )}
             
@@ -706,7 +706,7 @@ export function ScheduleManager() {
                 hideLabel={true}
                 placeholder="店舗"
                 emptyText=""
-                className="h-7 text-xs w-[60px]"
+                className="h-7 text-xs w-[70px]"
               />
             )}
             
@@ -718,7 +718,7 @@ export function ScheduleManager() {
                 placeholder="出勤者"
                 closeOnSelect={false}
                 useIdAsValue={true}
-                className="h-7 text-xs w-[68px]"
+                className="h-7 text-xs w-[80px]"
               />
             )}
             
