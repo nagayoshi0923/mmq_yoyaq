@@ -19,7 +19,7 @@ const statCategories = [
   { key: 'openWorking', label: 'オープン', shortLabel: 'オ', color: 'text-blue-700', bgColor: 'bg-blue-100' },
   { key: 'privateWorking', label: '貸切', shortLabel: '貸', color: 'text-purple-700', bgColor: 'bg-purple-100' },
   { key: 'gmtestWorking', label: 'GMテスト', shortLabel: 'テ', color: 'text-orange-700', bgColor: 'bg-orange-100' },
-  { key: 'otherWorking', label: 'その他', shortLabel: '他', color: 'text-slate-700', bgColor: 'bg-slate-100' },
+  { key: 'otherWorking', label: 'その他', shortLabel: '他', color: 'text-cyan-700', bgColor: 'bg-cyan-100' },
   // 役割別
   { key: 'participant', label: '参加', shortLabel: '参', color: 'text-green-700', bgColor: 'bg-green-100' },
   { key: 'observer', label: '見学', shortLabel: '見', color: 'text-indigo-700', bgColor: 'bg-indigo-100' },
@@ -120,7 +120,7 @@ export const GmStatsPanel = memo(function GmStatsPanel({
                       </span>
                     )}
                     {gm.otherWorking > 0 && (
-                      <span className="px-0.5 rounded text-[9px] bg-slate-100 text-slate-700">
+                      <span className="px-0.5 rounded text-[9px] bg-cyan-100 text-cyan-700">
                         {gm.otherWorking}
                       </span>
                     )}
@@ -240,7 +240,7 @@ const GmStatRow = memo(function GmStatRow({ gm }: { gm: GmStatsItem }) {
           </span>
         )}
         {gm.otherWorking > 0 && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-100 text-cyan-700">
             その他 {gm.otherWorking}
           </span>
         )}
