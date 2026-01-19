@@ -601,7 +601,7 @@ export function ScheduleManager() {
 
       {/* ツールバー（sticky） */}
       <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b -mx-[10px] px-[10px]">
-        <div className="flex items-center h-10 gap-1.5">
+        <div className="flex items-center h-12 gap-2">
           {/* 月切り替え */}
           <div className="flex items-center shrink-0">
             <Button
@@ -611,10 +611,10 @@ export function ScheduleManager() {
                 newDate.setMonth(newDate.getMonth() - 1)
                 setCurrentDate(newDate)
               }}
-              className="h-7 w-7 p-0 rounded-md"
+              className="h-8 w-8 p-0 rounded-md"
               title="前月"
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-4 w-4" />
             </Button>
             <select
               value={currentDate.getFullYear()}
@@ -623,7 +623,7 @@ export function ScheduleManager() {
                 newDate.setFullYear(parseInt(e.target.value))
                 setCurrentDate(newDate)
               }}
-              className="h-7 w-[72px] px-1.5 text-xs font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer mx-0.5"
+              className="h-8 w-20 px-2 text-sm font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer mx-1"
             >
               {Array.from({ length: 10 }, (_, i) => 2021 + i).map(y => (
                 <option key={y} value={y}>{y}年</option>
@@ -636,7 +636,7 @@ export function ScheduleManager() {
                 newDate.setMonth(parseInt(e.target.value) - 1)
                 setCurrentDate(newDate)
               }}
-              className="h-7 w-[52px] px-1.5 text-xs font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer"
+              className="h-8 w-16 px-2 text-sm font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                 <option key={m} value={m}>{m}月</option>
@@ -649,18 +649,18 @@ export function ScheduleManager() {
                 newDate.setMonth(newDate.getMonth() + 1)
                 setCurrentDate(newDate)
               }}
-              className="h-7 w-7 p-0 rounded-md ml-0.5"
+              className="h-8 w-8 p-0 rounded-md ml-1"
               title="次月"
             >
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
           
           {/* 区切り線 */}
-          <div className="hidden sm:block h-5 w-px bg-border mx-1" />
+          <div className="hidden sm:block h-6 w-px bg-border mx-1" />
           
           {/* フィルター */}
-          <div className="hidden sm:flex items-center gap-1 flex-1">
+          <div className="hidden sm:flex items-center gap-2 flex-1">
             {gmList.length > 0 && (
               <MultiSelect
                 options={(() => {
@@ -694,7 +694,7 @@ export function ScheduleManager() {
                 placeholder="スタッフ"
                 closeOnSelect={false}
                 useIdAsValue={true}
-                className="h-7 text-xs w-[90px]"
+                className="h-8 w-60"
               />
             )}
             
@@ -706,7 +706,7 @@ export function ScheduleManager() {
                 hideLabel={true}
                 placeholder="店舗"
                 emptyText=""
-                className="h-7 text-xs w-[70px]"
+                className="h-8 w-60"
               />
             )}
             
@@ -718,7 +718,7 @@ export function ScheduleManager() {
                 placeholder="出勤者"
                 closeOnSelect={false}
                 useIdAsValue={true}
-                className="h-7 text-xs w-[80px]"
+                className="h-8 w-60"
               />
             )}
             
@@ -730,7 +730,7 @@ export function ScheduleManager() {
                   setSelectedStores([])
                   setSelectedShiftStaff([])
                 }}
-                className="h-7 px-1.5 text-xs text-muted-foreground"
+                className="h-8 px-2 text-sm text-muted-foreground"
               >
                 クリア
               </Button>
@@ -738,21 +738,21 @@ export function ScheduleManager() {
           </div>
           
           {/* アクションボタン */}
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
             <Button 
               variant="outline" 
               onClick={() => setIsImportModalOpen(true)}
               title="インポート"
-              className="h-7 w-7 p-0"
+              className="h-8 w-8 p-0"
             >
-              <Upload className="h-3.5 w-3.5" />
+              <Upload className="h-4 w-4" />
             </Button>
             <Button 
               variant="outline" 
               onClick={handleFillAllSeats}
               disabled={isFillingSeats}
               title="中止以外を満席にする"
-              className="h-7 px-2 text-xs hidden sm:inline-flex whitespace-nowrap"
+              className="h-8 px-3 text-sm hidden sm:inline-flex whitespace-nowrap"
             >
               {isFillingSeats ? '処理中...' : '全満席'}
             </Button>
