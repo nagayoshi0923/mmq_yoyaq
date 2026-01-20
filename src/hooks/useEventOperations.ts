@@ -326,8 +326,17 @@ export function useEventOperations({
         setEvents(prev => prev.filter(e => e.id !== conflict.id))
       }
 
+      // 元の公演の時間帯を取得
+      const sourceTimeSlot = getEventTimeSlot(draggedEvent)
+      const targetTimeSlot = dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening'
+      
       // 移動先の時間を計算（組織設定から取得）
-      const defaults = getSlotDefaults(dropTarget.date, dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening')
+      const defaults = getSlotDefaults(dropTarget.date, targetTimeSlot)
+      
+      // 時間帯が同じなら元の時間を保持、違うならデフォルト時間を使用
+      const isSameTimeSlot = sourceTimeSlot === targetTimeSlot
+      const startTime = isSameTimeSlot ? draggedEvent.start_time : defaults.start_time
+      const endTime = isSameTimeSlot ? draggedEvent.end_time : defaults.end_time
 
       // 元の公演を削除
       await scheduleApi.delete(draggedEvent.id)
@@ -345,6 +354,9 @@ export function useEventOperations({
         throw new Error('組織情報が取得できません。再ログインしてください。')
       }
       
+      // 時間帯ラベルを移動先に更新
+      const timeSlotLabel = targetTimeSlot === 'morning' ? '朝' : targetTimeSlot === 'afternoon' ? '昼' : '夜'
+      
       const newEventData = {
         date: dropTarget.date,
         store_id: dropTarget.venue,
@@ -352,13 +364,18 @@ export function useEventOperations({
         scenario: draggedEvent.scenario,
         scenario_id: scenarioId,
         category: draggedEvent.category,
-        start_time: defaults.start_time,
-        end_time: defaults.end_time,
+        start_time: startTime,
+        end_time: endTime,
+        time_slot: timeSlotLabel, // 移動先の時間帯に更新
         capacity: draggedEvent.max_participants,
         gms: draggedEvent.gms,
         gm_roles: draggedEvent.gm_roles, // GMの役割情報を保持
         notes: draggedEvent.notes,
         organization_id: organizationId, // マルチテナント対応
+        // 状態フィールドを保持
+        is_tentative: draggedEvent.is_tentative || false,
+        is_reservation_enabled: draggedEvent.is_reservation_enabled || false,
+        venue_rental_fee: draggedEvent.venue_rental_fee,
         // 予約関連フィールドを保持
         reservation_name: draggedEvent.reservation_name || null,
         is_reservation_name_overwritten: draggedEvent.is_reservation_name_overwritten || false,
@@ -375,6 +392,9 @@ export function useEventOperations({
           ...savedEvent,
           venue: dropTarget.venue,
           scenarios: draggedEvent.scenarios || savedEvent.scenarios,
+          // 状態フィールドを保持
+          is_tentative: draggedEvent.is_tentative,
+          is_reservation_enabled: draggedEvent.is_reservation_enabled,
           // 予約関連フィールドを保持
           reservation_name: draggedEvent.reservation_name,
           is_reservation_name_overwritten: draggedEvent.is_reservation_name_overwritten,
@@ -398,9 +418,10 @@ export function useEventOperations({
 
     try {
       // 🚨 CRITICAL: 複製先の重複チェック
-      const conflict = checkConflict(dropTarget.date, dropTarget.venue, dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening')
+      const targetTimeSlot = dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening'
+      const conflict = checkConflict(dropTarget.date, dropTarget.venue, targetTimeSlot)
       if (conflict) {
-        const timeSlotLabel = dropTarget.timeSlot === 'morning' ? '午前' : dropTarget.timeSlot === 'afternoon' ? '午後' : '夜間'
+        const timeSlotLabel = targetTimeSlot === 'morning' ? '午前' : targetTimeSlot === 'afternoon' ? '午後' : '夜間'
         const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
         
         if (!confirm(
@@ -417,8 +438,16 @@ export function useEventOperations({
         setEvents(prev => prev.filter(e => e.id !== conflict.id))
       }
 
-      // 移動先の時間を計算（組織設定から取得）
-      const defaults = getSlotDefaults(dropTarget.date, dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening')
+      // 元の公演の時間帯を取得
+      const sourceTimeSlot = getEventTimeSlot(draggedEvent)
+      
+      // 複製先の時間を計算（組織設定から取得）
+      const defaults = getSlotDefaults(dropTarget.date, targetTimeSlot)
+      
+      // 時間帯が同じなら元の時間を保持、違うならデフォルト時間を使用
+      const isSameTimeSlot = sourceTimeSlot === targetTimeSlot
+      const startTime = isSameTimeSlot ? draggedEvent.start_time : defaults.start_time
+      const endTime = isSameTimeSlot ? draggedEvent.end_time : defaults.end_time
 
       // シナリオIDを取得（元のイベントから、またはシナリオリストから検索）
       let scenarioId = draggedEvent.scenarios?.id || null
@@ -433,6 +462,9 @@ export function useEventOperations({
         throw new Error('組織情報が取得できません。再ログインしてください。')
       }
       
+      // 時間帯ラベルを複製先に更新
+      const timeSlotLabel = targetTimeSlot === 'morning' ? '朝' : targetTimeSlot === 'afternoon' ? '昼' : '夜'
+      
       const newEventData = {
         date: dropTarget.date,
         store_id: dropTarget.venue,
@@ -440,13 +472,18 @@ export function useEventOperations({
         scenario: draggedEvent.scenario,
         scenario_id: scenarioId,
         category: draggedEvent.category,
-        start_time: defaults.start_time,
-        end_time: defaults.end_time,
+        start_time: startTime,
+        end_time: endTime,
+        time_slot: timeSlotLabel, // 複製先の時間帯に更新
         capacity: draggedEvent.max_participants,
         gms: draggedEvent.gms,
         gm_roles: draggedEvent.gm_roles, // GMの役割情報を保持
         notes: draggedEvent.notes,
         organization_id: organizationId, // マルチテナント対応
+        // 状態フィールドを保持
+        is_tentative: draggedEvent.is_tentative || false,
+        is_reservation_enabled: draggedEvent.is_reservation_enabled || false,
+        venue_rental_fee: draggedEvent.venue_rental_fee,
         // 予約関連フィールドを保持（複製時も元のデータを引き継ぐ）
         reservation_name: draggedEvent.reservation_name || null,
         is_reservation_name_overwritten: draggedEvent.is_reservation_name_overwritten || false,
@@ -462,6 +499,9 @@ export function useEventOperations({
         ...savedEvent,
         venue: dropTarget.venue,
         scenarios: draggedEvent.scenarios || savedEvent.scenarios,
+        // 状態フィールドを保持
+        is_tentative: draggedEvent.is_tentative,
+        is_reservation_enabled: draggedEvent.is_reservation_enabled,
         // 予約関連フィールドを保持
         reservation_name: draggedEvent.reservation_name,
         is_reservation_name_overwritten: draggedEvent.is_reservation_name_overwritten,
