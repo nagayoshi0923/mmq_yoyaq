@@ -43,7 +43,6 @@ import {
 import { Label } from '@/components/ui/label'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
-import { AuthorEmailDialog } from '@/pages/AuthorReport/components/AuthorEmailDialog'
 import { scenarioApi, salesApi, storeApi, authorApi } from '@/lib/api'
 import { getAllExternalReports } from '@/lib/api/externalReportsApi'
 import type { Scenario, Author } from '@/types'
@@ -130,16 +129,13 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   const [isDisplayNameDialogOpen, setIsDisplayNameDialogOpen] = useState(false)
   const [displayNameTarget, setDisplayNameTarget] = useState<ReportGroup | null>(null)
   const [newDisplayName, setNewDisplayName] = useState('')
+  const [newAuthorNotes, setNewAuthorNotes] = useState('')
   const [isSavingDisplayName, setIsSavingDisplayName] = useState(false)
   
   // 送信プレビューダイアログ
   const [isSendPreviewOpen, setIsSendPreviewOpen] = useState(false)
   const [sendPreviewTarget, setSendPreviewTarget] = useState<ReportGroup | null>(null)
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<Set<string>>(new Set())
-  
-  // 作者メモ編集ダイアログ
-  const [isAuthorNoteDialogOpen, setIsAuthorNoteDialogOpen] = useState(false)
-  const [authorNoteTarget, setAuthorNoteTarget] = useState<ReportGroup | null>(null)
   
   // ソート設定
   type SortKey = 'hasEvents' | 'name' | 'email' | 'events' | 'cost'
@@ -1090,10 +1086,11 @@ ${scenariosText}
   const handleOpenDisplayNameDialog = (group: ReportGroup) => {
     setDisplayNameTarget(group)
     setNewDisplayName(group.authorName)
+    setNewAuthorNotes(group.authorNotes || '')
     setIsDisplayNameDialogOpen(true)
   }
 
-  // 報告用表示名を保存（同じ作者の全シナリオを更新）
+  // 報告用表示名とメモを保存（同じ作者の全シナリオを更新）
   const handleSaveDisplayName = async () => {
     if (!displayNameTarget || !newDisplayName.trim()) {
       showToast.error('表示名を入力してください')
@@ -1117,11 +1114,23 @@ ${scenariosText}
 
       if (error) throw error
 
+      // メモをauthorsテーブルに保存
+      const notesValue = newAuthorNotes.trim() || null
+      try {
+        await authorApi.upsertByName(displayNameTarget.originalAuthorName, {
+          notes: notesValue
+        })
+      } catch (notesError) {
+        logger.warn('メモの保存に失敗（authorsテーブル）:', notesError)
+        // メモの保存失敗は警告だけで続行
+      }
+
       const count = updatedScenarios?.length || 0
       showToast.success('更新完了', `${count}件のシナリオの表示名を更新しました`)
       setIsDisplayNameDialogOpen(false)
       setDisplayNameTarget(null)
       setNewDisplayName('')
+      setNewAuthorNotes('')
       loadData() // データ再読み込み
     } catch (error) {
       logger.error('表示名更新エラー:', error)
@@ -1129,19 +1138,6 @@ ${scenariosText}
     } finally {
       setIsSavingDisplayName(false)
     }
-  }
-
-  // 作者メモ編集ダイアログを開く
-  const handleOpenAuthorNoteDialog = (group: ReportGroup) => {
-    setAuthorNoteTarget(group)
-    setIsAuthorNoteDialogOpen(true)
-  }
-
-  // 作者メモ保存後
-  const handleAuthorNoteSaved = () => {
-    setIsAuthorNoteDialogOpen(false)
-    setAuthorNoteTarget(null)
-    loadData() // データ再読み込み
   }
 
   if (loading) {
@@ -1165,16 +1161,6 @@ ${scenariosText}
         onSaved={handleScenarioSaved}
       />
 
-      {/* 作者メモ編集ダイアログ */}
-      <AuthorEmailDialog
-        isOpen={isAuthorNoteDialogOpen}
-        onClose={() => {
-          setIsAuthorNoteDialogOpen(false)
-          setAuthorNoteTarget(null)
-        }}
-        authorName={authorNoteTarget?.originalAuthorName || ''}
-        onSave={handleAuthorNoteSaved}
-      />
 
       {/* 一括メール登録ダイアログ */}
       <Dialog open={isBulkEmailDialogOpen} onOpenChange={setIsBulkEmailDialogOpen}>
@@ -1245,13 +1231,13 @@ ${scenariosText}
         </DialogContent>
       </Dialog>
 
-      {/* 報告用表示名編集ダイアログ */}
+      {/* 報告用表示名・メモ編集ダイアログ */}
       <Dialog open={isDisplayNameDialogOpen} onOpenChange={setIsDisplayNameDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>報告用表示名の編集</DialogTitle>
+            <DialogTitle>作者設定</DialogTitle>
             <DialogDescription>
-              作者名を変更せずに、報告用の表示名を設定できます
+              報告用の表示名とメモを設定できます
             </DialogDescription>
           </DialogHeader>
 
@@ -1277,8 +1263,19 @@ ${scenariosText}
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="authorNotes">メモ（振込先等）</Label>
+              <Textarea
+                id="authorNotes"
+                placeholder="振込先情報、連絡事項など"
+                value={newAuthorNotes}
+                onChange={(e) => setNewAuthorNotes(e.target.value)}
+                rows={4}
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label>対象シナリオ ({displayNameTarget?.items.length || 0}件)</Label>
-              <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+              <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
                 {displayNameTarget?.items.map((item, idx) => (
                   <div key={idx} className="text-sm">
                     • {item.scenarioTitle}
@@ -1716,7 +1713,7 @@ ${scenariosText}
                                     className="inline-flex items-center text-xs text-amber-600 cursor-pointer hover:bg-amber-100 transition-colors border border-amber-200 rounded px-1.5 py-0.5"
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      handleOpenAuthorNoteDialog(group)
+                                      handleOpenDisplayNameDialog(group)
                                     }}
                                   >
                                     <StickyNote className="w-3 h-3 mr-1" />
@@ -1734,7 +1731,7 @@ ${scenariosText}
                               className="inline-flex items-center text-xs text-muted-foreground cursor-pointer hover:bg-muted transition-colors border border-dashed border-muted-foreground/30 rounded px-1.5 py-0.5"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                handleOpenAuthorNoteDialog(group)
+                                handleOpenDisplayNameDialog(group)
                               }}
                             >
                               <StickyNote className="w-3 h-3 mr-1" />
