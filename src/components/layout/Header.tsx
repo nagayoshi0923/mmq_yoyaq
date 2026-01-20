@@ -4,11 +4,12 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Bell, LogOut, User, Building2, ChevronRight, LayoutDashboard } from 'lucide-react'
+import { LogOut, User, Building2, ChevronRight, LayoutDashboard } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { devDb } from '@/components/ui/DevField'
 import { getOrganizationBySlug } from '@/lib/organization'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { NotificationDropdown } from './NotificationDropdown'
 import type { Organization } from '@/types'
 
 // 訪問組織のlocalStorageキー
@@ -212,12 +213,7 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                 >
                   <User className="h-[18px] w-[18px]" />
                 </button>
-                <button 
-                  className="inline-flex items-center justify-center h-8 w-8 hover:bg-white/10 transition-colors text-white"
-                  title="通知"
-                >
-                  <Bell className="h-[18px] w-[18px]" />
-                </button>
+                <NotificationDropdown />
                 <button 
                   onClick={handleSignOut} 
                   className="inline-flex items-center gap-1 h-8 px-3 text-xs bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors ml-1"
