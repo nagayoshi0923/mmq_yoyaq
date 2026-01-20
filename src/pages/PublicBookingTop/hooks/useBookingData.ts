@@ -310,12 +310,8 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         }
       })
       
-      // 今日の日付を一度だけ計算
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const todayJST = formatDateJST(today)
-      
       // シナリオごとにグループ化
+      // 注意: todayJST は上部（106行目）で定義済み
       const scenarioMap = new Map<string, ScenarioCard>()
       
       scenariosData.forEach((scenario: any) => {
