@@ -9,6 +9,28 @@ import type { ScheduleEvent } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
+/**
+ * time_slot（'朝'/'昼'/'夜'）を英語形式に変換
+ */
+function convertTimeSlot(timeSlot: string | undefined | null): 'morning' | 'afternoon' | 'evening' | null {
+  if (!timeSlot) return null
+  switch (timeSlot) {
+    case '朝': return 'morning'
+    case '昼': return 'afternoon'
+    case '夜': return 'evening'
+    default: return null
+  }
+}
+
+/**
+ * イベントの時間帯を取得（保存された枠を優先）
+ */
+function getEventTimeSlot(event: ScheduleEvent): 'morning' | 'afternoon' | 'evening' {
+  const savedSlot = convertTimeSlot(event.time_slot)
+  if (savedSlot) return savedSlot
+  return getTimeSlot(event.start_time)
+}
+
 interface Store {
   id: string
   name: string
@@ -94,8 +116,16 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
         setEvents(prev => prev.filter(e => e.id !== conflict.id))
       }
 
-      // 移動先の時間を計算（組織設定から取得）
+      // 元の公演の時間帯を取得
+      const sourceTimeSlot = getEventTimeSlot(clipboardEvent)
+      
+      // ペースト先の時間を計算（組織設定から取得）
       const defaults = getSlotDefaults(targetDate, targetTimeSlot)
+      
+      // 時間帯が同じなら元の時間を保持、違うならデフォルト時間を使用
+      const isSameTimeSlot = sourceTimeSlot === targetTimeSlot
+      const startTime = isSameTimeSlot ? clipboardEvent.start_time : defaults.start_time
+      const endTime = isSameTimeSlot ? clipboardEvent.end_time : defaults.end_time
 
       // 新しい位置に公演を作成（元の公演は残す）
       // organization_idが取得できない場合はエラー
@@ -103,24 +133,50 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
         throw new Error('組織情報が取得できません。再ログインしてください。')
       }
       
+      // 時間帯ラベルをペースト先に更新
+      const timeSlotLabel = targetTimeSlot === 'morning' ? '朝' : targetTimeSlot === 'afternoon' ? '昼' : '夜'
+      
       const newEventData = {
         date: targetDate,
         store_id: targetVenue,
         venue: stores.find(s => s.id === targetVenue)?.name || '',
         scenario: clipboardEvent.scenario,
         category: clipboardEvent.category,
-        start_time: defaults.start_time,
-        end_time: defaults.end_time,
+        start_time: startTime,
+        end_time: endTime,
+        time_slot: timeSlotLabel, // ペースト先の時間帯に更新
         capacity: clipboardEvent.max_participants,
         gms: clipboardEvent.gms,
+        gm_roles: clipboardEvent.gm_roles, // GMの役割情報を保持
         notes: clipboardEvent.notes,
-        organization_id: organizationId // マルチテナント対応
+        organization_id: organizationId, // マルチテナント対応
+        // 状態フィールドを保持
+        is_tentative: clipboardEvent.is_tentative || false,
+        is_reservation_enabled: clipboardEvent.is_reservation_enabled || false,
+        venue_rental_fee: clipboardEvent.venue_rental_fee,
+        // 予約関連フィールドを保持
+        reservation_name: clipboardEvent.reservation_name || null,
+        is_reservation_name_overwritten: clipboardEvent.is_reservation_name_overwritten || false,
+        is_private_request: clipboardEvent.is_private_request || false,
+        // ペースト時はreservation_idはクリア（別の公演として扱う）
+        reservation_id: null
       }
 
       const savedEvent = await scheduleApi.create(newEventData)
 
       // ローカル状態を更新
-      setEvents(prev => [...prev, { ...savedEvent, venue: targetVenue }])
+      const newEvent: ScheduleEvent = {
+        ...savedEvent,
+        venue: targetVenue,
+        // 状態フィールドを保持
+        is_tentative: clipboardEvent.is_tentative,
+        is_reservation_enabled: clipboardEvent.is_reservation_enabled,
+        // 予約関連フィールドを保持
+        reservation_name: clipboardEvent.reservation_name,
+        is_reservation_name_overwritten: clipboardEvent.is_reservation_name_overwritten,
+        is_private_request: clipboardEvent.is_private_request
+      }
+      setEvents(prev => [...prev, newEvent])
 
       logger.log('公演をペーストしました')
     } catch (error) {
