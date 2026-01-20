@@ -145,6 +145,8 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   }, [currentMonth])
 
   // customStartDateとcustomEndDateが更新され、期間がcustomのときにデータを再取得
+  // 注意: onPeriodChangeは月切り替えuseEffectで既に呼ばれているため、ここでは呼ばない
+  // カスタム日付ピッカーからの変更時のみonDataRefreshを呼ぶ
   useEffect(() => {
     // 期間がcustomでない場合はスキップ（他の期間設定から変更された場合）
     if (selectedPeriod !== 'custom') {
@@ -165,10 +167,10 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     // 前回の値を更新
     prevCustomDatesRef.current = { startDate: customStartDate, endDate: customEndDate }
     
-    logger.log('📅 カスタム期間変更によるデータ再取得:', { customStartDate, customEndDate })
+    logger.log('📅 カスタム期間変更:', { customStartDate, customEndDate })
     
-    // データを再取得（onPeriodChangeを呼ぶとloadSalesDataが実行される）
-    onPeriodChange('custom')
+    // 注意: onPeriodChange('custom')を呼ぶと無限ループになるため、
+    // 親コンポーネントでcustomStartDate/customEndDateの変更を監視してデータを取得する
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customStartDate, customEndDate, selectedPeriod])
 
