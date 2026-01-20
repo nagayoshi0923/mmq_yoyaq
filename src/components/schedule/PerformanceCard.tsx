@@ -315,7 +315,7 @@ function PerformanceCardBase({
              </span>
           )}
           {observerGms.length > 0 && (
-             <span className="mr-2 text-purple-700 font-medium bg-purple-50 px-1 rounded text-[10px] border border-purple-100">
+             <span className="mr-2 text-indigo-700 font-medium bg-indigo-50 px-1 rounded text-[10px] border border-indigo-100">
                <span className="hidden sm:inline">見学: </span>{observerGms.join(', ')}
              </span>
           )}
