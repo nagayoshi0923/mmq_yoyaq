@@ -69,8 +69,10 @@ CREATE POLICY "Users can update their own notifications" ON user_notifications
     OR customer_id IN (SELECT id FROM customers WHERE user_id = auth.uid())
   );
 
--- システム（service_role）は通知を作成可能
-CREATE POLICY "Service role can insert notifications" ON user_notifications
+-- トリガー関数（SECURITY DEFINER）から通知を作成するため、INSERTは許可
+-- 注意: クライアントからの直接INSERTはRLSで制限されないため、
+-- アプリケーション側でINSERTを使わないようにする（トリガーのみ使用）
+CREATE POLICY "Allow insert for triggers" ON user_notifications
   FOR INSERT WITH CHECK (TRUE);
 
 -- ユーザーは自分の通知を削除可能
@@ -140,10 +142,23 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_customer_user_id UUID;
+  v_existing_notification_id UUID;
 BEGIN
   -- 予約がconfirmedまたはgm_confirmedになった場合
   IF NEW.status IN ('confirmed', 'gm_confirmed') AND 
      (OLD.status IS NULL OR OLD.status NOT IN ('confirmed', 'gm_confirmed')) THEN
+    
+    -- 既に同じ予約に対する確定通知が存在するかチェック（重複防止）
+    SELECT id INTO v_existing_notification_id
+    FROM user_notifications
+    WHERE related_reservation_id = NEW.id
+      AND type = 'reservation_confirmed'
+    LIMIT 1;
+    
+    -- 既存の通知がある場合はスキップ
+    IF v_existing_notification_id IS NOT NULL THEN
+      RETURN NEW;
+    END IF;
     
     -- 顧客のuser_idを取得
     SELECT user_id INTO v_customer_user_id
@@ -186,9 +201,22 @@ AS $$
 DECLARE
   v_customer_user_id UUID;
   v_event_info RECORD;
+  v_existing_notification_id UUID;
 BEGIN
   -- ステータスがnotifiedに変更された場合
   IF NEW.status = 'notified' AND OLD.status != 'notified' THEN
+    
+    -- 既に同じキャンセル待ちに対する通知が存在するかチェック（重複防止）
+    SELECT id INTO v_existing_notification_id
+    FROM user_notifications
+    WHERE related_waitlist_id = NEW.id
+      AND type = 'waitlist_available'
+    LIMIT 1;
+    
+    -- 既存の通知がある場合はスキップ
+    IF v_existing_notification_id IS NOT NULL THEN
+      RETURN NEW;
+    END IF;
     
     -- 顧客のuser_idを取得
     SELECT user_id INTO v_customer_user_id
