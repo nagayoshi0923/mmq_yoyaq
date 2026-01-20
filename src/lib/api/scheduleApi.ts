@@ -684,6 +684,7 @@ export const scheduleApi = {
     notes?: string
     time_slot?: string | null
     is_reservation_enabled?: boolean
+    is_tentative?: boolean  // 仮状態（非公開）
     venue_rental_fee?: number  // 場所貸し公演料金
     organization_id: string  // マルチテナント対応：必須
     reservation_name?: string | null  // 貸切予約の予約者名

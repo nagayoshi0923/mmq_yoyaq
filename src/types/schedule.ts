@@ -24,6 +24,7 @@ export interface ScheduleEvent {
   original_customer_name?: string // MMQからの元の予約者名（上書き検出用）
   is_reservation_name_overwritten?: boolean // 予約者名が手動で上書きされたかどうか
   gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
+  venue_rental_fee?: number // 場所貸し公演料金
   organization_id?: string // マルチテナント対応
   scenarios?: {
     id: string
