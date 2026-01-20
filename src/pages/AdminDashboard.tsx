@@ -229,6 +229,11 @@ export function AdminDashboard() {
 
   // ページ変更ハンドラ（組織スラッグ付き）
   const handlePageChange = useCallback((pageId: string) => {
+    // マイページは特別扱い（組織スラッグなし）
+    if (pageId === 'mypage' || pageId === 'my-page') {
+      navigate('/mypage')
+      return
+    }
     // 予約サイトへの遷移は組織スラッグのみ
     if (pageId === organizationSlug || pageId === 'booking') {
       navigate(`/${organizationSlug}`)

@@ -112,7 +112,7 @@ export function BookingConfirmation({
     validateForm
   } = useBookingForm({ initialParticipantCount, availableSeats })
 
-  const { isSubmitting, success, handleSubmit } = useBookingSubmit({
+  const { isSubmitting, success, completedReservation, handleSubmit } = useBookingSubmit({
     eventId,
     scenarioTitle,
     scenarioId,
@@ -285,6 +285,39 @@ export function BookingConfirmation({
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
               <h2 className="text-lg text-green-800">予約が完了しました！</h2>
+              
+              {/* 予約詳細サマリー */}
+              {completedReservation && (
+                <div className="bg-white rounded-lg p-4 text-left border border-green-200">
+                  <div className="text-sm space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">予約番号</span>
+                      <span className="font-bold text-green-800">{completedReservation.reservationNumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">公演</span>
+                      <span className="font-medium">{scenarioTitle}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">日時</span>
+                      <span>{formatDate(eventDate)} {formatTime(startTime)}〜</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">会場</span>
+                      <span>{storeName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">参加人数</span>
+                      <span>{completedReservation.participantCount}名</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 mt-2">
+                      <span className="text-muted-foreground">合計金額</span>
+                      <span className="font-bold">{formatPrice(completedReservation.totalPrice)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <p className="text-sm text-green-700 leading-relaxed">
                 ご予約ありがとうございます。<br />
                 確認メールを <span className="font-medium">{customerEmail}</span> に送信しました。
