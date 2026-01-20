@@ -1679,20 +1679,19 @@ ${scenariosText}
                           )}
                           {/* 作者メモ */}
                           {group.authorNotes && (
-                            <TooltipProvider>
+                            <TooltipProvider delayDuration={0}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Badge 
-                                    variant="outline" 
-                                    className="text-xs text-amber-600 cursor-help hover:bg-amber-50 transition-colors"
+                                  <span 
+                                    className="inline-flex items-center text-xs text-amber-600 cursor-help hover:bg-amber-50 transition-colors border border-amber-200 rounded px-1.5 py-0.5"
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <StickyNote className="w-3 h-3 mr-1" />
                                     メモ
-                                  </Badge>
+                                  </span>
                                 </TooltipTrigger>
-                                <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap">
-                                  <p className="text-sm">{group.authorNotes}</p>
+                                <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap bg-white border shadow-lg rounded-md p-2">
+                                  <p className="text-sm text-foreground">{group.authorNotes}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
