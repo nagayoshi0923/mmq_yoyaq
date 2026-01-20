@@ -43,12 +43,14 @@ import {
 import { Label } from '@/components/ui/label'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
-import { scenarioApi, salesApi, storeApi } from '@/lib/api'
+import { scenarioApi, salesApi, storeApi, authorApi } from '@/lib/api'
 import { getAllExternalReports } from '@/lib/api/externalReportsApi'
-import type { Scenario } from '@/types'
+import type { Scenario, Author } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
+import { StickyNote } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface SendReportsProps {
   organizationId: string
@@ -83,6 +85,7 @@ interface ReportGroup {
   authorName: string  // 報告用表示名（編集可能）
   originalAuthorName: string  // 元の作者名（参照用）
   authorEmail: string | null  // 最も多く使われているメアド
+  authorNotes: string | null  // 作者メモ（authorsテーブルから）
   items: ReportItem[]
   totalEvents: number
   totalInternalEvents: number
@@ -395,7 +398,7 @@ ${scenariosText}
       const endStr = endDate.toISOString().split('T')[0]
 
       // データを並行取得
-      const [scenarios, stores, performance, externalReports, historyData, manualExternalData] = await Promise.all([
+      const [scenarios, stores, performance, externalReports, historyData, manualExternalData, authorsData] = await Promise.all([
         scenarioApi.getAll(),
         storeApi.getAll(),
         salesApi.getScenarioPerformance(startStr, endStr),
@@ -415,8 +418,18 @@ ${scenariosText}
           .select('scenario_id, performance_count')
           .eq('year', selectedYear)
           .eq('month', selectedMonth)
-          .then(res => res.data || [])
+          .then(res => res.data || []),
+        // 作者データを取得（メモ含む）
+        authorApi.getAll().catch(() => [] as Author[])
       ])
+      
+      // 作者メモをMapに変換
+      const authorNotesMap = new Map<string, string>()
+      authorsData.forEach((author: Author) => {
+        if (author.notes) {
+          authorNotesMap.set(author.name, author.notes)
+        }
+      })
 
       // 手動入力値をexternalInputsに設定
       const manualInputs: Record<string, number> = {}
@@ -613,6 +626,7 @@ ${scenariosText}
             authorName: item.reportDisplayName,
             originalAuthorName: item.author,
             authorEmail: item.authorEmail,
+            authorNotes: authorNotesMap.get(item.author) || null,
             items: [item],
             totalEvents: item.events,
             totalInternalEvents: item.internalEvents,
@@ -627,9 +641,13 @@ ${scenariosText}
         }
       })
 
-      // 一部未登録フラグを設定
+      // 一部未登録フラグと作者メモを設定
       groupMap.forEach(group => {
         group.hasPartialEmail = group.itemsWithEmail > 0 && group.itemsWithoutEmail > 0
+        // 元の作者名でメモを探す（まだ設定されていない場合）
+        if (!group.authorNotes) {
+          group.authorNotes = authorNotesMap.get(group.originalAuthorName) || null
+        }
       })
 
       // ソートして設定
@@ -1658,6 +1676,26 @@ ${scenariosText}
                             >
                               ⚠️ {group.itemsWithoutEmail}件未登録
                             </Badge>
+                          )}
+                          {/* 作者メモ */}
+                          {group.authorNotes && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-xs text-amber-600 cursor-help hover:bg-amber-50 transition-colors"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <StickyNote className="w-3 h-3 mr-1" />
+                                    メモ
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap">
+                                  <p className="text-sm">{group.authorNotes}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
