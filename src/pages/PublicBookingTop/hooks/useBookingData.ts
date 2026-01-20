@@ -99,16 +99,17 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         }
       }
       
-      // 初期表示パフォーマンス最適化: 最初の1ヶ月のみ取得
-      // （ユーザーが操作で追加の月を読み込むようにする）
+      // 今日から3ヶ月分のデータを取得
+      // カレンダーで月切り替えができるように、先の月も含める
       const currentDate = new Date()
+      const todayJST = formatDateJST(currentDate)
 
-      // 現在の月のみ取得（1ヶ月分）- パフォーマンス最適化
+      // 今日から3ヶ月後までを取得
       const year = currentDate.getFullYear()
       const month = currentDate.getMonth() + 1
-      const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-      const lastDay = new Date(year, month, 0).getDate()
-      const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+      const startDate = todayJST // 今日以降のみ取得（過去は不要）
+      const endMonthDate = new Date(year, month + 2, 0) // 3ヶ月後の月末
+      const endDate = formatDateJST(endMonthDate)
 
       const apiStartTime = performance.now()
       logger.log(`⏱️ API呼び出し開始: ${((performance.now() - apiStartTime).toFixed(2))}ms`)

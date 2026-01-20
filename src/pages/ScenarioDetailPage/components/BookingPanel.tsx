@@ -111,7 +111,8 @@ export const BookingPanel = memo(function BookingPanel({
         className="w-full h-10 text-base"
         onClick={() => {
           if (!isLoggedIn) {
-            // 未ログイン時はログインページへ遷移（SPA遷移）
+            // 未ログイン時は戻り先URLを保存してログインページへ遷移
+            sessionStorage.setItem('returnUrl', window.location.pathname + window.location.search)
             navigate('/login')
             return
           }

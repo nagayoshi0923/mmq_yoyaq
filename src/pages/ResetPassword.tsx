@@ -118,10 +118,14 @@ export function ResetPassword() {
       if (tokens.accessToken && tokens.refreshToken) {
         logger.log('🔒 リカバリートークンでセッションを確立中...')
         
-        // 一旦サインアウトして状態をクリアする（念のため）
-        // ただし、これをやると他のタブに影響する可能性もあるが、パスワードリセットは重要操作なので許容
-        // await supabase.auth.signOut() 
-        // -> signOutすると画面遷移してしまう可能性があるので、直接setSessionで上書きを試みる
+        // Safari/iOS対応: 既存のセッションをクリアしてから新しいセッションを設定
+        // Safariではセッションの上書きが正常に機能しない場合があるため
+        try {
+          await supabase.auth.signOut({ scope: 'local' }) // ローカルのみクリア
+        } catch (signOutError) {
+          // サインアウトに失敗しても続行
+          logger.warn('SignOut before setSession failed:', signOutError)
+        }
 
         const { data, error: sessionError } = await supabase.auth.setSession({
           access_token: tokens.accessToken,
@@ -130,13 +134,20 @@ export function ResetPassword() {
 
         if (sessionError) {
           logger.error('Session establishment failed:', sessionError)
-          throw new Error('セッションの有効期限が切れています。もう一度リセットリンクを取得してください。')
+          // より詳細なエラーメッセージを提供
+          if (sessionError.message?.includes('expired')) {
+            throw new Error('リセットリンクの有効期限が切れています。もう一度パスワードリセットを申請してください。')
+          }
+          if (sessionError.message?.includes('Invalid')) {
+            throw new Error('無効なリセットリンクです。メールのリンクをもう一度クリックするか、再申請してください。')
+          }
+          throw new Error('セッションの確立に失敗しました。ブラウザを再読み込みしてもう一度お試しください。')
         }
         
         logger.log('✅ セッション確立成功:', data.session ? 'Session Active' : 'No Session Data')
         
-        // セッション確立後、少し待機して内部状態を安定させる
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // セッション確立後、少し待機して内部状態を安定させる（Safari対応で長めに）
+        await new Promise(resolve => setTimeout(resolve, 1000))
       }
 
       // 2. パスワードを更新する

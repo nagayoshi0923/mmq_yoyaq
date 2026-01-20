@@ -62,21 +62,28 @@ const getTimeSlot = (startTime: string): string => {
 
 /**
  * 重複予約をチェックする関数
+ * @param eventId - 予約しようとしている公演ID
+ * @param customerEmail - 顧客メールアドレス
+ * @param customerPhone - 顧客電話番号（オプション）
+ * @param eventDate - 公演日付（同時間帯チェック用）
+ * @param startTime - 公演開始時間（同時間帯チェック用）
  */
 export const checkDuplicateReservation = async (
   eventId: string,
   customerEmail: string,
-  customerPhone?: string
-): Promise<{ hasDuplicate: boolean; existingReservation?: any }> => {
+  customerPhone?: string,
+  eventDate?: string,
+  startTime?: string
+): Promise<{ hasDuplicate: boolean; existingReservation?: any; isTimeConflict?: boolean }> => {
   try {
-    // 同じ公演に対する既存の予約を確認
+    // 1. 同じ公演に対する既存の予約を確認
     let query = supabase
       .from('reservations')
-      .select('id, participant_count, customer_name, customer_email, reservation_number')
+      .select('id, participant_count, customer_name, customer_email, reservation_number, schedule_event_id')
       .eq('schedule_event_id', eventId)
       .in('status', ['pending', 'confirmed', 'gm_confirmed'])
 
-    // メールアドレスまたは電話番号でチェック
+    // メールアドレスでチェック
     if (customerEmail) {
       query = query.eq('customer_email', customerEmail)
     }
@@ -109,6 +116,49 @@ export const checkDuplicateReservation = async (
 
       if (phoneData && phoneData.length > 0) {
         return { hasDuplicate: true, existingReservation: phoneData[0] }
+      }
+    }
+
+    // 2. 同じ日時の別公演への予約をチェック
+    if (eventDate && startTime && customerEmail) {
+      // 同じ日付の予約を取得
+      const { data: sameTimeReservations, error: sameTimeError } = await supabase
+        .from('reservations')
+        .select(`
+          id, 
+          participant_count, 
+          customer_name, 
+          reservation_number,
+          schedule_event_id,
+          requested_datetime,
+          title
+        `)
+        .eq('customer_email', customerEmail)
+        .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+        .neq('schedule_event_id', eventId)
+      
+      if (!sameTimeError && sameTimeReservations && sameTimeReservations.length > 0) {
+        // 時間の重複をチェック（同じ日付かつ開始時間が2時間以内）
+        const targetDateTime = new Date(`${eventDate}T${startTime}`)
+        
+        for (const res of sameTimeReservations) {
+          if (!res.requested_datetime) continue
+          
+          const resDateTime = new Date(res.requested_datetime)
+          const timeDiff = Math.abs(targetDateTime.getTime() - resDateTime.getTime()) / (1000 * 60 * 60)
+          
+          // 同じ日付で開始時間が2時間以内の場合は重複扱い
+          if (resDateTime.toDateString() === targetDateTime.toDateString() && timeDiff < 2) {
+            return { 
+              hasDuplicate: true, 
+              existingReservation: { 
+                ...res,
+                isTimeConflict: true
+              },
+              isTimeConflict: true
+            }
+          }
+        }
       }
     }
 
@@ -390,8 +440,42 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
       // 相対的な加減算ではなく、常に予約テーブルから集計して絶対値を設定
       try {
-        await recalculateCurrentParticipants(props.eventId)
+        const newCount = await recalculateCurrentParticipants(props.eventId)
+        
+        // 🚨 CRITICAL: オーバーブッキング検出 - 楽観的ロック
+        // 予約挿入後に再度チェックし、オーバーブッキングの場合はロールバック
+        const { data: eventData } = await supabase
+          .from('schedule_events')
+          .select('max_participants, capacity')
+          .eq('id', props.eventId)
+          .single()
+        
+        const maxParticipants = eventData?.max_participants || eventData?.capacity || 8
+        
+        if (newCount > maxParticipants) {
+          logger.warn('オーバーブッキング検出 - 予約をロールバック:', {
+            eventId: props.eventId,
+            newCount,
+            maxParticipants,
+            reservationId: reservationData.id
+          })
+          
+          // 予約を削除してロールバック
+          await supabase
+            .from('reservations')
+            .delete()
+            .eq('id', reservationData.id)
+          
+          // 参加者数を再計算
+          await recalculateCurrentParticipants(props.eventId)
+          
+          throw new Error('申し訳ありません。他のお客様の予約により満席となりました。')
+        }
       } catch (updateError) {
+        // オーバーブッキングエラーは再throw
+        if (updateError instanceof Error && updateError.message.includes('満席')) {
+          throw updateError
+        }
         logger.error('参加者数の更新エラー:', updateError)
       }
 

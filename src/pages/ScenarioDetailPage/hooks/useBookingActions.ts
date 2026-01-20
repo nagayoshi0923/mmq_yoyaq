@@ -76,6 +76,8 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
   // 貸切リクエスト開始
   const handlePrivateBookingRequest = useCallback((isLoggedIn: boolean) => {
     if (!isLoggedIn) {
+      // 戻り先URLを保存してログインページへ遷移
+      sessionStorage.setItem('returnUrl', window.location.pathname + window.location.search)
       navigate('/login')
       return
     }

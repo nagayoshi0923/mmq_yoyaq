@@ -133,10 +133,13 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   const handleSocialLogin = async (provider: 'google' | 'discord' | 'twitter') => {
     try {
       setError('')
+      // 戻り先URLをsessionStorageから取得（予約フローなどからのリダイレクト対応）
+      const returnUrl = sessionStorage.getItem('returnUrl') || '/'
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: `${window.location.origin}${returnUrl}`,
           // Googleの場合、毎回アカウント選択画面を表示
           queryParams: provider === 'google' ? {
             prompt: 'select_account',
@@ -237,6 +240,14 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         setError('') // エラーをクリア
         
         // ログイン成功後のリダイレクト
+        // 戻り先URLがある場合はそこへ、なければ通常のリダイレクト
+        const returnUrl = sessionStorage.getItem('returnUrl')
+        if (returnUrl) {
+          sessionStorage.removeItem('returnUrl') // クリア
+          window.location.href = returnUrl
+          return
+        }
+        
         // AuthContextがユーザー情報を更新するのを少し待ってからリダイレクト
         setTimeout(async () => {
           try {

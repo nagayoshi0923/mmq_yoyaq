@@ -85,13 +85,14 @@ export function BookingConfirmation({
   const checkDuplicate = useCallback(async () => {
     if (!customerEmail || !eventId) return
     
-    const result = await checkDuplicateReservation(eventId, customerEmail, customerPhone)
+    // 同じ公演への重複と、同じ日時の別公演への重複を両方チェック
+    const result = await checkDuplicateReservation(eventId, customerEmail, customerPhone, eventDate, startTime)
     if (result.hasDuplicate) {
       setDuplicateWarning({ show: true, existingReservation: result.existingReservation })
     } else {
       setDuplicateWarning({ show: false })
     }
-  }, [customerEmail, customerPhone, eventId])
+  }, [customerEmail, customerPhone, eventId, eventDate, startTime])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -348,15 +349,32 @@ export function BookingConfirmation({
             <CardContent className="p-3 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
               <div className="text-amber-800">
-                <p className="font-medium text-sm">この公演に既に予約があります</p>
-                <p className="text-xs mt-1">
-                  予約番号: {duplicateWarning.existingReservation.reservation_number}<br />
-                  予約者: {duplicateWarning.existingReservation.customer_name}<br />
-                  参加人数: {duplicateWarning.existingReservation.participant_count}名
-                </p>
-                <p className="text-xs mt-2">
-                  人数を変更したい場合は、<Link to="/mypage" className="underline font-medium">マイページ</Link>から既存の予約を編集してください。
-                </p>
+                {duplicateWarning.existingReservation.isTimeConflict ? (
+                  <>
+                    <p className="font-medium text-sm">同じ時間帯に別の予約があります</p>
+                    <p className="text-xs mt-1">
+                      予約番号: {duplicateWarning.existingReservation.reservation_number}<br />
+                      公演: {duplicateWarning.existingReservation.title}<br />
+                      参加人数: {duplicateWarning.existingReservation.participant_count}名
+                    </p>
+                    <p className="text-xs mt-2 text-amber-700">
+                      同時刻に複数の公演を予約することはできません。<br />
+                      既存の予約をキャンセルする場合は、<Link to="/mypage" className="underline font-medium">マイページ</Link>から操作してください。
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-sm">この公演に既に予約があります</p>
+                    <p className="text-xs mt-1">
+                      予約番号: {duplicateWarning.existingReservation.reservation_number}<br />
+                      予約者: {duplicateWarning.existingReservation.customer_name}<br />
+                      参加人数: {duplicateWarning.existingReservation.participant_count}名
+                    </p>
+                    <p className="text-xs mt-2">
+                      人数を変更したい場合は、<Link to="/mypage" className="underline font-medium">マイページ</Link>から既存の予約を編集してください。
+                    </p>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
