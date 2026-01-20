@@ -43,6 +43,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
+import { AuthorEmailDialog } from '@/pages/AuthorReport/components/AuthorEmailDialog'
 import { scenarioApi, salesApi, storeApi, authorApi } from '@/lib/api'
 import { getAllExternalReports } from '@/lib/api/externalReportsApi'
 import type { Scenario, Author } from '@/types'
@@ -51,6 +52,7 @@ import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { StickyNote } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Textarea } from '@/components/ui/textarea'
 
 interface SendReportsProps {
   organizationId: string
@@ -134,6 +136,10 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   const [isSendPreviewOpen, setIsSendPreviewOpen] = useState(false)
   const [sendPreviewTarget, setSendPreviewTarget] = useState<ReportGroup | null>(null)
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<Set<string>>(new Set())
+  
+  // 作者メモ編集ダイアログ
+  const [isAuthorNoteDialogOpen, setIsAuthorNoteDialogOpen] = useState(false)
+  const [authorNoteTarget, setAuthorNoteTarget] = useState<ReportGroup | null>(null)
   
   // ソート設定
   type SortKey = 'hasEvents' | 'name' | 'email' | 'events' | 'cost'
@@ -1125,6 +1131,19 @@ ${scenariosText}
     }
   }
 
+  // 作者メモ編集ダイアログを開く
+  const handleOpenAuthorNoteDialog = (group: ReportGroup) => {
+    setAuthorNoteTarget(group)
+    setIsAuthorNoteDialogOpen(true)
+  }
+
+  // 作者メモ保存後
+  const handleAuthorNoteSaved = () => {
+    setIsAuthorNoteDialogOpen(false)
+    setAuthorNoteTarget(null)
+    loadData() // データ再読み込み
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1144,6 +1163,17 @@ ${scenariosText}
         }}
         scenarioId={editScenarioId}
         onSaved={handleScenarioSaved}
+      />
+
+      {/* 作者メモ編集ダイアログ */}
+      <AuthorEmailDialog
+        isOpen={isAuthorNoteDialogOpen}
+        onClose={() => {
+          setIsAuthorNoteDialogOpen(false)
+          setAuthorNoteTarget(null)
+        }}
+        authorName={authorNoteTarget?.originalAuthorName || ''}
+        onSave={handleAuthorNoteSaved}
       />
 
       {/* 一括メール登録ダイアログ */}
@@ -1678,13 +1708,16 @@ ${scenariosText}
                             </Badge>
                           )}
                           {/* 作者メモ */}
-                          {group.authorNotes && (
+                          {group.authorNotes ? (
                             <TooltipProvider delayDuration={0}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span 
-                                    className="inline-flex items-center text-xs text-amber-600 cursor-help hover:bg-amber-50 transition-colors border border-amber-200 rounded px-1.5 py-0.5"
-                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center text-xs text-amber-600 cursor-pointer hover:bg-amber-100 transition-colors border border-amber-200 rounded px-1.5 py-0.5"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleOpenAuthorNoteDialog(group)
+                                    }}
                                   >
                                     <StickyNote className="w-3 h-3 mr-1" />
                                     メモ
@@ -1692,9 +1725,21 @@ ${scenariosText}
                                 </TooltipTrigger>
                                 <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap bg-white border shadow-lg rounded-md p-2">
                                   <p className="text-sm text-foreground">{group.authorNotes}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">クリックで編集</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
+                          ) : (
+                            <span 
+                              className="inline-flex items-center text-xs text-muted-foreground cursor-pointer hover:bg-muted transition-colors border border-dashed border-muted-foreground/30 rounded px-1.5 py-0.5"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenAuthorNoteDialog(group)
+                              }}
+                            >
+                              <StickyNote className="w-3 h-3 mr-1" />
+                              メモ追加
+                            </span>
                           )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
