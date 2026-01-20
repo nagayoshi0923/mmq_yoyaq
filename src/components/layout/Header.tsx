@@ -130,7 +130,7 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
       className="border-b h-[44px] sm:h-[48px] md:h-[52px] text-white"
       style={{ backgroundColor: THEME.primary, borderColor: THEME.primaryHover }}
     >
-      <div className="mx-auto px-2 sm:px-3 md:px-4 md:px-6 h-full max-w-full overflow-hidden">
+      <div className="mx-auto px-2 sm:px-3 md:px-4 md:px-6 h-full max-w-full overflow-visible">
         <div className="flex items-center justify-between h-full gap-1 sm:gap-2">
           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 min-w-0 flex-shrink">
             {/* プラットフォームロゴ → プラットフォームトップへ */}
