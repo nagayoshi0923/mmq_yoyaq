@@ -686,6 +686,10 @@ export const scheduleApi = {
     is_reservation_enabled?: boolean
     venue_rental_fee?: number  // 場所貸し公演料金
     organization_id: string  // マルチテナント対応：必須
+    reservation_name?: string | null  // 貸切予約の予約者名
+    is_reservation_name_overwritten?: boolean  // 予約者名が手動上書きされたか
+    is_private_request?: boolean  // 貸切リクエストかどうか
+    reservation_id?: string | null  // 貸切リクエストID
   }) {
     // シナリオ名から自動でマッチングして scenario_id と正式名称を設定
     const finalData = { ...eventData }

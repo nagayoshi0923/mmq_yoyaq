@@ -356,8 +356,14 @@ export function useEventOperations({
         end_time: defaults.end_time,
         capacity: draggedEvent.max_participants,
         gms: draggedEvent.gms,
+        gm_roles: draggedEvent.gm_roles, // GMの役割情報を保持
         notes: draggedEvent.notes,
-        organization_id: organizationId // マルチテナント対応
+        organization_id: organizationId, // マルチテナント対応
+        // 予約関連フィールドを保持
+        reservation_name: draggedEvent.reservation_name || null,
+        is_reservation_name_overwritten: draggedEvent.is_reservation_name_overwritten || false,
+        is_private_request: draggedEvent.is_private_request || false,
+        reservation_id: draggedEvent.reservation_id || null
       }
 
       const savedEvent = await scheduleApi.create(newEventData)
@@ -368,7 +374,12 @@ export function useEventOperations({
         const newEvent: ScheduleEvent = {
           ...savedEvent,
           venue: dropTarget.venue,
-          scenarios: draggedEvent.scenarios || savedEvent.scenarios
+          scenarios: draggedEvent.scenarios || savedEvent.scenarios,
+          // 予約関連フィールドを保持
+          reservation_name: draggedEvent.reservation_name,
+          is_reservation_name_overwritten: draggedEvent.is_reservation_name_overwritten,
+          is_private_request: draggedEvent.is_private_request,
+          reservation_id: draggedEvent.reservation_id
         }
         return [...filtered, newEvent]
       })
@@ -433,8 +444,15 @@ export function useEventOperations({
         end_time: defaults.end_time,
         capacity: draggedEvent.max_participants,
         gms: draggedEvent.gms,
+        gm_roles: draggedEvent.gm_roles, // GMの役割情報を保持
         notes: draggedEvent.notes,
-        organization_id: organizationId // マルチテナント対応
+        organization_id: organizationId, // マルチテナント対応
+        // 予約関連フィールドを保持（複製時も元のデータを引き継ぐ）
+        reservation_name: draggedEvent.reservation_name || null,
+        is_reservation_name_overwritten: draggedEvent.is_reservation_name_overwritten || false,
+        is_private_request: draggedEvent.is_private_request || false,
+        // 複製時はreservation_idはクリア（別の公演として扱う）
+        reservation_id: null
       }
 
       const savedEvent = await scheduleApi.create(newEventData)
@@ -443,7 +461,11 @@ export function useEventOperations({
       const newEvent: ScheduleEvent = {
         ...savedEvent,
         venue: dropTarget.venue,
-        scenarios: draggedEvent.scenarios || savedEvent.scenarios
+        scenarios: draggedEvent.scenarios || savedEvent.scenarios,
+        // 予約関連フィールドを保持
+        reservation_name: draggedEvent.reservation_name,
+        is_reservation_name_overwritten: draggedEvent.is_reservation_name_overwritten,
+        is_private_request: draggedEvent.is_private_request
       }
       setEvents(prev => [...prev, newEvent])
 
