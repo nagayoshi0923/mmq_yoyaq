@@ -1,5 +1,10 @@
 -- キャンセル待ちテーブルのRLSポリシー修正
 -- auth.users への直接アクセスを auth.jwt() や auth.email() に変更
+--
+-- セキュリティ注意:
+-- - 未認証ユーザーもINSERT可能にしています（予約サイトからの登録のため）
+-- - スパム対策として、フロントエンド側でレート制限やCAPTCHAを検討してください
+-- - または、notify-waitlist Edge Function でメール認証を要求することも検討
 
 -- 既存のポリシーを削除
 DROP POLICY IF EXISTS "Organization members can insert waitlist" ON waitlist;

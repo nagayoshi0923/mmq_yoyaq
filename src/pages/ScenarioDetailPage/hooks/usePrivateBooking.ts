@@ -109,8 +109,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         const currentDate = new Date()
         const monthPromises = []
         
-        // 現在の月から3ヶ月先までの公演を並列取得
-        for (let i = 0; i < 3; i++) {
+        // 現在の月から6ヶ月先までの公演を並列取得
+        for (let i = 0; i < 6; i++) {
           const targetDate = new Date(currentDate)
           targetDate.setMonth(currentDate.getMonth() + i)
           

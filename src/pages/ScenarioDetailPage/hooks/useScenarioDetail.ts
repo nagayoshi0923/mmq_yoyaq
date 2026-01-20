@@ -57,12 +57,13 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
       
       const scenarioData = scenarioDataResult
       
-      // 現在の日付から3ヶ月先までの期間を計算
+      // 現在の日付から6ヶ月先までの期間を計算
       const currentDate = new Date()
       const monthPromises = []
       
-      // 現在の月から3ヶ月先までの公演を並列取得（元の実装に戻す）
-      for (let i = 0; i < 3; i++) {
+      // 現在の月から6ヶ月先までの公演を並列取得
+      // 注意: 3ヶ月だと4月目以降にデータがなくなるため6ヶ月に拡張
+      for (let i = 0; i < 6; i++) {
         const targetDate = new Date(currentDate)
         targetDate.setMonth(currentDate.getMonth() + i)
         
@@ -73,7 +74,7 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
         monthPromises.push(scheduleApi.getByMonth(year, month, orgId))
       }
       
-      // 3ヶ月分のデータを並列取得
+      // 6ヶ月分のデータを並列取得
       const monthResults = await Promise.all(monthPromises).catch((error) => {
         logger.error('イベントデータの取得エラー:', error)
         return []

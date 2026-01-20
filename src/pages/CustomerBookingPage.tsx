@@ -157,11 +157,11 @@ export function CustomerBookingPage() {
     try {
       setIsLoading(true)
       
-      // 現在の月から3ヶ月先までの公演を取得
+      // 現在の月から6ヶ月先までの公演を取得
       const currentDate = new Date()
       const events: PublicEvent[] = []
       
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 6; i++) {
         const targetDate = new Date(currentDate)
         targetDate.setMonth(currentDate.getMonth() + i)
         
