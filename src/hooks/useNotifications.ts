@@ -28,16 +28,19 @@ export function useNotifications() {
   // DBから通知を取得
   const fetchFromDatabase = useCallback(async (): Promise<Notification[] | null> => {
     try {
+      console.log('🔔 fetchFromDatabase: DBから通知取得開始')
       const { data, error } = await supabase
         .from('user_notifications')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(20)
 
+      console.log('🔔 fetchFromDatabase結果:', { data, error, count: data?.length })
+
       if (error) {
         // テーブルが存在しない場合はnullを返してフォールバック
         if (error.code === '42P01' || error.message.includes('does not exist')) {
-          logger.log('user_notificationsテーブルが存在しないため、フォールバック処理を使用')
+          console.log('🔔 user_notificationsテーブルが存在しないため、フォールバック処理を使用')
           return null
         }
         throw error
@@ -54,7 +57,7 @@ export function useNotifications() {
         data: row.metadata
       })) || []
     } catch (error) {
-      logger.error('DB通知取得エラー:', error)
+      console.error('🔔 DB通知取得エラー:', error)
       return null
     }
   }, [])
