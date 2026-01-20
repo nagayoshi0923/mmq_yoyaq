@@ -46,8 +46,14 @@ serve(async (req) => {
       message 
     }: ContactInquiryRequest = await req.json()
 
-    // バリデーション
-    if (!contactEmail) {
+    // 送信先の決定
+    // contactEmailが指定されていない場合（プラットフォーム全体の問い合わせ）は
+    // 環境変数からデフォルトのメールアドレスを使用
+    const DEFAULT_CONTACT_EMAIL = Deno.env.get('DEFAULT_CONTACT_EMAIL') || 'info@mmq-yoyaq.jp'
+    const toEmail = contactEmail || DEFAULT_CONTACT_EMAIL
+    
+    // バリデーション - 送信先がない場合のみエラー
+    if (!toEmail) {
       return new Response(
         JSON.stringify({ success: false, error: '送信先が設定されていません' }),
         { status: 400, headers: corsHeaders }
@@ -165,7 +171,7 @@ ${message}
       },
       body: JSON.stringify({
         from: 'MMQ予約システム <noreply@mmq-yoyaq.jp>',
-        to: [contactEmail],
+        to: [toEmail],
         reply_to: email,
         subject: `【お問い合わせ】${typeLabel}${subject ? `: ${subject}` : ''}`,
         html: emailHtml,

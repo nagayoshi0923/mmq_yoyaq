@@ -3,6 +3,7 @@ import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { getColorFromName } from '@/lib/utils'
 import { logger } from '@/utils/logger'
+import { formatDateJST } from '@/utils/dateUtils'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
 
 /**
@@ -100,8 +101,14 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
       setStores(storesData)
       
       // このシナリオの公演をフィルタリング（満席も含めて全て表示）
+      // 今日の日付（過去の公演は除外）
+      const todayJST = formatDateJST(new Date())
+      
       const scenarioEvents = allEvents
         .filter((event: any) => {
+          // 過去の公演は除外（今日以降のみ表示）
+          if (event.date < todayJST) return false
+          
           // シナリオの照合
           const isMatchingScenario = 
             event.scenario_id === scenarioData.id ||
