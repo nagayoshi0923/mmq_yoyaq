@@ -249,8 +249,11 @@ ${scenariosText}
       
       if (selectError) {
         logger.error('Failed to check existing record:', selectError)
+        showToast.error('他社公演数の保存に失敗しました', selectError.message)
         return
       }
+      
+      let saveError: Error | null = null
       
       if (count === 0) {
         // 0の場合は削除
@@ -259,7 +262,10 @@ ${scenariosText}
             .from('manual_external_performances')
             .delete()
             .eq('id', existing.id)
-          if (error) logger.error('Failed to delete:', error)
+          if (error) {
+            logger.error('Failed to delete:', error)
+            saveError = error
+          }
         }
       } else if (existing?.id) {
         // 既存レコードがあれば更新
@@ -270,7 +276,10 @@ ${scenariosText}
             updated_by: staffId
           })
           .eq('id', existing.id)
-        if (error) logger.error('Failed to update:', error)
+        if (error) {
+          logger.error('Failed to update:', error)
+          saveError = error
+        }
       } else {
         // なければ挿入
         const { error } = await supabase
@@ -320,12 +329,20 @@ ${scenariosText}
                 details: updateError.details,
                 hint: updateError.hint,
               })
+              saveError = updateError
             }
+          } else {
+            saveError = error
           }
         }
       }
+      
+      if (saveError) {
+        showToast.error('他社公演数の保存に失敗しました', saveError.message)
+      }
     } catch (error) {
       logger.error('Failed to save external input:', error)
+      showToast.error('他社公演数の保存に失敗しました')
     } finally {
       savingScenarios.current.delete(scenarioId)
       // 他に保存中がなければフラグをオフ
