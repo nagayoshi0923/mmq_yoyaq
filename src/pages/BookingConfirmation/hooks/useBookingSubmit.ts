@@ -302,6 +302,11 @@ interface UseBookingSubmitProps {
 export function useBookingSubmit(props: UseBookingSubmitProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [completedReservation, setCompletedReservation] = useState<{
+    reservationNumber: string
+    participantCount: number
+    totalPrice: number
+  } | null>(null)
 
   /**
    * 予約を送信
@@ -525,6 +530,12 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         logger.error('メール送信処理エラー:', emailError)
       }
 
+      // 完了した予約情報を保存
+      setCompletedReservation({
+        reservationNumber: reservationNumber,
+        participantCount: participantCount,
+        totalPrice: props.participationFee * participantCount
+      })
       setSuccess(true)
       
     } catch (error) {
@@ -538,6 +549,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
   return {
     isSubmitting,
     success,
+    completedReservation,
     handleSubmit
   }
 }
