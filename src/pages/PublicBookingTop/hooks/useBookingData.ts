@@ -99,16 +99,17 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         }
       }
       
-      // 今日から3ヶ月分のデータを取得
+      // 今日から6ヶ月分のデータを取得
       // カレンダーで月切り替えができるように、先の月も含める
+      // 注意: 3ヶ月だと4月目以降にデータがなくなるため6ヶ月に拡張
       const currentDate = new Date()
       const todayJST = formatDateJST(currentDate)
 
-      // 今日から3ヶ月後までを取得
+      // 今日から6ヶ月後までを取得
       const year = currentDate.getFullYear()
       const month = currentDate.getMonth() + 1
       const startDate = todayJST // 今日以降のみ取得（過去は不要）
-      const endMonthDate = new Date(year, month + 2, 0) // 3ヶ月後の月末
+      const endMonthDate = new Date(year, month + 5, 0) // 6ヶ月後の月末
       const endDate = formatDateJST(endMonthDate)
 
       const apiStartTime = performance.now()

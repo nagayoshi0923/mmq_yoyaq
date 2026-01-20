@@ -121,7 +121,7 @@ export const checkDuplicateReservation = async (
 
     // 2. 同じ日時の別公演への予約をチェック
     if (eventDate && startTime && customerEmail) {
-      // 同じ日付の予約を取得
+      // 同じ日付の予約を取得（公演時間情報も含める）
       const { data: sameTimeReservations, error: sameTimeError } = await supabase
         .from('reservations')
         .select(`
@@ -131,6 +131,7 @@ export const checkDuplicateReservation = async (
           reservation_number,
           schedule_event_id,
           requested_datetime,
+          duration,
           title
         `)
         .eq('customer_email', customerEmail)
@@ -138,17 +139,29 @@ export const checkDuplicateReservation = async (
         .neq('schedule_event_id', eventId)
       
       if (!sameTimeError && sameTimeReservations && sameTimeReservations.length > 0) {
-        // 時間の重複をチェック（同じ日付かつ開始時間が2時間以内）
-        const targetDateTime = new Date(`${eventDate}T${startTime}`)
+        // 予約しようとしている公演の時間帯を計算
+        const targetStartTime = new Date(`${eventDate}T${startTime}`)
+        // デフォルト公演時間: 120分（2時間）
+        const DEFAULT_DURATION_MS = 120 * 60 * 1000
+        const targetEndTime = new Date(targetStartTime.getTime() + DEFAULT_DURATION_MS)
         
         for (const res of sameTimeReservations) {
           if (!res.requested_datetime) continue
           
-          const resDateTime = new Date(res.requested_datetime)
-          const timeDiff = Math.abs(targetDateTime.getTime() - resDateTime.getTime()) / (1000 * 60 * 60)
+          const resStartTime = new Date(res.requested_datetime)
           
-          // 同じ日付で開始時間が2時間以内の場合は重複扱い
-          if (resDateTime.toDateString() === targetDateTime.toDateString() && timeDiff < 2) {
+          // 同じ日付かチェック
+          if (resStartTime.toDateString() !== targetStartTime.toDateString()) continue
+          
+          // 既存予約の終了時間を計算
+          const resDurationMs = (res.duration || 120) * 60 * 1000
+          const resEndTime = new Date(resStartTime.getTime() + resDurationMs)
+          
+          // 時間帯の重複チェック
+          // 重複条件: 新予約の開始 < 既存の終了 かつ 新予約の終了 > 既存の開始
+          const isOverlapping = targetStartTime < resEndTime && targetEndTime > resStartTime
+          
+          if (isOverlapping) {
             return { 
               hasDuplicate: true, 
               existingReservation: { 
@@ -439,6 +452,11 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
 
       // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
       // 相対的な加減算ではなく、常に予約テーブルから集計して絶対値を設定
+      //
+      // 注意: 現在は「楽観的ロック」を使用しています。
+      // これは予約挿入後にオーバーブッキングを検出してロールバックする方式です。
+      // より厳密な競合制御が必要な場合は、database/functions/create_reservation_atomic.sql の
+      // RPC関数を使用してください（トランザクション内でロックとチェックを行います）。
       try {
         const newCount = await recalculateCurrentParticipants(props.eventId)
         
