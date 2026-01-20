@@ -255,6 +255,10 @@ ${scenariosText}
       
       let saveError: Error | null = null
       
+      // 認証ユーザーのIDを取得（usersテーブルのid）
+      const { data: { user } } = await supabase.auth.getUser()
+      const authUserId = user?.id || null
+      
       if (count === 0) {
         // 0の場合は削除
         if (existing?.id) {
@@ -273,7 +277,7 @@ ${scenariosText}
           .from('manual_external_performances')
           .update({
             performance_count: count,
-            updated_by: staffId
+            updated_by: authUserId
           })
           .eq('id', existing.id)
         if (error) {
@@ -290,7 +294,7 @@ ${scenariosText}
             year: selectedYear,
             month: selectedMonth,
             performance_count: count,
-            updated_by: staffId
+            updated_by: authUserId
           })
         if (error) {
           // 409 (unique violation) の場合、既存行がある前提でUPDATEにフォールバック
@@ -315,7 +319,7 @@ ${scenariosText}
               .from('manual_external_performances')
               .update({
                 performance_count: count,
-                updated_by: staffId,
+                updated_by: authUserId,
               })
               .eq('organization_id', organizationId)
               .eq('scenario_id', scenarioId)
@@ -350,7 +354,7 @@ ${scenariosText}
         setIsSavingExternal(false)
       }
     }
-  }, [organizationId, staffId, selectedYear, selectedMonth])
+  }, [organizationId, selectedYear, selectedMonth])
   
   // 他社公演数の入力ハンドラ（debounce付き - シナリオごと）
   const handleExternalInputChange = useCallback((scenarioId: string, value: number) => {
