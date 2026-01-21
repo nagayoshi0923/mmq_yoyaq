@@ -59,17 +59,40 @@ export function ResetPassword() {
         const refreshToken = extractParam('refresh_token')
         const type = extractParam('type')
 
-        logger.log('🔧 ResetPassword: URL解析 v2', {
+        logger.log('🔧 ResetPassword: URL解析 v3', {
           hasAccessToken: !!accessToken,
           hasRefreshToken: !!refreshToken,
-          type
+          type,
+          url: window.location.href
         })
+
+        // typeがrecoveryであることを確認（パスワードリセット用のリンク）
+        if (type && type !== 'recovery') {
+          logger.warn('予期しないリンクタイプ:', type)
+          setError('このリンクはパスワードリセット用ではありません。')
+          setIsCheckingSession(false)
+          return
+        }
 
         if (accessToken && refreshToken) {
           // トークンが見つかった場合、stateに保存
           // 既存セッションがあっても、リカバリートークンがあるならそれを優先するために保存する
           setTokens({ accessToken, refreshToken })
           setIsCheckingSession(false)
+        } else if (type === 'recovery') {
+          // typeがrecoveryだがトークンがない場合（Safari/iOS でハッシュが消えることがある）
+          // URLからの再取得を試みる
+          logger.warn('Recovery typeだがトークンがない - 既存セッションを確認')
+          const { data: { session: existingSession } } = await supabase.auth.getSession()
+          
+          if (existingSession) {
+            logger.log('既存のセッションが見つかりました（recoveryモード）')
+            setTokens({ accessToken: null, refreshToken: null })
+            setIsCheckingSession(false)
+          } else {
+            setError('リセットリンクの処理に失敗しました。もう一度メールのリンクをクリックするか、再申請してください。')
+            setIsCheckingSession(false)
+          }
         } else {
           // トークンがない場合、既存のセッションを確認
           const { data: { session: existingSession } } = await supabase.auth.getSession()

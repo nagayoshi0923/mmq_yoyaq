@@ -198,10 +198,25 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            // メタデータにユーザー情報を保存（確認後にトリガーで使用可能）
+            data: {
+              name: customerName.trim(),
+              phone: customerPhone.trim(),
+            }
+          }
         })
-        if (error) throw error
         
-        // usersテーブルにレコードを作成
+        if (error) {
+          // 重複メールアドレスのエラーを日本語化
+          if (error.message.includes('already registered') || error.message.includes('already exists')) {
+            throw new Error('このメールアドレスは既に登録されています。ログインするか、パスワードリセットをお試しください。')
+          }
+          throw error
+        }
+        
+        // usersテーブルとcustomersテーブルにレコードを作成
+        // 注意: Supabaseの設定によってはメール確認前はuserがnullになる場合がある
         if (signUpData.user) {
           const role = determineUserRole(email)
           await supabase
@@ -219,6 +234,19 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
             .from('customers')
             .upsert({
               user_id: signUpData.user.id,
+              name: customerName.trim(),
+              email: email,
+              phone: customerPhone.trim(),
+              visit_count: 0,
+              total_spent: 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'email' })
+        } else {
+          // userがnullでもcustomersテーブルには登録（user_idはnullで後から紐付け）
+          await supabase
+            .from('customers')
+            .upsert({
               name: customerName.trim(),
               email: email,
               phone: customerPhone.trim(),
@@ -285,18 +313,29 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         }, 500)
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : ''
+      const errorMessage = error instanceof Error ? error.message : ''
       
       if (mode === 'forgot') {
+        // パスワードリセットは成功・失敗を区別しない（セキュリティ上）
         setMessage('パスワードリセット用のメールを送信しました。登録済みのアドレスの場合、メールが届きます。')
       } else if (mode === 'signup') {
-        setMessage('確認メールを送信しました。メールのリンクをクリックしてアカウントを有効化してください。')
+        // 新規登録エラーを適切に表示
+        if (errorMessage.includes('already registered') || errorMessage.includes('already exists') || errorMessage.includes('既に登録')) {
+          setError('このメールアドレスは既に登録されています。ログインするか、パスワードリセットをお試しください。')
+        } else if (errorMessage.includes('Invalid email')) {
+          setError('有効なメールアドレスを入力してください')
+        } else if (errorMessage.includes('Password')) {
+          setError('パスワードは6文字以上で入力してください')
+        } else {
+          setError('アカウント作成に失敗しました: ' + (errorMessage || 'もう一度お試しください'))
+        }
       } else {
-        if (message.includes('Invalid login credentials')) {
+        // ログインエラー
+        if (errorMessage.includes('Invalid login credentials')) {
           setError('メールアドレスまたはパスワードが正しくありません')
-        } else if (message.includes('Email not confirmed')) {
+        } else if (errorMessage.includes('Email not confirmed')) {
           setError('メールアドレスが確認されていません。確認メールのリンクをクリックしてください')
-        } else if (message.includes('too many requests')) {
+        } else if (errorMessage.includes('too many requests')) {
           setError('ログイン試行回数が多すぎます。しばらく待ってから再度お試しください')
         } else {
           setError('ログインに失敗しました。もう一度お試しください')
