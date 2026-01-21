@@ -111,8 +111,11 @@ export const BookingPanel = memo(function BookingPanel({
         className="w-full h-10 text-base"
         onClick={() => {
           if (!isLoggedIn) {
-            // 未ログイン時は戻り先URLを保存してログインページへ遷移
-            sessionStorage.setItem('returnUrl', window.location.pathname + window.location.search)
+            // 未ログイン時は戻り先URLと予約状態を保存してログインページへ遷移
+            const returnUrl = selectedEventId 
+              ? `${window.location.pathname}?event=${selectedEventId}&count=${participantCount}`
+              : window.location.pathname + window.location.search
+            sessionStorage.setItem('returnUrl', returnUrl)
             navigate('/login')
             return
           }

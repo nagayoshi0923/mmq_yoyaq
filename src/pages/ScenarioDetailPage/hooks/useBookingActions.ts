@@ -1,7 +1,7 @@
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getCurrentParticipantsCount } from '@/lib/participantUtils'
 import type { EventSchedule } from '../utils/types'
 
@@ -15,11 +15,43 @@ interface UseBookingActionsProps {
  */
 export function useBookingActions({ events, onReload }: UseBookingActionsProps) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<EventSchedule | null>(null)
   const [participantCount, setParticipantCount] = useState(1)
   const [showBookingConfirmation, setShowBookingConfirmation] = useState(false)
   const [showPrivateBookingRequest, setShowPrivateBookingRequest] = useState(false)
+  
+  // URLパラメータからの復元を一度だけ実行するフラグ
+  const hasRestoredFromUrl = useRef(false)
+  
+  // URLパラメータから予約状態を復元
+  useEffect(() => {
+    if (hasRestoredFromUrl.current || events.length === 0) return
+    
+    const eventParam = searchParams.get('event')
+    const countParam = searchParams.get('count')
+    
+    if (eventParam) {
+      // 指定された公演IDが存在するか確認
+      const event = events.find(e => e.event_id === eventParam)
+      if (event) {
+        setSelectedEventId(eventParam)
+        if (countParam) {
+          const count = parseInt(countParam, 10)
+          if (!isNaN(count) && count > 0) {
+            setParticipantCount(count)
+          }
+        }
+        // URLからパラメータを削除（履歴を汚さないためreplace）
+        searchParams.delete('event')
+        searchParams.delete('count')
+        setSearchParams(searchParams, { replace: true })
+        
+        hasRestoredFromUrl.current = true
+      }
+    }
+  }, [events, searchParams, setSearchParams])
 
   // 予約処理
   const handleBooking = useCallback(async () => {
