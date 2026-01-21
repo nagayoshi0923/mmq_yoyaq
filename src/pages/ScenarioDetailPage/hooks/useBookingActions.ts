@@ -41,8 +41,11 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
       const maxParticipants = event.max_participants || 8
       const availableSeats = maxParticipants - currentParticipants
 
+      // 満席の場合でも予約確認画面に遷移（キャンセル待ち登録が可能）
       if (availableSeats <= 0) {
-        showToast.warning('この公演は満席です')
+        // 満席でもBookingConfirmationに遷移（キャンセル待ちUI表示）
+        setSelectedEvent(event)
+        setShowBookingConfirmation(true)
         return
       }
 
