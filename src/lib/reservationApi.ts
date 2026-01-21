@@ -151,7 +151,7 @@ export const reservationApi = {
       .from('reservations')
       .select('*, customers(*)')
       .eq('schedule_event_id', scheduleEventId)
-      .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+      .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
     
     if (organizationId) {
       query = query.eq('organization_id', organizationId)

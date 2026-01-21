@@ -56,6 +56,7 @@ export function ReservationList({
   const [cancellingReservation, setCancellingReservation] = useState<Reservation | null>(null)
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
   const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false)
+  const [shouldSendEmail, setShouldSendEmail] = useState(true) // メール送信するかどうか
   const [emailContent, setEmailContent] = useState({
     customerEmail: '',
     customerName: '',
@@ -68,8 +69,63 @@ export function ReservationList({
     participantCount: 0,
     totalPrice: 0,
     reservationNumber: '',
-    cancellationFee: 0
+    cancellationFee: 0,
+    paymentMethod: 'onsite' as 'onsite' | 'online' | 'staff' | string,
+    cancellationPolicy: '', // 設定から取得したポリシー
+    organizationName: '', // 組織名
+    emailBody: '' // メール本文全体
   })
+  
+  // メール本文を生成
+  const generateEmailBody = (content: typeof emailContent) => {
+    const formatDate = (dateStr: string): string => {
+      if (!dateStr) return ''
+      try {
+        const date = new Date(dateStr)
+        const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+        return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日(${weekdays[date.getDay()]})`
+      } catch {
+        return dateStr
+      }
+    }
+    const formatTime = (t: string) => t?.slice(0, 5) || ''
+    
+    // 支払い方法によって文言を変える
+    const isOnsitePayment = content.paymentMethod === 'onsite'
+    const refundMessage = isOnsitePayment
+      ? 'お支払いは不要となりました。'
+      : 'お支払いいただいた料金は全額返金させていただきます。'
+    
+    // キャンセルポリシーがあれば追加
+    const policySection = content.cancellationPolicy 
+      ? `\n【キャンセルポリシー】\n${content.cancellationPolicy}\n`
+      : ''
+    
+    return `${content.customerName} 様
+
+いつもご利用いただきありがとうございます。
+
+誠に申し訳ございませんが、以下のご予約をキャンセルさせていただくこととなりました。
+
+【予約情報】
+予約番号: ${content.reservationNumber}
+シナリオ: ${content.scenarioTitle}
+日時: ${formatDate(content.eventDate)} ${formatTime(content.startTime)} - ${formatTime(content.endTime)}
+会場: ${content.storeName}
+参加人数: ${content.participantCount}名
+
+【キャンセル理由】
+${content.cancellationReason}
+
+${content.cancellationFee > 0 ? `【キャンセル料】\n¥${content.cancellationFee.toLocaleString()}\n\n` : ''}${refundMessage}${policySection}
+この度は大変ご迷惑をおかけし、誠に申し訳ございませんでした。
+またのご利用を心よりお待ちしております。
+
+---
+${content.organizationName || '店舗'}
+このメールは自動送信されています。
+ご不明な点がございましたら、お気軽にお問い合わせください。`
+  }
   const [isAddingParticipant, setIsAddingParticipant] = useState(false)
   const [newParticipant, setNewParticipant] = useState({
     customer_name: '',
@@ -100,7 +156,7 @@ export function ReservationList({
                 .from('reservations')
                 .select('*, customers(*)')
                 .eq('id', event.reservation_id)
-                .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
               
               if (error) {
                 logger.error('貸切予約データの取得に失敗:', error)
@@ -119,8 +175,8 @@ export function ReservationList({
                 const { data, error } = await supabase
                   .from('reservations')
                   .select('*, customers(*)')
-                  .eq('id', event.reservation_id)
-                  .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+                .eq('id', event.reservation_id)
+                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
                 
                 if (error) {
                   logger.error('貸切予約データの取得に失敗:', error)
@@ -232,8 +288,8 @@ export function ReservationList({
       const oldStatus = reservation.status
       
       if (newStatus === 'cancelled' && oldStatus !== 'cancelled') {
-        setCancellingReservation(reservation)
-        setIsCancelDialogOpen(true)
+        // 直接メール文面付き確認ダイアログを開く
+        openCancelDialog(reservation)
         return
       }
       
@@ -267,109 +323,158 @@ export function ReservationList({
     }
   }
 
-  // キャンセル確認処理
-  const handleConfirmCancel = () => {
-    if (!cancellingReservation || !event) return
+  // キャンセル確認ダイアログを開く（メール文面も準備）
+  const openCancelDialog = async (reservation: Reservation) => {
+    if (!event) return
 
     try {
-      // スタッフ参加の場合はメール送信なしで直接削除
-      const isStaffReservation = 
-        cancellingReservation.reservation_source === 'staff_entry' ||
-        cancellingReservation.reservation_source === 'staff_participation' ||
-        cancellingReservation.payment_method === 'staff'
+      setCancellingReservation(reservation)
       
-      if (isStaffReservation) {
-        handleExecuteCancelWithoutEmail(true)
-        setIsCancelDialogOpen(false)
+      // スタッフ参加かどうかを判定
+      const isStaffReservation = 
+        reservation.reservation_source === 'staff_entry' ||
+        reservation.reservation_source === 'staff_participation' ||
+        reservation.payment_method === 'staff'
+
+      const customerName = reservation.customer_name || 
+        (reservation.customers ? 
+          (Array.isArray(reservation.customers) ? reservation.customers[0]?.name : reservation.customers?.name) : 
+          null) || 
+        reservation.customer_notes
+
+      const customerEmail = reservation.customer_email || 
+        (reservation.customers ? 
+          (Array.isArray(reservation.customers) ? reservation.customers[0]?.email : reservation.customers?.email) : 
+          null)
+
+      // スタッフかどうかを名前から判定
+      let isStaffByName = false
+      if (!customerEmail && customerName) {
+        const normalizedName = customerName.replace(/様$/, '').trim()
+        const staffMember = staff.find(s => s.name === normalizedName)
+        isStaffByName = !!staffMember
+      }
+
+      const isStaff = isStaffReservation || isStaffByName
+
+      // スタッフの場合はシンプルな確認ダイアログを表示
+      if (isStaff) {
+        setIsCancelDialogOpen(true)
         return
       }
 
-      const customerName = cancellingReservation.customer_name || 
-        (cancellingReservation.customers ? 
-          (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.name : cancellingReservation.customers?.name) : 
-          null) || 
-        cancellingReservation.customer_notes // 顧客名がない場合はcustomer_notesをフォールバックとして使用
-
-      const customerEmail = cancellingReservation.customer_email || 
-        (cancellingReservation.customers ? 
-          (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.email : cancellingReservation.customers?.email) : 
-          null)
-
-      // メールアドレスが見つからない場合、スタッフ情報から検索を試みる（スタッフ参加以外の場合のみ）
-      if (!customerEmail && customerName) {
-        // 名前からスタッフを検索（完全一致）
-        const normalizedName = customerName.replace(/様$/, '').trim()
-        const staffMember = staff.find(s => s.name === normalizedName)
-        
-        // スタッフとしてマッチした場合もメール送信なしで削除
-        if (staffMember) {
-          handleExecuteCancelWithoutEmail(true)
-          setIsCancelDialogOpen(false)
-          return
-        }
-      }
-
+      // 顧客の場合はメール文面付き確認ダイアログを開く
       const eventDate = event.date || currentEventData.date
       const startTime = event.start_time || currentEventData.start_time
       const endTime = event.end_time || currentEventData.end_time
-      const scenarioTitle = event.scenario || currentEventData.scenario || cancellingReservation.title || ''
-      const storeName = currentEventData.venue 
-        ? stores.find(s => s.id === currentEventData.venue)?.name 
-        : event.venue 
-          ? stores.find(s => s.name === event.venue)?.name || event.venue
-          : ''
+      const scenarioTitle = event.scenario || currentEventData.scenario || reservation.title || ''
+      
+      // 店舗情報を取得
+      const storeId = currentEventData.venue || (event.venue ? stores.find(s => s.name === event.venue)?.id : null)
+      const storeName = storeId 
+        ? stores.find(s => s.id === storeId)?.name 
+        : event.venue || ''
 
-      let cancellationFee = 0
-      if (eventDate && startTime) {
+      // 店舗のキャンセル設定と組織名を取得
+      let cancellationPolicy = ''
+      let organizationName = ''
+      const totalPrice = reservation.total_price || reservation.final_price || 0
+      
+      // 店舗都合のキャンセルなのでキャンセル料は0
+      // ※顧客都合のキャンセルの場合のみキャンセル料が発生する
+      const cancellationFee = 0
+      
+      if (storeId) {
         try {
-          const eventDateTime = new Date(`${eventDate}T${startTime}`)
-          const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
-          cancellationFee = hoursUntilEvent < 24 ? (cancellingReservation.total_price || cancellingReservation.final_price || 0) : 0
-        } catch (dateError) {
-          logger.warn('日時計算エラー:', dateError)
+          // キャンセル設定を取得（ポリシー文章のみ使用）
+          const { data: settings } = await supabase
+            .from('reservation_settings')
+            .select('cancellation_policy')
+            .eq('store_id', storeId)
+            .maybeSingle()
+          
+          if (settings) {
+            cancellationPolicy = settings.cancellation_policy || ''
+          }
+          
+          // 組織名を取得
+          const { data: storeData } = await supabase
+            .from('stores')
+            .select('organization_id, organizations(name)')
+            .eq('id', storeId)
+            .single()
+          
+          if (storeData?.organizations) {
+            // リレーション結果がオブジェクトか配列かを判定
+            const org = storeData.organizations as { name: string } | { name: string }[]
+            if (Array.isArray(org)) {
+              organizationName = org[0]?.name || ''
+            } else {
+              organizationName = org.name || ''
+            }
+          }
+        } catch (settingsError) {
+          logger.warn('キャンセル設定取得エラー:', settingsError)
         }
       }
 
-      if (customerEmail && customerName) {
-        setEmailContent({
-          customerEmail,
-          customerName,
-          cancellationReason: '店舗都合によるキャンセル',
-          scenarioTitle,
-          eventDate: eventDate || '',
-          startTime: startTime || '',
-          endTime: endTime || '',
-          storeName: storeName || '',
-          participantCount: cancellingReservation.participant_count,
-          totalPrice: cancellingReservation.total_price || cancellingReservation.final_price || 0,
-          reservationNumber: cancellingReservation.reservation_number || '',
-          cancellationFee
-        })
-        setIsEmailConfirmOpen(true)
-        setIsCancelDialogOpen(false)
-      } else {
-        handleExecuteCancelWithoutEmail()
-        setIsCancelDialogOpen(false)
+      const newEmailContent = {
+        customerEmail: customerEmail || '',
+        customerName: customerName || '',
+        cancellationReason: '店舗都合によるキャンセル',
+        scenarioTitle,
+        eventDate: eventDate || '',
+        startTime: startTime || '',
+        endTime: endTime || '',
+        storeName: storeName || '',
+        participantCount: reservation.participant_count,
+        totalPrice,
+        reservationNumber: reservation.reservation_number || '',
+        cancellationFee,
+        paymentMethod: reservation.payment_method || 'onsite',
+        cancellationPolicy,
+        organizationName,
+        emailBody: ''
       }
+      // メール本文を生成
+      newEmailContent.emailBody = generateEmailBody(newEmailContent)
+      setEmailContent(newEmailContent)
+      
+      // メールアドレスがある場合はデフォルトでメール送信ON
+      setShouldSendEmail(!!customerEmail)
+      
+      setIsEmailConfirmOpen(true)
     } catch (error) {
-      logger.error('メール内容の準備エラー:', error)
-      showToast.error('メール内容の準備に失敗しました')
+      logger.error('キャンセル確認ダイアログの準備エラー:', error)
+      showToast.error('エラーが発生しました')
     }
   }
+  
+  // シンプル確認ダイアログからのキャンセル実行（スタッフ用）
+  const handleConfirmCancelFromDialog = () => {
+    if (!cancellingReservation) return
+    handleExecuteCancel(false)
+    setIsCancelDialogOpen(false)
+  }
 
-  // メール送信なしでキャンセル処理のみを実行
-  const handleExecuteCancelWithoutEmail = async (isStaff: boolean = false) => {
+  // キャンセル処理を実行
+  const handleExecuteCancel = async (sendEmail: boolean) => {
     if (!cancellingReservation || !event) return
 
     try {
+      // キャンセル処理を実行
       const cancelledAt = new Date().toISOString()
       await reservationApi.update(cancellingReservation.id, {
         status: 'cancelled',
         cancelled_at: cancelledAt
       })
 
+      // UIを更新（キャンセル済みとして表示を残す）
       setReservations(prev => 
-        prev.filter(r => r.id !== cancellingReservation.id)
+        prev.map(r => r.id === cancellingReservation.id 
+          ? { ...r, status: 'cancelled', cancelled_at: cancelledAt } 
+          : r
+        )
       )
       
       if (expandedReservation === cancellingReservation.id) {
@@ -382,9 +487,9 @@ export function ReservationList({
         return newSelected
       })
 
+      // 参加者数を再計算
       if (event.id && !event.id.startsWith('private-')) {
         try {
-          // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
           const newCount = await recalculateCurrentParticipants(event.id)
           if (onParticipantChange) {
             onParticipantChange(event.id, newCount)
@@ -397,128 +502,6 @@ export function ReservationList({
       // 履歴を記録
       const storeObj = stores.find(s => s.id === currentEventData.venue || s.name === event.venue)
       if (event.id && storeObj?.id) {
-        try {
-          const organizationId = await getCurrentOrganizationId()
-          if (organizationId) {
-            const participantName = cancellingReservation.participant_names?.[0] || 
-              cancellingReservation.customer_notes || 
-              '不明'
-            await createEventHistory(
-              event.id,
-              organizationId,
-              'remove_participant',
-              {
-                participant_name: participantName,
-                participant_count: cancellingReservation.participant_count
-              },
-              {},
-              {
-                date: currentEventData.date || event.date,
-                storeId: storeObj.id,
-                timeSlot: currentEventData.time_slot || null
-              },
-              {
-                notes: `${participantName}（${cancellingReservation.participant_count}名）を削除`
-              }
-            )
-          }
-        } catch (error) {
-          logger.error('参加者削除履歴の記録に失敗:', error)
-        }
-      }
-
-      setCancellingReservation(null)
-      
-      // スタッフ参加の場合、GM欄からも連動して削除（再作成防止）
-      if (isStaff && onGmsChange && cancellingReservation.participant_names?.length) {
-        const staffName = cancellingReservation.participant_names[0]
-        // 現在のGM欄の情報を取得してスタッフ参加を解除
-        const { data: eventData } = await supabase
-          .from('schedule_events')
-          .select('gms, gm_roles')
-          .eq('id', event.id)
-          .single()
-        
-        if (eventData) {
-          const currentGms = eventData.gms || []
-          const currentRoles = eventData.gm_roles || {}
-          
-          // UUIDパターン（gmsには名前が入るべきで、IDが入っている場合は除外）
-          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-          
-          // スタッフ名を削除し、誤って入ったUUIDも除外
-          const newGms = currentGms.filter((g: string) => g !== staffName && !uuidPattern.test(g))
-          const newRoles = { ...currentRoles }
-          delete newRoles[staffName]
-          // UUIDキーも削除
-          Object.keys(newRoles).forEach(key => {
-            if (uuidPattern.test(key)) {
-              delete newRoles[key]
-            }
-          })
-          
-          // DB更新
-          await supabase
-            .from('schedule_events')
-            .update({ gms: newGms, gm_roles: newRoles })
-            .eq('id', event.id)
-          
-          // 親コンポーネントに通知
-          onGmsChange(newGms, newRoles)
-          logger.log('GM欄からスタッフ参加を削除:', staffName)
-        }
-        showToast.success('スタッフ参加を削除しました')
-      } else if (isStaff) {
-        showToast.success('スタッフ参加を削除しました')
-      } else {
-        showToast.success('予約をキャンセルしました', '※ 顧客情報が不足しているため、キャンセル確認メールは送信されませんでした')
-      }
-    } catch (error) {
-      logger.error('予約キャンセルエラー:', error)
-      showToast.error('予約のキャンセルに失敗しました')
-    }
-  }
-
-  // 実際のキャンセル処理とメール送信を実行
-  const handleExecuteCancelAndSendEmail = async () => {
-    if (!cancellingReservation || !event) return
-
-    try {
-      const cancelledAt = new Date().toISOString()
-      await reservationApi.update(cancellingReservation.id, {
-        status: 'cancelled',
-        cancelled_at: cancelledAt
-      })
-
-      setReservations(prev => 
-        prev.filter(r => r.id !== cancellingReservation.id)
-      )
-      
-      if (expandedReservation === cancellingReservation.id) {
-        setExpandedReservation(null)
-      }
-      
-      setSelectedReservations(prev => {
-        const newSelected = new Set(prev)
-        newSelected.delete(cancellingReservation.id)
-        return newSelected
-      })
-
-      if (event.id && !event.id.startsWith('private-')) {
-        try {
-          // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
-          const newCount = await recalculateCurrentParticipants(event.id)
-          if (onParticipantChange) {
-            onParticipantChange(event.id, newCount)
-          }
-        } catch (error) {
-          logger.error('参加者数の更新エラー:', error)
-        }
-      }
-
-      // 履歴を記録
-      const storeObjForEmail = stores.find(s => s.id === currentEventData.venue || s.name === event.venue)
-      if (event.id && storeObjForEmail?.id) {
         try {
           const organizationId = await getCurrentOrganizationId()
           if (organizationId) {
@@ -537,43 +520,87 @@ export function ReservationList({
               {},
               {
                 date: currentEventData.date || event.date,
-                storeId: storeObjForEmail.id,
+                storeId: storeObj.id,
                 timeSlot: currentEventData.time_slot || null
               },
               {
-                notes: `${participantName}（${cancellingReservation.participant_count}名）を削除`
+                notes: `${participantName}（${cancellingReservation.participant_count}名）をキャンセル`
               }
             )
           }
         } catch (error) {
-          logger.error('参加者削除履歴の記録に失敗:', error)
+          logger.error('参加者キャンセル履歴の記録に失敗:', error)
         }
       }
 
-      try {
-        const { error: emailError } = await supabase.functions.invoke('send-cancellation-confirmation', {
-          body: {
-            reservationId: cancellingReservation.id,
-            customerEmail: emailContent.customerEmail,
-            customerName: emailContent.customerName,
-            scenarioTitle: emailContent.scenarioTitle,
-            eventDate: emailContent.eventDate,
-            startTime: emailContent.startTime,
-            endTime: emailContent.endTime,
-            storeName: emailContent.storeName,
-            participantCount: emailContent.participantCount,
-            totalPrice: emailContent.totalPrice,
-            reservationNumber: emailContent.reservationNumber,
-            cancelledBy: 'store',
-            cancellationReason: emailContent.cancellationReason,
-            cancellationFee: emailContent.cancellationFee
-          }
-        })
+      // スタッフ参加の場合、GM欄からも連動して削除
+      const isStaff = cancellingReservation.reservation_source === 'staff_entry' ||
+        cancellingReservation.reservation_source === 'staff_participation' ||
+        cancellingReservation.payment_method === 'staff'
+      
+      if (isStaff && onGmsChange && cancellingReservation.participant_names?.length) {
+        const staffName = cancellingReservation.participant_names[0]
+        const { data: eventData } = await supabase
+          .from('schedule_events')
+          .select('gms, gm_roles')
+          .eq('id', event.id)
+          .single()
+        
+        if (eventData) {
+          const currentGms = eventData.gms || []
+          const currentRoles = eventData.gm_roles || {}
+          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+          const newGms = currentGms.filter((g: string) => g !== staffName && !uuidPattern.test(g))
+          const newRoles = { ...currentRoles }
+          delete newRoles[staffName]
+          Object.keys(newRoles).forEach(key => {
+            if (uuidPattern.test(key)) {
+              delete newRoles[key]
+            }
+          })
+          
+          await supabase
+            .from('schedule_events')
+            .update({ gms: newGms, gm_roles: newRoles })
+            .eq('id', event.id)
+          
+          onGmsChange(newGms, newRoles)
+        }
+        showToast.success('スタッフ参加を削除しました')
+      } else {
+        // メール送信（チェックボックスがONの場合のみ）
+        if (sendEmail && emailContent.customerEmail) {
+          try {
+            const { error: emailError } = await supabase.functions.invoke('send-cancellation-confirmation', {
+              body: {
+                reservationId: cancellingReservation.id,
+                customerEmail: emailContent.customerEmail,
+                customerName: emailContent.customerName,
+                scenarioTitle: emailContent.scenarioTitle,
+                eventDate: emailContent.eventDate,
+                startTime: emailContent.startTime,
+                endTime: emailContent.endTime,
+                storeName: emailContent.storeName,
+                participantCount: emailContent.participantCount,
+                totalPrice: emailContent.totalPrice,
+                reservationNumber: emailContent.reservationNumber,
+                cancelledBy: 'store',
+                cancellationReason: emailContent.cancellationReason,
+                cancellationFee: emailContent.cancellationFee,
+                customEmailBody: emailContent.emailBody,
+                organizationName: emailContent.organizationName
+              }
+            })
 
-        if (emailError) throw emailError
-      } catch (emailError) {
-        logger.error('キャンセル確認メール送信エラー:', emailError)
-        showToast.warning('予約はキャンセルされましたが、メール送信に失敗しました', emailError instanceof Error ? emailError.message : '不明なエラー')
+            if (emailError) throw emailError
+            showToast.success('予約をキャンセルし、メールを送信しました')
+          } catch (emailError) {
+            logger.error('キャンセル確認メール送信エラー:', emailError)
+            showToast.warning('予約はキャンセルされましたが、メール送信に失敗しました')
+          }
+        } else {
+          showToast.success('予約をキャンセルしました')
+        }
       }
 
       setIsEmailConfirmOpen(false)
@@ -590,13 +617,15 @@ export function ReservationList({
         participantCount: 0,
         totalPrice: 0,
         reservationNumber: '',
-        cancellationFee: 0
+        cancellationFee: 0,
+        paymentMethod: 'onsite',
+        cancellationPolicy: '',
+        organizationName: '',
+        emailBody: ''
       })
-      
-      showToast.success('メールを送信しました')
     } catch (error) {
       logger.error('予約キャンセルエラー:', error)
-      showToast.error('予約のキャンセルに失敗しました', error instanceof Error ? error.message : '不明なエラー')
+      showToast.error('予約のキャンセルに失敗しました')
     }
   }
 
@@ -936,8 +965,9 @@ export function ReservationList({
                   {reservations.map((reservation, index) => {
                     const isExpanded = expandedReservation === reservation.id
                     const isLast = index === reservations.length - 1
+                    const isCancelled = reservation.status === 'cancelled'
                     return (
-                      <div key={reservation.id} className={isLast ? '' : 'border-b'}>
+                      <div key={reservation.id} className={`${isLast ? '' : 'border-b'} ${isCancelled ? 'bg-gray-50 opacity-60' : ''}`}>
                         <div className="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
                           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                             <Checkbox
@@ -951,8 +981,9 @@ export function ReservationList({
                                 }
                                 setSelectedReservations(newSelected)
                               }}
+                              disabled={isCancelled}
                             />
-                            <span className="font-medium truncate flex-1 min-w-0 flex items-center gap-2">
+                            <span className={`font-medium truncate flex-1 min-w-0 flex items-center gap-2 ${isCancelled ? 'line-through text-gray-500' : ''}`}>
                               {(() => {
                                 if (reservation.customer_name) {
                                   return reservation.customer_name
@@ -965,8 +996,14 @@ export function ReservationList({
                                 }
                                 return reservation.customer_notes || '顧客名なし'
                               })()}
+                              {/* キャンセル済みバッジ */}
+                              {isCancelled && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 border border-red-200">
+                                  キャンセル済
+                                </span>
+                              )}
                               {/* スタッフ参加バッジ */}
-                              {(reservation.payment_method === 'staff' || 
+                              {!isCancelled && (reservation.payment_method === 'staff' || 
                                 reservation.reservation_source === 'staff_participation' || 
                                 reservation.reservation_source === 'staff_entry') && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 border border-blue-200">
@@ -974,70 +1011,74 @@ export function ReservationList({
                                 </span>
                               )}
                             </span>
-                            <Select 
-                              value={String(reservation.participant_count || 1)}
-                              onValueChange={async (value) => {
-                                const newCount = parseInt(value)
-                                
-                                // 予約時の1人あたり料金を取得（unit_price優先、なければbase_priceから計算）
-                                const unitPrice = reservation.unit_price 
-                                  || Math.round((reservation.base_price || 0) / (reservation.participant_count || 1))
-                                
-                                // 料金を再計算
-                                const newBasePrice = unitPrice * newCount
-                                const optionsPrice = reservation.options_price || 0
-                                const discountAmount = reservation.discount_amount || 0
-                                const newTotalPrice = newBasePrice + optionsPrice
-                                const newFinalPrice = newTotalPrice - discountAmount
-                                
-                                // 予約の人数と料金を更新
-                                const { error } = await supabase
-                                  .from('reservations')
-                                  .update({ 
-                                    participant_count: newCount,
-                                    participant_names: Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者'),
-                                    unit_price: unitPrice,
-                                    base_price: newBasePrice,
-                                    total_price: newTotalPrice,
-                                    final_price: newFinalPrice
-                                  })
-                                  .eq('id', reservation.id)
-                                
-                                if (error) {
-                                  showToast.error('人数の更新に失敗しました')
-                                  return
-                                }
-                                
-                                // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
-                                if (event?.id) {
-                                  try {
-                                    const newEventCount = await recalculateCurrentParticipants(event.id)
-                                    onParticipantChange?.(event.id, newEventCount)
-                                  } catch (updateError) {
-                                    logger.error('参加者数の更新エラー:', updateError)
+                            {isCancelled ? (
+                              <span className="w-[60px] h-7 text-xs text-gray-400 flex items-center">{reservation.participant_count}名</span>
+                            ) : (
+                              <Select 
+                                value={String(reservation.participant_count || 1)}
+                                onValueChange={async (value) => {
+                                  const newCount = parseInt(value)
+                                  
+                                  // 予約時の1人あたり料金を取得（unit_price優先、なければbase_priceから計算）
+                                  const unitPrice = reservation.unit_price 
+                                    || Math.round((reservation.base_price || 0) / (reservation.participant_count || 1))
+                                  
+                                  // 料金を再計算
+                                  const newBasePrice = unitPrice * newCount
+                                  const optionsPrice = reservation.options_price || 0
+                                  const discountAmount = reservation.discount_amount || 0
+                                  const newTotalPrice = newBasePrice + optionsPrice
+                                  const newFinalPrice = newTotalPrice - discountAmount
+                                  
+                                  // 予約の人数と料金を更新
+                                  const { error } = await supabase
+                                    .from('reservations')
+                                    .update({ 
+                                      participant_count: newCount,
+                                      participant_names: Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者'),
+                                      unit_price: unitPrice,
+                                      base_price: newBasePrice,
+                                      total_price: newTotalPrice,
+                                      final_price: newFinalPrice
+                                    })
+                                    .eq('id', reservation.id)
+                                  
+                                  if (error) {
+                                    showToast.error('人数の更新に失敗しました')
+                                    return
                                   }
-                                }
-                                
-                                // ローカルの予約データを更新
-                                setReservations(prev => 
-                                  prev.map(r => r.id === reservation.id 
-                                    ? { ...r, participant_count: newCount }
-                                    : r
+                                  
+                                  // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
+                                  if (event?.id) {
+                                    try {
+                                      const newEventCount = await recalculateCurrentParticipants(event.id)
+                                      onParticipantChange?.(event.id, newEventCount)
+                                    } catch (updateError) {
+                                      logger.error('参加者数の更新エラー:', updateError)
+                                    }
+                                  }
+                                  
+                                  // ローカルの予約データを更新
+                                  setReservations(prev => 
+                                    prev.map(r => r.id === reservation.id 
+                                      ? { ...r, participant_count: newCount }
+                                      : r
+                                    )
                                   )
-                                )
-                                
-                                showToast.success('人数を更新しました')
-                              }}
-                            >
-                              <SelectTrigger className="w-[60px] h-7 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
-                                  <SelectItem key={n} value={String(n)}>{n}名</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                                  
+                                  showToast.success('人数を更新しました')
+                                }}
+                              >
+                                <SelectTrigger className="w-[60px] h-7 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                                    <SelectItem key={n} value={String(n)}>{n}名</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                             <span className="hidden sm:block text-xs text-muted-foreground w-[100px]">
                               {reservation.created_at ? new Date(reservation.created_at).toLocaleString('ja-JP', {
                                 month: 'numeric',
@@ -1049,19 +1090,23 @@ export function ReservationList({
                           </div>
                           
                           <div className="flex items-center gap-2 ml-6 sm:ml-0 flex-wrap">
-                            <Select 
-                              value={reservation.status} 
-                              onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
-                            >
-                              <SelectTrigger className="w-[80px] h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="confirmed">確定</SelectItem>
-                                <SelectItem value="cancelled">キャンセル</SelectItem>
-                                <SelectItem value="pending">保留中</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            {isCancelled ? (
+                              <span className="w-[80px] h-8 text-xs text-red-500 flex items-center">キャンセル済</span>
+                            ) : (
+                              <Select 
+                                value={reservation.status} 
+                                onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
+                              >
+                                <SelectTrigger className="w-[80px] h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="confirmed">確定</SelectItem>
+                                  <SelectItem value="cancelled">キャンセル</SelectItem>
+                                  <SelectItem value="pending">保留中</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
                             
                             <Button
                               variant="ghost"
@@ -1332,7 +1377,7 @@ export function ReservationList({
             </Button>
             <Button
               variant="destructive"
-              onClick={handleConfirmCancel}
+              onClick={handleConfirmCancelFromDialog}
             >
               キャンセル確定
             </Button>
@@ -1340,109 +1385,93 @@ export function ReservationList({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEmailConfirmOpen} onOpenChange={setIsEmailConfirmOpen}>
-        <DialogContent size="lg" className="max-h-[90vh] flex flex-col">
+      <Dialog open={isEmailConfirmOpen} onOpenChange={(open) => {
+        if (!open) {
+          setCancellingReservation(null)
+        }
+        setIsEmailConfirmOpen(open)
+      }}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>キャンセル確認メール送信</DialogTitle>
-            <DialogDescription>
-              送信内容を確認・編集してください
-            </DialogDescription>
+            <DialogTitle>予約をキャンセル</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-            <Tabs defaultValue="edit" className="w-full flex-1 flex flex-col min-h-0">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="edit">編集</TabsTrigger>
-                <TabsTrigger value="preview">プレビュー</TabsTrigger>
-              </TabsList>
-              <TabsContent value="edit" className="space-y-4 py-4 overflow-y-auto flex-1">
-                <div>
-                  <Label htmlFor="email-to">送信先</Label>
-                  <Input
-                    id="email-to"
-                    value={emailContent.customerEmail}
-                    disabled
-                    className="mt-1"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {emailContent.customerName} 様
-                  </p>
-                </div>
+          <div className="space-y-3 py-2">
+            {/* 送信先 */}
+            <div className="text-sm">
+              <span className="text-muted-foreground">送信先: </span>
+              <span className="font-medium">{emailContent.customerEmail}</span>
+            </div>
 
-                <div>
-                  <Label htmlFor="cancellation-reason">キャンセル理由</Label>
-                  <Textarea
-                    id="cancellation-reason"
-                    value={emailContent.cancellationReason}
-                    onChange={(e) => setEmailContent(prev => ({ ...prev, cancellationReason: e.target.value }))}
-                    className="mt-1"
-                    rows={3}
-                    placeholder="キャンセル理由を入力してください"
-                  />
-                </div>
-
-                <div className="border-t pt-4 space-y-2">
-                  <div className="text-sm">
-                    <span className="font-medium">シナリオ:</span> {emailContent.scenarioTitle}
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-medium">公演日時:</span> {emailContent.eventDate} {emailContent.startTime} - {emailContent.endTime}
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-medium">店舗:</span> {emailContent.storeName}
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-medium">参加者数:</span> {emailContent.participantCount}名
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-medium">予約番号:</span> {emailContent.reservationNumber}
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-medium">料金:</span> ¥{emailContent.totalPrice.toLocaleString()}
-                  </div>
-                  {emailContent.cancellationFee > 0 && (
-                    <div className="text-sm text-destructive">
-                      <span className="font-medium">キャンセル料:</span> ¥{emailContent.cancellationFee.toLocaleString()}
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-              <TabsContent value="preview" className="py-4 overflow-y-auto flex-1">
-                <EmailPreview content={emailContent} />
-              </TabsContent>
-            </Tabs>
+            {/* メール本文 */}
+            <div>
+              <Label htmlFor="email-body">メール本文</Label>
+              <Textarea
+                id="email-body"
+                value={emailContent.emailBody}
+                onChange={(e) => setEmailContent(prev => ({ ...prev, emailBody: e.target.value }))}
+                className="mt-1 font-mono text-xs"
+                rows={16}
+              />
+            </div>
           </div>
-          <div className="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsEmailConfirmOpen(false)
-                setEmailContent({
-                  customerEmail: '',
-                  customerName: '',
-                  cancellationReason: '店舗都合によるキャンセル',
-                  scenarioTitle: '',
-                  eventDate: '',
-                  startTime: '',
-                  endTime: '',
-                  storeName: '',
-                  participantCount: 0,
-                  totalPrice: 0,
-                  reservationNumber: '',
-                  cancellationFee: 0
-                })
-              }}
-            >
-              キャンセル
-            </Button>
-            <Button
-              onClick={handleExecuteCancelAndSendEmail}
-            >
-              メール送信
-            </Button>
+          <div className="flex flex-col gap-4 pt-4 border-t flex-shrink-0">
+            {/* メール送信チェックボックス */}
+            {emailContent.customerEmail && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="send-cancel-email"
+                  checked={shouldSendEmail}
+                  onCheckedChange={(checked) => setShouldSendEmail(!!checked)}
+                />
+                <label 
+                  htmlFor="send-cancel-email" 
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  キャンセル確認メールを送信する
+                </label>
+              </div>
+            )}
+            
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEmailConfirmOpen(false)
+                  setCancellingReservation(null)
+                  setEmailContent({
+                    customerEmail: '',
+                    customerName: '',
+                    cancellationReason: '店舗都合によるキャンセル',
+                    scenarioTitle: '',
+                    eventDate: '',
+                    startTime: '',
+                    endTime: '',
+                    storeName: '',
+                    participantCount: 0,
+                    totalPrice: 0,
+                    reservationNumber: '',
+                    cancellationFee: 0,
+                    paymentMethod: 'onsite',
+                    cancellationPolicy: '',
+                    organizationName: '',
+                    emailBody: ''
+                  })
+                }}
+              >
+                やめる
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleExecuteCancel(shouldSendEmail)}
+              >
+                キャンセル確定
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
     </>
   )
 }
+
 

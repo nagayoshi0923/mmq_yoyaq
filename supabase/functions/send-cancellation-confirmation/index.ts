@@ -19,6 +19,8 @@ interface CancellationRequest {
   cancellationReason?: string
   cancelledBy: 'customer' | 'store' // 顧客都合 or 店舗都合
   cancellationFee?: number
+  customEmailBody?: string  // カスタムメール本文（指定された場合はこれを使用）
+  organizationName?: string // 組織名（件名・署名に使用）
 }
 
 serve(async (req) => {
@@ -201,7 +203,8 @@ serve(async (req) => {
 </html>
     `
 
-    const emailText = `
+    // カスタム本文が指定されていればそれを使用、なければ自動生成
+    const emailText = cancellationData.customEmailBody || `
 ${cancellationData.customerName} 様
 
 ${isStoreCancellation 
@@ -257,6 +260,20 @@ Murder Mystery Queue (MMQ)
 ご不明な点がございましたら、お気軽にお問い合わせください
     `
 
+    // カスタム本文がある場合はシンプルなHTMLに変換
+    const finalHtml = cancellationData.customEmailBody 
+      ? `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${cancellationData.customEmailBody}</pre>
+</body>
+</html>`
+      : emailHtml
+
     // Resend APIを使ってメール送信
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -268,9 +285,9 @@ Murder Mystery Queue (MMQ)
         from: 'MMQ予約システム <noreply@mmq.game>',
         to: [cancellationData.customerEmail],
         subject: isStoreCancellation 
-          ? `【公演中止】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}`
-          : `【予約キャンセル】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}`,
-        html: emailHtml,
+          ? `【公演中止】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}${cancellationData.organizationName ? ` | ${cancellationData.organizationName}` : ''}`
+          : `【予約キャンセル】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}${cancellationData.organizationName ? ` | ${cancellationData.organizationName}` : ''}`,
+        html: finalHtml,
         text: emailText,
       }),
     })
