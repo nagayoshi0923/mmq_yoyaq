@@ -4,7 +4,7 @@ import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { Clock, User, ArrowRight, Plus, Trash2, Ban, RotateCcw, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Clock, User, ArrowRight, Plus, Trash2, Ban, RotateCcw, Eye, EyeOff, Loader2, UserPlus, UserMinus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
@@ -42,6 +42,10 @@ function getActionIcon(actionType: ActionType) {
       return <Eye className="h-4 w-4 text-blue-600" />
     case 'unpublish':
       return <EyeOff className="h-4 w-4 text-gray-600" />
+    case 'add_participant':
+      return <UserPlus className="h-4 w-4 text-green-600" />
+    case 'remove_participant':
+      return <UserMinus className="h-4 w-4 text-red-600" />
     default:
       return <Clock className="h-4 w-4 text-gray-600" />
   }
@@ -64,6 +68,10 @@ function getActionBadgeStyle(actionType: ActionType): string {
       return 'bg-indigo-100 text-indigo-800 border-indigo-200'
     case 'unpublish':
       return 'bg-gray-100 text-gray-800 border-gray-200'
+    case 'add_participant':
+      return 'bg-teal-100 text-teal-800 border-teal-200'
+    case 'remove_participant':
+      return 'bg-pink-100 text-pink-800 border-pink-200'
     default:
       return 'bg-gray-100 text-gray-800 border-gray-200'
   }
