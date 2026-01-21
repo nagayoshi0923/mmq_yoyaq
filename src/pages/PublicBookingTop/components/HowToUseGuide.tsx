@@ -48,8 +48,14 @@ export function HowToUseGuide({ organizationName, isOpen, onClose }: HowToUseGui
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <Card className="w-full max-w-lg bg-white shadow-2xl border-0 overflow-hidden max-h-[90vh] flex flex-col">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={handleClose}
+    >
+      <Card
+        className="w-full max-w-lg bg-white shadow-2xl border-0 overflow-hidden max-h-[90vh] flex flex-col"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* ヘッダー（固定） */}
         <div 
           className="px-4 sm:px-6 py-3 sm:py-4 text-white flex items-center justify-between flex-shrink-0"

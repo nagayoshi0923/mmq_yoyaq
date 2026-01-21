@@ -290,7 +290,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
       </section>
 
       {/* 検索バー - スクロール時に固定 */}
-      <div className="bg-white border-b sticky top-0 z-50 shadow-sm">
+      <div className="bg-white border-b sticky top-0 z-30 shadow-sm">
         <div className="container mx-auto max-w-7xl px-4 md:px-6 py-2">
           <div className="flex items-center gap-2">
             <div className="flex-1">
