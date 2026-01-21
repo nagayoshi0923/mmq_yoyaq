@@ -184,6 +184,13 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
           setIsSubmitting(false)
           return
         }
+        // 電話番号の桁数チェック（ハイフン除去後10-11桁）
+        const phoneDigits = customerPhone.replace(/[-\s]/g, '')
+        if (!/^\d{10,11}$/.test(phoneDigits)) {
+          setPhoneError('電話番号は10〜11桁で入力してください')
+          setIsSubmitting(false)
+          return
+        }
         if (password !== confirmPassword) {
           setError('パスワードが一致しません')
           setIsSubmitting(false)

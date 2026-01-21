@@ -216,7 +216,16 @@ export function SettingsPage() {
       setActiveDialog(null)
     } catch (error: any) {
       logger.error('メールアドレス変更エラー:', error)
-      showToast.error(error.message || 'メールアドレスの変更に失敗しました')
+      // 英語エラーメッセージを日本語化
+      let errorMessage = 'メールアドレスの変更に失敗しました'
+      if (error.message?.includes('already registered') || error.message?.includes('already exists')) {
+        errorMessage = 'このメールアドレスは既に登録されています'
+      } else if (error.message?.includes('invalid email')) {
+        errorMessage = '有効なメールアドレスを入力してください'
+      } else if (error.message?.includes('rate limit')) {
+        errorMessage = 'しばらく時間をおいてから再度お試しください'
+      }
+      showToast.error(errorMessage)
     } finally {
       setChangingEmail(false)
     }
@@ -251,7 +260,16 @@ export function SettingsPage() {
       setActiveDialog(null)
     } catch (error: any) {
       logger.error('パスワード変更エラー:', error)
-      showToast.error(error.message || 'パスワードの変更に失敗しました')
+      // 英語エラーメッセージを日本語化
+      let errorMessage = 'パスワードの変更に失敗しました'
+      if (error.message?.includes('same as your old password') || error.message?.includes('different from the old password')) {
+        errorMessage = '新しいパスワードは現在のパスワードと異なるものを設定してください'
+      } else if (error.message?.includes('should be at least')) {
+        errorMessage = 'パスワードは6文字以上で入力してください'
+      } else if (error.message?.includes('rate limit')) {
+        errorMessage = 'しばらく時間をおいてから再度お試しください'
+      }
+      showToast.error(errorMessage)
     } finally {
       setChangingPassword(false)
     }

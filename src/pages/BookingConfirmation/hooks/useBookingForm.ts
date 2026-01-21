@@ -29,6 +29,12 @@ export function useBookingForm({ initialParticipantCount, availableSeats }: UseB
       setError('電話番号を入力してください')
       return false
     }
+    // 電話番号の桁数チェック（ハイフン除去後10-11桁）
+    const phoneDigits = customerPhone.replace(/[-\s]/g, '')
+    if (!/^\d{10,11}$/.test(phoneDigits)) {
+      setError('電話番号は10〜11桁で入力してください')
+      return false
+    }
     if (participantCount > availableSeats) {
       setError(`予約可能な人数は${availableSeats}名までです`)
       return false

@@ -119,9 +119,15 @@ export const BookingPanel = memo(function BookingPanel({
           onBooking()
         }}
         disabled={!selectedEventId}
-        style={selectedEventId ? { backgroundColor: THEME.primary } : {}}
+        style={selectedEventId ? { backgroundColor: selectableMax <= 0 ? '#d97706' : THEME.primary } : {}}
       >
-        {!isLoggedIn ? 'ログインして予約する' : !selectedEventId ? '↓ 日程を選択してください' : '予約確認へ進む'}
+        {!isLoggedIn 
+          ? 'ログインして予約する' 
+          : !selectedEventId 
+            ? '↓ 日程を選択してください' 
+            : selectableMax <= 0 
+              ? 'キャンセル待ちに登録' 
+              : '予約確認へ進む'}
       </Button>
 
       {/* 未ログイン時の追加案内 */}

@@ -28,14 +28,43 @@ export function useFavorites() {
 
       try {
         // まず既存の顧客を検索（user_idで検索）
-        const { data: customer, error: selectError } = await supabase
+        let { data: customer, error: selectError } = await supabase
           .from('customers')
-          .select('id')
+          .select('id, user_id')
           .eq('user_id', user.id)
           .maybeSingle()
 
         if (selectError) {
-          logger.error('Failed to fetch customer:', selectError)
+          logger.error('Failed to fetch customer by user_id:', selectError)
+        }
+
+        // user_idで見つからない場合、emailで検索
+        if (!customer?.id) {
+          const { data: customerByEmail, error: emailError } = await supabase
+            .from('customers')
+            .select('id, user_id')
+            .eq('email', user.email)
+            .maybeSingle()
+
+          if (emailError) {
+            logger.error('Failed to fetch customer by email:', emailError)
+          }
+
+          if (customerByEmail?.id) {
+            customer = customerByEmail
+            
+            // user_idが設定されていない場合は更新
+            if (!customerByEmail.user_id) {
+              const { error: updateError } = await supabase
+                .from('customers')
+                .update({ user_id: user.id })
+                .eq('id', customerByEmail.id)
+              
+              if (updateError) {
+                logger.warn('Failed to update customer user_id:', updateError)
+              }
+            }
+          }
         }
 
         if (customer?.id) {
@@ -60,8 +89,8 @@ export function useFavorites() {
             const { data: existingCustomer } = await supabase
               .from('customers')
               .select('id')
-              .eq('user_id', user.id)
-              .single()
+              .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+              .maybeSingle()
             setCustomerId(existingCustomer?.id || null)
           } else {
             throw insertError

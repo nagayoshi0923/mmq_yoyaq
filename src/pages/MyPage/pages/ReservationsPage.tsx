@@ -68,6 +68,11 @@ export function ReservationsPage() {
   const [maxParticipants, setMaxParticipants] = useState<number | null>(null)
   const [currentEventParticipants, setCurrentEventParticipants] = useState(0)
 
+  // キャンセル待ち解除ダイアログ
+  const [waitlistCancelDialogOpen, setWaitlistCancelDialogOpen] = useState(false)
+  const [waitlistCancelTarget, setWaitlistCancelTarget] = useState<Waitlist | null>(null)
+  const [waitlistCancelling, setWaitlistCancelling] = useState(false)
+
   // 日程変更ダイアログ
   const [dateChangeDialogOpen, setDateChangeDialogOpen] = useState(false)
   const [dateChangeTarget, setDateChangeTarget] = useState<Reservation | null>(null)
@@ -1018,21 +1023,9 @@ export function ReservationsPage() {
                         variant="ghost"
                         size="sm"
                         className="text-muted-foreground hover:text-red-600"
-                        onClick={async () => {
-                          if (confirm('キャンセル待ちを解除しますか？')) {
-                            try {
-                              const { error } = await supabase
-                                .from('waitlist')
-                                .delete()
-                                .eq('id', entry.id)
-                              if (error) throw error
-                              setWaitlist(prev => prev.filter(w => w.id !== entry.id))
-                              toast.success('キャンセル待ちを解除しました')
-                            } catch (e) {
-                              logger.error('キャンセル待ち解除エラー:', e)
-                              toast.error('キャンセル待ちの解除に失敗しました')
-                            }
-                          }
+                        onClick={() => {
+                          setWaitlistCancelTarget(entry)
+                          setWaitlistCancelDialogOpen(true)
                         }}
                       >
                         <X className="h-4 w-4" />
@@ -1201,6 +1194,69 @@ export function ReservationsPage() {
               className="bg-red-600 hover:bg-red-700"
             >
               {cancelling ? 'キャンセル中...' : 'キャンセルする'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* キャンセル待ち解除ダイアログ */}
+      <AlertDialog open={waitlistCancelDialogOpen} onOpenChange={setWaitlistCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>キャンセル待ちを解除しますか？</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 mt-2">
+                {waitlistCancelTarget && (() => {
+                  const event = waitlistCancelTarget.schedule_events as unknown as {
+                    date: string
+                    start_time: string
+                    scenario: string
+                  } | null
+                  return event ? (
+                    <>
+                      <div className="font-medium text-foreground">{event.scenario}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {(() => {
+                          const d = new Date(event.date)
+                          const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+                          return `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]}) ${event.start_time?.slice(0, 5) || ''}`
+                        })()}
+                      </div>
+                    </>
+                  ) : null
+                })()}
+                <p className="text-sm text-muted-foreground mt-2">
+                  解除すると、空きが出た際の通知を受け取れなくなります。
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={waitlistCancelling}>戻る</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!waitlistCancelTarget) return
+                setWaitlistCancelling(true)
+                try {
+                  const { error } = await supabase
+                    .from('waitlist')
+                    .delete()
+                    .eq('id', waitlistCancelTarget.id)
+                  if (error) throw error
+                  setWaitlist(prev => prev.filter(w => w.id !== waitlistCancelTarget.id))
+                  toast.success('キャンセル待ちを解除しました')
+                  setWaitlistCancelDialogOpen(false)
+                } catch (e) {
+                  logger.error('キャンセル待ち解除エラー:', e)
+                  toast.error('キャンセル待ちの解除に失敗しました')
+                } finally {
+                  setWaitlistCancelling(false)
+                }
+              }}
+              disabled={waitlistCancelling}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {waitlistCancelling ? '解除中...' : '解除する'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

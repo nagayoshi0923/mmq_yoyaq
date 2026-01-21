@@ -114,7 +114,7 @@ export function Footer({ organizationSlug, organizationName, minimal = false }: 
               </p>
               <div className="flex items-center gap-6 text-sm text-gray-500">
                 <Link to="/terms" className="hover:text-gray-300 transition-colors">利用規約</Link>
-                <Link to="/privacy" className="hover:text-gray-300 transition-colors">プライバシー</Link>
+                <Link to="/privacy" className="hover:text-gray-300 transition-colors">プライバシーポリシー</Link>
                 <Link to="/contact" className="hover:text-gray-300 transition-colors">MMQへ問い合わせ</Link>
               </div>
             </div>
