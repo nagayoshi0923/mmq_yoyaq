@@ -184,7 +184,8 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         setContextMenu: contextMenuActions.setContextMenu,
         clipboardEvent: contextMenuActions.clipboardEvent,
         handleCopyToClipboard: contextMenuActions.handleCopyToClipboard,
-        handlePasteFromClipboard: contextMenuActions.handlePasteFromClipboard
+        handlePasteFromClipboard: contextMenuActions.handlePasteFromClipboard,
+        hasExistingEvent: contextMenuActions.hasExistingEvent
       }
     },
     fetchSchedule: fetchSchedule,
@@ -279,7 +280,8 @@ export function useScheduleTableModals(currentDate: Date) {
       setContextMenu: contextMenuActions.setContextMenu,
       clipboardEvent: contextMenuActions.clipboardEvent,
       handleCopyToClipboard: contextMenuActions.handleCopyToClipboard,
-      handlePasteFromClipboard: contextMenuActions.handlePasteFromClipboard
+      handlePasteFromClipboard: contextMenuActions.handlePasteFromClipboard,
+      hasExistingEvent: contextMenuActions.hasExistingEvent
     },
     // データ再取得用
     fetchSchedule: scheduleData.fetchSchedule

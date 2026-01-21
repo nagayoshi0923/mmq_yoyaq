@@ -110,6 +110,8 @@ export interface ScheduleTableModals {
     handleCopyToClipboard: (event: ScheduleEvent) => void
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handlePasteFromClipboard: any
+    // セルに既存の公演があるかチェック（右クリックメニューの「公演を追加」グレーアウト用）
+    hasExistingEvent?: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => boolean
   }
 }
 
@@ -122,6 +124,8 @@ export interface ScheduleTableProps {
   fetchSchedule?: () => void  // オプション: スケジュール再取得関数
   events?: ScheduleEvent[]  // オプション: イベント一覧
   hideHeader?: boolean  // テーブルヘッダーを非表示（外部でヘッダーを表示する場合）
+  // 募集中止状態チェック関数
+  isSlotBlocked?: (date: string, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening') => boolean
 }
 
 export function ScheduleTable({
@@ -129,7 +133,8 @@ export function ScheduleTable({
   dataProvider,
   eventHandlers,
   displayConfig,
-  hideHeader = false
+  hideHeader = false,
+  isSlotBlocked
 }: ScheduleTableProps) {
   const { monthDays, stores, temporaryVenues = [], getVenueNameForDate } = viewConfig
   const { getEventsForSlot, shiftData, getMemo, onSaveMemo } = dataProvider
@@ -259,6 +264,7 @@ export function ScheduleTable({
                     onDrop={onDrop}
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
+                    isBlocked={isSlotBlocked?.(day.date, venue.id, 'morning')}
                   />
                   
                   {/* 午後セル */}
@@ -279,6 +285,7 @@ export function ScheduleTable({
                     onToggleReservation={onToggleReservation}
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
+                    isBlocked={isSlotBlocked?.(day.date, venue.id, 'afternoon')}
                   />
                   
                   {/* 夜間セル */}
@@ -299,6 +306,7 @@ export function ScheduleTable({
                     onDrop={onDrop}
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
+                    isBlocked={isSlotBlocked?.(day.date, venue.id, 'evening')}
                   />
                   
                   {/* メモセル */}

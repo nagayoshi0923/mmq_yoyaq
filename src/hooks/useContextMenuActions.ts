@@ -185,6 +185,11 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
     }
   }, [clipboardEvent, stores, setEvents, checkConflict, organizationId, getSlotDefaults])
 
+  // セルに既存の公演があるかをチェック（右クリックメニューの「公演を追加」グレーアウト用）
+  const hasExistingEvent = useCallback((date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening'): boolean => {
+    return checkConflict(date, venue, timeSlot) !== null
+  }, [checkConflict])
+
   return {
     contextMenu,
     clipboardEvent,
@@ -192,7 +197,9 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
     handleEventContextMenu,
     handleCellContextMenu,
     handleCopyToClipboard,
-    handlePasteFromClipboard
+    handlePasteFromClipboard,
+    checkConflict,
+    hasExistingEvent
   }
 }
 

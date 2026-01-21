@@ -6,13 +6,15 @@ import { logger } from '@/utils/logger'
 
 // 変更アクションの種類
 export type ActionType = 
-  | 'create'     // 新規作成
-  | 'update'     // 更新
-  | 'delete'     // 削除
-  | 'cancel'     // 中止
-  | 'restore'    // 復活
-  | 'publish'    // 公開
-  | 'unpublish'  // 非公開
+  | 'create'              // 新規作成
+  | 'update'              // 更新
+  | 'delete'              // 削除
+  | 'cancel'              // 中止
+  | 'restore'             // 復活
+  | 'publish'             // 公開
+  | 'unpublish'           // 非公開
+  | 'add_participant'     // 参加者追加
+  | 'remove_participant'  // 参加者削除
 
 // 履歴エントリの型定義
 export interface EventHistory {
@@ -72,6 +74,8 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   restore: '復活',
   publish: '公開',
   unpublish: '非公開',
+  add_participant: '参加者追加',
+  remove_participant: '参加者削除',
 }
 
 /**
@@ -157,9 +161,11 @@ export async function createEventHistory(
       notes: options?.notes || null,
     }
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('schedule_event_history')
       .insert(historyEntry)
+      .select()
+      .single()
     
     if (error) {
       logger.error('履歴作成エラー:', error)
