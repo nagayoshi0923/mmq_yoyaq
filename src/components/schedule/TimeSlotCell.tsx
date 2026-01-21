@@ -58,6 +58,8 @@ interface TimeSlotCellProps {
   onDrop?: (droppedEvent: ScheduleEvent, targetDate: string, targetVenue: string, targetTimeSlot: 'morning' | 'afternoon' | 'evening') => void
   onContextMenuCell?: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', x: number, y: number) => void
   onContextMenuEvent?: (event: ScheduleEvent, x: number, y: number) => void
+  // 募集中止状態（グレーアウト表示用）
+  isBlocked?: boolean
 }
 
 function TimeSlotCellBase({
@@ -76,7 +78,8 @@ function TimeSlotCellBase({
   onToggleReservation,
   onDrop,
   onContextMenuCell,
-  onContextMenuEvent
+  onContextMenuEvent,
+  isBlocked = false
 }: TimeSlotCellProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -154,11 +157,16 @@ function TimeSlotCellBase({
     }
   })
 
+  // セルの背景色クラスを決定
+  const cellBgClass = isBlocked 
+    ? 'bg-gray-300' // 募集中止: グレーアウト（濃い）
+    : isDragOver 
+      ? 'bg-purple-50 border-purple-300' 
+      : ''
+
   return (
     <TableCell 
-      className={`schedule-table-cell p-0 sm:p-0.5 border-r border-gray-200 transition-colors ${
-        isDragOver ? 'bg-purple-50 border-purple-300' : ''
-      }`}
+      className={`schedule-table-cell p-0 sm:p-0.5 border-r border-gray-200 transition-colors ${cellBgClass}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -192,13 +200,17 @@ function TimeSlotCellBase({
       ) : (
         <div className="flex flex-col h-full min-h-[24px] sm:min-h-[28px]">
           <div className="flex flex-col justify-center items-center">
-            <EmptySlot
-              date={date}
-              venue={venue}
-              timeSlot={timeSlot}
-              onAddPerformance={onAddPerformance}
-            />
-            {availableStaff.length > 0 && (
+            {isBlocked ? (
+              <div className="text-xs text-gray-500 py-1">募集中止</div>
+            ) : (
+              <EmptySlot
+                date={date}
+                venue={venue}
+                timeSlot={timeSlot}
+                onAddPerformance={onAddPerformance}
+              />
+            )}
+            {!isBlocked && availableStaff.length > 0 && (
               <div className="flex flex-wrap gap-px justify-center items-center mt-0.5 max-w-full overflow-hidden">
                 {availableStaff.slice(0, 8).map((staff) => {
                   const { bgColor, textColor } = getStaffAvatarColors(staff)

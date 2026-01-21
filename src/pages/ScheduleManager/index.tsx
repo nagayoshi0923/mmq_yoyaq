@@ -14,6 +14,7 @@ import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { useScheduleTable } from '@/hooks/useScheduleTable'
 import { useTemporaryVenues } from '@/hooks/useTemporaryVenues'
 import { useOrganization } from '@/hooks/useOrganization'
+import { useBlockedSlots } from '@/hooks/useBlockedSlots'
 
 // Custom Hooks (ScheduleManager専用)
 import { useCategoryFilter } from './hooks/useCategoryFilter'
@@ -65,6 +66,9 @@ export function ScheduleManager() {
   
   // 組織ID（履歴モーダル用）
   const { organizationId } = useOrganization()
+  
+  // 募集中止スロット管理
+  const { isSlotBlocked, blockSlot, unblockSlot } = useBlockedSlots()
 
   // GMリスト
   const [gmList, setGmList] = useState<Staff[]>([])
@@ -561,8 +565,9 @@ export function ScheduleManager() {
       ...scheduleTableProps.dataProvider,
       getEventsForSlot: filteredGetEventsForSlot,
       shiftData: filteredShiftData
-    }
-  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores, filteredShiftData, getVenueNameForDate])
+    },
+    isSlotBlocked // 募集中止状態チェック関数
+  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores, filteredShiftData, getVenueNameForDate, isSlotBlocked])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -1063,9 +1068,20 @@ export function ScheduleManager() {
               const { date, venue, timeSlot } = modals.contextMenu.contextMenu!.cellInfo!
               const isTemporaryVenue = venue && temporaryVenues.some(v => v.id === venue)
               
+              // 既存の公演があるかチェック（公演追加のグレーアウト用）
+              const contextTimeSlot = timeSlot === 'morning' ? 'morning' : timeSlot === 'afternoon' ? 'afternoon' : 'evening'
+              const hasExisting = modals.contextMenu.hasExistingEvent?.(date, venue, contextTimeSlot) ?? false
+              
+              // 募集中止されているかチェック
+              const isBlocked = isSlotBlocked(date, venue, contextTimeSlot)
+              
+              // 公演追加不可の条件: 既存公演あり OR 募集中止
+              const cannotAddPerformance = hasExisting || isBlocked
+              const addLabel = isBlocked ? '公演を追加（募集中止）' : hasExisting ? '公演を追加（既存あり）' : '公演を追加'
+              
               return [
                 {
-                  label: '公演を追加',
+                  label: addLabel,
                   icon: <Edit className="w-4 h-4" />,
                   onClick: () => {
                     logger.log('🔵 公演を追加クリック:', { date, venue, timeSlot })
@@ -1080,7 +1096,22 @@ export function ScheduleManager() {
                       logger.error('❌ 利用可能なキー:', modals.performance ? Object.keys(modals.performance) : 'なし')
                     }
                   },
+                  disabled: cannotAddPerformance,
                   separator: true
+                },
+                {
+                  label: isBlocked ? '募集を再開' : '募集を中止',
+                  icon: isBlocked ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />,
+                  onClick: () => {
+                    if (isBlocked) {
+                      unblockSlot(date, venue, contextTimeSlot)
+                      showToast.success('募集を再開しました')
+                    } else {
+                      blockSlot(date, venue, contextTimeSlot)
+                      showToast.success('募集を中止しました')
+                    }
+                    modals.contextMenu.setContextMenu(null)
+                  }
                 },
                 {
                   label: '臨時会場を追加',

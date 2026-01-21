@@ -157,9 +157,11 @@ export async function createEventHistory(
       notes: options?.notes || null,
     }
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('schedule_event_history')
       .insert(historyEntry)
+      .select()
+      .single()
     
     if (error) {
       logger.error('履歴作成エラー:', error)

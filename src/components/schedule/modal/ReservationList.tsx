@@ -15,6 +15,7 @@ import { logger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { showToast } from '@/utils/toast'
 import { findMatchingStaff } from '@/utils/staffUtils'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { EmailPreview } from './EmailPreview'
@@ -554,12 +555,41 @@ export function ReservationList({
       // スタッフ参加の場合は reservation_source を 'staff_participation' に設定
       const reservationSource = isStaff ? 'staff_participation' : 'walk_in'
       
+      // デモ参加者や当日飛び込みの場合はデモ顧客を取得して設定
+      // user_notifications テーブルのチェック制約（user_or_customer_required）を満たすため
+      let customerId: string | null = null
+      if (participantName === 'デモ参加者' || reservationSource === 'walk_in') {
+        try {
+          const organizationId = await getCurrentOrganizationId()
+          let query = supabase
+            .from('customers')
+            .select('id')
+            .or('name.ilike.%デモ%,email.ilike.%demo%')
+          
+          if (organizationId) {
+            query = query.eq('organization_id', organizationId)
+          }
+          
+          const { data: demoCustomer } = await query.limit(1).single()
+          
+          if (demoCustomer) {
+            customerId = demoCustomer.id
+            logger.log(`デモ顧客を設定: ${demoCustomer.id}`)
+          } else {
+            logger.warn('デモ顧客が見つかりませんでした。customer_id は null のままです。')
+          }
+        } catch (error) {
+          logger.error('デモ顧客取得エラー:', error)
+          // エラーが発生しても処理は続行（customer_id は null のまま）
+        }
+      }
+      
       const reservation: Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'> = {
         schedule_event_id: event.id,
         title: currentEventData.scenario || '',
         scenario_id: scenarioObj?.id || null,
         store_id: storeObj?.id || null,
-        customer_id: null,
+        customer_id: customerId,
         customer_notes: participantName,
         requested_datetime: `${currentEventData.date}T${currentEventData.start_time}+09:00`,
         duration: scenarioObj?.duration || 120,

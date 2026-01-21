@@ -144,12 +144,20 @@ export const reservationApi = {
 
   // スケジュールイベントIDで予約を取得
   async getByScheduleEvent(scheduleEventId: string): Promise<Reservation[]> {
-    const { data, error } = await supabase
+    // organization_idを自動取得（マルチテナント対応）
+    const organizationId = await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('reservations')
       .select('*, customers(*)')
       .eq('schedule_event_id', scheduleEventId)
       .in('status', ['pending', 'confirmed', 'gm_confirmed'])
-      .order('created_at', { ascending: true })
+    
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId)
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: true })
     
     if (error) throw error
     return data || []
