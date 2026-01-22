@@ -89,9 +89,12 @@ export const shiftApi = {
 
   // シフトを作成または更新（upsert）
   async upsert(submission: Partial<ShiftSubmission>): Promise<ShiftSubmission> {
+    // organization_idが設定されていない場合は自動設定（マルチテナント対応）
+    const orgId = submission.organization_id || await getCurrentOrganizationId()
+    
     const { data, error } = await supabase
       .from('shift_submissions')
-      .upsert(submission, { onConflict: 'staff_id,date' })
+      .upsert({ ...submission, organization_id: orgId }, { onConflict: 'staff_id,date' })
       .select()
       .single()
     
@@ -101,9 +104,17 @@ export const shiftApi = {
 
   // 複数のシフトを一括upsert
   async upsertMultiple(submissions: Partial<ShiftSubmission>[]): Promise<ShiftSubmission[]> {
+    // organization_idが設定されていない場合は自動設定（マルチテナント対応）
+    const orgId = await getCurrentOrganizationId()
+    
+    const submissionsWithOrg = submissions.map(s => ({
+      ...s,
+      organization_id: s.organization_id || orgId
+    }))
+    
     const { data, error } = await supabase
       .from('shift_submissions')
-      .upsert(submissions, { onConflict: 'staff_id,date' })
+      .upsert(submissionsWithOrg, { onConflict: 'staff_id,date' })
       .select()
     
     if (error) throw error
@@ -122,7 +133,10 @@ export const shiftApi = {
     const daysInMonth = new Date(year, month, 0).getDate()
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
     
-    const { error } = await supabase
+    // 組織フィルタ（マルチテナント対応）
+    const orgId = await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('shift_submissions')
       .update({ 
         status: 'submitted', 
@@ -131,6 +145,12 @@ export const shiftApi = {
       .eq('staff_id', staffId)
       .gte('date', startDate)
       .lte('date', endDate)
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { error } = await query
     
     if (error) throw error
   },
@@ -183,22 +203,38 @@ export const shiftApi = {
     return data || []
   },
 
-  // シフトを承認
+  // シフトを承認（組織フィルタ付き）
   async approveShift(id: string): Promise<void> {
-    const { error } = await supabase
+    const orgId = await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('shift_submissions')
       .update({ status: 'approved' })
       .eq('id', id)
     
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { error } = await query
+    
     if (error) throw error
   },
 
-  // シフトを却下
+  // シフトを却下（組織フィルタ付き）
   async rejectShift(id: string, notes?: string): Promise<void> {
-    const { error } = await supabase
+    const orgId = await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('shift_submissions')
       .update({ status: 'rejected', notes })
       .eq('id', id)
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { error } = await query
     
     if (error) throw error
   }

@@ -338,16 +338,25 @@ export const scheduleApi = {
     
     if (error) throw error
     
-    // 最適化: すべてのイベントIDの予約を一度に取得
+    // 最適化: すべてのイベントIDの予約を一度に取得（組織フィルタ付き）
     const eventIds = scheduleEvents.map(e => e.id)
     const reservationsMap = new Map<string, { participant_count: number; candidate_datetimes?: { candidates?: Array<{ status?: string; timeSlot?: string }> }; reservation_source?: string }[]>()
     
+    // 組織フィルタ用（まだ取得していない場合）
+    const resOrgId = organizationId || await getCurrentOrganizationId()
+    
     if (eventIds.length > 0) {
-      const { data: allReservations, error: reservationError } = await supabase
+      let resQuery = supabase
         .from('reservations')
         .select('schedule_event_id, participant_count, candidate_datetimes, reservation_source')
         .in('schedule_event_id', eventIds)
         .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+      
+      if (resOrgId && !skipOrgFilter) {
+        resQuery = resQuery.eq('organization_id', resOrgId)
+      }
+      
+      const { data: allReservations, error: reservationError } = await resQuery
       
       if (!reservationError && allReservations) {
         allReservations.forEach(reservation => {
@@ -608,11 +617,19 @@ export const scheduleApi = {
     }
     
     const eventIds = scheduleEvents.map(e => e.id)
-    const { data: allReservations, error: reservationError } = await supabase
+    
+    // 予約データ取得（組織フィルタ付き）
+    let resQuery = supabase
       .from('reservations')
       .select('schedule_event_id, participant_count')
       .in('schedule_event_id', eventIds)
       .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+    
+    if (orgId) {
+      resQuery = resQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: allReservations, error: reservationError } = await resQuery
     
     if (reservationError) {
       logger.error('予約データの取得に失敗:', reservationError)
@@ -737,7 +754,7 @@ export const scheduleApi = {
     // DBで許可されていないカテゴリをopenにマッピング
     const DB_VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package', 'mtg']
     
-    if (finalData.category && !DB_VALID_CATEGORIES.includes(finalData.category)) {
+    if (finalData.category && typeof finalData.category === 'string' && !DB_VALID_CATEGORIES.includes(finalData.category)) {
       logger.info(`カテゴリマッピング: ${finalData.category} -> open`)
       finalData.category = 'open'
     }
@@ -830,7 +847,7 @@ export const scheduleApi = {
     // DBで許可されていないカテゴリをopenにマッピング
     const DB_VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package', 'mtg']
     
-    if (finalUpdates.category && !DB_VALID_CATEGORIES.includes(finalUpdates.category)) {
+    if (finalUpdates.category && typeof finalUpdates.category === 'string' && !DB_VALID_CATEGORIES.includes(finalUpdates.category)) {
       logger.info(`カテゴリマッピング: ${finalUpdates.category} -> open`)
       finalUpdates.category = 'open'
     }
@@ -895,11 +912,20 @@ export const scheduleApi = {
   // 中止でない全公演にデモ参加者を満席まで追加（既存データの修復も含む）
   async addDemoParticipantsToAllActiveEvents() {
     try {
-      const { data: events, error: eventsError } = await supabase
+      // 組織フィルタ（マルチテナント対応）
+      const orgId = await getCurrentOrganizationId()
+      
+      let query = supabase
         .from('schedule_events')
         .select('*')
         .eq('is_cancelled', false)
         .order('date', { ascending: true })
+      
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+      
+      const { data: events, error: eventsError } = await query
       
       if (eventsError) {
         logger.error('公演データの取得に失敗:', eventsError)

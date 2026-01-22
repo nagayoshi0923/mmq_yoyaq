@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
+
+// デフォルト組織ID（クインズワルツ）
+const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 
 const FAVORITES_KEY = 'scenario_favorites'
 
@@ -72,13 +76,16 @@ export function useFavorites() {
           return
         }
 
-        // 顧客が存在しない場合、作成する
+        // 顧客が存在しない場合、作成する（organization_id付き）
+        const orgId = await getCurrentOrganizationId() || DEFAULT_ORG_ID
+        
         const { data: newCustomer, error: insertError } = await supabase
           .from('customers')
           .insert({
             email: user.email,
             name: user.name || user.email.split('@')[0],
             user_id: user.id,
+            organization_id: orgId,
           })
           .select('id')
           .single()

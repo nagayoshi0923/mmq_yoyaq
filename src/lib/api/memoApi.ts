@@ -5,14 +5,16 @@ import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 
 export const memoApi = {
-  // 指定月のメモを取得
-  // 注意: daily_memosテーブルにはorganization_idカラムがないため、組織フィルタは無効
-  async getByMonth(year: number, month: number, _organizationId?: string) {
+  // 指定月のメモを取得（組織フィルタ付き）
+  async getByMonth(year: number, month: number, organizationId?: string) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
     const lastDay = new Date(year, month, 0).getDate()
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     
-    const { data, error } = await supabase
+    // 組織フィルタ（マルチテナント対応）
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('daily_memos')
       .select(`
         *,
@@ -25,6 +27,12 @@ export const memoApi = {
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: true })
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
     
     if (error) throw error
     return data || []
@@ -55,13 +63,22 @@ export const memoApi = {
     return data
   },
 
-  // メモを削除
+  // メモを削除（組織フィルタ付き）
   async delete(date: string, venueId: string) {
-    const { error } = await supabase
+    // 組織フィルタ（マルチテナント対応）
+    const orgId = await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('daily_memos')
       .delete()
       .eq('date', date)
       .eq('venue_id', venueId)
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { error } = await query
     
     if (error) throw error
   }

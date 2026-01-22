@@ -507,29 +507,50 @@ export const scenarioApi = {
 
   // シナリオを削除
   async delete(id: string): Promise<void> {
+    // 組織フィルタ（マルチテナント対応）
+    const orgId = await getCurrentOrganizationId()
+    
     // 関連データの参照をクリア（スケジュールイベントは削除しない）
     
-    // 1. reservationsのscenario_idをNULLに設定
-    const { error: reservationError } = await supabase
+    // 1. reservationsのscenario_idをNULLに設定（組織フィルタ付き）
+    let resQuery = supabase
       .from('reservations')
       .update({ scenario_id: null })
       .eq('scenario_id', id)
     
+    if (orgId) {
+      resQuery = resQuery.eq('organization_id', orgId)
+    }
+    
+    const { error: reservationError } = await resQuery
+    
     if (reservationError) throw reservationError
     
-    // 2. schedule_eventsのscenario_idをNULLに設定（イベント自体は残す）
-    const { error: scheduleError } = await supabase
+    // 2. schedule_eventsのscenario_idをNULLに設定（組織フィルタ付き）
+    let scheduleQuery = supabase
       .from('schedule_events')
       .update({ scenario_id: null })
       .eq('scenario_id', id)
     
+    if (orgId) {
+      scheduleQuery = scheduleQuery.eq('organization_id', orgId)
+    }
+    
+    const { error: scheduleError } = await scheduleQuery
+    
     if (scheduleError) throw scheduleError
     
-    // 3. staff_scenario_assignmentsの削除
-    const { error: assignmentError } = await supabase
+    // 3. staff_scenario_assignmentsの削除（組織フィルタ付き）
+    let assignQuery = supabase
       .from('staff_scenario_assignments')
       .delete()
       .eq('scenario_id', id)
+    
+    if (orgId) {
+      assignQuery = assignQuery.eq('organization_id', orgId)
+    }
+    
+    const { error: assignmentError } = await assignQuery
     
     if (assignmentError) throw assignmentError
     
@@ -541,11 +562,17 @@ export const scenarioApi = {
     
     if (kitsError) throw kitsError
     
-    // 5. スタッフのspecial_scenariosからこのシナリオを削除
-    const { data: affectedStaff, error: staffError } = await supabase
+    // 5. スタッフのspecial_scenariosからこのシナリオを削除（組織フィルタ付き）
+    let staffQuery = supabase
       .from('staff')
       .select('id, special_scenarios')
       .contains('special_scenarios', [id])
+    
+    if (orgId) {
+      staffQuery = staffQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: affectedStaff, error: staffError } = await staffQuery
     
     if (staffError) throw staffError
     
@@ -562,11 +589,17 @@ export const scenarioApi = {
       await Promise.all(updatePromises)
     }
     
-    // 6. シナリオ本体の削除
-    const { error } = await supabase
+    // 6. シナリオ本体の削除（組織フィルタ付き）
+    let deleteQuery = supabase
       .from('scenarios')
       .delete()
       .eq('id', id)
+    
+    if (orgId) {
+      deleteQuery = deleteQuery.eq('organization_id', orgId)
+    }
+    
+    const { error } = await deleteQuery
     
     if (error) throw error
   },
@@ -590,11 +623,20 @@ export const scenarioApi = {
     // IDを解決（scenario_master_id の場合は対応する scenarios.id リストを取得）
     const scenarioIds = await resolveScenarioIds(scenarioId)
     
-    const { count, error } = await supabase
+    // 組織フィルタ（マルチテナント対応）
+    const orgId = await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('schedule_events')
       .select('*', { count: 'exact', head: true })
       .in('scenario_id', scenarioIds)
       .not('status', 'eq', 'cancelled') // キャンセルを除外
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { count, error } = await query
     
     if (error) throw error
     return count || 0
@@ -617,6 +659,9 @@ export const scenarioApi = {
     // 今日の日付（YYYY-MM-DD形式）
     const today = new Date().toISOString().split('T')[0]
     
+    // 組織フィルタ（マルチテナント対応）
+    const orgId = await getCurrentOrganizationId()
+    
     // IDを解決（scenario_master_id の場合は対応する scenarios.id リストを取得）
     const scenarioIds = await resolveScenarioIds(scenarioId)
     logger.log('📊 getScenarioStats: resolveScenarioIds', { input: scenarioId, resolved: scenarioIds })
@@ -631,7 +676,7 @@ export const scenarioApi = {
     const maxParticipants = scenarioData?.player_count_max || 99
 
     // 公演回数（中止以外、今日まで、出張公演除外）
-    const { count: performanceCount, error: perfError } = await supabase
+    let perfQuery = supabase
       .from('schedule_events')
       .select('*', { count: 'exact', head: true })
       .in('scenario_id', scenarioIds)
@@ -639,10 +684,16 @@ export const scenarioApi = {
       .neq('category', 'offsite')
       .neq('is_cancelled', true)
     
+    if (orgId) {
+      perfQuery = perfQuery.eq('organization_id', orgId)
+    }
+    
+    const { count: performanceCount, error: perfError } = await perfQuery
+    
     if (perfError) throw perfError
 
     // 中止回数（今日まで、出張公演除外）
-    const { count: cancelledCount, error: cancelError } = await supabase
+    let cancelQuery = supabase
       .from('schedule_events')
       .select('*', { count: 'exact', head: true })
       .in('scenario_id', scenarioIds)
@@ -650,10 +701,16 @@ export const scenarioApi = {
       .neq('category', 'offsite')
       .eq('is_cancelled', true)
     
+    if (orgId) {
+      cancelQuery = cancelQuery.eq('organization_id', orgId)
+    }
+    
+    const { count: cancelledCount, error: cancelError } = await cancelQuery
+    
     if (cancelError) throw cancelError
 
     // 初公演日を取得（今日までの公演から、中止以外、出張公演除外）
-    const { data: firstEvent, error: firstError } = await supabase
+    let firstQuery = supabase
       .from('schedule_events')
       .select('date, scenario_id')
       .in('scenario_id', scenarioIds)
@@ -662,19 +719,30 @@ export const scenarioApi = {
       .neq('is_cancelled', true)
       .order('date', { ascending: true })
       .limit(1)
-      .single()
+    
+    if (orgId) {
+      firstQuery = firstQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: firstEvent, error: firstError } = await firstQuery.single()
     
     const firstPerformanceDate = firstError ? null : firstEvent?.date || null
 
     // 公演イベントを取得して売上・コストを集計（今日まで、出張公演除外）
     // ※ 中止公演もリスト表示のため取得（サマリー計算からは除外）
-    const { data: events, error: eventsError } = await supabase
+    let eventsQuery = supabase
       .from('schedule_events')
       .select('id, date, category, current_participants, total_revenue, gm_cost, license_cost, start_time, store_id, is_cancelled')
       .in('scenario_id', scenarioIds)
       .lte('date', today)
       .neq('category', 'offsite')
       .order('date', { ascending: false })
+    
+    if (orgId) {
+      eventsQuery = eventsQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: events, error: eventsError } = await eventsQuery
     
     if (eventsError) throw eventsError
 
@@ -685,12 +753,18 @@ export const scenarioApi = {
     const staffParticipantsMap: Record<string, number> = {}
     
     if (eventIds.length > 0) {
-      // 全予約を取得（確定済みのみ）
-      const { data: allReservations, error: resError } = await supabase
+      // 全予約を取得（確定済みのみ、組織フィルタ付き）
+      let resQuery = supabase
         .from('reservations')
         .select('schedule_event_id, participant_count, reservation_source, payment_method')
         .in('schedule_event_id', eventIds)
         .in('status', ['confirmed', 'gm_confirmed'])
+      
+      if (orgId) {
+        resQuery = resQuery.eq('organization_id', orgId)
+      }
+      
+      const { data: allReservations, error: resError } = await resQuery
       
       if (!resError && allReservations) {
         allReservations.forEach(res => {
@@ -795,6 +869,9 @@ export const scenarioApi = {
     totalRevenue: number
   }>> {
     const today = new Date().toISOString().split('T')[0]
+    
+    // 組織フィルタ（マルチテナント対応）
+    const orgId = await getCurrentOrganizationId()
 
     // ページネーションで全件取得（Supabaseのmax_rows制限を回避）
     const pageSize = 1000
@@ -806,13 +883,19 @@ export const scenarioApi = {
       const from = page * pageSize
       const to = from + pageSize - 1
       
-      const { data: events, error } = await supabase
+      let query = supabase
         .from('schedule_events')
         .select('scenario_id, is_cancelled, total_revenue, date, category')
         .lte('date', today)
         .neq('category', 'offsite')
         .range(from, to)
         .order('date', { ascending: false })
+      
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+      
+      const { data: events, error } = await query
 
       if (error) throw error
 

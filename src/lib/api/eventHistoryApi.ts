@@ -1,7 +1,7 @@
 // 公演の更新履歴を管理するAPI
 
 import { supabase } from '@/lib/supabase'
-import { getCurrentStaff } from '@/lib/organization'
+import { getCurrentStaff, getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
 // 変更アクションの種類
@@ -224,11 +224,20 @@ export async function getEventHistory(
   // 2. 現在の公演IDがある場合、その公演の履歴も取得（重複を防ぐ）
   //    ※セル情報が古い形式で保存されていない場合に備えて
   if (scheduleEventId) {
-    const { data: eventHistory, error: eventError } = await supabase
+    // 組織フィルタ（マルチテナント対応）
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let eventQuery = supabase
       .from('schedule_event_history')
       .select('*')
       .eq('schedule_event_id', scheduleEventId)
       .order('created_at', { ascending: false })
+    
+    if (orgId) {
+      eventQuery = eventQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: eventHistory, error: eventError } = await eventQuery
     
     if (eventError) {
       logger.error('公演履歴取得エラー:', eventError)

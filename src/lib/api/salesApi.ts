@@ -83,12 +83,18 @@ export const salesApi = {
         scenarioInfo = scenarioMap.get(event.scenario)
       }
       
-      // このイベントの予約データを取得
-      const { data: reservations, error: reservationError } = await supabase
+      // このイベントの予約データを取得（組織フィルタ付き）
+      let resQuery = supabase
         .from('reservations')
         .select('participant_count, participant_names, payment_method, final_price')
         .eq('schedule_event_id', event.id)
         .in('status', ['confirmed', 'pending'])
+      
+      if (orgId) {
+        resQuery = resQuery.eq('organization_id', orgId)
+      }
+      
+      const { data: reservations, error: reservationError } = await resQuery
       
       if (reservationError) {
         logger.error('予約データの取得に失敗:', reservationError)

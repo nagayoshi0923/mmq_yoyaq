@@ -16,6 +16,9 @@ import {
   Sparkles, AlertCircle, CheckCircle, Loader2
 } from 'lucide-react'
 
+// デフォルト組織ID（クインズワルツ）
+const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
+
 // ソーシャルログインアイコン
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -236,7 +239,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
               updated_at: new Date().toISOString()
             }, { onConflict: 'id' })
           
-          // customersテーブルにも登録（予約時に使用）
+          // customersテーブルにも登録（予約時に使用、organization_id付き）
           await supabase
             .from('customers')
             .upsert({
@@ -246,11 +249,12 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
               phone: customerPhone.trim(),
               visit_count: 0,
               total_spent: 0,
+              organization_id: DEFAULT_ORG_ID,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             }, { onConflict: 'email' })
         } else {
-          // userがnullでもcustomersテーブルには登録（user_idはnullで後から紐付け）
+          // userがnullでもcustomersテーブルには登録（organization_id付き）
           await supabase
             .from('customers')
             .upsert({
@@ -259,6 +263,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
               phone: customerPhone.trim(),
               visit_count: 0,
               total_spent: 0,
+              organization_id: DEFAULT_ORG_ID,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             }, { onConflict: 'email' })

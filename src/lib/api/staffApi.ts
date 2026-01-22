@@ -169,6 +169,9 @@ export const staffApi = {
 
   // スタッフを削除
   async delete(id: string): Promise<void> {
+    // 組織フィルタ（マルチテナント対応）
+    const orgId = await getCurrentOrganizationId()
+    
     // スタッフ情報を取得（名前とuser_idが必要）
     const { data: staffData, error: fetchError } = await supabase
       .from('staff')
@@ -182,27 +185,45 @@ export const staffApi = {
     
     // 関連データの処理
     
-    // 1. shift_submissionsの削除
-    const { error: shiftError } = await supabase
+    // 1. shift_submissionsの削除（組織フィルタ付き）
+    let shiftQuery = supabase
       .from('shift_submissions')
       .delete()
       .eq('staff_id', id)
     
+    if (orgId) {
+      shiftQuery = shiftQuery.eq('organization_id', orgId)
+    }
+    
+    const { error: shiftError } = await shiftQuery
+    
     if (shiftError) throw shiftError
     
-    // 2. staff_scenario_assignmentsの削除
-    const { error: assignmentError } = await supabase
+    // 2. staff_scenario_assignmentsの削除（組織フィルタ付き）
+    let assignQuery = supabase
       .from('staff_scenario_assignments')
       .delete()
       .eq('staff_id', id)
     
+    if (orgId) {
+      assignQuery = assignQuery.eq('organization_id', orgId)
+    }
+    
+    const { error: assignmentError } = await assignQuery
+    
     if (assignmentError) throw assignmentError
     
-    // 3. schedule_eventsのgms配列からスタッフ名を削除（イベント自体は残す）
-    const { data: scheduleEvents, error: scheduleError } = await supabase
+    // 3. schedule_eventsのgms配列からスタッフ名を削除（組織フィルタ付き）
+    let scheduleQuery = supabase
       .from('schedule_events')
       .select('id, gms')
       .contains('gms', [staffName])
+    
+    if (orgId) {
+      scheduleQuery = scheduleQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: scheduleEvents, error: scheduleError } = await scheduleQuery
     
     if (scheduleError) throw scheduleError
     
@@ -218,11 +239,17 @@ export const staffApi = {
       await Promise.all(updatePromises)
     }
     
-    // 4. reservationsのassigned_staff配列からスタッフ名を削除
-    const { data: reservations, error: resError } = await supabase
+    // 4. reservationsのassigned_staff配列からスタッフ名を削除（組織フィルタ付き）
+    let resQuery = supabase
       .from('reservations')
       .select('id, assigned_staff, gm_staff')
       .or(`assigned_staff.cs.{${staffName}},gm_staff.eq.${staffName}`)
+    
+    if (orgId) {
+      resQuery = resQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: reservations, error: resError } = await resQuery
     
     if (resError) throw resError
     
@@ -249,11 +276,17 @@ export const staffApi = {
       await Promise.all(updatePromises)
     }
     
-    // 5. スタッフ本体の削除
-    const { error } = await supabase
+    // 5. スタッフ本体の削除（組織フィルタ付き）
+    let deleteQuery = supabase
       .from('staff')
       .delete()
       .eq('id', id)
+    
+    if (orgId) {
+      deleteQuery = deleteQuery.eq('organization_id', orgId)
+    }
+    
+    const { error } = await deleteQuery
     
     if (error) throw error
     
