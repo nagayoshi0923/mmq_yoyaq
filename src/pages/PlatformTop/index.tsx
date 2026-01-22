@@ -133,6 +133,20 @@ export function PlatformTop() {
         logger.log('🏪 店舗データ:', storesWithOrg.length, '件')
       }
 
+      // 🔐 承認済みマスタのIDセットを取得
+      // MMQトップには承認済みマスタに紐づくシナリオのみ表示
+      const { data: approvedMasters, error: masterError } = await supabase
+        .from('scenario_masters')
+        .select('id')
+        .eq('master_status', 'approved')
+      
+      if (masterError) {
+        logger.error('マスタ取得エラー:', masterError)
+      }
+      
+      const approvedMasterIds = new Set(approvedMasters?.map(m => m.id) || [])
+      logger.log('✅ 承認済みマスタ:', approvedMasterIds.size, '件')
+
       // 今日以降のイベントを取得（店舗の地域情報も含む）
       // 貸切公演は除外、オープン公演のみ
       const today = new Date().toISOString().split('T')[0]
@@ -140,7 +154,7 @@ export function PlatformTop() {
         .from('schedule_events')
         .select(`
           id, date, time_slot, current_participants, start_time, category, is_reservation_enabled, is_cancelled,
-          scenarios:scenario_id!inner (id, title, slug, key_visual_url, player_count_min, player_count_max, duration, author, organization_id, status, scenario_type),
+          scenarios:scenario_id!inner (id, title, slug, key_visual_url, player_count_min, player_count_max, duration, author, organization_id, status, scenario_type, scenario_master_id),
           stores:store_id (id, name, short_name, color, region)
         `)
         .gte('date', today)
@@ -163,7 +177,7 @@ export function PlatformTop() {
             id: string; title: string; status: string; organization_id: string; 
             key_visual_url?: string | null; genre?: string[]; slug?: string;
             author?: string; player_count_min: number; player_count_max: number;
-            duration: number; scenario_type?: string 
+            duration: number; scenario_type?: string; scenario_master_id?: string | null
           } | null
           const store = e.stores as unknown as { id: string; name: string; short_name?: string; color?: string; region?: string } | null
           
@@ -176,6 +190,12 @@ export function PlatformTop() {
           
           // 予約無効のイベントを除外
           if (e.is_reservation_enabled === false) return
+          
+          // 🔐 マスタ未登録または未承認のシナリオを除外
+          // scenario_master_id がない、または承認済みマスタIDセットに含まれないものは非表示
+          if (!scenario.scenario_master_id || !approvedMasterIds.has(scenario.scenario_master_id)) {
+            return
+          }
           
           const org = orgMap[scenario.organization_id]
           const scenarioKey = scenario.id
@@ -227,7 +247,7 @@ export function PlatformTop() {
           })
         
         setScenariosWithEvents(scenarioList)
-        logger.log('🎭 シナリオ（イベント付き）:', scenarioList.length, '件')
+        logger.log('🎭 シナリオ（イベント付き・マスタ承認済み）:', scenarioList.length, '件')
         // デバッグ: 最初のシナリオのイベントを表示
         if (scenarioList.length > 0) {
           logger.log('🎭 最初のシナリオのイベント:', scenarioList[0].scenario_title, scenarioList[0].next_events)

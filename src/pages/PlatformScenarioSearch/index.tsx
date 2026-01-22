@@ -34,6 +34,7 @@ interface ScenarioData {
   organization_id: string
   organization_slug?: string
   organization_name?: string
+  scenario_master_id?: string | null
 }
 
 export function PlatformScenarioSearch() {
@@ -72,6 +73,20 @@ export function PlatformScenarioSearch() {
       try {
         setIsLoading(true)
         
+        // 🔐 承認済みマスタのIDセットを取得
+        // MMQシナリオ検索には承認済みマスタに紐づくシナリオのみ表示
+        const { data: approvedMasters, error: masterError } = await supabase
+          .from('scenario_masters')
+          .select('id')
+          .eq('master_status', 'approved')
+        
+        if (masterError) {
+          logger.error('マスタ取得エラー:', masterError)
+        }
+        
+        const approvedMasterIds = new Set(approvedMasters?.map(m => m.id) || [])
+        logger.log('✅ 承認済みマスタ:', approvedMasterIds.size, '件')
+        
         // 全組織のシナリオを取得
         const { data, error } = await supabase
           .from('scenarios')
@@ -79,7 +94,7 @@ export function PlatformScenarioSearch() {
             id, slug, title, author, key_visual_url,
             duration, player_count_min, player_count_max,
             genre, participation_fee, difficulty, release_date,
-            organization_id, status,
+            organization_id, status, scenario_master_id,
             organizations:organization_id (slug, name)
           `)
           .eq('status', 'available')
@@ -87,16 +102,20 @@ export function PlatformScenarioSearch() {
         
         if (error) throw error
         
-        const formattedScenarios = (data || []).map(s => {
-          const org = s.organizations as { slug?: string; name?: string } | null
-          return {
-            ...s,
-            genre: s.genre || [],
-            organization_slug: org?.slug || '',
-            organization_name: org?.name || '',
-          }
-        })
+        // 🔐 マスタ未登録または未承認のシナリオを除外
+        const formattedScenarios = (data || [])
+          .filter(s => s.scenario_master_id && approvedMasterIds.has(s.scenario_master_id))
+          .map(s => {
+            const org = s.organizations as { slug?: string; name?: string } | null
+            return {
+              ...s,
+              genre: s.genre || [],
+              organization_slug: org?.slug || '',
+              organization_name: org?.name || '',
+            }
+          })
         
+        logger.log('🎭 シナリオ（マスタ承認済み）:', formattedScenarios.length, '件')
         setScenarios(formattedScenarios)
       } catch (error) {
         logger.error('シナリオ取得エラー:', error)
