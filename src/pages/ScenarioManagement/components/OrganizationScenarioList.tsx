@@ -399,18 +399,16 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
     }
   }
 
-  // 統計
+  // 統計（旧UIと同じ項目）
   const stats = useMemo(() => {
-    const total = scenarios.length
-    const available = scenarios.filter(s => s.org_status === 'available').length
-    const unavailable = scenarios.filter(s => s.org_status === 'unavailable').length
-    const coming_soon = scenarios.filter(s => s.org_status === 'coming_soon').length
+    const totalScenarios = scenarios.length
+    const availableScenarios = scenarios.filter(s => s.org_status === 'available').length
     
     // 平均公演回数と中央値を計算
     const playCounts = scenarios.map(s => s.play_count || 0)
     const totalPlayCount = playCounts.reduce((sum, count) => sum + count, 0)
-    const avgPlayCount = total > 0 
-      ? Math.round((totalPlayCount / total) * 10) / 10 // 小数点第1位まで
+    const avgPlayCount = totalScenarios > 0 
+      ? Math.round((totalPlayCount / totalScenarios) * 10) / 10 // 小数点第1位まで
       : 0
     
     // 中央値を計算
@@ -427,13 +425,19 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       }
     }
     
+    // 平均プレイヤー数を計算
+    const totalPlayers = scenarios.reduce((sum, s) => {
+      const maxPlayers = s.player_count_max || s.player_count_min
+      return sum + maxPlayers
+    }, 0)
+    const avgPlayers = totalScenarios > 0 ? Math.round(totalPlayers / totalScenarios) : 0
+    
     return {
-      total,
-      available,
-      unavailable,
-      coming_soon,
+      totalScenarios,
+      availableScenarios,
       avgPlayCount,
-      medianPlayCount
+      medianPlayCount,
+      avgPlayers
     }
   }, [scenarios])
 
@@ -897,41 +901,44 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         </Card>
       )}
 
-      {/* 統計カード */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-        <Card className="shadow-none">
-          <CardContent className="p-3">
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <div className="text-xs text-muted-foreground">全シナリオ</div>
+      {/* 統計カード（旧UIと同じ項目） */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+        <Card className="bg-white border shadow-none">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-xs text-muted-foreground">総シナリオ数</div>
+            <div className="text-xl sm:text-2xl font-bold">
+              {stats.totalScenarios}
+            </div>
           </CardContent>
         </Card>
-        <Card className="shadow-none border-green-200 bg-green-50">
-          <CardContent className="p-3">
-            <div className="text-2xl font-bold text-green-700">{stats.available}</div>
-            <div className="text-xs text-green-600">公開中</div>
+
+        <Card className="bg-white border shadow-none">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-xs text-muted-foreground">利用可能</div>
+            <div className="text-xl sm:text-2xl font-bold text-green-700">
+              {stats.availableScenarios}
+            </div>
           </CardContent>
         </Card>
-        <Card className="shadow-none border-yellow-200 bg-yellow-50">
-          <CardContent className="p-3">
-            <div className="text-2xl font-bold text-yellow-700">{stats.coming_soon}</div>
-            <div className="text-xs text-yellow-600">近日公開</div>
+
+        <Card className="bg-white border shadow-none">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-xs text-muted-foreground">平均公演回数</div>
+            <div className="text-xl sm:text-2xl font-bold">
+              {stats.avgPlayCount.toFixed(1)}回
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              中央値: {stats.medianPlayCount.toFixed(1)}回
+            </div>
           </CardContent>
         </Card>
-        <Card className="shadow-none border-gray-200 bg-gray-50">
-          <CardContent className="p-3">
-            <div className="text-2xl font-bold text-gray-700">{stats.unavailable}</div>
-            <div className="text-xs text-gray-600">非公開</div>
-          </CardContent>
-        </Card>
-      </div>
-      
-      {/* 公演回数統計カード */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
-        <Card className="shadow-none border-blue-200 bg-blue-50">
-          <CardContent className="p-3">
-            <div className="text-2xl font-bold text-blue-700">{stats.avgPlayCount.toFixed(1)}回</div>
-            <div className="text-xs text-blue-600">平均公演回数</div>
-            <div className="text-xs text-blue-500 mt-1">中央値: {stats.medianPlayCount.toFixed(1)}回</div>
+
+        <Card className="bg-white border shadow-none">
+          <CardContent className="p-3 sm:p-4">
+            <div className="text-xs text-muted-foreground">平均プレイヤー数</div>
+            <div className="text-xl sm:text-2xl font-bold">
+              {stats.avgPlayers}名
+            </div>
           </CardContent>
         </Card>
       </div>
