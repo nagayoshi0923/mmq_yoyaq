@@ -682,13 +682,14 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       headerClassName: 'text-center',
       cellClassName: 'text-center',
       render: (scenario) => (
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
           {onEdit && (
             <Button
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0"
               onClick={(e) => {
+                e.preventDefault()
                 e.stopPropagation()
                 onEdit(scenario.scenario_master_id)
               }}
@@ -702,6 +703,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
             size="sm"
             className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
             onClick={(e) => {
+              e.preventDefault()
               e.stopPropagation()
               setScenarioToDelete(scenario)
               setDeleteDialogOpen(true)
@@ -930,12 +932,13 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
                     </div>
 
                     {/* アクション */}
-                    <div className="flex flex-col gap-1 flex-shrink-0">
+                    <div className="flex flex-col gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
                         onClick={(e) => {
+                          e.preventDefault()
                           e.stopPropagation()
                           setScenarioToDelete(scenario)
                           setDeleteDialogOpen(true)
