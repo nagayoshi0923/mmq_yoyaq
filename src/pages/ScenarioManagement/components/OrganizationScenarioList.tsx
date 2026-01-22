@@ -379,12 +379,42 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
   }
 
   // 統計
-  const stats = useMemo(() => ({
-    total: scenarios.length,
-    available: scenarios.filter(s => s.org_status === 'available').length,
-    unavailable: scenarios.filter(s => s.org_status === 'unavailable').length,
-    coming_soon: scenarios.filter(s => s.org_status === 'coming_soon').length
-  }), [scenarios])
+  const stats = useMemo(() => {
+    const total = scenarios.length
+    const available = scenarios.filter(s => s.org_status === 'available').length
+    const unavailable = scenarios.filter(s => s.org_status === 'unavailable').length
+    const coming_soon = scenarios.filter(s => s.org_status === 'coming_soon').length
+    
+    // 平均公演回数と中央値を計算
+    const playCounts = scenarios.map(s => s.play_count || 0)
+    const totalPlayCount = playCounts.reduce((sum, count) => sum + count, 0)
+    const avgPlayCount = total > 0 
+      ? Math.round((totalPlayCount / total) * 10) / 10 // 小数点第1位まで
+      : 0
+    
+    // 中央値を計算
+    const sortedCounts = [...playCounts].sort((a, b) => a - b)
+    let medianPlayCount = 0
+    if (sortedCounts.length > 0) {
+      const mid = Math.floor(sortedCounts.length / 2)
+      if (sortedCounts.length % 2 === 0) {
+        // 偶数の場合: 中央2つの平均
+        medianPlayCount = Math.round(((sortedCounts[mid - 1] + sortedCounts[mid]) / 2) * 10) / 10
+      } else {
+        // 奇数の場合: 中央の値
+        medianPlayCount = sortedCounts[mid]
+      }
+    }
+    
+    return {
+      total,
+      available,
+      unavailable,
+      coming_soon,
+      avgPlayCount,
+      medianPlayCount
+    }
+  }, [scenarios])
 
   // テーブル列定義（旧UIと同じスタイル + 組織設定項目のヘッダー色変更）
   const tableColumns: Column<OrganizationScenarioWithMaster>[] = useMemo(() => [
@@ -870,6 +900,17 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           <CardContent className="p-3">
             <div className="text-2xl font-bold text-gray-700">{stats.unavailable}</div>
             <div className="text-xs text-gray-600">非公開</div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* 公演回数統計カード */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+        <Card className="shadow-none border-blue-200 bg-blue-50">
+          <CardContent className="p-3">
+            <div className="text-2xl font-bold text-blue-700">{stats.avgPlayCount.toFixed(1)}回</div>
+            <div className="text-xs text-blue-600">平均公演回数</div>
+            <div className="text-xs text-blue-500 mt-1">中央値: {stats.medianPlayCount.toFixed(1)}回</div>
           </CardContent>
         </Card>
       </div>
