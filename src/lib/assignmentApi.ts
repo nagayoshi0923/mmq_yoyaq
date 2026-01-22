@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { getCurrentOrganizationId } from './organization'
 
 // スタッフ⇔シナリオの担当関係を管理するAPI
 export const assignmentApi = {
@@ -192,11 +193,19 @@ export const assignmentApi = {
     status?: 'want_to_learn' | 'experienced' | 'can_gm'
     notes?: string
   }>, organizationId?: string) {
-    // 既存の担当関係を削除
-    await supabase
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    // 既存の担当関係を削除（組織でフィルタ）
+    let deleteQuery = supabase
       .from('staff_scenario_assignments')
       .delete()
       .eq('staff_id', staffId)
+    
+    if (orgId) {
+      deleteQuery = deleteQuery.eq('organization_id', orgId)
+    }
+    
+    await deleteQuery
 
     // 新しい担当関係を追加
     if (assignments.length > 0) {
@@ -216,7 +225,7 @@ export const assignmentApi = {
               is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
               notes: null,
               assigned_at: new Date().toISOString(),
-              organization_id: organizationId
+              organization_id: orgId
             }))
         : (assignments as Array<{ scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; notes?: string }>)
             .filter(a => a.scenarioId && typeof a.scenarioId === 'string')
@@ -228,7 +237,7 @@ export const assignmentApi = {
         is_experienced: a.is_experienced,
         notes: a.notes || null,
         assigned_at: new Date().toISOString(),
-        organization_id: organizationId
+        organization_id: orgId
       }))
 
       // 有効なレコードがある場合のみ挿入

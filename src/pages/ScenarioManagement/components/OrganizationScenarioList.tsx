@@ -192,11 +192,12 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         return
       }
 
-      // 体験済みスタッフを取得（staff_scenario_assignmentsから）
+      // 担当GMと体験済みスタッフを取得（staff_scenario_assignmentsから）
       // staff_scenario_assignments.scenario_id は旧 scenarios.id を指しているため、
       // scenarios テーブル経由で scenario_master_id にマッピングする
       const scenarioMasterIds = (data || []).map(s => s.scenario_master_id).filter(Boolean)
-      let experiencedStaffMap = new Map<string, string[]>()
+      let availableGmsMap = new Map<string, string[]>() // 担当GM（can_main_gm=true または can_sub_gm=true）
+      let experiencedStaffMap = new Map<string, string[]>() // 体験済み（is_experienced=true かつ GM不可）
       
       if (scenarioMasterIds.length > 0) {
         // まず scenarios テーブルから scenario_master_id に対応する id を取得（組織でフィルタ）
@@ -218,9 +219,10 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           const oldScenarioIds = scenariosData.map(s => s.id)
           
           // 旧IDで staff_scenario_assignments を検索（組織でフィルタ）
+          // can_main_gm, can_sub_gm, is_experienced も取得
           const { data: assignmentsData } = await supabase
             .from('staff_scenario_assignments')
-            .select('scenario_id, staff:staff_id(id, name, organization_id)')
+            .select('scenario_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id, name, organization_id)')
             .eq('organization_id', organizationId)
             .in('scenario_id', oldScenarioIds)
           
@@ -228,11 +230,20 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
             assignmentsData.forEach((a: any) => {
               // 旧IDをマスターIDに変換してマッピング
               const masterId = oldIdToMasterIdMap.get(a.scenario_id)
-              if (masterId) {
-                if (!experiencedStaffMap.has(masterId)) {
-                  experiencedStaffMap.set(masterId, [])
+              if (masterId && a.staff?.name) {
+                // 担当GM（can_main_gm=true または can_sub_gm=true）
+                if (a.can_main_gm || a.can_sub_gm) {
+                  if (!availableGmsMap.has(masterId)) {
+                    availableGmsMap.set(masterId, [])
+                  }
+                  availableGmsMap.get(masterId)!.push(a.staff.name)
                 }
-                if (a.staff?.name) {
+                
+                // 体験済み（is_experienced=true かつ GM不可）
+                if (a.is_experienced && !a.can_main_gm && !a.can_sub_gm) {
+                  if (!experiencedStaffMap.has(masterId)) {
+                    experiencedStaffMap.set(masterId, [])
+                  }
                   experiencedStaffMap.get(masterId)!.push(a.staff.name)
                 }
               }
@@ -241,15 +252,25 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         }
       }
 
-      // シナリオに体験済みスタッフをマージ
-      const scenariosWithExperienced = (data || []).map(scenario => ({
-        ...scenario,
-        experienced_staff: experiencedStaffMap.get(scenario.scenario_master_id) || scenario.experienced_staff || []
-      }))
+      // シナリオに担当GMと体験済みスタッフをマージ
+      const scenariosWithAssignments = (data || []).map(scenario => {
+        const assignedGms = availableGmsMap.get(scenario.scenario_master_id)
+        const assignedExperienced = experiencedStaffMap.get(scenario.scenario_master_id)
+        
+        return {
+          ...scenario,
+          // 担当GM: staff_scenario_assignmentsから取得したものがあれば優先、なければ既存の値
+          available_gms: assignedGms && assignedGms.length > 0
+            ? assignedGms
+            : (scenario.available_gms || scenario.gm_assignments?.map((gm: any) => gm.staff_name || gm.name || '?') || []),
+          // 体験済み: staff_scenario_assignmentsから取得したものがあれば優先、なければ既存の値
+          experienced_staff: assignedExperienced || scenario.experienced_staff || []
+        }
+      })
 
       // デバッグ: play_count の確認
-      if (scenariosWithExperienced.length > 0) {
-        const withPlayCount = scenariosWithExperienced.filter(s => s.play_count != null && s.play_count > 0)
+      if (scenariosWithAssignments.length > 0) {
+        const withPlayCount = scenariosWithAssignments.filter(s => s.play_count != null && s.play_count > 0)
         console.log('🎯 play_count > 0 のシナリオ数:', withPlayCount.length)
         if (withPlayCount.length > 0) {
           console.log('🎯 play_count トップ3:', withPlayCount.slice(0, 3).map(s => ({
@@ -259,7 +280,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         }
       }
 
-      setScenarios(scenariosWithExperienced)
+      setScenarios(scenariosWithAssignments)
     } catch (err) {
       logger.error('Error fetching scenarios:', err)
       setError('エラーが発生しました')

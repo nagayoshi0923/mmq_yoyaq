@@ -9,6 +9,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { scenarioApi } from '@/lib/api'
 import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
@@ -205,6 +206,13 @@ export function StaffProfile() {
     try {
       setSaving(true)
 
+      // 組織IDを取得
+      const organizationId = await getCurrentOrganizationId()
+      if (!organizationId) {
+        showToast.error('組織情報が取得できません')
+        return
+      }
+
       // アサインメントを更新
       const assignmentData = assignments.map(a => ({
         scenarioId: a.scenario_id,
@@ -213,7 +221,7 @@ export function StaffProfile() {
         is_experienced: a.is_experienced
       }))
 
-      await assignmentApi.updateStaffAssignments(staffId, assignmentData)
+      await assignmentApi.updateStaffAssignments(staffId, assignmentData, organizationId)
 
       // スタッフ管理ページのキャッシュを無効化（即座に反映されるようにする）
       queryClient.invalidateQueries({ queryKey: staffKeys.all })
