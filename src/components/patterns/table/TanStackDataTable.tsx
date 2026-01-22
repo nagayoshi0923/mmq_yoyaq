@@ -1,4 +1,4 @@
-import { ReactNode, memo, useMemo } from 'react'
+import { ReactNode, memo, useMemo, useState, useEffect, useCallback } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -6,9 +6,27 @@ import {
   SortingState,
   ColumnDef,
   flexRender,
+  ColumnOrderState,
 } from '@tanstack/react-table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { HelpCircle } from 'lucide-react'
+import { HelpCircle, GripVertical } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  horizontalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 // TanStack Table のカスタム meta 型
 interface ColumnMetaCustom {
@@ -105,6 +123,65 @@ export interface DataTableProps<T> {
    * スティッキーヘッダーの右側に表示するコンテンツ
    */
   stickyHeaderContent?: ReactNode
+  /**
+   * ドラッグ&ドロップでカラム並び替えを有効にするか
+   */
+  enableColumnReorder?: boolean
+  /**
+   * カラム順序をlocalStorageに保存するためのキー
+   * 指定するとリロード後もカラム順序が維持される
+   */
+  columnOrderKey?: string
+}
+
+/**
+ * ドラッグ可能なヘッダーセル
+ */
+interface SortableHeaderProps {
+  id: string
+  children: ReactNode
+  className: string
+  onClick?: (event: unknown) => void
+  enableReorder: boolean
+}
+
+function SortableHeader({ id, children, className, onClick, enableReorder }: SortableHeaderProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id, disabled: !enableReorder })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 100 : 'auto',
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`${className} ${isDragging ? 'shadow-lg' : ''}`}
+      onClick={(e) => onClick?.(e)}
+    >
+      {enableReorder && (
+        <span
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing mr-1 text-gray-400 hover:text-gray-600"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="w-3 h-3" />
+        </span>
+      )}
+      {children}
+    </div>
+  )
 }
 
 /**
@@ -131,6 +208,8 @@ export interface DataTableProps<T> {
  *   getRowKey={(item) => item.id}
  *   sortState={sortState}
  *   onSort={handleSort}
+ *   enableColumnReorder={true}
+ *   columnOrderKey="my-table-columns"
  * />
  * ```
  */
@@ -143,7 +222,9 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
   emptyMessage = 'データがありません',
   loading = false,
   stickyHeader = false,
-  stickyHeaderContent
+  stickyHeaderContent,
+  enableColumnReorder = false,
+  columnOrderKey
 }: DataTableProps<T>) {
   // ヘルプテキスト付きヘッダーをレンダリングする関数
   const renderHeaderWithHelp = (col: Column<T>) => {
@@ -179,10 +260,91 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
     return col.header
   }
 
-  // Column定義をTanStack Table形式に変換
+  // カラム順序の初期値を取得（localStorageから復元）
+  const getInitialColumnOrder = useCallback((): string[] => {
+    const defaultOrder = columns.map(col => col.key)
+    if (!columnOrderKey) return defaultOrder
+    
+    try {
+      const saved = localStorage.getItem(`column-order-${columnOrderKey}`)
+      if (saved) {
+        const parsed = JSON.parse(saved) as string[]
+        // 保存されたカラムが現在のカラムと一致するか確認
+        const currentKeys = new Set(defaultOrder)
+        const savedKeys = new Set(parsed)
+        
+        // 全てのカラムが含まれているか確認
+        if (parsed.length === defaultOrder.length && 
+            parsed.every(key => currentKeys.has(key))) {
+          return parsed
+        }
+      }
+    } catch (e) {
+      // パースエラー時はデフォルト
+    }
+    return defaultOrder
+  }, [columns, columnOrderKey])
+
+  // カラム順序の状態
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(getInitialColumnOrder)
+
+  // columnsが変わった時にカラム順序をリセット（新しいカラムが追加された場合など）
+  useEffect(() => {
+    const currentKeys = columns.map(col => col.key)
+    const hasNewColumns = currentKeys.some(key => !columnOrder.includes(key))
+    const hasMissingColumns = columnOrder.some(key => !currentKeys.includes(key))
+    
+    if (hasNewColumns || hasMissingColumns) {
+      setColumnOrder(getInitialColumnOrder())
+    }
+  }, [columns, columnOrder, getInitialColumnOrder])
+
+  // カラム順序をlocalStorageに保存
+  useEffect(() => {
+    if (columnOrderKey && columnOrder.length > 0) {
+      localStorage.setItem(`column-order-${columnOrderKey}`, JSON.stringify(columnOrder))
+    }
+  }, [columnOrder, columnOrderKey])
+
+  // dnd-kitセンサー
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // 5px動かしてからドラッグ開始
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  // ドラッグ終了時のハンドラ
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    
+    if (over && active.id !== over.id) {
+      setColumnOrder((current) => {
+        const oldIndex = current.indexOf(active.id as string)
+        const newIndex = current.indexOf(over.id as string)
+        return arrayMove(current, oldIndex, newIndex)
+      })
+    }
+  }, [])
+
+  // カラム順序に基づいてカラムを並び替え
+  const orderedColumns = useMemo(() => {
+    if (!enableColumnReorder) return columns
+    
+    const columnMap = new Map(columns.map(col => [col.key, col]))
+    return columnOrder
+      .map(key => columnMap.get(key))
+      .filter((col): col is Column<T> => col !== undefined)
+  }, [columns, columnOrder, enableColumnReorder])
+
+  // Column定義をTanStack Table形式に変換（順序適用済み）
   const tanStackColumns = useMemo<ColumnDef<T>[]>(
     () =>
-      columns.map((col) => ({
+      orderedColumns.map((col) => ({
         id: col.key,
         // sortValueがある場合はソート用の値を返す、なければ行のkeyプロパティを使用
         accessorFn: (row) => {
@@ -203,8 +365,8 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
           cellClassName: col.cellClassName,
         },
       })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- columnsのみ依存
-    [columns]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- orderedColumnsのみ依存
+    [orderedColumns]
   )
 
   // ソート状態をTanStack Table形式に変換
@@ -281,49 +443,86 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
     }
   }
 
+  // ヘッダー行のコンテンツをレンダリング
+  const renderHeaders = () => {
+    return table.getHeaderGroups().map((headerGroup) =>
+      headerGroup.headers.map((header, headerIndex) => {
+        const meta = header.column.columnDef.meta as ColumnMetaCustom | undefined
+        const isSortable = header.column.getCanSort()
+        const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
+        const widthClass = getWidthClass(meta)
+        const isLastHeader = headerIndex === headerGroup.headers.length - 1
+        const shouldShowBorder = !isLastHeader || stickyHeaderContent
+        
+        const headerClassName = `${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-200' : ''} font-medium text-xs sm:text-xs ${alignClass} bg-gray-100 ${
+          isSortable ? 'cursor-pointer hover:bg-gray-200' : ''
+        } ${meta?.headerClassName || ''} flex items-center ${alignClass === 'text-center' ? 'justify-center' : alignClass === 'text-right' ? 'justify-end' : 'justify-start'} whitespace-nowrap`
+        
+        if (enableColumnReorder) {
+          return (
+            <SortableHeader
+              key={header.id}
+              id={header.id}
+              className={headerClassName}
+              onClick={isSortable ? header.column.getToggleSortingHandler() : undefined}
+              enableReorder={enableColumnReorder}
+            >
+              {flexRender(header.column.columnDef.header, header.getContext())}
+              {isSortable && getSortIcon(header.id)}
+            </SortableHeader>
+          )
+        }
+        
+        return (
+          <div
+            key={header.id}
+            className={headerClassName}
+            onClick={isSortable ? header.column.getToggleSortingHandler() : undefined}
+          >
+            {flexRender(header.column.columnDef.header, header.getContext())}
+            {isSortable && getSortIcon(header.id)}
+          </div>
+        )
+      })
+    )
+  }
+
   return (
     <div className="-mx-2 sm:mx-0">
       {/* 横スクロール可能なコンテナ */}
       <div className="overflow-x-auto overflow-y-hidden">
         {/* ヘッダー行 */}
         <div className={stickyHeader ? 'sm:sticky sm:top-0 z-40' : ''}>
-          <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-200 min-w-max">
-            {table.getHeaderGroups().map((headerGroup) =>
-              headerGroup.headers.map((header, headerIndex) => {
-                const meta = header.column.columnDef.meta as ColumnMetaCustom | undefined
-                const isSortable = header.column.getCanSort()
-                const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
-                const widthClass = getWidthClass(meta)
-                const isLastHeader = headerIndex === headerGroup.headers.length - 1
-                const shouldShowBorder = !isLastHeader || stickyHeaderContent
-                
-                return (
-                  <div
-                    key={header.id}
-                    className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-200' : ''} font-medium text-xs sm:text-xs ${alignClass} bg-gray-100 ${
-                      isSortable ? 'cursor-pointer hover:bg-gray-200' : ''
-                    } ${meta?.headerClassName || ''} flex items-center ${alignClass === 'text-center' ? 'justify-center' : alignClass === 'text-right' ? 'justify-end' : 'justify-start'} whitespace-nowrap`}
-                    onClick={
-                      isSortable
-                        ? header.column.getToggleSortingHandler()
-                        : undefined
-                    }
-                  >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-                    {isSortable && getSortIcon(header.id)}
-                  </div>
-                )
-              })
-            )}
-            {stickyHeaderContent && (
-              <div className="hidden md:flex items-center px-4 border-l border-gray-200 bg-gray-100 flex-shrink-0">
-                {stickyHeaderContent}
-              </div>
-            )}
-          </div>
+          {enableColumnReorder ? (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={columnOrder}
+                strategy={horizontalListSortingStrategy}
+              >
+                <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-200 min-w-max">
+                  {renderHeaders()}
+                  {stickyHeaderContent && (
+                    <div className="hidden md:flex items-center px-4 border-l border-gray-200 bg-gray-100 flex-shrink-0">
+                      {stickyHeaderContent}
+                    </div>
+                  )}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-200 min-w-max">
+              {renderHeaders()}
+              {stickyHeaderContent && (
+                <div className="hidden md:flex items-center px-4 border-l border-gray-200 bg-gray-100 flex-shrink-0">
+                  {stickyHeaderContent}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* データ行 */}

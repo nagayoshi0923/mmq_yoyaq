@@ -852,6 +852,8 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
               getRowKey={(scenario) => scenario.id}
               sortState={sortState}
               onSort={setSortState}
+              enableColumnReorder={true}
+              columnOrderKey="org-scenario-list"
               emptyMessage={
                 searchTerm || statusFilter !== 'all' 
                   ? '検索条件に一致するシナリオが見つかりません' 
