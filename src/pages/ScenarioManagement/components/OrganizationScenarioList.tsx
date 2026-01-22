@@ -137,10 +137,36 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         setStoreMap(map)
       }
 
-      // シナリオ一覧を取得
+      // シナリオ一覧を取得（play_countを明示的に含める）
       const { data, error: fetchError } = await supabase
         .from('organization_scenarios_with_master')
-        .select('*')
+        .select(`
+          id,
+          organization_id,
+          scenario_master_id,
+          slug,
+          org_status,
+          pricing_patterns,
+          gm_assignments,
+          created_at,
+          updated_at,
+          extra_preparation_time,
+          title,
+          author,
+          author_id,
+          key_visual_url,
+          description,
+          synopsis,
+          caution,
+          player_count_min,
+          player_count_max,
+          duration,
+          genre,
+          difficulty,
+          participation_fee,
+          master_status,
+          play_count
+        `)
         .eq('organization_id', organizationId)
         .order('title', { ascending: true })
 
@@ -177,6 +203,18 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         ...scenario,
         experienced_staff: experiencedStaffMap.get(scenario.scenario_master_id) || scenario.experienced_staff || []
       }))
+
+      // デバッグ: play_count の確認
+      if (scenariosWithExperienced.length > 0) {
+        const withPlayCount = scenariosWithExperienced.filter(s => s.play_count != null && s.play_count > 0)
+        console.log('🎯 play_count > 0 のシナリオ数:', withPlayCount.length)
+        if (withPlayCount.length > 0) {
+          console.log('🎯 play_count トップ3:', withPlayCount.slice(0, 3).map(s => ({
+            title: s.title,
+            play_count: s.play_count
+          })))
+        }
+      }
 
       setScenarios(scenariosWithExperienced)
     } catch (err) {

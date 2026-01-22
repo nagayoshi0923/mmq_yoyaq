@@ -675,6 +675,7 @@ export const scheduleApi = {
     venue?: string
     scenario?: string
     scenario_id?: string | null
+    organization_scenario_id?: string | null  // 組織シナリオID（新UI対応）
     category: string
     start_time: string
     end_time: string
@@ -693,13 +694,43 @@ export const scheduleApi = {
     reservation_id?: string | null  // 貸切リクエストID
   }) {
     // シナリオ名から自動でマッチングして scenario_id と正式名称を設定
-    const finalData = { ...eventData }
+    const finalData: Record<string, unknown> = { ...eventData }
     if (eventData.scenario && !eventData.scenario_id) {
       const match = await findMatchingScenario(eventData.scenario)
       if (match) {
         finalData.scenario_id = match.id
         finalData.scenario = match.title // 正式名称に更新
         logger.info(`シナリオ自動マッチング: ${eventData.scenario} -> ${match.title}`)
+      }
+    }
+    
+    // organization_scenario_id を自動設定（scenario_id から逆引き）
+    if (finalData.scenario_id && eventData.organization_id && !finalData.organization_scenario_id) {
+      try {
+        // scenarios テーブルから scenario_master_id を取得
+        const { data: scenarioData } = await supabase
+          .from('scenarios')
+          .select('scenario_master_id')
+          .eq('id', finalData.scenario_id as string)
+          .single()
+        
+        if (scenarioData?.scenario_master_id) {
+          // organization_scenarios から該当のレコードを取得
+          const { data: orgScenario } = await supabase
+            .from('organization_scenarios')
+            .select('id')
+            .eq('scenario_master_id', scenarioData.scenario_master_id)
+            .eq('organization_id', eventData.organization_id)
+            .single()
+          
+          if (orgScenario?.id) {
+            finalData.organization_scenario_id = orgScenario.id
+            logger.info(`organization_scenario_id 自動設定: ${orgScenario.id}`)
+          }
+        }
+      } catch (err) {
+        // エラーは無視（organization_scenario_id は任意）
+        logger.warn('organization_scenario_id の自動設定に失敗:', err)
       }
     }
     
@@ -739,6 +770,7 @@ export const scheduleApi = {
     store_id: string
     venue: string
     scenario_id: string
+    organization_scenario_id: string  // 組織シナリオID（新UI対応）
     scenario: string
     category: string
     start_time: string
@@ -754,15 +786,44 @@ export const scheduleApi = {
     venue_rental_fee: number  // 場所貸し公演料金
     reservation_name: string | null  // 貸切予約の予約者名
     is_reservation_name_overwritten: boolean  // 予約者名が手動上書きされたか
-  }>) {
+  }>, organizationId?: string) {
     // シナリオ名から自動でマッチングして scenario_id と正式名称を設定
-    const finalUpdates = { ...updates }
+    const finalUpdates: Record<string, unknown> = { ...updates }
     if (updates.scenario && !updates.scenario_id) {
       const match = await findMatchingScenario(updates.scenario)
       if (match) {
         finalUpdates.scenario_id = match.id
         finalUpdates.scenario = match.title // 正式名称に更新
         logger.info(`シナリオ自動マッチング: ${updates.scenario} -> ${match.title}`)
+      }
+    }
+    
+    // organization_scenario_id を自動設定（scenario_id から逆引き）
+    const scenarioIdToUse = finalUpdates.scenario_id || updates.scenario_id
+    const orgIdToUse = organizationId || await getCurrentOrganizationId()
+    if (scenarioIdToUse && orgIdToUse && !finalUpdates.organization_scenario_id) {
+      try {
+        const { data: scenarioData } = await supabase
+          .from('scenarios')
+          .select('scenario_master_id')
+          .eq('id', scenarioIdToUse as string)
+          .single()
+        
+        if (scenarioData?.scenario_master_id) {
+          const { data: orgScenario } = await supabase
+            .from('organization_scenarios')
+            .select('id')
+            .eq('scenario_master_id', scenarioData.scenario_master_id)
+            .eq('organization_id', orgIdToUse)
+            .single()
+          
+          if (orgScenario?.id) {
+            finalUpdates.organization_scenario_id = orgScenario.id
+            logger.info(`organization_scenario_id 自動設定（更新）: ${orgScenario.id}`)
+          }
+        }
+      } catch (err) {
+        logger.warn('organization_scenario_id の自動設定に失敗（更新）:', err)
       }
     }
     

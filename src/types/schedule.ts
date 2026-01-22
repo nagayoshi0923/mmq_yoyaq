@@ -5,6 +5,8 @@ export interface ScheduleEvent {
   date: string
   venue: string
   scenario: string
+  scenario_id?: string  // 旧シナリオID（scenarios テーブル）
+  organization_scenario_id?: string  // 組織シナリオID（organization_scenarios テーブル）
   gms: string[]
   start_time: string
   end_time: string
@@ -31,6 +33,11 @@ export interface ScheduleEvent {
     title: string
     player_count_max: number
   }
+  organization_scenarios?: {  // 組織シナリオ情報（新UI対応）
+    id: string
+    scenario_master_id: string
+    org_status: string
+  }
 }
 
 export interface EventFormData {
@@ -38,6 +45,7 @@ export interface EventFormData {
   venue: string
   scenario: string
   scenario_id?: string
+  organization_scenario_id?: string  // 組織シナリオID（新UI対応）
   category: string
   start_time: string
   end_time: string
