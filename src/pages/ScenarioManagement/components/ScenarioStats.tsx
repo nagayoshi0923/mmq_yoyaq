@@ -16,14 +16,26 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios, scenari
     const totalScenarios = scenarios.length
     const availableScenarios = scenarios.filter(s => s.status === 'available').length
     
-    // 平均公演回数を計算
-    const totalPerformanceCount = scenarios.reduce((sum, s) => {
-      const performanceCount = scenarioStats[s.id]?.performanceCount || 0
-      return sum + performanceCount
-    }, 0)
+    // 平均公演回数と中央値を計算
+    const performanceCounts = scenarios.map(s => scenarioStats[s.id]?.performanceCount || 0)
+    const totalPerformanceCount = performanceCounts.reduce((sum, count) => sum + count, 0)
     const avgPerformanceCount = totalScenarios > 0 
       ? Math.round((totalPerformanceCount / totalScenarios) * 10) / 10 // 小数点第1位まで
       : 0
+    
+    // 中央値を計算
+    const sortedCounts = [...performanceCounts].sort((a, b) => a - b)
+    let medianPerformanceCount = 0
+    if (sortedCounts.length > 0) {
+      const mid = Math.floor(sortedCounts.length / 2)
+      if (sortedCounts.length % 2 === 0) {
+        // 偶数の場合: 中央2つの平均
+        medianPerformanceCount = Math.round(((sortedCounts[mid - 1] + sortedCounts[mid]) / 2) * 10) / 10
+      } else {
+        // 奇数の場合: 中央の値
+        medianPerformanceCount = sortedCounts[mid]
+      }
+    }
     
     const totalPlayers = scenarios.reduce((sum, s) => {
       const maxPlayers = s.player_count_max || s.player_count_min
@@ -35,6 +47,7 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios, scenari
       totalScenarios,
       availableScenarios,
       avgPerformanceCount,
+      medianPerformanceCount,
       avgPlayers
     }
   }, [scenarios, scenarioStats])
@@ -64,6 +77,9 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios, scenari
           <div className="text-xs text-muted-foreground">平均公演回数</div>
           <div className="text-xl sm:text-2xl font-bold" {...devDb('scenarios.avg(performance_count)')}>
             {stats.avgPerformanceCount.toFixed(1)}回
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            中央値: {stats.medianPerformanceCount.toFixed(1)}回
           </div>
         </CardContent>
       </Card>
