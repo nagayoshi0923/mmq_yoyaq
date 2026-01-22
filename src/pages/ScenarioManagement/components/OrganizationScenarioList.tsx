@@ -272,8 +272,10 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
             : (scenario.available_gms || scenario.gm_assignments?.map((gm: any) => gm.staff_name || gm.name || '?') || []),
           // 体験済み: staff_scenario_assignmentsから取得したものがあれば優先、なければ既存の値
           experienced_staff: assignedExperienced || scenario.experienced_staff || [],
-          // 対応店舗: scenariosテーブルから取得したものがあれば優先、なければ既存の値
-          available_stores: assignedStores || scenario.available_stores || []
+          // 対応店舗: まず組織設定（organization_scenarios）を優先し、無ければscenariosを使用
+          available_stores: (scenario.available_stores && scenario.available_stores.length > 0)
+            ? scenario.available_stores
+            : (assignedStores || [])
         }
       })
 
