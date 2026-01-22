@@ -173,7 +173,7 @@ function SortableHeader({ id, children, className, onClick, enableReorder }: Sor
         <span
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing mr-1 text-gray-400 hover:text-gray-600"
+          className="cursor-grab active:cursor-grabbing flex-shrink-0 text-gray-300 hover:text-gray-500 -ml-0.5 mr-0.5"
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="w-3 h-3" />
