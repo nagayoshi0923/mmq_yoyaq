@@ -178,15 +178,6 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         experienced_staff: experiencedStaffMap.get(scenario.scenario_master_id) || scenario.experienced_staff || []
       }))
 
-      // デバッグ: play_count の確認
-      if (scenariosWithExperienced.length > 0) {
-        logger.log('📊 シナリオデータサンプル (play_count確認):', {
-          title: scenariosWithExperienced[0].title,
-          play_count: scenariosWithExperienced[0].play_count,
-          hasPlayCount: 'play_count' in scenariosWithExperienced[0]
-        })
-      }
-
       setScenarios(scenariosWithExperienced)
     } catch (err) {
       logger.error('Error fetching scenarios:', err)

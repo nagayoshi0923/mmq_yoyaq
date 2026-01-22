@@ -19,8 +19,7 @@ BEGIN
       s.participation_fee,
       s.status,
       s.available_stores,
-      s.gm_assignments,
-      s.pricing_patterns
+      s.gm_assignments
     FROM scenarios s
     WHERE s.scenario_master_id IS NOT NULL
       AND s.organization_id = org_id
@@ -55,7 +54,7 @@ BEGIN
         WHEN scenario_rec.status = 'draft' THEN 'coming_soon'
         ELSE 'unavailable'
       END,
-      COALESCE(scenario_rec.pricing_patterns::jsonb, '[]'::jsonb),
+      '[]'::jsonb,  -- pricing_patterns はデフォルト値
       COALESCE(scenario_rec.gm_assignments::jsonb, '[]'::jsonb),
       0
     )
