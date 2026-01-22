@@ -18,6 +18,7 @@ import {
   Search, Plus, Edit, Trash2, Clock, Users, JapaneseYen, 
   AlertTriangle, RefreshCw
 } from 'lucide-react'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { AddFromMasterDialog } from '@/components/modals/AddFromMasterDialog'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
@@ -82,6 +83,8 @@ interface StoreInfo {
   id: string
   short_name: string
   name: string
+  ownership_type?: string
+  is_temporary?: boolean
 }
 
 export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationScenarioListProps) {
@@ -126,13 +129,19 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       // 店舗一覧を取得（IDから名前への変換用）
       const { data: storesData } = await supabase
         .from('stores')
-        .select('id, name, short_name')
+        .select('id, name, short_name, ownership_type, is_temporary')
         .eq('organization_id', organizationId)
       
       if (storesData) {
         const map = new Map<string, StoreInfo>()
         storesData.forEach(store => {
-          map.set(store.id, { id: store.id, name: store.name, short_name: store.short_name || store.name })
+          map.set(store.id, { 
+            id: store.id, 
+            name: store.name, 
+            short_name: store.short_name || store.name,
+            ownership_type: store.ownership_type,
+            is_temporary: store.is_temporary
+          })
         })
         setStoreMap(map)
       }
@@ -171,7 +180,8 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           gm_costs,
           gm_count,
           license_amount,
-          gm_test_license_amount
+          gm_test_license_amount,
+          experienced_staff
         `)
         .eq('organization_id', organizationId)
         .order('title', { ascending: true })
@@ -470,13 +480,18 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       key: 'available_stores',
       header: '対応店舗',
       helpText: 'このシナリオを公演できる店舗（組織で設定）。空欄は全店舗対応',
-      width: 'w-28',
+      width: 'w-36',
       headerClassName: ORG_HEADER_CLASS,
       cellClassName: ORG_CELL_CLASS,
       render: (scenario) => {
         const storeIds = scenario.available_stores || []
-        if (storeIds.length === 0) {
-          return <span className="text-[10px] px-1 py-0 bg-white text-gray-600 rounded border border-gray-200">全店舗</span>
+        // 全店舗数と比較（オフィス・臨時会場を除く通常店舗数）
+        const regularStoreCount = Array.from(storeMap.values()).filter(s => 
+          s.ownership_type !== 'office' && !s.is_temporary
+        ).length
+        
+        if (storeIds.length === 0 || storeIds.length >= regularStoreCount) {
+          return <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">全店舗</span>
         }
         // IDを店舗名に変換
         const storeNames = storeIds.map((id: string) => {
@@ -485,14 +500,11 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         })
         return (
           <div className="flex flex-wrap gap-0.5">
-            {storeNames.slice(0, 2).map((name: string, i: number) => (
-              <span key={i} className="text-[10px] px-1 py-0 bg-white text-purple-700 rounded-sm border border-purple-200">
+            {storeNames.map((name: string, i: number) => (
+              <span key={i} className="text-[10px] px-1 py-0 bg-purple-50 text-purple-700 rounded-sm border border-purple-200">
                 {name}
               </span>
             ))}
-            {storeNames.length > 2 && (
-              <span className="text-[10px] text-muted-foreground">+{storeNames.length - 2}</span>
-            )}
           </div>
         )
       }
@@ -544,73 +556,111 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       key: 'available_gms',
       header: '担当GM',
       helpText: 'このシナリオを担当できるGM一覧（組織で設定）',
-      width: 'w-32',
+      width: 'w-40',
       headerClassName: ORG_HEADER_CLASS,
-      cellClassName: ORG_CELL_CLASS,
+      cellClassName: ORG_CELL_CLASS + ' overflow-hidden',
       render: (scenario) => {
         // gm_assignments (JSONB) または available_gms (TEXT[]) から取得
         const gmAssignments = scenario.gm_assignments || []
         const availableGms = scenario.available_gms || []
         
+        const maxDisplay = 4
+        let gms: string[] = []
+        
         // gm_assignmentsがあればそちらを優先（名前情報を持つ）
         if (gmAssignments.length > 0) {
-          const gmNames = gmAssignments.map((gm: any) => gm.staff_name || gm.name || '?').slice(0, 3)
-          return (
-            <div className="flex flex-wrap gap-0.5">
-              {gmNames.map((name: string, i: number) => (
-                <span key={i} className="text-[10px] px-1 py-0 bg-white text-blue-700 rounded-sm border border-blue-200">
-                  {name}
-                </span>
-              ))}
-              {gmAssignments.length > 3 && (
-                <span className="text-[10px] text-muted-foreground">+{gmAssignments.length - 3}</span>
-              )}
-            </div>
-          )
+          gms = gmAssignments.map((gm: any) => gm.staff_name || gm.name || '?')
+        } else if (availableGms.length > 0) {
+          gms = availableGms
         }
         
-        // available_gmsがあればそちらを表示
-        if (availableGms.length > 0) {
-          return (
-            <div className="flex flex-wrap gap-0.5">
-              {availableGms.slice(0, 3).map((gm: string, i: number) => (
-                <span key={i} className="text-[10px] px-1 py-0 bg-white text-blue-700 rounded-sm border border-blue-200">
-                  {gm}
-                </span>
-              ))}
-              {availableGms.length > 3 && (
-                <span className="text-[10px] text-muted-foreground">+{availableGms.length - 3}</span>
-              )}
-            </div>
-          )
+        if (gms.length === 0) {
+          return <span className="text-[10px] text-muted-foreground">-</span>
         }
         
-        return <span className="text-[10px] text-muted-foreground">-</span>
+        const displayed = gms.slice(0, maxDisplay)
+        const remaining = gms.length - maxDisplay
+        
+        const content = (
+          <div className="flex flex-wrap gap-0.5">
+            {displayed.map((name: string, i: number) => (
+              <span key={i} className="text-[10px] px-1 py-0 bg-blue-50 text-blue-700 rounded-sm border border-blue-200">
+                {name}
+              </span>
+            ))}
+            {remaining > 0 && (
+              <span className="text-[10px] text-muted-foreground">+{remaining}</span>
+            )}
+          </div>
+        )
+        
+        if (remaining <= 0) return content
+        
+        return (
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="cursor-default">{content}</div>
+              </TooltipTrigger>
+              <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5">
+                <div className="flex flex-col gap-0.5">
+                  {gms.map((name: string, i: number) => (
+                    <span key={i} className="text-xs">{name}</span>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )
       }
     },
     {
       key: 'experienced_staff',
       header: '体験済',
       helpText: 'このシナリオを体験済みのスタッフ（プレイヤーとして参加済み。組織で設定）',
-      width: 'w-32',
+      width: 'w-40',
       headerClassName: ORG_HEADER_CLASS,
-      cellClassName: ORG_CELL_CLASS,
+      cellClassName: ORG_CELL_CLASS + ' overflow-hidden',
       render: (scenario) => {
         const staff = scenario.experienced_staff || []
         if (staff.length === 0) {
           return <span className="text-[10px] text-muted-foreground">-</span>
         }
-        return (
+        
+        const maxDisplay = 4
+        const displayed = staff.slice(0, maxDisplay)
+        const remaining = staff.length - maxDisplay
+        
+        const content = (
           <div className="flex flex-wrap gap-0.5">
-            {staff.slice(0, 3).map((name: string, i: number) => (
-              <span key={i} className="text-[10px] px-1 py-0 bg-white text-green-700 rounded-sm border border-green-200">
+            {displayed.map((name: string, i: number) => (
+              <span key={i} className="text-[10px] px-1 py-0 bg-green-50 text-green-700 rounded-sm border border-green-200">
                 {name}
               </span>
             ))}
-            {staff.length > 3 && (
-              <span className="text-[10px] text-muted-foreground">+{staff.length - 3}</span>
+            {remaining > 0 && (
+              <span className="text-[10px] text-muted-foreground">+{remaining}</span>
             )}
           </div>
+        )
+        
+        if (remaining <= 0) return content
+        
+        return (
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="cursor-default">{content}</div>
+              </TooltipTrigger>
+              <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5">
+                <div className="flex flex-col gap-0.5">
+                  {staff.map((name: string, i: number) => (
+                    <span key={i} className="text-xs">{name}</span>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )
       }
     },
