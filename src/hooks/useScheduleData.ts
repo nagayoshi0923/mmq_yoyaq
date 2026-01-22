@@ -415,33 +415,76 @@ export function useScheduleData(currentDate: Date) {
   
   // React Queryのデータをstateに同期（後方互換性のため）
   const [scenarios, setScenarios] = useState<Scenario[]>([])
+  const [orgScenarioOverrides, setOrgScenarioOverrides] = useState<Map<string, {
+    duration?: number | null
+    participation_fee?: number | null
+    extra_preparation_time?: number | null
+  }>>(new Map())
   
   // React Queryのデータが更新されたらstateに同期（メモ化して不要な再レンダリングを防ぐ）
   const scenariosRef = useRef<Scenario[]>([])
   const scenariosStringRef = useRef<string>('')
   useEffect(() => {
-    // 参照が同じ場合はスキップ（React Queryが同じオブジェクトを返している場合）
-    if (scenariosRef.current === scenariosData) {
-      return
-    }
-    
     // データが実際に変更されたときだけ更新（効率的な比較）
     const prevLength = scenariosRef.current.length
     const currentString = scenariosStringRef.current
-    const newString = scenariosData.length > 0 ? JSON.stringify(scenariosData) : ''
+    const mergedScenarios = scenariosData.map((scenario) => {
+      const masterId = scenario.scenario_master_id || ''
+      const override = masterId ? orgScenarioOverrides.get(masterId) : undefined
+      if (!override) return scenario
+      return {
+        ...scenario,
+        duration: override.duration ?? scenario.duration,
+        participation_fee: override.participation_fee ?? scenario.participation_fee,
+        extra_preparation_time: override.extra_preparation_time ?? scenario.extra_preparation_time
+      }
+    })
+    const newString = mergedScenarios.length > 0 ? JSON.stringify(mergedScenarios) : ''
     
     // 文字列比較で内容が変わったかチェック（長さチェックを先に実行）
-    if (scenariosData.length !== prevLength || currentString !== newString) {
+    if (mergedScenarios.length !== prevLength || currentString !== newString) {
       scenariosRef.current = scenariosData
       scenariosStringRef.current = newString
-      setScenarios(scenariosData)
+      setScenarios(mergedScenarios)
       // sessionStorageへの書き込みは初回のみ、または大幅に変更があった場合のみ（パフォーマンス改善）
-      if (scenariosData.length > 0 && (prevLength === 0 || Math.abs(scenariosData.length - prevLength) > 5)) {
+      if (mergedScenarios.length > 0 && (prevLength === 0 || Math.abs(mergedScenarios.length - prevLength) > 5)) {
         sessionStorage.setItem('scheduleScenarios', newString)
       }
-      logger.log('🔄 シナリオデータをstateに同期:', scenariosData.length)
+      logger.log('🔄 シナリオデータをstateに同期:', mergedScenarios.length)
     }
-  }, [scenariosData])
+  }, [scenariosData, orgScenarioOverrides])
+
+  // 組織シナリオの上書き設定を取得（新UIの組織設定を反映）
+  useEffect(() => {
+    const loadOrgScenarioOverrides = async () => {
+      try {
+        const orgId = await getCurrentOrganizationId()
+        if (!orgId) return
+        const { data, error } = await supabase
+          .from('organization_scenarios_with_master')
+          .select('scenario_master_id, duration, participation_fee, extra_preparation_time')
+          .eq('organization_id', orgId)
+        if (error) {
+          logger.error('組織シナリオ設定の取得に失敗:', error)
+          return
+        }
+        const map = new Map<string, { duration?: number | null; participation_fee?: number | null; extra_preparation_time?: number | null }>()
+        data?.forEach((row) => {
+          if (row.scenario_master_id) {
+            map.set(row.scenario_master_id, {
+              duration: row.duration ?? null,
+              participation_fee: row.participation_fee ?? null,
+              extra_preparation_time: row.extra_preparation_time ?? null
+            })
+          }
+        })
+        setOrgScenarioOverrides(map)
+      } catch (err) {
+        logger.error('組織シナリオ設定の取得エラー:', err)
+      }
+    }
+    loadOrgScenarioOverrides()
+  }, [])
 
   // イベントデータをキャッシュに保存（変更時のみ、パフォーマンス改善）
   const eventsStringRef = useRef<string>('')
@@ -467,6 +510,7 @@ export function useScheduleData(currentDate: Date) {
         // 店舗・スタッフを並列で読み込み（シナリオはReact Queryが管理）
         // includeTemporary: false で通常の店舗のみ取得（臨時会場は useTemporaryVenues で管理）
         // excludeOffice: false でオフィスも表示（スケジュール管理では全店舗を表示）
+        const orgId = await getCurrentOrganizationId()
         const [storeData, staffData] = await Promise.all([
           storeApi.getAll(false, undefined, undefined, false).catch(err => {
             logger.error('店舗データの読み込みエラー:', err)
@@ -490,7 +534,7 @@ export function useScheduleData(currentDate: Date) {
         const staffWithScenarios = await Promise.all(
           staffData.map(async (staffMember) => {
             try {
-              const assignments = await assignmentApi.getStaffAssignments(staffMember.id)
+              const assignments = await assignmentApi.getStaffAssignments(staffMember.id, orgId || undefined)
               const scenarioIds = assignments.map((a: { scenario_id: string }) => a.scenario_id)
               return {
                 ...staffMember,
