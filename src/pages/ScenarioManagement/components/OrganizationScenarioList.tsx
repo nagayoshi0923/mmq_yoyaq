@@ -193,24 +193,49 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       }
 
       // 体験済みスタッフを取得（staff_scenario_assignmentsから）
+      // staff_scenario_assignments.scenario_id は旧 scenarios.id を指しているため、
+      // scenarios テーブル経由で scenario_master_id にマッピングする
       const scenarioMasterIds = (data || []).map(s => s.scenario_master_id).filter(Boolean)
       let experiencedStaffMap = new Map<string, string[]>()
       
       if (scenarioMasterIds.length > 0) {
-        const { data: assignmentsData } = await supabase
-          .from('staff_scenario_assignments')
-          .select('scenario_id, staff:staff_id(id, name)')
-          .in('scenario_id', scenarioMasterIds)
+        // まず scenarios テーブルから scenario_master_id に対応する id を取得
+        const { data: scenariosData } = await supabase
+          .from('scenarios')
+          .select('id, scenario_master_id')
+          .in('scenario_master_id', scenarioMasterIds)
         
-        if (assignmentsData) {
-          assignmentsData.forEach((a: any) => {
-            if (!experiencedStaffMap.has(a.scenario_id)) {
-              experiencedStaffMap.set(a.scenario_id, [])
-            }
-            if (a.staff?.name) {
-              experiencedStaffMap.get(a.scenario_id)!.push(a.staff.name)
+        if (scenariosData && scenariosData.length > 0) {
+          // 旧ID -> マスターID のマッピングを作成
+          const oldIdToMasterIdMap = new Map<string, string>()
+          scenariosData.forEach(s => {
+            if (s.scenario_master_id) {
+              oldIdToMasterIdMap.set(s.id, s.scenario_master_id)
             }
           })
+          
+          const oldScenarioIds = scenariosData.map(s => s.id)
+          
+          // 旧IDで staff_scenario_assignments を検索
+          const { data: assignmentsData } = await supabase
+            .from('staff_scenario_assignments')
+            .select('scenario_id, staff:staff_id(id, name)')
+            .in('scenario_id', oldScenarioIds)
+          
+          if (assignmentsData) {
+            assignmentsData.forEach((a: any) => {
+              // 旧IDをマスターIDに変換してマッピング
+              const masterId = oldIdToMasterIdMap.get(a.scenario_id)
+              if (masterId) {
+                if (!experiencedStaffMap.has(masterId)) {
+                  experiencedStaffMap.set(masterId, [])
+                }
+                if (a.staff?.name) {
+                  experiencedStaffMap.get(masterId)!.push(a.staff.name)
+                }
+              }
+            })
+          }
         }
       }
 
