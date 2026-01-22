@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield } from 'lucide-react'
+import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { ScenarioMasterEditDialog } from './ScenarioMasterEditDialog'
 import { MasterSelectDialog } from './MasterSelectDialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useScenariosQuery, useScenarioMutation, useDeleteScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { scenarioMasterApi, type ScenarioMaster } from '@/lib/api/scenarioMasterApi'
 
 // V2セクションコンポーネント（カード形式でレイアウト改善）
 import { BasicInfoSectionV2 } from './ScenarioEditDialogV2/sections/BasicInfoSectionV2'
@@ -127,6 +128,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   // マスター編集ダイアログ（MMQ運営者用）
   const [masterEditDialogOpen, setMasterEditDialogOpen] = useState(false)
   
+  // マスターデータ（相違検出用）
+  const [masterData, setMasterData] = useState<ScenarioMaster | null>(null)
+  const [loadingMaster, setLoadingMaster] = useState(false)
+  
   // 組織名を取得
   const [organizationName, setOrganizationName] = useState<string>('')
   useEffect(() => {
@@ -136,6 +141,135 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     }
     fetchOrg()
   }, [])
+
+  // マスターデータを取得（相違検出用）
+  useEffect(() => {
+    const fetchMaster = async () => {
+      const masterId = currentScenario?.scenario_master_id || formData.scenario_master_id
+      if (!masterId || !isOpen) {
+        setMasterData(null)
+        return
+      }
+      
+      try {
+        setLoadingMaster(true)
+        const data = await scenarioMasterApi.getById(masterId)
+        setMasterData(data)
+      } catch (error) {
+        logger.error('マスターデータ取得エラー:', error)
+        setMasterData(null)
+      } finally {
+        setLoadingMaster(false)
+      }
+    }
+    
+    fetchMaster()
+  }, [isOpen, scenarioId, currentScenario?.scenario_master_id, formData.scenario_master_id])
+
+  // マスターとの相違を検出
+  const masterDiffs = useMemo(() => {
+    if (!masterData) return { count: 0, fields: {} as Record<string, { master: any; current: any }>, byTab: {} as Record<string, number> }
+    
+    const diffs: Record<string, { master: any; current: any }> = {}
+    
+    // 比較対象フィールドとタブのマッピング
+    const fieldToTab: Record<string, string> = {
+      title: 'basic',
+      author: 'basic',
+      description: 'basic',
+      key_visual_url: 'basic',
+      duration: 'game',
+      player_count_min: 'game',
+      player_count_max: 'game',
+      genre: 'game',
+    }
+    
+    // 比較対象フィールド
+    if (masterData.title !== formData.title) {
+      diffs.title = { master: masterData.title, current: formData.title }
+    }
+    if (masterData.author !== formData.author) {
+      diffs.author = { master: masterData.author, current: formData.author }
+    }
+    if (masterData.description !== formData.description) {
+      diffs.description = { master: masterData.description, current: formData.description }
+    }
+    if (masterData.key_visual_url !== formData.key_visual_url) {
+      diffs.key_visual_url = { master: masterData.key_visual_url, current: formData.key_visual_url }
+    }
+    if (masterData.official_duration !== formData.duration) {
+      diffs.duration = { master: masterData.official_duration, current: formData.duration }
+    }
+    if (masterData.player_count_min !== formData.player_count_min) {
+      diffs.player_count_min = { master: masterData.player_count_min, current: formData.player_count_min }
+    }
+    if (masterData.player_count_max !== formData.player_count_max) {
+      diffs.player_count_max = { master: masterData.player_count_max, current: formData.player_count_max }
+    }
+    if (JSON.stringify(masterData.genre || []) !== JSON.stringify(formData.genre || [])) {
+      diffs.genre = { master: masterData.genre, current: formData.genre }
+    }
+    
+    // タブごとの相違件数を計算
+    const byTab: Record<string, number> = {}
+    for (const field of Object.keys(diffs)) {
+      const tab = fieldToTab[field] || 'basic'
+      byTab[tab] = (byTab[tab] || 0) + 1
+    }
+    
+    return { count: Object.keys(diffs).length, fields: diffs, byTab }
+  }, [masterData, formData])
+
+  // マスターから同期
+  const handleSyncFromMaster = () => {
+    if (!masterData) return
+    
+    setFormData(prev => ({
+      ...prev,
+      title: masterData.title || prev.title,
+      author: masterData.author || prev.author,
+      description: masterData.description || prev.description,
+      key_visual_url: masterData.key_visual_url || prev.key_visual_url,
+      duration: masterData.official_duration || prev.duration,
+      player_count_min: masterData.player_count_min || prev.player_count_min,
+      player_count_max: masterData.player_count_max || prev.player_count_max,
+      genre: masterData.genre || prev.genre,
+    }))
+    showToast.success('マスターから同期しました')
+  }
+
+  // マスターに反映
+  const handleApplyToMaster = async () => {
+    if (!currentMasterId) return
+    
+    const confirmed = window.confirm(
+      `現在の編集内容をマスターに反映しますか？\n\n` +
+      `この操作により、他の組織がこのシナリオを引用した際に、更新された情報が適用されます。`
+    )
+    if (!confirmed) return
+    
+    try {
+      await scenarioMasterApi.update(currentMasterId, {
+        title: formData.title,
+        author: formData.author,
+        description: formData.description,
+        key_visual_url: formData.key_visual_url,
+        official_duration: formData.duration,
+        player_count_min: formData.player_count_min,
+        player_count_max: formData.player_count_max,
+        genre: formData.genre,
+      })
+      
+      // マスターデータを再取得
+      const updatedMaster = await scenarioMasterApi.getById(currentMasterId)
+      setMasterData(updatedMaster)
+      
+      showToast.success('マスターに反映しました')
+    } catch (error) {
+      logger.error('マスター更新エラー:', error)
+      showToast.error('マスターへの反映に失敗しました')
+    }
+  }
 
   // ソートされたシナリオIDリスト（sortedScenarioIdsがあればそれを使用、なければscenariosから生成）
   const scenarioIdList = sortedScenarioIds ?? scenarios.map(s => s.id)
@@ -784,6 +918,22 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   マスター編集
                 </Button>
               )}
+              {/* マスターから同期ボタン（相違がある場合のみ表示） */}
+              {currentMasterId && masterDiffs.count > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-xs gap-1 text-blue-600 border-blue-300 hover:bg-blue-50"
+                  onClick={handleSyncFromMaster}
+                  disabled={loadingMaster}
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  マスターから同期
+                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">
+                    {masterDiffs.count}
+                  </span>
+                </Button>
+              )}
             </DialogTitle>
             {/* マスタから引用ボタン */}
             {!scenarioId && (
@@ -891,11 +1041,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             >
               {TABS.map((tab) => {
                 const Icon = tab.icon
+                const diffCount = masterDiffs.byTab[tab.id] || 0
                 return (
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-t-md rounded-b-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-t-md rounded-b-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors relative"
                     onKeyDown={(e) => {
                       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                         e.preventDefault()
@@ -905,6 +1056,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   >
                     <Icon className="h-4 w-4" />
                     <span className="hidden sm:inline">{tab.label}</span>
+                    {/* マスターとの相違件数バッジ */}
+                    {diffCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                        {diffCount}
+                      </span>
+                    )}
                   </TabsTrigger>
                 )
               })}
@@ -975,6 +1132,17 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             >
               下書き保存
             </Button>
+            {/* マスターに反映ボタン（license_admin のみ） */}
+            {isLicenseAdmin && currentMasterId && masterDiffs.count > 0 && (
+              <Button 
+                variant="outline"
+                onClick={handleApplyToMaster}
+                className="text-purple-600 border-purple-300 hover:bg-purple-50 text-xs sm:text-sm h-8 sm:h-10 hidden sm:inline-flex gap-1"
+              >
+                <ArrowUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                マスターに反映
+              </Button>
+            )}
             <Button onClick={() => handleSave()} disabled={scenarioMutation.isPending || isLoadingAssignments} className="w-16 sm:w-24 text-xs sm:text-sm h-8 sm:h-10">
               <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               保存
