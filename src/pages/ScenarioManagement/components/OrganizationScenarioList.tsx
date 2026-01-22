@@ -198,12 +198,13 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       const scenarioMasterIds = (data || []).map(s => s.scenario_master_id).filter(Boolean)
       let availableGmsMap = new Map<string, string[]>() // 担当GM（can_main_gm=true または can_sub_gm=true）
       let experiencedStaffMap = new Map<string, string[]>() // 体験済み（is_experienced=true かつ GM不可）
+      let availableStoresMap = new Map<string, string[]>() // 対応店舗（scenariosテーブルから、旧UIと同じデータソース）
       
       if (scenarioMasterIds.length > 0) {
         // まず scenarios テーブルから scenario_master_id に対応する id を取得（組織でフィルタ）
         const { data: scenariosData } = await supabase
           .from('scenarios')
-          .select('id, scenario_master_id')
+          .select('id, scenario_master_id, available_stores')
           .eq('organization_id', organizationId)
           .in('scenario_master_id', scenarioMasterIds)
         
@@ -213,6 +214,11 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           scenariosData.forEach(s => {
             if (s.scenario_master_id) {
               oldIdToMasterIdMap.set(s.id, s.scenario_master_id)
+              
+              // 対応店舗も同時に取得（scenariosテーブルから、旧UIと同じデータソース）
+              if (s.available_stores && s.available_stores.length > 0) {
+                availableStoresMap.set(s.scenario_master_id, s.available_stores)
+              }
             }
           })
           
@@ -252,10 +258,11 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         }
       }
 
-      // シナリオに担当GMと体験済みスタッフをマージ
+      // シナリオに担当GM、体験済みスタッフ、対応店舗をマージ
       const scenariosWithAssignments = (data || []).map(scenario => {
         const assignedGms = availableGmsMap.get(scenario.scenario_master_id)
         const assignedExperienced = experiencedStaffMap.get(scenario.scenario_master_id)
+        const assignedStores = availableStoresMap.get(scenario.scenario_master_id)
         
         return {
           ...scenario,
@@ -264,7 +271,9 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
             ? assignedGms
             : (scenario.available_gms || scenario.gm_assignments?.map((gm: any) => gm.staff_name || gm.name || '?') || []),
           // 体験済み: staff_scenario_assignmentsから取得したものがあれば優先、なければ既存の値
-          experienced_staff: assignedExperienced || scenario.experienced_staff || []
+          experienced_staff: assignedExperienced || scenario.experienced_staff || [],
+          // 対応店舗: scenariosテーブルから取得したものがあれば優先、なければ既存の値
+          available_stores: assignedStores || scenario.available_stores || []
         }
       })
 
