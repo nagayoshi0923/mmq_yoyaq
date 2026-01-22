@@ -37,16 +37,17 @@ SELECT
   -- マスタのステータス
   sm.master_status,
   
-  -- 公演回数（schedule_events からカウント、キャンセルを除く）
-  -- scenarios テーブルを経由して取得
+  -- 公演回数（その組織での公演回数、schedule_events からカウント、キャンセルを除く）
+  -- schedule_events の organization_id と scenario_master_id で直接フィルタ
+  -- scenarios テーブルを経由して scenario_master_id を取得
   COALESCE(
     (SELECT COUNT(*)
      FROM public.schedule_events se
      JOIN public.scenarios s ON s.id = se.scenario_id
      WHERE s.scenario_master_id = os.scenario_master_id
        AND se.organization_id = os.organization_id
-       AND se.event_type = 'performance'
-       AND se.status != 'cancelled'
+       AND se.scenario_id IS NOT NULL
+       AND COALESCE(se.is_cancelled, false) = false
     ), 0
   )::INTEGER AS play_count
 
