@@ -1,0 +1,70 @@
+-- organization_scenarios_with_master ビューに GM/店舗関連カラムを追加
+-- 作成日: 2026-01-22
+-- 概要: available_gms, available_stores, gm_costs, gm_count, license_amount, gm_test_license_amount を追加
+
+-- 既存のビューを削除
+DROP VIEW IF EXISTS public.organization_scenarios_with_master;
+
+-- 拡張されたビューを作成
+CREATE OR REPLACE VIEW public.organization_scenarios_with_master AS
+SELECT
+  os.id,
+  os.organization_id,
+  os.scenario_master_id,
+  os.slug,
+  os.org_status,
+  os.pricing_patterns,
+  os.gm_assignments,
+  os.created_at,
+  os.updated_at,
+  
+  -- マスタ情報（組織設定があればそちらを優先）
+  sm.title,
+  sm.author,
+  sm.author_id,
+  COALESCE(os.custom_key_visual_url, sm.key_visual_url) AS key_visual_url,
+  COALESCE(os.custom_description, sm.description) AS description,
+  COALESCE(os.custom_synopsis, sm.synopsis) AS synopsis,
+  COALESCE(os.custom_caution, sm.caution) AS caution,
+  sm.player_count_min,
+  sm.player_count_max,
+  COALESCE(os.duration, sm.official_duration) AS duration,
+  sm.genre,
+  sm.difficulty,
+  os.participation_fee,
+  os.extra_preparation_time,
+  
+  -- マスタのステータス
+  sm.master_status,
+  
+  -- 組織設定項目（GM/店舗/ライセンス関連）
+  os.available_gms,
+  os.available_stores,
+  os.gm_costs,
+  os.gm_count,
+  os.license_amount,
+  os.gm_test_license_amount,
+  
+  -- 公演回数（その組織での公演回数、schedule_events からカウント、キャンセルを除く）
+  COALESCE(
+    (SELECT COUNT(*)
+     FROM public.schedule_events se
+     JOIN public.scenarios s ON s.id = se.scenario_id
+     WHERE s.scenario_master_id = os.scenario_master_id
+       AND se.organization_id = os.organization_id
+       AND se.scenario_id IS NOT NULL
+       AND COALESCE(se.is_cancelled, false) = false
+    ), 0
+  )::INTEGER AS play_count
+
+FROM public.organization_scenarios os
+JOIN public.scenario_masters sm ON sm.id = os.scenario_master_id;
+
+COMMENT ON VIEW public.organization_scenarios_with_master IS '組織シナリオとマスタを結合したビュー。組織固有設定があればそちらを優先。GM/店舗/ライセンス情報を含む';
+
+-- 確認用クエリ
+-- SELECT id, title, available_gms, available_stores, gm_count, play_count 
+-- FROM organization_scenarios_with_master 
+-- WHERE available_gms IS NOT NULL OR available_stores IS NOT NULL
+-- LIMIT 10;
+

@@ -137,7 +137,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         setStoreMap(map)
       }
 
-      // シナリオ一覧を取得（play_countを明示的に含める）
+      // シナリオ一覧を取得（組織設定項目を含める）
       const { data, error: fetchError } = await supabase
         .from('organization_scenarios_with_master')
         .select(`
@@ -165,7 +165,13 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           difficulty,
           participation_fee,
           master_status,
-          play_count
+          play_count,
+          available_gms,
+          available_stores,
+          gm_costs,
+          gm_count,
+          license_amount,
+          gm_test_license_amount
         `)
         .eq('organization_id', organizationId)
         .order('title', { ascending: true })
