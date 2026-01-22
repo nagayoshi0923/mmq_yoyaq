@@ -4,9 +4,11 @@ import { getCurrentOrganizationId } from './organization'
 // スタッフ⇔シナリオの担当関係を管理するAPI
 export const assignmentApi = {
   // スタッフの担当シナリオ一覧を取得（GM可能なシナリオのみ）
-  async getStaffAssignments(staffId: string) {
-    // まず全てのアサインメントを取得
-    const { data, error } = await supabase
+  async getStaffAssignments(staffId: string, organizationId?: string) {
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    // まず全てのアサインメントを取得（組織でフィルタ）
+    let query = supabase
       .from('staff_scenario_assignments')
       .select(`
         *,
@@ -18,6 +20,12 @@ export const assignmentApi = {
       `)
       .eq('staff_id', staffId)
       .order('assigned_at', { ascending: false })
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
     
     if (error) throw error
     
@@ -31,8 +39,10 @@ export const assignmentApi = {
   },
 
   // スタッフの全アサインメント一覧を取得（体験済み含む）
-  async getAllStaffAssignments(staffId: string) {
-    const { data, error } = await supabase
+  async getAllStaffAssignments(staffId: string, organizationId?: string) {
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('staff_scenario_assignments')
       .select(`
         *,
@@ -45,13 +55,21 @@ export const assignmentApi = {
       .eq('staff_id', staffId)
       .order('assigned_at', { ascending: false })
     
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
+    
     if (error) throw error
     return data || []
   },
 
   // スタッフの体験済みシナリオ一覧を取得（GM不可のもののみ）
-  async getStaffExperiencedScenarios(staffId: string) {
-    const { data, error } = await supabase
+  async getStaffExperiencedScenarios(staffId: string, organizationId?: string) {
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('staff_scenario_assignments')
       .select(`
         *,
@@ -63,6 +81,12 @@ export const assignmentApi = {
       `)
       .eq('staff_id', staffId)
       .order('assigned_at', { ascending: false })
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
     
     if (error) throw error
     
@@ -78,9 +102,11 @@ export const assignmentApi = {
   },
 
   // シナリオの担当スタッフ一覧を取得（GM可能なスタッフのみ）
-  async getScenarioAssignments(scenarioId: string) {
-    // まず全てのアサインメントを取得
-    const { data, error } = await supabase
+  async getScenarioAssignments(scenarioId: string, organizationId?: string) {
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    // まず全てのアサインメントを取得（組織でフィルタ）
+    let query = supabase
       .from('staff_scenario_assignments')
       .select(`
         *,
@@ -92,6 +118,12 @@ export const assignmentApi = {
       `)
       .eq('scenario_id', scenarioId)
       .order('assigned_at', { ascending: false })
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
     
     if (error) throw error
     
@@ -105,8 +137,10 @@ export const assignmentApi = {
   },
 
   // シナリオの全スタッフ一覧を取得（体験済み含む）
-  async getAllScenarioAssignments(scenarioId: string) {
-    const { data, error } = await supabase
+  async getAllScenarioAssignments(scenarioId: string, organizationId?: string) {
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('staff_scenario_assignments')
       .select(`
         *,
@@ -119,13 +153,21 @@ export const assignmentApi = {
       .eq('scenario_id', scenarioId)
       .order('assigned_at', { ascending: false })
     
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
+    
     if (error) throw error
     return data || []
   },
 
   // シナリオの体験済みスタッフ一覧を取得（GM不可のもののみ）
-  async getScenarioExperiencedStaff(scenarioId: string) {
-    const { data, error } = await supabase
+  async getScenarioExperiencedStaff(scenarioId: string, organizationId?: string) {
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('staff_scenario_assignments')
       .select(`
         *,
@@ -137,6 +179,12 @@ export const assignmentApi = {
       `)
       .eq('scenario_id', scenarioId)
       .order('assigned_at', { ascending: false })
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
     
     if (error) throw error
     
@@ -153,6 +201,9 @@ export const assignmentApi = {
 
   // 担当関係を追加
   async addAssignment(staffId: string, scenarioId: string, notes?: string, organizationId?: string) {
+    const orgId = organizationId || await getCurrentOrganizationId()
+    if (!orgId) throw new Error('組織情報が取得できません。')
+    
     const { data, error } = await supabase
       .from('staff_scenario_assignments')
       .insert({
@@ -163,7 +214,7 @@ export const assignmentApi = {
         can_sub_gm: true,
         is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
         assigned_at: new Date().toISOString(),
-        organization_id: organizationId
+        organization_id: orgId
       })
       .select()
       .single()
@@ -173,12 +224,20 @@ export const assignmentApi = {
   },
 
   // 担当関係を削除
-  async removeAssignment(staffId: string, scenarioId: string) {
-    const { error } = await supabase
+  async removeAssignment(staffId: string, scenarioId: string, organizationId?: string) {
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let deleteQuery = supabase
       .from('staff_scenario_assignments')
       .delete()
       .eq('staff_id', staffId)
       .eq('scenario_id', scenarioId)
+    
+    if (orgId) {
+      deleteQuery = deleteQuery.eq('organization_id', orgId)
+    }
+    
+    const { error } = await deleteQuery
     
     if (error) throw error
   },
@@ -253,11 +312,17 @@ export const assignmentApi = {
 
   // シナリオの担当スタッフを一括更新（差分更新）
   async updateScenarioAssignments(scenarioId: string, staffIds: string[], notes?: string, organizationId?: string) {
-    // 現在の担当関係を取得
-    const { data: currentAssignments, error: fetchError } = await supabase
+    const orgId = organizationId || await getCurrentOrganizationId()
+    if (!orgId) throw new Error('組織情報が取得できません。')
+    
+    // 現在の担当関係を取得（組織でフィルタ）
+    let fetchQuery = supabase
       .from('staff_scenario_assignments')
       .select('staff_id')
       .eq('scenario_id', scenarioId)
+      .eq('organization_id', orgId)
+    
+    const { data: currentAssignments, error: fetchError } = await fetchQuery
     
     if (fetchError) throw fetchError
 
@@ -269,12 +334,13 @@ export const assignmentApi = {
     // 追加対象: 新しいリストにあるが、現在のリストにないもの
     const toAdd = staffIds.filter(id => !currentStaffIds.includes(id))
     
-    // 削除実行
+    // 削除実行（組織でフィルタ）
     if (toDelete.length > 0) {
       const { error: deleteError } = await supabase
         .from('staff_scenario_assignments')
         .delete()
         .eq('scenario_id', scenarioId)
+        .eq('organization_id', orgId)
         .in('staff_id', toDelete)
       
       if (deleteError) throw deleteError
@@ -292,7 +358,7 @@ export const assignmentApi = {
         is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
         notes: notes || null,
         assigned_at: new Date().toISOString(),
-        organization_id: organizationId
+        organization_id: orgId
       }))
 
       const { error: insertError } = await supabase
@@ -307,24 +373,32 @@ export const assignmentApi = {
   async updateAssignment(staffId: string, scenarioId: string, updates: {
     notes?: string
     assigned_at?: string
-  }) {
-    const { data, error } = await supabase
+  }, organizationId?: string) {
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let updateQuery = supabase
       .from('staff_scenario_assignments')
       .update(updates)
       .eq('staff_id', staffId)
       .eq('scenario_id', scenarioId)
-      .select()
-      .single()
+    
+    if (orgId) {
+      updateQuery = updateQuery.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await updateQuery.select().single()
     
     if (error) throw error
     return data
   },
 
   // 複数シナリオのGM情報と体験済みスタッフを一括取得（N+1問題の回避）
-  async getBatchScenarioAssignments(scenarioIds: string[]): Promise<Map<string, { gmStaff: string[], experiencedStaff: string[] }>> {
+  async getBatchScenarioAssignments(scenarioIds: string[], organizationId?: string): Promise<Map<string, { gmStaff: string[], experiencedStaff: string[] }>> {
     if (scenarioIds.length === 0) {
       return new Map()
     }
+
+    const orgId = organizationId || await getCurrentOrganizationId()
 
     // シナリオIDを50件ずつバッチ処理（URLサイズ制限対策）
     const batchSize = 50
@@ -333,7 +407,7 @@ export const assignmentApi = {
     for (let i = 0; i < scenarioIds.length; i += batchSize) {
       const batchIds = scenarioIds.slice(i, i + batchSize)
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('staff_scenario_assignments')
         .select(`
           scenario_id,
@@ -345,6 +419,12 @@ export const assignmentApi = {
         .in('scenario_id', batchIds)
         .limit(10000)
       
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+      
+      const { data, error } = await query
+      
       if (error) throw error
       if (data) allData.push(...data)
     }
@@ -354,15 +434,21 @@ export const assignmentApi = {
       row.can_main_gm === true || row.can_sub_gm === true || row.is_experienced === true
     )
     
-    // staff_idからスタッフ名を取得するために、別途スタッフ情報を取得
+    // staff_idからスタッフ名を取得するために、別途スタッフ情報を取得（組織でフィルタ）
     const staffIds = [...new Set(data?.map(a => a.staff_id).filter(Boolean) || [])]
     
     const staffMap = new Map<string, string>()
     if (staffIds.length > 0) {
-      const { data: staffData, error: staffError } = await supabase
+      let staffQuery = supabase
         .from('staff')
         .select('id, name')
         .in('id', staffIds)
+      
+      if (orgId) {
+        staffQuery = staffQuery.eq('organization_id', orgId)
+      }
+      
+      const { data: staffData, error: staffError } = await staffQuery
       
       if (!staffError && staffData) {
         staffData.forEach(s => staffMap.set(s.id, s.name))
@@ -402,10 +488,12 @@ export const assignmentApi = {
   },
 
   // 複数スタッフの担当シナリオ情報を一括取得（N+1問題の回避）
-  async getBatchStaffAssignments(staffIds: string[]) {
+  async getBatchStaffAssignments(staffIds: string[], organizationId?: string) {
     if (staffIds.length === 0) {
       return new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
     }
+
+    const orgId = organizationId || await getCurrentOrganizationId()
 
     // 全データを取得（Supabaseのデフォルト1000件制限を回避するためページネーション）
     const allData: any[] = []
@@ -414,7 +502,7 @@ export const assignmentApi = {
     let hasMore = true
     
     while (hasMore) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('staff_scenario_assignments')
         .select(`
           staff_id,
@@ -425,6 +513,12 @@ export const assignmentApi = {
         `)
         .in('staff_id', staffIds)
         .range(offset, offset + pageSize - 1)
+      
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+      
+      const { data, error } = await query
       
       if (error) throw error
       
