@@ -132,6 +132,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const [masterData, setMasterData] = useState<ScenarioMaster | null>(null)
   const [loadingMaster, setLoadingMaster] = useState(false)
   
+  // 現在編集中のシナリオ（マスター編集用） - useEffectより前に定義する必要あり
+  const currentScenario = scenarioId 
+    ? scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId) 
+    : null
+  const currentMasterId = currentScenario?.scenario_master_id || formData.scenario_master_id
+  
   // 組織名を取得
   const [organizationName, setOrganizationName] = useState<string>('')
   useEffect(() => {
@@ -273,12 +279,6 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
   // ソートされたシナリオIDリスト（sortedScenarioIdsがあればそれを使用、なければscenariosから生成）
   const scenarioIdList = sortedScenarioIds ?? scenarios.map(s => s.id)
-  
-  // 現在編集中のシナリオ（マスター編集用）
-  const currentScenario = scenarioId 
-    ? scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId) 
-    : null
-  const currentMasterId = currentScenario?.scenario_master_id || formData.scenario_master_id
 
   // 物理矢印キーでシナリオを切り替え（captureフェーズで登録）
   useEffect(() => {
