@@ -199,10 +199,11 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       let experiencedStaffMap = new Map<string, string[]>()
       
       if (scenarioMasterIds.length > 0) {
-        // まず scenarios テーブルから scenario_master_id に対応する id を取得
+        // まず scenarios テーブルから scenario_master_id に対応する id を取得（組織でフィルタ）
         const { data: scenariosData } = await supabase
           .from('scenarios')
           .select('id, scenario_master_id')
+          .eq('organization_id', organizationId)
           .in('scenario_master_id', scenarioMasterIds)
         
         if (scenariosData && scenariosData.length > 0) {
@@ -216,10 +217,11 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           
           const oldScenarioIds = scenariosData.map(s => s.id)
           
-          // 旧IDで staff_scenario_assignments を検索
+          // 旧IDで staff_scenario_assignments を検索（組織でフィルタ）
           const { data: assignmentsData } = await supabase
             .from('staff_scenario_assignments')
-            .select('scenario_id, staff:staff_id(id, name)')
+            .select('scenario_id, staff:staff_id(id, name, organization_id)')
+            .eq('organization_id', organizationId)
             .in('scenario_id', oldScenarioIds)
           
           if (assignmentsData) {
