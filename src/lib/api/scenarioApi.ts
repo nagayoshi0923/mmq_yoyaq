@@ -8,6 +8,46 @@ import type { PaginatedResponse } from './types'
 import { logger } from '@/utils/logger'
 
 /**
+ * 渡されたIDから対応するシナリオID（scenarios.id）のリストを取得
+ * IDは scenarios.id または scenario_master_id のどちらでも対応
+ * @param idOrMasterId - scenarios.id または scenario_master_id
+ * @returns scenarios.id のリスト（同じscenario_master_idを持つシナリオ全て）
+ */
+async function resolveScenarioIds(idOrMasterId: string): Promise<string[]> {
+  // まず、渡されたIDが scenarios.id として存在するか確認
+  const { data: directMatch } = await supabase
+    .from('scenarios')
+    .select('id, scenario_master_id')
+    .eq('id', idOrMasterId)
+    .single()
+  
+  if (directMatch) {
+    // scenarios.id として存在する場合、同じscenario_master_idを持つ全シナリオを取得
+    if (directMatch.scenario_master_id) {
+      const { data: siblings } = await supabase
+        .from('scenarios')
+        .select('id')
+        .eq('scenario_master_id', directMatch.scenario_master_id)
+      return siblings?.map(s => s.id) || [idOrMasterId]
+    }
+    return [idOrMasterId]
+  }
+  
+  // scenarios.id として存在しない場合、scenario_master_id として検索
+  const { data: byMaster } = await supabase
+    .from('scenarios')
+    .select('id')
+    .eq('scenario_master_id', idOrMasterId)
+  
+  if (byMaster && byMaster.length > 0) {
+    return byMaster.map(s => s.id)
+  }
+  
+  // どちらにも見つからない場合は元のIDを返す（フォールバック）
+  return [idOrMasterId]
+}
+
+/**
  * DBに存在するscenariosテーブルのカラム一覧
  * UI専用フィールドは含めない（DBに送信するとエラーになるため）
  */
@@ -545,11 +585,15 @@ export const scenarioApi = {
   },
 
   // シナリオの累計公演回数を取得
+  // scenarioId は scenarios.id または scenario_master_id のどちらでも対応
   async getPerformanceCount(scenarioId: string): Promise<number> {
+    // IDを解決（scenario_master_id の場合は対応する scenarios.id リストを取得）
+    const scenarioIds = await resolveScenarioIds(scenarioId)
+    
     const { count, error } = await supabase
       .from('schedule_events')
       .select('*', { count: 'exact', head: true })
-      .eq('scenario_id', scenarioId)
+      .in('scenario_id', scenarioIds)
       .not('status', 'eq', 'cancelled') // キャンセルを除外
     
     if (error) throw error
@@ -558,6 +602,7 @@ export const scenarioApi = {
 
   // シナリオの統計情報を取得（公演回数、中止回数、売上、利益など）
   // 今日までの公演のみ計算（未来の公演は含めない）
+  // scenarioId は scenarios.id または scenario_master_id のどちらでも対応
   async getScenarioStats(scenarioId: string): Promise<{
     performanceCount: number
     cancelledCount: number
@@ -571,12 +616,17 @@ export const scenarioApi = {
   }> {
     // 今日の日付（YYYY-MM-DD形式）
     const today = new Date().toISOString().split('T')[0]
+    
+    // IDを解決（scenario_master_id の場合は対応する scenarios.id リストを取得）
+    const scenarioIds = await resolveScenarioIds(scenarioId)
+    logger.log('📊 getScenarioStats: resolveScenarioIds', { input: scenarioId, resolved: scenarioIds })
 
     // シナリオの最大参加者数を取得（参加者数の上限チェック用）
     const { data: scenarioData } = await supabase
       .from('scenarios')
       .select('player_count_max')
-      .eq('id', scenarioId)
+      .in('id', scenarioIds)
+      .limit(1)
       .single()
     const maxParticipants = scenarioData?.player_count_max || 99
 
@@ -584,7 +634,7 @@ export const scenarioApi = {
     const { count: performanceCount, error: perfError } = await supabase
       .from('schedule_events')
       .select('*', { count: 'exact', head: true })
-      .eq('scenario_id', scenarioId)
+      .in('scenario_id', scenarioIds)
       .lte('date', today)
       .neq('category', 'offsite')
       .neq('is_cancelled', true)
@@ -595,7 +645,7 @@ export const scenarioApi = {
     const { count: cancelledCount, error: cancelError } = await supabase
       .from('schedule_events')
       .select('*', { count: 'exact', head: true })
-      .eq('scenario_id', scenarioId)
+      .in('scenario_id', scenarioIds)
       .lte('date', today)
       .neq('category', 'offsite')
       .eq('is_cancelled', true)
@@ -606,7 +656,7 @@ export const scenarioApi = {
     const { data: firstEvent, error: firstError } = await supabase
       .from('schedule_events')
       .select('date, scenario_id')
-      .eq('scenario_id', scenarioId)
+      .in('scenario_id', scenarioIds)
       .lte('date', today)
       .neq('category', 'offsite')
       .neq('is_cancelled', true)
@@ -621,7 +671,7 @@ export const scenarioApi = {
     const { data: events, error: eventsError } = await supabase
       .from('schedule_events')
       .select('id, date, category, current_participants, total_revenue, gm_cost, license_cost, start_time, store_id, is_cancelled')
-      .eq('scenario_id', scenarioId)
+      .in('scenario_id', scenarioIds)
       .lte('date', today)
       .neq('category', 'offsite')
       .order('date', { ascending: false })
