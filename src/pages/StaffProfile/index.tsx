@@ -223,6 +223,26 @@ export function StaffProfile() {
 
       await assignmentApi.updateStaffAssignments(staffId, assignmentData, organizationId)
 
+      // staffテーブルにも保存（special_scenarios / experienced_scenarios）
+      const specialScenarios = assignments
+        .filter(a => a.can_main_gm || a.can_sub_gm)
+        .map(a => a.scenario_id)
+
+      const experiencedScenarios = assignments
+        .filter(a => a.is_experienced && !a.can_main_gm && !a.can_sub_gm)
+        .map(a => a.scenario_id)
+
+      const { error: staffUpdateError } = await supabase
+        .from('staff')
+        .update({
+          special_scenarios: specialScenarios,
+          experienced_scenarios: experiencedScenarios
+        })
+        .eq('id', staffId)
+        .eq('organization_id', organizationId)
+
+      if (staffUpdateError) throw staffUpdateError
+
       // スタッフ管理ページのキャッシュを無効化（即座に反映されるようにする）
       queryClient.invalidateQueries({ queryKey: staffKeys.all })
 
