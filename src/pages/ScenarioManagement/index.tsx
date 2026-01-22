@@ -476,7 +476,7 @@ export function ScenarioManagement() {
               )}
 
               {/* 統計情報 */}
-              <ScenarioStats scenarios={allScenarios} />
+              <ScenarioStats scenarios={allScenarios} scenarioStats={scenarioStats} />
 
           {/* 検索・フィルター */}
           <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
