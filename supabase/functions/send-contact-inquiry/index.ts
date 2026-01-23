@@ -6,6 +6,7 @@
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, maskEmail, maskName } from '../_shared/security.ts'
 
 interface ContactInquiryRequest {
@@ -94,6 +95,40 @@ serve(async (req) => {
       console.error('RESEND_API_KEY is not set')
       throw new Error('メール送信サービスが設定されていません')
     }
+    // 他のFunctionと統一：Resendで認証済みのmmq.gameドメインを使用
+    const fromEmail = 'noreply@mmq.game'
+
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const requestUserAgent = req.headers.get('user-agent')
+    let inquiryId: string | null = null
+
+    if (serviceRoleKey && supabaseUrl) {
+      const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+      const { data: inquiryData, error: inquiryError } = await serviceClient
+        .from('contact_inquiries')
+        .insert({
+          organization_id: organizationId || null,
+          organization_name: organizationName || null,
+          contact_email: contactEmail || null,
+          name,
+          email,
+          inquiry_type: type,
+          subject: subject || null,
+          message,
+          source: organizationId ? 'organization' : 'platform',
+          origin,
+          user_agent: requestUserAgent || null,
+        })
+        .select('id')
+        .single()
+
+      if (inquiryError) {
+        console.error('Failed to store contact inquiry:', inquiryError)
+      } else {
+        inquiryId = inquiryData?.id || null
+      }
+    }
 
     // お問い合わせ種別のラベル
     const typeLabels: Record<string, string> = {
@@ -170,7 +205,7 @@ ${message}
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'MMQ予約システム <noreply@mmq-yoyaq.jp>',
+        from: `MMQ予約システム <${fromEmail}>`,
         to: [toEmail],
         reply_to: email,
         subject: `【お問い合わせ】${typeLabel}${subject ? `: ${subject}` : ''}`,
@@ -182,6 +217,18 @@ ${message}
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
       console.error('Resend API error:', errorData)
+
+      if (inquiryId && serviceRoleKey && supabaseUrl) {
+        const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+        await serviceClient
+          .from('contact_inquiries')
+          .update({
+            email_sent: false,
+            email_error: JSON.stringify(errorData),
+          })
+          .eq('id', inquiryId)
+      }
+
       throw new Error('メール送信に失敗しました')
     }
 
@@ -190,6 +237,17 @@ ${message}
       messageId: result.id,
       from: maskEmail(email),
     })
+
+    if (inquiryId && serviceRoleKey && supabaseUrl) {
+      const serviceClient = createClient(supabaseUrl, serviceRoleKey)
+      await serviceClient
+        .from('contact_inquiries')
+        .update({
+          email_sent: true,
+          email_error: null,
+        })
+        .eq('id', inquiryId)
+    }
 
     return new Response(
       JSON.stringify({
