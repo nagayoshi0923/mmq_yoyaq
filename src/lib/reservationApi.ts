@@ -4,6 +4,11 @@ import { logger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
 
+type CreateReservationWithLockParams = Omit<
+  Reservation,
+  'id' | 'created_at' | 'updated_at' | 'reservation_number'
+>
+
 // 顧客関連のAPI
 export const customerApi = {
   // 全顧客を取得
@@ -175,28 +180,116 @@ export const reservationApi = {
     return data || []
   },
 
-  // 予約を作成
-  async create(reservation: Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'>): Promise<Reservation> {
-    // organization_idを自動取得（マルチテナント対応）
-    const organizationId = await getCurrentOrganizationId()
+  // 予約を作成（RPC + FOR UPDATE）
+  async create(reservation: CreateReservationWithLockParams): Promise<Reservation> {
+    const organizationId = reservation.organization_id || await getCurrentOrganizationId()
     if (!organizationId) {
       throw new Error('組織情報が取得できません。再ログインしてください。')
     }
-    
+
     // 予約番号を自動生成（YYMMDD-XXXX形式: 11桁）
     const now = new Date()
     const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
     const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
     const reservationNumber = `${dateStr}-${randomStr}`
 
-    const { data, error } = await supabase
+    const { data: reservationId, error } = await supabase.rpc('create_reservation_with_lock', {
+      p_schedule_event_id: reservation.schedule_event_id,
+      p_participant_count: reservation.participant_count,
+      p_customer_id: reservation.customer_id,
+      p_customer_name: reservation.customer_name ?? null,
+      p_customer_email: reservation.customer_email ?? null,
+      p_customer_phone: reservation.customer_phone ?? null,
+      p_scenario_id: reservation.scenario_id,
+      p_store_id: reservation.store_id,
+      p_requested_datetime: reservation.requested_datetime,
+      p_duration: reservation.duration,
+      p_base_price: reservation.base_price,
+      p_total_price: reservation.total_price,
+      p_unit_price: reservation.unit_price ?? Math.round(reservation.total_price / reservation.participant_count),
+      p_reservation_number: reservationNumber,
+      p_notes: reservation.customer_notes ?? null,
+      p_created_by: reservation.created_by ?? null,
+      p_organization_id: organizationId,
+      p_title: reservation.title
+    })
+
+    if (error) {
+      logger.error('予約作成RPCエラー:', error)
+      if (error.code === 'P0003') {
+        throw new Error('この公演は満席です')
+      }
+      if (error.code === 'P0004') {
+        throw new Error('選択した人数分の空席がありません')
+      }
+      if (error.code === 'P0002') {
+        throw new Error('公演が見つかりません')
+      }
+      if (error.code === 'P0001') {
+        throw new Error('参加人数が不正です')
+      }
+      throw error
+    }
+
+    const { data, error: fetchError } = await supabase
       .from('reservations')
-      .insert([{ ...reservation, reservation_number: reservationNumber, organization_id: organizationId }])
-      .select()
+      .select('*')
+      .eq('id', reservationId)
       .single()
-    
-    if (error) throw error
+
+    if (fetchError) throw fetchError
     return data
+  },
+
+  // 予約をキャンセル（RPC + FOR UPDATE）
+  async cancelWithLock(reservationId: string, customerId: string, reason?: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc('cancel_reservation_with_lock', {
+      p_reservation_id: reservationId,
+      p_customer_id: customerId,
+      p_cancellation_reason: reason ?? null
+    })
+
+    if (error) {
+      logger.error('予約キャンセルRPCエラー:', error)
+      throw error
+    }
+
+    return Boolean(data)
+  },
+
+  // 参加人数を変更（RPC + FOR UPDATE）
+  async updateParticipantsWithLock(
+    reservationId: string,
+    newCount: number,
+    customerId: string | null
+  ): Promise<boolean> {
+    const { data, error } = await supabase.rpc('update_reservation_participants', {
+      p_reservation_id: reservationId,
+      p_new_count: newCount,
+      p_customer_id: customerId
+    })
+
+    if (error) {
+      logger.error('参加人数更新RPCエラー:', error)
+      if (error.code === 'P0008') {
+        throw new Error('選択した人数分の空席がありません')
+      }
+      if (error.code === 'P0007') {
+        throw new Error('予約が見つかりません')
+      }
+      if (error.code === 'P0006') {
+        throw new Error('参加人数が不正です')
+      }
+      if (error.code === 'P0010') {
+        throw new Error('権限がありません')
+      }
+      if (error.code === 'P0011') {
+        throw new Error('権限がありません')
+      }
+      throw error
+    }
+
+    return Boolean(data)
   },
 
   // 予約を更新
@@ -305,18 +398,18 @@ export const reservationApi = {
       .single()
 
     if (fetchError) throw fetchError
+    if (!reservation?.customer_id) {
+      throw new Error('予約情報の取得に失敗しました')
+    }
+
+    await reservationApi.cancelWithLock(id, reservation.customer_id, cancellationReason)
 
     const { data, error } = await supabase
       .from('reservations')
-      .update({
-        status: 'cancelled',
-        cancelled_at: new Date().toISOString(),
-        cancellation_reason: cancellationReason
-      })
-      .eq('id', id)
       .select()
+      .eq('id', id)
       .single()
-    
+
     if (error) throw error
 
     // キャンセル確認メールを送信

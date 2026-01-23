@@ -6,6 +6,7 @@ import { Calendar, Clock, CheckCircle, MapPin, X, Users, AlertTriangle, Calendar
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { reservationApi } from '@/lib/reservationApi'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { parseIntSafe } from '@/utils/number'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -395,26 +396,8 @@ export function ReservationsPage() {
     
     setCancelling(true)
     try {
-      // 予約をキャンセル
-      const { error } = await supabase
-        .from('reservations')
-        .update({
-          status: 'cancelled',
-          cancelled_at: new Date().toISOString(),
-          cancellation_reason: 'お客様によるキャンセル'
-        })
-        .eq('id', cancelTarget.id)
-      
-      if (error) throw error
-
-      // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
-      if (cancelTarget.schedule_event_id) {
-        try {
-          await recalculateCurrentParticipants(cancelTarget.schedule_event_id)
-        } catch (updateError) {
-          logger.error('参加者数の更新エラー:', updateError)
-        }
-      }
+      // 予約をキャンセル（RPC + 通知）
+      await reservationApi.cancel(cancelTarget.id, 'お客様によるキャンセル')
 
       toast.success('予約をキャンセルしました')
       fetchReservations()
@@ -492,18 +475,24 @@ export function ReservationsPage() {
       const newTotalPrice = newBasePrice + optionsPrice
       const newFinalPrice = newTotalPrice - (editTarget.discount_amount || 0)
 
-      // 予約を更新（unit_priceも保存）
+      // 参加人数の更新はRPCでロック付き実行
+      await reservationApi.updateParticipantsWithLock(
+        editTarget.id,
+        newParticipantCount,
+        editTarget.customer_id ?? null
+      )
+
+      // 料金のみ更新（participant_countはRPCで更新済み）
       const { error } = await supabase
         .from('reservations')
         .update({
-          participant_count: newParticipantCount,
           base_price: newBasePrice,
           total_price: newTotalPrice,
           final_price: newFinalPrice,
           unit_price: pricePerPerson
         })
         .eq('id', editTarget.id)
-      
+
       if (error) throw error
 
       // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新

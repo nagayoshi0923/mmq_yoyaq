@@ -1030,11 +1030,22 @@ ${content.organizationName || '店舗'}
                                   const newTotalPrice = newBasePrice + optionsPrice
                                   const newFinalPrice = newTotalPrice - discountAmount
                                   
-                                  // 予約の人数と料金を更新
+                                  // 参加人数の更新はRPCでロック付き実行
+                                  try {
+                                    await reservationApi.updateParticipantsWithLock(
+                                      reservation.id,
+                                      newCount,
+                                      reservation.customer_id ?? null
+                                    )
+                                  } catch (updateError: any) {
+                                    showToast.error(updateError?.message || '人数の更新に失敗しました')
+                                    return
+                                  }
+
+                                  // 料金・参加者名のみ更新（participant_countはRPCで更新済み）
                                   const { error } = await supabase
                                     .from('reservations')
                                     .update({ 
-                                      participant_count: newCount,
                                       participant_names: Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者'),
                                       unit_price: unitPrice,
                                       base_price: newBasePrice,
