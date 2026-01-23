@@ -794,6 +794,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw error
       }
       
+      // メール未確認ユーザーはログイン不可
+      const emailConfirmedAt = data.user?.email_confirmed_at || data.user?.confirmed_at
+      if (!emailConfirmedAt) {
+        logger.warn('⚠️ メール未確認のためログイン拒否:', data.user?.email ? maskEmail(data.user.email) : 'N/A')
+        await supabase.auth.signOut({ scope: 'local' })
+        throw new Error('Email not confirmed')
+      }
+
       logger.log('✅ ログイン成功:', data.user?.email ? maskEmail(data.user.email) : 'N/A')
       
       // ログイン成功をログに記録
