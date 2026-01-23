@@ -233,10 +233,108 @@ ${message}
     }
 
     const result = await resendResponse.json()
-    console.log('✅ Contact inquiry sent successfully:', {
+    console.log('✅ Contact inquiry sent to organization:', {
       messageId: result.id,
       from: maskEmail(email),
     })
+
+    // ユーザー本人への確認メール送信
+    const confirmationHtml = `
+      <h2>お問い合わせを受け付けました</h2>
+      <p>
+        ${name} 様<br />
+        この度は${orgName}へお問い合わせいただき、ありがとうございます。
+      </p>
+      <p>
+        以下の内容でお問い合わせを受け付けました。<br />
+        <strong>3営業日以内を目安</strong>にご返信いたしますので、しばらくお待ちください。
+      </p>
+      
+      <div style="background-color: #f5f5f5; padding: 16px; margin: 20px 0; border-left: 4px solid #6366f1;">
+        ${inquiryId ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #666;">お問い合わせ番号: <strong style="color: #333;">${inquiryId.substring(0, 8).toUpperCase()}</strong></p>` : ''}
+        <p style="margin: 0 0 4px 0; font-size: 13px; color: #666;">種別: ${typeLabel}</p>
+        ${subject ? `<p style="margin: 0 0 4px 0; font-size: 13px; color: #666;">件名: ${subject}</p>` : ''}
+        <p style="margin: 0 0 8px 0; font-size: 13px; color: #666;">送信日時: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</p>
+        <p style="margin: 8px 0 0 0; font-size: 13px; color: #666;">お問い合わせ内容:</p>
+        <p style="margin: 4px 0 0 0; padding: 12px; background-color: white; border-radius: 4px; white-space: pre-wrap; font-size: 14px; color: #333;">${message}</p>
+      </div>
+
+      <div style="background-color: #fef3c7; padding: 12px; margin: 20px 0; border-radius: 4px;">
+        <p style="margin: 0; font-size: 13px; color: #92400e;">
+          <strong>📧 迷惑メールフォルダをご確認ください</strong><br />
+          返信メールが迷惑メールフォルダに振り分けられる場合があります。<br />
+          ご返信が届かない場合は、迷惑メールフォルダもご確認ください。
+        </p>
+      </div>
+
+      <p style="margin-top: 24px; font-size: 13px; color: #666;">
+        ※このメールは送信専用です。このメールへの返信はできませんのでご了承ください。<br />
+        ※本メールに心当たりがない場合は、破棄していただいて構いません。
+      </p>
+
+      <hr style="border: none; border-top: 1px solid #ddd; margin: 24px 0;" />
+      
+      <p style="font-size: 12px; color: #999; margin: 0;">
+        ${orgName}<br />
+        MMQ予約システム
+      </p>
+    `
+
+    const confirmationText = `
+${name} 様
+
+この度は${orgName}へお問い合わせいただき、ありがとうございます。
+
+以下の内容でお問い合わせを受け付けました。
+3営業日以内を目安にご返信いたしますので、しばらくお待ちください。
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+${inquiryId ? `お問い合わせ番号: ${inquiryId.substring(0, 8).toUpperCase()}\n` : ''}種別: ${typeLabel}
+${subject ? `件名: ${subject}\n` : ''}送信日時: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+
+お問い合わせ内容:
+${message}
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+📧 迷惑メールフォルダをご確認ください
+返信メールが迷惑メールフォルダに振り分けられる場合があります。
+ご返信が届かない場合は、迷惑メールフォルダもご確認ください。
+
+※このメールは送信専用です。このメールへの返信はできませんのでご了承ください。
+※本メールに心当たりがない場合は、破棄していただいて構いません。
+
+---
+${orgName}
+MMQ予約システム
+    `
+
+    // ユーザー本人へ確認メール送信
+    const confirmationResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `MMQ予約システム <${fromEmail}>`,
+        to: [email],
+        subject: `【お問い合わせを受け付けました】${typeLabel}${subject ? `: ${subject}` : ''}`,
+        html: confirmationHtml,
+        text: confirmationText,
+      }),
+    })
+
+    if (confirmationResponse.ok) {
+      const confirmationResult = await confirmationResponse.json()
+      console.log('✅ Confirmation email sent to user:', {
+        messageId: confirmationResult.id,
+        to: maskEmail(email),
+      })
+    } else {
+      const confirmationError = await confirmationResponse.json()
+      console.error('⚠️ Failed to send confirmation email:', confirmationError)
+      // ユーザー確認メールの失敗は致命的ではないので、処理は継続
+    }
 
     if (inquiryId && serviceRoleKey && supabaseUrl) {
       const serviceClient = createClient(supabaseUrl, serviceRoleKey)
