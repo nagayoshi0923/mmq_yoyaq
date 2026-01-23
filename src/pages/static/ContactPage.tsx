@@ -222,7 +222,35 @@ export function ContactPage() {
               placeholder="お問い合わせ内容をご記入ください"
               rows={8}
               style={{ borderRadius: 0 }}
+              className={
+                formData.message.length > 0 && formData.message.length < 10
+                  ? 'border-red-500 focus-visible:ring-red-500'
+                  : ''
+              }
             />
+            <div className="flex items-center justify-between mt-1">
+              <p className={`text-xs ${
+                formData.message.length > 0 && formData.message.length < 10
+                  ? 'text-red-500 font-medium'
+                  : 'text-gray-500'
+              }`}>
+                {formData.message.length > 0 && formData.message.length < 10 ? (
+                  <>⚠️ あと{10 - formData.message.length}文字必要です</>
+                ) : (
+                  '10文字以上で入力してください'
+                )}
+              </p>
+              <p className={`text-xs ${
+                formData.message.length >= 10
+                  ? 'text-green-600 font-medium'
+                  : formData.message.length > 0
+                  ? 'text-red-500'
+                  : 'text-gray-500'
+              }`}>
+                {formData.message.length >= 10 && '✓ '}
+                {formData.message.length}文字
+              </p>
+            </div>
           </div>
 
           <div className="pt-4">
@@ -231,7 +259,7 @@ export function ContactPage() {
               size="lg"
               className="w-full h-14 text-lg font-semibold"
               style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !formData.name || !formData.email || !formData.type || formData.message.length < 10}
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-2">

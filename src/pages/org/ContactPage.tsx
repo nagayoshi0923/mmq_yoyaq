@@ -289,17 +289,42 @@ export function OrganizationContactPage() {
               placeholder="お問い合わせ内容を入力してください"
               rows={6}
               required
+              className={
+                formData.message.length > 0 && formData.message.length < 10
+                  ? 'border-red-500 focus-visible:ring-red-500'
+                  : ''
+              }
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              10文字以上で入力してください
-            </p>
+            <div className="flex items-center justify-between mt-1">
+              <p className={`text-xs ${
+                formData.message.length > 0 && formData.message.length < 10
+                  ? 'text-red-500 font-medium'
+                  : 'text-muted-foreground'
+              }`}>
+                {formData.message.length > 0 && formData.message.length < 10 ? (
+                  <>⚠️ あと{10 - formData.message.length}文字必要です</>
+                ) : (
+                  '10文字以上で入力してください'
+                )}
+              </p>
+              <p className={`text-xs ${
+                formData.message.length >= 10
+                  ? 'text-green-600 font-medium'
+                  : formData.message.length > 0
+                  ? 'text-red-500'
+                  : 'text-muted-foreground'
+              }`}>
+                {formData.message.length >= 10 && '✓ '}
+                {formData.message.length}文字
+              </p>
+            </div>
           </div>
 
           <Button
             type="submit"
             className="w-full"
             size="lg"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !formData.name || !formData.email || !formData.type || formData.message.length < 10}
           >
             {isSubmitting ? (
               <>
