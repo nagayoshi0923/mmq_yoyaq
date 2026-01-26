@@ -462,12 +462,60 @@ ${content.organizationName || '店舗'}
     if (!cancellingReservation || !event) return
 
     try {
-      // キャンセル処理を実行
+      // スタッフ参加の場合はシンプルなキャンセル
+      const isStaffReservation = cancellingReservation.reservation_source === 'staff_entry' ||
+                                 cancellingReservation.reservation_source === 'staff_participation' ||
+                                 cancellingReservation.payment_method === 'staff'
+      
+      if (isStaffReservation) {
+        // スタッフ予約: RPC経由で在庫返却のみ（通知不要）
+        await reservationApi.cancelWithLock(
+          cancellingReservation.id,
+          cancellingReservation.customer_id ?? null,
+          cancelEmailContent?.cancellationReason || 'スタッフによるキャンセル'
+        )
+      } else {
+        // 顧客予約: reservationApi.cancel()を使用（在庫返却 + キャンセル待ち通知）
+        // ただし、メール送信は既にhandleExecuteCancel内で行うため、ここでは通知のみ
+        await reservationApi.cancelWithLock(
+          cancellingReservation.id,
+          cancellingReservation.customer_id ?? null,
+          cancelEmailContent?.cancellationReason || 'スタッフによるキャンセル'
+        )
+        
+        // キャンセル待ち通知を送信
+        if (cancellingReservation.schedule_event_id && event.organization_id) {
+          try {
+            const { data: org } = await supabase
+              .from('organizations')
+              .select('slug')
+              .eq('id', event.organization_id)
+              .single()
+            
+            const orgSlug = org?.slug || 'queens-waltz'
+            const bookingUrl = `${window.location.origin}/${orgSlug}`
+            
+            await supabase.functions.invoke('notify-waitlist', {
+              body: {
+                organizationId: event.organization_id,
+                scheduleEventId: cancellingReservation.schedule_event_id,
+                freedSeats: cancellingReservation.participant_count,
+                scenarioTitle: event.scenario || cancellingReservation.title,
+                eventDate: event.date,
+                startTime: event.start_time,
+                endTime: event.end_time,
+                storeName: event.venue,
+                bookingUrl
+              }
+            })
+            logger.log('キャンセル待ち通知送信成功')
+          } catch (waitlistError) {
+            logger.error('キャンセル待ち通知エラー:', waitlistError)
+          }
+        }
+      }
+      
       const cancelledAt = new Date().toISOString()
-      await reservationApi.update(cancellingReservation.id, {
-        status: 'cancelled',
-        cancelled_at: cancelledAt
-      })
 
       // UIを更新（キャンセル済みとして表示を残す）
       setReservations(prev => 
