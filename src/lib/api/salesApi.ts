@@ -49,6 +49,27 @@ export const salesApi = {
       logger.error('シナリオデータの取得に失敗:', scenariosError)
     }
     
+    // organization_scenarios を取得（組織固有のGM報酬設定を取得）
+    let orgScenarioQuery = supabase
+      .from('organization_scenarios')
+      .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, participation_fee, gm_test_participation_fee')
+    
+    if (orgId) {
+      orgScenarioQuery = orgScenarioQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: orgScenarios, error: orgScenariosError } = await orgScenarioQuery
+    
+    if (orgScenariosError) {
+      logger.error('組織シナリオデータの取得に失敗:', orgScenariosError)
+    }
+    
+    // organization_scenario_id でマッピング
+    const orgScenarioMap = new Map()
+    orgScenarios?.forEach(os => {
+      orgScenarioMap.set(os.id, os)
+    })
+    
     // スタッフを取得（組織フィルタ適用）
     let staffQuery = supabase
       .from('staff')
@@ -81,6 +102,48 @@ export const salesApi = {
         scenarioInfo = scenarios.find(s => s.id === event.scenario_id)
       } else if (event.scenario) {
         scenarioInfo = scenarioMap.get(event.scenario)
+      }
+      
+      // organization_scenario_id があれば、組織固有の設定（gm_costs等）で上書き
+      logger.log('🔍 organization_scenario_id チェック:', {
+        eventId: event.id,
+        scenario: event.scenario,
+        organization_scenario_id: event.organization_scenario_id,
+        hasOrgScenario: event.organization_scenario_id ? orgScenarioMap.has(event.organization_scenario_id) : false,
+        orgScenarioMapSize: orgScenarioMap.size
+      })
+      
+      if (event.organization_scenario_id && orgScenarioMap.has(event.organization_scenario_id)) {
+        const orgScenario = orgScenarioMap.get(event.organization_scenario_id)
+        logger.log('🔍 organization_scenario から取得:', {
+          scenario: event.scenario,
+          orgScenario_gm_costs: orgScenario.gm_costs,
+          orgScenario_gm_costs_length: orgScenario.gm_costs?.length
+        })
+        if (scenarioInfo) {
+          // 組織シナリオの設定で上書き（空でなければ）
+          scenarioInfo = {
+            ...scenarioInfo,
+            gm_costs: (orgScenario.gm_costs && orgScenario.gm_costs.length > 0) 
+              ? orgScenario.gm_costs 
+              : scenarioInfo.gm_costs,
+            license_amount: orgScenario.license_amount ?? scenarioInfo.license_amount,
+            gm_test_license_amount: orgScenario.gm_test_license_amount ?? scenarioInfo.gm_test_license_amount,
+            franchise_license_amount: orgScenario.franchise_license_amount ?? scenarioInfo.franchise_license_amount,
+            franchise_gm_test_license_amount: orgScenario.franchise_gm_test_license_amount ?? scenarioInfo.franchise_gm_test_license_amount,
+          }
+        } else {
+          // scenarioInfoがない場合はorgScenarioの情報を使用
+          scenarioInfo = {
+            id: orgScenario.id,
+            title: event.scenario || '不明',
+            gm_costs: orgScenario.gm_costs || [],
+            license_amount: orgScenario.license_amount,
+            gm_test_license_amount: orgScenario.gm_test_license_amount,
+            franchise_license_amount: orgScenario.franchise_license_amount,
+            franchise_gm_test_license_amount: orgScenario.franchise_gm_test_license_amount,
+          }
+        }
       }
       
       // このイベントの予約データを取得（組織フィルタ付き）

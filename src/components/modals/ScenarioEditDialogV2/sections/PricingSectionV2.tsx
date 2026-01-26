@@ -249,12 +249,11 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
         </CardContent>
       </Card>
 
-      {/* 他社からの公演料（管理作品のみ表示） */}
-      {formData.scenario_type === 'managed' && (
+      {/* 他社からの公演料（フランチャイズ対応：常に表示） */}
       <Card>
         <CardContent className="p-2">
-          <Label className={labelStyle}>他社からの公演料</Label>
-          <p className={hintStyle}>他社がMMQ（管理店舗）に支払う金額。マージン = 他社公演料 − 作者への支払い</p>
+          <Label className={labelStyle}>フランチャイズからの受取金額</Label>
+          <p className={hintStyle}>フランチャイズ店舗が本店に支払う金額。未設定の場合は自店用ライセンス料と同額</p>
           <div className="grid grid-cols-2 gap-5 mt-3">
             <div>
               <div className="text-sm text-muted-foreground mb-2">通常公演</div>
@@ -272,12 +271,18 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
                   className={`${inputStyle} !pl-7`}
                 />
               </div>
-              {/* マージン表示 */}
-              {(formData.external_license_amount || 0) > 0 && (
-                <p className="text-xs text-green-600 mt-1">
-                  マージン: ¥{((formData.external_license_amount || 0) - (formData.franchise_license_rewards?.find(r => r.item === 'normal')?.amount || formData.franchise_license_amount || 0)).toLocaleString()}
-                </p>
-              )}
+              {/* マージン表示: 管理作品はfranchise_license_amount、通常作品はlicense_amountとの差分 */}
+              {(formData.external_license_amount || 0) > 0 && (() => {
+                const authorPayment = formData.scenario_type === 'managed'
+                  ? (formData.franchise_license_rewards?.find(r => r.item === 'normal')?.amount || formData.franchise_license_amount || formData.license_rewards?.find(r => r.item === 'normal')?.amount || 0)
+                  : (formData.license_rewards?.find(r => r.item === 'normal')?.amount || 0)
+                const margin = (formData.external_license_amount || 0) - authorPayment
+                return (
+                  <p className="text-xs text-green-600 mt-1">
+                    マージン: ¥{margin.toLocaleString()}
+                  </p>
+                )
+              })()}
             </div>
             
             <div>
@@ -296,17 +301,22 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
                   className={`${inputStyle} !pl-7`}
                 />
               </div>
-              {/* マージン表示 */}
-              {(formData.external_gm_test_license_amount || 0) > 0 && (
-                <p className="text-xs text-green-600 mt-1">
-                  マージン: ¥{((formData.external_gm_test_license_amount || 0) - (formData.franchise_license_rewards?.find(r => r.item === 'gmtest')?.amount || formData.franchise_gm_test_license_amount || 0)).toLocaleString()}
-                </p>
-              )}
+              {/* マージン表示: 管理作品はfranchise_gm_test_license_amount、通常作品はgm_test_license_amountとの差分 */}
+              {(formData.external_gm_test_license_amount || 0) > 0 && (() => {
+                const authorPayment = formData.scenario_type === 'managed'
+                  ? (formData.franchise_license_rewards?.find(r => r.item === 'gmtest')?.amount || formData.franchise_gm_test_license_amount || formData.license_rewards?.find(r => r.item === 'gmtest')?.amount || 0)
+                  : (formData.license_rewards?.find(r => r.item === 'gmtest')?.amount || 0)
+                const margin = (formData.external_gm_test_license_amount || 0) - authorPayment
+                return (
+                  <p className="text-xs text-green-600 mt-1">
+                    マージン: ¥{margin.toLocaleString()}
+                  </p>
+                )
+              })()}
             </div>
           </div>
         </CardContent>
       </Card>
-      )}
     </div>
   )
 }

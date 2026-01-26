@@ -219,8 +219,8 @@ export function useSalesData() {
         end: formatDateJST(chartEndDate) 
       })
       
-      // イベントデータと雑収支データを並列取得
-      const [eventsData, miscResult] = await Promise.all([
+      // イベントデータ、雑収支データ、スタッフデータを並列取得
+      const [eventsData, miscResult, staffResult] = await Promise.all([
         salesApi.getSalesByPeriod(
         formatDateJST(chartStartDate),
         formatDateJST(chartEndDate)
@@ -230,14 +230,24 @@ export function useSalesData() {
           .select('id, date, type, category, amount, scenario_id, store_id')
           .gte('date', formatDateJST(chartStartDate))
           .lte('date', formatDateJST(chartEndDate))
-          .eq('type', 'expense')
+          .eq('type', 'expense'),
+        supabase
+          .from('staff')
+          .select('id, name, stores')
       ])
       
       let events = eventsData
       const miscTransactions = miscResult.data || []
+      const staffList = staffResult.data || []
+      // スタッフ名→担当店舗のマップを作成
+      const staffByName = new Map<string, string[]>()
+      staffList.forEach(s => {
+        staffByName.set(s.name, s.stores || [])
+      })
       logger.log('📊 データ取得完了:', { 
         events: events.length, 
-        miscTransactions: miscTransactions.length 
+        miscTransactions: miscTransactions.length,
+        staffCount: staffList.length
       })
       
       // 店舗フィルタリング（ownership_type による絞り込み）
@@ -276,7 +286,7 @@ export function useSalesData() {
       
       // 売上データを計算
       logger.log('📊 イベントデータ取得完了:', { eventsCount: events.length, filteredStoresCount: filteredStores.length })
-      const data = calculateSalesData(events, filteredStores, startDate, endDate, miscTransactions || [], salarySettings)
+      const data = calculateSalesData(events, filteredStores, startDate, endDate, miscTransactions || [], salarySettings, staffByName)
       logger.log('📊 売上データ計算完了:', { totalRevenue: data.totalRevenue })
       setSalesData(data)
     } catch (error) {
@@ -386,7 +396,8 @@ function calculateSalesData(
     scenario_id?: string | null;
     store_id?: string | null;
   }>,
-  salarySettings: SalarySettings
+  salarySettings: SalarySettings,
+  staffByName: Map<string, string[]>  // スタッフ名→担当店舗IDの配列
 ): SalesData {
   const totalRevenue = events.reduce((sum, event) => sum + (event.revenue || 0), 0)
   const totalEvents = events.length
@@ -428,7 +439,13 @@ function calculateSalesData(
       totalLicenseCost += licenseAmount
 
       // GM給与の計算（時給ベース）
+      // 所要時間を取得（分単位）
+      const durationMinutes = scenario.duration || 180 // デフォルト3時間
+      const gms = (event as SalesEvent).gms || []
+      const storeId = event.store_id
+      
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
+        // gm_costsがある場合：シナリオ固有の設定を使用
         // カテゴリに応じてフィルタリングし、役割でソート
         const applicableGmCosts = scenario.gm_costs
           .filter(gm => {
@@ -443,20 +460,45 @@ function calculateSalesData(
             return aOrder - bOrder
           })
         
-        // GM数を取得（gm_costsの数 = 必要なGM数）
-        const gmCount = applicableGmCosts.length
-        
-        // 所要時間を取得（分単位）
-        const durationMinutes = scenario.duration || 180 // デフォルト3時間
-        
-        // 新しい計算式で1人あたりの給与を計算
-        // 計算式: 基本給 + 時給 × 公演時間
-        const wagePerGm = calculateHourlyWage(durationMinutes, isGmTest, salarySettings)
-        
-        // GM数分の給与を計上
-        const gmCost = wagePerGm * gmCount
-        
+        // gm_costsからの報酬合計
+        const gmCost = applicableGmCosts.reduce((sum, gm) => sum + (gm.reward || 0), 0)
         totalGmCost += gmCost
+      } else {
+        // gm_costsがない場合：デフォルト設定（global_settings）を使用
+        // イベントのGM数を取得（gms配列から）
+        const gmRoles = (event as SalesEvent).gm_roles || {}
+        
+        // 各GMの役割に応じて給与を計算
+        gms.forEach((gmName) => {
+          const role = gmRoles[gmName] || 'main'
+          
+          if (role === 'reception') {
+            // 受付は固定（salarySettingsから取得）
+            totalGmCost += salarySettings.reception_fixed_pay || 2000
+          } else if (role === 'staff' || role === 'observer') {
+            // スタッフ参加・見学は0円
+            totalGmCost += 0
+          } else {
+            // main/subはデフォルト設定から計算
+            const wagePerGm = calculateHourlyWage(durationMinutes, isGmTest, salarySettings)
+            totalGmCost += wagePerGm
+          }
+        })
+      }
+      
+      // 交通費の計算（担当店舗以外で働く場合）
+      const storeForTransport = stores.find(s => s.id === storeId)
+      if (storeForTransport?.transport_allowance) {
+        gms.forEach((gmName) => {
+          const staffStores = staffByName.get(gmName)
+          if (staffStores !== undefined) {
+            // スタッフの担当店舗にこの店舗が含まれていない場合、交通費を加算
+            const isHomeStore = staffStores.length === 0 || staffStores.includes(storeId)
+            if (!isHomeStore) {
+              totalGmCost += storeForTransport.transport_allowance!
+            }
+          }
+        })
       }
     }
   })
@@ -690,8 +732,13 @@ function calculateSalesData(
       
       current.licenseCost += licenseAmount
 
+      // GM給与計算
+      const durationMinutes = scenario.duration || 180
+      const gms = (event as SalesEvent).gms || []
+      const gmRoles = (event as SalesEvent).gm_roles || {}
+      
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const actualGmCount = (event as SalesEvent).gms?.length || 0
+        // gm_costsがある場合：シナリオ固有の設定を使用
         const applicableGmCosts = scenario.gm_costs
           .filter(gm => {
             const gmCategory = gm.category || 'normal'
@@ -704,18 +751,45 @@ function calculateSalesData(
             return aOrder - bOrder
           })
         
-        if (actualGmCount > 0) {
+        if (gms.length > 0) {
           // 実際のGM数がある場合、実際のGM数分だけ計算
           const gmCost = applicableGmCosts
-            .slice(0, actualGmCount)
+            .slice(0, gms.length)
             .reduce((sum, gm) => sum + gm.reward, 0)
           current.gmCost += gmCost
         } else {
           // 実際のGM数が0の場合でも、シナリオ設定のgm_costsから計算
-          // （シナリオ設定で必要なGM数分の給与を計算）
           const gmCost = applicableGmCosts.reduce((sum, gm) => sum + gm.reward, 0)
           current.gmCost += gmCost
         }
+      } else if (gms.length > 0) {
+        // gm_costsがない場合：デフォルト設定を使用
+        gms.forEach((gmName) => {
+          const role = gmRoles[gmName] || 'main'
+          
+          if (role === 'reception') {
+            current.gmCost += salarySettings.reception_fixed_pay || 2000
+          } else if (role === 'staff' || role === 'observer') {
+            current.gmCost += 0
+          } else {
+            current.gmCost += calculateHourlyWage(durationMinutes, isGmTest, salarySettings)
+          }
+        })
+      }
+      
+      // 交通費の計算（担当店舗以外で働く場合）
+      const storeId = event.store_id
+      const storeForTransport = stores.find(s => s.id === storeId)
+      if (storeForTransport?.transport_allowance) {
+        gms.forEach((gmName) => {
+          const staffStores = staffByName.get(gmName)
+          if (staffStores !== undefined) {
+            const isHomeStore = staffStores.length === 0 || staffStores.includes(storeId)
+            if (!isHomeStore) {
+              current.gmCost += storeForTransport.transport_allowance!
+            }
+          }
+        })
       }
     }
     
@@ -767,16 +841,32 @@ function calculateSalesData(
     const gmRoles = (event as SalesEvent).gm_roles || {}
     
     if (gms.length > 0 && isPastEvent) {
+      logger.log('📊 GM給与計算開始:', {
+        scenarioTitle: event.scenario || '不明',
+        gms,
+        gmRoles,
+        gm_costs: scenario?.gm_costs,
+        hasGmCosts: !!scenario?.gm_costs,
+        gmCostsLength: scenario?.gm_costs?.length,
+        isGmTest
+      })
+      
+      // シナリオの公演時間を取得（デフォルト設定での計算用）
+      const durationMinutes = scenario?.duration || 180
+      
       // 各GMの役割に基づいて給与を計算
       gms.forEach((gmName, index) => {
         const role = gmRoles[gmName] || 'main' // デフォルトはmain
         
         if (role === 'reception') {
-          // 受付は固定2,000円
-          gmCost += 2000
+          // 受付は固定（salarySettingsから取得）
+          const receptionPay = salarySettings.reception_fixed_pay || 2000
+          gmCost += receptionPay
+          logger.log(`📊 GM[${gmName}] 受付: +${receptionPay}円`)
         } else if (role === 'staff' || role === 'observer') {
           // スタッフ参加・見学は0円
           gmCost += 0
+          logger.log(`📊 GM[${gmName}] ${role}: +0円`)
         } else if (scenario && scenario.gm_costs && scenario.gm_costs.length > 0) {
           // main/subはシナリオのgm_costs設定から計算
           const applicableGmCosts = scenario.gm_costs
@@ -794,19 +884,62 @@ function calculateSalesData(
           // 役割に対応するgm_cost設定を取得
           const roleIndex = role === 'sub' ? 1 : index
           const gmCostSetting = applicableGmCosts[roleIndex] || applicableGmCosts[0]
+          logger.log(`📊 GM[${gmName}] role=${role}:`, { applicableGmCosts, roleIndex, gmCostSetting })
           if (gmCostSetting) {
             gmCost += gmCostSetting.reward
+            logger.log(`📊 GM[${gmName}] 給与追加: +${gmCostSetting.reward}円`)
+          } else {
+            logger.log(`📊 GM[${gmName}] 給与設定なし`)
+          }
+        } else {
+          // gm_costsがない場合：デフォルト設定（global_settings）を使用
+          const defaultWage = calculateHourlyWage(durationMinutes, isGmTest, salarySettings)
+          gmCost += defaultWage
+          logger.log(`📊 GM[${gmName}] デフォルト設定使用: +${defaultWage}円`, { durationMinutes, isGmTest })
+        }
+      })
+      logger.log('📊 GM給与計算結果:', { gmCost })
+    } else if (scenario && isPastEvent) {
+      // GMが0人の場合でも、シナリオ設定のgm_costsから計算
+      const durationMinutes = scenario.duration || 180
+      logger.log('📊 GM給与計算（GM0人）:', {
+        scenarioTitle: event.scenario || '不明',
+        gm_costs: scenario.gm_costs,
+        hasGmCosts: !!scenario.gm_costs,
+        gmCostsLength: scenario.gm_costs?.length,
+        isGmTest
+      })
+      
+      if (scenario.gm_costs && scenario.gm_costs.length > 0) {
+        const applicableGmCosts = scenario.gm_costs
+          .filter(gm => {
+            const gmCategory = gm.category || 'normal'
+            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+          })
+        gmCost = applicableGmCosts.reduce((sum, gm) => sum + gm.reward, 0)
+        logger.log('📊 GM給与計算結果:', { applicableGmCosts, gmCost })
+      } else {
+        // gm_costsがない場合：デフォルト設定を使用（GM1人分として計算）
+        gmCost = calculateHourlyWage(durationMinutes, isGmTest, salarySettings)
+        logger.log('📊 GM給与計算結果（デフォルト設定使用）:', { gmCost, durationMinutes, isGmTest })
+      }
+    }
+    
+    // 交通費の計算（担当店舗以外で働く場合）
+    const gmsForTransport = (event as SalesEvent).gms || []
+    const storeIdForTransport = event.store_id
+    const storeForTransport = stores.find(s => s.id === storeIdForTransport)
+    if (storeForTransport?.transport_allowance && isPastEvent) {
+      gmsForTransport.forEach((gmName) => {
+        const staffStores = staffByName.get(gmName)
+        if (staffStores !== undefined) {
+          const isHomeStore = staffStores.length === 0 || staffStores.includes(storeIdForTransport)
+          if (!isHomeStore) {
+            gmCost += storeForTransport.transport_allowance!
+            logger.log(`📊 GM[${gmName}] 交通費追加: +${storeForTransport.transport_allowance}円`)
           }
         }
       })
-    } else if (scenario && scenario.gm_costs && scenario.gm_costs.length > 0 && isPastEvent) {
-      // GMが0人の場合でも、シナリオ設定のgm_costsから計算
-      const applicableGmCosts = scenario.gm_costs
-        .filter(gm => {
-          const gmCategory = gm.category || 'normal'
-          return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-        })
-      gmCost = applicableGmCosts.reduce((sum, gm) => sum + gm.reward, 0)
     }
 
     const netProfit = (event.revenue || 0) - licenseCost - gmCost

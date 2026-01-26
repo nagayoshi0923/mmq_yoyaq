@@ -79,6 +79,23 @@ const SalesManagement: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stores.length, activeTab])
 
+  // カスタム期間が変更されたらデータを再取得
+  useEffect(() => {
+    if (selectedPeriod !== 'custom') return
+    if (!customStartDate || !customEndDate) return
+    if (stores.length === 0) return
+
+    let ownershipFilter: 'corporate' | 'franchise' | undefined
+    if (activeTab === 'franchise-sales') {
+      ownershipFilter = 'franchise'
+    } else if (activeTab === 'overview') {
+      ownershipFilter = 'corporate'
+    }
+
+    loadSalesData('custom', selectedStoreIds, ownershipFilter)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customStartDate, customEndDate, selectedPeriod, activeTab, stores.length])
+
   // タブ切り替え時のスクロール復元
   useEffect(() => {
     const savedPosition = sessionStorage.getItem(`sales-scroll-${activeTab}`)

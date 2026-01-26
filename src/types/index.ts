@@ -156,6 +156,7 @@ export interface Store {
   temporary_venue_names?: Record<string, string>  // 日付ごとのカスタム会場名（例: {"2025-11-01": "スペースマーケット渋谷"}）
   display_order?: number  // 表示順序（設定画面で変更可能）
   region?: string  // 地域（例: "東京", "県外"）- 店舗選択でグループ分け表示に使用
+  transport_allowance?: number  // 交通費（担当店舗以外のスタッフが出勤した場合に加算される金額）
   created_at: string
   updated_at: string
 }

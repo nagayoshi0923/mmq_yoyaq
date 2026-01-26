@@ -501,6 +501,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           slug: scenario.slug || '',
           author: scenario.author || '',
           author_email: scenario.author_email || '',
+          scenario_master_id: scenario.scenario_master_id ?? undefined, // organization_scenarios連携用
           description: scenario.description || '',
           duration: scenario.duration || 120,
           player_count_min: scenario.player_count_min || 4,
@@ -776,7 +777,27 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 logger.log('organization_scenariosに登録しました')
               }
             } else {
-              logger.log('organization_scenarios: 既存レコードあり、スキップ')
+              // 既存レコードがある場合は更新
+              const { error: updateError } = await supabase
+                .from('organization_scenarios')
+                .update({
+                  slug: scenarioData.slug,
+                  duration: scenarioData.duration,
+                  participation_fee: scenarioData.participation_fee,
+                  extra_preparation_time: scenarioData.extra_preparation_time || 30,
+                  org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
+                  available_stores: scenarioData.available_stores || [],
+                  participation_costs: scenarioData.participation_costs || [],
+                  gm_costs: scenarioData.gm_costs || [],
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', existingOrgScenario.id)
+              
+              if (updateError) {
+                logger.error('organization_scenarios更新エラー:', updateError)
+              } else {
+                logger.log('organization_scenariosを更新しました', { gm_costs: scenarioData.gm_costs })
+              }
             }
           }
         } catch (orgErr) {

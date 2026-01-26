@@ -40,7 +40,8 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
         notes: store.notes,
         color: store.color,
         fixed_costs: store.fixed_costs || [],
-        region: store.region || ''
+        region: store.region || '',
+        transport_allowance: store.transport_allowance ?? undefined
       })
     } else if (isOpen) {
       // 新規作成モード：初期値をセット
@@ -60,7 +61,8 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
         notes: '',
         color: '#3B82F6',
         fixed_costs: [],
-        region: ''
+        region: '',
+        transport_allowance: undefined
       })
     }
   }, [store, isOpen])
@@ -326,6 +328,23 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
                         </p>
                       </div>
                     )}
+
+                    {/* 交通費 */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        交通費（円）
+                      </label>
+                      <Input
+                        type="number"
+                        value={formData.transport_allowance ?? ''}
+                        onChange={(e) => handleInputChange('transport_allowance', e.target.value === '' ? undefined : parseInt(e.target.value))}
+                        min={0}
+                        placeholder="0"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        担当店舗に設定していないスタッフがこの店舗で働く場合に加算される金額
+                      </p>
+                    </div>
 
                     {/* 識別色 */}
                     <div>

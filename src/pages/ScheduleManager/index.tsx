@@ -665,7 +665,7 @@ export function ScheduleManager() {
           <div className="hidden sm:block h-6 w-px bg-border mx-2" />
           
           {/* フィルター - 連結グループ */}
-          <div className="hidden sm:flex items-center h-9 border border-input rounded-lg overflow-hidden bg-background flex-1">
+          <div className="hidden sm:flex items-center h-9 border border-input rounded-lg bg-background flex-1">
             {gmList.length > 0 && (
               <div className="flex-1 border-r border-input">
                 <MultiSelect

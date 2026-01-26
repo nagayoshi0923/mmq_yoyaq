@@ -90,89 +90,47 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   })
   const [showPeriodSettings, setShowPeriodSettings] = useState(false)
   
-  // 前回のcustomStartDateとcustomEndDateを記録（無限ループ防止用）
-  const prevCustomDatesRef = useRef<{ startDate: string; endDate: string } | null>(null)
-  
-  // customStartDateが変更されたときにcurrentMonthを同期（外部から期間設定が変更された場合）
-  useEffect(() => {
-    if (!customStartDate) return
+  // 月切り替えハンドラー（MonthSwitcherから呼ばれる）
+  const handleMonthChange = (newMonth: Date) => {
+    setCurrentMonth(newMonth)
     
-    // customStartDateから年月を取得
-    const [yearStr, monthStr] = customStartDate.split('-')
-    if (!yearStr || !monthStr) return
+    const year = newMonth.getFullYear()
+    const month = newMonth.getMonth()
     
-    const year = parseInt(yearStr, 10)
-    const month = parseInt(monthStr, 10) - 1 // 0-indexed
-    
-    // 現在のcurrentMonthと比較
-    const currentYear = currentMonth.getFullYear()
-    const currentMonthIndex = currentMonth.getMonth()
-    
-    // 異なる場合のみ更新（無限ループを防ぐ）
-    if (year !== currentYear || month !== currentMonthIndex) {
-      const newDate = new Date(year, month, 1, 12, 0, 0, 0)
-      setCurrentMonth(newDate)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customStartDate])
-
-  // 月が変更されたら自動的に期間を更新（タイムゾーン安全）
-  useEffect(() => {
-    const year = currentMonth.getFullYear()
-    const month = currentMonth.getMonth()
-    
-    // 月初と月末を計算（必ず正午で作成してタイムゾーン問題を回避）
+    // 月初と月末を計算
     const endDate = new Date(year, month + 1, 0, 12, 0, 0, 0)
     
     // YYYY-MM-DD形式に変換
     const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`
-    const endYear = endDate.getFullYear()
-    const endMonth = endDate.getMonth() + 1
     const endDay = endDate.getDate()
-    const endStr = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`
+    const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`
     
     logger.log('📅 月切り替え:', { year, month: month + 1, startStr, endStr })
     
-    // 日付を更新（データ取得はcustomStartDate/customEndDateの更新後に実行される）
+    // 日付を更新
     onCustomStartDateChange(startStr)
     onCustomEndDateChange(endStr)
-    // 期間をcustomに設定（データ取得はcustomStartDate/customEndDateの更新後に実行される）
-    // 注意: onPeriodChangeは呼ばない（customStartDate/customEndDateの更新後に実行される）
-    if (selectedPeriod !== 'custom') {
-      onPeriodChange('custom')
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMonth])
-
-  // customStartDateとcustomEndDateが更新され、期間がcustomのときにデータを再取得
-  // 注意: onPeriodChangeは月切り替えuseEffectで既に呼ばれているため、ここでは呼ばない
-  // カスタム日付ピッカーからの変更時のみonDataRefreshを呼ぶ
+    
+    // データを再取得
+    onPeriodChange('custom')
+  }
+  
+  // 初期化時のみcurrentMonthをcustomStartDateに合わせる
   useEffect(() => {
-    // 期間がcustomでない場合はスキップ（他の期間設定から変更された場合）
-    if (selectedPeriod !== 'custom') {
-      // 期間がcustomでない場合は、prevCustomDatesRefをリセット
-      prevCustomDatesRef.current = null
-      return
+    if (!customStartDate) return
+    const [yearStr, monthStr] = customStartDate.split('-')
+    if (!yearStr || !monthStr) return
+    const year = parseInt(yearStr, 10)
+    const month = parseInt(monthStr, 10) - 1
+
+    const currentYear = currentMonth.getFullYear()
+    const currentMonthIndex = currentMonth.getMonth()
+    if (year !== currentYear || month !== currentMonthIndex) {
+      setCurrentMonth(new Date(year, month, 1, 12, 0, 0, 0))
     }
-    // customStartDateまたはcustomEndDateが空の場合はスキップ
-    if (!customStartDate || !customEndDate) return
-    
-    // 前回の値と比較して、実際に変更があった場合のみデータを再取得
-    const prevDates = prevCustomDatesRef.current
-    if (prevDates && prevDates.startDate === customStartDate && prevDates.endDate === customEndDate) {
-      // 変更がない場合はスキップ
-      return
-    }
-    
-    // 前回の値を更新
-    prevCustomDatesRef.current = { startDate: customStartDate, endDate: customEndDate }
-    
-    logger.log('📅 カスタム期間変更:', { customStartDate, customEndDate })
-    
-    // 注意: onPeriodChange('custom')を呼ぶと無限ループになるため、
-    // 親コンポーネントでcustomStartDate/customEndDateの変更を監視してデータを取得する
+  // 初回のみ実行
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customStartDate, customEndDate, selectedPeriod])
+  }, [])
 
   // モーダル用データの取得
   useEffect(() => {
@@ -332,7 +290,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           <div className="w-full sm:w-auto flex justify-center sm:justify-start">
             <MonthSwitcher
               value={currentMonth}
-              onChange={setCurrentMonth}
+              onChange={handleMonthChange}
               showToday={true}
               quickJump={true}
               enableKeyboard={true}
@@ -498,7 +456,27 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           stores={modalData.stores}
           scenarios={modalData.scenarios}
           staff={modalData.staff}
+          events={salesData?.eventList || []}
           availableStaffByScenario={modalData.availableStaffByScenario}
+          allAvailableStaff={modalData.staff}
+          onScenariosUpdate={async () => {
+            // シナリオが更新されたらモーダルデータを再取得
+            try {
+              const scenariosData = await scenarioApi.getAll()
+              setModalData(prev => prev ? { ...prev, scenarios: scenariosData } : null)
+            } catch (error) {
+              logger.error('シナリオデータ再取得エラー:', error)
+            }
+          }}
+          onStaffUpdate={async () => {
+            // スタッフが更新されたらモーダルデータを再取得
+            try {
+              const staffData = await staffApi.getAll()
+              setModalData(prev => prev ? { ...prev, staff: staffData } : null)
+            } catch (error) {
+              logger.error('スタッフデータ再取得エラー:', error)
+            }
+          }}
           onParticipantChange={() => {
             // 参加者数が変更された場合はデータをリフレッシュ
             if (onDataRefresh) {

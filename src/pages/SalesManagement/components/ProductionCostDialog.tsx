@@ -79,11 +79,19 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
   // シナリオを読み込み
   useEffect(() => {
     const loadScenarios = async () => {
+      if (!organizationId) return
+      
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('scenarios')
           .select('id, title, author')
-          .order('title', { ascending: true })
+        
+        // organization_id でフィルタ（マルチテナント対応）
+        query = query.eq('organization_id', organizationId)
+        
+        query = query.order('title', { ascending: true })
+        
+        const { data, error } = await query
         
         if (error) throw error
         setScenarios(data || [])
@@ -92,10 +100,10 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
       }
     }
     
-    if (isOpen) {
+    if (isOpen && organizationId) {
       loadScenarios()
     }
-  }, [isOpen])
+  }, [isOpen, organizationId])
 
   // ダイアログが開かれた時にフォームをリセット/設定
   useEffect(() => {

@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { X, ExternalLink, UserCog } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
+import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { staffApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
@@ -1256,8 +1256,8 @@ export function PerformanceModal({
         </div>
       </DialogContent>
 
-      {/* シナリオ編集ダイアログ */}
-      <ScenarioEditDialog
+      {/* シナリオ編集ダイアログ（V2: タブ形式の新しいUI） */}
+      <ScenarioEditDialogV2
         isOpen={isScenarioDialogOpen}
         onClose={() => {
           setIsScenarioDialogOpen(false)
