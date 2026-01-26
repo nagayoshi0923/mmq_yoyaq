@@ -186,131 +186,140 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
         </CardContent>
       </Card>
 
-      {/* ライセンス料 */}
+      {/* ライセンス料（自店用） */}
       <Card>
         <CardContent className="p-2">
-          <Label className={labelStyle}>ライセンス料</Label>
-          <p className={hintStyle}>1公演あたり作者に支払う金額。公演報告時に自動計算されます</p>
+          <Label className={labelStyle}>ライセンス料（自店用）</Label>
+          <p className={hintStyle}>自店で公演した場合に作者に支払う金額</p>
           <div className="grid grid-cols-2 gap-5 mt-1.5">
-            {/* 自店用 */}
-            <div>
-              <div className="text-sm font-medium mb-3 pb-2 border-b">自店用</div>
-              <div className="space-y-3">
-                {(formData.license_rewards || []).map((reward, index) => (
-                  <div key={index} className={rowStyle}>
-                    <span className="text-sm w-20 shrink-0">
-                      {reward.item === 'normal' ? '通常公演' : 'GMテスト'}
-                    </span>
-                    <div className="flex-1 relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                      <Input
-                        type="number"
-                        value={reward.amount}
-                        onChange={(e) => handleUpdateLicenseReward(index, 'amount', parseIntSafe(e.target.value, 0))}
-                        className={`${inputStyle} !pl-7`}
-                      />
-                    </div>
-                  </div>
-                ))}
+            {(formData.license_rewards || []).map((reward, index) => (
+              <div key={index} className={rowStyle}>
+                <span className="text-sm w-20 shrink-0">
+                  {reward.item === 'normal' ? '通常公演' : 'GMテスト'}
+                </span>
+                <div className="flex-1 relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                  <Input
+                    type="number"
+                    value={reward.amount}
+                    onChange={(e) => handleUpdateLicenseReward(index, 'amount', parseIntSafe(e.target.value, 0))}
+                    className={`${inputStyle} !pl-7`}
+                  />
+                </div>
               </div>
-            </div>
-
-            {/* 他店用（フランチャイズ）= 作者への支払い（常に表示） */}
-            <div>
-              <div className="text-sm font-medium mb-3 pb-2 border-b">他社公演時（作者への支払い）</div>
-              <div className="space-y-3">
-                {(formData.franchise_license_rewards || []).map((reward, index) => (
-                  <div key={index} className={rowStyle}>
-                    <span className="text-sm w-20 shrink-0">
-                      {reward.item === 'normal' ? '通常公演' : 'GMテスト'}
-                    </span>
-                    <div className="flex-1 relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                      <Input
-                        type="number"
-                        value={reward.amount}
-                        onChange={(e) => handleUpdateFranchiseLicenseReward(index, 'amount', parseIntSafe(e.target.value, 0))}
-                        placeholder="未設定"
-                        className={`${inputStyle} !pl-7`}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
-          <p className={`${hintStyle} mt-4 pt-3 border-t`}>
-            他社公演時の金額が未設定の場合は自店用が適用されます
-          </p>
         </CardContent>
       </Card>
 
-      {/* 他社からの公演料（フランチャイズ対応：常に表示） */}
+      {/* 他店公演時（フランチャイズ対応） */}
       <Card>
         <CardContent className="p-2">
-          <Label className={labelStyle}>フランチャイズからの受取金額</Label>
-          <p className={hintStyle}>フランチャイズ店舗が本店に支払う金額。未設定の場合は自店用ライセンス料と同額</p>
-          <div className="grid grid-cols-2 gap-5 mt-3">
-            <div>
-              <div className="text-sm text-muted-foreground mb-2">通常公演</div>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                <Input
-                  type="number"
-                  min="0"
-                  step="100"
-                  value={formData.external_license_amount || 0}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    external_license_amount: parseIntSafe(e.target.value, 0)
-                  }))}
-                  className={`${inputStyle} !pl-7`}
-                />
-              </div>
-              {/* マージン表示: 管理作品はfranchise_license_amount、通常作品はlicense_amountとの差分 */}
-              {(formData.external_license_amount || 0) > 0 && (() => {
-                const authorPayment = formData.scenario_type === 'managed'
-                  ? (formData.franchise_license_rewards?.find(r => r.item === 'normal')?.amount || formData.franchise_license_amount || formData.license_rewards?.find(r => r.item === 'normal')?.amount || 0)
-                  : (formData.license_rewards?.find(r => r.item === 'normal')?.amount || 0)
-                const margin = (formData.external_license_amount || 0) - authorPayment
-                return (
-                  <p className="text-xs text-green-600 mt-1">
-                    マージン: ¥{margin.toLocaleString()}
-                  </p>
-                )
-              })()}
+          <Label className={labelStyle}>他店公演時</Label>
+          <p className={hintStyle}>フランチャイズ店舗が公演した場合の金額設定</p>
+          
+          {/* テーブル形式で表示 */}
+          <div className="mt-3 border rounded-lg overflow-hidden">
+            {/* ヘッダー */}
+            <div className="grid grid-cols-4 gap-2 bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
+              <div></div>
+              <div className="text-center">受取金額</div>
+              <div className="text-center">作者支払</div>
+              <div className="text-center">マージン</div>
             </div>
             
-            <div>
-              <div className="text-sm text-muted-foreground mb-2">GMテスト</div>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                <Input
-                  type="number"
-                  min="0"
-                  step="100"
-                  value={formData.external_gm_test_license_amount || 0}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    external_gm_test_license_amount: parseIntSafe(e.target.value, 0)
-                  }))}
-                  className={`${inputStyle} !pl-7`}
-                />
-              </div>
-              {/* マージン表示: 管理作品はfranchise_gm_test_license_amount、通常作品はgm_test_license_amountとの差分 */}
-              {(formData.external_gm_test_license_amount || 0) > 0 && (() => {
-                const authorPayment = formData.scenario_type === 'managed'
-                  ? (formData.franchise_license_rewards?.find(r => r.item === 'gmtest')?.amount || formData.franchise_gm_test_license_amount || formData.license_rewards?.find(r => r.item === 'gmtest')?.amount || 0)
-                  : (formData.license_rewards?.find(r => r.item === 'gmtest')?.amount || 0)
-                const margin = (formData.external_gm_test_license_amount || 0) - authorPayment
-                return (
-                  <p className="text-xs text-green-600 mt-1">
-                    マージン: ¥{margin.toLocaleString()}
-                  </p>
-                )
-              })()}
-            </div>
+            {/* 通常公演 */}
+            {(() => {
+              const externalAmount = formData.external_license_amount || 0
+              const authorPayment = formData.franchise_license_rewards?.find(r => r.item === 'normal')?.amount ?? 
+                                    formData.license_rewards?.find(r => r.item === 'normal')?.amount ?? 0
+              const margin = externalAmount - authorPayment
+              return (
+                <div className="grid grid-cols-4 gap-2 px-3 py-2 border-t items-center">
+                  <div className="text-sm font-medium">通常公演</div>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">¥</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="100"
+                      value={externalAmount}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        external_license_amount: parseIntSafe(e.target.value, 0)
+                      }))}
+                      className={`${inputStyle} !pl-5 text-center`}
+                    />
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">¥</span>
+                    <Input
+                      type="number"
+                      value={formData.franchise_license_rewards?.find(r => r.item === 'normal')?.amount ?? 0}
+                      onChange={(e) => handleUpdateFranchiseLicenseReward(
+                        formData.franchise_license_rewards?.findIndex(r => r.item === 'normal') ?? 0, 
+                        'amount', 
+                        parseIntSafe(e.target.value, 0)
+                      )}
+                      placeholder="自店用と同額"
+                      className={`${inputStyle} !pl-5 text-center`}
+                    />
+                  </div>
+                  <div className={`text-center text-sm font-medium ${margin > 0 ? 'text-green-600' : margin < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                    {externalAmount > 0 ? `¥${margin.toLocaleString()}` : '-'}
+                  </div>
+                </div>
+              )
+            })()}
+            
+            {/* GMテスト */}
+            {(() => {
+              const externalAmount = formData.external_gm_test_license_amount || 0
+              const authorPayment = formData.franchise_license_rewards?.find(r => r.item === 'gmtest')?.amount ?? 
+                                    formData.license_rewards?.find(r => r.item === 'gmtest')?.amount ?? 0
+              const margin = externalAmount - authorPayment
+              return (
+                <div className="grid grid-cols-4 gap-2 px-3 py-2 border-t items-center">
+                  <div className="text-sm font-medium">GMテスト</div>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">¥</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="100"
+                      value={externalAmount}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        external_gm_test_license_amount: parseIntSafe(e.target.value, 0)
+                      }))}
+                      className={`${inputStyle} !pl-5 text-center`}
+                    />
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">¥</span>
+                    <Input
+                      type="number"
+                      value={formData.franchise_license_rewards?.find(r => r.item === 'gmtest')?.amount ?? 0}
+                      onChange={(e) => handleUpdateFranchiseLicenseReward(
+                        formData.franchise_license_rewards?.findIndex(r => r.item === 'gmtest') ?? 0, 
+                        'amount', 
+                        parseIntSafe(e.target.value, 0)
+                      )}
+                      placeholder="自店用と同額"
+                      className={`${inputStyle} !pl-5 text-center`}
+                    />
+                  </div>
+                  <div className={`text-center text-sm font-medium ${margin > 0 ? 'text-green-600' : margin < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                    {externalAmount > 0 ? `¥${margin.toLocaleString()}` : '-'}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
+          
+          <p className={`${hintStyle} mt-3`}>
+            受取金額が未設定（0円）の場合は自店用ライセンス料と同額になります
+          </p>
         </CardContent>
       </Card>
     </div>

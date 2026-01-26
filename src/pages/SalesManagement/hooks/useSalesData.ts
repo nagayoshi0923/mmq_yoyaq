@@ -494,7 +494,8 @@ function calculateSalesData(
           const staffStores = staffByName.get(gmName)
           if (staffStores !== undefined) {
             // スタッフの担当店舗にこの店舗が含まれていない場合、交通費を加算
-            const isHomeStore = staffStores.length === 0 || staffStores.includes(storeId)
+            // 担当店舗が未設定（空配列）の場合も交通費を加算する
+            const isHomeStore = staffStores.length > 0 && staffStores.includes(storeId)
             if (!isHomeStore) {
               totalGmCost += storeForTransport.transport_allowance!
             }
@@ -785,7 +786,8 @@ function calculateSalesData(
         gms.forEach((gmName) => {
           const staffStores = staffByName.get(gmName)
           if (staffStores !== undefined) {
-            const isHomeStore = staffStores.length === 0 || staffStores.includes(storeId)
+            // 担当店舗が未設定（空配列）の場合も交通費を加算する
+            const isHomeStore = staffStores.length > 0 && staffStores.includes(storeId)
             if (!isHomeStore) {
               current.gmCost += storeForTransport.transport_allowance!
             }
@@ -930,15 +932,29 @@ function calculateSalesData(
     const gmsForTransport = (event as SalesEvent).gms || []
     const storeIdForTransport = event.store_id
     const storeForTransport = stores.find(s => s.id === storeIdForTransport)
+    logger.log('🚃 交通費チェック:', {
+      scenario: event.scenario,
+      storeName: storeForTransport?.name,
+      transport_allowance: storeForTransport?.transport_allowance,
+      gms: gmsForTransport,
+      isPastEvent
+    })
     if (storeForTransport?.transport_allowance && isPastEvent) {
       gmsForTransport.forEach((gmName) => {
         const staffStores = staffByName.get(gmName)
-        if (staffStores !== undefined) {
-          const isHomeStore = staffStores.length === 0 || staffStores.includes(storeIdForTransport)
-          if (!isHomeStore) {
-            gmCost += storeForTransport.transport_allowance!
-            logger.log(`📊 GM[${gmName}] 交通費追加: +${storeForTransport.transport_allowance}円`)
-          }
+        // 担当店舗が未設定（空配列）の場合も交通費を加算する
+        const isHomeStore = staffStores === undefined 
+          ? true // スタッフが見つからない場合はホーム店舗扱い（交通費なし）
+          : (staffStores.length > 0 && staffStores.includes(storeIdForTransport))
+        logger.log(`🚃 GM[${gmName}] 交通費判定:`, {
+          staffFound: staffStores !== undefined,
+          staffStores,
+          storeId: storeIdForTransport,
+          isHomeStore
+        })
+        if (!isHomeStore) {
+          gmCost += storeForTransport.transport_allowance!
+          logger.log(`🚃 GM[${gmName}] 交通費追加: +${storeForTransport.transport_allowance}円`)
         }
       })
     }

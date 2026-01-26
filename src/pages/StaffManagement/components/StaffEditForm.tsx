@@ -231,54 +231,6 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
               />
             </div>
 
-            {/* 交通費設定（担当店舗以外への出勤時） */}
-            {(formData.stores?.length ?? 0) > 0 && (
-              <div>
-                <Label className="flex items-center gap-1.5">
-                  <Train className="h-4 w-4" />
-                  交通費設定（担当店舗以外）
-                </Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  担当店舗以外で働く場合に加算される交通費を設定
-                </p>
-                <Card className="bg-muted/30">
-                  <CardContent className="p-3 space-y-2">
-                    {stores
-                      .filter(store => !(formData.stores || []).includes(store.id))
-                      .map(store => (
-                        <div key={store.id} className="flex items-center gap-2">
-                          <span className="text-sm min-w-[100px] truncate">{store.name}</span>
-                          <div className="flex items-center gap-1 flex-1">
-                            <Input
-                              type="number"
-                              value={formData.transport_costs?.[store.id] ?? ''}
-                              onChange={(e) => {
-                                const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10)
-                                setFormData({
-                                  ...formData,
-                                  transport_costs: {
-                                    ...formData.transport_costs,
-                                    [store.id]: value as number
-                                  }
-                                })
-                              }}
-                              placeholder="0"
-                              className="w-24 text-right"
-                            />
-                            <span className="text-sm text-muted-foreground">円</span>
-                          </div>
-                        </div>
-                      ))}
-                    {stores.filter(store => !(formData.stores || []).includes(store.id)).length === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-2">
-                        全店舗が担当店舗に設定されています
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
             <div>
               <Label>担当シナリオ（GM可能）</Label>
               <MultiSelect
@@ -372,4 +324,3 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
     </form>
   )
 }
-
