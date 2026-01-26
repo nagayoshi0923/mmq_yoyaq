@@ -65,3 +65,5 @@ CREATE TRIGGER trigger_manual_external_performances_updated_at
 COMMENT ON TABLE manual_external_performances IS 'ライセンス管理者が手動入力した他社公演数（月別）';
 COMMENT ON COLUMN manual_external_performances.performance_count IS '他社公演回数';
 
+
+

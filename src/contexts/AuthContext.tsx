@@ -113,14 +113,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logger.log('🔄 セッションリフレッシュ開始')
     
     try {
+      // まず現在のセッション状態を確認（不要なrefreshを避ける）
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) {
+        logger.error('❌ セッション確認エラー:', sessionError)
+        return
+      }
+      
+      const session = sessionData.session
+      if (!session) {
+        logger.log('⏭️ セッションなし: リフレッシュをスキップ')
+        return
+      }
+      
+      // 有効期限まで十分余裕がある場合はリフレッシュしない
+      const expiresAt = session.expires_at ? session.expires_at * 1000 : 0
+      const refreshThresholdMs = 2 * 60 * 1000 // 2分前のみリフレッシュ
+      if (expiresAt && expiresAt - now > refreshThresholdMs) {
+        logger.log('⏭️ セッション有効: リフレッシュ不要')
+        return
+      }
+      
       const { data, error } = await supabase.auth.refreshSession()
       if (error) {
         logger.error('❌ セッションリフレッシュエラー:', error)
-        // リフレッシュに失敗した場合、サインアウト状態にする
+        
+        // リフレッシュに失敗した場合も、直ちにログアウトせずに再確認
         if (error.message?.includes('Invalid Refresh Token') || 
             error.message?.includes('Refresh Token Not Found')) {
-          setUser(null)
-          userRef.current = null
+          const { data: retrySession } = await supabase.auth.getSession()
+          if (!retrySession.session) {
+            setUser(null)
+            userRef.current = null
+          } else {
+            logger.log('⚠️ リフレッシュ失敗だがセッションは有効: 状態維持')
+          }
         }
         return
       }
@@ -300,7 +327,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logger.log('🚀 初期セッション取得開始')
     try {
       const sessionStartTime = performance.now()
-      const { data: { session }, error } = await supabase.auth.getSession()
+      let { data: { session }, error } = await supabase.auth.getSession()
       const sessionEndTime = performance.now()
       logger.log(`⏱️ getSession 完了: ${((sessionEndTime - sessionStartTime) / 1000).toFixed(2)}秒`)
       
@@ -310,9 +337,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       if (session?.user) {
+        // セッションがあるが、Access Tokenの有効期限が1時間以内の場合は即座にリフレッシュ
+        const now = Date.now()
+        const expiresAt = session.expires_at ? session.expires_at * 1000 : 0
+        const refreshThresholdMs = 60 * 60 * 1000 // 1時間
+        
+        if (expiresAt && expiresAt - now < refreshThresholdMs) {
+          logger.log('🔄 セッション有効期限が近いため、リフレッシュを試行')
+          try {
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+            if (refreshError) {
+              logger.warn('⚠️ リフレッシュ失敗:', refreshError.message)
+              // リフレッシュ失敗でも、既存セッションがあれば続行
+            } else if (refreshData.session) {
+              session = refreshData.session
+              logger.log('✅ セッションリフレッシュ成功')
+            }
+          } catch (refreshErr) {
+            logger.warn('⚠️ リフレッシュ例外:', refreshErr)
+          }
+        }
+        
         logger.log('👤 セッションユーザー発見:', maskEmail(session.user.email))
         await setUserFromSession(session.user)
       } else {
+        // セッションがない場合、Refresh Tokenからの復元を試みる
+        logger.log('🔄 セッションなし、リフレッシュで復元を試行')
+        try {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          if (!refreshError && refreshData.session?.user) {
+            logger.log('✅ リフレッシュでセッション復元成功:', maskEmail(refreshData.session.user.email))
+            await setUserFromSession(refreshData.session.user)
+            return
+          }
+        } catch (refreshErr) {
+          logger.log('⏭️ リフレッシュ復元失敗（未ログイン状態）')
+        }
         logger.log('👤 セッションユーザーなし')
       }
     } catch (error) {

@@ -234,12 +234,17 @@ export function PerformanceModal({
         const storeId = resolveStoreId(venueValue) || stores[0]?.id
         if (!storeId) return
 
-        // 営業時間設定を取得
-        const { data: businessHoursData, error: businessHoursError } = await supabase
+        // 営業時間設定を取得（組織でフィルタ）
+        let businessHoursQuery = supabase
           .from('business_hours_settings')
           .select('opening_hours, holidays, time_restrictions')
           .eq('store_id', storeId)
-          .maybeSingle()
+        
+        if (organizationId) {
+          businessHoursQuery = businessHoursQuery.eq('organization_id', organizationId)
+        }
+        
+        const { data: businessHoursData, error: businessHoursError } = await businessHoursQuery.maybeSingle()
 
         if (businessHoursError && businessHoursError.code !== 'PGRST116') {
           logger.error('営業時間設定取得エラー:', businessHoursError)

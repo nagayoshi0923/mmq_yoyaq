@@ -21,13 +21,22 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
   let skippedCount = 0
   
   try {
-    // デモ顧客を取得
-    const { data: demoCustomer, error: customerError } = await supabase
+    // 組織IDを取得（マルチテナント対応）
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) {
+      logger.error('組織情報が取得できません')
+      return { success: 0, failed: 0, skipped: 0 }
+    }
+    
+    // デモ顧客を取得（組織でフィルタ）
+    let customerQuery = supabase
       .from('customers')
       .select('id, name')
       .or('name.ilike.%デモ%,email.ilike.%demo%')
+      .eq('organization_id', orgId)
       .limit(1)
-      .single()
+    
+    const { data: demoCustomer, error: customerError } = await customerQuery.single()
     
     if (customerError || !demoCustomer) {
       logger.error('デモ顧客が見つかりません:', customerError)
@@ -36,7 +45,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
     
     logger.log(`デモ顧客: ${demoCustomer.name} (ID: ${demoCustomer.id})`)
     
-    // 今日以前の公演を取得（中止されていない、カテゴリーがopenまたはgmtest）
+    // 今日以前の公演を取得（中止されていない、カテゴリーがopenまたはgmtest、組織でフィルタ）
     const { data: pastEvents, error: eventsError } = await supabase
       .from('schedule_events')
       .select(`
@@ -53,6 +62,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         capacity,
         organization_id
       `)
+      .eq('organization_id', orgId)
       .lte('date', today.toISOString().split('T')[0])
       .eq('is_cancelled', false)
       .in('category', ['open', 'gmtest'])
@@ -80,11 +90,12 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         continue
       }
       
-      // 既存のデモ参加者がいるかチェック
+      // 既存のデモ参加者がいるかチェック（組織でフィルタ）
       const { data: existingReservations, error: reservationCheckError } = await supabase
         .from('reservations')
         .select('id, participant_names, reservation_source')
         .eq('schedule_event_id', event.id)
+        .eq('organization_id', orgId)
         .in('status', ['confirmed', 'pending'])
       
       if (reservationCheckError) {
@@ -117,10 +128,12 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         continue
       }
 
+      // シナリオ情報を取得（組織でフィルタ）
       const { data: scenario, error: scenarioError } = await supabase
         .from('scenarios')
         .select('id, title, duration, participation_fee, gm_test_participation_fee')
         .eq('title', event.scenario.trim())
+        .eq('organization_id', orgId)
         .maybeSingle()
       
       if (scenarioError) {
@@ -141,11 +154,12 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         ? (scenario?.gm_test_participation_fee || scenario?.participation_fee || 0)
         : (scenario?.participation_fee || 0)
       
-      // 店舗名から店舗IDを取得
+      // 店舗名から店舗IDを取得（組織でフィルタ）
       const { data: store, error: storeError } = await supabase
         .from('stores')
         .select('id')
         .or(`name.eq.${event.venue},short_name.eq.${event.venue}`)
+        .eq('organization_id', orgId)
         .single()
       
       if (storeError) {
@@ -215,16 +229,25 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
 async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise<ScheduleEvent[]> {
   const eventsWithDemoParticipants = [...events]
   
+  // 組織IDを取得（マルチテナント対応）
+  const orgId = await getCurrentOrganizationId()
+  
   for (const event of events) {
     // 満席判定（参加者数が最大参加者数以上）
     if ((event.current_participants || 0) >= (event.max_participants || 0)) {
       try {
-        // このイベントの予約データを取得
-        const { data: reservations, error: reservationError } = await supabase
+        // このイベントの予約データを取得（組織でフィルタ）
+        let reservationQuery = supabase
           .from('reservations')
           .select('participant_names')
           .eq('schedule_event_id', event.id)
           .in('status', ['confirmed', 'pending'])
+        
+        if (orgId) {
+          reservationQuery = reservationQuery.eq('organization_id', orgId)
+        }
+        
+        const { data: reservations, error: reservationError } = await reservationQuery
         
         if (reservationError) {
           logger.error('予約データの取得に失敗:', reservationError)
@@ -238,12 +261,17 @@ async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise
         )
         
         if (!hasDemoParticipant) {
-          // シナリオ情報を取得
-          const { data: scenario, error: scenarioError } = await supabase
+          // シナリオ情報を取得（組織でフィルタ）
+          let scenarioQuery = supabase
             .from('scenarios')
             .select('id, title, duration, participation_fee, gm_test_participation_fee')
             .eq('title', event.scenario)
-            .single()
+          
+          if (orgId) {
+            scenarioQuery = scenarioQuery.eq('organization_id', orgId)
+          }
+          
+          const { data: scenario, error: scenarioError } = await scenarioQuery.single()
           
           if (scenarioError) {
             logger.error('シナリオ情報の取得に失敗:', scenarioError)

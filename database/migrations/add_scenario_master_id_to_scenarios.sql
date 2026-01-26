@@ -18,3 +18,5 @@ COMMENT ON COLUMN public.scenarios.scenario_master_id IS 'マスタから引用�
 SELECT 'scenario_master_id column added to scenarios table' as result;
 
 
+
+

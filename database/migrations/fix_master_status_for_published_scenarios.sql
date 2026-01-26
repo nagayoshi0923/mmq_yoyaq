@@ -38,3 +38,5 @@ WHERE s.status = 'draft'
       AND os.org_status = 'available'
   );
 
+
+

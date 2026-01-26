@@ -65,3 +65,5 @@ COMMENT ON VIEW public.organization_scenarios_with_master IS '組織シナリオ
 -- 確認
 SELECT 'View updated successfully' as result;
 
+
+

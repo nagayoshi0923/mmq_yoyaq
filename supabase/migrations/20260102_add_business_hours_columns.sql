@@ -11,3 +11,5 @@ COMMENT ON COLUMN business_hours_settings.special_closed_days IS '特別休業�
 
 
 
+
+

@@ -224,3 +224,5 @@ http://localhost:5173/
 - [Google OAuth 設定ガイド](https://supabase.com/docs/guides/auth/social-login/auth-google)
 - [Discord OAuth 設定ガイド](https://supabase.com/docs/guides/auth/social-login/auth-discord)
 
+
+

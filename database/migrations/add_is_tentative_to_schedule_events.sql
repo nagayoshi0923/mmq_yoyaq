@@ -23,3 +23,5 @@ ON schedule_events(is_tentative)
 WHERE is_tentative = TRUE;
 
 
+
+

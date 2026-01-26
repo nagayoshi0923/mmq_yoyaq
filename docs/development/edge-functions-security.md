@@ -222,3 +222,5 @@ const ALLOWED_ORIGINS = [
 | `_shared/security.ts` | 共通セキュリティヘルパー |
 | `_shared/organization-settings.ts` | 組織設定取得ヘルパー |
 
+
+

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { formatDate } from '../utils/bookingFormatters'
-import { recalculateCurrentParticipants, getCurrentParticipantsCount } from '@/lib/participantUtils'
+import { getCurrentParticipantsCount } from '@/lib/participantUtils'
+import { reservationApi } from '@/lib/reservationApi'
 
 /**
  * 参加費を計算する関数
@@ -343,14 +343,22 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         props.startTime,
         props.eventDate
       )
-      // 予約番号を生成 (YYMMDD-XXXX形式: 11桁)
-      const now = new Date()
-      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-      const reservationNumber = `${dateStr}-${randomStr}`
-      
       const eventDateTime = `${props.eventDate}T${props.startTime}`
       
+      // 組織IDを取得
+      const { data: eventOrg, error: eventOrgError } = await supabase
+        .from('schedule_events')
+        .select('organization_id')
+        .eq('id', props.eventId)
+        .single()
+
+      if (eventOrgError) {
+        logger.error('組織ID取得エラー:', eventOrgError)
+        throw new Error('予約処理に失敗しました。もう一度お試しください。')
+      }
+
+      const organizationId = eventOrg.organization_id
+
       // 顧客レコードを取得または作成
       let customerId: string | null = null
       
@@ -385,9 +393,6 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             .eq('id', customerId)
         } else {
           // 新規顧客レコードを作成
-          // organization_idを取得（ログインユーザーから、またはデフォルト）
-          const organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
-          
           const { data: newCustomer, error: customerError } = await supabase
             .from('customers')
             .insert({
@@ -417,90 +422,31 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         logger.error('顧客レコードの作成/更新エラー:', error)
       }
       
-      // 予約データを作成
-      // organization_idを取得（ログインユーザーから、またはデフォルト）
-      const reservationOrgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
-      
-      const { data: reservationData, error: reservationError } = await supabase
-        .from('reservations')
-        .insert({
-          event_id: props.eventId,
-          schedule_event_id: props.eventId,
-          title: `${props.scenarioTitle} - ${formatDate(props.eventDate)}`,
-          reservation_number: reservationNumber,
-          scenario_id: props.scenarioId,
-          store_id: props.storeId || null,
-          customer_id: customerId,
-          requested_datetime: eventDateTime,
-          actual_datetime: eventDateTime,
-          duration: 180,
-          participant_count: participantCount,
-          base_price: calculatedFee * participantCount,
-          total_price: calculatedFee * participantCount,
-          final_price: calculatedFee * participantCount,
-          unit_price: calculatedFee,
-          status: 'confirmed',
-          customer_notes: notes || null,
-          created_by: props.userId,
-          customer_name: customerName,
-          customer_email: customerEmail,
-          customer_phone: customerPhone,
-          organization_id: reservationOrgId
-        })
-        .select()
-        .single()
-
-      if (reservationError) {
-        logger.error('予約エラー:', reservationError)
-        throw new Error('予約の作成に失敗しました。もう一度お試しください。')
+      if (!customerId) {
+        throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
       }
 
-      // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
-      // 相対的な加減算ではなく、常に予約テーブルから集計して絶対値を設定
-      //
-      // 注意: 現在は「楽観的ロック」を使用しています。
-      // これは予約挿入後にオーバーブッキングを検出してロールバックする方式です。
-      // より厳密な競合制御が必要な場合は、database/functions/create_reservation_atomic.sql の
-      // RPC関数を使用してください（トランザクション内でロックとチェックを行います）。
-      try {
-        const newCount = await recalculateCurrentParticipants(props.eventId)
-        
-        // 🚨 CRITICAL: オーバーブッキング検出 - 楽観的ロック
-        // 予約挿入後に再度チェックし、オーバーブッキングの場合はロールバック
-        const { data: eventData } = await supabase
-          .from('schedule_events')
-          .select('max_participants, capacity')
-          .eq('id', props.eventId)
-          .single()
-        
-        const maxParticipants = eventData?.max_participants || eventData?.capacity || 8
-        
-        if (newCount > maxParticipants) {
-          logger.warn('オーバーブッキング検出 - 予約をロールバック:', {
-            eventId: props.eventId,
-            newCount,
-            maxParticipants,
-            reservationId: reservationData.id
-          })
-          
-          // 予約を削除してロールバック
-          await supabase
-            .from('reservations')
-            .delete()
-            .eq('id', reservationData.id)
-          
-          // 参加者数を再計算
-          await recalculateCurrentParticipants(props.eventId)
-          
-          throw new Error('申し訳ありません。他のお客様の予約により満席となりました。')
-        }
-      } catch (updateError) {
-        // オーバーブッキングエラーは再throw
-        if (updateError instanceof Error && updateError.message.includes('満席')) {
-          throw updateError
-        }
-        logger.error('参加者数の更新エラー:', updateError)
-      }
+      const reservationData = await reservationApi.create({
+        schedule_event_id: props.eventId,
+        title: `${props.scenarioTitle} - ${formatDate(props.eventDate)}`,
+        scenario_id: props.scenarioId,
+        store_id: props.storeId || null,
+        customer_id: customerId,
+        requested_datetime: eventDateTime,
+        duration: 180,
+        participant_count: participantCount,
+        base_price: calculatedFee * participantCount,
+        total_price: calculatedFee * participantCount,
+        unit_price: calculatedFee,
+        status: 'confirmed',
+        customer_notes: notes || null,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+        reservation_source: 'web',
+        created_by: props.userId,
+        organization_id: organizationId
+      })
 
       // 予約確認メールを送信
       try {
@@ -517,7 +463,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             storeAddress: props.storeAddress,
             participantCount: participantCount,
             totalPrice: props.participationFee * participantCount,
-            reservationNumber: reservationNumber
+            reservationNumber: reservationData.reservation_number
           }
         })
 
@@ -532,7 +478,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
 
       // 完了した予約情報を保存
       setCompletedReservation({
-        reservationNumber: reservationNumber,
+        reservationNumber: reservationData.reservation_number,
         participantCount: participantCount,
         totalPrice: props.participationFee * participantCount
       })

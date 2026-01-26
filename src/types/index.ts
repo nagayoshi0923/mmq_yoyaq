@@ -555,6 +555,7 @@ export interface Reservation {
   cancelled_at?: string | null
   external_reservation_id?: string | null
   reservation_source: 'web' | 'phone' | 'walk_in' | 'external' | 'web_private' | 'staff_entry' | 'staff_participation' | 'demo_auto' | 'demo'
+  created_by?: string | null
   created_at: string
   updated_at: string
   // 予約サイトから直接保存される顧客情報（web, web_private予約の場合）
@@ -607,7 +608,7 @@ export interface Waitlist {
   id: string
   organization_id: string
   schedule_event_id: string
-  customer_id?: string | null
+  customer_id: string
   customer_name: string
   customer_email: string
   customer_phone?: string | null

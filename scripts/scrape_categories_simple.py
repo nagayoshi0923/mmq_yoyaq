@@ -58,3 +58,5 @@ if __name__ == "__main__":
     if result:
         print(f"\n最初の2000文字:\n{result[:2000]}")
 
+
+

@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, maskEmail, maskName } from '../_shared/security.ts'
+import { getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse } from '../_shared/security.ts'
 
 interface BookingConfirmationRequest {
   reservationId: string
@@ -29,6 +29,11 @@ serve(async (req) => {
   }
 
   try {
+    const authResult = await verifyAuth(req)
+    if (!authResult.success) {
+      return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -41,6 +46,25 @@ serve(async (req) => {
 
     // リクエストボディを取得
     const bookingData: BookingConfirmationRequest = await req.json()
+
+    // 予約の正当性を検証
+    const { data: reservation, error: reservationError } = await supabaseClient
+      .from('reservations')
+      .select('id, customer_email, organization_id')
+      .eq('id', bookingData.reservationId)
+      .single()
+
+    if (reservationError || !reservation) {
+      return errorResponse('予約が見つかりません', 404, corsHeaders)
+    }
+
+    if (!reservation.customer_email || reservation.customer_email !== bookingData.customerEmail) {
+      return errorResponse('メールアドレスが一致しません', 403, corsHeaders)
+    }
+
+    if (bookingData.organizationId && reservation.organization_id && bookingData.organizationId !== reservation.organization_id) {
+      return errorResponse('組織が一致しません', 403, corsHeaders)
+    }
 
     // ログにはマスキングした情報のみ出力
     console.log('📧 Sending booking confirmation:', {
@@ -62,8 +86,9 @@ serve(async (req) => {
     let senderEmail = 'noreply@example.com'
     let senderName = 'MMQ予約システム'
     
-    if (bookingData.organizationId) {
-      const emailSettings = await getEmailSettings(serviceClient, bookingData.organizationId)
+    const resolvedOrganizationId = bookingData.organizationId || reservation.organization_id
+    if (resolvedOrganizationId) {
+      const emailSettings = await getEmailSettings(serviceClient, resolvedOrganizationId)
       if (emailSettings.resendApiKey) {
         resendApiKey = emailSettings.resendApiKey
         senderEmail = emailSettings.senderEmail

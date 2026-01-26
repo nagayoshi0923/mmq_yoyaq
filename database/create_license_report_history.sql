@@ -57,3 +57,5 @@ COMMENT ON COLUMN license_report_history.scenarios IS '送信したシナリオ�
 -- 確認
 SELECT 'license_report_history テーブルを作成しました' as message;
 
+
+

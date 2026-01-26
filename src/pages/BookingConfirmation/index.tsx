@@ -192,6 +192,14 @@ export function BookingConfirmation({
     setError(null)
 
     try {
+      if (!user) {
+        throw new Error('ログインが必要です')
+      }
+
+      if (user.email && customerEmail !== user.email) {
+        throw new Error('ログイン中のメールアドレスと一致しません')
+      }
+
       // 組織IDを取得
       const { data: eventData, error: eventError } = await supabase
         .from('schedule_events')
@@ -201,16 +209,35 @@ export function BookingConfirmation({
 
       if (eventError) throw eventError
 
-      // 顧客IDを取得または作成
+      // 顧客IDを取得または作成（ログインユーザー基準）
       let customerId: string | null = null
       const { data: existingCustomer } = await supabase
         .from('customers')
         .select('id')
-        .eq('email', customerEmail)
+        .eq('user_id', user.id)
         .maybeSingle()
 
       if (existingCustomer) {
         customerId = existingCustomer.id
+      } else {
+        const { data: newCustomer, error: customerError } = await supabase
+          .from('customers')
+          .insert({
+            user_id: user.id,
+            name: customerName,
+            phone: customerPhone || null,
+            email: customerEmail,
+            organization_id: eventData.organization_id
+          })
+          .select('id')
+          .single()
+
+        if (customerError) throw customerError
+        customerId = newCustomer?.id ?? null
+      }
+
+      if (!customerId) {
+        throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
       }
 
       // キャンセル待ちに登録

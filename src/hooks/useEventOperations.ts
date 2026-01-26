@@ -338,8 +338,8 @@ export function useEventOperations({
       const startTime = isSameTimeSlot ? draggedEvent.start_time : defaults.start_time
       const endTime = isSameTimeSlot ? draggedEvent.end_time : defaults.end_time
 
-      // 元の公演を削除
-      await scheduleApi.delete(draggedEvent.id)
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      const isRealEventId = uuidPattern.test(draggedEvent.id)
 
       // シナリオIDを取得（元のイベントから、またはシナリオリストから検索）
       let scenarioId = draggedEvent.scenarios?.id || null
@@ -348,7 +348,7 @@ export function useEventOperations({
         scenarioId = matchingScenario?.id || null
       }
 
-      // 新しい位置に公演を作成
+      // 新しい位置に公演を作成/更新
       // organization_idが取得できない場合はエラー
       if (!organizationId) {
         throw new Error('組織情報が取得できません。再ログインしてください。')
@@ -383,26 +383,50 @@ export function useEventOperations({
         reservation_id: draggedEvent.reservation_id || null
       }
 
-      const savedEvent = await scheduleApi.create(newEventData)
-
-      // ローカル状態を更新（scenariosは元のイベントから保持）
-      setEvents(prev => {
-        const filtered = prev.filter(e => e.id !== draggedEvent.id)
-        const newEvent: ScheduleEvent = {
-          ...savedEvent,
-          venue: dropTarget.venue,
-          scenarios: draggedEvent.scenarios || savedEvent.scenarios,
-          // 状態フィールドを保持
-          is_tentative: draggedEvent.is_tentative,
-          is_reservation_enabled: draggedEvent.is_reservation_enabled,
-          // 予約関連フィールドを保持
-          reservation_name: draggedEvent.reservation_name,
-          is_reservation_name_overwritten: draggedEvent.is_reservation_name_overwritten,
-          is_private_request: draggedEvent.is_private_request,
-          reservation_id: draggedEvent.reservation_id
-        }
-        return [...filtered, newEvent]
-      })
+      if (isRealEventId) {
+        const savedEvent = await scheduleApi.update(draggedEvent.id, newEventData)
+        // ローカル状態を更新（scenariosは元のイベントから保持）
+        setEvents(prev => prev.map(event => {
+          if (event.id !== draggedEvent.id) return event
+          return {
+            ...savedEvent,
+            venue: dropTarget.venue,
+            scenarios: draggedEvent.scenarios || savedEvent.scenarios,
+            // 状態フィールドを保持
+            is_tentative: draggedEvent.is_tentative,
+            is_reservation_enabled: draggedEvent.is_reservation_enabled,
+            // 予約関連フィールドを保持
+            reservation_name: draggedEvent.reservation_name,
+            is_reservation_name_overwritten: draggedEvent.is_reservation_name_overwritten,
+            is_private_request: draggedEvent.is_private_request,
+            reservation_id: draggedEvent.reservation_id,
+            gm_roles: draggedEvent.gm_roles,
+            venue_rental_fee: draggedEvent.venue_rental_fee
+          }
+        }))
+      } else {
+        const savedEvent = await scheduleApi.create(newEventData)
+        // ローカル状態を更新（scenariosは元のイベントから保持）
+        setEvents(prev => {
+          const filtered = prev.filter(e => e.id !== draggedEvent.id)
+          const newEvent: ScheduleEvent = {
+            ...savedEvent,
+            venue: dropTarget.venue,
+            scenarios: draggedEvent.scenarios || savedEvent.scenarios,
+            // 状態フィールドを保持
+            is_tentative: draggedEvent.is_tentative,
+            is_reservation_enabled: draggedEvent.is_reservation_enabled,
+            // 予約関連フィールドを保持
+            reservation_name: draggedEvent.reservation_name,
+            is_reservation_name_overwritten: draggedEvent.is_reservation_name_overwritten,
+            is_private_request: draggedEvent.is_private_request,
+            reservation_id: draggedEvent.reservation_id,
+            gm_roles: draggedEvent.gm_roles,
+            venue_rental_fee: draggedEvent.venue_rental_fee
+          }
+          return [...filtered, newEvent]
+        })
+      }
 
       setDraggedEvent(null)
       setDropTarget(null)

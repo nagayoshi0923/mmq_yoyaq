@@ -4,12 +4,27 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, Calendar, MapPin, Users, Clock, CreditCard, Ticket, ExternalLink } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { toast } from 'sonner'
+import { reservationApi } from '@/lib/reservationApi'
+import { useAuth } from '@/contexts/AuthContext'
 
 const THEME = {
   primary: '#dc2626',
   primaryLight: '#fef2f2',
   primaryHover: '#b91c1c',
 }
+
+const DEFAULT_CANCEL_DEADLINE_HOURS = 24
 
 interface ReservationDetail {
   id: string
@@ -30,6 +45,8 @@ interface ReservationDetail {
     date: string
     start_time: string
     is_private_booking?: boolean
+    current_participants?: number
+    max_participants?: number
   }
 }
 
@@ -43,19 +60,30 @@ interface Scenario {
   id: string
   title: string
   slug: string
-  image_url: string | null
+  key_visual_url: string | null
   duration: number | null
   player_count_min: number | null
   player_count_max: number | null
 }
 
+interface Organization {
+  id: string
+  slug: string
+}
+
 export function ReservationDetailPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { user } = useAuth()
   const [reservation, setReservation] = useState<ReservationDetail | null>(null)
   const [store, setStore] = useState<Store | null>(null)
   const [scenario, setScenario] = useState<Scenario | null>(null)
+  const [organization, setOrganization] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancellationPolicy, setCancellationPolicy] = useState<string | null>(null)
+  const [cancelDeadlineHours, setCancelDeadlineHours] = useState(DEFAULT_CANCEL_DEADLINE_HOURS)
 
   // URLから予約IDを取得 (/mypage/reservation/:id)
   const reservationId = location.pathname.split('/').pop()
@@ -89,7 +117,7 @@ export function ReservationDetailPage() {
       if (resData.schedule_event_id) {
         const { data: eventData, error: eventError } = await supabase
           .from('schedule_events')
-          .select('date, start_time, category')
+          .select('date, start_time, category, current_participants, max_participants')
           .eq('id', resData.schedule_event_id)
           .single()
         logger.log('Schedule event data:', eventData, 'Error:', eventError)
@@ -97,7 +125,9 @@ export function ReservationDetailPage() {
           scheduleEvent = {
             date: eventData.date,
             start_time: eventData.start_time,
-            is_private_booking: eventData.category === 'private'
+            is_private_booking: eventData.category === 'private',
+            current_participants: eventData.current_participants,
+            max_participants: eventData.max_participants
           }
         }
       } else {
@@ -118,16 +148,39 @@ export function ReservationDetailPage() {
           .single()
         
         if (storeData) setStore(storeData)
+
+        const { data: settingsData } = await supabase
+          .from('reservation_settings')
+          .select('cancellation_policy, cancellation_deadline_hours')
+          .eq('store_id', resData.store_id)
+          .maybeSingle()
+
+        if (settingsData) {
+          setCancellationPolicy(settingsData.cancellation_policy || null)
+          setCancelDeadlineHours(settingsData.cancellation_deadline_hours || DEFAULT_CANCEL_DEADLINE_HOURS)
+        }
+      }
+
+      // 組織データを取得（シナリオ詳細リンク用）
+      if (resData.organization_id) {
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('id, slug')
+          .eq('id', resData.organization_id)
+          .single()
+        
+        if (orgData) setOrganization(orgData)
       }
 
       // シナリオデータを取得
       if (resData.scenario_id) {
         const { data: scenarioData } = await supabase
           .from('scenarios')
-          .select('id, title, slug, image_url, duration, player_count_min, player_count_max')
+          .select('id, title, slug, key_visual_url, duration, player_count_min, player_count_max')
           .eq('id', resData.scenario_id)
           .single()
         
+        logger.log('Scenario data loaded:', scenarioData)
         if (scenarioData) setScenario(scenarioData)
       }
     } catch (error) {
@@ -207,6 +260,27 @@ export function ReservationDetailPage() {
   const perf = getPerformanceDateTime()
   const statusDisplay = getStatusDisplay(reservation.status)
   const paymentDisplay = getPaymentStatusDisplay(reservation.payment_status)
+  const canCancel = (() => {
+    if (!user || reservation.status !== 'confirmed') return false
+    const eventDateTime = new Date(reservation.requested_datetime)
+    const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+    return hoursUntilEvent >= cancelDeadlineHours
+  })()
+
+  const handleCancelConfirm = async () => {
+    setCancelling(true)
+    try {
+      await reservationApi.cancel(reservation.id, 'お客様によるキャンセル')
+      toast.success('予約をキャンセルしました')
+      navigate('/mypage')
+    } catch (error) {
+      logger.error('予約キャンセルエラー:', error)
+      toast.error('キャンセルに失敗しました')
+    } finally {
+      setCancelling(false)
+      setCancelDialogOpen(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -228,26 +302,39 @@ export function ReservationDetailPage() {
         {/* シナリオ画像・タイトル */}
         {scenario && (
           <div className="bg-white border border-gray-200 overflow-hidden" style={{ borderRadius: 0 }}>
-            {scenario.image_url && (
+            {scenario.key_visual_url && (
               <div className="relative aspect-[16/9] bg-gray-900 overflow-hidden">
                 <div 
                   className="absolute inset-0 scale-110"
                   style={{
-                    backgroundImage: `url(${scenario.image_url})`,
+                    backgroundImage: `url(${scenario.key_visual_url})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     filter: 'blur(20px) brightness(0.5)',
                   }}
                 />
                 <img
-                  src={scenario.image_url}
+                  src={scenario.key_visual_url}
                   alt={scenario.title}
                   className="relative w-full h-full object-contain"
                 />
               </div>
             )}
             <div className="p-4">
-              <h2 className="text-xl font-bold text-gray-900">{scenario.title}</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-gray-900">{scenario.title}</h2>
+                {scenario.id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => navigate(organization?.slug ? `/${organization.slug}/scenario/${scenario.slug || scenario.id}` : `/scenario/${scenario.slug || scenario.id}`)}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    シナリオ詳細
+                  </Button>
+                )}
+              </div>
               <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                 {scenario.duration && (
                   <span className="flex items-center gap-1">
@@ -262,6 +349,37 @@ export function ReservationDetailPage() {
                   </span>
                 )}
               </div>
+              {/* 公演成立状況 */}
+              {reservation?.schedule_events && !reservation.schedule_events.is_private_booking && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  {(() => {
+                    const current = reservation.schedule_events.current_participants || 0
+                    const max = reservation.schedule_events.max_participants || scenario.player_count_max || 0
+                    const min = scenario.player_count_min || 1
+                    
+                    if (current >= max) {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-green-100 text-green-700">
+                          ✓ 満席（{current}/{max}名）
+                        </span>
+                      )
+                    } else if (current >= min) {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700">
+                          ✓ 公演成立（{current}/{max}名）
+                        </span>
+                      )
+                    } else {
+                      const remaining = min - current
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700">
+                          あと{remaining}名で公演成立（{current}/{max}名）
+                        </span>
+                      )
+                    }
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -286,6 +404,37 @@ export function ReservationDetailPage() {
             )}
           </div>
         </div>
+
+        {/* キャンセル */}
+        {reservation.status === 'confirmed' && (
+          <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-gray-900 mb-1">キャンセル</p>
+                <p className="text-xs text-gray-600">
+                  公演開始の{cancelDeadlineHours}時間前までキャンセル可能です。
+                </p>
+                {cancellationPolicy && (
+                  <p className="text-xs text-gray-500 whitespace-pre-wrap mt-2">
+                    {cancellationPolicy}
+                  </p>
+                )}
+                {!canCancel && (
+                  <p className="text-xs text-red-600 mt-2">
+                    キャンセル期限を過ぎているため、オンラインでのキャンセルはできません。
+                  </p>
+                )}
+              </div>
+              <Button
+                variant="destructive"
+                onClick={() => setCancelDialogOpen(true)}
+                disabled={!canCancel}
+              >
+                キャンセル
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* 公演日時 */}
         <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
@@ -346,6 +495,39 @@ export function ReservationDetailPage() {
           <h3 className="font-bold text-gray-900">予約情報</h3>
           
           <div className="space-y-3">
+            <div className="flex items-center justify-between py-2 border-b border-gray-100">
+              <span className="text-sm text-gray-500 flex items-center gap-2">
+                <Ticket className="w-4 h-4" />
+                シナリオ
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold">
+                  {scenario?.title || reservation.title}
+                </span>
+                {scenario?.id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => navigate(organization?.slug ? `/${organization.slug}/scenario/${scenario.slug || scenario.id}` : `/scenario/${scenario.slug || scenario.id}`)}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    詳細
+                  </Button>
+                )}
+              </div>
+            </div>
+            {scenario?.id && (
+              <button
+                type="button"
+                className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+                onClick={() => navigate(organization?.slug ? `/${organization.slug}/scenario/${scenario.slug || scenario.id}` : `/scenario/${scenario.slug || scenario.id}`)}
+              >
+                <ExternalLink className="h-3 w-3" />
+                シナリオ詳細ページを開く
+              </button>
+            )}
+
             <div className="flex items-center justify-between py-2 border-b border-gray-100">
               <span className="text-sm text-gray-500 flex items-center gap-2">
                 <Ticket className="w-4 h-4" />
@@ -429,13 +611,30 @@ export function ReservationDetailPage() {
             variant="outline"
             className="w-full"
             style={{ borderColor: THEME.primary, color: THEME.primary, borderRadius: 0 }}
-            onClick={() => navigate(`/scenario/${scenario.slug || scenario.id}`)}
+            onClick={() => navigate(organization?.slug ? `/${organization.slug}/scenario/${scenario.slug || scenario.id}` : `/scenario/${scenario.slug || scenario.id}`)}
           >
             シナリオ詳細を見る
             <ExternalLink className="w-4 h-4 ml-2" />
           </Button>
         )}
       </div>
+
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>予約をキャンセルしますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              キャンセル後は元に戻せません。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>やめる</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelConfirm} disabled={cancelling}>
+              {cancelling ? '処理中...' : 'キャンセルする'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

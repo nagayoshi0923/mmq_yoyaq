@@ -91,6 +91,33 @@ function normalizeScenarioName(name: string): string {
     .trim()
 }
 
+function removeMissingScheduleColumn(
+  payload: Record<string, unknown>,
+  error: { message?: string; details?: string; hint?: string } | null
+): { nextPayload: Record<string, unknown>; removedColumn?: string } | null {
+  if (!error) return null
+
+  const combined = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`
+  const patterns = [
+    /column "([^"]+)" of relation "schedule_events" does not exist/i,
+    /Could not find the '([^']+)' column of 'schedule_events'/i
+  ]
+
+  for (const pattern of patterns) {
+    const match = combined.match(pattern)
+    if (match?.[1]) {
+      const missingColumn = match[1]
+      if (missingColumn in payload) {
+        const nextPayload = { ...payload }
+        delete nextPayload[missingColumn]
+        return { nextPayload, removedColumn: missingColumn }
+      }
+    }
+  }
+
+  return null
+}
+
 // シナリオ名から自動でマッチングして scenario_id と正式名称を返す
 async function findMatchingScenario(scenarioName: string | undefined): Promise<{ id: string; title: string } | null> {
   if (!scenarioName || scenarioName.trim() === '') return null
@@ -759,26 +786,38 @@ export const scheduleApi = {
       finalData.category = 'open'
     }
     
-    const { data, error } = await supabase
-      .from('schedule_events')
-      .insert([finalData])
-      .select(`
-        *,
-        stores:store_id (
-          id,
-          name,
-          short_name
-        ),
-        scenarios:scenario_id (
-          id,
-          title,
-          player_count_max
-        )
-      `)
-      .single()
-    
-    if (error) throw error
-    return data
+    let insertPayload: Record<string, unknown> = { ...finalData }
+    let lastError: { message?: string; details?: string; hint?: string } | null = null
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data, error } = await supabase
+        .from('schedule_events')
+        .insert([insertPayload])
+        .select(`
+          *,
+          stores:store_id (
+            id,
+            name,
+            short_name
+          ),
+          scenarios:scenario_id (
+            id,
+            title,
+            player_count_max
+          )
+        `)
+        .single()
+
+      if (!error) return data
+
+      lastError = error
+      const removal = removeMissingScheduleColumn(insertPayload, error)
+      if (!removal) break
+
+      insertPayload = removal.nextPayload
+      logger.warn(`schedule_events insert: missing column "${removal.removedColumn}", retrying without it`)
+    }
+
+    throw lastError
   },
 
   // 公演を更新
@@ -803,6 +842,8 @@ export const scheduleApi = {
     venue_rental_fee: number  // 場所貸し公演料金
     reservation_name: string | null  // 貸切予約の予約者名
     is_reservation_name_overwritten: boolean  // 予約者名が手動上書きされたか
+    is_private_request: boolean  // 貸切リクエストかどうか
+    reservation_id: string | null  // 貸切リクエストID
   }>, organizationId?: string) {
     // シナリオ名から自動でマッチングして scenario_id と正式名称を設定
     const finalUpdates: Record<string, unknown> = { ...updates }
@@ -852,26 +893,38 @@ export const scheduleApi = {
       finalUpdates.category = 'open'
     }
     
-    const { data, error } = await supabase
-      .from('schedule_events')
-      .update(finalUpdates)
-      .eq('id', id)
-      .select(`
-        *,
-        stores:store_id (
-          id,
-          name,
-          short_name
-        ),
-        scenarios:scenario_id (
-          id,
-          title
-        )
-      `)
-      .single()
-    
-    if (error) throw error
-    return data
+    let updatePayload: Record<string, unknown> = { ...finalUpdates }
+    let lastError: { message?: string; details?: string; hint?: string } | null = null
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data, error } = await supabase
+        .from('schedule_events')
+        .update(updatePayload)
+        .eq('id', id)
+        .select(`
+          *,
+          stores:store_id (
+            id,
+            name,
+            short_name
+          ),
+          scenarios:scenario_id (
+            id,
+            title
+          )
+        `)
+        .single()
+
+      if (!error) return data
+
+      lastError = error
+      const removal = removeMissingScheduleColumn(updatePayload, error)
+      if (!removal) break
+
+      updatePayload = removal.nextPayload
+      logger.warn(`schedule_events update: missing column "${removal.removedColumn}", retrying without it`)
+    }
+
+    throw lastError
   },
 
   // 公演を削除（関連する予約も削除）

@@ -5,8 +5,8 @@
 -- ========================================
 -- STEP 1: カラム追加（既に実行済みの場合はスキップ）
 -- ========================================
--- ALTER TABLE schedule_events 
--- ADD COLUMN IF NOT EXISTS organization_scenario_id UUID REFERENCES organization_scenarios(id);
+ALTER TABLE schedule_events 
+ADD COLUMN IF NOT EXISTS organization_scenario_id UUID REFERENCES organization_scenarios(id);
 
 -- ========================================
 -- STEP 2: 既存データのマイグレーション
@@ -15,10 +15,10 @@
 UPDATE schedule_events se
 SET organization_scenario_id = os.id
 FROM scenarios s
-JOIN organization_scenarios os 
-  ON os.scenario_master_id = s.scenario_master_id 
-  AND os.organization_id = se.organization_id
+JOIN organization_scenarios os
+  ON os.scenario_master_id = s.scenario_master_id
 WHERE se.scenario_id = s.id
+  AND os.organization_id = se.organization_id
   AND s.scenario_master_id IS NOT NULL
   AND se.organization_scenario_id IS NULL;  -- 未設定のもののみ更新
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,7 +13,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { 
-  Ticket, Search, Filter, Download, FileText, X, Mail
+  Ticket, Search, Filter, Download, FileText, X, Mail, ExternalLink
 } from 'lucide-react'
 import { 
   Dialog, DialogContent
@@ -45,6 +46,7 @@ const getReservationAlerts = (reservation: ReservationWithDetails) => {
 
 export function ReservationManagement() {
   const [selectedReservation, setSelectedReservation] = useState<ReservationWithDetails | null>(null)
+  const navigate = useNavigate()
   
   // フィルタ状態
   const [searchTerm, setSearchTerm] = useSessionState('reservationSearchTerm', '')
@@ -359,7 +361,7 @@ export function ReservationManagement() {
                       </div>
                       <div className="py-4 flex flex-col sm:flex-row sm:items-center">
                         <div className="w-40 text-sm font-bold text-gray-700 mb-1 sm:mb-0">予約ページ</div>
-                        <div className="flex-1 text-blue-600 font-medium">
+                        <div className="flex-1 text-blue-600 font-medium flex items-center gap-2">
                           {selectedReservation.event_date && (
                             <span className="mr-2">
                               {/* @ts-ignore */}
@@ -367,6 +369,17 @@ export function ReservationManagement() {
                             </span>
                           )}
                           【{selectedReservation.scenario_title}】
+                          {selectedReservation.scenario_id && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="ml-2 h-7 px-2 text-xs"
+                              onClick={() => navigate(`/scenario-detail/${selectedReservation.scenario_id}`)}
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              シナリオ詳細
+                            </Button>
+                          )}
                         </div>
                       </div>
                       <div className="py-4 flex flex-col sm:flex-row sm:items-center">

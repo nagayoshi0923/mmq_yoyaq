@@ -8,6 +8,7 @@ import { staffApi, scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
+import { reservationApi } from '@/lib/reservationApi'
 
 // Custom Hooks
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -371,12 +372,12 @@ export function ScheduleManager() {
               discount_amount: 0,
               final_price: participationFee * neededParticipants,
               payment_method: 'onsite',
-              payment_status: 'paid',
-              status: 'confirmed',
-              reservation_source: 'demo'
+              payment_status: 'paid' as const,
+              status: 'confirmed' as const,
+              reservation_source: 'demo' as const
             }
             
-            await supabase.from('reservations').insert(demoReservation)
+            await reservationApi.create(demoReservation)
           }
         }
         

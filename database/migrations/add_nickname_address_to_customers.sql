@@ -14,3 +14,5 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS address TEXT;
 COMMENT ON COLUMN customers.nickname IS '表示用ニックネーム（公開プロフィール用）';
 COMMENT ON COLUMN customers.address IS '住所';
 
+
+
