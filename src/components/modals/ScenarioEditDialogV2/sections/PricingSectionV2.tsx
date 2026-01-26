@@ -212,11 +212,10 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
         </CardContent>
       </Card>
 
-      {/* 他店公演時（フランチャイズ対応） */}
+      {/* 他店公演時 */}
       <Card>
         <CardContent className="p-2">
           <Label className={labelStyle}>他店公演時</Label>
-          <p className={hintStyle}>フランチャイズ店舗が公演した場合の金額設定</p>
           
           {/* テーブル形式で表示 */}
           <div className="mt-3 border rounded-lg overflow-hidden">
