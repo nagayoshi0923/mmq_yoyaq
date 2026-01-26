@@ -768,7 +768,14 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
                   available_stores: scenarioData.available_stores || [],
                   participation_costs: scenarioData.participation_costs || [],
-                  gm_costs: scenarioData.gm_costs || []
+                  gm_costs: scenarioData.gm_costs || [],
+                  // ライセンス関連フィールド
+                  license_amount: scenarioData.license_amount,
+                  gm_test_license_amount: scenarioData.gm_test_license_amount,
+                  franchise_license_amount: scenarioData.franchise_license_amount,
+                  franchise_gm_test_license_amount: scenarioData.franchise_gm_test_license_amount,
+                  external_license_amount: scenarioData.external_license_amount,
+                  external_gm_test_license_amount: scenarioData.external_gm_test_license_amount
                 })
               
               if (orgScenarioError) {
@@ -789,6 +796,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   available_stores: scenarioData.available_stores || [],
                   participation_costs: scenarioData.participation_costs || [],
                   gm_costs: scenarioData.gm_costs || [],
+                  // ライセンス関連フィールド
+                  license_amount: scenarioData.license_amount,
+                  gm_test_license_amount: scenarioData.gm_test_license_amount,
+                  franchise_license_amount: scenarioData.franchise_license_amount,
+                  franchise_gm_test_license_amount: scenarioData.franchise_gm_test_license_amount,
+                  external_license_amount: scenarioData.external_license_amount,
+                  external_gm_test_license_amount: scenarioData.external_gm_test_license_amount,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', existingOrgScenario.id)
