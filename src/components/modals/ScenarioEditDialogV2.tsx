@@ -528,6 +528,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           franchise_gm_test_license_amount: scenario.franchise_gm_test_license_amount,
           external_license_amount: scenario.external_license_amount,
           external_gm_test_license_amount: scenario.external_gm_test_license_amount,
+          // フランチャイズ公演時
+          fc_receive_license_amount: scenario.fc_receive_license_amount,
+          fc_receive_gm_test_license_amount: scenario.fc_receive_gm_test_license_amount,
+          fc_author_license_amount: scenario.fc_author_license_amount,
+          fc_author_gm_test_license_amount: scenario.fc_author_gm_test_license_amount,
           // franchise_license_rewards は DB に存在しないため、常に franchise_license_amount から生成
           // 0円でも表示する（null/undefinedの場合は0円）
           franchise_license_rewards: [
@@ -775,7 +780,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   franchise_license_amount: scenarioData.franchise_license_amount,
                   franchise_gm_test_license_amount: scenarioData.franchise_gm_test_license_amount,
                   external_license_amount: scenarioData.external_license_amount,
-                  external_gm_test_license_amount: scenarioData.external_gm_test_license_amount
+                  external_gm_test_license_amount: scenarioData.external_gm_test_license_amount,
+                  // フランチャイズ公演時
+                  fc_receive_license_amount: formData.fc_receive_license_amount,
+                  fc_receive_gm_test_license_amount: formData.fc_receive_gm_test_license_amount,
+                  fc_author_license_amount: formData.fc_author_license_amount,
+                  fc_author_gm_test_license_amount: formData.fc_author_gm_test_license_amount
                 })
               
               if (orgScenarioError) {
@@ -803,6 +813,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   franchise_gm_test_license_amount: scenarioData.franchise_gm_test_license_amount,
                   external_license_amount: scenarioData.external_license_amount,
                   external_gm_test_license_amount: scenarioData.external_gm_test_license_amount,
+                  // フランチャイズ公演時
+                  fc_receive_license_amount: formData.fc_receive_license_amount,
+                  fc_receive_gm_test_license_amount: formData.fc_receive_gm_test_license_amount,
+                  fc_author_license_amount: formData.fc_author_license_amount,
+                  fc_author_gm_test_license_amount: formData.fc_author_gm_test_license_amount,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', existingOrgScenario.id)

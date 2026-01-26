@@ -258,6 +258,14 @@ export interface Scenario {
   external_license_amount?: number
   // データベースカラム（他社GMテスト公演料：他社がMMQに支払う金額）
   external_gm_test_license_amount?: number
+  // フランチャイズ公演時：フランチャイズから受け取る金額（通常）
+  fc_receive_license_amount?: number
+  // フランチャイズ公演時：フランチャイズから受け取る金額（GMテスト）
+  fc_receive_gm_test_license_amount?: number
+  // フランチャイズ公演時：作者に支払う金額（通常）
+  fc_author_license_amount?: number
+  // フランチャイズ公演時：作者に支払う金額（GMテスト）
+  fc_author_gm_test_license_amount?: number
   // 旧形式（互換性のため保持）
   license_rewards: Array<{ item: string; amount: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
   props?: Array<{

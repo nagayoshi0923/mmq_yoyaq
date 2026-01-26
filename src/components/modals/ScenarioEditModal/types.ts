@@ -76,6 +76,12 @@ export interface ScenarioFormData {
   // 他社公演料（他社がMMQに支払う金額）
   external_license_amount?: number
   external_gm_test_license_amount?: number
+  // フランチャイズ公演時：フランチャイズから受け取る金額
+  fc_receive_license_amount?: number
+  fc_receive_gm_test_license_amount?: number
+  // フランチャイズ公演時：作者に支払う金額
+  fc_author_license_amount?: number
+  fc_author_gm_test_license_amount?: number
   // 他店用（フランチャイズ）ライセンス報酬（UI用配列）
   franchise_license_rewards?: {
     item: string

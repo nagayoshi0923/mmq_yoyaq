@@ -320,6 +320,116 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
           <p className={`${hintStyle} mt-3`}>
             受取金額が未設定（0円）の場合は自店用ライセンス料と同額になります
           </p>
+          
+          {/* フランチャイズ公演時 */}
+          <div className="mt-4 pt-4 border-t">
+            <div className="flex items-center justify-between mb-2">
+              <Label className={labelStyle}>フランチャイズ公演時</Label>
+              <span className="text-[10px] text-muted-foreground">未設定の場合は他店公演時の設定を使用</span>
+            </div>
+            
+            <div className="border rounded-lg overflow-hidden">
+              {/* ヘッダー */}
+              <div className="grid grid-cols-4 gap-2 bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
+                <div></div>
+                <div className="text-center">受取金額</div>
+                <div className="text-center">作者支払</div>
+                <div className="text-center">マージン</div>
+              </div>
+              
+              {/* 通常公演 */}
+              {(() => {
+                const fcReceive = formData.fc_receive_license_amount || 0
+                const fcAuthor = formData.fc_author_license_amount || 0
+                // フォールバック: 未設定なら他店公演時の値を表示
+                const effectiveReceive = fcReceive || formData.external_license_amount || 0
+                const effectiveAuthor = fcAuthor || formData.franchise_license_rewards?.find(r => r.item === 'normal')?.amount || 0
+                const margin = effectiveReceive - effectiveAuthor
+                return (
+                  <div className="grid grid-cols-4 gap-2 px-3 py-2 border-t items-center">
+                    <div className="text-sm font-medium">通常公演</div>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">¥</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="100"
+                        value={fcReceive || ''}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          fc_receive_license_amount: e.target.value ? parseIntSafe(e.target.value, 0) : undefined
+                        }))}
+                        placeholder={String(formData.external_license_amount || 0)}
+                        className={`${inputStyle} !pl-5 text-center ${!fcReceive ? 'text-muted-foreground' : ''}`}
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">¥</span>
+                      <Input
+                        type="number"
+                        value={fcAuthor || ''}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          fc_author_license_amount: e.target.value ? parseIntSafe(e.target.value, 0) : undefined
+                        }))}
+                        placeholder={String(formData.franchise_license_rewards?.find(r => r.item === 'normal')?.amount || 0)}
+                        className={`${inputStyle} !pl-5 text-center ${!fcAuthor ? 'text-muted-foreground' : ''}`}
+                      />
+                    </div>
+                    <div className={`text-center text-sm font-medium ${margin > 0 ? 'text-green-600' : margin < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                      {effectiveReceive > 0 ? `¥${margin.toLocaleString()}` : '-'}
+                    </div>
+                  </div>
+                )
+              })()}
+              
+              {/* GMテスト */}
+              {(() => {
+                const fcReceive = formData.fc_receive_gm_test_license_amount || 0
+                const fcAuthor = formData.fc_author_gm_test_license_amount || 0
+                // フォールバック: 未設定なら他店公演時の値を表示
+                const effectiveReceive = fcReceive || formData.external_gm_test_license_amount || 0
+                const effectiveAuthor = fcAuthor || formData.franchise_license_rewards?.find(r => r.item === 'gmtest')?.amount || 0
+                const margin = effectiveReceive - effectiveAuthor
+                return (
+                  <div className="grid grid-cols-4 gap-2 px-3 py-2 border-t items-center">
+                    <div className="text-sm font-medium">GMテスト</div>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">¥</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="100"
+                        value={fcReceive || ''}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          fc_receive_gm_test_license_amount: e.target.value ? parseIntSafe(e.target.value, 0) : undefined
+                        }))}
+                        placeholder={String(formData.external_gm_test_license_amount || 0)}
+                        className={`${inputStyle} !pl-5 text-center ${!fcReceive ? 'text-muted-foreground' : ''}`}
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">¥</span>
+                      <Input
+                        type="number"
+                        value={fcAuthor || ''}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          fc_author_gm_test_license_amount: e.target.value ? parseIntSafe(e.target.value, 0) : undefined
+                        }))}
+                        placeholder={String(formData.franchise_license_rewards?.find(r => r.item === 'gmtest')?.amount || 0)}
+                        className={`${inputStyle} !pl-5 text-center ${!fcAuthor ? 'text-muted-foreground' : ''}`}
+                      />
+                    </div>
+                    <div className={`text-center text-sm font-medium ${margin > 0 ? 'text-green-600' : margin < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                      {effectiveReceive > 0 ? `¥${margin.toLocaleString()}` : '-'}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
