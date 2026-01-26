@@ -52,7 +52,7 @@ export const salesApi = {
     // organization_scenarios を取得（組織固有のGM報酬設定を取得）
     let orgScenarioQuery = supabase
       .from('organization_scenarios')
-      .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, participation_fee, gm_test_participation_fee')
+      .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, fc_author_license_amount, fc_author_gm_test_license_amount, participation_fee, gm_test_participation_fee')
     
     if (orgId) {
       orgScenarioQuery = orgScenarioQuery.eq('organization_id', orgId)
@@ -131,6 +131,9 @@ export const salesApi = {
             gm_test_license_amount: orgScenario.gm_test_license_amount ?? scenarioInfo.gm_test_license_amount,
             franchise_license_amount: orgScenario.franchise_license_amount ?? scenarioInfo.franchise_license_amount,
             franchise_gm_test_license_amount: orgScenario.franchise_gm_test_license_amount ?? scenarioInfo.franchise_gm_test_license_amount,
+            // フランチャイズ専用
+            fc_author_license_amount: orgScenario.fc_author_license_amount,
+            fc_author_gm_test_license_amount: orgScenario.fc_author_gm_test_license_amount,
           }
         } else {
           // scenarioInfoがない場合はorgScenarioの情報を使用
@@ -142,6 +145,9 @@ export const salesApi = {
             gm_test_license_amount: orgScenario.gm_test_license_amount,
             franchise_license_amount: orgScenario.franchise_license_amount,
             franchise_gm_test_license_amount: orgScenario.franchise_gm_test_license_amount,
+            // フランチャイズ専用
+            fc_author_license_amount: orgScenario.fc_author_license_amount,
+            fc_author_gm_test_license_amount: orgScenario.fc_author_gm_test_license_amount,
           }
         }
       }

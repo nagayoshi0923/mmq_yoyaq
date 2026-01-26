@@ -312,35 +312,44 @@ export function useSalesData() {
 }
 
 /**
- * フランチャイズ店舗向けのライセンス金額を取得
- * フランチャイズ料金が設定されていない（null/undefined/0）場合は内部用を使用
+ * フランチャイズ店舗向けのライセンス金額（作者への支払い）を取得
+ * 優先順位：FC専用 → 他店公演時 → 自店用
  */
 function getFranchiseLicenseAmount(
   scenario: {
+    // フランチャイズ専用（最優先）
+    fc_author_license_amount?: number | null;
+    fc_author_gm_test_license_amount?: number | null;
+    // 他店公演時（次の優先）
     franchise_license_amount?: number | null;
     franchise_gm_test_license_amount?: number | null;
+    // 自店用（フォールバック）
     license_amount?: number | null;
     gm_test_license_amount?: number | null;
   },
   isGmTest: boolean
 ): number {
   if (isGmTest) {
-    // 他店GMテスト用 → 他店通常用 → 通常GMテスト用 → 通常
+    // FC専用GMテスト → 他店GMテスト → 他店通常 → 自店GMテスト → 自店通常
     return (
-      (scenario.franchise_gm_test_license_amount != null && scenario.franchise_gm_test_license_amount !== 0) 
-        ? scenario.franchise_gm_test_license_amount 
-        : (scenario.franchise_license_amount != null && scenario.franchise_license_amount !== 0)
-          ? scenario.franchise_license_amount
-          : (scenario.gm_test_license_amount != null && scenario.gm_test_license_amount !== 0)
-            ? scenario.gm_test_license_amount
-            : (scenario.license_amount ?? 0)
+      (scenario.fc_author_gm_test_license_amount != null && scenario.fc_author_gm_test_license_amount !== 0)
+        ? scenario.fc_author_gm_test_license_amount
+        : (scenario.franchise_gm_test_license_amount != null && scenario.franchise_gm_test_license_amount !== 0) 
+          ? scenario.franchise_gm_test_license_amount 
+          : (scenario.franchise_license_amount != null && scenario.franchise_license_amount !== 0)
+            ? scenario.franchise_license_amount
+            : (scenario.gm_test_license_amount != null && scenario.gm_test_license_amount !== 0)
+              ? scenario.gm_test_license_amount
+              : (scenario.license_amount ?? 0)
     )
   } else {
-    // 他店通常用 → 通常
+    // FC専用通常 → 他店通常 → 自店通常
     return (
-      (scenario.franchise_license_amount != null && scenario.franchise_license_amount !== 0)
-        ? scenario.franchise_license_amount
-        : (scenario.license_amount ?? 0)
+      (scenario.fc_author_license_amount != null && scenario.fc_author_license_amount !== 0)
+        ? scenario.fc_author_license_amount
+        : (scenario.franchise_license_amount != null && scenario.franchise_license_amount !== 0)
+          ? scenario.franchise_license_amount
+          : (scenario.license_amount ?? 0)
     )
   }
 }
