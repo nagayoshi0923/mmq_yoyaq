@@ -215,8 +215,7 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
               </div>
             </div>
 
-            {/* 他店用（フランチャイズ）= 作者への支払い（管理作品のみ） */}
-            {formData.scenario_type === 'managed' && (
+            {/* 他店用（フランチャイズ）= 作者への支払い（常に表示） */}
             <div>
               <div className="text-sm font-medium mb-3 pb-2 border-b">他社公演時（作者への支払い）</div>
               <div className="space-y-3">
@@ -239,13 +238,10 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
                 ))}
               </div>
             </div>
-            )}
           </div>
-          {formData.scenario_type === 'managed' && (
           <p className={`${hintStyle} mt-4 pt-3 border-t`}>
             他社公演時の金額が未設定の場合は自店用が適用されます
           </p>
-          )}
         </CardContent>
       </Card>
 

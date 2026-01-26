@@ -22,6 +22,7 @@ interface Store {
   short_name: string
   ownership_type?: 'corporate' | 'franchise' | 'office'
   franchise_fee?: number
+  transport_allowance?: number  // 交通費（担当店舗以外のスタッフが出勤した場合に加算）
   fixed_costs?: Array<{
     item: string
     amount: number
