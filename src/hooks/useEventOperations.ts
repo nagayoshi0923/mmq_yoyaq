@@ -362,7 +362,7 @@ export function useEventOperations({
         store_id: dropTarget.venue,
         venue: stores.find(s => s.id === dropTarget.venue)?.name || '',
         scenario: draggedEvent.scenario,
-        scenario_id: scenarioId,
+        scenario_id: scenarioId ?? undefined,
         category: draggedEvent.category,
         start_time: startTime,
         end_time: endTime,
