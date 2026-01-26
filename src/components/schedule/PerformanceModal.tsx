@@ -534,7 +534,7 @@ export function PerformanceModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="lg" className="max-h-[85vh] sm:max-h-[min(75vh,560px)] overflow-hidden flex flex-col p-0 gap-0">
+      <DialogContent size="md" className="max-h-[85vh] sm:max-h-[min(75vh,480px)] max-w-[480px] overflow-hidden flex flex-col p-0 gap-0">
         <DialogHeader className="px-2 sm:px-4 py-1.5 sm:py-2 border-b shrink-0">
           <DialogTitle className="text-sm sm:text-base">{modalTitle}</DialogTitle>
           <DialogDescription className="text-[10px] sm:text-xs">

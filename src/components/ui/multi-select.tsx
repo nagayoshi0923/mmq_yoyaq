@@ -139,10 +139,11 @@ export function MultiSelect({
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "w-full justify-between font-normal bg-white",
+              "w-full justify-between font-normal bg-white text-xs",
               className
             )}
             disabled={disabled}
+            style={{ backgroundColor: '#F6F9FB' }}
           >
             <span className="truncate">{getDisplayValue()}</span>
             <ChevronDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
