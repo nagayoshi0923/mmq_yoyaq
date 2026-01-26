@@ -121,7 +121,7 @@ export function PerformancesSectionV2({
     return (
       <div className="space-y-4">
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="pt-2">
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <AlertCircle className="w-12 h-12 mb-4 opacity-50" />
               <p className="text-lg font-medium">公演実績がありません</p>
@@ -137,7 +137,7 @@ export function PerformancesSectionV2({
     <div className="space-y-4">
       {/* サマリー（中止公演を除外） */}
       <Card>
-        <CardContent className="pt-4 pb-4">
+        <CardContent className="pt-2 pb-2">
           <div className="flex items-center gap-6 text-sm flex-wrap">
             <div className="flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-muted-foreground" />
@@ -175,7 +175,7 @@ export function PerformancesSectionV2({
       {/* 年ごとの公演リスト */}
       {sortedYears.map((year) => (
         <Card key={year}>
-          <CardContent className="pt-4">
+          <CardContent className="pt-2">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-sm text-muted-foreground">
                 {year}年 ({groupedByYear[year].length}回)

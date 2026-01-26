@@ -16,9 +16,9 @@ interface PricingSectionV2Props {
 }
 
 // 統一スタイル
-const labelStyle = "text-sm font-medium mb-1 block"
-const hintStyle = "text-xs text-muted-foreground"
-const inputStyle = "h-10 text-sm"
+const labelStyle = "text-[11px] font-medium mb-0.5 block"
+const hintStyle = "text-[10px] text-muted-foreground"
+const inputStyle = "h-6 text-[11px]"
 const rowStyle = "flex items-center gap-3"
 
 // 期間のステータスを判定
@@ -102,7 +102,7 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
     <div className="space-y-4">
       {/* 参加費 */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-2">
           <Label className={labelStyle}>参加費</Label>
           <p className={hintStyle}>時間帯別のお客様参加料金。期間を設定すると、その期間のみ適用されます（価格改定対応）</p>
           <div className="space-y-4 mt-3">
@@ -188,7 +188,7 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
 
       {/* ライセンス料 */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-2">
           <Label className={labelStyle}>ライセンス料</Label>
           <p className={hintStyle}>1公演あたり作者に支払う金額。公演報告時に自動計算されます</p>
           <div className="grid grid-cols-2 gap-5 mt-1.5">
@@ -252,7 +252,7 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
       {/* 他社からの公演料（管理作品のみ表示） */}
       {formData.scenario_type === 'managed' && (
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-2">
           <Label className={labelStyle}>他社からの公演料</Label>
           <p className={hintStyle}>他社がMMQ（管理店舗）に支払う金額。マージン = 他社公演料 − 作者への支払い</p>
           <div className="grid grid-cols-2 gap-5 mt-3">

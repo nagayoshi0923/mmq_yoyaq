@@ -13,9 +13,9 @@ import { useSalarySettings } from '@/hooks/useSalarySettings'
 import { parseIntSafe } from '@/utils/number'
 
 // 統一スタイル
-const labelStyle = "text-sm font-medium mb-1 block"
-const hintStyle = "text-xs text-muted-foreground mt-1"
-const inputStyle = "h-10 text-sm"
+const labelStyle = "text-[11px] font-medium mb-0.5 block"
+const hintStyle = "text-[10px] text-muted-foreground mt-0.5"
+const inputStyle = "h-6 text-[11px]"
 const rowStyle = "flex items-center gap-3"
 
 interface GmSettingsSectionV2Props {
@@ -110,7 +110,7 @@ export function GmSettingsSectionV2({
     <div className="space-y-4">
       {/* 必要GM数 */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-2">
           <div className="grid grid-cols-2 gap-5">
             <div>
               <Label className={labelStyle}>必要GM数</Label>
@@ -134,7 +134,7 @@ export function GmSettingsSectionV2({
 
       {/* 担当GM */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-2">
           <Label className={labelStyle}>担当GM</Label>
           <p className={hintStyle}>このシナリオのGMを担当できるスタッフ。メイン/サブの可否を個別に設定できます</p>
           {loadingStaff ? (
@@ -207,7 +207,7 @@ export function GmSettingsSectionV2({
 
       {/* GM報酬 */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-2">
           <Label className={labelStyle}>GM報酬</Label>
           
           {/* 個別設定がない場合：デフォルトを使用 */}

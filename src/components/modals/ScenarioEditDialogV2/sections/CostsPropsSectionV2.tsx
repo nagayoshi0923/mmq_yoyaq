@@ -9,8 +9,8 @@ import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/typ
 import { parseIntSafe } from '@/utils/number'
 
 // 統一スタイル
-const labelStyle = "text-sm font-medium mb-1 block"
-const inputStyle = "h-10 text-sm"
+const labelStyle = "text-[11px] font-medium mb-0.5 block"
+const inputStyle = "h-6 text-[11px]"
 const rowStyle = "flex items-center gap-3"
 
 interface ScenarioStats {
@@ -123,7 +123,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
     <div className="space-y-4">
       {/* 1. 公演実績・収益 */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-2">
           <div className="flex items-center justify-between">
             <Label className={labelStyle}>公演実績</Label>
             {period && (
@@ -281,7 +281,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
 
       {/* 2. 制作費・減価償却 */}
       <Card>
-        <CardContent className="p-5 space-y-5">
+        <CardContent className="p-2 space-y-2">
           {/* 制作費入力 */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -437,7 +437,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
 
       {/* 3. 必要小道具 */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-2">
           <Label className={labelStyle}>必要小道具</Label>
           <div className="space-y-2 mt-2">
             {formData.required_props.filter(prop => prop != null).map((prop, index) => (

@@ -21,10 +21,10 @@ import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQ
 import { storeApi } from '@/lib/api'
 import type { Store } from '@/types'
 
-// 統一スタイル
-const labelStyle = "text-sm font-medium mb-1 block"
-const hintStyle = "text-xs text-muted-foreground mt-1"
-const inputStyle = "h-10 text-sm"
+// 統一スタイル（コンパクト）
+const labelStyle = "text-[11px] font-medium mb-0.5 block"
+const hintStyle = "text-[10px] text-muted-foreground mt-0.5"
+const inputStyle = "h-6 text-[11px]"
 
 interface BasicInfoSectionV2Props {
   formData: ScenarioFormData
@@ -134,13 +134,13 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* メイン情報カード */}
       <Card>
-        <CardContent className="p-5">
-          <div className="flex gap-5">
+        <CardContent className="p-2">
+          <div className="flex gap-2">
             {/* キービジュアル */}
-            <div className="w-28 shrink-0">
+            <div className="w-20 shrink-0">
               <Label className={labelStyle}>画像</Label>
               {formData.key_visual_url ? (
                 <div className="relative group">
@@ -177,10 +177,10 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
             </div>
 
             {/* タイトル・作者・メール */}
-            <div className="flex-1 space-y-3">
+            <div className="flex-1 space-y-1.5">
               {/* 管理作品トグル */}
-              <div className="flex items-center justify-between pb-2 border-b">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between pb-1 border-b">
+                <div className="flex items-center gap-2">
                   <Switch
                     id="scenario_type"
                     checked={formData.scenario_type === 'managed'}
@@ -188,31 +188,32 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                       ...prev, 
                       scenario_type: checked ? 'managed' : 'normal' 
                     }))}
+                    className="h-4 w-7"
                   />
-                  <Label htmlFor="scenario_type" className="text-sm font-medium cursor-pointer">
+                  <Label htmlFor="scenario_type" className="text-[11px] font-medium cursor-pointer">
                     管理作品
                   </Label>
                 </div>
                 {formData.scenario_type === 'managed' && (
-                  <Badge className="bg-blue-100 text-blue-800">ライセンス管理</Badge>
+                  <Badge className="bg-blue-100 text-blue-800 text-[9px] px-1 py-0">ライセンス管理</Badge>
                 )}
               </div>
               
               {/* タイトル・Slug（横並び） */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className={labelStyle}>タイトル *</Label>
                   <Input
                     id="title"
                     value={formData.title}
                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="シナリオの正式名称"
+                    placeholder="シナリオ名称"
                     className={inputStyle}
                   />
                 </div>
                 <div>
                   <Label className={labelStyle}>Slug（URL用）</Label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
                     <Input
                       id="slug"
                       value={formData.slug || ''}
@@ -221,52 +222,52 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                         const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
                         setFormData(prev => ({ ...prev, slug: value }))
                       }}
-                      placeholder="aiu-kairo（英数字とハイフン）"
+                      placeholder="aiu-kairo"
                       className={`${inputStyle} flex-1`}
                     />
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-10 px-3"
+                      className="h-6 px-1.5"
                       onClick={() => {
                         if (formData.title) {
                           const generatedSlug = generateSlugFromTitle(formData.title)
                           setFormData(prev => ({ ...prev, slug: generatedSlug }))
-                          showToast.success('タイトルからslugを生成しました')
+                          showToast.success('slug生成完了')
                         } else {
-                          showToast.error('タイトルを先に入力してください')
+                          showToast.error('タイトルを入力')
                         }
                       }}
                       title="タイトルから自動生成"
                     >
-                      <Wand2 className="h-4 w-4" />
+                      <Wand2 className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
               </div>
               
               {/* 作者・メール（横並び） */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className={labelStyle}>作者 *</Label>
                   <MultiSelect
                     options={authorOptions}
                     selectedValues={formData.author ? [formData.author] : []}
                     onSelectionChange={(values) => handleAuthorChange(values[0] || '')}
-                    placeholder="選択または新規追加"
+                    placeholder="選択"
                     showBadges={true}
-                    emptyText="作者が見つかりません"
-                    emptyActionLabel="+ 作者を追加"
+                    emptyText="見つかりません"
+                    emptyActionLabel="+ 追加"
                     onEmptyAction={() => setIsAddAuthorDialogOpen(true)}
                     closeOnSelect={true}
                   />
                 </div>
                 <div>
                   <Label className={labelStyle}>
-                    メールアドレス
+                    メール
                     {formData.author && authorEmailMap.has(formData.author) && (
-                      <span className="text-green-600 ml-1 font-normal text-xs">✓ 自動</span>
+                      <span className="text-green-600 ml-1 font-normal text-[9px]">✓</span>
                     )}
                   </Label>
                   <Input
@@ -274,7 +275,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                     type="email"
                     value={formData.author_email || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, author_email: e.target.value }))}
-                    placeholder="公演報告の送信先"
+                    placeholder="報告送信先"
                     className={inputStyle}
                   />
                 </div>
@@ -286,26 +287,26 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
 
       {/* 説明 */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-2">
           <Label className={labelStyle}>説明・あらすじ</Label>
-          <p className={hintStyle}>予約サイトでお客様に表示される説明文。世界観やストーリーの概要を記載します</p>
+          <p className={hintStyle}>予約サイト表示用</p>
           <Textarea
             id="description"
             value={formData.description}
             onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-            rows={4}
-            placeholder="シナリオの詳細な説明を入力してください"
-            className="text-sm mt-1.5"
+            rows={2}
+            placeholder="説明を入力"
+            className="text-[11px] mt-1"
           />
         </CardContent>
       </Card>
 
       {/* 設定 */}
       <Card>
-        <CardContent className="p-5 space-y-4">
+        <CardContent className="p-2 space-y-2">
           {/* キット数・店舗設定 */}
-          <div className="flex items-end gap-4">
-            <div className="w-32">
+          <div className="flex items-end gap-2">
+            <div className="w-24">
               <Label className={labelStyle}>キット数</Label>
               <Select
                 value={String(formData.kit_count || 1)}
@@ -405,7 +406,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       {/* 削除ボタン（既存シナリオの場合のみ表示） */}
       {scenarioId && onDelete && (
         <Card className="border-destructive/50 bg-destructive/5">
-          <CardContent className="p-5">
+          <CardContent className="p-2">
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-sm font-medium text-destructive">シナリオを削除</Label>

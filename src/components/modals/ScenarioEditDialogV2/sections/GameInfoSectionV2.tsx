@@ -19,9 +19,9 @@ interface GameInfoSectionV2Props {
 }
 
 // 統一スタイル
-const labelStyle = "text-sm font-medium mb-1 block"
-const hintStyle = "text-xs text-muted-foreground mt-1"
-const inputStyle = "h-10 text-sm"
+const labelStyle = "text-[11px] font-medium mb-0.5 block"
+const hintStyle = "text-[10px] text-muted-foreground mt-0.5"
+const inputStyle = "h-6 text-[11px]"
 
 export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Props) {
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
@@ -68,7 +68,7 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
     <div className="space-y-4">
       {/* プレイ情報 */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-2">
           <div className="grid grid-cols-2 gap-5">
             {/* 所要時間 */}
             <div>
@@ -202,7 +202,7 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
 
       {/* カテゴリ・ステータス */}
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-2">
           <div className="grid grid-cols-2 gap-5">
             <div>
               <Label className={labelStyle}>カテゴリ</Label>

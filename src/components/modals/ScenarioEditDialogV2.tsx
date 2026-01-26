@@ -896,13 +896,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent size="xl" className="max-w-[95vw] sm:max-w-4xl h-[90vh] sm:h-[min(85vh,750px)] p-0 flex flex-col overflow-hidden [&>button]:z-10">
-        <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-0 shrink-0">
-          <div className="flex items-center justify-between gap-2 sm:gap-4">
-            <DialogTitle className="text-base sm:text-xl shrink-0 flex items-center gap-2">
-              <span>{scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}</span>
+      <DialogContent size="lg" className="max-w-[95vw] sm:max-w-3xl h-[85vh] sm:h-[min(80vh,600px)] p-0 flex flex-col overflow-hidden [&>button]:z-10">
+        <DialogHeader className="px-2 sm:px-3 pt-2 pb-0 shrink-0">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+            <DialogTitle className="text-sm shrink-0 flex items-center gap-1.5">
+              <span>{scenarioId ? 'シナリオ編集' : '新規シナリオ'}</span>
               {organizationName && (
-                <span className="text-xs sm:text-sm font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                <span className="text-[9px] font-normal text-muted-foreground bg-muted px-1 py-0 rounded">
                   {organizationName}
                 </span>
               )}
@@ -911,11 +911,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-6 text-xs gap-1 text-purple-600 border-purple-300 hover:bg-purple-50"
+                  className="h-5 text-[10px] gap-0.5 text-purple-600 border-purple-300 hover:bg-purple-50 px-1.5"
                   onClick={() => setMasterEditDialogOpen(true)}
                 >
-                  <Shield className="w-3 h-3" />
-                  マスター編集
+                  <Shield className="w-2.5 h-2.5" />
+                  マスタ編集
                 </Button>
               )}
               {/* マスターから同期ボタン（相違がある場合のみ表示） */}
@@ -923,13 +923,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-6 text-xs gap-1 text-blue-600 border-blue-300 hover:bg-blue-50"
+                  className="h-5 text-[10px] gap-0.5 text-blue-600 border-blue-300 hover:bg-blue-50 px-1.5"
                   onClick={handleSyncFromMaster}
                   disabled={loadingMaster}
                 >
-                  <RefreshCw className="w-3 h-3" />
-                  マスターから同期
-                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full text-[10px] font-medium">
+                  <RefreshCw className="w-2.5 h-2.5" />
+                  同期
+                  <span className="bg-blue-100 text-blue-700 px-1 py-0 rounded-full text-[9px] font-medium">
                     {masterDiffs.count}
                   </span>
                 </Button>
@@ -941,19 +941,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 variant="outline"
                 size="sm"
                 onClick={() => setMasterSelectOpen(true)}
-                className="shrink-0"
+                className="shrink-0 h-5 text-[10px] px-1.5"
               >
-                <BookOpen className="h-4 w-4 mr-1" />
+                <BookOpen className="h-3 w-3 mr-0.5" />
                 マスタから引用
               </Button>
             )}
             {/* シナリオ切り替え */}
             {onScenarioChange && scenarioId && scenarioIdList.length > 1 && (
-              <div className="flex items-center gap-1 flex-1 max-w-md">
+              <div className="flex items-center gap-0.5 flex-1 max-w-xs">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 shrink-0"
+                  className="h-6 w-6 shrink-0"
                   onClick={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
@@ -964,18 +964,18 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   }}
                   disabled={scenarioIdList.indexOf(scenarioId) === 0}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-3 w-3" />
                 </Button>
                 <Select
                   value={scenarioId}
                   onValueChange={(value) => onScenarioChange(value)}
                 >
-                  <SelectTrigger className="h-8 text-sm flex-1">
-                    <SelectValue placeholder="シナリオを選択" />
+                  <SelectTrigger className="h-6 text-[11px] flex-1">
+                    <SelectValue placeholder="シナリオ" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-80">
+                  <SelectContent className="max-h-60">
                     {scenarios.map((s) => (
-                      <SelectItem key={s.id} value={s.id} className="text-sm">
+                      <SelectItem key={s.id} value={s.id}>
                         {s.title}
                       </SelectItem>
                     ))}
@@ -984,7 +984,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 shrink-0"
+                  className="h-6 w-6 shrink-0"
                   onClick={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
@@ -995,15 +995,15 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   }}
                   disabled={scenarioIdList.indexOf(scenarioId) === scenarioIdList.length - 1}
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3 w-3" />
                 </Button>
               </div>
             )}
           </div>
-          <DialogDescription className="flex items-center gap-2 text-xs sm:text-sm">
-            <span className="truncate">{formData.title ? `${formData.title}の情報を編集します` : 'シナリオの情報を入力してください'}</span>
+          <DialogDescription className="flex items-center gap-1.5 text-[10px]">
+            <span className="truncate">{formData.title ? `${formData.title}を編集` : '情報を入力'}</span>
             {scenarioStats.firstPerformanceDate && (
-              <span className="text-[10px] sm:text-xs bg-muted px-1 sm:px-2 py-0.5 rounded shrink-0">
+              <span className="text-[9px] bg-muted px-1 py-0 rounded shrink-0">
                 {new Date(scenarioStats.firstPerformanceDate).getFullYear()}.
                 {String(new Date(scenarioStats.firstPerformanceDate).getMonth() + 1).padStart(2, '0')}.
                 {String(new Date(scenarioStats.firstPerformanceDate).getDate()).padStart(2, '0')}〜
@@ -1028,9 +1028,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             }
           }}
         >
-          <div className="px-4 sm:px-6 pt-4 shrink-0 border-b">
+          <div className="px-2 sm:px-3 pt-2 shrink-0 border-b">
             <TabsList 
-              className="w-full h-auto flex flex-wrap gap-1 bg-transparent p-0 justify-start"
+              className="w-full h-auto flex flex-wrap gap-0.5 bg-transparent p-0 justify-start"
               onKeyDown={(e) => {
                 // 矢印キーでのタブ切り替えを無効化（シナリオ切り替えに使用するため）
                 if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -1046,7 +1046,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-t-md rounded-b-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors relative"
+                    className="flex items-center gap-0.5 px-1.5 py-1 text-[10px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-t rounded-b-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors relative"
                     onKeyDown={(e) => {
                       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                         e.preventDefault()
@@ -1054,11 +1054,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                       }
                     }}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-3 w-3" />
                     <span className="hidden sm:inline">{tab.label}</span>
                     {/* マスターとの相違件数バッジ */}
                     {diffCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-yellow-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
                         {diffCount}
                       </span>
                     )}
@@ -1074,7 +1074,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               <TabsContent
                 key={tab.id}
                 value={tab.id}
-                className="m-0 p-4 sm:p-6 focus-visible:outline-none focus-visible:ring-0"
+                className="m-0 p-2 sm:p-3 focus-visible:outline-none focus-visible:ring-0"
               >
                 {renderTabContent(tab.id)}
               </TabsContent>
@@ -1083,11 +1083,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         </Tabs>
 
         {/* フッター（固定） */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-3 border-t bg-muted/30 shrink-0">
+        <div className="flex justify-between items-center gap-1.5 px-2 sm:px-3 py-1.5 border-t bg-muted/30 shrink-0">
           {/* 現在の設定サマリー（小さい画面では非表示） */}
-          <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-            <span className="font-medium text-foreground truncate max-w-[120px]">
-              {formData.title || '(タイトル未設定)'}
+          <div className="hidden md:flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
+            <span className="font-medium text-foreground truncate max-w-[100px]">
+              {formData.title || '(未設定)'}
             </span>
             <span className="text-muted-foreground/50">|</span>
             <span>{formData.duration}分</span>
@@ -1105,46 +1105,48 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           </div>
 
           {/* アクションボタン */}
-          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-1 shrink-0 w-full sm:w-auto justify-end">
             {/* ステータスバッジ */}
             {formData.status === 'draft' && (
-              <span className="text-[10px] sm:text-xs bg-gray-100 text-gray-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">下書き</span>
+              <span className="text-[9px] bg-gray-100 text-gray-600 px-1 py-0 rounded">下書き</span>
             )}
             {formData.status === 'available' && (
-              <span className="text-[10px] sm:text-xs bg-green-100 text-green-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">公開中</span>
+              <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0 rounded">公開中</span>
             )}
             {formData.status === 'unavailable' && (
-              <span className="text-[10px] sm:text-xs bg-yellow-100 text-yellow-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">非公開</span>
+              <span className="text-[9px] bg-yellow-100 text-yellow-700 px-1 py-0 rounded">非公開</span>
             )}
             {saveMessage && (
-              <span className="text-green-600 font-medium text-xs sm:text-sm animate-pulse">
+              <span className="text-green-600 font-medium text-[10px] animate-pulse">
                 ✓ {saveMessage}
               </span>
             )}
-            <Button type="button" variant="outline" onClick={onClose} className="text-xs sm:text-sm h-8 sm:h-10">
+            <Button type="button" variant="outline" onClick={onClose} size="sm">
               閉じる
             </Button>
             <Button 
               variant="outline"
               onClick={() => handleSave('draft')} 
               disabled={scenarioMutation.isPending || isLoadingAssignments}
-              className="text-gray-600 text-xs sm:text-sm h-8 sm:h-10 hidden sm:inline-flex"
+              size="sm"
+              className="text-gray-600 hidden sm:inline-flex"
             >
-              下書き保存
+              下書き
             </Button>
             {/* マスターに反映ボタン（license_admin のみ） */}
             {isLicenseAdmin && currentMasterId && masterDiffs.count > 0 && (
               <Button 
                 variant="outline"
                 onClick={handleApplyToMaster}
-                className="text-purple-600 border-purple-300 hover:bg-purple-50 text-xs sm:text-sm h-8 sm:h-10 hidden sm:inline-flex gap-1"
+                size="sm"
+                className="text-purple-600 border-purple-300 hover:bg-purple-50 hidden sm:inline-flex gap-0.5"
               >
-                <ArrowUp className="h-3 w-3 sm:h-4 sm:w-4" />
-                マスターに反映
+                <ArrowUp className="h-2.5 w-2.5" />
+                マスタ反映
               </Button>
             )}
-            <Button onClick={() => handleSave()} disabled={scenarioMutation.isPending || isLoadingAssignments} className="w-16 sm:w-24 text-xs sm:text-sm h-8 sm:h-10">
-              <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <Button onClick={() => handleSave()} disabled={scenarioMutation.isPending || isLoadingAssignments} size="sm">
+              <Save className="h-3 w-3 mr-0.5" />
               保存
             </Button>
           </div>
