@@ -366,24 +366,24 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent size="xl" className="max-w-[95vw] sm:max-w-5xl md:max-w-7xl h-[90vh] sm:h-[min(85vh,800px)] p-0 flex flex-col overflow-hidden [&>button]:z-10">
-        <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-2 border-b shrink-0">
-          <DialogTitle className="text-base sm:text-lg">{scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}</DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">
-            {formData.title ? `${formData.title}の情報を編集します` : 'シナリオの情報を入力してください'}
+      <DialogContent size="lg" className="max-w-[95vw] sm:max-w-3xl h-[85vh] sm:h-[min(80vh,600px)] p-0 flex flex-col overflow-hidden [&>button]:z-10">
+        <DialogHeader className="px-2 sm:px-3 pt-2 pb-1.5 border-b shrink-0">
+          <DialogTitle className="text-sm">{scenarioId ? 'シナリオ編集' : '新規シナリオ'}</DialogTitle>
+          <DialogDescription className="text-[10px]">
+            {formData.title ? `${formData.title}を編集` : '情報を入力'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 min-h-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
+        <div className="flex-1 overflow-y-auto px-2 sm:px-3 py-2 min-h-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
             {/* 左カラム: 基本情報・ゲーム情報 */}
-            <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-2 sm:space-y-3">
               <BasicInfoSection formData={formData} setFormData={setFormData} />
               <GameInfoSection formData={formData} setFormData={setFormData} />
             </div>
 
             {/* 右カラム: 料金・GM設定・制作費 */}
-            <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-2 sm:space-y-3">
               <PricingSection formData={formData} setFormData={setFormData} />
               <GmSettingsSection 
                 formData={formData} 
@@ -400,25 +400,25 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         </div>
 
         {/* フッターボタン（固定） */}
-        <div className="flex flex-col sm:flex-row justify-end gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-3 border-t bg-muted/30 shrink-0">
-          <Button type="button" variant="outline" onClick={onClose} className="text-xs sm:text-sm h-8 sm:h-10">
+        <div className="flex justify-end gap-1.5 px-2 sm:px-3 py-1.5 border-t bg-muted/30 shrink-0">
+          <Button type="button" variant="outline" onClick={onClose} size="sm">
             キャンセル
           </Button>
           <Button 
             variant="outline" 
             onClick={() => handleSave(false)} 
             disabled={scenarioMutation.isPending || isLoadingAssignments}
-            className="text-xs sm:text-sm h-8 sm:h-10"
+            size="sm"
           >
             {scenarioId ? '保存' : '作成'}
           </Button>
           <Button 
             onClick={() => handleSave(true)} 
             disabled={scenarioMutation.isPending || isLoadingAssignments}
-            className="text-xs sm:text-sm h-8 sm:h-10"
+            size="sm"
           >
-            <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-            {isLoadingAssignments ? '読み込み中...' : scenarioMutation.isPending ? '保存中...' : (scenarioId ? '保存して閉じる' : '作成して閉じる')}
+            <Save className="h-3 w-3 mr-1" />
+            {isLoadingAssignments ? '読込中...' : scenarioMutation.isPending ? '保存中...' : (scenarioId ? '保存して閉じる' : '作成して閉じる')}
           </Button>
         </div>
       </DialogContent>

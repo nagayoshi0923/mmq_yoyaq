@@ -327,15 +327,15 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{staff ? 'スタッフ編集' : 'スタッフ新規作成'}</DialogTitle>
-          <DialogDescription>
-            スタッフの基本情報、役割、勤務可能日などを設定してください。
+      <DialogContent className="max-w-[480px] max-h-[85vh] overflow-y-auto p-3">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-sm">{staff ? 'スタッフ編集' : 'スタッフ新規作成'}</DialogTitle>
+          <DialogDescription className="text-[10px]">
+            基本情報・役割・勤務可能日を設定
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-2">
           {/* 基本情報 */}
           <div>
             <Label htmlFor="name">名前 *</Label>
@@ -347,8 +347,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <div className="space-y-0.5">
               <Label htmlFor="email">メールアドレス</Label>
               <Input
                 id="email"
@@ -358,7 +358,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 placeholder="tanaka@example.com"
               />
             </div>
-            <div>
+            <div className="space-y-0.5">
               <Label htmlFor="phone">電話番号</Label>
               <Input
                 id="phone"
@@ -369,9 +369,9 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="x_account">X(Twitter)アカウント</Label>
+          <div className="grid grid-cols-2 gap-1.5">
+            <div className="space-y-0.5">
+              <Label htmlFor="x_account">X(Twitter)</Label>
               <Input
                 id="x_account"
                 value={formData.x_account || ''}
@@ -379,7 +379,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 placeholder="@tanaka_gm"
               />
             </div>
-            <div>
+            <div className="space-y-0.5">
               <Label htmlFor="discord_id">Discord ID</Label>
               <Input
                 id="discord_id"
@@ -387,13 +387,13 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 onChange={(e) => setFormData(prev => ({ ...prev, discord_id: e.target.value }))}
                 placeholder="1427064798650040472"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Discord通知機能で使用されます
+              <p className="text-[9px] text-muted-foreground">
+                通知機能で使用
               </p>
             </div>
           </div>
 
-          <div>
+          <div className="space-y-0.5">
             <Label htmlFor="discord_channel_id">Discord チャンネルID</Label>
             <Input
               id="discord_channel_id"
@@ -401,15 +401,15 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
               onChange={(e) => setFormData(prev => ({ ...prev, discord_channel_id: e.target.value }))}
               placeholder="1234567890123456789"
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              個別通知を送信するチャンネルのIDです
+            <p className="text-[9px] text-muted-foreground">
+              個別通知用チャンネル
             </p>
           </div>
 
           {/* アバター色選択 */}
-          <div>
+          <div className="space-y-0.5">
             <Label>アバター色</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-wrap gap-1 mt-1">
               {[
                 { bg: '#EFF6FF', text: '#2563EB', name: '青' },
                 { bg: '#F0FDF4', text: '#16A34A', name: '緑' },
@@ -421,9 +421,9 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 <Badge
                   key={color.bg}
                   variant="outline"
-                  className={`cursor-pointer px-3 py-1.5 font-normal transition-all border ${
+                  className={`cursor-pointer px-1.5 py-0.5 text-[10px] font-normal transition-all border ${
                     formData.avatar_color === color.bg 
-                      ? 'ring-2 ring-offset-2' 
+                      ? 'ring-1 ring-offset-1' 
                       : 'hover:scale-105'
                   }`}
                   style={{
@@ -441,43 +441,31 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 variant="ghost"
                 size="sm"
                 onClick={() => setFormData(prev => ({ ...prev, avatar_color: undefined }))}
-                className="text-xs h-auto py-1.5"
+                className="text-[10px] h-5 px-1.5"
               >
-                自動選択に戻す
+                自動に戻す
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {formData.avatar_color 
-                ? `選択中: ${[
-                    { bg: '#EFF6FF', name: '青' },
-                    { bg: '#F0FDF4', name: '緑' },
-                    { bg: '#FFFBEB', name: '黄' },
-                    { bg: '#FEF2F2', name: '赤' },
-                    { bg: '#F5F3FF', name: '紫' },
-                    { bg: '#FDF2F8', name: 'ピンク' }
-                  ].find(c => c.bg === formData.avatar_color)?.name || ''}` 
-                : '未設定（名前から自動選択）'}
-            </p>
           </div>
 
           {/* 役割・ステータス */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <div className="space-y-0.5">
               <Label htmlFor="role">役割</Label>
               <MultiSelect
                 options={roleOptions}
                 selectedValues={formData.role || []}
                 onSelectionChange={(values) => setFormData(prev => ({ ...prev, role: values }))}
-                placeholder="役割を選択"
+                placeholder="役割"
                 showBadges={true}
                 useIdAsValue={true}
               />
             </div>
-            <div>
+            <div className="space-y-0.5">
               <Label htmlFor="status">ステータス</Label>
               <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as 'active' | 'inactive' | 'on-leave' }))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="ステータスを選択" />
+                  <SelectValue placeholder="ステータス" />
                 </SelectTrigger>
                 <SelectContent>
                   {statusOptions.map(option => (
@@ -493,7 +481,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
           </div>
 
           {/* 担当店舗 */}
-          <div>
+          <div className="space-y-0.5">
             <Label htmlFor="stores">担当店舗</Label>
             <StoreMultiSelect
               stores={stores}
@@ -502,30 +490,26 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 setFormData(prev => ({ ...prev, stores: storeIds }))
               }}
               hideLabel={true}
-              placeholder="担当店舗を選択"
-              emptyText="未選択=全店舗担当"
+              placeholder="店舗"
+              emptyText="未選択=全店舗"
             />
           </div>
 
-
           {/* 担当シナリオ */}
-          <div className="space-y-2">
-            <Label htmlFor="special_scenarios">担当シナリオと権限</Label>
-            <div className="text-xs text-muted-foreground mb-2">
-              シナリオを選択し、詳細な権限（メインGM/サブGM）を設定してください。
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="special_scenarios">担当シナリオ</Label>
             
             {isLoadingAssignments ? (
-              <div className="flex items-center justify-center p-4 text-sm text-muted-foreground bg-gray-50 rounded border">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                担当シナリオを読み込み中...
+              <div className="flex items-center justify-center p-2 text-[10px] text-muted-foreground bg-gray-50 rounded border">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary mr-1.5"></div>
+                読み込み中...
               </div>
             ) : (
             <MultiSelect
               options={scenarioOptions}
               selectedValues={scenarioAssignments.map(a => a.scenarioId)}
               onSelectionChange={handleScenarioSelectionChange}
-              placeholder="担当シナリオを選択"
+              placeholder="シナリオ"
               showBadges={true}
               useIdAsValue={true}
             />
@@ -533,49 +517,51 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             
             {/* シナリオ詳細設定リスト */}
             {!isLoadingAssignments && scenarioAssignments.length > 0 && (
-              <ScrollArea className="h-[200px] border rounded-md p-2 mt-2">
-                <div className="space-y-2">
+              <ScrollArea className="h-[140px] border rounded p-1.5 mt-1">
+                <div className="space-y-1">
                   {scenarioAssignments.map(assignment => {
                     const scenario = scenarios.find(s => s.id === assignment.scenarioId)
                     if (!scenario) return null
                     
                     return (
-                      <div key={assignment.scenarioId} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                        <div className="font-medium truncate flex-1 mr-2">
+                      <div key={assignment.scenarioId} className="flex items-center justify-between p-1 bg-gray-50 rounded text-[10px]">
+                        <div className="font-medium truncate flex-1 mr-1.5">
                           {scenario.title}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <Select 
                             value={assignment.status} 
                             onValueChange={(val: any) => handleAssignmentUpdate(assignment.scenarioId, { status: val })}
                           >
-                            <SelectTrigger className="h-7 w-[110px] text-xs">
+                            <SelectTrigger className="h-5 w-[80px] text-[10px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="can_gm">GM可能</SelectItem>
-                              <SelectItem value="experienced">通過済み</SelectItem>
+                              <SelectItem value="can_gm">GM可</SelectItem>
+                              <SelectItem value="experienced">通過済</SelectItem>
                               <SelectItem value="want_to_learn">覚えたい</SelectItem>
                             </SelectContent>
                           </Select>
                           
                           {assignment.status === 'can_gm' && (
-                            <div className="flex gap-2 border-l pl-2 ml-1">
-                                <div className="flex items-center space-x-1">
+                            <div className="flex gap-1 border-l pl-1 ml-0.5">
+                                <div className="flex items-center space-x-0.5">
                                     <Checkbox 
                                         id={`main-${assignment.scenarioId}`}
                                         checked={assignment.can_main_gm}
                                         onCheckedChange={(checked) => handleAssignmentUpdate(assignment.scenarioId, { can_main_gm: !!checked })}
+                                        className="h-3 w-3"
                                     />
-                                    <Label htmlFor={`main-${assignment.scenarioId}`} className="text-xs cursor-pointer">メイン</Label>
+                                    <Label htmlFor={`main-${assignment.scenarioId}`} className="text-[9px] cursor-pointer">メイン</Label>
                                 </div>
-                                <div className="flex items-center space-x-1">
+                                <div className="flex items-center space-x-0.5">
                                     <Checkbox 
                                         id={`sub-${assignment.scenarioId}`}
                                         checked={assignment.can_sub_gm}
                                         onCheckedChange={(checked) => handleAssignmentUpdate(assignment.scenarioId, { can_sub_gm: !!checked })}
+                                        className="h-3 w-3"
                                     />
-                                    <Label htmlFor={`sub-${assignment.scenarioId}`} className="text-xs cursor-pointer">サブ</Label>
+                                    <Label htmlFor={`sub-${assignment.scenarioId}`} className="text-[9px] cursor-pointer">サブ</Label>
                                 </div>
                             </div>
                           )}
@@ -589,36 +575,38 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
           </div>
 
           {/* 備考 */}
-          <div>
+          <div className="space-y-0.5">
             <Label htmlFor="notes">備考</Label>
             <Textarea
               id="notes"
               value={formData.notes || ''}
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="特記事項があれば入力してください"
-              rows={3}
+              placeholder="特記事項"
+              rows={2}
             />
           </div>
         </div>
 
         {/* アクションボタン */}
-        <div className="flex justify-between gap-2 pt-4">
-          <Button variant="outline" onClick={onClose}>
+        <div className="flex justify-between gap-1.5 pt-2 border-t mt-2">
+          <Button variant="outline" onClick={onClose} size="sm">
             キャンセル
           </Button>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             <Button 
               variant="outline" 
               onClick={() => handleSave(false)}
               disabled={isLoadingAssignments}
+              size="sm"
             >
               {staff ? '保存' : '作成'}
             </Button>
             <Button 
               onClick={() => handleSave(true)}
               disabled={isLoadingAssignments}
+              size="sm"
             >
-              {isLoadingAssignments ? '読み込み中...' : (staff ? '保存して閉じる' : '作成して閉じる')}
+              {isLoadingAssignments ? '読込中...' : (staff ? '保存して閉じる' : '作成して閉じる')}
             </Button>
           </div>
         </div>
