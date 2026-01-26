@@ -1318,26 +1318,19 @@ export function useEventOperations({
 
         if (fetchError) throw fetchError
 
-        let reservationUpdateQuery = supabase
-          .from('reservations')
-          .update({
-            status: 'cancelled',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', cancellingEvent.reservation_id)
-        if (organizationId) {
-          reservationUpdateQuery = reservationUpdateQuery.eq('organization_id', organizationId)
-        }
-        const { error } = await reservationUpdateQuery
-        
-        if (error) throw error
+        // 予約をキャンセル（在庫返却 + 通知）
+        await reservationApi.cancel(
+          cancellingEvent.reservation_id,
+          '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
+        )
         
         setEvents(prev => prev.map(e => 
           e.reservation_id === cancellingEvent.reservation_id ? { ...e, is_cancelled: true } : e
         ))
 
-        // キャンセル確認メールを送信（貸切予約）
-        if (reservation && reservation.customers) {
+        // キャンセル確認メールは reservationApi.cancel() 内で送信済み
+        // 以下の重複送信コードは削除
+        if (false && reservation && reservation.customers) {
           try {
             await supabase.functions.invoke('send-cancellation-confirmation', {
               body: {
