@@ -333,7 +333,7 @@ export const salesApi = {
     
     let query = supabase
       .from('stores')
-      .select('id, name, short_name, fixed_costs, ownership_type, transport_allowance')
+      .select('id, name, short_name, fixed_costs, ownership_type, transport_allowance, franchise_fee')
       .order('name', { ascending: true })
     
     if (orgId) {
