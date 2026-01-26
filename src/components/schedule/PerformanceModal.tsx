@@ -577,7 +577,8 @@ export function PerformanceModal({
                 onDateChange={(date) => {
                   setFormData((prev: any) => ({ ...prev, date: date || '' }))
                 }}
-                placeholder="日付を選択してください"
+                placeholder="日付を選択"
+                buttonClassName="h-7 text-xs"
               />
             </div>
             <div className="space-y-0.5">
@@ -586,23 +587,19 @@ export function PerformanceModal({
                 value={formData.venue} 
                 onValueChange={(value) => setFormData((prev: any) => ({ ...prev, venue: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-7 text-xs">
                   <SelectValue placeholder="店舗を選択">
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal" variant="secondary">
-                        {getStoreName(formData.venue)}
-                      </Badge>
-                    </div>
+                    <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal text-[10px] px-1 py-0" variant="secondary">
+                      {getStoreName(formData.venue)}
+                    </Badge>
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {stores.map(store => (
-                    <SelectItem key={store.id} value={store.id}>
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal" variant="secondary">
-                          {store.name}
-                        </Badge>
-                      </div>
+                    <SelectItem key={store.id} value={store.id} className="text-xs py-1">
+                      <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal text-[10px] px-1 py-0" variant="secondary">
+                        {store.name}
+                      </Badge>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -708,11 +705,12 @@ export function PerformanceModal({
                   displayInfoSearchText: scenarioAvailableGMs.map(gm => gm.name).join(', ')
                 }
               })}
-              placeholder="シナリオを選択"
-              searchPlaceholder="シナリオ名で検索..."
+              placeholder="シナリオ"
+              searchPlaceholder="検索..."
               emptyText="シナリオが見つかりません"
               emptyActionLabel="シナリオを作成"
               onEmptyAction={() => setIsScenarioDialogOpen(true)}
+              className="h-7 text-xs"
             />
             {formData.is_private_request && (
               <p className="text-[10px] text-purple-600 mt-0.5">
@@ -763,13 +761,13 @@ export function PerformanceModal({
                 value={timeSlot} 
                 onValueChange={(value: 'morning' | 'afternoon' | 'evening') => handleTimeSlotChange(value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-7 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="morning">{timeSlotDefaults.morning.label}</SelectItem>
-                  <SelectItem value="afternoon">{timeSlotDefaults.afternoon.label}</SelectItem>
-                  <SelectItem value="evening">{timeSlotDefaults.evening.label}</SelectItem>
+                  <SelectItem value="morning" className="text-xs py-1">{timeSlotDefaults.morning.label}</SelectItem>
+                  <SelectItem value="afternoon" className="text-xs py-1">{timeSlotDefaults.afternoon.label}</SelectItem>
+                  <SelectItem value="evening" className="text-xs py-1">{timeSlotDefaults.evening.label}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -807,15 +805,15 @@ export function PerformanceModal({
                       const badges: React.ReactNode[] = []
                       if (isAvailable) {
                         badges.push(
-                          <span key="shift" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 border border-green-200">
-                            シフト提出済
+                          <span key="shift" className="inline-flex items-center px-1 py-0 rounded text-[9px] font-medium bg-green-100 text-green-700 border border-green-200">
+                            シフト済
                           </span>
                         )
                       }
                       if (isAssignedGM) {
                         badges.push(
-                          <span key="gm" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 border border-blue-200">
-                            担当GM
+                          <span key="gm" className="inline-flex items-center px-1 py-0 rounded text-[9px] font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                            担当
                           </span>
                         )
                       }
@@ -850,17 +848,18 @@ export function PerformanceModal({
                 })()}
                 selectedValues={formData.gms}
                 onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
-                placeholder="GMを選択"
+                placeholder="GM"
                 closeOnSelect={false}
                 emptyText="GMが見つかりません"
                 emptyActionLabel="+ GMを作成"
                 onEmptyAction={() => setIsStaffModalOpen(true)}
+                className="h-7 text-xs"
               />
               {/* GM選択バッジ表示 */}
               {/* メインGM/サブGM: formData.gmsから表示 */}
               {/* スタッフ参加: 予約データから動的表示（DBがシングルソース） */}
               {(formData.gms.length > 0 || staffParticipantsFromDB.length > 0) && (
-                <div className="flex flex-wrap gap-2 mt-2">
+                <div className="flex flex-wrap gap-1 mt-1">
                   {/* メインGM/サブGM/スタッフ参加/見学 */}
                   {formData.gms
                     .map((gm: string, index: number) => {
@@ -881,22 +880,22 @@ export function PerformanceModal({
                           <div 
                             className={cn(
                               badgeVariants({ variant: "outline" }),
-                              "flex items-center gap-1 font-normal border cursor-pointer rounded-[4px] pr-1",
+                              "flex items-center gap-0.5 font-normal border cursor-pointer rounded-[3px] pr-0.5 text-[10px] py-0 h-5",
                               badgeStyle
                             )}
                             role="button"
                           >
                             <span className="flex items-center">
-                              <UserCog className="h-3 w-3 mr-1 opacity-70" />
+                              <UserCog className="h-2.5 w-2.5 mr-0.5 opacity-70" />
                               {gm}
-                              {role === 'sub' && <span className="text-[10px] ml-1 font-bold">(サブ)</span>}
-                              {role === 'reception' && <span className="text-[10px] ml-1 font-bold">(受付)</span>}
-                              {role === 'staff' && <span className="text-[10px] ml-1 font-bold">(参加)</span>}
-                              {role === 'observer' && <span className="text-[10px] ml-1 font-bold">(見学)</span>}
+                              {role === 'sub' && <span className="text-[9px] ml-0.5 font-bold">(サブ)</span>}
+                              {role === 'reception' && <span className="text-[9px] ml-0.5 font-bold">(受付)</span>}
+                              {role === 'staff' && <span className="text-[9px] ml-0.5 font-bold">(参加)</span>}
+                              {role === 'observer' && <span className="text-[9px] ml-0.5 font-bold">(見学)</span>}
                             </span>
                             <div
                               role="button"
-                              className="h-4 w-4 flex items-center justify-center rounded-full hover:bg-black/10 ml-1"
+                              className="h-3 w-3 flex items-center justify-center rounded-full hover:bg-black/10 ml-0.5"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 const newGms = formData.gms.filter((g: string) => g !== gm)
@@ -905,7 +904,7 @@ export function PerformanceModal({
                                 setFormData((prev: EventFormData) => ({ ...prev, gms: newGms, gmRoles: newRoles }))
                               }}
                             >
-                              <X className="h-3 w-3" />
+                              <X className="h-2.5 w-2.5" />
                             </div>
                           </div>
                         </PopoverTrigger>
@@ -979,15 +978,15 @@ export function PerformanceModal({
                       key={`staff-${index}`}
                       className={cn(
                         badgeVariants({ variant: "outline" }),
-                        "flex items-center gap-1 font-normal border rounded-[4px]",
+                        "flex items-center gap-0.5 font-normal border rounded-[3px] text-[10px] py-0 h-5",
                         "bg-green-100 text-green-800 border-green-200"
                       )}
                       title="予約タブで編集できます"
                     >
                       <span className="flex items-center">
-                        <UserCog className="h-3 w-3 mr-1 opacity-70" />
+                        <UserCog className="h-2.5 w-2.5 mr-0.5 opacity-70" />
                         {staffName}
-                        <span className="text-[10px] ml-1 font-bold">(参加)</span>
+                        <span className="text-[9px] ml-0.5 font-bold">(参加)</span>
                       </span>
                     </div>
                   ))}
@@ -1005,12 +1004,12 @@ export function PerformanceModal({
                 onValueChange={handleStartTimeChange}
                 disabled={formData.is_private_request}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="開始時間を選択" />
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue placeholder="開始時間" />
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
-                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                    <SelectItem key={time} value={time} className="text-xs py-1">{time}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1032,12 +1031,12 @@ export function PerformanceModal({
                 onValueChange={(value) => setFormData((prev: any) => ({ ...prev, end_time: value }))}
                 disabled={formData.is_private_request}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="終了時間を選択" />
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue placeholder="終了時間" />
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
-                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                    <SelectItem key={time} value={time} className="text-xs py-1">{time}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1068,20 +1067,20 @@ export function PerformanceModal({
                 }}
                 disabled={formData.is_private_request}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="カテゴリを選択" />
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue placeholder="カテゴリ" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="open">オープン公演</SelectItem>
-                  <SelectItem value="private">貸切公演</SelectItem>
-                  <SelectItem value="gmtest">GMテスト</SelectItem>
-                  <SelectItem value="testplay">テストプレイ</SelectItem>
-                  <SelectItem value="offsite">出張公演</SelectItem>
-                  <SelectItem value="venue_rental">場所貸し</SelectItem>
-                  <SelectItem value="venue_rental_free">場所貸無料</SelectItem>
-                  <SelectItem value="package">パッケージ会</SelectItem>
-                  <SelectItem value="mtg">MTG</SelectItem>
-                  <SelectItem value="memo">メモに変換</SelectItem>
+                  <SelectItem value="open" className="text-xs py-1">オープン公演</SelectItem>
+                  <SelectItem value="private" className="text-xs py-1">貸切公演</SelectItem>
+                  <SelectItem value="gmtest" className="text-xs py-1">GMテスト</SelectItem>
+                  <SelectItem value="testplay" className="text-xs py-1">テストプレイ</SelectItem>
+                  <SelectItem value="offsite" className="text-xs py-1">出張公演</SelectItem>
+                  <SelectItem value="venue_rental" className="text-xs py-1">場所貸し</SelectItem>
+                  <SelectItem value="venue_rental_free" className="text-xs py-1">場所貸無料</SelectItem>
+                  <SelectItem value="package" className="text-xs py-1">パッケージ会</SelectItem>
+                  <SelectItem value="mtg" className="text-xs py-1">MTG</SelectItem>
+                  <SelectItem value="memo" className="text-xs py-1">メモに変換</SelectItem>
                 </SelectContent>
               </Select>
               {formData.is_private_request && (
@@ -1106,7 +1105,7 @@ export function PerformanceModal({
                     ...prev, 
                     venue_rental_fee: e.target.value ? parseInt(e.target.value) : undefined 
                   }))}
-                  className="h-8"
+                  className="h-7 text-xs"
                 />
                 <p className="text-[10px] text-muted-foreground mt-0.5">
                   ※ 未入力時は12,000円
@@ -1124,7 +1123,7 @@ export function PerformanceModal({
                 value={formData.max_participants}
                 onChange={(e) => setFormData((prev: any) => ({ ...prev, max_participants: parseInt(e.target.value) || DEFAULT_MAX_PARTICIPANTS }))}
                 disabled={formData.is_private_request}
-                className="h-8"
+                className="h-7 text-xs"
               />
               {formData.scenario && (
                 <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -1147,8 +1146,8 @@ export function PerformanceModal({
                 id="reservation_name"
                 value={formData.reservation_name || ''}
                 onChange={(e) => setFormData((prev: any) => ({ ...prev, reservation_name: e.target.value }))}
-                placeholder="予約者名を入力"
-                className="h-8"
+                placeholder="予約者名"
+                className="h-7 text-xs"
               />
               <p className="text-[10px] text-muted-foreground mt-0.5">
                 ※ MMQ予約は自動設定
@@ -1163,9 +1162,9 @@ export function PerformanceModal({
               id="notes"
               value={formData.notes}
               onChange={(e) => setFormData((prev: any) => ({ ...prev, notes: e.target.value }))}
-              placeholder="備考があれば入力してください"
+              placeholder="備考"
               rows={2}
-              className="text-xs min-h-[48px]"
+              className="text-xs min-h-[40px] py-1"
             />
           </div>
         </div>
