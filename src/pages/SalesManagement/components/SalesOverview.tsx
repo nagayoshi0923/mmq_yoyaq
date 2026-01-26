@@ -280,7 +280,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
         }
         description="期間別の売上・予約実績と分析"
       >
-        <ExportButtons salesData={salesData} />
+        <ExportButtons salesData={salesData} dateRange={dateRange} />
       </PageHeader>
 
       {/* 月切り替えと期間設定 */}
