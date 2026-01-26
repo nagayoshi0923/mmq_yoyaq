@@ -398,11 +398,12 @@ export const reservationApi = {
       .single()
 
     if (fetchError) throw fetchError
-    if (!reservation?.customer_id) {
+    if (!reservation) {
       throw new Error('予約情報の取得に失敗しました')
     }
 
-    await reservationApi.cancelWithLock(id, reservation.customer_id, cancellationReason)
+    // customer_id が NULL でも動作するように修正（スタッフ予約・貸切予約対応）
+    await reservationApi.cancelWithLock(id, reservation.customer_id ?? null, cancellationReason)
 
     const { data, error } = await supabase
       .from('reservations')
@@ -456,23 +457,45 @@ export const reservationApi = {
             const orgSlug = org?.slug || 'queens-waltz'
             const bookingUrl = `${window.location.origin}/${orgSlug}`
             
+            const notificationData = {
+              organizationId: reservation.organization_id,
+              scheduleEventId: reservation.schedule_event_id,
+              freedSeats: reservation.participant_count,
+              scenarioTitle: reservation.scenario_title || scheduleEvent?.scenario,
+              eventDate: scheduleEvent?.date,
+              startTime: scheduleEvent?.start_time,
+              endTime: scheduleEvent?.end_time,
+              storeName,
+              bookingUrl
+            }
+            
             await supabase.functions.invoke('notify-waitlist', {
-              body: {
-                organizationId: reservation.organization_id,
-                scheduleEventId: reservation.schedule_event_id,
-                freedSeats: reservation.participant_count,
-                scenarioTitle: reservation.scenario_title || scheduleEvent?.scenario,
-                eventDate: scheduleEvent?.date,
-                startTime: scheduleEvent?.start_time,
-                endTime: scheduleEvent?.end_time,
-                storeName,
-                bookingUrl
-              }
+              body: notificationData
             })
             logger.log('キャンセル待ち通知送信成功')
           } catch (waitlistError) {
             logger.error('キャンセル待ち通知エラー:', waitlistError)
-            // キャンセル待ち通知失敗してもキャンセル処理は続行
+            
+            // 通知失敗をキューに記録（リトライ用）
+            try {
+              await supabase.from('waitlist_notification_queue').insert({
+                schedule_event_id: reservation.schedule_event_id,
+                organization_id: reservation.organization_id,
+                freed_seats: reservation.participant_count,
+                scenario_title: reservation.scenario_title || scheduleEvent?.scenario,
+                event_date: scheduleEvent?.date,
+                start_time: scheduleEvent?.start_time,
+                end_time: scheduleEvent?.end_time,
+                store_name: storeName,
+                booking_url: `${window.location.origin}/${org?.slug || 'queens-waltz'}`,
+                last_error: waitlistError instanceof Error ? waitlistError.message : String(waitlistError),
+                status: 'pending'
+              })
+              logger.log('キャンセル待ち通知をリトライキューに記録')
+            } catch (queueError) {
+              logger.error('リトライキュー記録エラー:', queueError)
+              // キューへの記録失敗は無視（キャンセル処理自体は成功）
+            }
           }
         }
       } catch (emailError) {
