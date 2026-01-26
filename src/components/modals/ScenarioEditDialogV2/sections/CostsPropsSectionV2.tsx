@@ -9,8 +9,8 @@ import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/typ
 import { parseIntSafe } from '@/utils/number'
 
 // 統一スタイル
-const labelStyle = "text-[11px] font-medium mb-0.5 block"
-const inputStyle = "h-6 text-[11px]"
+const labelStyle = "text-xs font-medium mb-0.5 block"
+const inputStyle = "h-7 text-xs"
 const rowStyle = "flex items-center gap-3"
 
 interface ScenarioStats {

@@ -22,9 +22,9 @@ import { storeApi } from '@/lib/api'
 import type { Store } from '@/types'
 
 // 統一スタイル（コンパクト）
-const labelStyle = "text-[11px] font-medium mb-0.5 block"
-const hintStyle = "text-[10px] text-muted-foreground mt-0.5"
-const inputStyle = "h-6 text-[11px]"
+const labelStyle = "text-xs font-medium mb-0.5 block"
+const hintStyle = "text-[11px] text-muted-foreground mt-0.5"
+const inputStyle = "h-7 text-xs"
 
 interface BasicInfoSectionV2Props {
   formData: ScenarioFormData
@@ -195,7 +195,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                   </Label>
                 </div>
                 {formData.scenario_type === 'managed' && (
-                  <Badge className="bg-blue-100 text-blue-800 text-[9px] px-1 py-0">ライセンス管理</Badge>
+                  <Badge className="bg-blue-100 text-blue-800 text-[10px] px-1 py-0">ライセンス管理</Badge>
                 )}
               </div>
               
@@ -267,7 +267,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                   <Label className={labelStyle}>
                     メール
                     {formData.author && authorEmailMap.has(formData.author) && (
-                      <span className="text-green-600 ml-1 font-normal text-[9px]">✓</span>
+                      <span className="text-green-600 ml-1 font-normal text-[10px]">✓</span>
                     )}
                   </Label>
                   <Input

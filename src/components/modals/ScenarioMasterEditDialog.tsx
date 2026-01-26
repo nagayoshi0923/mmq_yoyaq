@@ -1188,13 +1188,13 @@ export function ScenarioMasterEditDialog({
               <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
                 {/* ステータスバッジ */}
                 {master.master_status === 'draft' && (
-                  <Badge variant="secondary" className="text-[10px] sm:text-xs">下書き</Badge>
+                  <Badge variant="secondary" className="text-[11px] sm:text-xs">下書き</Badge>
                 )}
                 {master.master_status === 'pending' && (
-                  <Badge variant="outline" className="text-[10px] sm:text-xs border-yellow-500 text-yellow-600">申請中</Badge>
+                  <Badge variant="outline" className="text-[11px] sm:text-xs border-yellow-500 text-yellow-600">申請中</Badge>
                 )}
                 {master.master_status === 'approved' && (
-                  <Badge variant="default" className="text-[10px] sm:text-xs bg-green-500">承認済</Badge>
+                  <Badge variant="default" className="text-[11px] sm:text-xs bg-green-500">承認済</Badge>
                 )}
                 {saveMessage && (
                   <span className="text-green-600 font-medium text-xs sm:text-sm animate-pulse">

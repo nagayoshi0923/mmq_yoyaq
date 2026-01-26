@@ -537,7 +537,7 @@ export function PerformanceModal({
       <DialogContent size="md" className="max-h-[85vh] sm:max-h-[min(75vh,480px)] max-w-[480px] overflow-hidden flex flex-col p-0 gap-0">
         <DialogHeader className="px-2 sm:px-4 py-1.5 sm:py-2 border-b shrink-0">
           <DialogTitle className="text-sm sm:text-base">{modalTitle}</DialogTitle>
-          <DialogDescription className="text-[10px] sm:text-xs">
+          <DialogDescription className="text-[11px] sm:text-xs">
             {modalDescription}
           </DialogDescription>
         </DialogHeader>
@@ -545,11 +545,11 @@ export function PerformanceModal({
         <Tabs defaultValue="edit" className="w-full flex-1 flex flex-col overflow-hidden min-h-0">
           <div className="px-2 sm:px-4 pt-1.5 sm:pt-2 shrink-0">
             <TabsList className="grid w-full grid-cols-3 h-7 sm:h-8">
-              <TabsTrigger value="edit" className="text-[10px] sm:text-xs h-6 sm:h-7">公演情報</TabsTrigger>
-              <TabsTrigger value="reservations" className="text-[10px] sm:text-xs h-6 sm:h-7">
+              <TabsTrigger value="edit" className="text-[11px] sm:text-xs h-6 sm:h-7">公演情報</TabsTrigger>
+              <TabsTrigger value="reservations" className="text-[11px] sm:text-xs h-6 sm:h-7">
                 予約者
                 {event && (
-                  <Badge variant="secondary" className="ml-1 h-3.5 sm:h-4 px-1 text-[9px] sm:text-[10px]">
+                  <Badge variant="secondary" className="ml-1 h-3.5 sm:h-4 px-1 text-[11px] sm:text-[11px]">
                     {event.is_private_request || event.is_private_booking
                       ? '満席'
                       : `${localCurrentParticipants}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
@@ -562,7 +562,7 @@ export function PerformanceModal({
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="history" className="text-[10px] sm:text-xs h-6 sm:h-7">更新履歴</TabsTrigger>
+              <TabsTrigger value="history" className="text-[11px] sm:text-xs h-6 sm:h-7">更新履歴</TabsTrigger>
             </TabsList>
           </div>
           
@@ -589,7 +589,7 @@ export function PerformanceModal({
               >
                 <SelectTrigger className="h-7 text-xs">
                   <SelectValue placeholder="店舗を選択">
-                    <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal text-[10px] px-1 py-0" variant="secondary">
+                    <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal text-[11px] px-1 py-0" variant="secondary">
                       {getStoreName(formData.venue)}
                     </Badge>
                   </SelectValue>
@@ -597,7 +597,7 @@ export function PerformanceModal({
                 <SelectContent>
                   {stores.map(store => (
                     <SelectItem key={store.id} value={store.id} className="text-xs py-1">
-                      <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal text-[10px] px-1 py-0" variant="secondary">
+                      <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal text-[11px] px-1 py-0" variant="secondary">
                         {store.name}
                       </Badge>
                     </SelectItem>
@@ -713,13 +713,13 @@ export function PerformanceModal({
               className="h-7 text-xs"
             />
             {formData.is_private_request && (
-              <p className="text-[10px] text-purple-600 mt-0.5">
+              <p className="text-[11px] text-purple-600 mt-0.5">
                 ※ 貸切のシナリオ変更不可
               </p>
             )}
             {/* 未紐付けシナリオの警告表示 */}
             {formData.scenario && !scenarios.find(s => s.title === formData.scenario) && (
-              <div className="mt-0.5 p-1.5 bg-orange-50 border border-orange-200 rounded text-[10px]">
+              <div className="mt-0.5 p-1.5 bg-orange-50 border border-orange-200 rounded text-[11px]">
                 <div className="flex items-center gap-1 text-orange-700">
                   <span className="font-semibold">⚠️ 未登録:</span>
                   <span className="font-mono break-all">{formData.scenario}</span>
@@ -770,7 +770,7 @@ export function PerformanceModal({
                   <SelectItem value="evening" className="text-xs py-1">{timeSlotDefaults.evening.label}</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
+              <p className="text-[11px] text-muted-foreground mt-0.5">
                 時間帯で開始・終了時間を自動設定
               </p>
             </div>
@@ -805,14 +805,14 @@ export function PerformanceModal({
                       const badges: React.ReactNode[] = []
                       if (isAvailable) {
                         badges.push(
-                          <span key="shift" className="inline-flex items-center px-1 py-0 rounded text-[9px] font-medium bg-green-100 text-green-700 border border-green-200">
+                          <span key="shift" className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-green-100 text-green-700 border border-green-200">
                             シフト済
                           </span>
                         )
                       }
                       if (isAssignedGM) {
                         badges.push(
-                          <span key="gm" className="inline-flex items-center px-1 py-0 rounded text-[9px] font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                          <span key="gm" className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-blue-100 text-blue-700 border border-blue-200">
                             担当
                           </span>
                         )
@@ -880,7 +880,7 @@ export function PerformanceModal({
                           <div 
                             className={cn(
                               badgeVariants({ variant: "outline" }),
-                              "flex items-center gap-0.5 font-normal border cursor-pointer rounded-[3px] pr-0.5 text-[10px] py-0 h-5",
+                              "flex items-center gap-0.5 font-normal border cursor-pointer rounded-[3px] pr-0.5 text-[11px] py-0 h-5",
                               badgeStyle
                             )}
                             role="button"
@@ -888,10 +888,10 @@ export function PerformanceModal({
                             <span className="flex items-center">
                               <UserCog className="h-2.5 w-2.5 mr-0.5 opacity-70" />
                               {gm}
-                              {role === 'sub' && <span className="text-[9px] ml-0.5 font-bold">(サブ)</span>}
-                              {role === 'reception' && <span className="text-[9px] ml-0.5 font-bold">(受付)</span>}
-                              {role === 'staff' && <span className="text-[9px] ml-0.5 font-bold">(参加)</span>}
-                              {role === 'observer' && <span className="text-[9px] ml-0.5 font-bold">(見学)</span>}
+                              {role === 'sub' && <span className="text-[11px] ml-0.5 font-bold">(サブ)</span>}
+                              {role === 'reception' && <span className="text-[11px] ml-0.5 font-bold">(受付)</span>}
+                              {role === 'staff' && <span className="text-[11px] ml-0.5 font-bold">(参加)</span>}
+                              {role === 'observer' && <span className="text-[11px] ml-0.5 font-bold">(見学)</span>}
                             </span>
                             <div
                               role="button"
@@ -911,7 +911,7 @@ export function PerformanceModal({
                         <PopoverContent className="w-40 p-2" align="start">
                           <div className="space-y-1.5">
                             <div className="space-y-0.5">
-                              <h4 className="font-medium text-[10px] text-muted-foreground">役割を選択</h4>
+                              <h4 className="font-medium text-[11px] text-muted-foreground">役割を選択</h4>
                               <RadioGroup 
                                 value={role} 
                                 onValueChange={(value) => setFormData((prev: any) => ({
@@ -944,22 +944,22 @@ export function PerformanceModal({
                             </div>
                             
                             {role === 'sub' && (
-                              <p className="text-[9px] text-blue-600 bg-blue-50 p-0.5 rounded">
+                              <p className="text-[11px] text-blue-600 bg-blue-50 p-0.5 rounded">
                                 ※サブGM給与適用
                               </p>
                             )}
                             {role === 'reception' && (
-                              <p className="text-[9px] text-orange-600 bg-orange-50 p-0.5 rounded">
+                              <p className="text-[11px] text-orange-600 bg-orange-50 p-0.5 rounded">
                                 ※受付（2,000円）
                               </p>
                             )}
                             {role === 'staff' && (
-                              <p className="text-[9px] text-green-600 bg-green-50 p-0.5 rounded">
+                              <p className="text-[11px] text-green-600 bg-green-50 p-0.5 rounded">
                                 ※参加者カウント
                               </p>
                             )}
                             {role === 'observer' && (
-                              <p className="text-[9px] text-indigo-600 bg-indigo-50 p-0.5 rounded">
+                              <p className="text-[11px] text-indigo-600 bg-indigo-50 p-0.5 rounded">
                                 ※見学のみ
                               </p>
                             )}
@@ -978,7 +978,7 @@ export function PerformanceModal({
                       key={`staff-${index}`}
                       className={cn(
                         badgeVariants({ variant: "outline" }),
-                        "flex items-center gap-0.5 font-normal border rounded-[3px] text-[10px] py-0 h-5",
+                        "flex items-center gap-0.5 font-normal border rounded-[3px] text-[11px] py-0 h-5",
                         "bg-green-100 text-green-800 border-green-200"
                       )}
                       title="予約タブで編集できます"
@@ -986,7 +986,7 @@ export function PerformanceModal({
                       <span className="flex items-center">
                         <UserCog className="h-2.5 w-2.5 mr-0.5 opacity-70" />
                         {staffName}
-                        <span className="text-[9px] ml-0.5 font-bold">(参加)</span>
+                        <span className="text-[11px] ml-0.5 font-bold">(参加)</span>
                       </span>
                     </div>
                   ))}
@@ -1014,12 +1014,12 @@ export function PerformanceModal({
                 </SelectContent>
               </Select>
               {mode === 'edit' && formData.start_time && !formData.is_private_request && (
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-[11px] text-muted-foreground mt-0.5">
                   現在: {formData.start_time.slice(0, 5)}
                 </p>
               )}
               {formData.is_private_request && (
-                <p className="text-[10px] text-purple-600 mt-0.5">
+                <p className="text-[11px] text-purple-600 mt-0.5">
                   ※ 貸切の日時変更不可
                 </p>
               )}
@@ -1041,7 +1041,7 @@ export function PerformanceModal({
                 </SelectContent>
               </Select>
               {mode === 'edit' && formData.end_time && !formData.is_private_request && (
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-[11px] text-muted-foreground mt-0.5">
                   現在: {formData.end_time.slice(0, 5)}
                 </p>
               )}
@@ -1084,7 +1084,7 @@ export function PerformanceModal({
                 </SelectContent>
               </Select>
               {formData.is_private_request && (
-                <p className="text-[10px] text-purple-600 mt-0.5">
+                <p className="text-[11px] text-purple-600 mt-0.5">
                   ※ 貸切のため変更不可
                 </p>
               )}
@@ -1107,7 +1107,7 @@ export function PerformanceModal({
                   }))}
                   className="h-7 text-xs"
                 />
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-[11px] text-muted-foreground mt-0.5">
                   ※ 未入力時は12,000円
                 </p>
               </div>
@@ -1126,12 +1126,12 @@ export function PerformanceModal({
                 className="h-7 text-xs"
               />
               {formData.scenario && (
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-[11px] text-muted-foreground mt-0.5">
                   ※ シナリオから自動設定
                 </p>
               )}
               {formData.is_private_request && (
-                <p className="text-[10px] text-purple-600 mt-0.5">
+                <p className="text-[11px] text-purple-600 mt-0.5">
                   ※ 貸切は固定
                 </p>
               )}
@@ -1149,7 +1149,7 @@ export function PerformanceModal({
                 placeholder="予約者名"
                 className="h-7 text-xs"
               />
-              <p className="text-[10px] text-muted-foreground mt-0.5">
+              <p className="text-[11px] text-muted-foreground mt-0.5">
                 ※ MMQ予約は自動設定
               </p>
             </div>
@@ -1227,7 +1227,7 @@ export function PerformanceModal({
                 const fee = getParticipationFee()
                 
                 return (
-                  <div className="flex items-center gap-2 text-[10px] sm:text-xs font-medium">
+                  <div className="flex items-center gap-2 text-[11px] sm:text-xs font-medium">
                     <span>{selectedScenario.duration}h</span>
                     <span className="text-muted-foreground">|</span>
                     <span>最大{selectedScenario.player_count_max}名</span>
@@ -1246,10 +1246,10 @@ export function PerformanceModal({
           
           {/* 右側：ボタン */}
           <div className="flex gap-1.5 shrink-0 w-full sm:w-auto justify-end">
-            <Button variant="outline" onClick={onClose} className="min-w-[60px] sm:min-w-[80px] text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
+            <Button variant="outline" onClick={onClose} className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
               キャンセル
             </Button>
-            <Button onClick={handleSave} className="min-w-[60px] sm:min-w-[80px] text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
+            <Button onClick={handleSave} className="min-w-[60px] sm:min-w-[80px] text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
               {mode === 'add' ? '追加' : '保存'}
             </Button>
           </div>

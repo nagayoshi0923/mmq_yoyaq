@@ -369,7 +369,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
       <DialogContent size="lg" className="max-w-[95vw] sm:max-w-3xl h-[85vh] sm:h-[min(80vh,600px)] p-0 flex flex-col overflow-hidden [&>button]:z-10">
         <DialogHeader className="px-2 sm:px-3 pt-2 pb-1.5 border-b shrink-0">
           <DialogTitle className="text-sm">{scenarioId ? 'シナリオ編集' : '新規シナリオ'}</DialogTitle>
-          <DialogDescription className="text-[10px]">
+          <DialogDescription className="text-[11px]">
             {formData.title ? `${formData.title}を編集` : '情報を入力'}
           </DialogDescription>
         </DialogHeader>

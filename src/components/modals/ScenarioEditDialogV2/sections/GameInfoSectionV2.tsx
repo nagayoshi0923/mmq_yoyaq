@@ -19,9 +19,9 @@ interface GameInfoSectionV2Props {
 }
 
 // 統一スタイル
-const labelStyle = "text-[11px] font-medium mb-0.5 block"
-const hintStyle = "text-[10px] text-muted-foreground mt-0.5"
-const inputStyle = "h-6 text-[11px]"
+const labelStyle = "text-xs font-medium mb-0.5 block"
+const hintStyle = "text-[11px] text-muted-foreground mt-0.5"
+const inputStyle = "h-7 text-xs"
 
 export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Props) {
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)

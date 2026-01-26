@@ -330,7 +330,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       <DialogContent className="max-w-[480px] max-h-[85vh] overflow-y-auto p-3">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-sm">{staff ? 'スタッフ編集' : 'スタッフ新規作成'}</DialogTitle>
-          <DialogDescription className="text-[10px]">
+          <DialogDescription className="text-[11px]">
             基本情報・役割・勤務可能日を設定
           </DialogDescription>
         </DialogHeader>
@@ -421,7 +421,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 <Badge
                   key={color.bg}
                   variant="outline"
-                  className={`cursor-pointer px-1.5 py-0.5 text-[10px] font-normal transition-all border ${
+                  className={`cursor-pointer px-1.5 py-0.5 text-[11px] font-normal transition-all border ${
                     formData.avatar_color === color.bg 
                       ? 'ring-1 ring-offset-1' 
                       : 'hover:scale-105'
@@ -441,7 +441,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 variant="ghost"
                 size="sm"
                 onClick={() => setFormData(prev => ({ ...prev, avatar_color: undefined }))}
-                className="text-[10px] h-5 px-1.5"
+                className="text-[11px] h-5 px-1.5"
               >
                 自動に戻す
               </Button>
@@ -500,7 +500,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             <Label htmlFor="special_scenarios">担当シナリオ</Label>
             
             {isLoadingAssignments ? (
-              <div className="flex items-center justify-center p-2 text-[10px] text-muted-foreground bg-gray-50 rounded border">
+              <div className="flex items-center justify-center p-2 text-[11px] text-muted-foreground bg-gray-50 rounded border">
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary mr-1.5"></div>
                 読み込み中...
               </div>
@@ -524,7 +524,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                     if (!scenario) return null
                     
                     return (
-                      <div key={assignment.scenarioId} className="flex items-center justify-between p-1 bg-gray-50 rounded text-[10px]">
+                      <div key={assignment.scenarioId} className="flex items-center justify-between p-1 bg-gray-50 rounded text-[11px]">
                         <div className="font-medium truncate flex-1 mr-1.5">
                           {scenario.title}
                         </div>
@@ -533,7 +533,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                             value={assignment.status} 
                             onValueChange={(val: any) => handleAssignmentUpdate(assignment.scenarioId, { status: val })}
                           >
-                            <SelectTrigger className="h-5 w-[80px] text-[10px]">
+                            <SelectTrigger className="h-5 w-[80px] text-[11px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

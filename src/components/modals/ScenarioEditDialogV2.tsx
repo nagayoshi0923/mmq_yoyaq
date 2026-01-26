@@ -902,7 +902,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             <DialogTitle className="text-sm shrink-0 flex items-center gap-1.5">
               <span>{scenarioId ? 'シナリオ編集' : '新規シナリオ'}</span>
               {organizationName && (
-                <span className="text-[9px] font-normal text-muted-foreground bg-muted px-1 py-0 rounded">
+                <span className="text-[11px] font-normal text-muted-foreground bg-muted px-1 py-0 rounded">
                   {organizationName}
                 </span>
               )}
@@ -911,7 +911,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-5 text-[10px] gap-0.5 text-purple-600 border-purple-300 hover:bg-purple-50 px-1.5"
+                  className="h-5 text-[11px] gap-0.5 text-purple-600 border-purple-300 hover:bg-purple-50 px-1.5"
                   onClick={() => setMasterEditDialogOpen(true)}
                 >
                   <Shield className="w-2.5 h-2.5" />
@@ -923,13 +923,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-5 text-[10px] gap-0.5 text-blue-600 border-blue-300 hover:bg-blue-50 px-1.5"
+                  className="h-5 text-[11px] gap-0.5 text-blue-600 border-blue-300 hover:bg-blue-50 px-1.5"
                   onClick={handleSyncFromMaster}
                   disabled={loadingMaster}
                 >
                   <RefreshCw className="w-2.5 h-2.5" />
                   同期
-                  <span className="bg-blue-100 text-blue-700 px-1 py-0 rounded-full text-[9px] font-medium">
+                  <span className="bg-blue-100 text-blue-700 px-1 py-0 rounded-full text-[11px] font-medium">
                     {masterDiffs.count}
                   </span>
                 </Button>
@@ -941,7 +941,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 variant="outline"
                 size="sm"
                 onClick={() => setMasterSelectOpen(true)}
-                className="shrink-0 h-5 text-[10px] px-1.5"
+                className="shrink-0 h-5 text-[11px] px-1.5"
               >
                 <BookOpen className="h-3 w-3 mr-0.5" />
                 マスタから引用
@@ -1000,10 +1000,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               </div>
             )}
           </div>
-          <DialogDescription className="flex items-center gap-1.5 text-[10px]">
+          <DialogDescription className="flex items-center gap-1.5 text-[11px]">
             <span className="truncate">{formData.title ? `${formData.title}を編集` : '情報を入力'}</span>
             {scenarioStats.firstPerformanceDate && (
-              <span className="text-[9px] bg-muted px-1 py-0 rounded shrink-0">
+              <span className="text-[11px] bg-muted px-1 py-0 rounded shrink-0">
                 {new Date(scenarioStats.firstPerformanceDate).getFullYear()}.
                 {String(new Date(scenarioStats.firstPerformanceDate).getMonth() + 1).padStart(2, '0')}.
                 {String(new Date(scenarioStats.firstPerformanceDate).getDate()).padStart(2, '0')}〜
@@ -1046,7 +1046,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="flex items-center gap-0.5 px-1.5 py-1 text-[10px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-t rounded-b-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors relative"
+                    className="flex items-center gap-0.5 px-1.5 py-1 text-[11px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-t rounded-b-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors relative"
                     onKeyDown={(e) => {
                       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                         e.preventDefault()
@@ -1085,7 +1085,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         {/* フッター（固定） */}
         <div className="flex justify-between items-center gap-1.5 px-2 sm:px-3 py-1.5 border-t bg-muted/30 shrink-0">
           {/* 現在の設定サマリー（小さい画面では非表示） */}
-          <div className="hidden md:flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
+          <div className="hidden md:flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
             <span className="font-medium text-foreground truncate max-w-[100px]">
               {formData.title || '(未設定)'}
             </span>
@@ -1108,16 +1108,16 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           <div className="flex items-center gap-1 shrink-0 w-full sm:w-auto justify-end">
             {/* ステータスバッジ */}
             {formData.status === 'draft' && (
-              <span className="text-[9px] bg-gray-100 text-gray-600 px-1 py-0 rounded">下書き</span>
+              <span className="text-[11px] bg-gray-100 text-gray-600 px-1 py-0 rounded">下書き</span>
             )}
             {formData.status === 'available' && (
-              <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0 rounded">公開中</span>
+              <span className="text-[11px] bg-green-100 text-green-700 px-1 py-0 rounded">公開中</span>
             )}
             {formData.status === 'unavailable' && (
-              <span className="text-[9px] bg-yellow-100 text-yellow-700 px-1 py-0 rounded">非公開</span>
+              <span className="text-[11px] bg-yellow-100 text-yellow-700 px-1 py-0 rounded">非公開</span>
             )}
             {saveMessage && (
-              <span className="text-green-600 font-medium text-[10px] animate-pulse">
+              <span className="text-green-600 font-medium text-[11px] animate-pulse">
                 ✓ {saveMessage}
               </span>
             )}
