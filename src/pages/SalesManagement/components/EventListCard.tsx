@@ -28,6 +28,15 @@ interface EventListCardProps {
   events: EventItem[]
   loading?: boolean
   onEditEvent?: (event: EventItem) => void
+  // 追加費用（制作費・道具費用・固定費・事務手数料）を含む正確な純利益
+  totalNetProfit?: number
+  // 追加費用の内訳（合計行に表示用）
+  additionalCosts?: {
+    productionCost: number
+    propsCost: number
+    fixedCost: number
+    franchiseFee: number  // 事務手数料（店舗のfranchise_fee合計）
+  }
 }
 
 const formatCurrency = (amount: number): string =>
@@ -67,7 +76,13 @@ const SectionHeader: React.FC<{ subtitle?: string }> = ({ subtitle }) => (
   </div>
 )
 
-const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = false, onEditEvent }) => {
+const EventListCardBase: React.FC<EventListCardProps> = ({ 
+  events, 
+  loading = false, 
+  onEditEvent,
+  totalNetProfit,
+  additionalCosts 
+}) => {
   if (loading) {
     return (
       <section className="space-y-3 sm:space-y-4">
@@ -265,8 +280,9 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
         })}
       </div>
 
-      <footer className="border-t pt-3 sm:pt-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 text-center text-sm">
+      <footer className="border-t pt-3 sm:pt-4 space-y-3">
+        {/* 公演ごとの費用合計 */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-center text-sm">
           <div>
             <p className="text-xs text-muted-foreground">総売上</p>
             <p className="text-green-600">{formatCurrency(totals.revenue)}</p>
@@ -283,10 +299,36 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
             <p className="text-xs text-muted-foreground">総FC料金</p>
             <p className="text-red-600">{formatCurrency(totals.franchise)}</p>
           </div>
-          <div>
+        </div>
+        
+        {/* 追加費用がある場合 */}
+        {additionalCosts && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-center text-sm border-t pt-2">
+            <div>
+              <p className="text-xs text-muted-foreground">制作費</p>
+              <p className="text-red-600">{formatCurrency(additionalCosts.productionCost)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">道具費用</p>
+              <p className="text-red-600">{formatCurrency(additionalCosts.propsCost)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">固定費</p>
+              <p className="text-red-600">{formatCurrency(additionalCosts.fixedCost)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">事務手数料</p>
+              <p className="text-red-600">{formatCurrency(additionalCosts.franchiseFee)}</p>
+            </div>
+          </div>
+        )}
+        
+        {/* 純利益（正確な計算） */}
+        <div className="border-t pt-2">
+          <div className="text-center">
             <p className="text-xs text-muted-foreground">総純利益</p>
-            <p className={`${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {formatCurrency(totals.profit)}
+            <p className={`text-lg font-bold ${(totalNetProfit ?? totals.profit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {formatCurrency(totalNetProfit ?? totals.profit)}
             </p>
           </div>
         </div>
