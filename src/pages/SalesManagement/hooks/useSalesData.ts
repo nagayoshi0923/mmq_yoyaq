@@ -966,7 +966,10 @@ function calculateSalesData(
       })
     }
 
-    const netProfit = (event.revenue || 0) - licenseCost - gmCost
+    // フランチャイズ店舗の場合、FC料金（事務手数料）を取得
+    const franchiseFee = (isFranchiseStore && eventStore?.franchise_fee) ? eventStore.franchise_fee : 0
+    
+    const netProfit = (event.revenue || 0) - licenseCost - gmCost - franchiseFee
 
     // 開始時間から終了時間を計算（シナリオのdurationを使用）
     const startTime = (event as SalesEvent).start_time || '10:00'
@@ -1001,6 +1004,7 @@ function calculateSalesData(
       revenue: event.revenue || 0,
       license_cost: licenseCost,
       gm_cost: gmCost,
+      franchise_fee: franchiseFee,
       net_profit: netProfit,
       participant_count: (event as SalesEvent).actual_participants || event.current_participants || 0,
       max_participants: (event as SalesEvent).max_participants || (event as SalesEvent).capacity || 8,

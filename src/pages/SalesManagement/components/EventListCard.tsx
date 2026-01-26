@@ -16,6 +16,7 @@ interface EventItem {
   revenue: number
   license_cost: number
   gm_cost: number
+  franchise_fee?: number
   net_profit: number
   participant_count: number
   max_participants?: number
@@ -92,7 +93,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
       revenue: acc.revenue + event.revenue,
       license: acc.license + event.license_cost,
       gm: acc.gm + event.gm_cost,
-      franchise: acc.franchise + 1000,
+      franchise: acc.franchise + (event.franchise_fee || 0),
       profit: acc.profit + event.net_profit
     }),
     { revenue: 0, license: 0, gm: 0, franchise: 0, profit: 0 }
@@ -173,7 +174,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">FC料金</p>
-                    <p className="text-red-600">{formatCurrency(1000)}</p>
+                    <p className="text-red-600">{formatCurrency(event.franchise_fee || 0)}</p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-xs text-muted-foreground">純利益</p>
@@ -249,7 +250,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
                   </div>
                   <div className="min-w-[80px]">
                     <p className="text-xs text-muted-foreground">FC料金</p>
-                    <p className="text-red-600">{formatCurrency(1000)}</p>
+                    <p className="text-red-600">{formatCurrency(event.franchise_fee || 0)}</p>
                   </div>
                   <div className="min-w-[80px]">
                     <p className="text-xs text-muted-foreground">純利益</p>
