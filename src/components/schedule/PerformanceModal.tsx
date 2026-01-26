@@ -534,44 +534,44 @@ export function PerformanceModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="lg" className="max-h-[90vh] sm:max-h-[min(80vh,700px)] overflow-hidden flex flex-col p-0 gap-0">
-        <DialogHeader className="px-3 sm:px-6 py-2 sm:py-4 border-b shrink-0">
-          <DialogTitle className="text-base sm:text-lg">{modalTitle}</DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">
+      <DialogContent size="lg" className="max-h-[85vh] sm:max-h-[min(75vh,560px)] overflow-hidden flex flex-col p-0 gap-0">
+        <DialogHeader className="px-2 sm:px-4 py-1.5 sm:py-2 border-b shrink-0">
+          <DialogTitle className="text-sm sm:text-base">{modalTitle}</DialogTitle>
+          <DialogDescription className="text-[10px] sm:text-xs">
             {modalDescription}
           </DialogDescription>
         </DialogHeader>
         
         <Tabs defaultValue="edit" className="w-full flex-1 flex flex-col overflow-hidden min-h-0">
-          <div className="px-3 sm:px-6 pt-2 sm:pt-4 shrink-0">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="edit" className="text-xs sm:text-sm">公演情報</TabsTrigger>
-              <TabsTrigger value="reservations" className="text-xs sm:text-sm">
+          <div className="px-2 sm:px-4 pt-1.5 sm:pt-2 shrink-0">
+            <TabsList className="grid w-full grid-cols-3 h-7 sm:h-8">
+              <TabsTrigger value="edit" className="text-[10px] sm:text-xs h-6 sm:h-7">公演情報</TabsTrigger>
+              <TabsTrigger value="reservations" className="text-[10px] sm:text-xs h-6 sm:h-7">
                 予約者
                 {event && (
-                  <Badge variant="secondary" className="ml-1 sm:ml-2 h-4 sm:h-5 px-1 sm:px-1.5 text-[10px] sm:text-xs">
+                  <Badge variant="secondary" className="ml-1 h-3.5 sm:h-4 px-1 text-[9px] sm:text-[10px]">
                     {event.is_private_request || event.is_private_booking
                       ? '満席'
                       : `${localCurrentParticipants}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
                     }
                     {staffParticipantsFromDB.length > 0 && (
-                      <span className="text-blue-600 ml-1">
-                        (+{staffParticipantsFromDB.length}スタッフ)
+                      <span className="text-blue-600 ml-0.5">
+                        (+{staffParticipantsFromDB.length})
                       </span>
                     )}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="history" className="text-xs sm:text-sm">更新履歴</TabsTrigger>
+              <TabsTrigger value="history" className="text-[10px] sm:text-xs h-6 sm:h-7">更新履歴</TabsTrigger>
             </TabsList>
           </div>
           
-          <TabsContent value="edit" className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-6 mt-0 min-h-0">
-            <div className="space-y-3 sm:space-y-4 pb-4 sm:pb-0">
+          <TabsContent value="edit" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
+            <div className="space-y-2 sm:space-y-2.5 pb-2 sm:pb-0">
           {/* 基本情報 */}
-          <div className="grid grid-cols-2 gap-2 sm:gap-4">
-            <div>
-              <Label htmlFor="date">日付</Label>
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="date" className="text-xs">日付</Label>
               <SingleDatePopover
                 date={formData.date}
                 onDateChange={(date) => {
@@ -580,8 +580,8 @@ export function PerformanceModal({
                 placeholder="日付を選択してください"
               />
             </div>
-            <div>
-              <Label htmlFor="venue">店舗</Label>
+            <div className="space-y-0.5">
+              <Label htmlFor="venue" className="text-xs">店舗</Label>
               <Select 
                 value={formData.venue} 
                 onValueChange={(value) => setFormData((prev: any) => ({ ...prev, venue: value }))}
@@ -611,8 +611,8 @@ export function PerformanceModal({
           </div>
 
           {/* シナリオ */}
-          <div>
-            <Label htmlFor="scenario">シナリオタイトル</Label>
+          <div className="space-y-0.5">
+            <Label htmlFor="scenario" className="text-xs">シナリオタイトル</Label>
             <SearchableSelect
               value={formData.scenario}
               onValueChange={(scenarioTitle) => {
@@ -715,21 +715,19 @@ export function PerformanceModal({
               onEmptyAction={() => setIsScenarioDialogOpen(true)}
             />
             {formData.is_private_request && (
-              <p className="text-xs text-purple-600 mt-1">
-                ※ 貸切リクエストのシナリオは変更できません
+              <p className="text-[10px] text-purple-600 mt-0.5">
+                ※ 貸切のシナリオ変更不可
               </p>
             )}
             {/* 未紐付けシナリオの警告表示 */}
             {formData.scenario && !scenarios.find(s => s.title === formData.scenario) && (
-              <div className="mt-1 p-2 bg-orange-50 border border-orange-200 rounded text-xs">
+              <div className="mt-0.5 p-1.5 bg-orange-50 border border-orange-200 rounded text-[10px]">
                 <div className="flex items-center gap-1 text-orange-700">
-                  <span className="font-semibold">⚠️ 未登録のシナリオ名:</span>
+                  <span className="font-semibold">⚠️ 未登録:</span>
+                  <span className="font-mono break-all">{formData.scenario}</span>
                 </div>
-                <div className="mt-1 text-orange-600 font-mono break-all">
-                  {formData.scenario}
-                </div>
-                <p className="mt-1 text-orange-500">
-                  上のプルダウンからシナリオを選択してください
+                <p className="mt-0.5 text-orange-500">
+                  プルダウンから選択してください
                 </p>
               </div>
             )}
@@ -758,9 +756,9 @@ export function PerformanceModal({
           </div>
 
           {/* 時間帯選択とGM選択 */}
-          <div className="grid grid-cols-2 gap-2 sm:gap-4">
-            <div>
-              <Label htmlFor="timeSlot">時間帯</Label>
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="timeSlot" className="text-xs">時間帯</Label>
               <Select 
                 value={timeSlot} 
                 onValueChange={(value: 'morning' | 'afternoon' | 'evening') => handleTimeSlotChange(value)}
@@ -774,14 +772,14 @@ export function PerformanceModal({
                   <SelectItem value="evening">{timeSlotDefaults.evening.label}</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                時間帯を選択すると開始・終了時間が自動設定されます
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                時間帯で開始・終了時間を自動設定
               </p>
             </div>
 
             {/* GM管理 */}
-            <div>
-              <Label htmlFor="gms">GM</Label>
+            <div className="space-y-0.5">
+              <Label htmlFor="gms" className="text-xs">GM</Label>
               <MultiSelect
                 options={(() => {
                   const options = staff
@@ -911,58 +909,59 @@ export function PerformanceModal({
                             </div>
                           </div>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-3" align="start">
-                          <div className="space-y-3">
-                            <div className="space-y-1">
-                              <h4 className="font-medium text-xs text-muted-foreground">役割を選択</h4>
+                        <PopoverContent className="w-40 p-2" align="start">
+                          <div className="space-y-1.5">
+                            <div className="space-y-0.5">
+                              <h4 className="font-medium text-[10px] text-muted-foreground">役割を選択</h4>
                               <RadioGroup 
                                 value={role} 
                                 onValueChange={(value) => setFormData((prev: any) => ({
                                   ...prev,
                                   gmRoles: { ...prev.gmRoles, [gm]: value }
                                 }))}
+                                className="gap-0.5"
                               >
-                                <div className="flex items-center space-x-2 py-1">
-                                  <RadioGroupItem value="main" id={`role-main-${index}`} />
-                                  <Label htmlFor={`role-main-${index}`} className="text-sm cursor-pointer">メインGM</Label>
+                                <div className="flex items-center space-x-1.5 py-0.5">
+                                  <RadioGroupItem value="main" id={`role-main-${index}`} className="h-3 w-3" />
+                                  <Label htmlFor={`role-main-${index}`} className="text-xs cursor-pointer">メインGM</Label>
                                 </div>
-                                <div className="flex items-center space-x-2 py-1">
-                                  <RadioGroupItem value="sub" id={`role-sub-${index}`} />
-                                  <Label htmlFor={`role-sub-${index}`} className="text-sm cursor-pointer">サブGM</Label>
+                                <div className="flex items-center space-x-1.5 py-0.5">
+                                  <RadioGroupItem value="sub" id={`role-sub-${index}`} className="h-3 w-3" />
+                                  <Label htmlFor={`role-sub-${index}`} className="text-xs cursor-pointer">サブGM</Label>
                                 </div>
-                                <div className="flex items-center space-x-2 py-1">
-                                  <RadioGroupItem value="reception" id={`role-reception-${index}`} />
-                                  <Label htmlFor={`role-reception-${index}`} className="text-sm cursor-pointer">受付</Label>
+                                <div className="flex items-center space-x-1.5 py-0.5">
+                                  <RadioGroupItem value="reception" id={`role-reception-${index}`} className="h-3 w-3" />
+                                  <Label htmlFor={`role-reception-${index}`} className="text-xs cursor-pointer">受付</Label>
                                 </div>
-                                <div className="flex items-center space-x-2 py-1">
-                                  <RadioGroupItem value="staff" id={`role-staff-${index}`} />
-                                  <Label htmlFor={`role-staff-${index}`} className="text-sm cursor-pointer">スタッフ参加</Label>
+                                <div className="flex items-center space-x-1.5 py-0.5">
+                                  <RadioGroupItem value="staff" id={`role-staff-${index}`} className="h-3 w-3" />
+                                  <Label htmlFor={`role-staff-${index}`} className="text-xs cursor-pointer">スタッフ参加</Label>
                                 </div>
-                                <div className="flex items-center space-x-2 py-1">
-                                  <RadioGroupItem value="observer" id={`role-observer-${index}`} />
-                                  <Label htmlFor={`role-observer-${index}`} className="text-sm cursor-pointer">スタッフ見学</Label>
+                                <div className="flex items-center space-x-1.5 py-0.5">
+                                  <RadioGroupItem value="observer" id={`role-observer-${index}`} className="h-3 w-3" />
+                                  <Label htmlFor={`role-observer-${index}`} className="text-xs cursor-pointer">スタッフ見学</Label>
                                 </div>
                               </RadioGroup>
                             </div>
                             
                             {role === 'sub' && (
-                              <p className="text-[10px] text-blue-600 bg-blue-50 p-1 rounded">
-                                ※サブGM給与が適用されます
+                              <p className="text-[9px] text-blue-600 bg-blue-50 p-0.5 rounded">
+                                ※サブGM給与適用
                               </p>
                             )}
                             {role === 'reception' && (
-                              <p className="text-[10px] text-orange-600 bg-orange-50 p-1 rounded">
-                                ※受付業務（報酬: 2,000円）
+                              <p className="text-[9px] text-orange-600 bg-orange-50 p-0.5 rounded">
+                                ※受付（2,000円）
                               </p>
                             )}
                             {role === 'staff' && (
-                              <p className="text-[10px] text-green-600 bg-green-50 p-1 rounded">
-                                ※スタッフ参加（参加者としてカウント）
+                              <p className="text-[9px] text-green-600 bg-green-50 p-0.5 rounded">
+                                ※参加者カウント
                               </p>
                             )}
                             {role === 'observer' && (
-                              <p className="text-[10px] text-indigo-600 bg-indigo-50 p-1 rounded">
-                                ※見学のみ（参加者にカウントされない）
+                              <p className="text-[9px] text-indigo-600 bg-indigo-50 p-0.5 rounded">
+                                ※見学のみ
                               </p>
                             )}
                           </div>
@@ -998,9 +997,9 @@ export function PerformanceModal({
           </div>
 
           {/* 時間設定 */}
-          <div className="grid grid-cols-2 gap-2 sm:gap-4">
-            <div>
-              <Label htmlFor="start_time">開始時間</Label>
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="start_time" className="text-xs">開始時間</Label>
               <Select 
                 value={formData.start_time?.slice(0, 5)} 
                 onValueChange={handleStartTimeChange}
@@ -1016,18 +1015,18 @@ export function PerformanceModal({
                 </SelectContent>
               </Select>
               {mode === 'edit' && formData.start_time && !formData.is_private_request && (
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-[10px] text-muted-foreground mt-0.5">
                   現在: {formData.start_time.slice(0, 5)}
                 </p>
               )}
               {formData.is_private_request && (
-                <p className="text-xs text-purple-600 mt-1">
-                  ※ 貸切リクエストの日時は変更できません
+                <p className="text-[10px] text-purple-600 mt-0.5">
+                  ※ 貸切の日時変更不可
                 </p>
               )}
             </div>
-            <div>
-              <Label htmlFor="end_time">終了時間</Label>
+            <div className="space-y-0.5">
+              <Label htmlFor="end_time" className="text-xs">終了時間</Label>
               <Select 
                 value={formData.end_time?.slice(0, 5)} 
                 onValueChange={(value) => setFormData((prev: any) => ({ ...prev, end_time: value }))}
@@ -1043,7 +1042,7 @@ export function PerformanceModal({
                 </SelectContent>
               </Select>
               {mode === 'edit' && formData.end_time && !formData.is_private_request && (
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-[10px] text-muted-foreground mt-0.5">
                   現在: {formData.end_time.slice(0, 5)}
                 </p>
               )}
@@ -1051,9 +1050,9 @@ export function PerformanceModal({
           </div>
 
           {/* カテゴリと参加者数 */}
-          <div className="grid grid-cols-2 gap-2 sm:gap-4">
-            <div>
-              <Label htmlFor="category">公演カテゴリ</Label>
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="category" className="text-xs">公演カテゴリ</Label>
               <Select 
                 value={formData.category} 
                 onValueChange={(value: string) => {
@@ -1086,16 +1085,16 @@ export function PerformanceModal({
                 </SelectContent>
               </Select>
               {formData.is_private_request && (
-                <p className="text-xs text-purple-600 mt-1">
-                  ※ 貸切リクエストのため変更できません
+                <p className="text-[10px] text-purple-600 mt-0.5">
+                  ※ 貸切のため変更不可
                 </p>
               )}
             </div>
             
             {/* 場所貸しの場合、公演料金フィールドを表示 */}
             {(formData.category === 'venue_rental' || formData.category === 'venue_rental_free') && (
-              <div>
-                <Label htmlFor="venue_rental_fee">公演料金</Label>
+              <div className="space-y-0.5">
+                <Label htmlFor="venue_rental_fee" className="text-xs">公演料金</Label>
                 <Input
                   id="venue_rental_fee"
                   type="number"
@@ -1107,15 +1106,16 @@ export function PerformanceModal({
                     ...prev, 
                     venue_rental_fee: e.target.value ? parseInt(e.target.value) : undefined 
                   }))}
+                  className="h-8"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  ※ 未入力の場合は12,000円が適用されます
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  ※ 未入力時は12,000円
                 </p>
               </div>
             )}
             
-            <div>
-              <Label htmlFor="max_participants">最大参加者数</Label>
+            <div className="space-y-0.5">
+              <Label htmlFor="max_participants" className="text-xs">最大参加者数</Label>
               <Input
                 id="max_participants"
                 type="number"
@@ -1124,15 +1124,16 @@ export function PerformanceModal({
                 value={formData.max_participants}
                 onChange={(e) => setFormData((prev: any) => ({ ...prev, max_participants: parseInt(e.target.value) || DEFAULT_MAX_PARTICIPANTS }))}
                 disabled={formData.is_private_request}
+                className="h-8"
               />
               {formData.scenario && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  ※ シナリオから自動設定されました
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  ※ シナリオから自動設定
                 </p>
               )}
               {formData.is_private_request && (
-                <p className="text-xs text-purple-600 mt-1">
-                  ※ 貸切公演は最大人数固定です
+                <p className="text-[10px] text-purple-600 mt-0.5">
+                  ※ 貸切は固定
                 </p>
               )}
             </div>
@@ -1140,29 +1141,31 @@ export function PerformanceModal({
 
           {/* 予約者名（貸切の場合のみ表示） */}
           {(formData.category === 'private' || formData.is_private_request) && (
-            <div>
-              <Label htmlFor="reservation_name">予約者名</Label>
+            <div className="space-y-0.5">
+              <Label htmlFor="reservation_name" className="text-xs">予約者名</Label>
               <Input
                 id="reservation_name"
                 value={formData.reservation_name || ''}
                 onChange={(e) => setFormData((prev: any) => ({ ...prev, reservation_name: e.target.value }))}
                 placeholder="予約者名を入力"
+                className="h-8"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                ※ MMQ予約の場合は自動で設定されます
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                ※ MMQ予約は自動設定
               </p>
             </div>
           )}
 
           {/* 備考 */}
-          <div>
-            <Label htmlFor="notes">備考</Label>
+          <div className="space-y-0.5">
+            <Label htmlFor="notes" className="text-xs">備考</Label>
             <Textarea
               id="notes"
               value={formData.notes}
               onChange={(e) => setFormData((prev: any) => ({ ...prev, notes: e.target.value }))}
               placeholder="備考があれば入力してください"
-              rows={3}
+              rows={2}
+              className="text-xs min-h-[48px]"
             />
           </div>
         </div>
@@ -1170,7 +1173,7 @@ export function PerformanceModal({
           {/* アクションボタン削除 */}
           </TabsContent>
           
-          <TabsContent value="reservations" className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-6 mt-0 min-h-0">
+          <TabsContent value="reservations" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
             <ReservationList
               event={event || null}
               currentEventData={formData}
@@ -1187,7 +1190,7 @@ export function PerformanceModal({
             />
           </TabsContent>
 
-          <TabsContent value="history" className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-6 mt-0 min-h-0">
+          <TabsContent value="history" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
             <EventHistoryTab 
               eventId={event?.id} 
               cellInfo={formData.date && formData.venue ? {
@@ -1201,7 +1204,7 @@ export function PerformanceModal({
         </Tabs>
 
         {/* フッターアクションボタン */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-2 sm:p-4 border-t bg-background shrink-0">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 p-1.5 sm:p-2 border-t bg-background shrink-0">
           {/* 左側：シナリオ情報（省スペース表示） */}
           <div className="flex-1 min-w-0 hidden sm:block">
             {formData.scenario && (() => {
@@ -1225,8 +1228,8 @@ export function PerformanceModal({
                 const fee = getParticipationFee()
                 
                 return (
-                  <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm font-medium">
-                    <span>{selectedScenario.duration}時間</span>
+                  <div className="flex items-center gap-2 text-[10px] sm:text-xs font-medium">
+                    <span>{selectedScenario.duration}h</span>
                     <span className="text-muted-foreground">|</span>
                     <span>最大{selectedScenario.player_count_max}名</span>
                     {fee && (
@@ -1243,11 +1246,11 @@ export function PerformanceModal({
           </div>
           
           {/* 右側：ボタン */}
-          <div className="flex gap-2 shrink-0 w-full sm:w-auto justify-end">
-            <Button variant="outline" onClick={onClose} className="min-w-[80px] sm:min-w-[100px] text-xs sm:text-sm h-8 sm:h-10">
+          <div className="flex gap-1.5 shrink-0 w-full sm:w-auto justify-end">
+            <Button variant="outline" onClick={onClose} className="min-w-[60px] sm:min-w-[80px] text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
               キャンセル
             </Button>
-            <Button onClick={handleSave} className="min-w-[80px] sm:min-w-[100px] text-xs sm:text-sm h-8 sm:h-10">
+            <Button onClick={handleSave} className="min-w-[60px] sm:min-w-[80px] text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3">
               {mode === 'add' ? '追加' : '保存'}
             </Button>
           </div>
