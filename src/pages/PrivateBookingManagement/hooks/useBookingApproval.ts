@@ -267,19 +267,11 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
       if (fetchError) throw fetchError
 
-      const { error } = await supabase
-        .from('reservations')
-        .update({
-          status: 'cancelled',
-          cancellation_reason: rejectionReason,
-          cancelled_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', rejectRequestId)
+      // 予約をキャンセル（在庫返却 + 通知）
+      // 貸切予約の却下なので、reservationApi.cancel()を使用してキャンセル待ち通知も送信
+      await reservationApi.cancel(rejectRequestId, rejectionReason)
 
-      if (error) throw error
-
-      // 却下メールを送信
+      // 却下メール（貸切専用）を送信
       if (reservation && reservation.customers) {
         try {
           // 候補日時を取得
