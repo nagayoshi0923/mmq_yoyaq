@@ -312,17 +312,17 @@ export function useSalesData() {
 }
 
 /**
- * フランチャイズ店舗向けのライセンス金額（作者への支払い）を取得
- * 優先順位：FC専用 → 他店公演時 → 自店用
+ * フランチャイズ店舗が本店に支払うライセンス金額（受取金額）を取得
+ * 優先順位：FC専用受取 → 他店受取 → 自店用ライセンス
  */
 function getFranchiseLicenseAmount(
   scenario: {
-    // フランチャイズ専用（最優先）
-    fc_author_license_amount?: number | null;
-    fc_author_gm_test_license_amount?: number | null;
-    // 他店公演時（次の優先）
-    franchise_license_amount?: number | null;
-    franchise_gm_test_license_amount?: number | null;
+    // フランチャイズ専用受取金額（最優先）
+    fc_receive_license_amount?: number | null;
+    fc_receive_gm_test_license_amount?: number | null;
+    // 他店公演時受取金額（次の優先）
+    external_license_amount?: number | null;
+    external_gm_test_license_amount?: number | null;
     // 自店用（フォールバック）
     license_amount?: number | null;
     gm_test_license_amount?: number | null;
@@ -330,25 +330,23 @@ function getFranchiseLicenseAmount(
   isGmTest: boolean
 ): number {
   if (isGmTest) {
-    // FC専用GMテスト → 他店GMテスト → 他店通常 → 自店GMテスト → 自店通常
+    // FC専用GMテスト受取 → 他店GMテスト受取 → 自店GMテスト → 自店通常
     return (
-      (scenario.fc_author_gm_test_license_amount != null && scenario.fc_author_gm_test_license_amount !== 0)
-        ? scenario.fc_author_gm_test_license_amount
-        : (scenario.franchise_gm_test_license_amount != null && scenario.franchise_gm_test_license_amount !== 0) 
-          ? scenario.franchise_gm_test_license_amount 
-          : (scenario.franchise_license_amount != null && scenario.franchise_license_amount !== 0)
-            ? scenario.franchise_license_amount
-            : (scenario.gm_test_license_amount != null && scenario.gm_test_license_amount !== 0)
-              ? scenario.gm_test_license_amount
-              : (scenario.license_amount ?? 0)
+      (scenario.fc_receive_gm_test_license_amount != null && scenario.fc_receive_gm_test_license_amount !== 0)
+        ? scenario.fc_receive_gm_test_license_amount
+        : (scenario.external_gm_test_license_amount != null && scenario.external_gm_test_license_amount !== 0) 
+          ? scenario.external_gm_test_license_amount 
+          : (scenario.gm_test_license_amount != null && scenario.gm_test_license_amount !== 0)
+            ? scenario.gm_test_license_amount
+            : (scenario.license_amount ?? 0)
     )
   } else {
-    // FC専用通常 → 他店通常 → 自店通常
+    // FC専用通常受取 → 他店通常受取 → 自店通常
     return (
-      (scenario.fc_author_license_amount != null && scenario.fc_author_license_amount !== 0)
-        ? scenario.fc_author_license_amount
-        : (scenario.franchise_license_amount != null && scenario.franchise_license_amount !== 0)
-          ? scenario.franchise_license_amount
+      (scenario.fc_receive_license_amount != null && scenario.fc_receive_license_amount !== 0)
+        ? scenario.fc_receive_license_amount
+        : (scenario.external_license_amount != null && scenario.external_license_amount !== 0)
+          ? scenario.external_license_amount
           : (scenario.license_amount ?? 0)
     )
   }
