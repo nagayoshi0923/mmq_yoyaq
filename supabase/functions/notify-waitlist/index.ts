@@ -9,7 +9,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getEmailSettings } from '../_shared/organization-settings.ts'
+import { getEmailSettings, getEmailTemplates } from '../_shared/organization-settings.ts'
 import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse } from '../_shared/security.ts'
 
 interface NotifyWaitlistRequest {
@@ -190,6 +190,9 @@ serve(async (req) => {
     // 24時間後を回答期限として設定
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 
+    // 🎨 組織別メールテンプレートを取得
+    const emailTemplates = await getEmailTemplates(serviceClient, data.organizationId)
+
     // 各エントリーにメール送信
     const emailPromises = notifiedEntries.map(async (entry) => {
       const emailHtml = `
@@ -262,8 +265,8 @@ serve(async (req) => {
   </div>
 
   <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px;">
-    <p style="margin: 5px 0;">Murder Mystery Queue (MMQ)</p>
-    <p style="margin: 5px 0;">このメールは自動送信されています</p>
+    <p style="margin: 5px 0; white-space: pre-line;">${emailTemplates.signature}</p>
+    <p style="margin: 10px 0; font-size: 11px;">${emailTemplates.footer}</p>
   </div>
 </body>
 </html>
@@ -299,8 +302,9 @@ ${data.bookingUrl}
 
 予約が完了しましたら、キャンセル待ちは自動的に解除されます。
 
-Murder Mystery Queue (MMQ)
-このメールは自動送信されています
+${emailTemplates.signature}
+
+${emailTemplates.footer}
       `
 
       try {
