@@ -177,39 +177,40 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       logger.warn('スタッフの削除機能は除去されました。既存レコードの更新で対応してください。')
       throw new Error('アカウント紐付けは現在サポートされていません。既存スタッフ情報を直接編集してください。')
       
+      // 以下は到達しないコード（上でthrowしているため）
       // 3. 新規ユーザーとスタッフレコードを作成
-      const result = await inviteStaff(request)
+      // const result = await inviteStaff(request)
       
-      if (result.success && result.data) {
-        // 4. シナリオ割り当て情報を新しいスタッフIDで復元
-        if (existingAssignments && existingAssignments.length > 0) {
-          const newStaffId = result.data.staff_id
-          const assignmentsToInsert = existingAssignments.map(assignment => ({
-            staff_id: newStaffId,
-            scenario_id: assignment.scenario_id,
-            can_gm: assignment.can_gm,
-            has_experienced: assignment.has_experienced,
-            organization_id: linkingStaff.organization_id
-          }))
+      // if (result.success && result.data) {
+      //   // 4. シナリオ割り当て情報を新しいスタッフIDで復元
+      //   if (existingAssignments && existingAssignments.length > 0) {
+      //     const newStaffId = result.data.staff_id
+      //     const assignmentsToInsert = existingAssignments.map(assignment => ({
+      //       staff_id: newStaffId,
+      //       scenario_id: assignment.scenario_id,
+      //       can_gm: assignment.can_gm,
+      //       has_experienced: assignment.has_experienced,
+      //       organization_id: linkingStaff.organization_id
+      //     }))
           
-          const { error: insertError } = await supabase
-            .from('staff_scenario_assignments')
-            .insert(assignmentsToInsert)
+      //     const { error: insertError } = await supabase
+      //       .from('staff_scenario_assignments')
+      //       .insert(assignmentsToInsert)
           
-          if (insertError) {
-            logger.warn('シナリオ割り当て情報の復元に失敗:', insertError)
-          } else {
-            logger.log('シナリオ割り当て情報を復元:', assignmentsToInsert.length, '件')
-          }
-        }
+      //     if (insertError) {
+      //       logger.warn('シナリオ割り当て情報の復元に失敗:', insertError)
+      //     } else {
+      //       logger.log('シナリオ割り当て情報を復元:', assignmentsToInsert.length, '件')
+      //     }
+      //   }
         
-        // スタッフリストを再取得
-        await queryClient.invalidateQueries({ queryKey: staffKeys.all })
-        showToast.success(`${linkingStaff.name}さんを招待しました！`, `招待メールを${email}に送信しました`)
-        onSuccess?.()
-      } else {
-        throw new Error(result.error || '招待に失敗しました')
-      }
+      //   // スタッフリストを再取得
+      //   await queryClient.invalidateQueries({ queryKey: staffKeys.all })
+      //   showToast.success(`${linkingStaff.name}さんを招待しました！`, `招待メールを${email}に送信しました`)
+      //   onSuccess?.()
+      // } else {
+      //   throw new Error(result.error || '招待に失敗しました')
+      // }
     } catch (err: any) {
       logger.error('Error inviting and linking:', err)
       const errorMessage = '招待に失敗しました: ' + err.message

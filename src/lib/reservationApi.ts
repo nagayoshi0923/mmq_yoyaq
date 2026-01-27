@@ -242,7 +242,7 @@ export const reservationApi = {
   },
 
   // 予約をキャンセル（RPC + FOR UPDATE）
-  async cancelWithLock(reservationId: string, customerId: string, reason?: string): Promise<boolean> {
+  async cancelWithLock(reservationId: string, customerId: string | null, reason?: string): Promise<boolean> {
     const { data, error } = await supabase.rpc('cancel_reservation_with_lock', {
       p_reservation_id: reservationId,
       p_customer_id: customerId,
