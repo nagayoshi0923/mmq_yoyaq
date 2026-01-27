@@ -10,8 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { HelpButton } from '@/components/ui/help-button'
-import { Users, Shield, AlertCircle, Search, UserCog, User as UserIcon, Trash2 } from 'lucide-react'
-import { searchUserByEmail, getAllUsers, updateUserRole, deleteUser, type User } from '@/lib/userApi'
+import { Users, Shield, AlertCircle, Search, UserCog, User as UserIcon } from 'lucide-react'
+import { searchUserByEmail, getAllUsers, updateUserRole, type User } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
 
 export function UserManagementContent() {
@@ -23,7 +23,6 @@ export function UserManagementContent() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [showAllUsers, setShowAllUsers] = useState(false)
-  const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [roleChangeConfirm, setRoleChangeConfirm] = useState<{ user: User; newRole: 'admin' | 'staff' | 'customer' | 'license_admin' } | null>(null)
 
   // 管理者チェック（admin または license_admin）
@@ -125,40 +124,6 @@ export function UserManagementContent() {
     }
   }
 
-  // ユーザーを削除
-  const handleDeleteUser = async () => {
-    if (!userToDelete) return
-
-    setLoading(true)
-    setError('')
-    setMessage('')
-
-    try {
-      await deleteUser(userToDelete.id)
-      setMessage(`ユーザー ${userToDelete.email} を削除しました`)
-      
-      if (searchResult && searchResult.id === userToDelete.id) {
-        setSearchResult(null)
-      }
-
-      if (showAllUsers) {
-        await loadAllUsers()
-      }
-
-      setUserToDelete(null)
-    } catch (err: any) {
-      logger.error('ユーザー削除エラー:', err)
-      
-      if (err.code === '23503') {
-        setError('このユーザーは他のデータから参照されているため削除できません。先に関連データを削除してください。')
-      } else {
-        setError('ユーザーの削除に失敗しました: ' + (err.message || err.code || ''))
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'admin':
@@ -253,19 +218,6 @@ export function UserManagementContent() {
                 顧客
               </Button>
             </div>
-          </div>
-
-          <div className="pt-3 sm:pt-4 border-t">
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setUserToDelete(userData)}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 text-xs sm:text-sm"
-            >
-              <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
-              ユーザーを削除
-            </Button>
           </div>
 
           <div className="pt-3 border-t text-xs text-gray-500">
@@ -416,17 +368,6 @@ export function UserManagementContent() {
                               <UserIcon className="w-4 h-4 sm:w-4 sm:h-4 text-gray-600" />
                               <span className="hidden sm:inline">顧客</span>
                             </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => setUserToDelete(userData)}
-                              disabled={loading}
-                              className="flex items-center gap-1 text-xs h-8 sm:h-auto sm:px-3 px-2"
-                              title="削除"
-                            >
-                              <Trash2 className="w-4 h-4 sm:w-4 sm:h-4" />
-                              <span className="hidden sm:inline">削除</span>
-                            </Button>
                           </div>
                         </div>
                       </div>
@@ -505,40 +446,6 @@ export function UserManagementContent() {
               disabled={loading}
             >
               {loading ? '変更中...' : '変更する'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 削除確認ダイアログ */}
-      <Dialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>ユーザーを削除</DialogTitle>
-            <DialogDescription>
-              本当にこのユーザーを削除しますか？この操作は取り消せません。
-            </DialogDescription>
-          </DialogHeader>
-          {userToDelete && (
-            <div className="py-4">
-              <p className="text-sm"><strong>メールアドレス:</strong> {userToDelete.email}</p>
-              <p className="text-sm"><strong>ロール:</strong> {getRoleLabel(userToDelete.role)}</p>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setUserToDelete(null)}
-              disabled={loading}
-            >
-              キャンセル
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteUser}
-              disabled={loading}
-            >
-              {loading ? '削除中...' : '削除する'}
             </Button>
           </DialogFooter>
         </DialogContent>
