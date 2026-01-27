@@ -125,14 +125,14 @@ export const useStaffData = (): UseStaffDataReturn => {
 
   const handleDeleteStaff = useCallback(async (staffId: string) => {
     try {
-      await staffApi.delete(staffId)
-      await loadStaff()
+      // 削除機能は除去されました（データ保護のため）
+      showToast.error('スタッフの削除機能は利用できません', 'データ保護のため、スタッフ情報は保持されます。')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
       logger.error('Error deleting staff:', err)
       showToast.error('スタッフの削除に失敗しました', message)
     }
-  }, [loadStaff])
+  }, [])
 
   return {
     staff,

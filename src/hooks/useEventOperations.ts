@@ -1329,32 +1329,6 @@ export function useEventOperations({
         ))
 
         // キャンセル確認メールは reservationApi.cancel() 内で送信済み
-        // 以下の重複送信コードは削除
-        if (false && reservation && reservation.customers) {
-          try {
-            await supabase.functions.invoke('send-cancellation-confirmation', {
-              body: {
-                reservationId: reservation.id,
-                customerEmail: reservation.customers.email,
-                customerName: reservation.customers.name,
-                scenarioTitle: reservation.scenario_title || cancellingEvent.scenario,
-                eventDate: cancellingEvent.date,
-                startTime: cancellingEvent.start_time,
-                endTime: cancellingEvent.end_time,
-                storeName: cancellingEvent.venue,
-                participantCount: reservation.participant_count,
-                totalPrice: reservation.total_price || 0,
-                reservationNumber: reservation.reservation_number,
-                cancelledBy: 'store',
-                cancellationReason: '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
-              }
-            })
-            logger.log('キャンセル確認メール送信成功')
-          } catch (emailError) {
-            logger.error('キャンセル確認メール送信エラー:', emailError)
-            // メール送信失敗してもキャンセル処理は続行
-          }
-        }
       } else {
         // 通常公演の中止処理
         await scheduleApi.toggleCancel(cancellingEvent.id, true)

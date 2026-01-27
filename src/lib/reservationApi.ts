@@ -446,17 +446,23 @@ export const reservationApi = {
 
         // キャンセル待ち通知を送信
         if (reservation.schedule_event_id && reservation.organization_id) {
+          // 組織のslugを取得（tryの外で定義してcatchでも使えるようにする）
+          let orgSlug = 'queens-waltz'
           try {
-            // 組織のslugを取得
             const { data: org } = await supabase
               .from('organizations')
               .select('slug')
               .eq('id', reservation.organization_id)
               .single()
             
-            const orgSlug = org?.slug || 'queens-waltz'
-            const bookingUrl = `${window.location.origin}/${orgSlug}`
-            
+            orgSlug = org?.slug || 'queens-waltz'
+          } catch (orgError) {
+            logger.warn('組織slug取得エラー、デフォルト値を使用:', orgError)
+          }
+          
+          const bookingUrl = `${window.location.origin}/${orgSlug}`
+          
+          try {
             const notificationData = {
               organizationId: reservation.organization_id,
               scheduleEventId: reservation.schedule_event_id,
@@ -487,7 +493,7 @@ export const reservationApi = {
                 start_time: scheduleEvent?.start_time,
                 end_time: scheduleEvent?.end_time,
                 store_name: storeName,
-                booking_url: `${window.location.origin}/${org?.slug || 'queens-waltz'}`,
+                booking_url: bookingUrl,
                 last_error: waitlistError instanceof Error ? waitlistError.message : String(waitlistError),
                 status: 'pending'
               })

@@ -413,6 +413,7 @@ export interface SalesData {
   totalProductionCost: number
   totalPropsCost: number
   totalFixedCost: number
+  totalFranchiseFee?: number
   fixedCostBreakdown: Array<{
     item: string
     amount: number

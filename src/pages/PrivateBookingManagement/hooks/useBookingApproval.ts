@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { useOrganization } from '@/hooks/useOrganization'
+import { reservationApi } from '@/lib/reservationApi'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 
 interface UseBookingApprovalProps {

@@ -463,7 +463,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           stores={modalData.stores}
           scenarios={modalData.scenarios}
           staff={modalData.staff}
-          events={salesData?.eventList || []}
+          events={(salesData?.eventList || []) as any}
           availableStaffByScenario={modalData.availableStaffByScenario}
           allAvailableStaff={modalData.staff}
           onScenariosUpdate={async () => {

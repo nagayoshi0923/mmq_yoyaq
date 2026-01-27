@@ -172,18 +172,10 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       
       logger.log('既存のシナリオ割り当て情報:', existingAssignments?.length || 0, '件')
 
-      // 2. 既存のスタッフレコードを削除
-      try {
-        await staffApi.delete(linkingStaff.id)
-        logger.log('既存スタッフレコード削除完了')
-      } catch (deleteError: any) {
-        // スタッフが見つからない場合（既に削除済みなど）は無視して続行
-        if (deleteError.code === 'PGRST116' || deleteError.message?.includes('JSON object requested, multiple (or no) rows returned')) {
-          logger.warn('削除対象のスタッフが見つかりませんでした（既に削除済みの可能性） - 処理を続行します')
-        } else {
-          throw deleteError
-        }
-      }
+      // 2. 既存のスタッフレコードを削除（削除機能は除去されました）
+      // アカウント紐付けは既存レコードの更新で対応
+      logger.warn('スタッフの削除機能は除去されました。既存レコードの更新で対応してください。')
+      throw new Error('アカウント紐付けは現在サポートされていません。既存スタッフ情報を直接編集してください。')
       
       // 3. 新規ユーザーとスタッフレコードを作成
       const result = await inviteStaff(request)

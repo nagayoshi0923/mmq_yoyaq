@@ -254,14 +254,14 @@ export function useStaffOperations() {
     setDeleteDialogOpen(true)
   }, [])
 
-  // スタッフ削除
+  // スタッフ削除（削除機能は除去されました）
   const handleDeleteStaff = useCallback(async () => {
     if (!staffToDelete) return
 
     try {
       setLoading(true)
-      await staffApi.delete(staffToDelete.id)
-      await loadStaff()
+      // 削除機能は除去されました（データ保護のため）
+      setError('スタッフの削除機能は利用できません。データ保護のため、スタッフ情報は保持されます。')
       setDeleteDialogOpen(false)
       setStaffToDelete(null)
     } catch (err: unknown) {
@@ -271,7 +271,7 @@ export function useStaffOperations() {
     } finally {
       setLoading(false)
     }
-  }, [staffToDelete, loadStaff])
+  }, [staffToDelete])
 
   // 紐付けモーダルを開く
   const openLinkModal = useCallback((member: Staff) => {

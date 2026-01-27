@@ -472,7 +472,7 @@ ${content.organizationName || '店舗'}
         await reservationApi.cancelWithLock(
           cancellingReservation.id,
           cancellingReservation.customer_id ?? null,
-          cancelEmailContent?.cancellationReason || 'スタッフによるキャンセル'
+          emailContent?.cancellationReason || 'スタッフによるキャンセル'
         )
       } else {
         // 顧客予約: reservationApi.cancel()を使用（在庫返却 + キャンセル待ち通知）
@@ -480,7 +480,7 @@ ${content.organizationName || '店舗'}
         await reservationApi.cancelWithLock(
           cancellingReservation.id,
           cancellingReservation.customer_id ?? null,
-          cancelEmailContent?.cancellationReason || 'スタッフによるキャンセル'
+          emailContent?.cancellationReason || 'スタッフによるキャンセル'
         )
         
         // キャンセル待ち通知を送信
