@@ -1,4 +1,4 @@
-import { Edit, Link2, Trash2, Unlink, CheckCircle2, AlertCircle, Clock, HelpCircle, MailPlus } from 'lucide-react'
+import { Edit, Link2, Unlink, CheckCircle2, AlertCircle, Clock, HelpCircle, MailPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -13,7 +13,6 @@ interface StaffTableActions {
   onEdit: (member: Staff) => void
   onLink: (member: Staff) => void
   onUnlink: (member: Staff) => void
-  onDelete: (member: Staff) => void
   onReinvite?: (member: Staff) => void
 }
 
@@ -68,7 +67,7 @@ export function createStaffColumns(
   actions: StaffTableActions
 ): Column<Staff>[] {
   const { stores, getScenarioName, getAuthStatus } = context
-  const { onEdit, onLink, onUnlink, onDelete, onReinvite } = actions
+  const { onEdit, onLink, onUnlink, onReinvite } = actions
 
   return [
     {
@@ -352,22 +351,6 @@ export function createStaffColumns(
             </TooltipTrigger>
             <TooltipContent>
               <p className="text-xs">編集</p>
-            </TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => onDelete(staff)}
-                className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="text-xs">削除</p>
             </TooltipContent>
           </Tooltip>
         </div>

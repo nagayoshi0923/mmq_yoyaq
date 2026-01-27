@@ -131,28 +131,13 @@ export function useStaffOperations() {
     }
   }, [staff, loadStaff])
 
-  /**
-   * スタッフを削除
-   */
-  const deleteStaff = useCallback(async (staffId: string) => {
-    try {
-      await staffApi.delete(staffId)
-      // 削除成功後、リストから除去
-      setStaff(prev => prev.filter(s => s.id !== staffId))
-    } catch (err: any) {
-      logger.error('Error deleting staff:', err)
-      throw new Error('スタッフの削除に失敗しました: ' + err.message)
-    }
-  }, [])
-
   return {
     staff,
     loading,
     error,
     setStaff,
     loadStaff,
-    saveStaff,
-    deleteStaff
+    saveStaff
   }
 }
 

@@ -168,30 +168,3 @@ export function useStaffMutation() {
     },
   })
 }
-
-export function useDeleteStaffMutation() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (staffId: string) => staffApi.delete(staffId),
-    onMutate: async (staffId) => {
-      await queryClient.cancelQueries({ queryKey: staffKeys.all })
-      const previous = queryClient.getQueryData<Staff[]>(staffKeys.all)
-      
-      queryClient.setQueryData<Staff[]>(staffKeys.all, (old = []) => {
-        return old.filter(s => s.id !== staffId)
-      })
-      
-      return { previous }
-    },
-    onError: (err, staffId, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(staffKeys.all, context.previous)
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.all })
-    },
-  })
-}
-

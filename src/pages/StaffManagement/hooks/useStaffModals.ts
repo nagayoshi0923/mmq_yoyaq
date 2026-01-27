@@ -22,10 +22,6 @@ export function useStaffModals() {
   // ユーザー検索状態
   const [searchEmail, setSearchEmail] = useState('')
   const [searchedUser, setSearchedUser] = useState<{ id: string; email: string; role: string } | null>(null)
-  
-  // 削除確認ダイアログ
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [staffToDelete, setStaffToDelete] = useState<Staff | null>(null)
 
   /**
    * 編集モーダルを開く
@@ -79,22 +75,6 @@ export function useStaffModals() {
     setSearchedUser(null)
   }, [])
 
-  /**
-   * 削除確認ダイアログを開く
-   */
-  const openDeleteDialog = useCallback((staffMember: Staff) => {
-    setStaffToDelete(staffMember)
-    setDeleteDialogOpen(true)
-  }, [])
-
-  /**
-   * 削除確認ダイアログを閉じる
-   */
-  const closeDeleteDialog = useCallback(() => {
-    setDeleteDialogOpen(false)
-    setStaffToDelete(null)
-  }, [])
-
   return {
     // 編集モーダル
     isEditModalOpen,
@@ -123,13 +103,7 @@ export function useStaffModals() {
     searchEmail,
     setSearchEmail,
     searchedUser,
-    setSearchedUser,
-    
-    // 削除確認ダイアログ
-    deleteDialogOpen,
-    staffToDelete,
-    openDeleteDialog,
-    closeDeleteDialog
+    setSearchedUser
   }
 }
 
