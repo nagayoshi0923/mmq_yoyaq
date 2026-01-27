@@ -1125,6 +1125,40 @@ ${content.organizationName || '店舗'}
                                     )
                                   )
                                   
+                                  // 🔔 人数が減少した場合、キャンセル待ちに通知
+                                  const oldCount = reservation.participant_count || 0
+                                  const freedSeats = oldCount - newCount
+                                  if (freedSeats > 0 && event) {
+                                    try {
+                                      const { data: org } = await supabase
+                                        .from('organizations')
+                                        .select('slug')
+                                        .eq('id', event.organization_id)
+                                        .single()
+                                      
+                                      const orgSlug = org?.slug || 'queens-waltz'
+                                      const bookingUrl = `${window.location.origin}/${orgSlug}`
+                                      
+                                      await supabase.functions.invoke('notify-waitlist', {
+                                        body: {
+                                          organizationId: event.organization_id,
+                                          scheduleEventId: event.id,
+                                          freedSeats,
+                                          scenarioTitle: event.scenario || '',
+                                          eventDate: event.date,
+                                          startTime: event.start_time,
+                                          endTime: event.end_time,
+                                          storeName: event.venue,
+                                          bookingUrl
+                                        }
+                                      })
+                                      logger.info('キャンセル待ち通知を送信（人数減少）:', { freedSeats })
+                                    } catch (notifyError) {
+                                      logger.warn('キャンセル待ち通知エラー:', notifyError)
+                                      // 通知失敗はエラー表示しない（メイン処理は成功しているため）
+                                    }
+                                  }
+                                  
                                   showToast.success('人数を更新しました')
                                 }}
                               >
