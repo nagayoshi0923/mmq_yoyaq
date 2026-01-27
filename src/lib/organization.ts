@@ -10,17 +10,29 @@ export const QUEENS_WALTZ_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 
 /**
  * 現在のユーザーの organization_id を取得
- * ※ staff テーブルから取得
+ * まず users テーブルから取得し、なければ staff テーブルにフォールバック
  */
 export async function getCurrentOrganizationId(): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
+  // まず users テーブルから取得（高速・406エラー回避）
+  const { data: userData } = await supabase
+    .from('users')
+    .select('organization_id')
+    .eq('id', user.id)
+    .maybeSingle()
+  
+  if (userData?.organization_id) {
+    return userData.organization_id
+  }
+
+  // フォールバック: staff テーブルから取得（後方互換性）
   const { data: staff } = await supabase
     .from('staff')
     .select('organization_id')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
   return staff?.organization_id || null
 }
@@ -36,7 +48,7 @@ export async function getCurrentStaff(): Promise<Staff | null> {
     .from('staff')
     .select('*')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()  // レコードが存在しない場合もエラーにならない
 
   return staff as Staff | null
 }
