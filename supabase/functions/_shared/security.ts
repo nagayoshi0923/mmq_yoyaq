@@ -191,5 +191,75 @@ export function successResponse(
   )
 }
 
+/**
+ * 🔒 エラーメッセージをサニタイズ
+ * 技術的詳細を含むメッセージを、ユーザーフレンドリーな汎用メッセージに変換
+ * 
+ * @param error 元のエラー
+ * @param defaultMessage デフォルトのエラーメッセージ
+ * @returns サニタイズされたメッセージ
+ */
+export function sanitizeErrorMessage(
+  error: unknown,
+  defaultMessage = 'エラーが発生しました'
+): string {
+  // 安全なメッセージのパターン（日本語のみ許可）
+  const safePatterns: Array<[RegExp, string]> = [
+    [/満席/i, 'この公演は満席です'],
+    [/空席がありません/i, '選択した人数分の空席がありません'],
+    [/公演が見つかりません/i, '公演が見つかりませんでした'],
+    [/予約が見つかりません/i, '予約が見つかりませんでした'],
+    [/参加人数が不正/i, '参加人数が不正です'],
+    [/権限がありません/i, 'この操作を実行する権限がありません'],
+    [/認証が必要/i, 'ログインが必要です'],
+    [/認証に失敗/i, 'ログインに失敗しました'],
+    [/メール送信サービスが設定されていません/i, 'メール送信サービスが設定されていません'],
+    [/キャンセル待ちリストの取得に失敗/i, 'キャンセル待ちリストの取得に失敗しました'],
+  ]
+
+  const errorMessage = error instanceof Error ? error.message : String(error)
+
+  // 安全なパターンに一致するか確認
+  for (const [pattern, safeMessage] of safePatterns) {
+    if (pattern.test(errorMessage)) {
+      return safeMessage
+    }
+  }
+
+  // 技術的な詳細を含む可能性がある場合はデフォルトメッセージを返す
+  // PostgreSQLエラーコード、スタックトレース、テーブル名などを含む場合
+  const technicalPatterns = [
+    /PGRST\d+/i,          // Supabase REST APIエラー
+    /P\d{4}/i,            // PostgreSQLエラーコード
+    /relation ".+" does not exist/i,
+    /column ".+" does not exist/i,
+    /duplicate key/i,
+    /violates .+ constraint/i,
+    /syntax error/i,
+    /at line \d+/i,
+    /JSON\.stringify/i,
+    /\{.*statusCode.*\}/i,  // JSON形式のエラー
+    /Error:/i,
+    /undefined/i,
+    /null/i,
+    /TypeError/i,
+    /ReferenceError/i,
+  ]
+
+  for (const pattern of technicalPatterns) {
+    if (pattern.test(errorMessage)) {
+      console.warn('🔒 技術的詳細を含むエラーをサニタイズ:', errorMessage)
+      return defaultMessage
+    }
+  }
+
+  // 日本語のみのメッセージはそのまま返す
+  if (/^[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3000-\u303F、。！？\s]+$/.test(errorMessage)) {
+    return errorMessage
+  }
+
+  // それ以外はデフォルトメッセージ
+  return defaultMessage
+}
 
 

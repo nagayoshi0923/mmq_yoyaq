@@ -10,7 +10,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, verifyAuth, errorResponse } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 
 interface NotifyWaitlistRequest {
   organizationId: string
@@ -359,7 +359,8 @@ Murder Mystery Queue (MMQ)
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'キャンセル待ち通知に失敗しました' 
+        // 🔒 セキュリティ: 技術的詳細をサニタイズ
+        error: sanitizeErrorMessage(error, 'キャンセル待ち通知に失敗しました')
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )

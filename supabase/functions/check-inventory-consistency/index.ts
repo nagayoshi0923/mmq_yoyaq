@@ -9,7 +9,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, verifyAuth, errorResponse } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 
 /**
  * Service Role Key での呼び出しか確認（Cron用）
@@ -85,7 +85,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || '在庫整合性チェックに失敗しました' 
+        // 🔒 セキュリティ: 技術的詳細をサニタイズ
+        error: sanitizeErrorMessage(error, '在庫整合性チェックに失敗しました')
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
