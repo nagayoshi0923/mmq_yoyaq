@@ -9,7 +9,7 @@
 1. 過去30日〜未来90日のイベントをチェック
 2. 各イベントの `current_participants` と実際の予約数を比較
 3. **不整合があれば自動修正**
-4. 不整合が見つかった場合、**Slackに通知**
+4. 不整合が見つかった場合、**Discordに通知**
 5. 実行結果を `inventory_consistency_logs` テーブルに記録
 
 ## 📦 依存関係
@@ -17,7 +17,7 @@
 - `inventory_consistency_logs` テーブル（migration 009で作成）
 - `check_and_fix_inventory_consistency()` 関数（同上）
 - `run_inventory_consistency_check()` 関数（同上）
-- Slack Webhook URL（オプション）
+- Discord Webhook URL（オプション）
 
 ## 🚀 デプロイ手順
 
@@ -37,23 +37,25 @@
 3. コードを貼り付け
 4. **Deploy** をクリック
 
-#### 3. Slack Webhook URL を設定（オプション）
+#### 3. Discord Webhook URL を設定（オプション）
 
-Slackに通知したい場合：
+Discordに通知したい場合：
 
 1. **Settings** → **Edge Functions** → **check-inventory-consistency**
 2. **Environment Variables** を開く
 3. **Add variable** をクリック
 
 ```
-Name: SLACK_WEBHOOK_URL
-Value: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+Name: DISCORD_WEBHOOK_URL
+Value: https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
 ```
 
-**Slack Webhook URL の取得方法:**
-1. https://api.slack.com/apps にアクセス
-2. アプリを作成 → **Incoming Webhooks** を有効化
-3. Webhook URL をコピー
+**Discord Webhook URL の取得方法:**
+1. Discordサーバーの通知先チャンネルを開く
+2. チャンネル設定（⚙️） → **連携サービス** → **ウェブフック**
+3. **新しいウェブフック** をクリック
+4. 名前を設定（例: MMQ在庫管理Bot）
+5. **ウェブフックURLをコピー**
 
 #### 4. Cron設定（日次実行）
 
@@ -148,31 +150,33 @@ ORDER BY date DESC;
 ```
 🔍 Starting inventory consistency check...
 ✅ Consistency check completed: {total_checked: 150, inconsistencies_found: 3, ...}
-✅ Slack notification sent
+✅ Discord notification sent
 ```
 
-### Slack通知（設定した場合）
+### Discord通知（設定した場合）
 
-不整合が見つかると、以下のようなメッセージがSlackに届きます：
+不整合が見つかると、以下のようなEmbedメッセージがDiscordに届きます：
 
 ```
 🔍 在庫整合性チェック結果
 
-• チェック対象: 150 イベント
-• 不整合検出: 3 イベント
-• 自動修正: 3 イベント
-• 実行時間: 245ms
+📊 チェック対象     | ⚠️ 不整合検出     | 🔧 自動修正
+150 イベント        | 3 イベント        | 3 イベント
 
-不整合の詳細:
+⏱️ 実行時間: 245ms
 
-• 蝉散 (Queen's Waltz本店)
-  日時: 2026-02-01 18:00:00
-  保存値: 5 → 実際: 7 (差分: -2)
+📝 不整合の詳細:
+━━━━━━━━━━━━━━━━━━━━
+蝉散 (Queen's Waltz本店)
+日時: 2026-02-01 18:00:00
+保存値: 5 → 実際: 7 (差分: -2)
 
-• 蟻集 (Queen's Waltz本店)
-  日時: 2026-02-03 19:00:00
-  保存値: 10 → 実際: 8 (差分: +2)
+蟻集 (Queen's Waltz本店)
+日時: 2026-02-03 19:00:00
+保存値: 10 → 実際: 8 (差分: +2)
 ```
+
+（実際はカラフルなEmbedカードとして表示されます）
 
 ---
 
@@ -187,15 +191,19 @@ ORDER BY date DESC;
 2. 全てのキャンセルは `cancel_reservation_with_lock` を使用
 3. 古いコードを探して修正
 
-### Slack通知が届かない
+### Discord通知が届かない
 
-**原因1**: `SLACK_WEBHOOK_URL` が設定されていない
+**原因1**: `DISCORD_WEBHOOK_URL` が設定されていない
 
 **解決策**: Edge Function の環境変数を確認
 
 **原因2**: Webhook URL が間違っている
 
-**解決策**: Slackで新しいWebhook URLを生成して再設定
+**解決策**: Discordで新しいWebhook URLを生成して再設定
+
+**原因3**: Webhookが削除された
+
+**解決策**: Discordチャンネルの設定から新しいWebhookを作成
 
 ### 実行時間が長い
 

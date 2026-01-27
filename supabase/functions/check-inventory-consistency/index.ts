@@ -50,9 +50,9 @@ serve(async (req) => {
 
     console.log('✅ Consistency check completed:', data)
 
-    // 不整合が見つかった場合、Slackに通知
+    // 不整合が見つかった場合、Discordに通知
     if (data.inconsistencies_found > 0) {
-      await sendSlackNotification(data)
+      await sendDiscordNotification(data)
     }
 
     return new Response(
@@ -76,60 +76,82 @@ serve(async (req) => {
 })
 
 /**
- * Slackに通知を送信
+ * Discordに通知を送信
  */
-async function sendSlackNotification(checkResult: any) {
-  const slackWebhookUrl = Deno.env.get('SLACK_WEBHOOK_URL')
+async function sendDiscordNotification(checkResult: any) {
+  const discordWebhookUrl = Deno.env.get('DISCORD_WEBHOOK_URL')
   
-  if (!slackWebhookUrl) {
-    console.warn('⚠️ SLACK_WEBHOOK_URL is not set. Skipping Slack notification.')
+  if (!discordWebhookUrl) {
+    console.warn('⚠️ DISCORD_WEBHOOK_URL is not set. Skipping Discord notification.')
     return
   }
 
   const details = checkResult.details || []
   
-  // メッセージを構築
-  let message = `🔍 *在庫整合性チェック結果*\n\n`
-  message += `• チェック対象: ${checkResult.total_checked} イベント\n`
-  message += `• 不整合検出: ${checkResult.inconsistencies_found} イベント\n`
-  message += `• 自動修正: ${checkResult.auto_fixed} イベント\n`
-  message += `• 実行時間: ${checkResult.execution_time_ms}ms\n\n`
+  // Embedを構築
+  const embed: any = {
+    title: '🔍 在庫整合性チェック結果',
+    color: checkResult.inconsistencies_found > 0 ? 0xf59e0b : 0x10b981, // オレンジ or 緑
+    fields: [
+      {
+        name: '📊 チェック対象',
+        value: `${checkResult.total_checked} イベント`,
+        inline: true
+      },
+      {
+        name: '⚠️ 不整合検出',
+        value: `${checkResult.inconsistencies_found} イベント`,
+        inline: true
+      },
+      {
+        name: '🔧 自動修正',
+        value: `${checkResult.auto_fixed} イベント`,
+        inline: true
+      },
+      {
+        name: '⏱️ 実行時間',
+        value: `${checkResult.execution_time_ms}ms`,
+        inline: true
+      }
+    ],
+    timestamp: new Date().toISOString()
+  }
   
   if (details.length > 0) {
-    message += `*不整合の詳細:*\n`
-    
-    details.slice(0, 5).forEach((detail: any) => {
+    const detailsText = details.slice(0, 5).map((detail: any) => {
       const diff = detail.difference > 0 ? `+${detail.difference}` : detail.difference
-      message += `\n• *${detail.scenario_title}* (${detail.store_name})\n`
-      message += `  日時: ${detail.date} ${detail.start_time}\n`
-      message += `  保存値: ${detail.stored_count} → 実際: ${detail.actual_count} (差分: ${diff})\n`
-    })
+      return `**${detail.scenario_title}** (${detail.store_name})\n` +
+             `日時: ${detail.date} ${detail.start_time}\n` +
+             `保存値: ${detail.stored_count} → 実際: ${detail.actual_count} (差分: ${diff})`
+    }).join('\n\n')
     
-    if (details.length > 5) {
-      message += `\n... 他 ${details.length - 5} 件の不整合\n`
-    }
+    embed.fields.push({
+      name: '📝 不整合の詳細',
+      value: detailsText + (details.length > 5 ? `\n\n... 他 ${details.length - 5} 件の不整合` : ''),
+      inline: false
+    })
   }
 
   try {
-    const response = await fetch(slackWebhookUrl, {
+    const response = await fetch(discordWebhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        text: message,
         username: 'MMQ在庫管理Bot',
-        icon_emoji: ':mag:'
+        avatar_url: 'https://cdn.discordapp.com/embed/avatars/0.png',
+        embeds: [embed]
       }),
     })
 
     if (!response.ok) {
-      console.error('❌ Slack notification failed:', await response.text())
+      console.error('❌ Discord notification failed:', await response.text())
     } else {
-      console.log('✅ Slack notification sent')
+      console.log('✅ Discord notification sent')
     }
   } catch (error) {
-    console.error('❌ Error sending Slack notification:', error)
+    console.error('❌ Error sending Discord notification:', error)
   }
 }
 
