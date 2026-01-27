@@ -10,7 +10,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse } from '../_shared/security.ts'
 
 interface NotifyWaitlistRequest {
   organizationId: string
@@ -42,12 +42,41 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 認証チェック: ログイン済みユーザーのみ呼び出し可能
+    const authResult = await verifyAuth(req)
+    if (!authResult.success) {
+      console.warn('⚠️ 認証失敗: notify-waitlist への不正アクセス試行')
+      return errorResponse(
+        authResult.error || '認証が必要です',
+        authResult.statusCode || 401,
+        corsHeaders
+      )
+    }
+    console.log('✅ 認証成功:', authResult.user?.email)
+
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
     const data: NotifyWaitlistRequest = await req.json()
+
+    // 🔒 組織メンバーシップ確認: 該当組織のメンバーのみ呼び出し可能
+    if (data.organizationId) {
+      const { data: isMember, error: memberError } = await serviceClient.rpc(
+        'is_organization_member',
+        { p_organization_id: data.organizationId }
+      )
+      
+      if (memberError || !isMember) {
+        console.warn('⚠️ 組織メンバーシップ確認失敗:', authResult.user?.email, '→', data.organizationId)
+        return errorResponse(
+          'この組織へのアクセス権がありません',
+          403,
+          corsHeaders
+        )
+      }
+    }
     console.log('Notify waitlist request:', { 
       eventId: data.scheduleEventId, 
       freedSeats: data.freedSeats 

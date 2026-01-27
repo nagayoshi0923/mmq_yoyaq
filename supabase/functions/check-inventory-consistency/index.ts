@@ -2,26 +2,27 @@
  * 在庫整合性チェック Edge Function
  * 
  * 日次で実行され、schedule_events.current_participants と
- * 実際の予約数を比較し、不整合があれば自動修正してSlackに通知する。
+ * 実際の予約数を比較し、不整合があれば自動修正してDiscordに通知する。
+ * 
+ * 🔒 認証: Service Role Key または 管理者のみ呼び出し可能
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getCorsHeaders, verifyAuth, errorResponse } from '../_shared/security.ts'
 
-function getCorsHeaders(origin: string | null) {
-  const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'https://mmq-yoyaq.vercel.app'
-  ]
+/**
+ * Service Role Key での呼び出しか確認（Cron用）
+ */
+function isServiceRoleCall(req: Request): boolean {
+  const authHeader = req.headers.get('Authorization')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   
-  const isAllowed = origin && allowedOrigins.some(allowed => origin.includes(allowed) || allowed.includes(origin))
+  if (!authHeader || !serviceRoleKey) return false
   
-  return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : allowedOrigins[0],
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-  }
+  // Service Role Key の先頭20文字で簡易チェック
+  const token = authHeader.replace('Bearer ', '')
+  return token === serviceRoleKey
 }
 
 serve(async (req) => {
@@ -33,6 +34,22 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 認証チェック: Service Role Key または 管理者のみ
+    if (!isServiceRoleCall(req)) {
+      const authResult = await verifyAuth(req, ['admin', 'owner'])
+      if (!authResult.success) {
+        console.warn('⚠️ 認証失敗: check-inventory-consistency への不正アクセス試行')
+        return errorResponse(
+          authResult.error || '認証が必要です',
+          authResult.statusCode || 401,
+          corsHeaders
+        )
+      }
+      console.log('✅ 管理者認証成功:', authResult.user?.email)
+    } else {
+      console.log('✅ Service Role Key 認証成功（Cron/システム呼び出し）')
+    }
+
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
