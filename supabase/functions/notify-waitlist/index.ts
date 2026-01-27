@@ -10,7 +10,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse } from '../_shared/security.ts'
 
 interface NotifyWaitlistRequest {
   organizationId: string
@@ -42,6 +42,19 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 レートリミットチェック（1分あたり30リクエストまで）
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+    const clientIP = getClientIP(req)
+    const rateLimit = await checkRateLimit(serviceClient, clientIP, 'notify-waitlist', 30, 60)
+    
+    if (!rateLimit.allowed) {
+      console.warn('⚠️ レートリミット超過:', clientIP)
+      return rateLimitResponse(rateLimit.retryAfter, corsHeaders)
+    }
+
     // 🔒 認証チェック: ログイン済みユーザーのみ呼び出し可能
     const authResult = await verifyAuth(req)
     if (!authResult.success) {
@@ -53,11 +66,6 @@ serve(async (req) => {
       )
     }
     console.log('✅ 認証成功:', authResult.user?.email)
-
-    const serviceClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
 
     const data: NotifyWaitlistRequest = await req.json()
 
