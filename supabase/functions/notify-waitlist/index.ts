@@ -61,21 +61,38 @@ serve(async (req) => {
 
     const data: NotifyWaitlistRequest = await req.json()
 
-    // 🔒 組織メンバーシップ確認: 該当組織のメンバーのみ呼び出し可能
-    if (data.organizationId) {
-      const { data: isMember, error: memberError } = await serviceClient.rpc(
-        'is_organization_member',
-        { p_organization_id: data.organizationId }
-      )
+    // 🔒 イベントへのアクセス権限確認
+    // スタッフ: 組織メンバーであればOK
+    // 顧客: そのイベントに予約があればOK
+    if (data.scheduleEventId && authResult.user?.id) {
+      // 1. スタッフかどうか確認
+      const { data: staffMember } = await serviceClient
+        .from('staff')
+        .select('id')
+        .eq('user_id', authResult.user.id)
+        .eq('organization_id', data.organizationId)
+        .eq('status', 'active')
+        .maybeSingle()
       
-      if (memberError || !isMember) {
-        console.warn('⚠️ 組織メンバーシップ確認失敗:', authResult.user?.email, '→', data.organizationId)
-        return errorResponse(
-          'この組織へのアクセス権がありません',
-          403,
-          corsHeaders
-        )
+      if (!staffMember) {
+        // 2. スタッフでなければ、そのイベントに予約があるか確認
+        const { data: customerReservation } = await serviceClient
+          .from('reservations')
+          .select('id, customers!inner(user_id)')
+          .eq('schedule_event_id', data.scheduleEventId)
+          .eq('customers.user_id', authResult.user.id)
+          .maybeSingle()
+        
+        if (!customerReservation) {
+          console.warn('⚠️ アクセス権限なし:', authResult.user?.email, '→ event:', data.scheduleEventId)
+          return errorResponse(
+            'このイベントへのアクセス権がありません',
+            403,
+            corsHeaders
+          )
+        }
       }
+      console.log('✅ アクセス権限確認OK')
     }
     console.log('Notify waitlist request:', { 
       eventId: data.scheduleEventId, 
