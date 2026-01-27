@@ -262,4 +262,110 @@ export function sanitizeErrorMessage(
   return defaultMessage
 }
 
+/**
+ * レートリミット結果の型定義
+ */
+export interface RateLimitResult {
+  allowed: boolean
+  currentCount: number
+  resetAt: Date
+  retryAfter: number
+}
+
+/**
+ * 🔒 APIレートリミットをチェック
+ * 
+ * @param serviceClient Service Role権限を持つSupabaseクライアント
+ * @param identifier IPアドレスまたはユーザーID
+ * @param endpoint エンドポイント名
+ * @param maxRequests ウィンドウ内の最大リクエスト数（デフォルト: 60）
+ * @param windowSeconds ウィンドウの秒数（デフォルト: 60）
+ * @returns レートリミット結果
+ */
+export async function checkRateLimit(
+  serviceClient: ReturnType<typeof createClient>,
+  identifier: string,
+  endpoint: string,
+  maxRequests = 60,
+  windowSeconds = 60
+): Promise<RateLimitResult> {
+  try {
+    const { data, error } = await serviceClient.rpc('check_rate_limit', {
+      p_identifier: identifier,
+      p_endpoint: endpoint,
+      p_max_requests: maxRequests,
+      p_window_seconds: windowSeconds,
+    })
+
+    if (error) {
+      console.error('Rate limit check error:', error)
+      // エラー時は許可（フェイルオープン）
+      return {
+        allowed: true,
+        currentCount: 0,
+        resetAt: new Date(),
+        retryAfter: 0,
+      }
+    }
+
+    const result = data?.[0] || data
+    return {
+      allowed: result?.allowed ?? true,
+      currentCount: result?.current_count ?? 0,
+      resetAt: new Date(result?.reset_at ?? Date.now()),
+      retryAfter: result?.retry_after ?? 0,
+    }
+  } catch (err) {
+    console.error('Rate limit check exception:', err)
+    return {
+      allowed: true,
+      currentCount: 0,
+      resetAt: new Date(),
+      retryAfter: 0,
+    }
+  }
+}
+
+/**
+ * リクエストからクライアントIPを取得
+ */
+export function getClientIP(req: Request): string {
+  // Cloudflare/Vercel等のプロキシ経由の場合
+  const forwarded = req.headers.get('x-forwarded-for')
+  if (forwarded) {
+    return forwarded.split(',')[0].trim()
+  }
+  
+  // 直接接続の場合
+  const realIP = req.headers.get('x-real-ip')
+  if (realIP) {
+    return realIP
+  }
+
+  // フォールバック
+  return 'unknown'
+}
+
+/**
+ * レートリミット超過時のレスポンスを生成
+ */
+export function rateLimitResponse(
+  retryAfter: number,
+  headers: Record<string, string>
+): Response {
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: 'リクエストが多すぎます。しばらくしてから再試行してください。',
+    }),
+    {
+      status: 429,
+      headers: {
+        ...headers,
+        'Retry-After': String(retryAfter),
+      },
+    }
+  )
+}
+
 
