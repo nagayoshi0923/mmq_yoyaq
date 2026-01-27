@@ -72,24 +72,39 @@ serve(async (req) => {
     // 🔒 イベントへのアクセス権限確認
     // スタッフ: 組織メンバーであればOK
     // 顧客: そのイベントに予約があればOK
+    console.log('🔍 アクセス権限確認開始:', { 
+      userId: authResult.user?.id, 
+      organizationId: data.organizationId,
+      scheduleEventId: data.scheduleEventId 
+    })
+    
     if (data.scheduleEventId && authResult.user?.id) {
-      // 1. スタッフかどうか確認
-      const { data: staffMember } = await serviceClient
+      // 1. スタッフかどうか確認（organization_idがある場合のみフィルタ）
+      let staffQuery = serviceClient
         .from('staff')
-        .select('id')
+        .select('id, organization_id')
         .eq('user_id', authResult.user.id)
-        .eq('organization_id', data.organizationId)
         .eq('status', 'active')
-        .maybeSingle()
+      
+      // organization_idが指定されていればフィルタ
+      if (data.organizationId) {
+        staffQuery = staffQuery.eq('organization_id', data.organizationId)
+      }
+      
+      const { data: staffMember, error: staffError } = await staffQuery.maybeSingle()
+      
+      console.log('🔍 スタッフチェック結果:', { staffMember, staffError })
       
       if (!staffMember) {
         // 2. スタッフでなければ、そのイベントに予約があるか確認
-        const { data: customerReservation } = await serviceClient
+        const { data: customerReservation, error: reservationError } = await serviceClient
           .from('reservations')
           .select('id, customers!inner(user_id)')
           .eq('schedule_event_id', data.scheduleEventId)
           .eq('customers.user_id', authResult.user.id)
           .maybeSingle()
+        
+        console.log('🔍 予約チェック結果:', { customerReservation, reservationError })
         
         if (!customerReservation) {
           console.warn('⚠️ アクセス権限なし:', authResult.user?.email, '→ event:', data.scheduleEventId)

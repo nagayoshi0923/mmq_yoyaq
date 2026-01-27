@@ -484,12 +484,16 @@ ${content.organizationName || '店舗'}
         )
         
         // キャンセル待ち通知を送信
-        if (cancellingReservation.schedule_event_id && event.organization_id) {
+        const cancelOrgId = event.organization_id 
+          || (event as any)?.scenarios?.organization_id 
+          || await getCurrentOrganizationId()
+        
+        if (cancellingReservation.schedule_event_id && cancelOrgId) {
           try {
             const { data: org } = await supabase
               .from('organizations')
               .select('slug')
-              .eq('id', event.organization_id)
+              .eq('id', cancelOrgId)
               .single()
             
             const orgSlug = org?.slug || 'queens-waltz'
@@ -497,14 +501,14 @@ ${content.organizationName || '店舗'}
             
             await supabase.functions.invoke('notify-waitlist', {
               body: {
-                organizationId: event.organization_id,
+                organizationId: cancelOrgId,
                 scheduleEventId: cancellingReservation.schedule_event_id,
                 freedSeats: cancellingReservation.participant_count,
-                scenarioTitle: event.scenario || cancellingReservation.title,
+                scenarioTitle: event.scenario || event.scenarios?.title || cancellingReservation.title,
                 eventDate: event.date,
                 startTime: event.start_time,
                 endTime: event.end_time,
-                storeName: event.venue,
+                storeName: event.venue || (event as any).stores?.name || '',
                 bookingUrl
               }
             })
@@ -1128,12 +1132,30 @@ ${content.organizationName || '店舗'}
                                   // 🔔 人数が減少した場合、キャンセル待ちに通知
                                   const oldCount = reservation.participant_count || 0
                                   const freedSeats = oldCount - newCount
-                                  if (freedSeats > 0 && event) {
+                                  
+                                  // organization_idを複数のソースから取得（優先順位順）
+                                  // デバッグ: 各ソースの値を確認
+                                  const eventOrgId = event?.organization_id
+                                  const scenarioOrgId = (event as any)?.scenarios?.organization_id
+                                  const currentUserOrgId = await getCurrentOrganizationId()
+                                  
+                                  logger.info('🔍 orgId デバッグ:', { 
+                                    eventOrgId, 
+                                    scenarioOrgId, 
+                                    currentUserOrgId,
+                                    eventKeys: event ? Object.keys(event) : []
+                                  })
+                                  
+                                  const orgId = eventOrgId || scenarioOrgId || currentUserOrgId
+                                  
+                                  logger.info('🔍 キャンセル待ち通知準備:', { freedSeats, orgId, eventId: event?.id })
+                                  
+                                  if (freedSeats > 0 && event && orgId) {
                                     try {
                                       const { data: org } = await supabase
                                         .from('organizations')
                                         .select('slug')
-                                        .eq('id', event.organization_id)
+                                        .eq('id', orgId)
                                         .single()
                                       
                                       const orgSlug = org?.slug || 'queens-waltz'
@@ -1141,14 +1163,14 @@ ${content.organizationName || '店舗'}
                                       
                                       await supabase.functions.invoke('notify-waitlist', {
                                         body: {
-                                          organizationId: event.organization_id,
+                                          organizationId: orgId,
                                           scheduleEventId: event.id,
                                           freedSeats,
-                                          scenarioTitle: event.scenario || '',
+                                          scenarioTitle: event.scenario || event.scenarios?.title || '',
                                           eventDate: event.date,
                                           startTime: event.start_time,
                                           endTime: event.end_time,
-                                          storeName: event.venue,
+                                          storeName: event.venue || (event as any).stores?.name || '',
                                           bookingUrl
                                         }
                                       })
@@ -1157,6 +1179,8 @@ ${content.organizationName || '店舗'}
                                       logger.warn('キャンセル待ち通知エラー:', notifyError)
                                       // 通知失敗はエラー表示しない（メイン処理は成功しているため）
                                     }
+                                  } else {
+                                    logger.info('🔍 キャンセル待ち通知スキップ:', { freedSeats, hasEvent: !!event, hasOrgId: !!orgId })
                                   }
                                   
                                   showToast.success('人数を更新しました')
