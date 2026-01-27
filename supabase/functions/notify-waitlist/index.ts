@@ -10,7 +10,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse } from '../_shared/security.ts'
 
 interface NotifyWaitlistRequest {
   organizationId: string
@@ -42,12 +42,58 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 認証チェック: ログイン済みユーザーのみ呼び出し可能
+    const authResult = await verifyAuth(req)
+    if (!authResult.success) {
+      console.warn('⚠️ 認証失敗: notify-waitlist への不正アクセス試行')
+      return errorResponse(
+        authResult.error || '認証が必要です',
+        authResult.statusCode || 401,
+        corsHeaders
+      )
+    }
+    console.log('✅ 認証成功:', authResult.user?.email)
+
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
     const data: NotifyWaitlistRequest = await req.json()
+
+    // 🔒 イベントへのアクセス権限確認
+    // スタッフ: 組織メンバーであればOK
+    // 顧客: そのイベントに予約があればOK
+    if (data.scheduleEventId && authResult.user?.id) {
+      // 1. スタッフかどうか確認
+      const { data: staffMember } = await serviceClient
+        .from('staff')
+        .select('id')
+        .eq('user_id', authResult.user.id)
+        .eq('organization_id', data.organizationId)
+        .eq('status', 'active')
+        .maybeSingle()
+      
+      if (!staffMember) {
+        // 2. スタッフでなければ、そのイベントに予約があるか確認
+        const { data: customerReservation } = await serviceClient
+          .from('reservations')
+          .select('id, customers!inner(user_id)')
+          .eq('schedule_event_id', data.scheduleEventId)
+          .eq('customers.user_id', authResult.user.id)
+          .maybeSingle()
+        
+        if (!customerReservation) {
+          console.warn('⚠️ アクセス権限なし:', authResult.user?.email, '→ event:', data.scheduleEventId)
+          return errorResponse(
+            'このイベントへのアクセス権がありません',
+            403,
+            corsHeaders
+          )
+        }
+      }
+      console.log('✅ アクセス権限確認OK')
+    }
     console.log('Notify waitlist request:', { 
       eventId: data.scheduleEventId, 
       freedSeats: data.freedSeats 
