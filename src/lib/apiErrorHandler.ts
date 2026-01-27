@@ -153,6 +153,7 @@ export function handleSupabaseError(error: unknown, context?: string): ApiError 
 
 /**
  * ユーザー向けのエラーメッセージを生成
+ * 技術的詳細は含めず、一般的なメッセージを返す
  */
 export function getUserFriendlyMessage(error: ApiError): string {
   switch (error.type) {
@@ -179,7 +180,9 @@ export function getUserFriendlyMessage(error: ApiError): string {
     
     case ApiErrorType.UNKNOWN:
     default:
-      return error.message || '予期しないエラーが発生しました'
+      // 🔒 セキュリティ: 技術的詳細を含む可能性があるerror.messageは返さない
+      // 詳細はlogApiErrorでログに残す
+      return '予期しないエラーが発生しました。しばらくしてから再試行してください'
   }
 }
 
