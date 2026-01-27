@@ -30,7 +30,7 @@ import { useStaffFilters } from './hooks/useStaffFilters'
 import { useStoresAndScenarios } from './hooks/useStoresAndScenarios'
 import { useStaffModals } from './hooks/useStaffModals'
 import { useStaffInvitation } from './hooks/useStaffInvitation'
-import { useStaffQuery, useStaffMutation, useDeleteStaffMutation } from './hooks/useStaffQuery'
+import { useStaffQuery, useStaffMutation } from './hooks/useStaffQuery'
 import { useStaffAuthStatus } from './hooks/useStaffAuthStatus'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -50,7 +50,6 @@ export function StaffManagement() {
   const queryClient = useQueryClient()
   const { data: staff = [], isLoading: loading, error: queryError } = useStaffQuery()
   const staffMutation = useStaffMutation()
-  const deleteStaffMutation = useDeleteStaffMutation()
   const error = queryError ? (queryError as Error).message : ''
 
   // 店舗・シナリオ管理
@@ -145,11 +144,7 @@ export function StaffManagement() {
     searchEmail,
     setSearchEmail,
     searchedUser,
-    setSearchedUser,
-    deleteDialogOpen,
-    staffToDelete,
-    openDeleteDialog,
-    closeDeleteDialog
+    setSearchedUser
   } = useStaffModals()
 
   // 招待・紐付け・連携解除・再招待
@@ -229,7 +224,6 @@ export function StaffManagement() {
         onEdit: handleEditStaff, 
         onLink: openLinkModal, 
         onUnlink: openUnlinkDialog,
-        onDelete: openDeleteDialog,
         onReinvite: handleReinviteStaff
       }
     ),
@@ -242,17 +236,6 @@ export function StaffManagement() {
     try {
       await staffMutation.mutateAsync({ staff: staffData, isEdit: !!editingStaff })
       closeEditModal()
-    } catch (err: any) {
-      showToast.error(err.message)
-    }
-  }
-
-  // スタッフ削除ハンドラ
-  const handleDeleteStaff = async () => {
-    if (!staffToDelete) return
-    try {
-      await deleteStaffMutation.mutateAsync(staffToDelete.id)
-      closeDeleteDialog()
     } catch (err: any) {
       showToast.error(err.message)
     }
@@ -559,21 +542,9 @@ export function StaffManagement() {
               onCancel={closeEditModal}
               onLink={editingStaff && !editingStaff.user_id ? () => { closeEditModal(); openLinkModal(editingStaff); } : undefined}
               onUnlink={editingStaff?.user_id ? () => { closeEditModal(); openUnlinkDialog(editingStaff); } : undefined}
-              onDelete={editingStaff?.id ? () => { closeEditModal(); openDeleteDialog(editingStaff); } : undefined}
             />
           </DialogContent>
         </Dialog>
-
-        {/* 削除確認ダイアログ */}
-        <ConfirmModal
-          open={deleteDialogOpen}
-          onClose={closeDeleteDialog}
-          onConfirm={handleDeleteStaff}
-          title="スタッフを削除"
-          message={`${staffToDelete?.name}さんのデータを削除します。この操作は取り消せません。`}
-          variant="danger"
-          confirmLabel="削除する"
-        />
 
         {/* 連携解除確認ダイアログ */}
         <ConfirmModal
