@@ -9,6 +9,16 @@
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+export interface EmailTemplates {
+  greeting?: string
+  signature?: string
+  footer?: string
+  booking_confirmation?: { subject_prefix?: string; additional_notes?: string }
+  cancellation_confirmation?: { subject_prefix?: string; additional_notes?: string }
+  waitlist_notification?: { subject_prefix?: string; additional_notes?: string }
+  reminder?: { subject_prefix?: string; additional_notes?: string }
+}
+
 export interface OrganizationSettings {
   id: string
   organization_id: string
@@ -26,6 +36,9 @@ export interface OrganizationSettings {
   sender_email: string | null
   sender_name: string | null
   reply_to_email: string | null
+  
+  // メールテンプレート
+  email_templates: EmailTemplates | null
   
   // 通知設定
   notification_settings: {
@@ -107,6 +120,29 @@ export async function getEmailSettings(
     senderEmail: settings?.sender_email || Deno.env.get('SENDER_EMAIL') || 'noreply@example.com',
     senderName: settings?.sender_name || Deno.env.get('SENDER_NAME') || 'MMQ予約システム',
     replyToEmail: settings?.reply_to_email || Deno.env.get('REPLY_TO_EMAIL') || null,
+  }
+}
+
+/**
+ * メールテンプレートを取得（デフォルト値付き）
+ */
+export async function getEmailTemplates(
+  supabase: SupabaseClient,
+  organizationId: string
+): Promise<{
+  greeting: string
+  signature: string
+  footer: string
+  templates: EmailTemplates
+}> {
+  const settings = await getOrganizationSettings(supabase, organizationId)
+  const templates = settings?.email_templates || {}
+  
+  return {
+    greeting: templates.greeting || 'いつもご利用いただきありがとうございます。',
+    signature: templates.signature || 'MMQ予約システム',
+    footer: templates.footer || '※このメールは自動送信されています。',
+    templates,
   }
 }
 
