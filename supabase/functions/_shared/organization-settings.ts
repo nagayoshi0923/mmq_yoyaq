@@ -173,4 +173,69 @@ export async function getNotificationSettings(
   }
 }
 
+/**
+ * Discord通知を送信し、失敗時はキューに保存
+ * @param supabase Supabaseクライアント
+ * @param webhookUrl Discord Webhook URL
+ * @param message メッセージペイロード
+ * @param organizationId 組織ID
+ * @param notificationType 通知タイプ
+ * @param referenceId 関連ID（オプション）
+ * @returns 送信成功したかどうか
+ */
+export async function sendDiscordNotificationWithRetry(
+  supabase: SupabaseClient,
+  webhookUrl: string,
+  message: Record<string, unknown>,
+  organizationId: string,
+  notificationType: string,
+  referenceId?: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(message)
+    })
+
+    if (response.ok) {
+      console.log('✅ Discord通知送信成功')
+      return true
+    }
+
+    // 失敗時はキューに追加
+    const errorText = await response.text()
+    console.warn('⚠️ Discord通知失敗、キューに追加:', response.status)
+    
+    await supabase.from('discord_notification_queue').insert({
+      organization_id: organizationId,
+      webhook_url: webhookUrl,
+      message_payload: message,
+      notification_type: notificationType,
+      reference_id: referenceId || null,
+      status: 'pending',
+      last_error: `HTTP ${response.status}: ${errorText.slice(0, 200)}`,
+      next_retry_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5分後にリトライ
+    })
+
+    return false
+  } catch (error: unknown) {
+    // ネットワークエラーなど
+    console.error('❌ Discord通知エラー、キューに追加:', error)
+    
+    await supabase.from('discord_notification_queue').insert({
+      organization_id: organizationId,
+      webhook_url: webhookUrl,
+      message_payload: message,
+      notification_type: notificationType,
+      reference_id: referenceId || null,
+      status: 'pending',
+      last_error: error instanceof Error ? error.message : 'Unknown error',
+      next_retry_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+    })
+
+    return false
+  }
+}
+
 

@@ -10,7 +10,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
-import { getEmailSettings, getDiscordSettings } from '../_shared/organization-settings.ts'
+import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry } from '../_shared/organization-settings.ts'
 
 interface CheckRequest {
   check_type: 'day_before' | 'four_hours_before'
@@ -414,20 +414,20 @@ async function sendDiscordCancellationNotification(
     }]
   }
 
-  try {
-    const response = await fetch(discordSettings.webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(message)
-    })
-
-    if (!response.ok) {
-      console.error('Discord通知エラー:', await response.text())
-    } else {
-      console.log('✅ Discord中止通知送信完了')
-    }
-  } catch (error) {
-    console.error('Discord通知失敗:', error)
+  // リトライ機能付きで送信
+  const success = await sendDiscordNotificationWithRetry(
+    supabase,
+    discordSettings.webhookUrl,
+    message,
+    event.organization_id,
+    'performance_cancel',
+    event.event_id
+  )
+  
+  if (success) {
+    console.log('✅ Discord中止通知送信完了')
+  } else {
+    console.log('⚠️ Discord中止通知失敗、リトライキューに追加')
   }
 }
 
@@ -502,20 +502,20 @@ async function sendExtensionNotification(
     }]
   }
 
-  try {
-    const response = await fetch(discordSettings.webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(message)
-    })
-
-    if (!response.ok) {
-      console.error('Discord通知エラー:', await response.text())
-    } else {
-      console.log('✅ Discord延長通知送信完了')
-    }
-  } catch (error) {
-    console.error('Discord通知失敗:', error)
+  // リトライ機能付きで送信
+  const success = await sendDiscordNotificationWithRetry(
+    supabase,
+    discordSettings.webhookUrl,
+    message,
+    event.organization_id,
+    'performance_extend',
+    event.event_id
+  )
+  
+  if (success) {
+    console.log('✅ Discord延長通知送信完了')
+  } else {
+    console.log('⚠️ Discord延長通知失敗、リトライキューに追加')
   }
 }
 
