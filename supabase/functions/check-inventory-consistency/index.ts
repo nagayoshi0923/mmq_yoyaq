@@ -10,6 +10,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { sendDiscordNotificationWithRetry } from '../_shared/organization-settings.ts'
 
 /**
  * Service Role Key での呼び出しか確認（Cron用）
@@ -69,7 +70,7 @@ serve(async (req) => {
 
     // 不整合が見つかった場合、Discordに通知
     if (data.inconsistencies_found > 0) {
-      await sendDiscordNotification(data)
+      await sendDiscordNotification(serviceClient, data)
     }
 
     return new Response(
@@ -94,9 +95,12 @@ serve(async (req) => {
 })
 
 /**
- * Discordに通知を送信
+ * Discordに通知を送信（リトライ機能付き）
  */
-async function sendDiscordNotification(checkResult: any) {
+async function sendDiscordNotification(
+  supabase: ReturnType<typeof createClient>,
+  checkResult: any
+) {
   const discordWebhookUrl = Deno.env.get('DISCORD_WEBHOOK_URL')
   
   if (!discordWebhookUrl) {
@@ -150,26 +154,47 @@ async function sendDiscordNotification(checkResult: any) {
     })
   }
 
-  try {
-    const response = await fetch(discordWebhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: 'MMQ在庫管理Bot',
-        avatar_url: 'https://cdn.discordapp.com/embed/avatars/0.png',
-        embeds: [embed]
-      }),
-    })
+  const message = {
+    username: 'MMQ在庫管理Bot',
+    avatar_url: 'https://cdn.discordapp.com/embed/avatars/0.png',
+    embeds: [embed]
+  }
 
-    if (!response.ok) {
-      console.error('❌ Discord notification failed:', await response.text())
-    } else {
+  // 組織IDを取得（複数組織の場合は最初のものを使用）
+  const organizationId = details[0]?.organization_id
+
+  if (organizationId) {
+    // リトライ機能付きで送信
+    const success = await sendDiscordNotificationWithRetry(
+      supabase,
+      discordWebhookUrl,
+      message,
+      organizationId,
+      'inventory_check'
+    )
+    
+    if (success) {
       console.log('✅ Discord notification sent')
+    } else {
+      console.log('⚠️ Discord notification failed, queued for retry')
     }
-  } catch (error) {
-    console.error('❌ Error sending Discord notification:', error)
+  } else {
+    // 組織IDがない場合は直接送信（リトライなし）
+    try {
+      const response = await fetch(discordWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(message),
+      })
+
+      if (!response.ok) {
+        console.error('❌ Discord notification failed:', await response.text())
+      } else {
+        console.log('✅ Discord notification sent')
+      }
+    } catch (error) {
+      console.error('❌ Error sending Discord notification:', error)
+    }
   }
 }
 
