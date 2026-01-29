@@ -119,3 +119,216 @@ ORDER BY policyname;
 - 判定（ケースA/B/C）
 - その後の実施内容（マイグレーション適用、フロント切り替え、ロールバック有無）
 
+---
+
+## ポストデプロイ検証（必須）: 改ざんテスト（ROLLBACK付き）
+
+目的:
+- 「**クライアントが不正な料金/日時を送っても**、DBがサーバー計算値で上書きする」ことを確認する
+- 本番でデータを汚さないため、**必ず ROLLBACK** する
+
+### 準備（共通）
+
+このテストは **擬似的に“顧客として”実行**するため、テスト対象の組織/公演に紐づく `customers` を1件自動選択し、`request.jwt.claims` をセットします。
+
+### テスト1: 旧RPC（create_reservation_with_lock）に不正な料金/日時を入れても無視される
+
+```sql
+BEGIN;
+
+DO $$
+DECLARE
+  v_event_id uuid;
+  v_org_id uuid;
+  v_customer_id uuid;
+  v_customer_user_id uuid;
+  v_reservation_id uuid;
+
+  v_expected_dt timestamptz;
+  v_expected_unit integer;
+  v_expected_total integer;
+
+  v_fee integer;
+  v_costs jsonb;
+  v_start_time time;
+  v_time_slot text;
+  v_cost jsonb;
+
+  v_unit integer;
+  v_total integer;
+  v_dt timestamptz;
+
+  v_participant_count integer := 2;
+  v_res_no text;
+BEGIN
+  -- 1) 未来の公演を1件選ぶ（本番データを自動選択）
+  SELECT id, organization_id, start_time, (date + start_time)::timestamptz
+  INTO v_event_id, v_org_id, v_start_time, v_expected_dt
+  FROM schedule_events
+  WHERE is_cancelled = false
+    AND date >= CURRENT_DATE
+  ORDER BY date ASC, start_time ASC
+  LIMIT 1;
+
+  IF v_event_id IS NULL THEN
+    RAISE EXCEPTION 'NO_EVENT_FOUND';
+  END IF;
+
+  -- 2) 同じorganizationの顧客を1件選び、擬似JWTを設定
+  SELECT id, user_id
+  INTO v_customer_id, v_customer_user_id
+  FROM customers
+  WHERE organization_id = v_org_id
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  IF v_customer_id IS NULL OR v_customer_user_id IS NULL THEN
+    RAISE EXCEPTION 'NO_CUSTOMER_FOUND_FOR_ORG %', v_org_id;
+  END IF;
+
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_customer_user_id)::text, true);
+
+  -- 3) “不正な料金/日時”を渡して旧RPCを呼ぶ（※安全化できていれば無視される）
+  v_res_no := to_char(now(), 'YYMMDD') || '-' || upper(substr(md5(random()::text), 1, 4));
+
+  v_reservation_id := create_reservation_with_lock(
+    v_event_id,                 -- p_schedule_event_id
+    v_participant_count,        -- p_participant_count
+    v_customer_id,              -- p_customer_id
+    'SEC_P0_02_TEST',           -- p_customer_name
+    'sec-test@example.com',     -- p_customer_email
+    '0000000000',               -- p_customer_phone
+    NULL,                       -- p_scenario_id（イベント側を優先するためNULLでOK）
+    NULL,                       -- p_store_id（イベント側を優先するためNULLでOK）
+    '2000-01-01T00:00:00Z'::timestamptz, -- p_requested_datetime（改ざん）
+    999,                        -- p_duration（改ざん）
+    1,                          -- p_base_price（改ざん）
+    1,                          -- p_total_price（改ざん）
+    1,                          -- p_unit_price（改ざん）
+    v_res_no,                   -- p_reservation_number
+    'SEC_P0_02_TEST_NOTES',     -- p_notes
+    NULL,                       -- p_created_by
+    v_org_id,                   -- p_organization_id（無視されても可）
+    'SEC_P0_02_TEST_TITLE'      -- p_title（無視されても可）
+  );
+
+  -- 4) 期待値（サーバー計算）を算出
+  SELECT s.participation_fee, s.participation_costs
+  INTO v_fee, v_costs
+  FROM schedule_events e
+  JOIN scenarios s ON s.id = e.scenario_id
+  WHERE e.id = v_event_id;
+
+  IF v_fee IS NULL THEN
+    RAISE EXCEPTION 'SCENARIO_FEE_NOT_FOUND (participation_fee is NULL)';
+  END IF;
+
+  IF EXTRACT(HOUR FROM v_start_time) < 12 THEN
+    v_time_slot := 'morning';
+  ELSIF EXTRACT(HOUR FROM v_start_time) < 18 THEN
+    v_time_slot := 'afternoon';
+  ELSE
+    v_time_slot := 'evening';
+  END IF;
+
+  v_cost := NULL;
+  IF v_costs IS NOT NULL AND jsonb_typeof(v_costs) = 'array' THEN
+    SELECT elem INTO v_cost
+    FROM jsonb_array_elements(v_costs) elem
+    WHERE COALESCE(elem->>'status', 'active') = 'active'
+      AND elem->>'time_slot' = v_time_slot
+    LIMIT 1;
+
+    IF v_cost IS NULL THEN
+      SELECT elem INTO v_cost
+      FROM jsonb_array_elements(v_costs) elem
+      WHERE COALESCE(elem->>'status', 'active') = 'active'
+        AND elem->>'time_slot' = '通常'
+      LIMIT 1;
+    END IF;
+  END IF;
+
+  IF v_cost IS NOT NULL THEN
+    IF v_cost->>'type' = 'percentage' THEN
+      v_expected_unit := ROUND(v_fee * (1 + (COALESCE((v_cost->>'amount')::numeric, 0) / 100)))::integer;
+    ELSE
+      v_expected_unit := COALESCE((v_cost->>'amount')::integer, v_fee);
+    END IF;
+  ELSE
+    v_expected_unit := v_fee;
+  END IF;
+
+  v_expected_total := v_expected_unit * v_participant_count;
+
+  -- 5) 実データを取得して検証
+  SELECT unit_price, total_price, requested_datetime
+  INTO v_unit, v_total, v_dt
+  FROM reservations
+  WHERE id = v_reservation_id;
+
+  IF v_unit IS DISTINCT FROM v_expected_unit THEN
+    RAISE EXCEPTION 'SEC_P0_02_FAILED: unit_price mismatch (expected %, got %)', v_expected_unit, v_unit;
+  END IF;
+
+  IF v_total IS DISTINCT FROM v_expected_total THEN
+    RAISE EXCEPTION 'SEC_P0_02_FAILED: total_price mismatch (expected %, got %)', v_expected_total, v_total;
+  END IF;
+
+  IF v_dt IS DISTINCT FROM v_expected_dt THEN
+    RAISE EXCEPTION 'SEC_P0_02_FAILED: requested_datetime mismatch (expected %, got %)', v_expected_dt, v_dt;
+  END IF;
+
+  RAISE NOTICE '✅ SEC-P0-02 Test OK (old RPC hardened): reservation_id=%', v_reservation_id;
+END $$;
+
+ROLLBACK;
+```
+
+### テスト2: v2 RPC がサーバー計算であること（簡易）
+
+```sql
+BEGIN;
+
+DO $$
+DECLARE
+  v_event_id uuid;
+  v_org_id uuid;
+  v_customer_id uuid;
+  v_customer_user_id uuid;
+  v_reservation_id uuid;
+BEGIN
+  SELECT id, organization_id
+  INTO v_event_id, v_org_id
+  FROM schedule_events
+  WHERE is_cancelled = false
+    AND date >= CURRENT_DATE
+  ORDER BY date ASC, start_time ASC
+  LIMIT 1;
+
+  SELECT id, user_id
+  INTO v_customer_id, v_customer_user_id
+  FROM customers
+  WHERE organization_id = v_org_id
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_customer_user_id)::text, true);
+
+  v_reservation_id := create_reservation_with_lock_v2(
+    v_event_id,
+    1,
+    v_customer_id,
+    'SEC_P0_02_TEST_V2',
+    'sec-test@example.com',
+    '0000000000',
+    'NOTE',
+    NULL,
+    NULL
+  );
+
+  RAISE NOTICE '✅ SEC-P0-02 Test OK (v2 exists): reservation_id=%', v_reservation_id;
+END $$;
+
+ROLLBACK;
+```
+
