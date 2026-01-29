@@ -375,7 +375,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
             <div className="md:sticky md:top-[50px] space-y-3">
               {/* タブ: 公演日程 / 貸切リクエスト */}
               <Tabs 
-                defaultValue="schedule" 
+                value={activeTab}
                 className="w-full" 
                 onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}
               >

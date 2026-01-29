@@ -1,26 +1,36 @@
+import { useState, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Plus, X } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCustomerData } from '../BookingConfirmation/hooks/useCustomerData'
 import { usePrivateBookingForm } from './hooks/usePrivateBookingForm'
 import { usePrivateBookingSubmit } from './hooks/usePrivateBookingSubmit'
 import { formatDate } from './utils/privateBookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
-import type { PrivateBookingRequestProps } from './types'
+import type { PrivateBookingRequestProps, TimeSlot } from './types'
+
+const MAX_TIME_SLOTS = 6
+
+const TIME_SLOT_OPTIONS: TimeSlot[] = [
+  { label: '午前', startTime: '09:00', endTime: '12:00' },
+  { label: '午後', startTime: '12:00', endTime: '17:00' },
+  { label: '夜間', startTime: '17:00', endTime: '22:00' }
+]
 
 export function PrivateBookingRequest({
   scenarioTitle,
   scenarioId,
   participationFee,
   maxParticipants,
-  selectedTimeSlots,
+  selectedTimeSlots: initialTimeSlots,
   selectedStoreIds,
   stores,
   organizationSlug,
@@ -28,6 +38,41 @@ export function PrivateBookingRequest({
   onComplete
 }: PrivateBookingRequestProps) {
   const { user } = useAuth()
+  
+  // 編集可能な候補日時
+  const [editableTimeSlots, setEditableTimeSlots] = useState(initialTimeSlots)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newDate, setNewDate] = useState('')
+  const [newSlotLabel, setNewSlotLabel] = useState('')
+
+  // 追加可能な日付の範囲（今日から60日後まで）
+  const dateRange = useMemo(() => {
+    const today = new Date()
+    const minDate = today.toISOString().split('T')[0]
+    const maxDate = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    return { minDate, maxDate }
+  }, [])
+
+  const handleAddTimeSlot = () => {
+    if (!newDate || !newSlotLabel) return
+    const slot = TIME_SLOT_OPTIONS.find(s => s.label === newSlotLabel)
+    if (!slot) return
+    
+    // 重複チェック
+    const isDuplicate = editableTimeSlots.some(
+      ts => ts.date === newDate && ts.slot.label === newSlotLabel
+    )
+    if (isDuplicate) return
+
+    setEditableTimeSlots(prev => [...prev, { date: newDate, slot }])
+    setNewDate('')
+    setNewSlotLabel('')
+    setShowAddForm(false)
+  }
+
+  const handleRemoveTimeSlot = (index: number) => {
+    setEditableTimeSlots(prev => prev.filter((_, i) => i !== index))
+  }
   
   // 予約サイトのベースパス
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
@@ -55,7 +100,7 @@ export function PrivateBookingRequest({
     scenarioId,
     participationFee,
     maxParticipants,
-    selectedTimeSlots,
+    selectedTimeSlots: editableTimeSlots,
     selectedStoreIds,
     stores,
     userId: user?.id
@@ -64,6 +109,11 @@ export function PrivateBookingRequest({
   // 予約送信ハンドラ
   const onSubmit = async () => {
     setError(null)
+    
+    if (editableTimeSlots.length === 0) {
+      setError('候補日時を1件以上選択してください')
+      return
+    }
     
     if (!validateForm(customerName, customerEmail, customerPhone)) {
       return
@@ -173,27 +223,115 @@ export function PrivateBookingRequest({
 
             {/* 候補日時 */}
             <div>
-              <h2 className="text-base font-semibold mb-3">候補日時（{selectedTimeSlots.length}件）</h2>
-              <div className="space-y-2">
-                {selectedTimeSlots.map((slot, index) => (
-                  <Card key={index}>
-                    <CardContent className="p-4 flex items-center justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                            候補 {index + 1}
-                          </Badge>
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span>{formatDate(slot.date)}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Clock className="w-4 h-4" />
-                          <span>{slot.slot.label} {slot.slot.startTime} - {slot.slot.endTime}</span>
-                        </div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold">候補日時（{editableTimeSlots.length}/{MAX_TIME_SLOTS}件）</h2>
+                {editableTimeSlots.length < MAX_TIME_SLOTS && !showAddForm && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAddForm(true)}
+                    className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    追加
+                  </Button>
+                )}
+              </div>
+              
+              {/* 追加フォーム */}
+              {showAddForm && (
+                <Card className="mb-3 border-purple-200 bg-purple-50">
+                  <CardContent className="p-4 space-y-3">
+                    <p className="text-sm font-medium text-purple-800">候補日時を追加</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs mb-1 block">日付</Label>
+                        <Input
+                          type="date"
+                          value={newDate}
+                          onChange={(e) => setNewDate(e.target.value)}
+                          min={dateRange.minDate}
+                          max={dateRange.maxDate}
+                          className="text-sm"
+                        />
                       </div>
+                      <div>
+                        <Label className="text-xs mb-1 block">時間帯</Label>
+                        <Select value={newSlotLabel} onValueChange={setNewSlotLabel}>
+                          <SelectTrigger className="text-sm">
+                            <SelectValue placeholder="選択..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TIME_SLOT_OPTIONS.map((slot) => (
+                              <SelectItem key={slot.label} value={slot.label}>
+                                {slot.label}（{slot.startTime}〜{slot.endTime}）
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowAddForm(false)
+                          setNewDate('')
+                          setNewSlotLabel('')
+                        }}
+                      >
+                        キャンセル
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleAddTimeSlot}
+                        disabled={!newDate || !newSlotLabel}
+                        className="bg-purple-600 hover:bg-purple-700"
+                      >
+                        追加する
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              <div className="space-y-2">
+                {editableTimeSlots.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="p-4 text-center text-muted-foreground text-sm">
+                      候補日時を追加してください
                     </CardContent>
                   </Card>
-                ))}
+                ) : (
+                  editableTimeSlots.map((slot, index) => (
+                    <Card key={`${slot.date}-${slot.slot.label}`}>
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                              候補 {index + 1}
+                            </Badge>
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <span>{formatDate(slot.date)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock className="w-4 h-4" />
+                            <span>{slot.slot.label} {slot.slot.startTime} - {slot.slot.endTime}</span>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveTimeSlot(index)}
+                          className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1 h-auto"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             </div>
 

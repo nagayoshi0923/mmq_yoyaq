@@ -83,6 +83,13 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   const [isEventsExpanded, setIsEventsExpanded] = useState(false)
   // お気に入り用のシナリオID（scenarios テーブルのID）
   const [favoriteScenarioId, setFavoriteScenarioId] = useState<string | null>(null)
+  // 貸切可能な組織情報
+  const [availableOrganizations, setAvailableOrganizations] = useState<Array<{
+    id: string
+    slug: string
+    name: string
+    scenarioId: string
+  }>>([])
 
   useEffect(() => {
     fetchData()
@@ -318,20 +325,49 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       let scenarioIdsForEvents: string[] = [masterId]
       let favoriteId: string | null = useLegacyTable ? masterId : null
       
+      // 貸切可能な組織リストを作成
+      const availableOrgs: Array<{ id: string; slug: string; name: string; scenarioId: string; scenarioSlug: string }> = []
+      
       if (!useLegacyTable) {
-        // scenario_master_idが一致するscenariosのIDを全て取得
+        // scenario_master_idが一致するscenariosのID、組織ID、slugを全て取得
         const { data: relatedScenarios } = await supabase
           .from('scenarios')
-          .select('id')
+          .select('id, organization_id, slug')
           .eq('scenario_master_id', masterId)
+          .eq('status', 'available')
         
         if (relatedScenarios && relatedScenarios.length > 0) {
           scenarioIdsForEvents = relatedScenarios.map(s => s.id)
           // お気に入り用に最初のシナリオIDを使用
           favoriteId = relatedScenarios[0].id
+          
+          // 組織リストを作成
+          relatedScenarios.forEach(s => {
+            const org = s.organization_id ? orgMap[s.organization_id] : null
+            if (org && !availableOrgs.some(o => o.id === s.organization_id)) {
+              availableOrgs.push({
+                id: s.organization_id,
+                slug: org.slug,
+                name: org.name,
+                scenarioId: s.id,
+                scenarioSlug: s.slug || s.id
+              })
+            }
+          })
         }
+      } else if (masterData.organization_id && orgMap[masterData.organization_id]) {
+        // レガシーテーブルの場合
+        const org = orgMap[masterData.organization_id]
+        availableOrgs.push({
+          id: masterData.organization_id,
+          slug: org.slug,
+          name: org.name,
+          scenarioId: masterId,
+          scenarioSlug: scenarioSlug
+        })
       }
       
+      setAvailableOrganizations(availableOrgs)
       setFavoriteScenarioId(favoriteId)
       
       const { data: eventData, error: eventError } = await supabase
@@ -1011,7 +1047,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
             </div>
 
             {/* 遊べる店舗一覧 */}
-            {eventsByOrg.length > 0 && (
+            {(eventsByOrg.length > 0 || availableOrganizations.length > 0) && (
               <div className="bg-white border border-gray-200" style={{ borderRadius: 0 }}>
                 <div 
                   className="px-4 py-3 border-b border-gray-200 flex items-center gap-2"
@@ -1022,22 +1058,77 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                 </div>
                 <div className="p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {eventsByOrg.map(({ org, events: orgEvents }) => (
-                      <div 
-                        key={org.slug}
-                        className="p-4 border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer"
-                        style={{ borderRadius: 0 }}
-                        onClick={() => navigate(`/${org.slug}/scenario/${scenarioSlug}`)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
+                    {/* イベントがある組織 */}
+                    {eventsByOrg.map(({ org, events: orgEvents }) => {
+                      const orgInfo = availableOrganizations.find(o => o.slug === org.slug)
+                      return (
+                        <div 
+                          key={org.slug}
+                          className="p-4 border border-gray-200"
+                          style={{ borderRadius: 0 }}
+                        >
+                          <div className="mb-3">
                             <h4 className="font-medium text-gray-900">{org.name}</h4>
                             <p className="text-sm text-gray-500">{orgEvents.length}件の公演予定</p>
                           </div>
-                          <ExternalLink className="w-4 h-4 text-gray-400" />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => navigate(`/${org.slug}`)}
+                              className="flex-1 py-2 px-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+                              style={{ borderRadius: 0 }}
+                            >
+                              <Building2 className="w-4 h-4" />
+                              店舗トップ
+                            </button>
+                            {orgInfo && (
+                              <button
+                                onClick={() => navigate(`/${org.slug}/scenario/${scenarioSlug}?tab=private`)}
+                                className="flex-1 py-2 px-3 text-sm text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"
+                                style={{ borderRadius: 0 }}
+                              >
+                                <Calendar className="w-4 h-4" />
+                                貸切リクエスト
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
+                    
+                    {/* イベントがないが貸切可能な組織 */}
+                    {availableOrganizations
+                      .filter(org => !eventsByOrg.some(e => e.org.slug === org.slug))
+                      .map(org => (
+                        <div 
+                          key={org.slug}
+                          className="p-4 border border-gray-200"
+                          style={{ borderRadius: 0 }}
+                        >
+                          <div className="mb-3">
+                            <h4 className="font-medium text-gray-900">{org.name}</h4>
+                            <p className="text-sm text-gray-500">公演予定なし</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => navigate(`/${org.slug}`)}
+                              className="flex-1 py-2 px-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+                              style={{ borderRadius: 0 }}
+                            >
+                              <Building2 className="w-4 h-4" />
+                              店舗トップ
+                            </button>
+                            <button
+                              onClick={() => navigate(`/${org.slug}/scenario/${scenarioSlug}?tab=private`)}
+                              className="flex-1 py-2 px-3 text-sm text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"
+                              style={{ borderRadius: 0 }}
+                            >
+                              <Calendar className="w-4 h-4" />
+                              貸切リクエスト
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    }
                   </div>
                 </div>
               </div>
