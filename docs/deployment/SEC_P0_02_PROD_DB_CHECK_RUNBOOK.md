@@ -367,7 +367,6 @@ SQL Editorの実行ロール/ポリシー状態によっては、`reservations` 
 ```sql
 -- ステップA: 実行して pass=true を目視
 BEGIN;
-SET LOCAL ROLE authenticated;
 
 WITH
 event AS (
@@ -375,6 +374,11 @@ event AS (
   FROM schedule_events
   WHERE is_cancelled = false
     AND date >= CURRENT_DATE
+    AND EXISTS (
+      SELECT 1 FROM customers c
+      WHERE c.organization_id = schedule_events.organization_id
+        AND c.user_id IS NOT NULL
+    )
   ORDER BY date ASC, start_time ASC
   LIMIT 1
 ),
@@ -447,7 +451,6 @@ ROLLBACK;
 ```sql
 -- ステップA: 実行して pass=true を目視
 BEGIN;
-SET LOCAL ROLE authenticated;
 
 WITH
 event AS (
@@ -455,6 +458,11 @@ event AS (
   FROM schedule_events
   WHERE is_cancelled = false
     AND date >= CURRENT_DATE
+    AND EXISTS (
+      SELECT 1 FROM customers c
+      WHERE c.organization_id = schedule_events.organization_id
+        AND c.user_id IS NOT NULL
+    )
   ORDER BY date ASC, start_time ASC
   LIMIT 1
 ),
