@@ -8,6 +8,7 @@ import { LoginForm } from '@/components/auth/LoginForm'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { SetPassword } from '@/pages/SetPassword'
+import { CompleteProfile } from '@/pages/CompleteProfile'
 
 // QueryClient の設定
 const queryClient = new QueryClient({
@@ -37,7 +38,7 @@ export function getOrganizationSlugFromPath(): string {
     // 管理ページのパスは除外
     const adminPaths = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 
       'gm-availability', 'private-booking-management', 'reservations', 'accounts', 'sales', 
-      'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
+      'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'complete-profile', 'license-management',
       'staff-profile', 'mypage', 'author', 'external-reports', 'accept-invitation', 'organization-register']
     if (!adminPaths.includes(match[1])) {
       return match[1]
@@ -99,7 +100,13 @@ function AppRoutes() {
   const hasInviteTokens = searchParams.get('type') === 'signup' || searchParams.get('type') === 'invite'
   const hasRecoveryTokens = searchParams.get('type') === 'recovery'
 
-  // 招待トークンがある場合はSetPasswordへ
+  // プロフィール設定ページ（新規登録メール確認後）
+  // type=signup でリダイレクトされるが、/complete-profile の場合はこちらを優先
+  if (location.pathname === '/complete-profile') {
+    return <CompleteProfile />
+  }
+
+  // 招待トークンがある場合はSetPasswordへ（/complete-profile以外）
   if (hasInviteTokens || location.pathname === '/set-password') {
     return <SetPassword />
   }

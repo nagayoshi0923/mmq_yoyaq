@@ -235,6 +235,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUserFromSession(session.user).then(() => {
             setLoading(false)
             setIsInitialized(true)  // ユーザー情報設定完了後に認証完了をマーク
+            
+            // OAuthログイン後のreturnUrl処理（予約フローに戻る）
+            if (event === 'SIGNED_IN') {
+              const returnUrl = sessionStorage.getItem('returnUrl')
+              if (returnUrl) {
+                sessionStorage.removeItem('returnUrl')
+                logger.log('🔄 OAuth後のリダイレクト:', returnUrl)
+                // 現在のパスと異なる場合のみリダイレクト
+                if (window.location.pathname !== returnUrl && !returnUrl.startsWith(window.location.pathname)) {
+                  window.location.href = returnUrl
+                }
+              }
+            }
           }).catch(err => {
             logger.error('❌ setUserFromSession error:', err)
             setLoading(false)
