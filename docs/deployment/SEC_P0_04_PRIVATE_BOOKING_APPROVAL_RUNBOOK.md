@@ -15,7 +15,10 @@ Supabase SQL Editor で `docs/deployment/sql/SEC_P0_04_ts0_check_rpc.sql` を実
 
 ### 2) ROLLBACK付きアトミック動作テスト（必須）
 
-Supabase SQL Editor で `docs/deployment/sql/SEC_P0_04_test_approve_one_query.sql` を実行する。
+Supabase SQL Editor で以下を **順番に** 実行する。
+
+1. `docs/deployment/sql/SEC_P0_04_test_approve_ts1_stepA.sql`（結果表示）
+2. `docs/deployment/sql/SEC_P0_04_test_approve_ts1_stepB_rollback.sql`（ロールバック）
 
 - **期待結果**: `pass = true` が返る
 - **副作用**: なし（トランザクション内で `ROLLBACK`）
@@ -23,7 +26,7 @@ Supabase SQL Editor で `docs/deployment/sql/SEC_P0_04_test_approve_one_query.sq
 ### トラブルシュート
 
 - `Success. No rows returned`:
-  - 最後がDDL/ROLLBACKだけだと結果が表示されないことがある。このRunbookのSQLは **必ず1行返す** 形式。
+  - 最後が `ROLLBACK` だけだと結果が表示されないことがあるため、Step A/Step B に分割している。
 - `UNAUTHORIZED (P0010)`:
   - 対象組織のスタッフユーザーの `staff.user_id` が取れない可能性。SQL内の選択ロジックを満たすデータがあるか確認。
 - `SLOT_ALREADY_OCCUPIED (P0019)`:
