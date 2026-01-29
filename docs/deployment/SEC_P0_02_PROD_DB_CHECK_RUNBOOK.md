@@ -342,6 +342,7 @@ ROLLBACK;
 
 SQL Editorによっては `NOTICE` が見えづらく、実行結果が `Success. No rows returned` だけに見えることがあります。  
 また、`BEGIN ... SELECT ... ROLLBACK` を**1回でまとめて実行**すると、画面が「最後のステートメント（ROLLBACK）」の結果だけを表示してしまい、`Success. No rows returned` に見えることがあります。  
+**必ずステップAの範囲だけを選択して実行**してください（Supabase SQL Editor の「選択範囲を実行 / Run selected」推奨）。
 
 そのため、このセクションは **2ステップ**です。
 - **ステップA**: `BEGIN;` + `WITH ... SELECT ...;` を実行して **pass行を確認**
@@ -361,8 +362,6 @@ event AS (
   FROM schedule_events
   WHERE is_cancelled = false
     AND date >= CURRENT_DATE
-    AND scenario_id IS NOT NULL
-    AND store_id IS NOT NULL
   ORDER BY date ASC, start_time ASC
   LIMIT 1
 ),
