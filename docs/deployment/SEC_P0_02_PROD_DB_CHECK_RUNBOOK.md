@@ -336,3 +336,130 @@ END $$;
 ROLLBACK;
 ```
 
+---
+
+## SQL Editorで結果を目視したい場合（推奨）: 1行で pass を返す版
+
+SQL Editorによっては `NOTICE` が見えづらく、実行結果が `Success. No rows returned` だけに見えることがあります。  
+以下は **1行結果が返る** ので、`pass=true` を目視できます（ROLLBACKでデータは残りません）。
+
+### テスト1（旧RPC）: passがtrueになること
+
+```sql
+BEGIN;
+
+WITH
+event AS (
+  SELECT id, organization_id, scenario_id, store_id, date, start_time, (date + start_time)::timestamptz AS event_dt
+  FROM schedule_events
+  WHERE is_cancelled = false
+    AND date >= CURRENT_DATE
+    AND scenario_id IS NOT NULL
+    AND store_id IS NOT NULL
+  ORDER BY date ASC, start_time ASC
+  LIMIT 1
+),
+cust AS (
+  SELECT id, user_id
+  FROM customers
+  WHERE organization_id = (SELECT organization_id FROM event)
+    AND user_id IS NOT NULL
+  ORDER BY created_at DESC
+  LIMIT 1
+),
+claims AS (
+  SELECT
+    set_config('request.jwt.claim.sub', (SELECT user_id::text FROM cust), true) AS _a,
+    set_config('request.jwt.claims', json_build_object('sub', (SELECT user_id FROM cust))::text, true) AS _b
+),
+call AS (
+  SELECT create_reservation_with_lock(
+    (SELECT id FROM event),
+    2,
+    (SELECT id FROM cust),
+    'SEC_P0_02_TEST',
+    'sec-test@example.com',
+    '0000000000',
+    NULL,
+    NULL,
+    '2000-01-01T00:00:00Z'::timestamptz,
+    999,
+    1,
+    1,
+    1,
+    to_char(now(), 'YYMMDD') || '-' || upper(substr(md5(random()::text), 1, 4)),
+    'SEC_P0_02_TEST_NOTES',
+    NULL,
+    (SELECT organization_id FROM event),
+    'SEC_P0_02_TEST_TITLE'
+  ) AS rid
+  FROM claims
+),
+res AS (
+  SELECT r.id,
+         r.unit_price,
+         r.total_price,
+         r.requested_datetime,
+         (SELECT event_dt FROM event) AS expected_dt
+  FROM reservations r
+  WHERE r.id = (SELECT rid FROM call)
+)
+SELECT
+  id AS reservation_id,
+  unit_price,
+  total_price,
+  requested_datetime,
+  expected_dt,
+  (unit_price <> 1 AND total_price <> 1 AND requested_datetime = expected_dt) AS pass
+FROM res;
+
+ROLLBACK;
+```
+
+### テスト2（v2）: passがtrueになること
+
+```sql
+BEGIN;
+
+WITH
+event AS (
+  SELECT id, organization_id
+  FROM schedule_events
+  WHERE is_cancelled = false
+    AND date >= CURRENT_DATE
+  ORDER BY date ASC, start_time ASC
+  LIMIT 1
+),
+cust AS (
+  SELECT id, user_id
+  FROM customers
+  WHERE organization_id = (SELECT organization_id FROM event)
+    AND user_id IS NOT NULL
+  ORDER BY created_at DESC
+  LIMIT 1
+),
+claims AS (
+  SELECT
+    set_config('request.jwt.claim.sub', (SELECT user_id::text FROM cust), true) AS _a,
+    set_config('request.jwt.claims', json_build_object('sub', (SELECT user_id FROM cust))::text, true) AS _b
+),
+call AS (
+  SELECT create_reservation_with_lock_v2(
+    (SELECT id FROM event),
+    1,
+    (SELECT id FROM cust),
+    'SEC_P0_02_TEST_V2',
+    'sec-test@example.com',
+    '0000000000',
+    'NOTE',
+    NULL,
+    NULL
+  ) AS rid
+  FROM claims
+)
+SELECT rid AS reservation_id, true AS pass
+FROM call;
+
+ROLLBACK;
+```
+
