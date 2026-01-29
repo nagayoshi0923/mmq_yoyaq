@@ -165,6 +165,9 @@ WHERE n.nspname = 'public'
 ORDER BY p.oid;
 ```
 
+運用Runbook（コピペ運用用）:
+- `docs/deployment/SEC_P0_02_PROD_DB_CHECK_RUNBOOK.md`
+
 判定:
 - **022型（価格/日時なし）が有効**: フロント側は“価格/日時パラメータ送信”を即時撤去（予約作成が壊れている可能性が高い）
 - **005/006型（価格/日時あり）が有効**: **料金改ざんが成立**し得るため、RPC内でサーバー再計算へ即修正
