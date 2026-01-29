@@ -9,45 +9,47 @@ import { reservationApi } from '@/lib/reservationApi'
  * 参加費を計算する関数
  */
 const calculateParticipationFee = async (scenarioId: string, startTime: string, date: string): Promise<number> => {
-  try {
-    // シナリオの料金設定を取得
-    const { data: scenario, error } = await supabase
-      .from('scenarios')
-      .select('participation_fee, participation_costs')
-      .eq('id', scenarioId)
-      .single()
+  // シナリオの料金設定を取得
+  const { data: scenario, error } = await supabase
+    .from('scenarios')
+    .select('participation_fee, participation_costs')
+    .eq('id', scenarioId)
+    .single()
 
-    if (error) {
-      logger.error('シナリオ料金設定取得エラー:', error)
-      return 3000 // デフォルト料金
-    }
+  if (error) {
+    logger.error('シナリオ料金設定取得エラー:', error)
+    throw new Error('料金情報の取得に失敗しました。ページを再読み込みしてください。')
+  }
 
-    if (!scenario) return 3000
+  if (!scenario) {
+    throw new Error('シナリオ情報が見つかりません。')
+  }
 
-    // 基本料金
-    let baseFee = scenario.participation_fee || 3000
+  // 基本料金（必須フィールド）
+  const baseFeeRaw = scenario.participation_fee
+  if (baseFeeRaw === null || baseFeeRaw === undefined) {
+    throw new Error('このシナリオの料金設定がありません。管理者にお問い合わせください。')
+  }
+  
+  let baseFee = baseFeeRaw
 
-    // 時間帯別料金設定をチェック
-    if (scenario.participation_costs && scenario.participation_costs.length > 0) {
-      const timeSlot = getTimeSlot(startTime)
-      const timeSlotCost = scenario.participation_costs.find((cost: { time_slot: string; status: string; type: string; amount: number }) => 
-        cost.time_slot === timeSlot && cost.status === 'active'
-      )
+  // 時間帯別料金設定をチェック
+  if (scenario.participation_costs && scenario.participation_costs.length > 0) {
+    const timeSlot = getTimeSlot(startTime)
+    const timeSlotCost = scenario.participation_costs.find((cost: { time_slot: string; status: string; type: string; amount: number }) => 
+      cost.time_slot === timeSlot && cost.status === 'active'
+    )
 
-      if (timeSlotCost) {
-        if (timeSlotCost.type === 'percentage') {
-          baseFee = Math.round(baseFee * (1 + timeSlotCost.amount / 100))
-        } else {
-          baseFee = timeSlotCost.amount
-        }
+    if (timeSlotCost) {
+      if (timeSlotCost.type === 'percentage') {
+        baseFee = Math.round(baseFee * (1 + timeSlotCost.amount / 100))
+      } else {
+        baseFee = timeSlotCost.amount
       }
     }
-
-    return baseFee
-  } catch (error) {
-    logger.error('料金計算エラー:', error)
-    return 3000 // デフォルト料金
   }
+
+  return baseFee
 }
 
 /**
@@ -119,9 +121,9 @@ export const checkDuplicateReservation = async (
       }
     }
 
-    // 2. 同じ日時の別公演への予約をチェック
+    // 2. 同じ日時の別公演への予約をチェック（schedule_eventsから正確な時間を取得）
     if (eventDate && startTime && customerEmail) {
-      // 同じ日付の予約を取得（公演時間情報も含める）
+      // 同じ日付の予約を取得（schedule_eventsと結合して正確な公演時間を取得）
       const { data: sameTimeReservations, error: sameTimeError } = await supabase
         .from('reservations')
         .select(`
@@ -130,9 +132,16 @@ export const checkDuplicateReservation = async (
           customer_name, 
           reservation_number,
           schedule_event_id,
-          requested_datetime,
-          duration,
-          title
+          title,
+          schedule_events!schedule_event_id (
+            date,
+            start_time,
+            end_time,
+            scenarios (
+              title,
+              duration
+            )
+          )
         `)
         .eq('customer_email', customerEmail)
         .in('status', ['pending', 'confirmed', 'gm_confirmed'])
@@ -141,21 +150,33 @@ export const checkDuplicateReservation = async (
       if (!sameTimeError && sameTimeReservations && sameTimeReservations.length > 0) {
         // 予約しようとしている公演の時間帯を計算
         const targetStartTime = new Date(`${eventDate}T${startTime}`)
-        // デフォルト公演時間: 120分（2時間）
-        const DEFAULT_DURATION_MS = 120 * 60 * 1000
+        // デフォルト公演時間: 180分（3時間）
+        const DEFAULT_DURATION_MS = 180 * 60 * 1000
         const targetEndTime = new Date(targetStartTime.getTime() + DEFAULT_DURATION_MS)
         
         for (const res of sameTimeReservations) {
-          if (!res.requested_datetime) continue
+          const scheduleEvent = res.schedule_events as { 
+            date?: string; 
+            start_time?: string; 
+            end_time?: string;
+            scenarios?: { title?: string; duration?: number } 
+          } | null
           
-          const resStartTime = new Date(res.requested_datetime)
+          if (!scheduleEvent?.date || !scheduleEvent?.start_time) continue
           
           // 同じ日付かチェック
-          if (resStartTime.toDateString() !== targetStartTime.toDateString()) continue
+          if (scheduleEvent.date !== eventDate) continue
           
-          // 既存予約の終了時間を計算
-          const resDurationMs = (res.duration || 120) * 60 * 1000
-          const resEndTime = new Date(resStartTime.getTime() + resDurationMs)
+          const resStartTime = new Date(`${scheduleEvent.date}T${scheduleEvent.start_time}`)
+          
+          // 終了時間を計算（end_timeがあれば使用、なければdurationから計算）
+          let resEndTime: Date
+          if (scheduleEvent.end_time) {
+            resEndTime = new Date(`${scheduleEvent.date}T${scheduleEvent.end_time}`)
+          } else {
+            const durationMs = ((scheduleEvent.scenarios?.duration || 180) + 30) * 60 * 1000 // 公演時間 + 30分バッファ
+            resEndTime = new Date(resStartTime.getTime() + durationMs)
+          }
           
           // 時間帯の重複チェック
           // 重複条件: 新予約の開始 < 既存の終了 かつ 新予約の終了 > 既存の開始
@@ -166,7 +187,8 @@ export const checkDuplicateReservation = async (
               hasDuplicate: true, 
               existingReservation: { 
                 ...res,
-                isTimeConflict: true
+                isTimeConflict: true,
+                conflictEventTitle: scheduleEvent.scenarios?.title || res.title
               },
               isTimeConflict: true
             }
@@ -244,10 +266,15 @@ const checkReservationLimits = async (
       return { allowed: false, reason: `残り${available}名分の空きしかありません` }
     }
 
+    // 過去日付チェック（安全対策）
+    const eventDateTime = new Date(`${eventDate}T${startTime}`)
+    const now = new Date()
+    if (eventDateTime < now) {
+      return { allowed: false, reason: 'この公演は既に開始されています' }
+    }
+
     // 予約締切チェック
     if (eventData.reservation_deadline_hours) {
-      const eventDateTime = new Date(`${eventDate}T${startTime}`)
-      const now = new Date()
       const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
       
       if (hoursUntilEvent < eventData.reservation_deadline_hours) {
@@ -362,22 +389,12 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       // 顧客レコードを取得または作成
       let customerId: string | null = null
       
-      // #region agent log
-      logger.log('[DEBUG-E] 顧客レコード処理開始', {userId:props.userId,customerEmail});
-      fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBookingSubmit.ts:customerStart',message:'顧客レコード処理開始',data:{userId:props.userId,customerEmail},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
-      
       try {
         const { data: existingCustomer } = await supabase
           .from('customers')
           .select('id')
           .eq('user_id', props.userId)
           .single()
-        
-        // #region agent log
-        logger.log('[DEBUG-E] 既存顧客チェック結果', {hasExisting:!!existingCustomer,existingId:existingCustomer?.id});
-        fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBookingSubmit.ts:customerCheck',message:'既存顧客チェック結果',data:{hasExisting:!!existingCustomer,existingId:existingCustomer?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         
         if (existingCustomer) {
           customerId = existingCustomer.id
@@ -405,20 +422,11 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             .select('id')
             .single()
           
-          // #region agent log
-          logger.log('[DEBUG-E] 新規顧客作成結果', {success:!customerError,newCustomerId:newCustomer?.id,error:customerError?.message,organizationId});
-          fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBookingSubmit.ts:customerCreate',message:'新規顧客作成結果',data:{success:!customerError,newCustomerId:newCustomer?.id,error:customerError?.message,organizationId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-          // #endregion
-          
           if (!customerError && newCustomer) {
             customerId = newCustomer.id
           }
         }
       } catch (error) {
-        // #region agent log
-        logger.log('[DEBUG-E] 顧客処理で例外発生', {error:String(error)});
-        fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBookingSubmit.ts:customerError',message:'顧客処理で例外発生',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         logger.error('顧客レコードの作成/更新エラー:', error)
       }
       

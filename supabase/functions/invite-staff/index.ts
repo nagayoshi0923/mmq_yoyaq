@@ -415,12 +415,13 @@ serve(async (req) => {
       console.warn(emailError)
     } else {
       const actionWord = isNewUser ? '設定' : 'リセット'
+      // 組織名をメール件名に使用（senderNameに組織名が設定されている）
       const emailSubject = isNewUser
-        ? '【MMQ】スタッフアカウント招待'
-        : '【MMQ】スタッフアカウント登録完了'
+        ? `【${senderName}】スタッフアカウント招待`
+        : `【${senderName}】スタッフアカウント登録完了`
       const introLine = isNewUser
-        ? 'スタッフ管理システムへのアカウントを発行しました。'
-        : 'スタッフ機能をご利用いただけるようになりました。'
+        ? `${senderName}のスタッフ管理システムへのアカウントを発行しました。`
+        : `${senderName}のスタッフ機能をご利用いただけるようになりました。`
 
       const html = `
         <h2>${emailSubject}</h2>
