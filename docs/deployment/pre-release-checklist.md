@@ -99,6 +99,17 @@
 - [ ] インデックスが適切に設定されている
   - [ ] `organization_id` カラムにインデックスがある
 
+#### 4.1 SEC-P0-02（必須）: 予約作成RPCの本番検証（Runbook）
+
+**目的**: 料金/日時の改ざん（API直叩き）を確実に防げていることを、毎回同じ手順で確認する。
+
+- [ ] Runbookを実行した（シグネチャ/定義/適用済みマイグレーション確認）
+  - [ ] `docs/deployment/SEC_P0_02_PROD_DB_CHECK_RUNBOOK.md` の手順(1)〜(4)を実施
+- [ ] 改ざんテスト（ROLLBACK付き）を実行し、成功した
+  - [ ] Runbook末尾の「ポストデプロイ検証（必須）: 改ざんテスト（ROLLBACK付き）」を実施
+  - [ ] 旧RPC（create_reservation_with_lock）が **サーバー計算値**で上書きしている
+  - [ ] v2 RPC（create_reservation_with_lock_v2）が存在し、実行できる
+
 ### 5. 重要機能の動作確認
 
 #### 5.1 スケジュール重複防止機能

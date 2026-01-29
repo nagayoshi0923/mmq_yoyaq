@@ -23,6 +23,18 @@
 -- リトライキューテーブル作成
 ```
 
+**③ SEC-P0-02（必須）: 予約作成RPCの安全化**
+```sql
+-- supabase/migrations/20260130190000_harden_create_reservation_with_lock_server_pricing.sql
+-- 旧RPC(create_reservation_with_lock)を互換維持のまま安全化（料金/日時をサーバー確定）
+```
+
+**④ SEC-P0-02（推奨）: v2 RPC 追加**
+```sql
+-- supabase/migrations/20260130_create_reservation_with_lock_v2.sql
+-- create_reservation_with_lock_v2 を追加（v2優先→旧RPCフォールバックで段階移行）
+```
+
 #### 実行確認
 
 ```sql
@@ -30,6 +42,13 @@
 SELECT proname, proargtypes 
 FROM pg_proc 
 WHERE proname = 'cancel_reservation_with_lock';
+
+-- SEC-P0-02: v2 RPCが存在するか確認（1行返ればOK）
+SELECT p.oid::regprocedure AS signature
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'create_reservation_with_lock_v2';
 
 -- リトライキューテーブルが作成されたか確認
 SELECT table_name 
@@ -98,6 +117,8 @@ GROUP BY se.id, se.current_participants;
 
 - [ ] 本番環境でログイン
 - [ ] 予約キャンセルが正常に動作
+- [ ] **SEC-P0-02 改ざんテスト（ROLLBACK付き）を実施**（Runbook）
+  - [ ] `docs/deployment/SEC_P0_02_PROD_DB_CHECK_RUNBOOK.md` の「ポストデプロイ検証」をSQL Editorで実行
 - [ ] エラーログを確認（Supabase Dashboard → Logs）
 
 ---
