@@ -81,6 +81,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   const [error, setError] = useState<string | null>(null)
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false)
   const [isEventsExpanded, setIsEventsExpanded] = useState(false)
+  // お気に入り用のシナリオID（scenarios テーブルのID）
+  const [favoriteScenarioId, setFavoriteScenarioId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -314,6 +316,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       
       // scenario_mastersからシナリオを見つけた場合、関連するscenariosのIDを取得
       let scenarioIdsForEvents: string[] = [masterId]
+      let favoriteId: string | null = useLegacyTable ? masterId : null
+      
       if (!useLegacyTable) {
         // scenario_master_idが一致するscenariosのIDを全て取得
         const { data: relatedScenarios } = await supabase
@@ -323,8 +327,12 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         
         if (relatedScenarios && relatedScenarios.length > 0) {
           scenarioIdsForEvents = relatedScenarios.map(s => s.id)
+          // お気に入り用に最初のシナリオIDを使用
+          favoriteId = relatedScenarios[0].id
         }
       }
+      
+      setFavoriteScenarioId(favoriteId)
       
       const { data: eventData, error: eventError } = await supabase
         .from('schedule_events')
@@ -452,7 +460,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   }
 
   const handleFavoriteClick = () => {
-    if (scenario) {
+    if (favoriteScenarioId) {
+      toggleFavorite(favoriteScenarioId)
+    } else if (scenario) {
+      // フォールバック: scenario.id を使用（legacy scenario の場合）
       toggleFavorite(scenario.id)
     }
   }
@@ -604,7 +615,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                     style={{ borderRadius: 0 }}
                   >
                     <Heart className={`h-5 w-5 ${
-                      isFavorite(scenario.id) ? 'fill-current text-red-500' : 'text-gray-400'
+                      isFavorite(favoriteScenarioId || scenario.id) ? 'fill-current text-red-500' : 'text-gray-400'
                     }`} />
                   </button>
                 )}

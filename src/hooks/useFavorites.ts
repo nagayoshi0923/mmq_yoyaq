@@ -182,18 +182,20 @@ export function useFavorites() {
 
           if (error) throw error
         } else {
-          // お気に入りに追加
+          // お気に入りに追加（organization_idを取得して設定）
+          const orgId = await getCurrentOrganizationId() || DEFAULT_ORG_ID
           const { error } = await supabase
             .from('scenario_likes')
             .insert({
               customer_id: customerId,
               scenario_id: scenarioId,
+              organization_id: orgId,
             })
 
           if (error) throw error
         }
       } catch (error) {
-        logger.error('Failed to update favorites in DB:', error)
+        logger.error('Failed to update favorites in DB:', { error, customerId, scenarioId })
         // エラー時はロールバック
         setFavorites(prev => {
           const newFavorites = new Set(prev)

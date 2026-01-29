@@ -280,21 +280,9 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
             </div>
           )}
           
-          {/* フィルターパネル */}
+          {/* フィルターパネル（所要時間・プレイ人数のみ。ジャンルは上のバッジで選択） */}
           {showFilters && (
-            <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="ジャンル" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべてのジャンル</SelectItem>
-                  {genres.map(genre => (
-                    <SelectItem key={genre} value={genre}>{genre}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
+            <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select value={selectedDuration} onValueChange={setSelectedDuration}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="所要時間" />

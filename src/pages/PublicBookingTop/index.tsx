@@ -14,6 +14,7 @@ import { useListViewData } from './hooks/useListViewData'
 import { useBookingFilters } from './hooks/useBookingFilters'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useStoreFilterPreference } from '@/hooks/useUserPreference'
+import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { SearchBar } from './components/SearchBar'
 import { LineupView } from './components/LineupView'
 import { CalendarView } from './components/CalendarView'
@@ -71,6 +72,12 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     organizationNotFound,
     organizationName
   } = useBookingData(organizationSlug)
+  
+  // スクロール位置の保存と復元（一覧→詳細→戻る時に位置を保持）
+  useScrollRestoration({ 
+    pageKey: `booking-${organizationSlug || 'platform'}`,
+    isLoading 
+  })
   
   // 店舗データがロードされたら、保存されたフィルターを検証（存在しない店舗IDの場合はリセット）
   useEffect(() => {

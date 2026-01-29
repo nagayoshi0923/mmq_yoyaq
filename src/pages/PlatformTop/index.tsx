@@ -14,6 +14,7 @@ import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Cale
 import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
+import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { ScenarioCard, type ScenarioCardData } from '@/pages/PublicBookingTop/components/ScenarioCard'
 
@@ -72,6 +73,12 @@ export function PlatformTop() {
   const [loading, setLoading] = useState(true)
   const [selectedRegion, setSelectedRegion] = useState('all')
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // スクロール位置の保存と復元
+  useScrollRestoration({ 
+    pageKey: 'platform-top',
+    isLoading: loading 
+  })
 
   useEffect(() => {
     fetchData()
