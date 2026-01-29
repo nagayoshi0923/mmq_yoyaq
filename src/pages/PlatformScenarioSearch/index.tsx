@@ -411,19 +411,6 @@ export function PlatformScenarioSearch() {
                   className="relative bg-white overflow-hidden border border-gray-200 group-hover:border-gray-300 group-hover:shadow-lg transition-all duration-200 flex md:flex-col hover:scale-[1.02]"
                   style={{ borderRadius: 0 }}
                 >
-                  {/* お気に入りボタン */}
-                  {user && (
-                    <button
-                      onClick={(e) => handleToggleFavorite(scenario.id, e)}
-                      className="absolute top-2 right-2 z-10 w-8 h-8 bg-white/90 flex items-center justify-center transition-colors"
-                      style={{ borderRadius: 0 }}
-                    >
-                      <Heart className={`h-4 w-4 ${
-                        isFavorite(scenario.id) ? 'fill-current text-red-500' : 'text-gray-400 hover:text-red-500'
-                      }`} />
-                    </button>
-                  )}
-                  
                   {/* キービジュアル */}
                   <div className="relative w-32 md:w-full aspect-[3/4] overflow-hidden bg-gray-100 flex-shrink-0">
                     {scenario.key_visual_url ? (
@@ -450,13 +437,25 @@ export function PlatformScenarioSearch() {
 
                   {/* コンテンツ */}
                   <div className="p-2 sm:p-3 flex-1 min-w-0">
-                    {/* 店舗名 */}
-                    {scenario.organization_name && (
-                      <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
-                        <Building2 className="w-3 h-3" />
-                        <span className="truncate">{scenario.organization_name}</span>
-                      </div>
-                    )}
+                    {/* 店舗名 + お気に入りボタン */}
+                    <div className="flex items-center justify-between mb-1">
+                      {scenario.organization_name && (
+                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <Building2 className="w-3 h-3" />
+                          <span className="truncate">{scenario.organization_name}</span>
+                        </div>
+                      )}
+                      {user && (
+                        <button
+                          onClick={(e) => handleToggleFavorite(scenario.id, e)}
+                          className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
+                        >
+                          <Heart className={`h-4 w-4 fill-current text-red-500 ${
+                            isFavorite(scenario.id) ? 'opacity-100' : 'opacity-30 hover:opacity-50'
+                          }`} />
+                        </button>
+                      )}
+                    </div>
                     
                     {/* 著者 */}
                     <p className="text-xs text-gray-500 mb-1">{scenario.author}</p>

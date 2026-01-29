@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Header } from '@/components/layout/Header'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Search } from 'lucide-react'
 import { scenarioApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -31,6 +32,18 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('')
   const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedParticipantCount, setSelectedParticipantCount] = useState<number | null>(null)
+
+  // シナリオをフィルタリング（タイトル・作者で検索）
+  const filteredScenarios = useMemo(() => {
+    if (!searchTerm) return scenarios
+    const term = searchTerm.toLowerCase()
+    return scenarios.filter(s => 
+      s.title.toLowerCase().includes(term) ||
+      s.author.toLowerCase().includes(term)
+    )
+  }, [scenarios, searchTerm])
   
   // URLパラメータから日付、店舗、時間帯を取得（パスベース）
   const urlParams = new URLSearchParams(window.location.search)
@@ -99,10 +112,28 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
               </div>
             </div>
 
-            {/* シナリオ選択 */}
-            <div className="space-y-2">
+            {/* シナリオ検索・選択 */}
+            <div className="space-y-3">
               <label className="text-sm">シナリオを選択してください</label>
-              <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
+              
+              {/* 検索ボックス */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="タイトルまたは作者で検索..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              {/* シナリオ選択 */}
+              <Select value={selectedScenarioId} onValueChange={(id) => {
+                setSelectedScenarioId(id)
+                // 選択時に人数をリセット
+                setSelectedParticipantCount(null)
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="シナリオを選択..." />
                 </SelectTrigger>
@@ -111,12 +142,12 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                     <div className="p-2 text-center text-xs text-muted-foreground">
                       読み込み中...
                     </div>
-                  ) : scenarios.length === 0 ? (
+                  ) : filteredScenarios.length === 0 ? (
                     <div className="p-2 text-center text-xs text-muted-foreground">
-                      シナリオがありません
+                      {searchTerm ? '該当するシナリオがありません' : 'シナリオがありません'}
                     </div>
                   ) : (
-                    scenarios.map((scenario) => (
+                    filteredScenarios.map((scenario) => (
                       <SelectItem key={scenario.id} value={scenario.id}>
                         {scenario.title} - {scenario.author} ({scenario.duration}分)
                       </SelectItem>
@@ -124,6 +155,11 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                   )}
                 </SelectContent>
               </Select>
+              {filteredScenarios.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {searchTerm ? `${filteredScenarios.length}件のシナリオが見つかりました` : `全${scenarios.length}件`}
+                </p>
+              )}
             </div>
 
             {/* 選択されたシナリオの詳細 */}
@@ -132,8 +168,10 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
               if (!scenario) return null
               
               const participationFee = scenario.participation_fee || 0
-              const maxParticipants = scenario.player_count_max
-              const totalPrice = participationFee * maxParticipants
+              const isVariablePlayerCount = scenario.player_count_min !== scenario.player_count_max
+              // 可変人数の場合は選択された人数、固定の場合は最大人数を使用
+              const participantCount = selectedParticipantCount || scenario.player_count_max
+              const totalPrice = participationFee * participantCount
               
               return (
                 <>
@@ -202,6 +240,34 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                     )}
                   </div>
 
+                  {/* 人数選択（可変人数シナリオの場合） */}
+                  {isVariablePlayerCount && (
+                    <div className="border rounded-lg p-4 space-y-2">
+                      <h3 className="text-sm font-medium">参加人数を選択</h3>
+                      <Select 
+                        value={participantCount.toString()} 
+                        onValueChange={(val) => setSelectedParticipantCount(parseInt(val))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="人数を選択..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from(
+                            { length: scenario.player_count_max - scenario.player_count_min + 1 },
+                            (_, i) => scenario.player_count_min + i
+                          ).map((count) => (
+                            <SelectItem key={count} value={count.toString()}>
+                              {count}名
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        このシナリオは{scenario.player_count_min}〜{scenario.player_count_max}名でプレイ可能です
+                      </p>
+                    </div>
+                  )}
+
                   {/* 料金情報 */}
                   <div className="border rounded-lg bg-purple-50 p-4 space-y-2">
                     <h3 className="text-sm font-medium text-purple-800">料金（目安）</h3>
@@ -212,7 +278,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">貸切人数</span>
-                        <span>{maxParticipants}名</span>
+                        <span>{participantCount}名</span>
                       </div>
                       <div className="flex justify-between pt-2 border-t border-purple-200">
                         <span className="font-medium">合計（目安）</span>

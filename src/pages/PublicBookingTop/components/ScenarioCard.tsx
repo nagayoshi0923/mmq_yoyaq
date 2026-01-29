@@ -143,19 +143,6 @@ export const ScenarioCard = memo(function ScenarioCard({
         className="relative bg-white overflow-hidden border border-gray-200 group-hover:border-gray-300 group-hover:shadow-lg transition-all duration-200 flex md:flex-col hover:scale-[1.02]"
         style={{ borderRadius: 0 }}
       >
-        {/* お気に入りボタン */}
-        {onToggleFavorite && (
-          <button
-            onClick={handleFavoriteClick}
-            className="absolute top-2 right-2 z-10 w-8 h-8 bg-white/90 flex items-center justify-center transition-colors"
-            style={{ borderRadius: 0 }}
-          >
-            <Heart className={`h-4 w-4 ${
-              isFavorite ? 'fill-current text-red-500' : 'text-gray-400 hover:text-red-500'
-            }`} />
-          </button>
-        )}
-        
         {/* キービジュアル */}
         <div className="relative w-32 md:w-full aspect-[3/4] overflow-hidden bg-gray-100 flex-shrink-0">
           <LazyImage
@@ -176,10 +163,22 @@ export const ScenarioCard = memo(function ScenarioCard({
 
         {/* コンテンツ */}
         <div className="p-2 sm:p-3 flex-1 min-w-0">
-          {/* 著者 */}
-          {scenario.author && (
-            <p className="text-xs text-gray-500 mb-1" {...devDb('scenarios.author')}>{scenario.author}</p>
-          )}
+          {/* 著者 + お気に入りボタン */}
+          <div className="flex items-center justify-between mb-1">
+            {scenario.author && (
+              <p className="text-xs text-gray-500" {...devDb('scenarios.author')}>{scenario.author}</p>
+            )}
+            {onToggleFavorite && (
+              <button
+                onClick={handleFavoriteClick}
+                className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
+              >
+                <Heart className={`h-4 w-4 fill-current text-red-500 ${
+                  isFavorite ? 'opacity-100' : 'opacity-30 hover:opacity-50'
+                }`} />
+              </button>
+            )}
+          </div>
           
           {/* タイトル */}
           <h3 

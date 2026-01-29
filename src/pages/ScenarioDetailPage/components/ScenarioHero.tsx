@@ -69,23 +69,26 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
                   </div>
                 }
               />
-              {/* お気に入りボタン */}
-              <button
-                onClick={handleFavoriteClick}
-                className={`absolute top-2 right-2 p-1.5 transition-all bg-black/30 hover:bg-black/50 backdrop-blur-sm ${
-                  scenarioIsFavorite ? 'text-green-500' : 'text-white/80 hover:text-green-400'
-                }`}
-                title={scenarioIsFavorite ? 'お気に入りから削除' : 'お気に入りに追加'}
-              >
-                <Heart className={`w-5 h-5 ${scenarioIsFavorite ? 'fill-current' : ''}`} />
-              </button>
             </div>
           </div>
 
           {/* タイトル・基本情報 */}
           <div className="md:col-span-8 space-y-2">
             <div>
-              <p className="text-xs opacity-80 mb-1">{scenario.author}</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs opacity-80">{scenario.author}</p>
+                {/* お気に入りボタン */}
+                <button
+                  onClick={handleFavoriteClick}
+                  className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-white/10 rounded"
+                  title={scenarioIsFavorite ? 'お気に入りから削除' : 'お気に入りに追加'}
+                >
+                  <Heart className={`w-4 h-4 fill-current text-red-400 ${scenarioIsFavorite ? 'opacity-100' : 'opacity-40 hover:opacity-60'}`} />
+                  <span className="text-xs text-white/70">
+                    {scenarioIsFavorite ? '登録済み' : '遊びたい'}
+                  </span>
+                </button>
+              </div>
               <h1 className="text-lg md:text-xl font-bold mb-2">{scenario.scenario_title}</h1>
               
               {/* 基本情報（テキストベース） */}

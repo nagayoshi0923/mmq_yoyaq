@@ -607,18 +607,6 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                   </div>
                 )}
                 
-                {/* お気に入りボタン */}
-                {user && (
-                  <button
-                    onClick={handleFavoriteClick}
-                    className="absolute top-3 right-3 w-10 h-10 bg-white/90 flex items-center justify-center shadow-md transition-colors hover:bg-white"
-                    style={{ borderRadius: 0 }}
-                  >
-                    <Heart className={`h-5 w-5 ${
-                      isFavorite(favoriteScenarioId || scenario.id) ? 'fill-current text-red-500' : 'text-gray-400'
-                    }`} />
-                  </button>
-                )}
               </div>
 
               {/* シナリオ基本情報カード */}
@@ -679,12 +667,28 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           <div className="lg:col-span-2 space-y-6">
             {/* タイトル・作者 */}
             <div className="space-y-3">
-              {scenario.author && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium px-2 py-0.5 bg-gray-100 text-gray-700">作者</span>
-                  <span className="text-gray-700">{scenario.author}</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between">
+                {scenario.author && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium px-2 py-0.5 bg-gray-100 text-gray-700">作者</span>
+                    <span className="text-gray-700">{scenario.author}</span>
+                  </div>
+                )}
+                {/* お気に入りボタン */}
+                {user && (
+                  <button
+                    onClick={handleFavoriteClick}
+                    className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-red-50 rounded"
+                  >
+                    <Heart className={`h-5 w-5 fill-current text-red-500 ${
+                      isFavorite(favoriteScenarioId || scenario.id) ? 'opacity-100' : 'opacity-30'
+                    }`} />
+                    <span className="text-xs text-gray-500">
+                      {isFavorite(favoriteScenarioId || scenario.id) ? '登録済み' : '遊びたい'}
+                    </span>
+                  </button>
+                )}
+              </div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
                 {scenario.title}
               </h1>
