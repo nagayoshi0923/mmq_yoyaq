@@ -329,27 +329,21 @@ export const reservationApi = {
       throw new Error('この予約を変更する権限がありません')
     }
 
-    // 参加人数と料金を更新
-    const newTotalPrice = (reservation.unit_price || 0) * newCount
+    // 🚨 SECURITY FIX (SEC-P0-05): 直接UPDATEを削除
+    // 人数変更は updateParticipantsWithLock RPC で完結（料金計算もRPC内で実施すべき）
+    // 
+    // 問題:
+    //   - 元の実装は RPC で人数変更後、料金を直接UPDATEしていた
+    //   - これにより、在庫ロックなしで料金を変更できる脆弱性があった
+    // 
+    // 修正:
+    //   - RPC内で料金も更新するよう変更（027マイグレーションで対応）
+    //   - 当面は RPC のみで人数変更、料金は手動更新不可とする
     
-    const { error: updateError } = await supabase
-      .from('reservations')
-      .update({
-        participant_count: newCount,
-        total_price: newTotalPrice,
-        final_price: newTotalPrice,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', reservationId)
-
-    if (updateError) {
-      logger.error('予約更新エラー:', updateError)
-      throw new Error('予約の更新に失敗しました: ' + updateError.message)
-    }
-
-    logger.log('予約更新成功')
+    logger.log('人数変更成功（RPC内で完了）')
 
     // schedule_eventsのcurrent_participantsを再計算
+    // ※ RPCで既に更新されているが、念のため再計算
     if (reservation.schedule_event_id) {
       try {
         await recalculateCurrentParticipants(reservation.schedule_event_id)
@@ -530,7 +524,7 @@ export const reservationApi = {
             logger.warn('組織slug取得エラー、デフォルト値を使用:', orgError)
           }
           
-          const bookingUrl = `${window.location.origin}/${orgSlug}`
+          // 🔒 SEC-P0-03対策: bookingUrl はサーバー側で生成（送信しない）
           
           try {
             const notificationData = {
@@ -541,8 +535,8 @@ export const reservationApi = {
               eventDate: scheduleEvent?.date,
               startTime: scheduleEvent?.start_time,
               endTime: scheduleEvent?.end_time,
-              storeName,
-              bookingUrl
+              storeName
+              // bookingUrl を削除（サーバー側で生成）
             }
             
             await supabase.functions.invoke('notify-waitlist', {
@@ -563,7 +557,7 @@ export const reservationApi = {
                 start_time: scheduleEvent?.start_time,
                 end_time: scheduleEvent?.end_time,
                 store_name: storeName,
-                booking_url: bookingUrl,
+                // booking_url は削除（サーバー側で生成）
                 last_error: waitlistError instanceof Error ? waitlistError.message : String(waitlistError),
                 status: 'pending'
               })

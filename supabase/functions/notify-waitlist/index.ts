@@ -21,7 +21,7 @@ interface NotifyWaitlistRequest {
   startTime: string
   endTime: string
   storeName: string
-  bookingUrl: string  // 予約ページへのURL
+  // bookingUrl: string  ← 削除（サーバー側で生成）
 }
 
 interface WaitlistEntry {
@@ -121,6 +121,25 @@ serve(async (req) => {
       eventId: data.scheduleEventId, 
       freedSeats: data.freedSeats 
     })
+
+    // 🔒 SEC-P0-03対策: bookingUrl をサーバー側で生成（入力値を無視）
+    const { data: org, error: orgError } = await serviceClient
+      .from('organizations')
+      .select('slug, domain')
+      .eq('id', data.organizationId)
+      .single()
+    
+    if (orgError || !org) {
+      console.error('Organization fetch error:', orgError)
+      throw new Error('組織情報の取得に失敗しました')
+    }
+    
+    // 組織のドメインがあればそれを使用、なければデフォルトドメイン + slug
+    const bookingUrl = org.domain 
+      ? `https://${org.domain}`
+      : `https://mmq-yoyaq.vercel.app/${org.slug || 'queens-waltz'}`
+    
+    console.log('✅ bookingUrl generated server-side:', bookingUrl)
 
     // メール設定を取得
     let resendApiKey = Deno.env.get('RESEND_API_KEY')
@@ -268,7 +287,7 @@ serve(async (req) => {
   </div>
 
   <div style="text-align: center; margin: 30px 0;">
-    <a href="${data.bookingUrl}" style="display: inline-block; background-color: #10b981; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold;">
+    <a href="${bookingUrl}" style="display: inline-block; background-color: #10b981; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold;">
       今すぐ予約する
     </a>
   </div>
@@ -311,7 +330,7 @@ ${entry.customer_name} 様
 24時間以内にご予約いただけない場合、次の方に通知されます。
 
 ▼ 今すぐ予約する
-${data.bookingUrl}
+${bookingUrl}
 
 ━━━━━━━━━━━━━━━━━━━━
 

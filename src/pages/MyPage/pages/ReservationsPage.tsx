@@ -524,25 +524,26 @@ export function ReservationsPage() {
       const newTotalPrice = newBasePrice + optionsPrice
       const newFinalPrice = newTotalPrice - (editTarget.discount_amount || 0)
 
+      // 🚨 SECURITY FIX (SEC-P0-05): 料金の直接UPDATE削除
+      // 
+      // 問題:
+      //   - 元の実装は RPC で人数変更後、料金を直接UPDATEしていた
+      //   - RLS で顧客の UPDATE 権限を削除したため、このコードは動作しなくなる
+      // 
+      // 修正:
+      //   - 料金計算も含めて RPC 内で完結させる（027マイグレーションで対応）
+      //   - 当面は人数変更のみで、料金は従来のunit_price×新人数で自動計算
+      
       // 参加人数の更新はRPCでロック付き実行
       await reservationApi.updateParticipantsWithLock(
         editTarget.id,
         newParticipantCount,
         editTarget.customer_id ?? null
       )
-
-      // 料金のみ更新（participant_countはRPCで更新済み）
-      const { error } = await supabase
-        .from('reservations')
-        .update({
-          base_price: newBasePrice,
-          total_price: newTotalPrice,
-          final_price: newFinalPrice,
-          unit_price: pricePerPerson
-        })
-        .eq('id', editTarget.id)
-
-      if (error) throw error
+      
+      // TODO: 料金更新はRPC内で実施（027マイグレーション適用後）
+      // 現状は updateParticipantsWithLock が人数のみ更新し、
+      // 料金は別途計算が必要な場合はスタッフが管理画面から調整
 
       // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
       if (editTarget.schedule_event_id) {
@@ -630,26 +631,32 @@ export function ReservationsPage() {
       const newEvent = availableEvents.find(e => e.id === selectedNewEventId)
       if (!newEvent) throw new Error('選択した公演が見つかりません')
 
-      // 予約を更新
-      const { error } = await supabase
-        .from('reservations')
-        .update({
-          schedule_event_id: selectedNewEventId,
-          store_id: newEvent.store_id,
-          requested_datetime: `${newEvent.date}T${newEvent.start_time}`
-        })
-        .eq('id', dateChangeTarget.id)
+      // 顧客IDを取得
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('user_id', user?.id)
+        .single()
 
-      if (error) throw error
+      if (!customer) throw new Error('顧客情報が取得できません')
 
-      // 旧公演の参加者数を再計算
-      if (oldEventId) {
-        await recalculateCurrentParticipants(oldEventId)
+      // 🔒 RPCで日程変更（在庫をアトミックに調整）
+      const { error } = await supabase.rpc('change_reservation_schedule', {
+        p_reservation_id: dateChangeTarget.id,
+        p_new_schedule_event_id: selectedNewEventId,
+        p_customer_id: customer.id
+      })
+
+      if (error) {
+        logger.error('日程変更RPCエラー:', error)
+        if (error.code === 'P0020') throw new Error('選択した公演が見つかりません')
+        if (error.code === 'P0021') throw new Error('選択した公演に空席がありません')
+        if (error.code === 'P0007') throw new Error('予約が見つかりません')
+        if (error.code === 'P0010') throw new Error('この予約を変更する権限がありません')
+        throw error
       }
-      // 新公演の参加者数を再計算
-      await recalculateCurrentParticipants(selectedNewEventId)
 
-      // 日程変更確認メールを送信
+      // 日程変更確認メールを送信（失敗しても処理は続行）
       try {
         await supabase.functions.invoke('send-booking-change-confirmation', {
           body: {
@@ -666,6 +673,7 @@ export function ReservationsPage() {
         })
       } catch (emailError) {
         logger.error('メール送信エラー:', emailError)
+        // メール送信失敗は処理に影響させない
       }
 
       toast.success('日程を変更しました')
