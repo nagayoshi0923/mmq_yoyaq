@@ -93,81 +93,43 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         }
       }
 
-      // 予約ステータスを更新
-      const { error } = await supabase
-        .from('reservations')
-        .update({
-          status: 'confirmed',
-          gm_staff: selectedGMId,
-          store_id: selectedStoreId,
-          candidate_datetimes: updatedCandidateDatetimes,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', requestId)
+      // ✅ SEC-P0-04: 承認はDB側RPCでアトミックに実行（途中失敗の不整合を防ぐ）
+      const { data: scheduleEventId, error: approveError } = await supabase.rpc('approve_private_booking', {
+        p_reservation_id: requestId,
+        p_selected_date: selectedCandidate.date,
+        p_selected_start_time: selectedCandidate.startTime,
+        p_selected_end_time: selectedCandidate.endTime,
+        p_selected_store_id: selectedStoreId,
+        p_selected_gm_id: selectedGMId,
+        p_candidate_datetimes: updatedCandidateDatetimes,
+        p_scenario_title: selectedRequest?.scenario_title || '',
+        p_customer_name: selectedRequest?.customer_name || ''
+      })
 
-      if (error) throw error
-
-      // スケジュールに記録
-      const startTime = new Date(`${selectedCandidate.date}T${selectedCandidate.startTime}:00`)
-      const endTime = new Date(`${selectedCandidate.date}T${selectedCandidate.endTime}:00`)
-      const selectedStore = stores.find(s => s.id === selectedStoreId)
-      const storeName = selectedStore?.name || '店舗不明'
-
-      // GMの名前を取得（gmsには名前を保存する必要がある）
-      let gmName = ''
-      if (selectedGMId) {
-        const { data: gmStaffData } = await supabase
-          .from('staff')
-          .select('name')
-          .eq('id', selectedGMId)
-          .single()
-        gmName = gmStaffData?.name || ''
-      }
-
-      if (selectedCandidate.date && selectedCandidate.startTime && selectedCandidate.endTime && storeName && organizationId) {
-        const { data: scheduleEvent, error: scheduleError } = await supabase
-          .from('schedule_events')
-          .insert({
-            date: selectedCandidate.date,
-            venue: storeName,
-            scenario: selectedRequest?.scenario_title || '',
-            start_time: selectedCandidate.startTime,
-            end_time: selectedCandidate.endTime,
-            start_at: startTime.toISOString(),
-            end_at: endTime.toISOString(),
-            store_id: selectedStoreId,
-            gms: gmName ? [gmName] : [], // IDではなく名前を保存
-            is_reservation_enabled: false,
-            status: 'confirmed',
-            category: 'private',
-            organization_id: organizationId, // マルチテナント対応
-            reservation_id: requestId, // 貸切リクエストIDを紐付け（重複防止用）
-            reservation_name: selectedRequest?.customer_name || '', // MMQからの予約者名
-            is_reservation_name_overwritten: false // 初期状態は上書きなし
-          })
-          .select('id')
-          .single()
-
-        if (scheduleError) {
-          logger.error('スケジュール記録エラー:', scheduleError)
-        } else {
-          logger.log('スケジュール記録完了')
-          
-          // 予約にschedule_event_idを紐付け
-          if (scheduleEvent?.id) {
-            const { error: linkError } = await supabase
-              .from('reservations')
-              .update({ schedule_event_id: scheduleEvent.id })
-              .eq('id', requestId)
-
-            if (linkError) {
-              logger.error('schedule_event_id紐付けエラー:', linkError)
-            } else {
-              logger.log('schedule_event_id紐付け完了')
-            }
+      if (approveError) {
+        logger.error('貸切承認RPCエラー:', approveError)
+        if (approveError.code === 'P0019') {
+          setSubmitting(false)
+          return {
+            success: false,
+            error: 'この時間帯には既に別の公演が入っています。別の候補を選んでください。'
           }
         }
+        if (approveError.code === 'P0018') {
+          setSubmitting(false)
+          return {
+            success: false,
+            error: 'このリクエストは既に処理済みの可能性があります。画面を更新してください。'
+          }
+        }
+        if (approveError.code === 'P0010') {
+          setSubmitting(false)
+          return { success: false, error: '権限がありません' }
+        }
+        throw approveError
       }
+
+      logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
       // 貸切予約確定メールを送信
       try {
