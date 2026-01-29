@@ -5,16 +5,28 @@
 --
 WITH
 event AS (
-  SELECT id, organization_id
-  FROM schedule_events
-  WHERE is_cancelled = false
-    AND date >= CURRENT_DATE
+  -- 空席がある公演を選ぶ（満席だと v2 側でも失敗するため）
+  SELECT
+    se.id,
+    se.organization_id,
+    COALESCE(se.max_participants, se.capacity, 8) AS max_participants,
+    COALESCE(r.reserved_count, 0) AS reserved_count
+  FROM schedule_events se
+  LEFT JOIN (
+    SELECT schedule_event_id, COALESCE(SUM(participant_count), 0) AS reserved_count
+    FROM reservations
+    WHERE status IN ('pending', 'confirmed', 'gm_confirmed')
+    GROUP BY schedule_event_id
+  ) r ON r.schedule_event_id = se.id
+  WHERE se.is_cancelled = false
+    AND se.date >= CURRENT_DATE
+    AND (COALESCE(se.max_participants, se.capacity, 8) - COALESCE(r.reserved_count, 0)) >= 1
     AND EXISTS (
       SELECT 1 FROM customers c
-      WHERE c.organization_id = schedule_events.organization_id
+      WHERE c.organization_id = se.organization_id
         AND c.user_id IS NOT NULL
     )
-  ORDER BY date ASC, start_time ASC
+  ORDER BY se.date ASC, se.start_time ASC
   LIMIT 1
 ),
 cust AS (
