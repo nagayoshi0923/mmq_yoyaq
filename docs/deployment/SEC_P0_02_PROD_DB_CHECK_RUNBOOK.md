@@ -357,6 +357,11 @@ SQL Editorによっては `NOTICE` が見えづらく、実行結果が `Success
 
 （データは最終的にロールバックされます）
 
+### 重要（RLSにより0行になる場合）
+
+SQL Editorの実行ロール/ポリシー状態によっては、`reservations` のSELECTがRLSで弾かれ **0行**になることがあります。  
+その場合、SQL Editor（通常は `postgres`）で **`set_config('row_security','off', true)`** を入れて結果を目視します。
+
 ### テスト1（旧RPC）: passがtrueになること
 
 ```sql
@@ -386,6 +391,10 @@ claims AS (
     set_config('request.jwt.claim.sub', (SELECT user_id::text FROM cust), true) AS _a,
     set_config('request.jwt.claims', json_build_object('sub', (SELECT user_id FROM cust))::text, true) AS _b
 ),
+rls_off AS (
+  -- RLSでreservationsが見えず0行になる環境向け（SQL Editorがpostgresの場合に有効）
+  SELECT set_config('row_security', 'off', true) AS _rs
+),
 call AS (
   SELECT create_reservation_with_lock(
     (SELECT id FROM event),
@@ -407,7 +416,7 @@ call AS (
     (SELECT organization_id FROM event),
     'SEC_P0_02_TEST_TITLE'
   ) AS rid
-  FROM claims
+  FROM claims, rls_off
 ),
 res AS (
   SELECT r.id,
@@ -462,6 +471,9 @@ claims AS (
     set_config('request.jwt.claim.sub', (SELECT user_id::text FROM cust), true) AS _a,
     set_config('request.jwt.claims', json_build_object('sub', (SELECT user_id FROM cust))::text, true) AS _b
 ),
+rls_off AS (
+  SELECT set_config('row_security', 'off', true) AS _rs
+),
 call AS (
   SELECT create_reservation_with_lock_v2(
     (SELECT id FROM event),
@@ -474,7 +486,7 @@ call AS (
     NULL,
     NULL
   ) AS rid
-  FROM claims
+  FROM claims, rls_off
 )
 SELECT rid AS reservation_id, true AS pass
 FROM call;
