@@ -300,88 +300,32 @@ console.log(r)
 
 ---
 
-## SQL Editor向け（最短）: 1クエリで pass を表示し、後片付けも行う
+## SQL Editor向け（最短）: SQLファイルを実行して pass を確認
 
-SQL Editorの挙動（複数ステートメントの結果が見えない/セッションが切れる）を避けるため、**単一クエリ**で完結させます。
+長いSQLは**ファイルに分離**し、Runbookは「実行するファイル」だけを示します。
 
-- **やること**:
-  1. `set_config` で `auth.uid()` を顧客に偽装
-  2. 旧RPCで「不正な料金/日時」を渡して予約作成
-  3. DBに保存された値が「サーバー計算/イベント日時」になっているか `pass` で判定
-  4. 後片付けとして `status='cancelled'` に更新 → `DELETE`（任意）
+### 0) 使うIDを取得
 
-### 旧RPC（create_reservation_with_lock）: 1クエリ版（結果が1行返る）
+- 実行ファイル: `docs/deployment/sql/SEC_P0_02_ts0_pick_ids.sql`
+- 返ってきた `event_id / organization_id / customer_id / customer_user_id` を控える
 
-```sql
-WITH
-ids AS (
-  SELECT
-    '<event_id>'::uuid AS event_id,
-    '<organization_id>'::uuid AS organization_id,
-    '<customer_id>'::uuid AS customer_id,
-    '<customer_user_id>'::uuid AS customer_user_id
-),
-ctx AS (
-  SELECT
-    set_config('request.jwt.claim.sub', (SELECT customer_user_id::text FROM ids), true) AS _a,
-    set_config('request.jwt.claims', json_build_object('sub', (SELECT customer_user_id FROM ids))::text, true) AS _b,
-    set_config('row_security', 'off', true) AS _rs
-),
-call AS (
-  SELECT create_reservation_with_lock(
-    (SELECT event_id FROM ids),
-    2,
-    (SELECT customer_id FROM ids),
-    'SEC_P0_02_TEST',
-    'sec-test@example.com',
-    '0000000000',
-    NULL,
-    NULL,
-    '2000-01-01T00:00:00Z'::timestamptz, -- 改ざん
-    999,                                 -- 改ざん
-    1, 1, 1,                             -- 改ざん
-    to_char(now(), 'YYMMDD') || '-' || upper(substr(md5(random()::text), 1, 4)),
-    'SEC_P0_02_TEST_NOTES',
-    NULL,
-    (SELECT organization_id FROM ids),
-    'SEC_P0_02_TEST_TITLE'
-  ) AS rid
-  FROM ctx
-),
-res AS (
-  SELECT
-    r.id,
-    r.unit_price,
-    r.total_price,
-    r.requested_datetime,
-    (SELECT (se.date + se.start_time)::timestamptz
-     FROM schedule_events se
-     WHERE se.id = (SELECT event_id FROM ids)) AS expected_dt
-  FROM reservations r
-  WHERE r.id = (SELECT rid FROM call)
-),
-cleanup_cancel AS (
-  UPDATE reservations
-  SET status = 'cancelled',
-      cancellation_reason = 'SEC_P0_02_TEST_AUTO_CLEANUP'
-  WHERE id = (SELECT rid FROM call)
-  RETURNING 1
-),
-cleanup_delete AS (
-  -- 任意: 本番データを残したくなければ削除（cancel後なので在庫は既に戻っている想定）
-  DELETE FROM reservations
-  WHERE id = (SELECT rid FROM call)
-  RETURNING 1
-)
-SELECT
-  id AS reservation_id,
-  unit_price,
-  total_price,
-  requested_datetime,
-  expected_dt,
-  (unit_price <> 1 AND total_price <> 1 AND requested_datetime = expected_dt) AS pass
-FROM res;
-```
+### 1) auth.uid() が期待通りか確認
+
+- 実行ファイル: `docs/deployment/sql/SEC_P0_02_ts1_check_auth_uid.sql`
+- `<customer_user_id>` を控えたUUIDに置換して実行
+- `uid` が一致すること
+
+### 2) 旧RPC（改ざんテスト）
+
+- 実行ファイル: `docs/deployment/sql/SEC_P0_02_test_old_rpc_one_query.sql`
+- 4つのIDプレースホルダを置換して実行
+- **pass=true** を確認
+
+### 3) v2（動作テスト）
+
+- 実行ファイル: `docs/deployment/sql/SEC_P0_02_test_v2_one_query.sql`
+- 4つのIDプレースホルダを置換して実行
+- **pass=true** を確認
 
 ### テスト1: 旧RPC（create_reservation_with_lock）に不正な料金/日時を入れても無視される
 
