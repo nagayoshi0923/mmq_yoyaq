@@ -312,19 +312,17 @@ console.log(r)
 ### 1) auth.uid() が期待通りか確認
 
 - 実行ファイル: `docs/deployment/sql/SEC_P0_02_ts1_check_auth_uid.sql`
-- `<customer_user_id>` を控えたUUIDに置換して実行
-- `uid` が一致すること
+- **置換不要**（TS-0と同様に自動選択）
+- `uid` と `customer_user_id` が一致すること
 
 ### 2) 旧RPC（改ざんテスト）
 
 - 実行ファイル: `docs/deployment/sql/SEC_P0_02_test_old_rpc_one_query.sql`
-- 4つのIDプレースホルダを置換して実行
 - **pass=true** を確認
 
 ### 3) v2（動作テスト）
 
 - 実行ファイル: `docs/deployment/sql/SEC_P0_02_test_v2_one_query.sql`
-- 4つのIDプレースホルダを置換して実行
 - **pass=true** を確認
 
 ### テスト1: 旧RPC（create_reservation_with_lock）に不正な料金/日時を入れても無視される
