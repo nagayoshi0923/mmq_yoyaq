@@ -59,3 +59,4 @@ SELECT 'license_report_history テーブルを作成しました' as message;
 
 
 
+

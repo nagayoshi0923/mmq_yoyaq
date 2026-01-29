@@ -16,3 +16,4 @@ COMMENT ON COLUMN customers.address IS '住所';
 
 
 
+

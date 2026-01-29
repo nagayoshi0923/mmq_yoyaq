@@ -13,3 +13,4 @@ COMMENT ON COLUMN stores.transport_allowance IS '交通費（担当店舗以外�
 -- 確認
 SELECT 'transport_allowance column added to stores successfully!' as result;
 
+

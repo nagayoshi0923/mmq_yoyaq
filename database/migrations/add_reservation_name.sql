@@ -11,3 +11,4 @@ COMMENT ON COLUMN schedule_events.reservation_name IS '貸切予約の予約者�
 
 
 
+

@@ -10,3 +10,4 @@ COMMENT ON COLUMN reservations.display_customer_name IS '編集された予約�
 
 
 
+

@@ -35,3 +35,4 @@ FROM stores
 WHERE region != '東京都' AND region NOT LIKE '%東京%'
   AND is_temporary IS NOT TRUE;
 
+

@@ -67,3 +67,4 @@ COMMENT ON COLUMN manual_external_performances.performance_count IS '他社公�
 
 
 
+

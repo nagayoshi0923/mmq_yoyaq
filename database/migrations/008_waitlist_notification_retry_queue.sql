@@ -129,3 +129,4 @@ COMMENT ON TABLE waitlist_notification_queue IS 'キャンセル待ち通知の�
 COMMENT ON COLUMN waitlist_notification_queue.retry_count IS 'リトライ回数（3回まで）';
 COMMENT ON COLUMN waitlist_notification_queue.status IS 'pending: 未処理, processing: 処理中, completed: 完了, failed: 3回失敗';
 
+

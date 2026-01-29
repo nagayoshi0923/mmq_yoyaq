@@ -35,3 +35,4 @@ COMMENT ON COLUMN reservations.unit_price IS '予約時点の1人あたり参加
 
 
 
+
