@@ -265,7 +265,7 @@ export const LineupView = memo(function LineupView({
                 ) : (
                   <>
                     <ChevronDown className="w-4 h-4" />
-                    8日以降の公演を見る（{after7Days.length}件）
+                    8日後以降の公演を見る（{after7Days.length}件）
                   </>
                 )}
               </Button>

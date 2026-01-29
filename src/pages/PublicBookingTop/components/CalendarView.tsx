@@ -127,7 +127,10 @@ export const CalendarView = memo(function CalendarView({
                 >
                   <span>{dateNum}</span>
                   {events.length > 3 && (
-                    <span className="text-xs bg-blue-100 text-blue-600 px-0.5 sm:px-1 py-0.5">
+                    <span 
+                      className="text-xs bg-blue-100 text-blue-600 px-0.5 sm:px-1 py-0.5 cursor-help"
+                      title={`他${events.length - 3}件の公演あり`}
+                    >
                       +{events.length - 3}
                     </span>
                   )}

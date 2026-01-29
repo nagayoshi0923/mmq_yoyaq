@@ -2,7 +2,7 @@
  * お問い合わせページ
  * @path /contact
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PublicLayout } from '@/components/layout/PublicLayout'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { useAuth } from '@/contexts/AuthContext'
 
 const INQUIRY_TYPES = [
   { value: 'reservation', label: '予約について' },
@@ -26,6 +27,7 @@ const INQUIRY_TYPES = [
 ]
 
 export function ContactPage() {
+  const { user } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,6 +37,17 @@ export function ContactPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+
+  // ログイン中のユーザー情報を自動入力
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || user.name || '',
+        email: prev.email || user.email || '',
+      }))
+    }
+  }, [user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -17,6 +17,7 @@ import { Mail, Send, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { useAuth } from '@/contexts/AuthContext'
 
 const INQUIRY_TYPES = [
   { value: 'booking', label: '予約について' },
@@ -36,6 +37,7 @@ interface Organization {
 
 export function OrganizationContactPage() {
   const location = useLocation()
+  const { user } = useAuth()
   // /org/{slug}/contact からslugを抽出
   const slug = location.pathname.split('/')[2]
   
@@ -53,6 +55,17 @@ export function OrganizationContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+
+  // ログイン中のユーザー情報を自動入力
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || user.name || '',
+        email: prev.email || user.email || '',
+      }))
+    }
+  }, [user])
 
   // 組織情報を取得
   useEffect(() => {
@@ -347,19 +360,20 @@ export function OrganizationContactPage() {
           <DialogHeader>
             <DialogTitle>送信先の確認</DialogTitle>
             <DialogDescription>
-              以下の内容でお問い合わせを送信します。
+              お問い合わせの送信先をご確認ください。
             </DialogDescription>
           </DialogHeader>
           
           <div className="bg-muted/50 rounded-lg p-4 my-4">
+            <p className="text-sm text-muted-foreground text-center mb-1">送信先</p>
             <p className="font-medium text-center text-lg">
-              「{organization.name}」へ送信
+              {organization.name}
             </p>
           </div>
 
           <p className="text-sm text-muted-foreground text-center">
-            送信先が正しいことを確認してください。<br />
-            別の店舗への問い合わせの場合はキャンセルしてください。
+            ※ 他の団体へのお問い合わせの場合は、<br />
+            キャンセルして送信先を変更してください。
           </p>
 
           <DialogFooter className="gap-2 sm:gap-0">

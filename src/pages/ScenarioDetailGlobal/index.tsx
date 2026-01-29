@@ -262,6 +262,29 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           }
         }
       } else {
+        // scenario_master_idが一致するscenariosの組織IDを取得
+        const { data: relatedScenarios } = await supabase
+          .from('scenarios')
+          .select('organization_id')
+          .eq('scenario_master_id', masterId)
+        
+        const orgIds = [...new Set(relatedScenarios?.map(s => s.organization_id).filter(Boolean) || [])]
+        
+        if (orgIds.length > 0) {
+          const { data: orgsData } = await supabase
+            .from('organizations')
+            .select('id, slug, name')
+            .in('id', orgIds)
+          
+          orgsData?.forEach((org: any) => {
+            orgMap[org.id] = {
+              slug: org.slug,
+              name: org.name
+            }
+          })
+        }
+        
+        // organization_scenariosからも取得（フォールバック）
         const { data: availableOrgScenarios, error: availableOrgScenariosError } = await supabase
           .from('organization_scenarios')
           .select(`
@@ -277,7 +300,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         }
 
         availableOrgScenarios?.forEach((os: any) => {
-          if (os.organizations) {
+          if (os.organizations && !orgMap[os.organization_id]) {
             orgMap[os.organization_id] = {
               slug: os.organizations.slug,
               name: os.organizations.name
@@ -288,6 +311,21 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
 
       // 今日以降の公演を取得
       const today = new Date().toISOString().split('T')[0]
+      
+      // scenario_mastersからシナリオを見つけた場合、関連するscenariosのIDを取得
+      let scenarioIdsForEvents: string[] = [masterId]
+      if (!useLegacyTable) {
+        // scenario_master_idが一致するscenariosのIDを全て取得
+        const { data: relatedScenarios } = await supabase
+          .from('scenarios')
+          .select('id')
+          .eq('scenario_master_id', masterId)
+        
+        if (relatedScenarios && relatedScenarios.length > 0) {
+          scenarioIdsForEvents = relatedScenarios.map(s => s.id)
+        }
+      }
+      
       const { data: eventData, error: eventError } = await supabase
         .from('schedule_events')
         .select(`
@@ -295,7 +333,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           scenarios:scenario_id (id, title, player_count_max, organization_id),
           stores:store_id (id, name, short_name, color, region)
         `)
-        .eq('scenario_id', masterId)
+        .in('scenario_id', scenarioIdsForEvents)
         .gte('date', today)
         .eq('category', 'open')
         .eq('is_cancelled', false)
@@ -328,9 +366,11 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           store_color: store?.color || null,
           store_region: store?.region || null
         }
-      }).filter((e: EventWithOrg) => e.organization_slug)
+      })
+      
+      const filteredEvents = formattedEvents.filter((e: EventWithOrg) => e.organization_slug)
 
-      setEvents(formattedEvents)
+      setEvents(filteredEvents)
       setLoading(false)
 
     } catch (err) {
@@ -868,7 +908,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                       </div>
                     )}
 
-                    {/* 8日以降の公演（折りたたみ） */}
+                    {/* 8日後以降の公演（折りたたみ） */}
                     {eventsAfter7Days.length > 0 && (
                       <div className="mt-4">
                         <Button
@@ -885,7 +925,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                           ) : (
                             <>
                               <ChevronDown className="w-4 h-4" />
-                              8日以降の公演を見る（{eventsAfter7Days.length}件）
+                              8日後以降の公演を見る（{eventsAfter7Days.length}件）
                             </>
                           )}
                         </Button>

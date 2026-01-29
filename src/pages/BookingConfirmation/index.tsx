@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -61,6 +61,14 @@ export function BookingConfirmation({
   }>({ show: false })
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [pendingSubmit, setPendingSubmit] = useState(false)
+  const duplicateWarningRef = useRef<HTMLDivElement>(null)
+
+  // 重複警告表示時に自動スクロール
+  useEffect(() => {
+    if (duplicateWarning.show && duplicateWarningRef.current) {
+      duplicateWarningRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [duplicateWarning.show])
 
   // キャンセル待ち用のstate
   const [waitlistMode, setWaitlistMode] = useState(false)
@@ -402,7 +410,7 @@ export function BookingConfirmation({
 
         {/* 重複予約警告 */}
         {duplicateWarning.show && duplicateWarning.existingReservation && (
-          <Card className="mb-2 border-2 border-amber-200 bg-amber-50">
+          <Card ref={duplicateWarningRef} className="mb-2 border-2 border-amber-200 bg-amber-50">
             <CardContent className="p-3 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
               <div className="text-amber-800">

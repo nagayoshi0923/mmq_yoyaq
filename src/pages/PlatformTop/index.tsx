@@ -472,7 +472,7 @@ export function PlatformTop() {
               )}
             </div>
 
-            {/* 8日以降の公演（折りたたみ） */}
+            {/* 8日後以降の公演（折りたたみ） */}
             {after7Days.length > 0 && (
               <div className="mt-6">
                 <Button
@@ -489,7 +489,7 @@ export function PlatformTop() {
                   ) : (
                     <>
                       <ChevronDown className="w-4 h-4" />
-                      8日以降の公演を見る（{after7Days.length}件）
+                      8日後以降の公演を見る（{after7Days.length}件）
                     </>
                   )}
                 </Button>
