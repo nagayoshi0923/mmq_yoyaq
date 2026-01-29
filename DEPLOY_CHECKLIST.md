@@ -102,6 +102,63 @@ GROUP BY se.id, se.current_participants;
 
 ---
 
+---
+
+### ステップ5: 在庫整合性チェックの定期実行設定
+
+在庫データ（`current_participants`）の不整合を自動検出・修正するために、定期実行を設定します。
+
+#### オプション A: pg_cron を使用（推奨）
+
+Supabase Dashboard で SQL Editor を開き、以下を実行：
+
+```sql
+-- pg_cron 拡張が有効か確認
+SELECT * FROM pg_extension WHERE extname = 'pg_cron';
+
+-- 有効でない場合は有効化
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- 毎日 5:00 AM JST（UTC 20:00）に在庫整合性チェックを実行
+SELECT cron.schedule(
+  'daily-inventory-consistency-check',
+  '0 20 * * *',  -- UTC 20:00 = JST 05:00
+  $$SELECT run_inventory_consistency_check();$$
+);
+
+-- ジョブが登録されたか確認
+SELECT * FROM cron.job;
+```
+
+#### オプション B: Vercel Cron Jobs を使用
+
+`vercel.json` に以下を追加：
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/check-inventory-consistency",
+      "schedule": "0 5 * * *"
+    }
+  ]
+}
+```
+
+#### 動作確認
+
+```sql
+-- 手動で在庫整合性チェックを実行
+SELECT run_inventory_consistency_check();
+
+-- 結果を確認
+SELECT * FROM inventory_consistency_logs ORDER BY checked_at DESC LIMIT 5;
+```
+
+不整合が見つかった場合はDiscord通知が飛びます。
+
+---
+
 ## ⚠️ ロールバック手順（問題が発生した場合）
 
 ### データベースのロールバック

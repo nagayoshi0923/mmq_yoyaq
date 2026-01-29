@@ -115,7 +115,7 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   }
   
   // 特殊ページのチェック（組織スラッグなし）
-  const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'register', 'about', 
+  const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'complete-profile', 'register', 'about', 
     'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page', 'scenario',
     // 静的ページ
     'terms', 'privacy', 'legal', 'contact', 'faq', 'guide', 'cancel-policy', 'stores', 'company',

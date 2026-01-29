@@ -1,6 +1,6 @@
 # MMQ ドキュメント
 
-**最終更新**: 2025-12-30
+**最終更新**: 2026-01-10
 
 MMQシステムの引き継ぎ・開発に必要なドキュメント集。
 
@@ -8,16 +8,26 @@ MMQシステムの引き継ぎ・開発に必要なドキュメント集。
 
 ## 📖 まず読むべきドキュメント
 
-新しい開発者は、以下の順序で読んでください：
+新しい開発者は、**設計書**から読み始めてください：
+
+### 🎯 設計書（推奨：まずこれを読む）
 
 | 順番 | ドキュメント | 内容 |
 |-----|-------------|------|
-| 1️⃣ | **[system-overview.md](./system-overview.md)** | システム全体像・技術スタック |
-| 2️⃣ | **[features.md](./features.md)** | 各機能の概要 |
-| 3️⃣ | **[features/](./features/)** | 機能詳細（下記参照） |
-| 4️⃣ | **[pages.md](./pages.md)** | 全ページ一覧・ルーティング |
-| 5️⃣ | **[development/critical-features.md](./development/critical-features.md)** | 削除禁止の重要機能 |
-| 6️⃣ | **[development/multi-tenant-security.md](./development/multi-tenant-security.md)** | 🚨 マルチテナント セキュリティ |
+| 1️⃣ | **[design/master-design.md](./design/master-design.md)** | 🌟 システム全体を1枚で俯瞰（これを読めば全体像がわかる） |
+| 2️⃣ | [design/database-design.md](./design/database-design.md) | データベース設計（ER図・テーブル定義） |
+| 3️⃣ | [design/screen-flow.md](./design/screen-flow.md) | 画面遷移図（ユーザーフロー） |
+| 4️⃣ | [design/api-design.md](./design/api-design.md) | API設計（Edge Functions一覧） |
+| 5️⃣ | [design/architecture.md](./design/architecture.md) | アーキテクチャ詳細図 |
+
+### 📚 その他のドキュメント
+
+| ドキュメント | 内容 |
+|-------------|------|
+| [features.md](./features.md) | 各機能の概要 |
+| [pages.md](./pages.md) | 全ページ一覧・ルーティング |
+| [development/critical-features.md](./development/critical-features.md) | 削除禁止の重要機能 |
+| [development/multi-tenant-security.md](./development/multi-tenant-security.md) | 🚨 マルチテナント セキュリティ |
 
 ---
 
@@ -29,6 +39,13 @@ docs/
 ├── system-overview.md      # システム全体像
 ├── features.md             # 機能概要
 ├── pages.md                # ページ一覧
+│
+├── design/                 # 設計ドキュメント（NEW）
+│   ├── master-design.md    #   マスター設計書（全体俯瞰）
+│   ├── database-design.md  #   データベース設計（ER図）
+│   ├── screen-flow.md      #   画面遷移図
+│   ├── api-design.md       #   API設計（Edge Functions）
+│   └── architecture.md     #   アーキテクチャ詳細
 │
 ├── features/               # 機能詳細（14機能）
 │   ├── schedule-manager/   #   スケジュール管理
@@ -76,6 +93,16 @@ docs/
 | [system-overview.md](./system-overview.md) | システム全体像・構成図・技術スタック |
 | [features.md](./features.md) | 各機能の概要説明 |
 | [pages.md](./pages.md) | 全ページ一覧・ルーティング |
+
+### 設計ドキュメント（`design/`）
+
+| ファイル | 説明 |
+|---------|------|
+| [master-design.md](./design/master-design.md) | マスター設計書（全体を1枚で俯瞰） |
+| [database-design.md](./design/database-design.md) | データベース設計書（ER図・テーブル定義） |
+| [screen-flow.md](./design/screen-flow.md) | 画面遷移図（ユーザーフロー） |
+| [api-design.md](./design/api-design.md) | API設計書（Edge Functions詳細） |
+| [architecture.md](./design/architecture.md) | アーキテクチャ詳細図（コンポーネント・データフロー） |
 
 ### 機能詳細（`features/`）
 
@@ -176,6 +203,10 @@ docs/
 | 質問 | 参照先 |
 |------|--------|
 | このシステムは何？ | [system-overview.md](./system-overview.md) |
+| 全体像を俯瞰したい | [design/master-design.md](./design/master-design.md) |
+| データベース構造を知りたい | [design/database-design.md](./design/database-design.md) |
+| 画面遷移を知りたい | [design/screen-flow.md](./design/screen-flow.md) |
+| APIの仕様を知りたい | [design/api-design.md](./design/api-design.md) |
 | この機能はどう動いている？ | [features/](./features/) |
 | 予約機能を修正したい | [features/reservation/](./features/reservation/) |
 | 通知を設定したい | [setup/README.md](./setup/README.md) |
