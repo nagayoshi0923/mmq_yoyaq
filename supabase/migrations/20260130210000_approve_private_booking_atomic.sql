@@ -11,6 +11,9 @@
 --
 -- =============================================================================
 
+-- 旧シグネチャが残ると混乱するため明示的に削除（存在しない環境でも安全）
+DROP FUNCTION IF EXISTS public.approve_private_booking(UUID, DATE, TIME, TIME, UUID, UUID, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION approve_private_booking(
   p_reservation_id UUID,
   p_selected_date DATE,
