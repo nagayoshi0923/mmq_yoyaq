@@ -130,11 +130,16 @@ ORDER BY policyname;
 ### 準備（共通）
 
 このテストは **擬似的に“顧客として”実行**するため、テスト対象の組織/公演に紐づく `customers` を1件自動選択し、`request.jwt.claims` をセットします。
+また、SQL Editorが `postgres` ロールで実行される場合、`auth.uid()` が `NULL` になることがあります。  
+その場合は **`SET LOCAL ROLE authenticated;` を実行してから** テストを行ってください（本runbookのSQLは対応済み）。
 
 ### テスト1: 旧RPC（create_reservation_with_lock）に不正な料金/日時を入れても無視される
 
 ```sql
 BEGIN;
+
+-- auth.uid() を有効にする（SQL Editorがpostgresのままの場合に必須）
+SET LOCAL ROLE authenticated;
 
 DO $$
 DECLARE
@@ -292,6 +297,8 @@ ROLLBACK;
 ```sql
 BEGIN;
 
+SET LOCAL ROLE authenticated;
+
 DO $$
 DECLARE
   v_event_id uuid;
@@ -355,6 +362,7 @@ SQL Editorによっては `NOTICE` が見えづらく、実行結果が `Success
 ```sql
 -- ステップA: 実行して pass=true を目視
 BEGIN;
+SET LOCAL ROLE authenticated;
 
 WITH
 event AS (
@@ -430,6 +438,7 @@ ROLLBACK;
 ```sql
 -- ステップA: 実行して pass=true を目視
 BEGIN;
+SET LOCAL ROLE authenticated;
 
 WITH
 event AS (
