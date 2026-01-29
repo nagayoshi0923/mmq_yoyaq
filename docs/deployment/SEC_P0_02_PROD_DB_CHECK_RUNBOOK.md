@@ -133,6 +133,171 @@ ORDER BY policyname;
 また、SQL Editorが `postgres` ロールで実行される場合、`auth.uid()` が `NULL` になることがあります。  
 その場合は **`SET LOCAL ROLE authenticated;` を実行してから** テストを行ってください（本runbookのSQLは対応済み）。
 
+---
+
+## トラブルシュート（よくある）: `CUSTOMER_NOT_FOUND` / `FORBIDDEN_CUSTOMER` が出る
+
+SQL Editor は実行ごとに接続が切り替わる・ロールが変わる・RLSが効く等で、**擬似JWTが安定しない**ことがあります。  
+この場合、以下の「ID固定＋auth確認」手順で必ず切り分けできます。
+
+### TS-0: まず“使えるID”を取得（1行返る）
+
+```sql
+WITH
+event AS (
+  SELECT id, organization_id, date, start_time
+  FROM schedule_events
+  WHERE is_cancelled = false
+    AND date >= CURRENT_DATE
+  ORDER BY date ASC, start_time ASC
+  LIMIT 1
+),
+cust AS (
+  SELECT id, user_id
+  FROM customers
+  WHERE organization_id = (SELECT organization_id FROM event)
+    AND user_id IS NOT NULL
+  ORDER BY created_at DESC
+  LIMIT 1
+)
+SELECT
+  (SELECT id FROM event) AS event_id,
+  (SELECT organization_id FROM event) AS organization_id,
+  (SELECT id FROM cust) AS customer_id,
+  (SELECT user_id FROM cust) AS customer_user_id;
+```
+
+### TS-1: `auth.uid()` が期待通りか確認（1行返る）
+
+TS-0 の `customer_user_id` を入れて実行し、`uid = customer_user_id` になっていることを確認。
+
+```sql
+SELECT
+  set_config('request.jwt.claim.sub', '<customer_user_id>', true) AS _sub,
+  set_config('request.jwt.claims', json_build_object('sub', '<customer_user_id>'::uuid)::text, true) AS _claims,
+  auth.uid() AS uid,
+  current_setting('request.jwt.claim.sub', true) AS claim_sub;
+```
+
+`uid` が NULL の場合:
+- SQL Editor の実行ロールが原因の可能性が高いので、次を追加して再実行:
+
+```sql
+SET LOCAL ROLE authenticated;
+```
+
+### TS-2: 「1回の実行」で JWTセット→RPC→検証 を完結させる（推奨）
+
+接続切替の影響を避けるため、**同一クエリ内で set_config まで行う**方式。
+
+```sql
+BEGIN;
+
+WITH
+ids AS (
+  SELECT
+    '<event_id>'::uuid AS event_id,
+    '<organization_id>'::uuid AS organization_id,
+    '<customer_id>'::uuid AS customer_id,
+    '<customer_user_id>'::uuid AS customer_user_id
+),
+claims AS (
+  SELECT
+    set_config('request.jwt.claim.sub', (SELECT customer_user_id::text FROM ids), true) AS _a,
+    set_config('request.jwt.claims', json_build_object('sub', (SELECT customer_user_id FROM ids))::text, true) AS _b
+),
+call AS (
+  SELECT create_reservation_with_lock(
+    (SELECT event_id FROM ids),
+    2,
+    (SELECT customer_id FROM ids),
+    'SEC_P0_02_TEST',
+    'sec-test@example.com',
+    '0000000000',
+    NULL,
+    NULL,
+    '2000-01-01T00:00:00Z'::timestamptz, -- 改ざん
+    999,                                 -- 改ざん
+    1, 1, 1,                             -- 改ざん
+    to_char(now(), 'YYMMDD') || '-' || upper(substr(md5(random()::text), 1, 4)),
+    'SEC_P0_02_TEST_NOTES',
+    NULL,
+    (SELECT organization_id FROM ids),
+    'SEC_P0_02_TEST_TITLE'
+  ) AS rid
+  FROM claims
+),
+inspect AS (
+  -- SQL Editorで見えない場合があるためRLSを切って確認（postgres向け）
+  SELECT set_config('row_security', 'off', true) AS _rs, (SELECT rid FROM call) AS rid
+),
+res AS (
+  SELECT
+    r.id,
+    r.unit_price,
+    r.total_price,
+    r.requested_datetime,
+    (SELECT (se.date + se.start_time)::timestamptz FROM schedule_events se WHERE se.id = (SELECT event_id FROM ids)) AS expected_dt
+  FROM reservations r
+  WHERE r.id = (SELECT rid FROM inspect)
+)
+SELECT
+  id AS reservation_id,
+  unit_price,
+  total_price,
+  requested_datetime,
+  expected_dt,
+  (unit_price <> 1 AND total_price <> 1 AND requested_datetime = expected_dt) AS pass
+FROM res;
+
+ROLLBACK;
+```
+
+※ `<event_id>`, `<organization_id>`, `<customer_id>`, `<customer_user_id>` は TS-0 の結果を貼り替え。
+
+---
+
+## 代替（最も確実）: ブラウザ/Nodeで「実際の顧客JWT」で検証
+
+SQL Editor の擬似JWTは環境依存があるため、**運用としてはアプリのJWTで検証する方が確実**です。
+
+ブラウザコンソール（顧客ログイン状態）で実行:
+
+```ts
+// 1) “不正な料金/日時”で旧RPCを叩く（DB側が上書きしてくれればOK）
+const res = await supabase.rpc('create_reservation_with_lock', {
+  p_schedule_event_id: '<event_id>',
+  p_participant_count: 2,
+  p_customer_id: '<customer_id>',
+  p_customer_name: 'SEC_P0_02_TEST',
+  p_customer_email: 'sec-test@example.com',
+  p_customer_phone: '0000000000',
+  p_scenario_id: null,
+  p_store_id: null,
+  p_requested_datetime: '2000-01-01T00:00:00Z',
+  p_duration: 999,
+  p_base_price: 1,
+  p_total_price: 1,
+  p_unit_price: 1,
+  p_reservation_number: 'SEC-P0-02-' + Math.random().toString(16).slice(2, 6).toUpperCase(),
+  p_notes: 'SEC_P0_02_TEST_NOTES',
+  p_created_by: null,
+  p_organization_id: '<organization_id>',
+  p_title: 'SEC_P0_02_TEST_TITLE',
+})
+
+if (res.error) throw res.error
+
+// 2) 作成された予約を取得して、料金/日時が“サーバー確定”になっているか確認
+const { data: r, error } = await supabase
+  .from('reservations')
+  .select('id, unit_price, total_price, requested_datetime, schedule_event_id')
+  .eq('id', res.data)
+  .single()
+if (error) throw error
+console.log(r)
+```
+
 ### テスト1: 旧RPC（create_reservation_with_lock）に不正な料金/日時を入れても無視される
 
 ```sql
