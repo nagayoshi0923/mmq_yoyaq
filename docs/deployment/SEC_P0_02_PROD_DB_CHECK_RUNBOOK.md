@@ -186,6 +186,9 @@ BEGIN
     RAISE EXCEPTION 'NO_CUSTOMER_FOUND_FOR_ORG %', v_org_id;
   END IF;
 
+  -- Supabase の auth.uid() は環境により request.jwt.claim.sub を参照するため、
+  -- SQL Editor でも確実に動くよう両方セットする
+  PERFORM set_config('request.jwt.claim.sub', v_customer_user_id::text, true);
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_customer_user_id)::text, true);
 
   -- 3) “不正な料金/日時”を渡して旧RPCを呼ぶ（※安全化できていれば無視される）
@@ -312,6 +315,7 @@ BEGIN
   ORDER BY created_at DESC
   LIMIT 1;
 
+  PERFORM set_config('request.jwt.claim.sub', v_customer_user_id::text, true);
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_customer_user_id)::text, true);
 
   v_reservation_id := create_reservation_with_lock_v2(
