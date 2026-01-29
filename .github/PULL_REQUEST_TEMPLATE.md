@@ -15,6 +15,15 @@ Closes #
 - [ ] **UPDATE/DELETE**: 範囲操作に`organization_id`フィルタがあるか確認
 - [ ] **例外テーブル**: `users`, `organizations`, `authors`, `auth_logs`は除外されているか確認
 
+### セキュリティ（必須）🚨
+- [ ] **予約/在庫/料金に影響する更新**が、直接UPDATE/DELETEではなく **RPC経由** になっている
+  - 対象例: `reservations`, `schedule_events`, 料金系カラム（`total_price`, `final_price`, `unit_price` など）
+- [ ] **複数DB操作**（UPDATE→INSERT→UPDATE 等）を **非アトミックに実行していない**
+  - 必要なら DB側RPC（トランザクション）に統合する
+- [ ] **クライアント入力（request body / query）を信用していない**
+  - 料金/日時/URL/organizationId 等はサーバー側で検証・確定する（fail-closed）
+- [ ] **Edge Function** の認可が適切（スタッフ/管理者限定など）で、監査ログが必要なら追加している
+
 ### データベース操作の確認
 - [ ] 新しいテーブルに`organization_id`カラムがあるか
 - [ ] 新しいテーブルにRLSポリシーを設定したか

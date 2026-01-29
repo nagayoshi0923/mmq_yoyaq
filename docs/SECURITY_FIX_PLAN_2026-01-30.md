@@ -6,6 +6,33 @@
 
 ---
 
+## 現状ステータス（2026-01-30 時点）
+
+### P0（リリースブロッカー）
+
+- **✅ 完了**
+  - **SEC-P0-01**: `reservations` 顧客UPDATE権限の厳格化（重要列の直接変更をブロック）
+  - **SEC-P0-03**: `notify-waitlist` の `bookingUrl` をサーバー側生成に変更（入力値無視）
+  - **SEC-P0-05**: 人数変更の二重UPDATE削除（RPC経由に統一）
+  - **SEC-P0-06**: 日程変更をRPC化（在庫をアトミックに調整）
+
+- **⏸️ 未完（要確認/要対応）**
+  - **SEC-P0-02**: `create_reservation_with_lock` の **本番DB上の実シグネチャ確定**が前提（022 vs 005/006混在問題）
+  - **SEC-P0-04**: 貸切承認フローのアトミック化（RPCは作成済み、フロント適用はPhase 2）
+
+### 根本原因（再発の仕組み）
+
+同じP0が“別ルートで再発”するのは、個別の穴埋め（実装）だけで、以下の構造問題が未解決なため。
+
+- **ルール不在**（予約関連はRPC経由などが明文化されていない）
+- **強制力不在**（型/Lint/CIで危険経路を止められない）
+- **検出不在**（RLS/権限/在庫のセキュリティ回帰テストがない）
+- **移行不整合**（`database/migrations` と `supabase/migrations` の二重管理で“どれが本番か”が曖昧）
+
+詳細: `docs/SECURITY_ROOT_CAUSE_ANALYSIS_2026-01-30.md`
+
+---
+
 ## 修正の大原則
 
 1. **DB層で物理的に防ぐ**（フロントは補助）
@@ -119,7 +146,39 @@ await supabase.rpc('create_reservation_with_lock', {
 
 #### 修正方針
 
-**DB側で料金・日時を再計算し、入力値は参考程度にする**
+**(1) まず本番DBの実シグネチャを確定**し、**(2) “料金/日時はサーバーが決める”**に統一する。
+
+#### ステップ0: 本番DBで「実際に存在する関数定義」を確定（必須）
+
+Supabase SQL Editor で実行:
+
+```sql
+-- create_reservation_with_lock の引数名を確認（最優先）
+SELECT
+  p.proname,
+  p.oid::regprocedure AS signature,
+  array_to_string(p.proargnames, ', ') AS arg_names
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'create_reservation_with_lock'
+ORDER BY p.oid;
+```
+
+判定:
+- **022型（価格/日時なし）が有効**: フロント側は“価格/日時パラメータ送信”を即時撤去（予約作成が壊れている可能性が高い）
+- **005/006型（価格/日時あり）が有効**: **料金改ざんが成立**し得るため、RPC内でサーバー再計算へ即修正
+
+#### ステップ1: 互換性を壊さず統一する設計（推奨）
+
+「既存フロントを壊さない」ため、いきなり破壊的変更をせず **“新関数”を追加→段階移行→旧関数を廃止** とする。
+
+- **新関数**: `create_reservation_v2`（サーバー計算のみ、入力は最小）
+- **旧関数**: `create_reservation_with_lock` は当面残し、内部で `create_reservation_v2` を呼ぶ“薄いラッパ”に寄せる（可能なら）
+
+#### ステップ2: 料金/日時のサーバー確定（実装）
+
+**DB側で料金・日時を再計算し、入力値は信用しない（あれば無視）**
 
 ```sql
 -- 新マイグレーション: 027_server_side_pricing_validation.sql
@@ -764,6 +823,46 @@ describe('SEC-P0-04: 貸切承認のアトミック性', () => {
 - フロント修正: 1.5h
 - テスト: 1.5h
 - **合計**: 5h
+
+---
+
+## Phase 0: 再発防止（ガードレール整備 / “次のP0”を作らせない）
+
+このPhaseは「UIや機能を変えずに」再発率を落とすための“仕組み”対応。
+
+### 0-1. ルールを明文化（開発者が迷わない）
+
+- 追加: `docs/SECURE_CODING_GUIDELINES.md`
+  - 予約/在庫/料金に影響する変更は **RPC必須**
+  - Edge Function は **入力値を信用しない**（URL/organizationId等）
+  - マルチテナント（`organization_id`）の必須ルール
+
+### 0-2. レビューで落とせるようにする（PRテンプレ強化）
+
+- 更新: `.github/PULL_REQUEST_TEMPLATE.md`
+  - **直接UPDATE/DELETEの禁止（予約/在庫/料金）**
+  - **非アトミックな複数DB操作の禁止（RPC化 or トランザクション）**
+  - **クライアント入力のサーバー検証（fail-closed）**
+
+### 0-3. “壊さずに検出”する（セキュリティ回帰テストの最小セット）
+
+Playwright/E2EまたはSQLで最低限をCIに載せる。
+
+- **RLS回帰（最小）**
+  - 顧客が `reservations.status/participant_count/schedule_event_id/price` を直接UPDATEできない
+- **在庫回帰（最小）**
+  - 日程変更RPCで、旧/新イベントの `current_participants` が整合する
+- **Edge Function回帰（最小）**
+  - `notify-waitlist` が `bookingUrl` 入力を無視し、サーバー生成URLを使う
+
+### 0-4. “どれが本番に当たるか”を固定する（移行の再発防止）
+
+`database/migrations` と `supabase/migrations` の二重管理で、関数/RLSが“いつの間にか巻き戻る”事故が起きる。
+
+- **方針**: **本番適用のソースオブトゥルースを1つに統一**（推奨: `supabase/migrations`）
+- **運用**:
+  - `database/migrations` は“設計/検証/履歴”に留めるか、廃止して一本化
+  - 少なくとも **同一関数名の `CREATE OR REPLACE FUNCTION` が両方に存在しない**状態を維持
 
 ---
 
