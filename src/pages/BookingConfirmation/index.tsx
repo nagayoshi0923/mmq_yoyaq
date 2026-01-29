@@ -127,6 +127,9 @@ export function BookingConfirmation({
     userId: user?.id
   })
 
+  // 予約成功後の自動遷移は削除（ユーザーが確認できるよう手動遷移に変更）
+  // ユーザーは「戻る」ボタンまたはナビゲーションで遷移する
+
   // 予約送信ハンドラ
   const onSubmit = async () => {
     setError(null)
@@ -148,13 +151,7 @@ export function BookingConfirmation({
 
     try {
       await handleSubmit(customerName, customerEmail, customerPhone, participantCount, notes)
-      
-      // 3秒後に自動的に戻る
-      setTimeout(() => {
-        if (onComplete) {
-          onComplete()
-        }
-      }, 3000)
+      // 成功画面表示後にuseEffectで自動遷移を処理
     } catch (error: any) {
       setError(error.message || '予約処理中にエラーが発生しました')
     } finally {
@@ -603,6 +600,25 @@ export function BookingConfirmation({
               mode="schedule"
               storeId={storeId}
             />
+
+            {/* 人数未達中止に関する注意喚起 */}
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-800">
+                    <p className="font-medium mb-1">公演中止の可能性について</p>
+                    <p className="leading-relaxed">
+                      この公演は前日23:59時点で定員の過半数に達しない場合、中止となる可能性があります。
+                      中止の場合はメールでお知らせし、参加料金は発生しません。
+                    </p>
+                    <Link to="/cancel-policy" className="text-amber-700 underline mt-1 inline-block">
+                      詳しくはキャンセルポリシーをご確認ください
+                    </Link>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* 満席の場合はキャンセル待ちボタン、そうでなければ予約ボタン */}
             {isSoldOut ? (

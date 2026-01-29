@@ -36,9 +36,16 @@ export default function MyPage() {
   
   // データ
   const [reservations, setReservations] = useState<Reservation[]>([])
-  const [scheduleEvents, setScheduleEvents] = useState<Record<string, { date: string; start_time: string; is_private_booking?: boolean }>>({})
+  const [scheduleEvents, setScheduleEvents] = useState<Record<string, { 
+    date: string
+    start_time: string
+    category?: string
+    current_participants?: number
+    max_participants?: number
+  }>>({})
   const [scenarioImages, setScenarioImages] = useState<Record<string, string>>({})
   const [scenarioSlugs, setScenarioSlugs] = useState<Record<string, string>>({})
+  const [scenarioInfo, setScenarioInfo] = useState<Record<string, { min: number; max: number }>>({})
   const [orgSlugs, setOrgSlugs] = useState<Record<string, string>>({})
   const [stores, setStores] = useState<Record<string, Store>>({})
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
@@ -166,13 +173,25 @@ export default function MyPage() {
       if (eventIds.length > 0) {
         const { data: eventsData } = await supabase
           .from('schedule_events')
-          .select('id, date, start_time, is_private_booking')
+          .select('id, date, start_time, category, current_participants, max_participants')
           .in('id', eventIds)
         
         if (eventsData) {
-          const eventMap: Record<string, { date: string; start_time: string; is_private_booking?: boolean }> = {}
+          const eventMap: Record<string, { 
+            date: string
+            start_time: string
+            category?: string
+            current_participants?: number
+            max_participants?: number
+          }> = {}
           eventsData.forEach(e => {
-            eventMap[e.id] = { date: e.date, start_time: e.start_time, is_private_booking: e.is_private_booking }
+            eventMap[e.id] = { 
+              date: e.date, 
+              start_time: e.start_time, 
+              category: e.category,
+              current_participants: e.current_participants,
+              max_participants: e.max_participants
+            }
           })
           setScheduleEvents(eventMap)
         }
@@ -213,12 +232,13 @@ export default function MyPage() {
         if (scenarioIds.length > 0) {
           const { data: scenarios, error: scenariosError } = await supabase
             .from('scenarios')
-            .select('id, key_visual_url, slug')
+            .select('id, key_visual_url, slug, player_count_min, player_count_max')
             .in('id', scenarioIds)
           
           if (!scenariosError && scenarios) {
             const imageMap: Record<string, string> = {}
             const slugMap: Record<string, string> = {}
+            const infoMap: Record<string, { min: number; max: number }> = {}
             scenarios.forEach(s => {
               if (s.key_visual_url) {
                 imageMap[s.id] = s.key_visual_url
@@ -226,9 +246,14 @@ export default function MyPage() {
               if (s.slug) {
                 slugMap[s.id] = s.slug
               }
+              infoMap[s.id] = {
+                min: s.player_count_min || 1,
+                max: s.player_count_max || 8
+              }
             })
             setScenarioImages(imageMap)
             setScenarioSlugs(slugMap)
+            setScenarioInfo(infoMap)
           }
         }
 
@@ -312,6 +337,31 @@ export default function MyPage() {
     const timeMatch = dateString.match(/T(\d{2}):(\d{2})/)
     if (timeMatch) return `${timeMatch[1]}:${timeMatch[2]}`
     return ''
+  }
+
+  // 公演成立状況を取得
+  const getPerformanceStatus = (reservation: Reservation) => {
+    const event = reservation.schedule_event_id ? scheduleEvents[reservation.schedule_event_id] : null
+    
+    // 貸切公演は状況表示不要
+    if (event?.category === 'private') {
+      return null
+    }
+    
+    const scenarioData = reservation.scenario_id ? scenarioInfo[reservation.scenario_id] : null
+    const current = event?.current_participants || 0
+    const max = event?.max_participants || scenarioData?.max || 8
+    const min = scenarioData?.min || 1
+    
+    if (current >= max) {
+      return { type: 'full', label: '満席', color: 'bg-green-100 text-green-700' }
+    } else if (current >= min) {
+      const remaining = max - current
+      return { type: 'confirmed', label: `公演成立（残${remaining}席）`, color: 'bg-blue-100 text-blue-700' }
+    } else {
+      const remaining = min - current
+      return { type: 'pending', label: `あと${remaining}名で成立`, color: 'bg-amber-100 text-amber-700' }
+    }
   }
 
   // タイトルから日付や不要な文字を除去してシナリオ名のみ抽出
@@ -519,7 +569,7 @@ export default function MyPage() {
                       
                       // 貸切公演かどうか
                       const eventId = reservation.schedule_event_id
-                      const isPrivate = eventId ? scheduleEvents[eventId]?.is_private_booking : false
+                      const isPrivate = eventId ? scheduleEvents[eventId]?.category === 'private' : false
                       
                       // 日付を短くフォーマット（1/11(日)）
                       const shortDate = (() => {
@@ -597,6 +647,19 @@ export default function MyPage() {
                                 </div>
                               )}
                               
+                              {/* 公演成立状況 */}
+                              {(() => {
+                                const status = getPerformanceStatus(reservation)
+                                if (!status) return null
+                                return (
+                                  <div className="mt-1.5">
+                                    <span className={`text-xs px-2 py-0.5 rounded ${status.color}`}>
+                                      {status.label}
+                                    </span>
+                                  </div>
+                                )
+                              })()}
+
                               {/* 予約番号・人数・料金 */}
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs text-gray-500">
                                 <span className="font-mono">{reservation.reservation_number}</span>

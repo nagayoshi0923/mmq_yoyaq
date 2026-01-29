@@ -56,7 +56,6 @@ type AuthMode = 'login' | 'signup' | 'forgot'
 export function LoginForm({ signup = false }: LoginFormProps = {}) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [mode, setMode] = useState<AuthMode>(signup ? 'signup' : 'login')
   const [message, setMessage] = useState('')
@@ -64,16 +63,9 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { signIn, loading } = useAuth()
   
-  // 新規登録用の追加フィールド
-  const [customerName, setCustomerName] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  
   // フィールド別のインラインエラー
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
-  const [confirmPasswordError, setConfirmPasswordError] = useState('')
-  const [nameError, setNameError] = useState('')
-  const [phoneError, setPhoneError] = useState('')
   
   // メールアドレスのリアルタイムバリデーション
   const validateEmail = (value: string) => {
@@ -84,27 +76,12 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     }
   }
   
-  // パスワードのリアルタイムバリデーション
+  // パスワードのリアルタイムバリデーション（ログイン時のみ）
   const validatePassword = (value: string) => {
-    if (mode === 'signup' && value && value.length < 6) {
+    if (value && value.length < 6) {
       setPasswordError('6文字以上で入力してください')
     } else {
       setPasswordError('')
-    }
-    // 確認用パスワードとの一致チェック
-    if (confirmPassword && value !== confirmPassword) {
-      setConfirmPasswordError('パスワードが一致しません')
-    } else if (confirmPassword) {
-      setConfirmPasswordError('')
-    }
-  }
-  
-  // パスワード確認のリアルタイムバリデーション
-  const validateConfirmPassword = (value: string) => {
-    if (value && value !== password) {
-      setConfirmPasswordError('パスワードが一致しません')
-    } else {
-      setConfirmPasswordError('')
     }
   }
 
@@ -122,14 +99,8 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     setError('')
     setMessage('')
     setPassword('')
-    setConfirmPassword('')
-    setCustomerName('')
-    setCustomerPhone('')
     setEmailError('')
     setPasswordError('')
-    setConfirmPasswordError('')
-    setNameError('')
-    setPhoneError('')
   }
 
   // ソーシャルログイン
@@ -174,46 +145,15 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         setMessage('パスワードリセット用のメールを送信しました。メールをご確認ください。')
         
       } else if (mode === 'signup') {
-        // 新規登録
-        // 名前のバリデーション
-        if (!customerName.trim()) {
-          setNameError('お名前を入力してください')
-          setIsSubmitting(false)
-          return
-        }
-        // 電話番号のバリデーション
-        if (!customerPhone.trim()) {
-          setPhoneError('電話番号を入力してください（当日連絡用）')
-          setIsSubmitting(false)
-          return
-        }
-        // 電話番号の桁数チェック（ハイフン除去後10-11桁）
-        const phoneDigits = customerPhone.replace(/[-\s]/g, '')
-        if (!/^\d{10,11}$/.test(phoneDigits)) {
-          setPhoneError('電話番号は10〜11桁で入力してください')
-          setIsSubmitting(false)
-          return
-        }
-        if (password !== confirmPassword) {
-          setError('パスワードが一致しません')
-          setIsSubmitting(false)
-          return
-        }
-        if (password.length < 6) {
-          setError('パスワードは6文字以上で入力してください')
-          setIsSubmitting(false)
-          return
-        }
-
-        const { data: signUpData, error } = await supabase.auth.signUp({
+        // 新規登録（メールのみ → 確認メール → プロフィール設定ページ）
+        // ランダムな仮パスワードで登録（ユーザーは確認メール後にパスワードを設定する）
+        const tempPassword = crypto.randomUUID() + 'Aa1!'
+        
+        const { data, error } = await supabase.auth.signUp({
           email,
-          password,
+          password: tempPassword,
           options: {
-            // メタデータにユーザー情報を保存（確認後にトリガーで使用可能）
-            data: {
-              name: customerName.trim(),
-              phone: customerPhone.trim(),
-            }
+            emailRedirectTo: `${window.location.origin}/complete-profile`,
           }
         })
         
@@ -225,51 +165,13 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
           throw error
         }
         
-        // usersテーブルとcustomersテーブルにレコードを作成
-        // 注意: Supabaseの設定によってはメール確認前はuserがnullになる場合がある
-        if (signUpData.user) {
-          const role = determineUserRole(email)
-          await supabase
-            .from('users')
-            .upsert({
-              id: signUpData.user.id,
-              email: email,
-              role: role,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'id' })
-          
-          // customersテーブルにも登録（予約時に使用、organization_id付き）
-          await supabase
-            .from('customers')
-            .upsert({
-              user_id: signUpData.user.id,
-              name: customerName.trim(),
-              email: email,
-              phone: customerPhone.trim(),
-              visit_count: 0,
-              total_spent: 0,
-              organization_id: DEFAULT_ORG_ID,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'email' })
-        } else {
-          // userがnullでもcustomersテーブルには登録（organization_id付き）
-          await supabase
-            .from('customers')
-            .upsert({
-              name: customerName.trim(),
-              email: email,
-              phone: customerPhone.trim(),
-              visit_count: 0,
-              total_spent: 0,
-              organization_id: DEFAULT_ORG_ID,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }, { onConflict: 'email' })
+        // Supabaseは既存メールでもエラーを返さないことがある（セキュリティ対策）
+        // identitiesが空の場合は既存ユーザー
+        if (data.user && data.user.identities && data.user.identities.length === 0) {
+          throw new Error('このメールアドレスは既に登録されています。ログインするか、パスワードリセットをお試しください。')
         }
         
-        setMessage('確認メールを送信しました。メールのリンクをクリックしてアカウントを有効化してください。')
+        setMessage('確認メールを送信しました。メールのリンクをクリックして登録を完了してください。')
         
       } else {
         // ログイン
@@ -473,6 +375,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                         Googleで{mode === 'signup' ? '登録' : 'ログイン'}
                       </span>
                     </button>
+                    {/* Discord/Xログインは一時的に無効化
                     <button
                       type="button"
                       onClick={() => handleSocialLogin('discord')}
@@ -495,6 +398,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                         X（Twitter）で{mode === 'signup' ? '登録' : 'ログイン'}
                       </span>
                     </button>
+                    */}
                   </div>
 
                   {/* 区切り線 */}
@@ -516,65 +420,6 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
 
               {/* フォーム */}
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* 新規登録時のみ：お名前 */}
-                {mode === 'signup' && (
-                  <div>
-                    <label htmlFor="customerName" className="block text-sm font-medium text-gray-700 mb-1.5">
-                      お名前 <span className="text-red-500">*</span>
-                    </label>
-                    <Input
-                      id="customerName"
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => {
-                        setCustomerName(e.target.value)
-                        if (e.target.value.trim()) setNameError('')
-                      }}
-                      required
-                      autoComplete="name"
-                      placeholder="山田 太郎"
-                      className={`h-12 ${nameError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                      style={{ borderRadius: 0 }}
-                    />
-                    {nameError && (
-                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {nameError}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* 新規登録時のみ：電話番号 */}
-                {mode === 'signup' && (
-                  <div>
-                    <label htmlFor="customerPhone" className="block text-sm font-medium text-gray-700 mb-1.5">
-                      電話番号 <span className="text-red-500">*</span>
-                      <span className="text-xs text-gray-500 ml-2">（当日連絡用）</span>
-                    </label>
-                    <Input
-                      id="customerPhone"
-                      type="tel"
-                      value={customerPhone}
-                      onChange={(e) => {
-                        setCustomerPhone(e.target.value)
-                        if (e.target.value.trim()) setPhoneError('')
-                      }}
-                      required
-                      autoComplete="tel"
-                      placeholder="090-1234-5678"
-                      className={`h-12 ${phoneError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                      style={{ borderRadius: 0 }}
-                    />
-                    {phoneError && (
-                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {phoneError}
-                      </p>
-                    )}
-                  </div>
-                )}
-
                 {/* メールアドレス */}
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -603,8 +448,8 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                   )}
                 </div>
 
-                {/* パスワード */}
-                {mode !== 'forgot' && (
+                {/* パスワード（ログイン時のみ） */}
+                {mode === 'login' && (
                   <div>
                     <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
                       パスワード
@@ -621,8 +466,8 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                         onBlur={(e) => validatePassword(e.target.value)}
                         required
                         minLength={6}
-                        autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                        placeholder={mode === 'signup' ? '6文字以上' : 'パスワード'}
+                        autoComplete="current-password"
+                        placeholder="パスワード"
                         className={`pr-10 h-12 ${passwordError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                         style={{ borderRadius: 0 }}
                       />
@@ -634,52 +479,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
-                    {mode === 'signup' && !passwordError && (
-                      <p className="mt-1 text-xs text-gray-500">
-                        6文字以上で入力してください
-                      </p>
-                    )}
                     {passwordError && (
                       <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
                         <AlertCircle className="w-3 h-3" />
                         {passwordError}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* パスワード確認（新規登録時のみ） */}
-                {mode === 'signup' && (
-                  <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1.5">
-                      パスワード（確認）
-                    </label>
-                    <Input
-                      id="confirmPassword"
-                      type={showPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => {
-                        setConfirmPassword(e.target.value)
-                        validateConfirmPassword(e.target.value)
-                      }}
-                      onBlur={(e) => validateConfirmPassword(e.target.value)}
-                      required
-                      minLength={6}
-                      autoComplete="new-password"
-                      placeholder="パスワードを再入力"
-                      className={`h-12 ${confirmPasswordError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                      style={{ borderRadius: 0 }}
-                    />
-                    {confirmPasswordError && (
-                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {confirmPasswordError}
-                      </p>
-                    )}
-                    {!confirmPasswordError && confirmPassword && password === confirmPassword && (
-                      <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" />
-                        パスワードが一致しています
                       </p>
                     )}
                   </div>

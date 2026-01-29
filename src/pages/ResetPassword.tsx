@@ -169,11 +169,26 @@ export function ResetPassword() {
         
         logger.log('✅ セッション確立成功:', data.session ? 'Session Active' : 'No Session Data')
         
+        // セッションが確立されたか検証
+        if (!data?.session) {
+          // 明示的にセッションを取得して再確認
+          const { data: sessionData, error: getSessionError } = await supabase.auth.getSession()
+          if (getSessionError || !sessionData?.session) {
+            throw new Error('セッションの確立に失敗しました。ブラウザを再読み込みしてもう一度お試しください。')
+          }
+          logger.log('✅ getSession で確認:', sessionData.session ? 'Session Active' : 'No Session')
+        }
+        
         // セッション確立後、少し待機して内部状態を安定させる（Safari対応で長めに）
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
 
-      // 2. パスワードを更新する
+      // 2. パスワードを更新する前にセッションを再確認
+      const { data: currentSession } = await supabase.auth.getSession()
+      if (!currentSession?.session) {
+        throw new Error('セッションが無効です。もう一度パスワードリセットを申請してください。')
+      }
+      
       logger.log('🔑 パスワード更新リクエスト送信...')
       const { data: updateData, error } = await supabase.auth.updateUser({
         password: newPassword

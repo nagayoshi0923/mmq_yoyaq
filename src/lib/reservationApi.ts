@@ -292,6 +292,76 @@ export const reservationApi = {
     return Boolean(data)
   },
 
+  // 参加人数を変更（顧客向けシンプルAPI）
+  async updateParticipantCount(reservationId: string, newCount: number): Promise<boolean> {
+    // 現在のユーザーのcustomer_idを取得
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      throw new Error('ログインが必要です')
+    }
+
+    // 顧客IDを取得
+    const { data: customer } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    const customerId = customer?.id || null
+    logger.log('人数変更開始:', { reservationId, newCount, customerId })
+
+    // 予約情報を取得して料金を再計算
+    const { data: reservation, error: fetchError } = await supabase
+      .from('reservations')
+      .select('unit_price, schedule_event_id, participant_count, customer_id')
+      .eq('id', reservationId)
+      .single()
+
+    if (fetchError || !reservation) {
+      logger.error('予約情報取得エラー:', fetchError)
+      throw new Error('予約情報の取得に失敗しました')
+    }
+
+    logger.log('予約情報取得:', reservation)
+
+    // 予約の所有者を確認
+    if (reservation.customer_id && reservation.customer_id !== customerId) {
+      throw new Error('この予約を変更する権限がありません')
+    }
+
+    // 参加人数と料金を更新
+    const newTotalPrice = (reservation.unit_price || 0) * newCount
+    
+    const { error: updateError } = await supabase
+      .from('reservations')
+      .update({
+        participant_count: newCount,
+        total_price: newTotalPrice,
+        final_price: newTotalPrice,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', reservationId)
+
+    if (updateError) {
+      logger.error('予約更新エラー:', updateError)
+      throw new Error('予約の更新に失敗しました: ' + updateError.message)
+    }
+
+    logger.log('予約更新成功')
+
+    // schedule_eventsのcurrent_participantsを再計算
+    if (reservation.schedule_event_id) {
+      try {
+        await recalculateCurrentParticipants(reservation.schedule_event_id)
+        logger.log('参加者数再計算完了')
+      } catch (recalcError) {
+        logger.warn('current_participants再計算エラー:', recalcError)
+      }
+    }
+
+    return true
+  },
+
   // 予約を更新
   async update(id: string, updates: Partial<Reservation>, sendEmail: boolean = false): Promise<Reservation> {
     // 変更前のデータを取得（メール送信用）

@@ -13,12 +13,19 @@ export function useCalendarData(allEvents: any[], selectedStoreIds: string[], st
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
   /**
-   * 月を変更
+   * 月を変更（過去月へのナビゲーションを防止）
    */
   const changeMonth = useCallback((direction: 'prev' | 'next') => {
     setCurrentMonth(prev => {
       const newDate = new Date(prev)
       if (direction === 'prev') {
+        // 現在月より前には戻れない
+        const today = new Date()
+        const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+        const prevMonthStart = new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
+        if (prevMonthStart < currentMonthStart) {
+          return prev // 過去月へは移動しない
+        }
         newDate.setMonth(newDate.getMonth() - 1)
       } else {
         newDate.setMonth(newDate.getMonth() + 1)
@@ -107,11 +114,22 @@ export function useCalendarData(allEvents: any[], selectedStoreIds: string[], st
     return events
   }, [eventsByDate, selectedStoreIds, stores])
 
+  /**
+   * 前月へナビゲーション可能かどうか
+   */
+  const canGoToPrevMonth = useMemo(() => {
+    const today = new Date()
+    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    const prevMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
+    return prevMonthStart >= currentMonthStart
+  }, [currentMonth])
+
   return {
     currentMonth,
     setCurrentMonth,
     calendarDays,
     changeMonth,
+    canGoToPrevMonth,
     getEventsForDate,
     generateCalendarDays: () => calendarDays
   }

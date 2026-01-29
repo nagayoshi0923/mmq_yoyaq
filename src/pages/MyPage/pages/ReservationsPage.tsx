@@ -50,6 +50,7 @@ export function ReservationsPage() {
   const [waitlist, setWaitlist] = useState<Waitlist[]>([])
   const [loading, setLoading] = useState(true)
   const [scenarioImages, setScenarioImages] = useState<Record<string, string>>({})
+  const [scenarioInfo, setScenarioInfo] = useState<Record<string, { min: number; max: number }>>({})
   const [stores, setStores] = useState<Record<string, Store>>({})
   
   // キャンセルダイアログ
@@ -161,10 +162,20 @@ export function ReservationsPage() {
         setWaitlist(waitlistData || [])
       }
 
-      // 予約を取得（決済方法も含む）
+      // 予約を取得（決済方法・公演情報も含む）
       const { data, error } = await supabase
         .from('reservations')
-        .select('*, payment_method, payment_status')
+        .select(`
+          *, 
+          payment_method, 
+          payment_status,
+          schedule_events!schedule_event_id(
+            id, 
+            current_participants, 
+            max_participants,
+            category
+          )
+        `)
         .eq('customer_id', customer.id)
         .order('requested_datetime', { ascending: false })
 
@@ -180,19 +191,25 @@ export function ReservationsPage() {
         if (scenarioIds.length > 0) {
           const { data: scenarios, error: scenariosError } = await supabase
             .from('scenarios')
-            .select('id, key_visual_url')
+            .select('id, key_visual_url, player_count_min, player_count_max')
             .in('id', scenarioIds)
           
           if (scenariosError) {
             logger.error('シナリオ画像取得エラー:', scenariosError)
           } else if (scenarios) {
             const imageMap: Record<string, string> = {}
+            const scenarioInfoMap: Record<string, { min: number; max: number }> = {}
             scenarios.forEach(s => {
               if (s.key_visual_url) {
                 imageMap[s.id] = s.key_visual_url
               }
+              scenarioInfoMap[s.id] = {
+                min: s.player_count_min || 1,
+                max: s.player_count_max || 8
+              }
             })
             setScenarioImages(imageMap)
+            setScenarioInfo(scenarioInfoMap)
           }
         }
 
@@ -291,6 +308,38 @@ export function ReservationsPage() {
 
   const formatCurrency = (amount: number) => {
     return `¥${amount.toLocaleString()}`
+  }
+
+  // 公演成立状況を取得
+  const getPerformanceStatus = (reservation: Reservation) => {
+    // schedule_eventsはjoinで取得されるがReservation型には含まれないためanyでアクセス
+    const reservationWithEvent = reservation as Reservation & { 
+      schedule_events?: { 
+        current_participants?: number
+        max_participants?: number
+        category?: string 
+      } | null 
+    }
+    const scheduleEvent = reservationWithEvent.schedule_events
+    
+    // 貸切公演は状況表示不要
+    if (scheduleEvent?.category === 'private') {
+      return null
+    }
+    
+    const scenarioData = reservation.scenario_id ? scenarioInfo[reservation.scenario_id] : null
+    const current = scheduleEvent?.current_participants || 0
+    const max = scheduleEvent?.max_participants || scenarioData?.max || 8
+    const min = scenarioData?.min || 1
+    
+    if (current >= max) {
+      return { type: 'full', label: '満席', color: 'bg-green-100 text-green-700' }
+    } else if (current >= min) {
+      return { type: 'confirmed', label: '公演成立', remaining: max - current, color: 'bg-blue-100 text-blue-700' }
+    } else {
+      const remaining = min - current
+      return { type: 'pending', label: `あと${remaining}名で成立`, remaining, color: 'bg-amber-100 text-amber-700' }
+    }
   }
 
   const getPaymentMethodLabel = (method: string | null | undefined) => {
@@ -765,10 +814,19 @@ export function ReservationsPage() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <Badge variant="default" className="bg-blue-100 text-blue-800 text-xs flex-shrink-0">
                             参加予定
                           </Badge>
+                          {(() => {
+                            const status = getPerformanceStatus(reservation)
+                            if (!status) return null
+                            return (
+                              <span className={`text-xs px-2 py-0.5 rounded ${status.color}`}>
+                                {status.label}
+                              </span>
+                            )
+                          })()}
                         </div>
                         <h4 className="font-medium text-sm truncate">{formatTitle(reservation.title)}</h4>
                       </div>

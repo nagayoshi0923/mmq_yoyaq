@@ -107,9 +107,11 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       }
 
       // 2. slugで見つからない場合、UUIDとしてIDで検索
+      let useLegacyTable = false
       if (!masterId) {
         const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
         if (uuidPattern.test(scenarioSlug)) {
+          // まずscenario_mastersテーブルで検索
           const { data: masterById } = await supabase
             .from('scenario_masters')
             .select('id')
@@ -118,12 +120,23 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           
           if (masterById && masterById.length > 0) {
             masterId = masterById[0].id
+          } else {
+            // scenario_mastersで見つからない場合、scenariosテーブルでID検索
+            const { data: legacyById } = await supabase
+              .from('scenarios')
+              .select('id')
+              .eq('id', scenarioSlug)
+              .limit(1)
+            
+            if (legacyById && legacyById.length > 0) {
+              masterId = legacyById[0].id
+              useLegacyTable = true
+            }
           }
         }
       }
 
       // 3. まだ見つからない場合、既存のscenariosテーブルからslugで検索
-      let useLegacyTable = false
       if (!masterId) {
         const { data: legacyScenario } = await supabase
           .from('scenarios')
@@ -172,11 +185,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
             player_count_min,
             player_count_max,
             organization_id,
-            author_id,
+            author,
             genre,
             participation_fee,
-            synopsis,
-            authors (name)
+            synopsis
           `)
           .eq('id', masterId)
           .single()

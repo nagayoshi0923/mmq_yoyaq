@@ -248,6 +248,12 @@ export function CustomerBookingPage() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     
+    // まず過去の日付を除外（全フィルターで適用）
+    filtered = filtered.filter(event => {
+      const eventDate = new Date(event.date)
+      return eventDate >= today
+    })
+    
     if (dateFilter === 'today') {
       const todayStr = today.toISOString().split('T')[0]
       filtered = filtered.filter(event => event.date === todayStr)
@@ -256,16 +262,17 @@ export function CustomerBookingPage() {
       weekLater.setDate(today.getDate() + 7)
       filtered = filtered.filter(event => {
         const eventDate = new Date(event.date)
-        return eventDate >= today && eventDate <= weekLater
+        return eventDate <= weekLater
       })
     } else if (dateFilter === 'month') {
       const monthLater = new Date(today)
       monthLater.setMonth(today.getMonth() + 1)
       filtered = filtered.filter(event => {
         const eventDate = new Date(event.date)
-        return eventDate >= today && eventDate <= monthLater
+        return eventDate <= monthLater
       })
     }
+    // dateFilter === 'all' の場合は過去除外のみ（上で適用済み）
 
     setFilteredEvents(filtered)
   }, [events, searchTerm, storeFilter, dateFilter])

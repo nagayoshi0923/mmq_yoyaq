@@ -161,6 +161,7 @@ export const scenarioApi = {
 
   // IDでシナリオを取得
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  // 公開シナリオ（status='available'）は常に表示可能
   async getById(id: string, organizationId?: string): Promise<Scenario | null> {
     let query = supabase
       .from('scenarios')
@@ -170,7 +171,8 @@ export const scenarioApi = {
     // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
     const orgId = organizationId || await getCurrentOrganizationId()
     if (orgId) {
-      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+      // 公開シナリオ（status='available'）も含める
+      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true,status.eq.available`)
     }
     
     const { data, error } = await query.single()
@@ -185,6 +187,7 @@ export const scenarioApi = {
   },
 
   // slugでシナリオを取得
+  // 公開シナリオ（status='available'）は常に表示可能
   async getBySlug(slug: string, organizationId?: string): Promise<Scenario | null> {
     let query = supabase
       .from('scenarios')
@@ -194,7 +197,8 @@ export const scenarioApi = {
     // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
     const orgId = organizationId || await getCurrentOrganizationId()
     if (orgId) {
-      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+      // 公開シナリオ（status='available'）も含める
+      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true,status.eq.available`)
     }
     
     const { data, error } = await query.single()

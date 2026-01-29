@@ -135,7 +135,7 @@ export const ScenarioCard = memo(function ScenarioCard({
   return (
     <div 
       className="group cursor-pointer"
-      onClick={() => onClick(scenario.scenario_id)}
+      onClick={() => onClick(scenario.scenario_slug || scenario.scenario_id)}
       onMouseEnter={() => prefetchScenario(scenario.scenario_id)}
     >
       {/* カード本体 - シャープデザイン（1カラム：横、2カラム以上：縦） */}

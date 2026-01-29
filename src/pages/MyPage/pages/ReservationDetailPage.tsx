@@ -14,6 +14,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { reservationApi } from '@/lib/reservationApi'
 import { useAuth } from '@/contexts/AuthContext'
@@ -84,6 +100,11 @@ export function ReservationDetailPage() {
   const [cancelling, setCancelling] = useState(false)
   const [cancellationPolicy, setCancellationPolicy] = useState<string | null>(null)
   const [cancelDeadlineHours, setCancelDeadlineHours] = useState(DEFAULT_CANCEL_DEADLINE_HOURS)
+  // 人数変更ダイアログ
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editParticipantCount, setEditParticipantCount] = useState<number>(0)
+  const [editing, setEditing] = useState(false)
+  const [remainingSeats, setRemainingSeats] = useState<number>(0)
 
   // URLから予約IDを取得 (/mypage/reservation/:id)
   const reservationId = location.pathname.split('/').pop()
@@ -282,6 +303,48 @@ export function ReservationDetailPage() {
     }
   }
 
+  // 人数変更ダイアログを開く
+  const handleEditClick = () => {
+    if (!reservation) return
+    
+    // 残席を計算
+    const currentParticipants = reservation.schedule_events?.current_participants || 0
+    const maxParticipants = reservation.schedule_events?.max_participants || scenario?.player_count_max || 4
+    const otherParticipants = currentParticipants - reservation.participant_count
+    const available = maxParticipants - otherParticipants
+    
+    setRemainingSeats(available)
+    setEditParticipantCount(reservation.participant_count)
+    setEditDialogOpen(true)
+  }
+
+  // 人数変更処理
+  const handleEditConfirm = async () => {
+    if (!reservation || editParticipantCount === reservation.participant_count) {
+      setEditDialogOpen(false)
+      return
+    }
+
+    setEditing(true)
+    try {
+      logger.log('人数変更開始:', { reservationId: reservation.id, newCount: editParticipantCount })
+      await reservationApi.updateParticipantCount(reservation.id, editParticipantCount)
+      toast.success('参加人数を変更しました')
+      setEditDialogOpen(false)
+      // 予約データを再取得
+      await fetchReservation()
+    } catch (error) {
+      logger.error('人数変更エラー:', error)
+      const errorMessage = error instanceof Error ? error.message : '人数変更に失敗しました'
+      toast.error(errorMessage)
+    } finally {
+      setEditing(false)
+    }
+  }
+
+  // 人数変更可能かどうか
+  const canEdit = reservation?.status === 'confirmed' && canCancel
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
@@ -405,36 +468,6 @@ export function ReservationDetailPage() {
           </div>
         </div>
 
-        {/* キャンセル */}
-        {reservation.status === 'confirmed' && (
-          <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-gray-900 mb-1">キャンセル</p>
-                <p className="text-xs text-gray-600">
-                  公演開始の{cancelDeadlineHours}時間前までキャンセル可能です。
-                </p>
-                {cancellationPolicy && (
-                  <p className="text-xs text-gray-500 whitespace-pre-wrap mt-2">
-                    {cancellationPolicy}
-                  </p>
-                )}
-                {!canCancel && (
-                  <p className="text-xs text-red-600 mt-2">
-                    キャンセル期限を過ぎているため、オンラインでのキャンセルはできません。
-                  </p>
-                )}
-              </div>
-              <Button
-                variant="destructive"
-                onClick={() => setCancelDialogOpen(true)}
-                disabled={!canCancel}
-              >
-                キャンセル
-              </Button>
-            </div>
-          </div>
-        )}
 
         {/* 公演日時 */}
         <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
@@ -541,7 +574,21 @@ export function ReservationDetailPage() {
                 <Users className="w-4 h-4" />
                 参加人数
               </span>
-              <span className="font-bold">{reservation.participant_count}名</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold">{reservation.participant_count}名</span>
+                {reservation.status === 'confirmed' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={handleEditClick}
+                    disabled={!canEdit}
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    変更
+                  </Button>
+                )}
+              </div>
             </div>
             
             {reservation.schedule_events?.is_private_booking ? (
@@ -588,12 +635,37 @@ export function ReservationDetailPage() {
               </div>
             )}
 
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-2 border-b border-gray-100">
               <span className="text-sm text-gray-500">予約日</span>
               <span className="text-sm text-gray-600">
                 {new Date(reservation.created_at).toLocaleDateString('ja-JP')}
               </span>
             </div>
+
+            {/* キャンセル */}
+            {reservation.status === 'confirmed' && (
+              <div className="pt-3 mt-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">予約キャンセル</p>
+                    {!canCancel && (
+                      <p className="text-xs text-red-500 mt-1">
+                        期限（{cancelDeadlineHours}時間前）を過ぎています
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => setCancelDialogOpen(true)}
+                    disabled={!canCancel}
+                  >
+                    キャンセル
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -635,6 +707,46 @@ export function ReservationDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 人数変更ダイアログ */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>参加人数を変更</DialogTitle>
+            <DialogDescription>
+              変更後の参加人数を選択してください。（残席: {remainingSeats}名）
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select
+              value={String(editParticipantCount)}
+              onValueChange={(val) => setEditParticipantCount(Number(val))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: remainingSeats }, (_, i) => i + 1).map((num) => (
+                  <SelectItem key={num} value={String(num)}>
+                    {num}名
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={editing}>
+              キャンセル
+            </Button>
+            <Button 
+              onClick={handleEditConfirm} 
+              disabled={editing || editParticipantCount === reservation?.participant_count}
+            >
+              {editing ? '変更中...' : '変更する'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

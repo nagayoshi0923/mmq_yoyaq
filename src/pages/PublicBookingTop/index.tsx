@@ -97,11 +97,24 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   }, [setSelectedStoreIds])
 
   // カレンダーデータフック
-  const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(
+  const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate, canGoToPrevMonth } = useCalendarData(
     allEvents,
     selectedStoreIds,
     stores
   )
+
+  // 過去月へのナビゲーションを防止するラッパー関数
+  const handleMonthChange = useCallback((newMonth: Date) => {
+    const today = new Date()
+    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    const targetMonthStart = new Date(newMonth.getFullYear(), newMonth.getMonth(), 1)
+    
+    // 過去月への変更を防止
+    if (targetMonthStart < currentMonthStart) {
+      return
+    }
+    setCurrentMonth(newMonth)
+  }, [setCurrentMonth])
 
   // リストビューデータフック
   const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(
@@ -109,6 +122,18 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     stores,
     selectedStoreIds
   )
+
+  // リストビュー用の過去月ナビゲーション防止
+  const handleListViewMonthChange = useCallback((newMonth: Date) => {
+    const today = new Date()
+    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    const targetMonthStart = new Date(newMonth.getFullYear(), newMonth.getMonth(), 1)
+    
+    if (targetMonthStart < currentMonthStart) {
+      return
+    }
+    setListViewMonth(newMonth)
+  }, [setListViewMonth])
 
   // 検索キーワード
   const [searchTerm, setSearchTerm] = useState('')
@@ -188,15 +213,16 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   }, [organizationSlug, navigate])
 
   // シナリオカードクリック（メモ化）
-  const handleCardClick = useCallback((scenarioId: string) => {
+  // ScenarioCardからはslug（またはID）が渡される
+  const handleCardClick = useCallback((slugOrId: string) => {
     if (onScenarioSelect) {
-      onScenarioSelect(scenarioId)
+      onScenarioSelect(slugOrId)
     } else {
       // 組織slugがあれば予約サイト形式、なければグローバル形式
       if (organizationSlug) {
-        navigate(`/${organizationSlug}/scenario/${scenarioId}`)
+        navigate(`/${organizationSlug}/scenario/${slugOrId}`)
       } else {
-        navigate(`/scenario-detail/${scenarioId}`)
+        navigate(`/scenario-detail/${slugOrId}`)
       }
     }
   }, [onScenarioSelect, organizationSlug, navigate])
@@ -339,7 +365,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             <TabsContent value="calendar">
               <CalendarView
                 currentMonth={currentMonth}
-                onMonthChange={setCurrentMonth}
+                onMonthChange={handleMonthChange}
                 calendarDays={calendarDays}
                 getEventsForDate={getEventsForDate}
                 selectedStoreIds={selectedStoreIds}
@@ -359,7 +385,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             <TabsContent value="list">
               <ListView
                 listViewMonth={listViewMonth}
-                onMonthChange={setListViewMonth}
+                onMonthChange={handleListViewMonthChange}
                 selectedStoreIds={selectedStoreIds}
                 onStoreIdsChange={handleStoreIdsChange}
                 stores={stores}
