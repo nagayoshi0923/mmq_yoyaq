@@ -39,3 +39,4 @@ SUPABASE_ACCESS_TOKEN
 *.bak
 
 .vercel
+supabase/.temp/
