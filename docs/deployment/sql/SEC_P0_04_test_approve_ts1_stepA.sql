@@ -178,8 +178,11 @@ SELECT
     (SELECT guard_error FROM guard) IS NULL
     AND (SELECT reservation_status FROM check_after) = 'confirmed'
     AND (SELECT reservation_schedule_event_id FROM check_after) = (SELECT schedule_event_id FROM call)
-    AND (SELECT schedule_event_exists FROM check_after) IS NOT NULL
   ) AS pass,
   (SELECT guard_error FROM guard) AS debug_guard_error,
-  (SELECT to_jsonb(stats) FROM stats) AS debug_stats;
+  (SELECT to_jsonb(stats) FROM stats) AS debug_stats,
+  -- 参考: RLS等でschedule_eventsが見えない環境があるため、存在確認は補助情報として返す
+  ((SELECT schedule_event_exists FROM check_after) IS NOT NULL) AS debug_schedule_event_visible,
+  (SELECT reservation_status FROM check_after) AS debug_reservation_status,
+  (SELECT reservation_schedule_event_id FROM check_after) AS debug_reservation_schedule_event_id;
 
