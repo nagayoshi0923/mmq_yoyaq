@@ -6,31 +6,69 @@
 BEGIN;
 SET LOCAL ROLE authenticated;
 
-WITH candidates AS (
+WITH base_reservations AS (
   SELECT
     r.id AS reservation_id,
     r.created_at AS reservation_created_at,
     r.organization_id AS organization_id,
     r.candidate_datetimes AS candidate_datetimes,
-    (cand->>'order')::int AS candidate_order,
-    (cand->>'date')::date AS selected_date,
-    (cand->>'startTime')::time AS selected_start_time,
-    (cand->>'endTime')::time AS selected_end_time,
-    COALESCE(
-      (r.candidate_datetimes->'requestedStores'->0->>'storeId')::uuid,
-      (SELECT s.id FROM stores s WHERE s.organization_id = r.organization_id ORDER BY s.created_at NULLS LAST, s.id LIMIT 1)
-    ) AS selected_store_id,
-    (SELECT st.id FROM staff st WHERE st.organization_id = r.organization_id AND st.user_id IS NOT NULL ORDER BY st.created_at NULLS LAST, st.id LIMIT 1) AS selected_gm_id,
-    (SELECT st.user_id FROM staff st WHERE st.organization_id = r.organization_id AND st.user_id IS NOT NULL ORDER BY st.created_at NULLS LAST, st.id LIMIT 1) AS gm_user_id,
     COALESCE(r.title, '') AS scenario_title,
     COALESCE(r.customer_name, '') AS customer_name
   FROM reservations r
-  CROSS JOIN LATERAL jsonb_array_elements(r.candidate_datetimes->'candidates') AS cand
   WHERE r.reservation_source = 'web_private'
     AND r.status IN ('pending', 'pending_gm', 'gm_confirmed', 'pending_store')
     AND r.candidate_datetimes IS NOT NULL
     AND jsonb_typeof(r.candidate_datetimes->'candidates') = 'array'
     AND jsonb_array_length(r.candidate_datetimes->'candidates') > 0
+),
+candidate_times AS (
+  SELECT
+    br.reservation_id,
+    br.reservation_created_at,
+    br.organization_id,
+    br.candidate_datetimes,
+    (cand->>'order')::int AS candidate_order,
+    (cand->>'date')::date AS selected_date,
+    (cand->>'startTime')::time AS selected_start_time,
+    (cand->>'endTime')::time AS selected_end_time,
+    br.scenario_title,
+    br.customer_name
+  FROM base_reservations br
+  CROSS JOIN LATERAL jsonb_array_elements(br.candidate_datetimes->'candidates') AS cand
+),
+-- requestedStores がある場合はそれを優先、なければ同組織の店舗を候補にする
+candidate_stores AS (
+  SELECT
+    ct.*,
+    COALESCE(
+      (rs->>'storeId')::uuid,
+      s_any.id
+    ) AS selected_store_id
+  FROM candidate_times ct
+  LEFT JOIN LATERAL jsonb_array_elements(ct.candidate_datetimes->'requestedStores') AS rs ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT s.id
+    FROM stores s
+    WHERE s.organization_id = ct.organization_id
+    ORDER BY s.created_at NULLS LAST, s.id
+    LIMIT 1
+  ) AS s_any ON TRUE
+),
+staff_pick AS (
+  SELECT
+    s.organization_id,
+    s.id AS selected_gm_id,
+    s.user_id AS gm_user_id
+  FROM staff s
+  WHERE s.user_id IS NOT NULL
+),
+candidates AS (
+  SELECT
+    cs.*,
+    sp.selected_gm_id,
+    sp.gm_user_id
+  FROM candidate_stores cs
+  LEFT JOIN staff_pick sp ON sp.organization_id = cs.organization_id
 ),
 picked AS (
   -- 既存公演と被らない候補枠を選ぶ（DB側の SLOT_ALREADY_OCCUPIED を踏みにくくする）
@@ -40,6 +78,8 @@ picked AS (
     AND c.selected_start_time IS NOT NULL
     AND c.selected_end_time IS NOT NULL
     AND c.selected_store_id IS NOT NULL
+    AND c.selected_gm_id IS NOT NULL
+    AND c.gm_user_id IS NOT NULL
     AND NOT EXISTS (
       SELECT 1
       FROM schedule_events se
@@ -52,6 +92,32 @@ picked AS (
     )
   ORDER BY c.reservation_created_at DESC NULLS LAST, c.reservation_id, c.candidate_order NULLS LAST
   LIMIT 1
+),
+stats AS (
+  SELECT
+    (SELECT count(*) FROM base_reservations) AS base_reservations_cnt,
+    (SELECT count(*) FROM candidate_times) AS candidate_times_cnt,
+    (SELECT count(*) FROM candidate_stores) AS candidate_store_rows_cnt,
+    (SELECT count(*) FROM candidates WHERE selected_store_id IS NOT NULL) AS with_store_cnt,
+    (SELECT count(*) FROM candidates WHERE selected_gm_id IS NOT NULL AND gm_user_id IS NOT NULL) AS with_gm_cnt,
+    (SELECT count(*) FROM candidates WHERE selected_store_id IS NOT NULL AND selected_gm_id IS NOT NULL AND gm_user_id IS NOT NULL) AS with_store_and_gm_cnt,
+    (SELECT count(*) FROM candidates c
+      WHERE c.selected_store_id IS NOT NULL
+        AND c.selected_gm_id IS NOT NULL
+        AND c.gm_user_id IS NOT NULL
+        AND c.selected_date IS NOT NULL
+        AND c.selected_start_time IS NOT NULL
+        AND c.selected_end_time IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM schedule_events se
+          WHERE se.organization_id = c.organization_id
+            AND se.date = c.selected_date
+            AND se.store_id = c.selected_store_id
+            AND se.is_cancelled = false
+            AND se.start_time < c.selected_end_time
+            AND se.end_time > c.selected_start_time
+        )
+    ) AS non_conflict_cnt
 ),
 guard AS (
   SELECT
@@ -111,5 +177,6 @@ SELECT
     AND (SELECT reservation_schedule_event_id FROM check_after) = (SELECT schedule_event_id FROM call)
     AND (SELECT schedule_event_exists FROM check_after) IS NOT NULL
   ) AS pass,
-  (SELECT guard_error FROM guard) AS debug_guard_error;
+  (SELECT guard_error FROM guard) AS debug_guard_error,
+  (SELECT to_jsonb(stats) FROM stats) AS debug_stats;
 
