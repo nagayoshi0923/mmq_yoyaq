@@ -1,7 +1,25 @@
 // Supabase Edge Function: シフトをGoogleスプレッドシートに同期
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse } from '../_shared/security.ts'
+
+function isServiceRoleCall(req: Request): boolean {
+  const authHeader = req.headers.get('Authorization')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+  if (!authHeader || !serviceRoleKey) return false
+  const token = authHeader.replace('Bearer ', '')
+  return token === serviceRoleKey
+}
+
+function isSafeHttpsUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
 
 interface SyncShiftsPayload {
   year: number
@@ -27,6 +45,22 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 認証（Cron/運用者のみ）
+    if (!isServiceRoleCall(req)) {
+      const authResult = await verifyAuth(req, ['admin', 'owner'])
+      if (!authResult.success) {
+        console.warn('⚠️ 認証失敗: sync-shifts-to-google-sheet への不正アクセス試行')
+        return errorResponse(
+          authResult.error || '認証が必要です',
+          authResult.statusCode || 401,
+          corsHeaders
+        )
+      }
+      console.log('✅ 管理者認証成功:', authResult.user?.email)
+    } else {
+      console.log('✅ Service Role Key 認証成功（Cron/システム呼び出し）')
+    }
+
     // 環境変数を取得
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -36,7 +70,19 @@ serve(async (req) => {
       throw new Error('Required environment variables are not set')
     }
 
+    if (!isSafeHttpsUrl(GOOGLE_APPS_SCRIPT_URL)) {
+      throw new Error('GOOGLE_APPS_SCRIPT_URL must be https')
+    }
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+    // 🔒 レートリミット（1分あたり10回まで）
+    const clientIP = getClientIP(req)
+    const rateLimit = await checkRateLimit(supabase, clientIP, 'sync-shifts-to-google-sheet', 10, 60)
+    if (!rateLimit.allowed) {
+      console.warn('⚠️ レートリミット超過:', clientIP)
+      return rateLimitResponse(rateLimit.retryAfter, corsHeaders)
+    }
 
     const payload: SyncShiftsPayload = await req.json()
     const { year, month, staff_id } = payload
@@ -177,26 +223,11 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    const errorStack = error instanceof Error ? error.stack : undefined
-    
-    console.error('❌ Error:', errorMessage)
-    console.error('❌ Error stack:', errorStack)
-    console.error('❌ Error details:', {
-      message: errorMessage,
-      name: error instanceof Error ? error.name : 'Unknown',
-      cause: error instanceof Error ? error.cause : undefined
-    })
-    
+    console.error('❌ Error:', error)
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: errorMessage,
-        stack: errorStack,
-        details: {
-          name: error instanceof Error ? error.name : 'Error',
-          cause: error instanceof Error ? error.cause : undefined
-        }
+        error: sanitizeErrorMessage(error, 'シフト同期に失敗しました')
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

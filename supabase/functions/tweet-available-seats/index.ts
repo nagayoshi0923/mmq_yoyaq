@@ -1,7 +1,45 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { hmac } from 'https://deno.land/x/hmac@v2.0.1/mod.ts'
-import { getCorsHeaders } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse } from '../_shared/security.ts'
+
+function isServiceRoleCall(req: Request): boolean {
+  const authHeader = req.headers.get('Authorization')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+  if (!authHeader || !serviceRoleKey) return false
+  const token = authHeader.replace('Bearer ', '')
+  return token === serviceRoleKey
+}
+
+function isProbablyPrivateIpHost(hostname: string): boolean {
+  // Best-effort SSRF guard: block localhost and private IPv4 ranges (no DNS resolution)
+  const h = hostname.toLowerCase()
+  if (h === 'localhost' || h.endsWith('.local')) return true
+  if (h === '::1' || h === '[::1]') return true
+  if (h.startsWith('127.')) return true
+  if (h.startsWith('10.')) return true
+  if (h.startsWith('192.168.')) return true
+  if (h.startsWith('169.254.')) return true
+  // 172.16.0.0/12
+  const m = h.match(/^172\.(\d+)\./)
+  if (m) {
+    const n = Number(m[1])
+    if (Number.isFinite(n) && n >= 16 && n <= 31) return true
+  }
+  return false
+}
+
+function isSafeHttpsUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    if (u.protocol !== 'https:') return false
+    if (isProbablyPrivateIpHost(u.hostname)) return false
+    return true
+  } catch {
+    return false
+  }
+}
 
 // OAuth 1.0a署名生成
 function generateOAuthSignature(
@@ -79,10 +117,24 @@ async function uploadMedia(
   accessTokenSecret: string
 ): Promise<string | null> {
   try {
+    if (!isSafeHttpsUrl(imageUrl)) {
+      console.warn('⚠️ 画像URLが安全要件を満たさないためスキップ:', imageUrl)
+      return null
+    }
+
     // 画像をダウンロード
-    const imageResponse = await fetch(imageUrl)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+    const imageResponse = await fetch(imageUrl, { signal: controller.signal })
+    clearTimeout(timeout)
     if (!imageResponse.ok) {
       console.error('画像のダウンロードに失敗:', imageUrl)
+      return null
+    }
+
+    const contentLength = imageResponse.headers.get('content-length')
+    if (contentLength && Number(contentLength) > 5 * 1024 * 1024) {
+      console.warn('⚠️ 画像サイズが大きすぎるためスキップ:', contentLength)
       return null
     }
     
@@ -382,6 +434,34 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 レートリミット（乱用防止）
+    const serviceClientForRateLimit = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+    const clientIP = getClientIP(req)
+    const rateLimit = await checkRateLimit(serviceClientForRateLimit, clientIP, 'tweet-available-seats', 5, 60)
+    if (!rateLimit.allowed) {
+      console.warn('⚠️ レートリミット超過:', clientIP)
+      return rateLimitResponse(rateLimit.retryAfter, corsHeaders)
+    }
+
+    // 🔒 認証チェック（Cron/運用者のみ）
+    if (!isServiceRoleCall(req)) {
+      const authResult = await verifyAuth(req, ['admin', 'owner'])
+      if (!authResult.success) {
+        console.warn('⚠️ 認証失敗: tweet-available-seats への不正アクセス試行')
+        return errorResponse(
+          authResult.error || '認証が必要です',
+          authResult.statusCode || 401,
+          corsHeaders
+        )
+      }
+      console.log('✅ 管理者認証成功:', authResult.user?.email)
+    } else {
+      console.log('✅ Service Role Key 認証成功（Cron/システム呼び出し）')
+    }
+
     // Twitter API認証情報
     const apiKey = Deno.env.get('TWITTER_API_KEY')
     const apiSecret = Deno.env.get('TWITTER_API_SECRET')
@@ -558,7 +638,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'ツイート投稿に失敗しました' 
+        error: sanitizeErrorMessage(error, 'ツイート投稿に失敗しました')
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
