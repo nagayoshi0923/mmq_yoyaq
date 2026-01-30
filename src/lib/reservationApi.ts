@@ -7,7 +7,10 @@ import type { Reservation, Customer, ReservationSummary } from '@/types'
 type CreateReservationWithLockParams = Omit<
   Reservation,
   'id' | 'created_at' | 'updated_at' | 'reservation_number'
->
+> & {
+  // 冪等性: リトライ時に同じ予約番号を使う
+  reservation_number?: string
+}
 
 // 顧客関連のAPI
 export const customerApi = {
@@ -188,10 +191,13 @@ export const reservationApi = {
     }
 
     // 予約番号を自動生成（YYMMDD-XXXX形式: 11桁）
-    const now = new Date()
-    const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-    const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-    const reservationNumber = `${dateStr}-${randomStr}`
+    // 冪等性: 呼び出し元が reservation_number を渡す場合はそれを優先して使用する
+    const reservationNumber = reservation.reservation_number || (() => {
+      const now = new Date()
+      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+      return `${dateStr}-${randomStr}`
+    })()
 
     // SEC-P0-02対策（段階移行）:
     // 1) v2（サーバー側で料金/日時を確定）を優先して呼び出す
@@ -284,6 +290,30 @@ export const reservationApi = {
 
     if (error) {
       logger.error('予約作成RPCエラー:', error)
+      // 冪等性: reservation_number が UNIQUE の場合、二重作成は 23505 で落ちる。
+      // その場合は既存の予約を取得して成功扱いにする（UIのリトライ/二重送信対策）
+      const errorCode = String((error as any).code || '')
+      const errorMsg = String((error as any).message || '')
+      const isUniqueViolation =
+        errorCode === '23505' ||
+        errorMsg.includes('reservation_number') ||
+        errorMsg.includes('duplicate') ||
+        errorMsg.includes('unique')
+      if (isUniqueViolation && reservationNumber) {
+        try {
+          const { data: existing, error: existingError } = await supabase
+            .from('reservations')
+            .select('*')
+            .eq('reservation_number', reservationNumber)
+            .single()
+
+          if (!existingError && existing) {
+            return existing
+          }
+        } catch (fetchExistingError) {
+          logger.warn('既存予約の取得に失敗（冪等性フォールバック）:', fetchExistingError)
+        }
+      }
       if (error.code === 'P0003') {
         throw new Error('この公演は満席です')
       }

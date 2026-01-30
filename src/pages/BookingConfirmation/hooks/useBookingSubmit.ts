@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDate } from '../utils/bookingFormatters'
@@ -369,6 +370,8 @@ interface UseBookingSubmitProps {
 export function useBookingSubmit(props: UseBookingSubmitProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  // 冪等性: 同一フォーム送信のリトライでは同じ予約番号を使う
+  const reservationNumberRef = useRef<string | null>(null)
   const [completedReservation, setCompletedReservation] = useState<{
     reservationNumber: string
     participantCount: number
@@ -475,6 +478,14 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
       }
 
+      // 冪等性: 予約番号（YYMMDD-XXXX）を1回だけ生成してリトライでも固定
+      if (!reservationNumberRef.current) {
+        const now = new Date()
+        const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+        const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+        reservationNumberRef.current = `${dateStr}-${randomStr}`
+      }
+
       const reservationData = await reservationApi.create({
         schedule_event_id: props.eventId,
         title: `${props.scenarioTitle} - ${formatDate(props.eventDate)}`,
@@ -498,7 +509,8 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         customer_phone: customerPhone,
         reservation_source: 'web',
         created_by: props.userId,
-        organization_id: organizationId
+        organization_id: organizationId,
+        reservation_number: reservationNumberRef.current
       })
 
       // 予約確認メールを送信
@@ -506,6 +518,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         const emailResponse = await supabase.functions.invoke('send-booking-confirmation', {
           body: {
             reservationId: reservationData.id,
+            organizationId,
             customerEmail: customerEmail,
             customerName: customerName,
             scenarioTitle: props.scenarioTitle,
