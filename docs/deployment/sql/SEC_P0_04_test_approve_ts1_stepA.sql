@@ -4,15 +4,12 @@
 -- 注意: このSQLは BEGIN のみ行い、ROLLBACKしない（必ず Step B を続けて実行）
 
 BEGIN;
-SET LOCAL ROLE authenticated;
 
-WITH session AS (
-  -- SQL EditorはauthenticatedにするとRLSで対象行が見えないことがあるため、
-  -- テスト対象のピックは row_security を一時的にOFFにして実施する。
-  -- ※このトランザクションはStepBでROLLBACKする（副作用なし）
-  SELECT set_config('row_security', 'off', true) AS _row_security_off
-),
-base_reservations AS (
+-- NOTE:
+-- Supabase SQL Editorでは `SET LOCAL ROLE authenticated` にするとRLSで対象行が見えないことがある。
+-- ここでは SQL Editor（高権限）でピック/検証を行い、RPC呼び出しはJWT claimを staff に偽装して実行する。
+
+WITH base_reservations AS (
   SELECT
     r.id AS reservation_id,
     r.created_at AS reservation_created_at,
@@ -21,7 +18,6 @@ base_reservations AS (
     COALESCE(r.title, '') AS scenario_title,
     COALESCE(r.customer_name, '') AS customer_name
   FROM reservations r
-  JOIN session ON TRUE
   WHERE r.reservation_source = 'web_private'
     AND r.status IN ('pending', 'pending_gm', 'gm_confirmed', 'pending_store')
     AND r.candidate_datetimes IS NOT NULL
