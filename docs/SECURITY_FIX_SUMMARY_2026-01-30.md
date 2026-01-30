@@ -8,6 +8,22 @@
 
 ## 修正完了項目
 
+### ✅ SEC-P1-03: reservations の監査証跡（reservations_history）
+
+**問題**: 予約の状態変更（誰が/いつ/何を）が永続的に追えず、事故時に再現・責任切り分けが困難
+
+**修正内容**:
+- **DB（Supabase migration）**: `supabase/migrations/20260130243000_create_reservations_history.sql`
+  - `reservations_history` テーブルを追加
+  - `reservations` に `AFTER INSERT/UPDATE/DELETE` トリガを追加して差分を記録
+  - クライアントからの直接書き込みを禁止（権限でREVOKE）
+  - 閲覧は staff/admin のみに限定（組織一致）
+
+**本番検証**:
+- Runbook: `docs/deployment/SEC_P1_03_RESERVATIONS_HISTORY_RUNBOOK.md`
+
+---
+
 ### ✅ SEC-P0-04: 貸切承認の非アトミック性
 
 **問題**: 承認が複数のDB操作に分かれており、途中失敗で不整合（confirmedだが公演なし等）が残り得る

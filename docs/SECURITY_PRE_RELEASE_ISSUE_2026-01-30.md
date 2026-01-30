@@ -1,7 +1,7 @@
 # 本番リリース前 セキュリティ監査（意地悪視点）リスク台帳 / ISSUE
 
 **作成日**: 2026-01-30  
-**最終更新日**: 2026-01-30 22:30  
+**最終更新日**: 2026-01-30 23:30  
 **対象**: 予約サイト/予約システム（フロント: `src/`、DB/RLS/RPC: `database/migrations/`・`supabase/migrations/`、Edge Functions: `supabase/functions/`）  
 **スタンス**:
 - 既存ISSUE/既存監査を信じない（「直したつもり」を疑う）
@@ -26,6 +26,7 @@
 - 2026-01-30 17:00: 実装調査完了、P0-05/06追加、修正開始
 - 2026-01-30 18:00: SEC-P0-01, P0-03, P0-05, P0-06 修正完了
 - 2026-01-30 22:30: SEC-P0-04 貸切承認RPC化 + 本番DBでpass確認、RLS影響を排除（fail-closed）
+- 2026-01-30 23:30: SEC-P1-03 監査証跡（reservations_history）を追加（DBトリガで強制）
 
 ---
 
@@ -59,8 +60,9 @@
   - 根拠: `src/pages/BookingConfirmation/hooks/useBookingSubmit.ts`（`return { allowed: true }` が複数）
 - **SEC-P1-02**: 日程変更・人数変更・貸切承認などに **在庫ロック/整合性保証が一貫していない**（競合でUX崩壊/過剰予約誘発）  
   - 根拠: `src/pages/MyPage/pages/ReservationsPage.tsx`、`useBookingApproval.ts` ほか
-- **SEC-P1-03**: 監査証跡（誰が/いつ/何を）不足で、事故時に「再現できない・責任切り分け不能」になりやすい  
-  - 根拠: reservationsの状態変更履歴テーブル/トリガが見当たらない（要最終確認）
+- **SEC-P1-03**: 監査証跡（誰が/いつ/何を）不足 → **✅ 修正完了（DBトリガで強制）**
+  - 対策: `reservations_history` + `trg_reservations_history`（INSERT/UPDATE/DELETE を記録）
+  - 本番検証: `docs/deployment/SEC_P1_03_RESERVATIONS_HISTORY_RUNBOOK.md`
 
 ### P2（様子見 / 品質・運用改善）
 
@@ -247,7 +249,7 @@
 - **根拠**
   - `schedule_event_history`等はあるが、`reservations`の更新差分・更新者の永続ログが不足している（別途追加調査で確定させる）
 - **推奨対策**
-  - `reservations_history`（変更差分・実行者・原因）テーブル + UPDATEトリガ
+  - ✅ 実施済み: `reservations_history`（変更差分・実行者）テーブル + INSERT/UPDATE/DELETEトリガ
   - Edge Function起点の操作も `action_logs` に集約（IP/UA/リクエストID）
 
 ---
