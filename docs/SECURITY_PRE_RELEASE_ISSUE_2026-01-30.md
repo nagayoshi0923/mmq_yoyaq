@@ -1,7 +1,7 @@
 # 本番リリース前 セキュリティ監査（意地悪視点）リスク台帳 / ISSUE
 
 **作成日**: 2026-01-30  
-**最終更新日**: 2026-01-31 00:10  
+**最終更新日**: 2026-01-31 00:30  
 **対象**: 予約サイト/予約システム（フロント: `src/`、DB/RLS/RPC: `database/migrations/`・`supabase/migrations/`、Edge Functions: `supabase/functions/`）  
 **スタンス**:
 - 既存ISSUE/既存監査を信じない（「直したつもり」を疑う）
@@ -28,6 +28,7 @@
 - 2026-01-30 22:30: SEC-P0-04 貸切承認RPC化 + 本番DBでpass確認、RLS影響を排除（fail-closed）
 - 2026-01-30 23:30: SEC-P1-03 監査証跡（reservations_history）を追加（DBトリガで強制）
 - 2026-01-31 00:10: SEC-P0-02 予約作成RPCの料金/日時をサーバー確定に統一、本番DBで定義確認
+- 2026-01-31 00:30: SEC-P2-02 障害時fail-openを削減（予約制限/営業時間チェックをfail-closed寄りに）
 
 ---
 
@@ -69,8 +70,9 @@
 
 - **SEC-P2-01**: URL由来ID参照（予約詳細）でID試行・列挙がしやすい（RLSで止まる前提だがノイズ/ログ汚染）  
   - 根拠: `src/pages/MyPage/pages/ReservationDetailPage.tsx`
-- **SEC-P2-02**: エラー時に「制限しない」設計が残っており、障害時に運用ルール違反が発生し得る  
-  - 根拠: `useBookingSubmit.ts`
+- **SEC-P2-02**: エラー時に「制限しない」設計が残っており、障害時に運用ルール違反が発生し得る → **✅ 修正完了（fail-closed寄りに統一）**
+  - 根拠: `src/pages/BookingConfirmation/hooks/useBookingSubmit.ts`（予約制限はfail-closed化済み）
+  - 補足: `src/pages/CustomerBookingPage.tsx` の営業時間チェックも、取得/判定エラー時は表示しない（fail-closed）に変更
 
 ---
 
@@ -276,6 +278,7 @@
 ### P2（様子見）
 - SEC-P2-01: URL由来ID参照の列挙ノイズ
 - SEC-P2-02: 障害時fail-openの残存
+  - ✅ 対応済み（予約制限/営業時間チェックのエラー時挙動をfail-closed寄りに）
 
 ---
 
