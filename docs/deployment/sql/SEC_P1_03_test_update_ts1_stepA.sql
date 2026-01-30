@@ -30,13 +30,15 @@ after_cnt AS (
   SELECT
     b.reservation_id,
     b.cnt_before,
-    (SELECT COUNT(*) FROM public.reservations_history h WHERE h.reservation_id = b.reservation_id) AS cnt_after
+    (SELECT COUNT(*) FROM public.reservations_history h WHERE h.reservation_id = b.reservation_id) AS cnt_after,
+    (SELECT COUNT(*) FROM upd) AS updated_rows
   FROM before_cnt b
 )
 SELECT
   reservation_id,
   cnt_before,
   cnt_after,
-  (cnt_after = cnt_before + 1) AS pass
+  updated_rows,
+  (updated_rows = 1 AND cnt_after = cnt_before + 1) AS pass
 FROM after_cnt;
 
