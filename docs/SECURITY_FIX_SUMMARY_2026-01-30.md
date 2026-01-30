@@ -8,6 +8,26 @@
 
 ## 修正完了項目
 
+### ✅ SEC-P0-04: 貸切承認の非アトミック性
+
+**問題**: 承認が複数のDB操作に分かれており、途中失敗で不整合（confirmedだが公演なし等）が残り得る
+
+**修正内容**:
+- **DB（Supabase migration）**:
+  - `supabase/migrations/20260130210000_approve_private_booking_atomic.sql`
+    - `approve_private_booking` RPC を追加（予約更新 + schedule_events作成 + 紐付けを1トランザクションで保証）
+  - `supabase/migrations/20260130220000_fix_approve_private_booking_rls.sql`
+    - `SET row_security = off` で RLS/FORCE RLS の影響を排除
+    - `UPDATE reservations` が 0 行の場合は例外（`P0024`）で **fail-closed**
+- **フロント**: `src/pages/PrivateBookingManagement/hooks/useBookingApproval.ts`
+  - 直接 `reservations`/`schedule_events` を触る処理を廃止し、RPC呼び出しへ置換
+
+**本番検証**:
+- Runbook: `docs/deployment/SEC_P0_04_PRIVATE_BOOKING_APPROVAL_RUNBOOK.md`
+- SQL: `docs/deployment/sql/SEC_P0_04_test_approve_ts1_stepA.sql` + `SEC_P0_04_test_approve_ts1_stepB_rollback.sql` で `pass=true` を確認
+
+---
+
 ### ✅ SEC-P0-01: reservations の顧客UPDATE権限を厳格化
 
 **問題**: 顧客が `status`, `participant_count`, `schedule_event_id`, 料金等を直接変更可能
@@ -94,13 +114,7 @@
 
 ### ⏸️ SEC-P0-04: 貸切承認の非アトミック性
 
-**状況**: RPC関数（`approve_private_booking`）は作成済み（028）
-- フロント適用は複雑で、既存機能を壊すリスクあり
-- 現状は「事故が起きやすい」問題だが、「攻撃で悪用」は困難
-
-**判定**: Phase 2（慎重な書き直し）で対応
-
-**対応**: 028マイグレーションは作成済みだが、フロント適用は保留
+**状況**: ✅ 修正完了（本番検証pass）
 
 ---
 
@@ -196,13 +210,7 @@ await supabase.from('reservations').update({
 
 ### 制約2: 貸切承認
 
-**現状**: フロント側で複数DB操作（非アトミック）
-
-**理由**: RPC化すると既存機能（候補日時の管理、メール送信等）を全書き直しが必要
-
-**リスク**: 中程度（通信断で部分成功の可能性）
-
-**対応**: Phase 2で慎重に実装
+**現状**: RPC化してアトミック保証済み（本番検証pass）
 
 ---
 

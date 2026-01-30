@@ -1,7 +1,7 @@
 # 本番リリース前 セキュリティ監査（意地悪視点）リスク台帳 / ISSUE
 
 **作成日**: 2026-01-30  
-**最終更新日**: 2026-01-30 18:00  
+**最終更新日**: 2026-01-30 22:30  
 **対象**: 予約サイト/予約システム（フロント: `src/`、DB/RLS/RPC: `database/migrations/`・`supabase/migrations/`、Edge Functions: `supabase/functions/`）  
 **スタンス**:
 - 既存ISSUE/既存監査を信じない（「直したつもり」を疑う）
@@ -25,6 +25,7 @@
 - 2026-01-30 15:00: 初版作成（P0/P1/P2のたたき台）
 - 2026-01-30 17:00: 実装調査完了、P0-05/06追加、修正開始
 - 2026-01-30 18:00: SEC-P0-01, P0-03, P0-05, P0-06 修正完了
+- 2026-01-30 22:30: SEC-P0-04 貸切承認RPC化 + 本番DBでpass確認、RLS影響を排除（fail-closed）
 
 ---
 
@@ -41,9 +42,10 @@
 - **SEC-P0-03**: `notify-waitlist` の **bookingUrlが入力値** → **✅ 修正完了**（サーバー側生成に変更）
   - 根拠: `supabase/functions/notify-waitlist/index.ts`
   - 対策: organizations テーブルから slug/domain を取得して生成
-- **SEC-P0-04**: 貸切承認が非アトミック → **⏸️ Phase 2 で対応**（028マイグレーション作成済み、フロント適用は保留）
-  - 根拠: `src/pages/PrivateBookingManagement/hooks/useBookingApproval.ts`
-  - 理由: 既存機能が複雑で、書き直しはリスク大
+- **SEC-P0-04**: 貸切承認が非アトミック → **✅ 修正完了（本番検証pass）**
+  - 根拠: `src/pages/PrivateBookingManagement/hooks/useBookingApproval.ts`（RPC呼び出しへ置換）
+  - 対策: `approve_private_booking` RPCで「予約更新 + schedule_events作成 + 紐付け」を1トランザクションで保証
+  - 本番検証: `docs/deployment/SEC_P0_04_PRIVATE_BOOKING_APPROVAL_RUNBOOK.md`
 - **SEC-P0-05**: `updateParticipantCount` が二重UPDATE → **✅ 修正完了**（直接UPDATE削除）
   - 根拠: `src/lib/reservationApi.ts` L335-348
   - 対策: RPC経由のみに統一
@@ -208,8 +210,9 @@
 - **根拠**
   - `src/pages/PrivateBookingManagement/hooks/useBookingApproval.ts` が複数のDB操作を順に実行（トランザクション化されていない）
 - **推奨対策**
-  - 承認処理を **DB RPC（1関数）**に寄せて原子化
-  - あるいは状態機械（承認中/承認済/紐付け済）をDBで管理し、再実行しても安全な冪等設計にする
+  - ✅ 実施済み: 承認処理を **DB RPC（1関数）**に寄せて原子化（`approve_private_booking`）
+  - ✅ 実施済み: RLS/FORCE RLS の影響で予約更新が0件になり得るため、関数に `SET row_security = off` を付与し、更新0件は例外で **fail-closed**（`P0024`）
+  - ✅ 本番検証: `docs/deployment/SEC_P0_04_PRIVATE_BOOKING_APPROVAL_RUNBOOK.md` の TS-0/TS-1 で `pass=true` を確認
 
 ---
 
