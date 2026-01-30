@@ -6,14 +6,16 @@
 BEGIN;
 SET LOCAL ROLE authenticated;
 
-WITH picked AS (
+WITH candidates AS (
   SELECT
     r.id AS reservation_id,
+    r.created_at AS reservation_created_at,
     r.organization_id AS organization_id,
     r.candidate_datetimes AS candidate_datetimes,
-    (r.candidate_datetimes->'candidates'->0->>'date')::date AS selected_date,
-    (r.candidate_datetimes->'candidates'->0->>'startTime')::time AS selected_start_time,
-    (r.candidate_datetimes->'candidates'->0->>'endTime')::time AS selected_end_time,
+    (cand->>'order')::int AS candidate_order,
+    (cand->>'date')::date AS selected_date,
+    (cand->>'startTime')::time AS selected_start_time,
+    (cand->>'endTime')::time AS selected_end_time,
     COALESCE(
       (r.candidate_datetimes->'requestedStores'->0->>'storeId')::uuid,
       (SELECT s.id FROM stores s WHERE s.organization_id = r.organization_id ORDER BY s.created_at NULLS LAST, s.id LIMIT 1)
@@ -23,12 +25,32 @@ WITH picked AS (
     COALESCE(r.title, '') AS scenario_title,
     COALESCE(r.customer_name, '') AS customer_name
   FROM reservations r
+  CROSS JOIN LATERAL jsonb_array_elements(r.candidate_datetimes->'candidates') AS cand
   WHERE r.reservation_source = 'web_private'
     AND r.status IN ('pending', 'pending_gm', 'gm_confirmed', 'pending_store')
     AND r.candidate_datetimes IS NOT NULL
     AND jsonb_typeof(r.candidate_datetimes->'candidates') = 'array'
     AND jsonb_array_length(r.candidate_datetimes->'candidates') > 0
-  ORDER BY r.created_at DESC NULLS LAST, r.id
+),
+picked AS (
+  -- 既存公演と被らない候補枠を選ぶ（DB側の SLOT_ALREADY_OCCUPIED を踏みにくくする）
+  SELECT c.*
+  FROM candidates c
+  WHERE c.selected_date IS NOT NULL
+    AND c.selected_start_time IS NOT NULL
+    AND c.selected_end_time IS NOT NULL
+    AND c.selected_store_id IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1
+      FROM schedule_events se
+      WHERE se.organization_id = c.organization_id
+        AND se.date = c.selected_date
+        AND se.store_id = c.selected_store_id
+        AND se.is_cancelled = false
+        AND se.start_time < c.selected_end_time
+        AND se.end_time > c.selected_start_time
+    )
+  ORDER BY c.reservation_created_at DESC NULLS LAST, c.reservation_id, c.candidate_order NULLS LAST
   LIMIT 1
 ),
 guard AS (
