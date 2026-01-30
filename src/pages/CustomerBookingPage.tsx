@@ -95,10 +95,12 @@ const isWithinBusinessHours = async (date: string, startTime: string, storeId: s
 
     if (error && error.code !== 'PGRST116') {
       logger.error('営業時間設定取得エラー:', error)
-      return true // エラーの場合は制限しない
+      // 安全側: 営業時間を検証できない場合は表示しない（fail-closed）
+      return false
     }
 
-    if (!data) return true // 設定がない場合は制限しない
+    // 設定がない場合は「制限なし」とみなす（運用ポリシーが未設定）
+    if (!data) return true
 
     // 休日チェック
     if (data.holidays && data.holidays.includes(date)) {
@@ -125,7 +127,8 @@ const isWithinBusinessHours = async (date: string, startTime: string, storeId: s
     return true
   } catch (error) {
     logger.error('営業時間チェックエラー:', error)
-    return true // エラーの場合は制限しない
+    // 安全側: チェック自体が失敗した場合は表示しない（fail-closed）
+    return false
   }
 }
 
