@@ -56,6 +56,30 @@ export function useStoreAndGMManagement() {
       const gmDateConflicts = new Set<string>()
       const existingEventsList: ExistingEventInfo[] = []
 
+      // schedule_events.gms は「GM名(text)配列」運用のため、名前→staff.id に解決してから競合キーを作る
+      const orgId = await getCurrentOrganizationId()
+      const gmNameToId = new Map<string, string>()
+      try {
+        let staffQuery = supabase
+          .from('staff')
+          .select('id, name')
+
+        if (orgId) {
+          staffQuery = staffQuery.eq('organization_id', orgId)
+        }
+
+        const { data: staffRows, error: staffError } = await staffQuery
+        if (staffError) {
+          logger.warn('スタッフ一覧取得に失敗（GM競合チェック精度が落ちる可能性）:', staffError)
+        } else {
+          ;(staffRows || []).forEach((s: any) => {
+            if (s?.id && s?.name) gmNameToId.set(s.name, s.id)
+          })
+        }
+      } catch (e) {
+        logger.warn('スタッフ一覧取得で例外（GM競合チェック精度が落ちる可能性）:', e)
+      }
+
       // まず現在のリクエストの候補日時を取得
       const { data: currentRequest, error: requestError } = await supabase
         .from('reservations')
@@ -147,7 +171,9 @@ export function useStoreAndGMManagement() {
         }
         
         if (event.gms && Array.isArray(event.gms)) {
-          event.gms.forEach((gmId: string) => {
+          event.gms.forEach((gmName: string) => {
+            if (!gmName) return
+            const gmId = gmNameToId.get(gmName)
             if (gmId) {
               gmDateConflicts.add(`${gmId}-${event.date}-${timeSlot}`)
             }

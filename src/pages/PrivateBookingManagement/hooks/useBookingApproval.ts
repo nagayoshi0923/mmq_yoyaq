@@ -115,6 +115,13 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             error: 'この時間帯には既に別の公演が入っています。別の候補を選んでください。'
           }
         }
+        if (approveError.code === 'P0025') {
+          setSubmitting(false)
+          return {
+            success: false,
+            error: '選択した担当GMはこの時間帯に既に別の予定があります。別のGMまたは候補日時を選んでください。'
+          }
+        }
         if (approveError.code === 'P0018') {
           setSubmitting(false)
           return {

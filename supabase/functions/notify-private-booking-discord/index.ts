@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Discord Bot経由で通知を送信（ボタン付き）
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -11,6 +12,80 @@ const FALLBACK_DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
 
 // Supabaseクライアントを初期化
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+function timeToMinutes(time: string): number {
+  const [h, m] = (time || '').split(':')
+  return (parseInt(h || '0', 10) * 60) + parseInt(m || '0', 10)
+}
+
+function overlaps(startA: string, endA: string, startB: string, endB: string): boolean {
+  const aS = timeToMinutes(startA)
+  const aE = timeToMinutes(endA)
+  const bS = timeToMinutes(startB)
+  const bE = timeToMinutes(endB)
+  return aS < bE && aE > bS
+}
+
+async function getOrgIdForBooking(booking: any): Promise<string | null> {
+  if (booking?.organization_id) return booking.organization_id
+  if (booking?.id) {
+    const { data } = await supabase
+      .from('reservations')
+      .select('organization_id')
+      .eq('id', booking.id)
+      .maybeSingle()
+    if (data?.organization_id) return data.organization_id
+  }
+  if (booking?.scenario_id) {
+    const { data } = await supabase
+      .from('scenarios')
+      .select('organization_id')
+      .eq('id', booking.scenario_id)
+      .maybeSingle()
+    if (data?.organization_id) return data.organization_id
+  }
+  return null
+}
+
+async function computeConflictCandidateOrders(
+  booking: any,
+  gmNames: string[]
+): Promise<Set<number>> {
+  const candidates = booking?.candidate_datetimes?.candidates || []
+  if (!candidates.length || !gmNames.length) return new Set()
+
+  const orgId = await getOrgIdForBooking(booking)
+  if (!orgId) return new Set()
+
+  const dates = Array.from(new Set(candidates.map((c: any) => c.date).filter(Boolean)))
+  if (!dates.length) return new Set()
+
+  // 同チャンネルに複数GMがいる場合は union で⚠️を付ける
+  const { data: events } = await supabase
+    .from('schedule_events')
+    .select('date, start_time, end_time, gms, scenario')
+    .eq('organization_id', orgId)
+    .eq('is_cancelled', false)
+    .in('date', dates)
+    .overlaps('gms', gmNames)
+
+  const conflictOrders = new Set<number>()
+  for (const candidate of candidates) {
+    const cStart = (candidate.startTime || '').substring(0, 5)
+    const cEnd = (candidate.endTime || '').substring(0, 5)
+    if (!candidate.date || !cStart || !cEnd) continue
+
+    const dateEvents = (events || []).filter((e: any) => e.date === candidate.date)
+    const hasConflict = dateEvents.some((e: any) => {
+      const eStart = (e.start_time || '').substring(0, 5)
+      const eEnd = (e.end_time || '').substring(0, 5)
+      if (!eStart || !eEnd) return false
+      return overlaps(cStart, cEnd, eStart, eEnd)
+    })
+    if (hasConflict) conflictOrders.add(candidate.order)
+  }
+  return conflictOrders
+}
 
 interface PrivateBookingNotification {
   type: 'insert'
@@ -62,8 +137,8 @@ async function fetchScenarioTitle(scenarioId: string): Promise<string | null> {
   }
 }
 
-// 個別チャンネルに通知を送信する関数
-async function sendNotificationToGMChannels(booking: any, discordBotToken: string) {
+// 個別チャンネルに通知をキューへ積む
+async function sendNotificationToGMChannels(booking: any) {
   console.log('📤 Sending notifications to individual GM channels...')
   console.log(`📋 Scenario ID: ${booking.scenario_id}`)
   
@@ -130,10 +205,10 @@ async function sendNotificationToGMChannels(booking: any, discordBotToken: strin
   
   console.log(`📋 Unique channels to notify: ${uniqueChannels.size} (from ${gmStaff.length} GMs)`)
   
-  // 各ユニークなチャンネルに通知を送信
+  // 各ユニークなチャンネルに通知をキューへ積む（送信は retry-discord-notifications が担当）
   const notificationPromises = Array.from(uniqueChannels.values()).map(async ({ channelId, gmNames, userIds }) => {
-    console.log(`📤 Sending notification to channel ${channelId} (GMs: ${gmNames.join(', ')}, UserIDs: ${userIds.join(', ')})`)
-    return sendDiscordNotification(channelId, booking, userIds, discordBotToken)
+    console.log(`📥 Queuing notification to channel ${channelId} (GMs: ${gmNames.join(', ')}, UserIDs: ${userIds.join(', ')})`)
+    return enqueueDiscordNotification(channelId, booking, gmNames, userIds)
   })
   
   // 全ての通知を並行送信
@@ -144,9 +219,9 @@ async function sendNotificationToGMChannels(booking: any, discordBotToken: strin
   results.forEach((result, index) => {
     const [channelId, { gmNames }] = channelEntries[index]
     if (result.status === 'fulfilled') {
-      console.log(`✅ Notification sent to channel ${channelId} (GMs: ${gmNames.join(', ')})`)
+        console.log(`✅ Notification queued to channel ${channelId} (GMs: ${gmNames.join(', ')})`)
     } else {
-      console.error(`❌ Failed to send notification to channel ${channelId}:`, result.reason)
+      console.error(`❌ Failed to queue notification to channel ${channelId}:`, result.reason)
     }
   })
 }
@@ -158,8 +233,8 @@ function getDayOfWeek(dateString: string): string {
   return days[date.getDay()]
 }
 
-// Discord通知を送信する関数
-async function sendDiscordNotification(channelId: string, booking: any, userIds: string[] = [], discordBotToken: string) {
+// Discord通知をキューに積む（送信はリトライ関数が担当）
+async function enqueueDiscordNotification(channelId: string, booking: any, gmNames: string[], userIds: string[] = []) {
   // チャンネルIDが空の場合はエラー
   if (!channelId || channelId.trim() === '') {
     throw new Error('Discord channel ID is not set. Please configure discord_channel_id in staff table.')
@@ -175,6 +250,7 @@ async function sendDiscordNotification(channelId: string, booking: any, userIds:
   }
 
   const candidates = booking.candidate_datetimes?.candidates || []
+  const conflictOrders = await computeConflictCandidateOrders(booking, gmNames)
   
   // メッセージ本文を作成
   const scenarioTitle = booking.scenario_title || booking.title || 'シナリオ名不明'
@@ -183,6 +259,11 @@ async function sendDiscordNotification(channelId: string, booking: any, userIds:
   
   let messageContent = `**【貸切希望】${scenarioTitle}（候補${candidateCount}件）を受け付けました。**\n`
   messageContent += `出勤可能な日程を選択してください。\n\n`
+  if (conflictOrders.size > 0) {
+    const list = Array.from(conflictOrders).sort((a, b) => a - b).map(n => `候補${n}`).join(', ')
+    messageContent += `⚠️ **既存予定と重複の可能性あり**: ${list}\n`
+    messageContent += `（自分の予定を確認してから選択してください）\n\n`
+  }
   messageContent += `**予約受付日：** ${createdDate}\n`
   messageContent += `**シナリオ：** ${scenarioTitle}\n`
   messageContent += `**参加人数：** ${booking.participant_count}名\n`
@@ -208,7 +289,9 @@ async function sendDiscordNotification(channelId: string, booking: any, userIds:
     }
     
     // ボタンラベル: "候補1: 11/25 夜 18:00-21:00"
-    const buttonLabel = `候補${i + 1}: ${shortDate} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`
+    const order = candidate.order ?? (i + 1)
+    const warn = conflictOrders.has(order) ? '⚠️ ' : ''
+    const buttonLabel = `${warn}候補${i + 1}: ${shortDate} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`
     
     components[components.length - 1].components.push({
       type: 2,
@@ -241,23 +324,44 @@ async function sendDiscordNotification(channelId: string, booking: any, userIds:
     components: components
   }
 
-  const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bot ${discordBotToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(discordPayload)
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Discord API error: ${response.status} ${response.statusText} - ${errorText}`)
+  const orgId = await getOrgIdForBooking(booking)
+  if (!orgId) {
+    throw new Error('organization_id is not available for booking')
   }
 
-  const result = await response.json()
-  console.log(`✅ Discord notification sent to channel ${channelId}, Message ID:`, result.id)
-  return result
+  const notificationType = 'private_booking_request'
+  const referenceId = booking?.id || null
+  const webhookUrl = `https://discord.com/api/v10/channels/${channelId}/messages`
+
+  const { data: queued, error: queueError } = await supabase
+    .from('discord_notification_queue')
+    .upsert({
+      organization_id: orgId,
+      webhook_url: webhookUrl,
+      message_payload: discordPayload,
+      notification_type: notificationType,
+      reference_id: referenceId,
+      status: 'pending',
+      retry_count: 0,
+      max_retries: 3,
+      next_retry_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'organization_id,notification_type,reference_id,webhook_url',
+      ignoreDuplicates: true
+    })
+    .select('id')
+    .maybeSingle()
+
+  if (queueError) throw queueError
+
+  if (!queued?.id) {
+    console.log(`⏭️ Duplicate notification skipped (reservation=${referenceId}, channel=${channelId})`)
+    return { skipped: true }
+  }
+
+  console.log(`📥 Queued Discord notification: ${queued.id} (reservation=${referenceId}, channel=${channelId})`)
+  return { queued_id: queued.id }
 }
 
 serve(async (req) => {
@@ -321,13 +425,9 @@ serve(async (req) => {
     }
     
     // 組織設定を取得
-    let discordBotToken = FALLBACK_DISCORD_BOT_TOKEN
     if (organizationId) {
       const discordSettings = await getDiscordSettings(supabase, organizationId)
-      if (discordSettings.botToken) {
-        discordBotToken = discordSettings.botToken
-        console.log('✅ Using organization-specific Discord settings')
-      }
+      if (discordSettings.botToken) console.log('✅ Using organization-specific Discord settings')
       
       // 通知設定をチェック
       const notificationSettings = await getNotificationSettings(supabase, organizationId)
@@ -340,7 +440,9 @@ serve(async (req) => {
       }
     }
     
-    if (!discordBotToken) {
+    // Bot Tokenが無い場合はキューにも積まない（リトライ側が送れないため）
+    const discordSettingsForSend = organizationId ? await getDiscordSettings(supabase, organizationId) : { botToken: FALLBACK_DISCORD_BOT_TOKEN }
+    if (!discordSettingsForSend?.botToken) {
       console.error('❌ Discord Bot Token not configured')
       return new Response(
         JSON.stringify({ error: 'Discord Bot Token not configured' }),
@@ -355,12 +457,12 @@ serve(async (req) => {
       organization_id: organizationId
     })
     
-    // 各GMの個別チャンネルに通知を送信
-    await sendNotificationToGMChannels(booking, discordBotToken)
+    // 各GMの個別チャンネルに通知をキューへ積む（送信は retry-discord-notifications が担当）
+    await sendNotificationToGMChannels(booking)
 
     return new Response(
       JSON.stringify({ 
-        message: 'Individual notifications sent successfully',
+        message: 'Individual notifications queued successfully',
         booking_id: booking.id
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }

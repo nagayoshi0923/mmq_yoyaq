@@ -11,6 +11,7 @@ interface RequestCardProps {
   request: GMRequest
   selectedCandidates: number[]
   candidateAvailability: Record<number, boolean>
+  gmScheduleConflicts?: Record<number, boolean>
   notes: string
   submitting: boolean
   isEditing?: boolean
@@ -28,6 +29,7 @@ export function RequestCard({
   request,
   selectedCandidates,
   candidateAvailability,
+  gmScheduleConflicts,
   notes,
   submitting,
   isEditing = false,
@@ -129,6 +131,7 @@ export function RequestCard({
             candidates={request.candidate_datetimes?.candidates || []}
             selectedCandidates={selectedCandidates}
             candidateAvailability={candidateAvailability}
+            gmScheduleConflicts={gmScheduleConflicts}
             isResponded={isResponded && !isEditing}
             isConfirmed={isConfirmed}
             isGMConfirmed={isGMConfirmed}

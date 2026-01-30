@@ -7,6 +7,20 @@ import type { GMRequest } from './useGMRequests'
  */
 export function useAvailabilityCheck() {
   const [candidateAvailability, setCandidateAvailability] = useState<Record<string, Record<number, boolean>>>({})
+  const [gmScheduleConflicts, setGmScheduleConflicts] = useState<Record<string, Record<number, boolean>>>({})
+
+  const timeToMinutes = (time: string): number => {
+    const [h, m] = time.split(':')
+    return (parseInt(h || '0', 10) * 60) + parseInt(m || '0', 10)
+  }
+
+  const overlaps = (startA: string, endA: string, startB: string, endB: string): boolean => {
+    const aS = timeToMinutes(startA)
+    const aE = timeToMinutes(endA)
+    const bS = timeToMinutes(startB)
+    const bE = timeToMinutes(endB)
+    return aS < bE && aE > bS
+  }
 
   /**
    * 時間帯文字列から内部形式に変換
@@ -43,6 +57,7 @@ export function useAvailabilityCheck() {
       .select('start_time, end_time')
       .eq('date', candidate.date)
       .eq('store_id', storeId)
+      .eq('is_cancelled', false)
     
     if (existingEvents && existingEvents.length > 0) {
       // 既存公演の時間帯を確認
@@ -79,22 +94,63 @@ export function useAvailabilityCheck() {
   /**
    * 各候補日時の利用可能性を更新
    */
-  const updateCandidateAvailability = async (request: GMRequest, storeId: string) => {
+  const updateCandidateAvailability = async (request: GMRequest, storeId: string, gmName?: string) => {
     const availability: Record<number, boolean> = {}
+    const gmConflicts: Record<number, boolean> = {}
+
+    // GM本人の既存予定（schedule_events.gms）をまとめて取得して、候補と時間重複するかをチェック
+    let gmEventsByDate: Record<string, Array<{ start_time: string; end_time: string }>> = {}
+    if (gmName && request.candidate_datetimes?.candidates?.length) {
+      const dates = Array.from(new Set(request.candidate_datetimes.candidates.map(c => c.date).filter(Boolean)))
+      if (dates.length > 0) {
+        const { data: gmEvents } = await supabase
+          .from('schedule_events')
+          .select('date, start_time, end_time, gms')
+          .in('date', dates)
+          .eq('is_cancelled', false)
+          .contains('gms', [gmName])
+
+        ;(gmEvents || []).forEach((e: any) => {
+          const date = e.date
+          if (!date) return
+          const start = (e.start_time || '').substring(0, 5)
+          const end = (e.end_time || '').substring(0, 5)
+          if (!start || !end) return
+          gmEventsByDate[date] = gmEventsByDate[date] || []
+          gmEventsByDate[date].push({ start_time: start, end_time: end })
+        })
+      }
+    }
     
     for (const candidate of request.candidate_datetimes?.candidates || []) {
       const isAvailable = await checkCandidateAvailability(candidate, storeId)
       availability[candidate.order] = isAvailable
+
+      // GM本人の予定との重複（警告用）
+      if (gmName) {
+        const start = (candidate.startTime || '').substring(0, 5)
+        const end = (candidate.endTime || '').substring(0, 5)
+        const dateEvents = gmEventsByDate[candidate.date] || []
+        gmConflicts[candidate.order] = !!(start && end && dateEvents.some(e => overlaps(start, end, e.start_time, e.end_time)))
+      } else {
+        gmConflicts[candidate.order] = false
+      }
     }
     
     setCandidateAvailability({
       ...candidateAvailability,
       [request.id]: availability
     })
+
+    setGmScheduleConflicts({
+      ...gmScheduleConflicts,
+      [request.id]: gmConflicts
+    })
   }
 
   return {
     candidateAvailability,
+    gmScheduleConflicts,
     setCandidateAvailability,
     checkCandidateAvailability,
     updateCandidateAvailability,

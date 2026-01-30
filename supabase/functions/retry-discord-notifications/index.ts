@@ -4,9 +4,11 @@
  * 失敗したDiscord通知をキューから取得し、再送信を試みる
  */
 
+// @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getDiscordSettings, getNotificationSettings } from '../_shared/organization-settings.ts'
 
 interface QueuedNotification {
   id: string
@@ -17,6 +19,30 @@ interface QueuedNotification {
   reference_id: string | null
   retry_count: number
   max_retries: number
+}
+
+function isDiscordChannelApi(url: string): boolean {
+  return typeof url === 'string' && url.includes('discord.com/api/') && url.includes('/channels/') && url.includes('/messages')
+}
+
+const PRIVATE_BOOKING_RATE_LIMIT_PER_MINUTE =
+  parseInt(Deno.env.get('PRIVATE_BOOKING_DISCORD_RATE_LIMIT_PER_MINUTE') || '3', 10) || 3
+
+async function getSentCountLastMinute(serviceClient: any, organizationId: string): Promise<number> {
+  const since = new Date(Date.now() - 60 * 1000).toISOString()
+  const { count, error } = await serviceClient
+    .from('discord_notification_queue')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', organizationId)
+    .eq('notification_type', 'private_booking_request')
+    .eq('status', 'completed')
+    .gte('updated_at', since)
+
+  if (error) {
+    console.warn('⚠️ 送信数カウント取得に失敗（レート制限が効かない可能性）:', error)
+    return 0
+  }
+  return count || 0
 }
 
 // Service Role Key による呼び出しかチェック
@@ -79,13 +105,75 @@ serve(async (req) => {
 
     let succeeded = 0
     let failed = 0
+    const privateBookingSentCountCache = new Map<string, number>() // orgId -> last-minute count + this-run count
 
     for (const notification of pendingNotifications as QueuedNotification[]) {
       try {
-        // Discord Webhookに送信
+        // 通知種別ごとのON/OFF（キルスイッチ）
+        // private booking をOFFにしている場合は送らない（大量送信の再発防止）
+        if (notification.notification_type === 'private_booking_request') {
+          const ns = await getNotificationSettings(serviceClient, notification.organization_id)
+          if (!ns.privateBookingDiscord) {
+            await serviceClient
+              .from('discord_notification_queue')
+              .update({
+                status: 'failed',
+                last_error: 'notifications_disabled',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', notification.id)
+            console.warn('⏭️ Discord通知スキップ（無効設定）:', notification.id)
+            continue
+          }
+
+          // 異常時対策: 1分あたりの送信上限（org単位）
+          let sent = privateBookingSentCountCache.get(notification.organization_id)
+          if (sent === undefined) {
+            sent = await getSentCountLastMinute(serviceClient, notification.organization_id)
+            privateBookingSentCountCache.set(notification.organization_id, sent)
+          }
+
+          if (sent >= PRIVATE_BOOKING_RATE_LIMIT_PER_MINUTE) {
+            // 失敗扱いにせず後ろへ回す（retry_countも増やさない）
+            await serviceClient
+              .from('discord_notification_queue')
+              .update({
+                last_error: `rate_limited_${PRIVATE_BOOKING_RATE_LIMIT_PER_MINUTE}_per_min`,
+                next_retry_at: new Date(Date.now() + 2 * 60 * 1000).toISOString(), // 2分後に再試行
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', notification.id)
+            console.warn('⏭️ Discord通知レート制限で延期:', notification.id)
+            continue
+          }
+
+          // 送信するので、この実行分のカウントを先に積む
+          privateBookingSentCountCache.set(notification.organization_id, sent + 1)
+        }
+
+        // Discordへ送信（Webhook or Bot）
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+
+        if (isDiscordChannelApi(notification.webhook_url)) {
+          const discord = await getDiscordSettings(serviceClient, notification.organization_id)
+          if (!discord.botToken) {
+            await serviceClient
+              .from('discord_notification_queue')
+              .update({
+                status: 'failed',
+                last_error: 'bot_token_not_configured',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', notification.id)
+            console.error('❌ Bot Token未設定のため送信不可:', notification.id)
+            continue
+          }
+          headers['Authorization'] = `Bot ${discord.botToken}`
+        }
+
         const response = await fetch(notification.webhook_url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(notification.message_payload)
         })
 

@@ -33,6 +33,7 @@ export function GMAvailabilityCheck() {
     requests,
     isLoading,
     stores,
+    staffName,
     activeTab,
     setActiveTab,
     currentDate,
@@ -48,6 +49,7 @@ export function GMAvailabilityCheck() {
 
   const {
     candidateAvailability,
+    gmScheduleConflicts,
     updateCandidateAvailability
   } = useAvailabilityCheck()
 
@@ -75,6 +77,7 @@ export function GMAvailabilityCheck() {
   const { submitting, handleSubmit } = useResponseSubmit({
     requests,
     selectedCandidates,
+    gmScheduleConflicts,
     notes,
     onSubmitSuccess: loadGMRequests
   })
@@ -85,11 +88,11 @@ export function GMAvailabilityCheck() {
       const storeId = request.candidate_datetimes?.confirmedStore?.storeId || 
                      request.candidate_datetimes?.requestedStores?.[0]?.storeId
       if (storeId) {
-        updateCandidateAvailability(request, storeId)
+        updateCandidateAvailability(request, storeId, staffName || undefined)
       }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requests, stores])
+  }, [requests, stores, staffName])
 
   if (isLoading) {
     return (
@@ -186,6 +189,7 @@ export function GMAvailabilityCheck() {
                           : selectedCandidates[request.id] || []
                       }
                       candidateAvailability={candidateAvailability[request.id] || {}}
+                      gmScheduleConflicts={gmScheduleConflicts[request.id] || {}}
                       notes={notes[request.id] || ''}
                       submitting={submitting === request.id}
                       isEditing={isEditing}
@@ -230,6 +234,7 @@ export function GMAvailabilityCheck() {
                           : selectedCandidates[request.id] || []
                       }
                       candidateAvailability={candidateAvailability[request.id] || {}}
+                      gmScheduleConflicts={gmScheduleConflicts[request.id] || {}}
                       notes={notes[request.id] || ''}
                       submitting={submitting === request.id}
                       isEditing={isEditing}

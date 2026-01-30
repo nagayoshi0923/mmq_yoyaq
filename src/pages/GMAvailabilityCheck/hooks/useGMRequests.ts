@@ -46,6 +46,7 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
   const [requests, setRequests] = useState<GMRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [stores, setStores] = useState<any[]>([])
+  const [staffName, setStaffName] = useState<string>('')
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedCandidates, setSelectedCandidates] = useState<Record<string, number[]>>({})
@@ -75,7 +76,7 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
       // 現在のユーザーのstaff_idを取得
       const { data: staffData, error: staffError } = await supabase
         .from('staff')
-        .select('id, discord_id')
+        .select('id, discord_id, name')
         .eq('user_id', userId)
         .single()
       
@@ -94,6 +95,7 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
       }
       
       const staffId = staffData.id
+      setStaffName(staffData.name || '')
       
       // このGMに送られた確認リクエストを取得
       const { data: responsesData, error: responsesError } = await supabase
@@ -295,6 +297,7 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
     requests,
     isLoading,
     stores,
+    staffName,
     activeTab,
     setActiveTab,
     currentDate,

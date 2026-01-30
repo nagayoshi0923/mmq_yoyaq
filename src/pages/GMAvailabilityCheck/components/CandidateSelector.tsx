@@ -15,6 +15,7 @@ interface CandidateSelectorProps {
   candidates: Candidate[]
   selectedCandidates: number[]
   candidateAvailability: Record<number, boolean>
+  gmScheduleConflicts?: Record<number, boolean>
   isResponded: boolean
   isConfirmed: boolean
   isGMConfirmed: boolean
@@ -28,6 +29,7 @@ export function CandidateSelector({
   candidates,
   selectedCandidates,
   candidateAvailability,
+  gmScheduleConflicts,
   isResponded,
   isConfirmed,
   isGMConfirmed,
@@ -53,6 +55,7 @@ export function CandidateSelector({
         {candidates.map((candidate) => {
           const isSelected = selectedCandidates.includes(candidate.order)
           const isAvailable = candidateAvailability[candidate.order] !== false
+          const hasGmConflict = gmScheduleConflicts?.[candidate.order] === true
           // 自分が未回答かつ予約が未確定なら選択可能（他GMが回答済みでも選択可能）
           const canClick = !isResponded && !isConfirmed && isAvailable
           
@@ -61,6 +64,12 @@ export function CandidateSelector({
           if (!isAvailable) {
             // 満席
             cardStyle = 'bg-red-50 border-red-200 cursor-not-allowed opacity-60'
+          } else if (hasGmConflict && canClick && !isSelected) {
+            // 自分の既存予定と被る可能性（警告）
+            cardStyle = 'bg-orange-50 border-orange-200 hover:border-orange-300 cursor-pointer'
+          } else if (hasGmConflict && canClick && isSelected) {
+            // 警告 + 選択中
+            cardStyle = 'bg-orange-50 border-orange-400 cursor-pointer'
           } else if (isConfirmed && isSelected) {
             // 確定済み＋自分が選択した候補 → 強調表示
             cardStyle = 'border-green-500 bg-green-50 cursor-default'
@@ -95,6 +104,11 @@ export function CandidateSelector({
                   <Badge variant="outline" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal">
                     候補{candidate.order}
                   </Badge>
+                  {hasGmConflict && (
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-0 rounded-[2px] font-normal text-xs">
+                      ⚠️ 予定と重複の可能性
+                    </Badge>
+                  )}
                   <div className="flex items-center gap-2 text-sm">
                     <Calendar className="w-4 h-4 text-muted-foreground" />
                     <span className="">{formatDate(candidate.date)}</span>

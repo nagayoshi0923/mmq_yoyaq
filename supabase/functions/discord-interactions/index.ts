@@ -9,6 +9,63 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+function timeToMinutes(time: string): number {
+  const [h, m] = (time || '').split(':')
+  return (parseInt(h || '0', 10) * 60) + parseInt(m || '0', 10)
+}
+
+function overlaps(startA: string, endA: string, startB: string, endB: string): boolean {
+  const aS = timeToMinutes(startA)
+  const aE = timeToMinutes(endA)
+  const bS = timeToMinutes(startB)
+  const bE = timeToMinutes(endB)
+  return aS < bE && aE > bS
+}
+
+async function computeConflictCandidateIndexes(
+  requestId: string,
+  gmName: string
+): Promise<Set<number>> {
+  const { data: reservation } = await supabase
+    .from('reservations')
+    .select('candidate_datetimes, organization_id')
+    .eq('id', requestId)
+    .single()
+
+  const orgId = reservation?.organization_id
+  const candidates = reservation?.candidate_datetimes?.candidates || []
+  if (!orgId || !candidates.length) return new Set()
+
+  const dates = Array.from(new Set(candidates.map((c: any) => c.date).filter(Boolean)))
+  if (!dates.length) return new Set()
+
+  const { data: events } = await supabase
+    .from('schedule_events')
+    .select('date, start_time, end_time, gms')
+    .eq('organization_id', orgId)
+    .eq('is_cancelled', false)
+    .in('date', dates)
+    .contains('gms', [gmName])
+
+  const conflictIdx = new Set<number>()
+  candidates.forEach((c: any, idx: number) => {
+    const cStart = (c.startTime || '').substring(0, 5)
+    const cEnd = (c.endTime || '').substring(0, 5)
+    if (!c.date || !cStart || !cEnd) return
+
+    const dateEvents = (events || []).filter((e: any) => e.date === c.date)
+    const has = dateEvents.some((e: any) => {
+      const eStart = (e.start_time || '').substring(0, 5)
+      const eEnd = (e.end_time || '').substring(0, 5)
+      if (!eStart || !eEnd) return false
+      return overlaps(cStart, cEnd, eStart, eEnd)
+    })
+    if (has) conflictIdx.add(idx)
+  })
+
+  return conflictIdx
+}
+
 // Discord署名検証
 async function verifySignature(
   request: Request,
@@ -76,13 +133,17 @@ async function processUnavailable(interaction: any, requestId: string) {
     const gmUserName = interaction.member?.nick || interaction.member?.user?.global_name || interaction.member?.user?.username || 'Unknown GM'
     
     let staffId = null
+    let staffNameForConflict: string | null = null
     const { data: staffData } = await supabase
       .from('staff')
-      .select('id')
+      .select('id, name')
       .eq('discord_id', gmUserId)
       .single()
     
-    if (staffData) staffId = staffData.id
+    if (staffData) {
+      staffId = staffData.id
+      staffNameForConflict = staffData.name || null
+    }
     
     // 全て不可として保存
     await supabase
@@ -116,12 +177,14 @@ async function processUnavailable(interaction: any, requestId: string) {
     responseMessage += `出勤可能な日程を選択してください。\n\n【現在の選択】\n全て不可と回答しました。`
     
     const timeSlotMap = { '朝': '朝', '昼': '昼', '夜': '夜', 'morning': '朝', 'afternoon': '昼', 'evening': '夜' }
+    const conflictIdx = staffNameForConflict ? await computeConflictCandidateIndexes(requestId, staffNameForConflict) : new Set<number>()
     const responseComponents = []
     
     for (let i = 0; i < Math.min(candidates.length, 5); i++) {
       const candidate = candidates[i]
       const dateStr = candidate.date.replace('2025-', '').replace('-', '/')
       const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
+      const warn = conflictIdx.has(i) ? '⚠️ ' : ''
       
       if (i % 5 === 0) {
         responseComponents.push({ type: 1, components: [] })
@@ -130,7 +193,7 @@ async function processUnavailable(interaction: any, requestId: string) {
       responseComponents[responseComponents.length - 1].components.push({
         type: 2,
         style: 3, // 緑色
-        label: `候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
+        label: `${warn}候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
         custom_id: `date_${i + 1}_${requestId}`
       })
     }
@@ -198,9 +261,10 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     
     // Discord IDからstaff_idを取得
     let staffId = null
+    let staffNameForConflict: string | null = null
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
-      .select('id')
+      .select('id, name')
       .eq('discord_id', gmUserId)
       .single()
     
@@ -208,6 +272,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       console.log('⚠️ Staff not found for Discord ID:', gmUserId, staffError)
     } else {
       staffId = staffData.id
+      staffNameForConflict = staffData.name || null
       console.log('✅ Found staff_id:', staffId)
     }
     
@@ -321,6 +386,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     
     // 候補日程ボタンを再表示（選択/解除を続けられるように）
     const responseComponents = []
+    const conflictIdx = staffNameForConflict ? await computeConflictCandidateIndexes(requestId, staffNameForConflict) : new Set<number>()
     for (let i = 0; i < Math.min(candidates.length, 5); i++) {
       const candidate = candidates[i]
       const dateStr = candidate.date.replace('2025-', '').replace('-', '/')
@@ -334,6 +400,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       }
       const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
       const isSelected = availableCandidates.includes(i)
+      const warn = conflictIdx.has(i) ? '⚠️ ' : ''
       
       if (i % 5 === 0) {
         responseComponents.push({
@@ -345,7 +412,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       responseComponents[responseComponents.length - 1].components.push({
         type: 2,
         style: isSelected ? 1 : 3, // 1=青（選択済み）、3=緑（未選択）
-        label: `${isSelected ? '✓ ' : ''}候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
+        label: `${warn}${isSelected ? '✓ ' : ''}候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
         custom_id: `date_${i + 1}_${requestId}`
       })
     }

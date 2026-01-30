@@ -6,6 +6,7 @@ import type { GMRequest } from './useGMRequests'
 interface UseResponseSubmitProps {
   requests: GMRequest[]
   selectedCandidates: Record<string, number[]>
+  gmScheduleConflicts?: Record<string, Record<number, boolean>>
   notes: Record<string, string>
   onSubmitSuccess: () => void
 }
@@ -16,6 +17,7 @@ interface UseResponseSubmitProps {
 export function useResponseSubmit({ 
   requests, 
   selectedCandidates, 
+  gmScheduleConflicts,
   notes, 
   onSubmitSuccess 
 }: UseResponseSubmitProps) {
@@ -29,7 +31,20 @@ export function useResponseSubmit({
     
     try {
       // UI上は1始まりだが、DBには0始まりで保存
-      const availableCandidates = allUnavailable ? [] : (selectedCandidates[requestId] || []).map(c => c - 1)
+      const selectedOrders = allUnavailable ? [] : (selectedCandidates[requestId] || [])
+
+      // ⚠️ GM本人の既存予定と被る可能性がある候補を選んでいる場合は、送信前に確認
+      if (!allUnavailable && selectedOrders.length > 0 && gmScheduleConflicts?.[requestId]) {
+        const conflictOrders = selectedOrders.filter(order => gmScheduleConflicts[requestId]?.[order])
+        if (conflictOrders.length > 0) {
+          const ok = window.confirm(
+            `選択した候補の中に、あなたの既存予定と重複の可能性がある日時があります（候補${conflictOrders.join(', ')}）。\nこのまま送信しますか？`
+          )
+          if (!ok) return
+        }
+      }
+
+      const availableCandidates = allUnavailable ? [] : selectedOrders.map(c => c - 1)
       const responseStatus = allUnavailable ? 'all_unavailable' : (availableCandidates.length > 0 ? 'available' : 'pending')
       
       // GM回答を更新
