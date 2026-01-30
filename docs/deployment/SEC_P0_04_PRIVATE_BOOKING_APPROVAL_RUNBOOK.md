@@ -23,6 +23,14 @@ Supabase SQL Editor で以下を **順番に** 実行する。
 - **期待結果**: `pass = true` が返る
 - **副作用**: なし（トランザクション内で `ROLLBACK`）
 
+#### `NO_ELIGIBLE_PRIVATE_REQUEST` が出た場合（必須対応）
+
+テスト対象となる「未承認の貸切リクエスト」が本番DBに存在しない。
+
+1. `docs/deployment/sql/SEC_P0_04_ts0_5_check_private_request_inventory.sql` を実行して、`reservation_source='web_private'` の件数とステータス分布を確認
+2. 0件だった場合は、**運用上の検証用に1件だけ** 貸切リクエストを作成してから再実行する
+   - 例: 管理画面/貸切申請導線から、テスト用メールアドレスで `web_private` を1件作成（承認前の状態で止める）
+
 ### トラブルシュート
 
 - `Success. No rows returned`:
