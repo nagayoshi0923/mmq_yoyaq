@@ -1,5 +1,7 @@
 # PR #4 デプロイチェックリスト
 
+**最終更新**: 2026-01-31
+
 ## 🚨 重要: この順序で実施してください
 
 ### ステップ1: データベースマイグレーション適用
@@ -12,49 +14,32 @@
 4. 以下のファイルを順番に実行：
 
 **① 007_fix_cancel_reservation_nullable_customer.sql**
-```sql
--- このファイルの内容をコピー＆ペースト
--- RPC関数の修正（customer_id = NULL 許可）
-```
+- SQL: [`database/migrations/007_fix_cancel_reservation_nullable_customer.sql`](./database/migrations/007_fix_cancel_reservation_nullable_customer.sql)
 
 **② 008_waitlist_notification_retry_queue.sql**
-```sql
--- このファイルの内容をコピー＆ペースト
--- リトライキューテーブル作成
-```
+- SQL: [`database/migrations/008_waitlist_notification_retry_queue.sql`](./database/migrations/008_waitlist_notification_retry_queue.sql)
 
 **③ SEC-P0-02（必須）: 予約作成RPCの安全化**
-```sql
--- supabase/migrations/20260130190000_harden_create_reservation_with_lock_server_pricing.sql
--- 旧RPC(create_reservation_with_lock)を互換維持のまま安全化（料金/日時をサーバー確定）
-```
+- SQL: [`supabase/migrations/20260130190000_harden_create_reservation_with_lock_server_pricing.sql`](./supabase/migrations/20260130190000_harden_create_reservation_with_lock_server_pricing.sql)
 
 **④ SEC-P0-02（推奨）: v2 RPC 追加**
-```sql
--- supabase/migrations/20260130_create_reservation_with_lock_v2.sql
--- create_reservation_with_lock_v2 を追加（v2優先→旧RPCフォールバックで段階移行）
-```
+- SQL: [`supabase/migrations/20260130_create_reservation_with_lock_v2.sql`](./supabase/migrations/20260130_create_reservation_with_lock_v2.sql)
+
+**⑤ SEC-P1-03（必須）: 監査証跡（reservations_history）追加**
+- SQL: [`supabase/migrations/20260130243000_create_reservations_history.sql`](./supabase/migrations/20260130243000_create_reservations_history.sql)
+
+**⑥ SEC-P1-01（必須）: 予約制限のDB強制（締切/上限/件数）**
+- SQL: [`supabase/migrations/20260130233000_enforce_reservation_limits_server_side.sql`](./supabase/migrations/20260130233000_enforce_reservation_limits_server_side.sql)
+
+**⑦ SEC-P1-02（必須）: 在庫整合性トリガ（current_participants再計算）**
+- SQL: [`supabase/migrations/20260130260000_recalc_current_participants_trigger.sql`](./supabase/migrations/20260130260000_recalc_current_participants_trigger.sql)
+
+**⑧ SEC-P1-XX（必須）: booking_email_queue 冪等性（UNIQUE INDEX）**
+- SQL: [`supabase/migrations/20260131003000_booking_email_queue_idempotency.sql`](./supabase/migrations/20260131003000_booking_email_queue_idempotency.sql)
 
 #### 実行確認
 
-```sql
--- RPC関数が更新されたか確認
-SELECT proname, proargtypes 
-FROM pg_proc 
-WHERE proname = 'cancel_reservation_with_lock';
-
--- SEC-P0-02: v2 RPCが存在するか確認（1行返ればOK）
-SELECT p.oid::regprocedure AS signature
-FROM pg_proc p
-JOIN pg_namespace n ON n.oid = p.pronamespace
-WHERE n.nspname = 'public'
-  AND p.proname = 'create_reservation_with_lock_v2';
-
--- リトライキューテーブルが作成されたか確認
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_name = 'waitlist_notification_queue';
-```
+- SQL: [`docs/deployment/sql/DEPLOY_ts0_post_migration_checks.sql`](./docs/deployment/sql/DEPLOY_ts0_post_migration_checks.sql)
 
 ---
 
@@ -75,30 +60,7 @@ WHERE table_name = 'waitlist_notification_queue';
 
 #### 在庫確認SQL
 
-```sql
--- キャンセル前後で在庫を確認
-SELECT 
-  id,
-  scenario,
-  date,
-  current_participants,
-  max_participants
-FROM schedule_events
-WHERE id = 'キャンセルした予約の公演ID';
-
--- 予約テーブルとの整合性確認
-SELECT 
-  se.id,
-  se.current_participants as stored,
-  COALESCE(SUM(r.participant_count), 0) as actual,
-  se.current_participants - COALESCE(SUM(r.participant_count), 0) as diff
-FROM schedule_events se
-LEFT JOIN reservations r ON r.schedule_event_id = se.id 
-  AND r.status IN ('pending', 'confirmed', 'gm_confirmed')
-WHERE se.id = 'キャンセルした予約の公演ID'
-GROUP BY se.id, se.current_participants;
--- diff = 0 であるべき
-```
+- SQL: [`docs/deployment/sql/DEPLOY_ts1_inventory_diff_check.sql`](./docs/deployment/sql/DEPLOY_ts1_inventory_diff_check.sql)
 
 ---
 
@@ -117,8 +79,24 @@ GROUP BY se.id, se.current_participants;
 
 - [ ] 本番環境でログイン
 - [ ] 予約キャンセルが正常に動作
-- [ ] **SEC-P0-02 改ざんテスト（ROLLBACK付き）を実施**（Runbook）
+- [ ] **【こっちで必ず確認（手動）】SEC-P0-02 改ざんテスト（ROLLBACK付き）を実施**（Runbook）
   - [ ] `docs/deployment/SEC_P0_02_PROD_DB_CHECK_RUNBOOK.md` の「ポストデプロイ検証」をSQL Editorで実行
+  - [ ] （代替）SQL Editor都合で予約行の参照が成立しない場合は **TS-2（定義チェック）** を実行
+    - [ ] `./docs/deployment/sql/SEC_P0_02_ts2_check_rpc_def_server_pricing.sql`（期待: 両方 `pass=true`）
+- [ ] **【こっちで必ず確認（手動）】SEC-P1-01 予約制限（TS-0）を確認**（Runbook）
+  - [ ] `docs/deployment/sql/SEC_P1_01_ts0_check_rpc_defs.sql` を実行
+    - **期待結果**: 関数定義に例外コード `P0033`〜`P0038` が含まれる
+- [ ] **【こっちで必ず確認（手動）】SEC-P1-02 在庫整合性トリガを確認**（Runbook）
+  - [ ] `docs/deployment/sql/SEC_P1_02_ts0_check_trigger.sql` を実行
+    - **期待結果**: `trigger_exists=true`
+- [ ] **【こっちで必ず確認（手動）】SEC-P1-03 監査証跡を確認**（Runbook）
+  - [ ] `docs/deployment/sql/SEC_P1_03_ts0_check_objects.sql` を実行
+    - **期待結果**: `reservations_history` と `trg_reservations_history` が存在する
+  - [ ] `docs/deployment/sql/SEC_P1_03_test_update_ts1_stepA.sql` → `docs/deployment/sql/SEC_P1_03_test_update_ts1_stepB_rollback.sql` を順に実行
+    - **期待結果**: StepA の `pass=true`（かつ StepB で ROLLBACK）
+- [ ] **【こっちで必ず確認（手動）】SEC-P1-XX メール送信キューの冪等性を確認**（Runbook）
+  - [ ] `docs/deployment/sql/SEC_P1_XX_ts0_check_booking_email_queue_unique.sql` を実行
+    - **期待結果**: `unique_index_exists=true`
 - [ ] エラーログを確認（Supabase Dashboard → Logs）
 
 ---
@@ -133,23 +111,7 @@ GROUP BY se.id, se.current_participants;
 
 Supabase Dashboard で SQL Editor を開き、以下を実行：
 
-```sql
--- pg_cron 拡張が有効か確認
-SELECT * FROM pg_extension WHERE extname = 'pg_cron';
-
--- 有効でない場合は有効化
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-
--- 毎日 5:00 AM JST（UTC 20:00）に在庫整合性チェックを実行
-SELECT cron.schedule(
-  'daily-inventory-consistency-check',
-  '0 20 * * *',  -- UTC 20:00 = JST 05:00
-  $$SELECT run_inventory_consistency_check();$$
-);
-
--- ジョブが登録されたか確認
-SELECT * FROM cron.job;
-```
+- SQL: [`docs/deployment/sql/DEPLOY_ts2_pg_cron_setup_inventory_consistency.sql`](./docs/deployment/sql/DEPLOY_ts2_pg_cron_setup_inventory_consistency.sql)
 
 #### オプション B: Vercel Cron Jobs を使用
 
@@ -168,13 +130,7 @@ SELECT * FROM cron.job;
 
 #### 動作確認
 
-```sql
--- 手動で在庫整合性チェックを実行
-SELECT run_inventory_consistency_check();
-
--- 結果を確認
-SELECT * FROM inventory_consistency_logs ORDER BY checked_at DESC LIMIT 5;
-```
+- SQL: [`docs/deployment/sql/DEPLOY_ts2_run_inventory_consistency_check.sql`](./docs/deployment/sql/DEPLOY_ts2_run_inventory_consistency_check.sql)
 
 不整合が見つかった場合はDiscord通知が飛びます。
 
@@ -184,49 +140,7 @@ SELECT * FROM inventory_consistency_logs ORDER BY checked_at DESC LIMIT 5;
 
 ### データベースのロールバック
 
-```sql
--- 007のロールバック: RPC関数を元に戻す
-CREATE OR REPLACE FUNCTION cancel_reservation_with_lock(
-  p_reservation_id UUID,
-  p_customer_id UUID,  -- NOT NULL に戻す
-  p_cancellation_reason TEXT DEFAULT NULL
-) RETURNS BOOLEAN
-SECURITY DEFINER
-SET search_path = public
-LANGUAGE plpgsql AS $$
-DECLARE
-  v_event_id UUID;
-  v_count INTEGER;
-BEGIN
-  SELECT schedule_event_id, participant_count
-  INTO v_event_id, v_count
-  FROM reservations
-  WHERE id = p_reservation_id
-    AND customer_id = p_customer_id  -- 必須に戻す
-    AND status != 'cancelled'
-  FOR UPDATE;
-  
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'RESERVATION_NOT_FOUND' USING ERRCODE = 'P0005';
-  END IF;
-  
-  UPDATE schedule_events
-  SET current_participants = GREATEST(current_participants - v_count, 0)
-  WHERE id = v_event_id;
-  
-  UPDATE reservations
-  SET status = 'cancelled',
-      cancelled_at = NOW(),
-      cancellation_reason = COALESCE(p_cancellation_reason, cancellation_reason)
-  WHERE id = p_reservation_id;
-  
-  RETURN TRUE;
-END;
-$$;
-
--- 008のロールバック: リトライキューテーブル削除
-DROP TABLE IF EXISTS waitlist_notification_queue CASCADE;
-```
+- SQL: [`docs/deployment/sql/DEPLOY_ROLLBACK_cancel_reservation_and_waitlist_queue.sql`](./docs/deployment/sql/DEPLOY_ROLLBACK_cancel_reservation_and_waitlist_queue.sql)
 
 ### フロントエンドのロールバック
 

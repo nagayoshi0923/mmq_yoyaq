@@ -1,7 +1,7 @@
 # 本番リリース前 セキュリティ監査（意地悪視点）リスク台帳 / ISSUE
 
 **作成日**: 2026-01-30  
-**最終更新日**: 2026-01-31 01:20  
+**最終更新日**: 2026-01-31 01:40  
 **対象**: 予約サイト/予約システム（フロント: `src/`、DB/RLS/RPC: `database/migrations/`・`supabase/migrations/`、Edge Functions: `supabase/functions/`）  
 **スタンス**:
 - 既存ISSUE/既存監査を信じない（「直したつもり」を疑う）
@@ -31,6 +31,7 @@
 - 2026-01-31 00:30: SEC-P2-02 障害時fail-openを削減（予約制限/営業時間チェックをfail-closed寄りに）
 - 2026-01-31 00:50: SEC-P2-01 予約詳細のID列挙ノイズを抑制（存在しない/権限なしの差分を統一）
 - 2026-01-31 01:20: SEC-P1-XX 冪等性（予約作成/メール送信）を導入し二重処理を抑止
+- 2026-01-31 01:40: SEC-P1-01/SEC-P1-02 を実装反映に合わせてステータス更新（DB強制/在庫整合性トリガ）
 
 ---
 
@@ -60,10 +61,17 @@
 
 ### P1（早期対応 / 事故・不正の温床）
 
-- **SEC-P1-01**: 予約締切・最大予約人数などが **フロント依存**（DBで強制されない）/ さらにチェックがfail-open  
-  - 根拠: `src/pages/BookingConfirmation/hooks/useBookingSubmit.ts`（`return { allowed: true }` が複数）
-- **SEC-P1-02**: 日程変更・人数変更・貸切承認などに **在庫ロック/整合性保証が一貫していない**（競合でUX崩壊/過剰予約誘発）  
-  - 根拠: `src/pages/MyPage/pages/ReservationsPage.tsx`、`useBookingApproval.ts` ほか
+- **SEC-P1-01**: 予約締切・最大予約人数などが **フロント依存**（DBで強制されない）/ さらにチェックがfail-open → **✅ 修正完了（DB/RPCでfail-closed強制）**
+  - 対策: `supabase/migrations/20260130233000_enforce_reservation_limits_server_side.sql`
+  - 本番検証: `docs/deployment/SEC_P1_01_RESERVATION_LIMITS_RUNBOOK.md`
+- **SEC-P1-02**: 日程変更・人数変更・貸切承認などに **在庫ロック/整合性保証が一貫していない**（競合でUX崩壊/過剰予約誘発） → **✅ 修正完了（原子化 + 在庫整合性トリガ）**
+  - 対策:
+    - `approve_private_booking` RPCで承認処理を原子化（SEC-P0-04）
+    - `change_reservation_schedule` RPCで日程変更を原子化（SEC-P0-06）
+    - `trigger_recalc_participants`（`supabase/migrations/20260130260000_recalc_current_participants_trigger.sql`）で `current_participants` を常時追従
+  - 本番検証:
+    - `docs/deployment/SEC_P0_04_PRIVATE_BOOKING_APPROVAL_RUNBOOK.md`
+    - `docs/deployment/SEC_P1_02_INVENTORY_CONSISTENCY_RUNBOOK.md`
 - **SEC-P1-03**: 監査証跡（誰が/いつ/何を）不足 → **✅ 修正完了（DBトリガで強制）**
   - 対策: `reservations_history` + `trg_reservations_history`（INSERT/UPDATE/DELETE を記録）
   - 本番検証: `docs/deployment/SEC_P1_03_RESERVATIONS_HISTORY_RUNBOOK.md`
@@ -159,7 +167,8 @@
   - `src/pages/PrivateBookingManagement/hooks/useBookingApproval.ts`
     - `schedule_events` の既存チェックはあるが、DB一意制約/ロックで防いでいない
 - **推奨対策**
-  - DB側で一意制約（例: `date + store_id + time_slot + organization_id`）を設ける or 承認処理をRPC化して `FOR UPDATE` で原子化
+  - ✅ 実施済み: 承認処理をRPC化して `FOR UPDATE` 相当のロックで原子化（SEC-P0-04 として対応）
+  - ✅ 本番検証: `docs/deployment/SEC_P0_04_PRIVATE_BOOKING_APPROVAL_RUNBOOK.md`
 
 ---
 
@@ -178,8 +187,8 @@
   - `src/pages/BookingConfirmation/hooks/useBookingSubmit.ts`
     - `checkReservationLimits` 内でエラー時 `return { allowed: true }`
 - **推奨対策**
-  - **fail-closed**（エラー時は予約不可）に寄せる
-  - 重要制約（締切、最大人数/回数）はDB/RPC側で強制
+  - ✅ 実施済み: 重要制約（締切、最大人数/回数）をDB/RPC側でfail-closed強制（`supabase/migrations/20260130233000_enforce_reservation_limits_server_side.sql`）
+  - ✅ 本番検証: `docs/deployment/SEC_P1_01_RESERVATION_LIMITS_RUNBOOK.md`（TS-0）
 
 ---
 
@@ -274,7 +283,9 @@
 
 ### P1（早期）
 - SEC-P1-01: 予約制限チェックfail-open + DB強制不足
+  - ✅ 対応済み（DB/RPCでfail-closed強制）
 - SEC-P1-02: 競合制御の一貫性不足（TOCTOU）
+  - ✅ 対応済み（承認/日程変更の原子化 + 在庫整合性トリガ）
 - SEC-P1-03: 監査証跡不足
 - SEC-P1-XX: 冪等性（再送/二重処理）
   - ✅ 対応済み（予約作成/メール送信の冪等化）

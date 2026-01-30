@@ -27,6 +27,58 @@ const DialogOverlay = React.forwardRef<
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+const DialogTitle = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Title
+    ref={ref}
+    className={cn(
+      "text-lg font-semibold leading-none tracking-tight",
+      className
+    )}
+    {...props}
+  />
+))
+DialogTitle.displayName = DialogPrimitive.Title.displayName
+
+const DialogDescription = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    className={cn("text-sm text-muted-foreground", className)}
+    {...props}
+  />
+))
+DialogDescription.displayName = DialogPrimitive.Description.displayName
+
+function hasElementOfType(children: React.ReactNode, match: (el: React.ReactElement) => boolean): boolean {
+  let found = false
+  React.Children.forEach(children, (child) => {
+    if (found) return
+    if (!React.isValidElement(child)) return
+    if (match(child)) {
+      found = true
+      return
+    }
+    const c: any = child.props?.children
+    if (c) {
+      found = hasElementOfType(c, match)
+    }
+  })
+  return found
+}
+
+function hasDialogTitle(children: React.ReactNode): boolean {
+  return hasElementOfType(children, (el) => el.type === DialogTitle || el.type === DialogPrimitive.Title)
+}
+
+function hasDialogDescription(children: React.ReactNode): boolean {
+  return hasElementOfType(children, (el) => el.type === DialogDescription || el.type === DialogPrimitive.Description)
+}
+
 interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   size?: 'sm' | 'md' | 'lg' | 'xl'
 }
@@ -43,6 +95,10 @@ const DialogContent = React.forwardRef<
     xl: 'max-w-[95vw] sm:max-w-6xl max-h-[90vh] sm:max-h-[min(800px,80vh)]'
   }
   
+  const { "aria-describedby": ariaDescribedBy, ...restProps } = props as any
+  const needsTitleFallback = !hasDialogTitle(children)
+  const hasDescription = hasDialogDescription(children)
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -53,8 +109,13 @@ const DialogContent = React.forwardRef<
           sizeClasses[size],
           className
         )}
-        {...props}
+        // DialogDescription を使わないダイアログでも Radix の a11y warning を抑止できるようにする。
+        // ※ DialogDescription がある場合は Radix の自動関連付けを壊さないため、aria-describedby を渡さない。
+        {...(hasDescription ? {} : { "aria-describedby": ariaDescribedBy })}
+        {...restProps}
       >
+        {/* Title がない場合でも a11y を満たす（視覚的には非表示） */}
+        {needsTitleFallback && <DialogTitle className="sr-only">Dialog</DialogTitle>}
         {children}
         <DialogPrimitive.Close className="absolute right-2 top-2 sm:right-4 sm:top-4 opacity-70 transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
           <X className="h-4 w-4" />
@@ -93,33 +154,6 @@ const DialogFooter = ({
   />
 )
 DialogFooter.displayName = "DialogFooter"
-
-const DialogTitle = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title
-    ref={ref}
-    className={cn(
-      "text-lg font-semibold leading-none tracking-tight",
-      className
-    )}
-    {...props}
-  />
-))
-DialogTitle.displayName = DialogPrimitive.Title.displayName
-
-const DialogDescription = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description
-    ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
-    {...props}
-  />
-))
-DialogDescription.displayName = DialogPrimitive.Description.displayName
 
 export {
   Dialog,

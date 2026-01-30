@@ -107,7 +107,7 @@ async function insertSampleOpenEvents() {
           current_participants: 0,
           is_cancelled: false,
           is_reservation_enabled: true,
-          reservation_deadline_hours: 24,
+          reservation_deadline_hours: 0,
           reservation_notes: '当日は開始時刻の10分前までにお越しください。',
           notes: 'サンプルデータ: 予約サイトテスト用',
           gms: []

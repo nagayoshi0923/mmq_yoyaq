@@ -62,10 +62,10 @@ export function useResponseSubmit({
             updated_at: new Date().toISOString()
           }
           
-          const { error: reservationError } = await supabase
-            .from('reservations')
-            .update(updateData)
-            .eq('id', request.reservation_id)
+          const { error: reservationError } = await supabase.rpc('admin_update_reservation_fields', {
+            p_reservation_id: request.reservation_id,
+            p_updates: updateData
+          })
           
           if (reservationError) {
             logger.error('予約更新エラー:', reservationError)

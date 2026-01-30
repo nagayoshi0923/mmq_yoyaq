@@ -13,7 +13,7 @@ import { Plus, Edit2, Trash2, ShoppingBag, Store, Calendar } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
-import { format } from 'date-fns'
+import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 
 // 外部売上の種類

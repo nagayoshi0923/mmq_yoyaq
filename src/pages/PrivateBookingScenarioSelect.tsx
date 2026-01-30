@@ -295,7 +295,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
 
             {/* 注意事項（DBから取得） */}
             <BookingNotice
-              reservationDeadlineHours={24}
+              reservationDeadlineHours={0}
               hasPreReading={false}
               mode="private"
               storeId={preselectedStore || null}

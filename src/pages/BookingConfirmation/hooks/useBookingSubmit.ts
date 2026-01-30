@@ -277,11 +277,15 @@ const checkReservationLimits = async (
     }
 
     // 予約締切チェック
-    if (eventData.reservation_deadline_hours) {
+    if (eventData.reservation_deadline_hours !== null && eventData.reservation_deadline_hours !== undefined) {
+      const deadlineHours = eventData.reservation_deadline_hours
       const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
       
-      if (hoursUntilEvent < eventData.reservation_deadline_hours) {
-        return { allowed: false, reason: `予約締切は公演開始の${eventData.reservation_deadline_hours}時間前です` }
+      if (hoursUntilEvent < deadlineHours) {
+        const reason = deadlineHours === 0
+          ? '予約締切は公演開始までです'
+          : `予約締切は公演開始の${deadlineHours}時間前です`
+        return { allowed: false, reason }
       }
     }
 

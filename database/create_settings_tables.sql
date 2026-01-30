@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS reservation_settings (
   store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
   max_participants_per_booking INTEGER DEFAULT 8,
   advance_booking_days INTEGER DEFAULT 90,
-  same_day_booking_cutoff INTEGER DEFAULT 2, -- 時間単位
+  same_day_booking_cutoff INTEGER DEFAULT 0, -- 時間単位（0 の場合は公演開始まで）
   cancellation_policy TEXT,
   cancellation_deadline_hours INTEGER DEFAULT 24,
   max_bookings_per_customer INTEGER,

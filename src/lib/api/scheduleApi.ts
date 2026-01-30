@@ -367,17 +367,29 @@ export const scheduleApi = {
     
     // 最適化: すべてのイベントIDの予約を一度に取得（組織フィルタ付き）
     const eventIds = scheduleEvents.map(e => e.id)
-    const reservationsMap = new Map<string, { participant_count: number; candidate_datetimes?: { candidates?: Array<{ status?: string; timeSlot?: string }> }; reservation_source?: string }[]>()
+    const reservationsMap = new Map<
+      string,
+      {
+        participant_count: number
+        status?: string
+        candidate_datetimes?: { candidates?: Array<{ status?: string; timeSlot?: string }> }
+        reservation_source?: string
+      }[]
+    >()
     
     // 組織フィルタ用（まだ取得していない場合）
     const resOrgId = organizationId || await getCurrentOrganizationId()
     
     if (eventIds.length > 0) {
+      // NOTE:
+      // - 満席の手動入力（schedule_events.current_participants）を残したいケースがある一方、
+      //   予約のキャンセルで人数が減った場合は「実予約数（active）」を優先して表示したい。
+      // - その判定のため、ここでは status も含めて取得し、
+      //   「この公演に予約が存在するか（cancelled だけでも true）」を判定できるようにする。
       let resQuery = supabase
         .from('reservations')
-        .select('schedule_event_id, participant_count, candidate_datetimes, reservation_source')
+        .select('schedule_event_id, participant_count, status, candidate_datetimes, reservation_source')
         .in('schedule_event_id', eventIds)
-        .in('status', ['confirmed', 'pending', 'gm_confirmed'])
       
       if (resOrgId && !skipOrgFilter) {
         resQuery = resQuery.eq('organization_id', resOrgId)
@@ -397,11 +409,16 @@ export const scheduleApi = {
     }
     
     // 各イベントの実際の参加者数を計算
+    const ACTIVE_STATUSES = new Set(['confirmed', 'pending', 'gm_confirmed'])
+
     const eventsWithActualParticipants = scheduleEvents.map((event) => {
       const reservations = reservationsMap.get(event.id) || []
       
-      const actualParticipants = reservations.reduce((sum, reservation) => 
-        sum + (reservation.participant_count || 0), 0)
+      const hasAnyReservations = reservations.length > 0
+      const actualParticipants = reservations.reduce((sum, reservation) => {
+        if (!reservation.status || !ACTIVE_STATUSES.has(reservation.status)) return sum
+        return sum + (reservation.participant_count || 0)
+      }, 0)
       
       let timeSlot: string | undefined
       let isPrivateBooking = false
@@ -438,12 +455,16 @@ export const scheduleApi = {
                         event.capacity ||
                         8
       const cappedActualParticipants = Math.min(actualParticipants, maxForSync)
-      
-      if (cappedActualParticipants > (event.current_participants || 0)) {
-        Promise.resolve(supabase
-          .from('schedule_events')
-          .update({ current_participants: cappedActualParticipants })
-          .eq('id', event.id))
+
+      // 予約が存在する公演は、予約テーブルの集計を single source of truth として同期する
+      // （キャンセルで減った場合も反映する）
+      if (hasAnyReservations && cappedActualParticipants !== (event.current_participants || 0)) {
+        Promise.resolve(
+          supabase
+            .from('schedule_events')
+            .update({ current_participants: cappedActualParticipants })
+            .eq('id', event.id)
+        )
           .then(() => {
             logger.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${cappedActualParticipants})`)
           })
@@ -460,11 +481,12 @@ export const scheduleApi = {
                               event.capacity ||
                               8
       
-      // 現在の値と予約から計算した値の大きい方を使用（ただしmax_participantsを超えない）
-      const effectiveParticipants = Math.min(
-        Math.max(actualParticipants, event.current_participants || 0),
-        maxParticipants
-      )
+      // 表示用の参加者数
+      // - 予約がある公演: 実予約数（active）を表示（キャンセルで減るのも反映）
+      // - 予約がない公演: 手動入力された current_participants を表示（過去データ/デモ運用など）
+      const effectiveParticipants = hasAnyReservations
+        ? cappedActualParticipants
+        : Math.min(event.current_participants || 0, maxParticipants)
       
       return {
         ...event,
@@ -930,10 +952,9 @@ export const scheduleApi = {
   // 公演を削除（関連する予約も削除）
   async delete(id: string) {
     // まず関連する予約を削除（デモ参加者含む）
-    const { error: reservationError } = await supabase
-      .from('reservations')
-      .delete()
-      .eq('schedule_event_id', id)
+    const { error: reservationError } = await supabase.rpc('admin_delete_reservations_by_schedule_event_ids', {
+      p_schedule_event_ids: [id]
+    })
     
     if (reservationError) {
       logger.warn('予約削除エラー（続行）:', reservationError)
@@ -1115,18 +1136,16 @@ export const scheduleApi = {
   async removeAllDemoReservations() {
     try {
       // reservation_source = 'demo' の予約をすべて削除
-      const { data: deleted, error } = await supabase
-        .from('reservations')
-        .delete()
-        .eq('reservation_source', 'demo')
-        .select('id')
+      const { data: deletedCount, error } = await supabase.rpc('admin_delete_reservations_by_source', {
+        p_reservation_source: 'demo'
+      })
       
       if (error) {
         logger.error('デモ予約の削除に失敗:', error)
         return { success: false, error }
       }
       
-      const count = deleted?.length || 0
+      const count = typeof deletedCount === 'number' ? deletedCount : 0
       logger.log(`${count}件のデモ予約を削除しました`)
       
       return { success: true, deletedCount: count }

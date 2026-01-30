@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,14 +16,18 @@ import {
   Ticket, Search, Filter, Download, FileText, X, Mail, ExternalLink
 } from 'lucide-react'
 import { 
-  Dialog, DialogContent
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { useReservationData, ReservationWithDetails } from '@/hooks/useReservationData'
 import { useReservationStats } from '@/hooks/useReservationStats'
 import { devDb } from '@/components/ui/DevField'
-import { format, isPast } from 'date-fns'
+import { format, isPast } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 
 // 異常検知ロジック
@@ -47,6 +51,10 @@ const getReservationAlerts = (reservation: ReservationWithDetails) => {
 export function ReservationManagement() {
   const [selectedReservation, setSelectedReservation] = useState<ReservationWithDetails | null>(null)
   const navigate = useNavigate()
+
+  // ページング
+  const PAGE_SIZE = 50
+  const [page, setPage] = useSessionState('reservationListPage', 1)
   
   // フィルタ状態
   const [searchTerm, setSearchTerm] = useSessionState('reservationSearchTerm', '')
@@ -56,13 +64,17 @@ export function ReservationManagement() {
   const [alertFilter, setAlertFilter] = useSessionState('reservationAlertFilter', 'all')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
 
+  // フィルタ変更時は1ページ目に戻す
+  useEffect(() => {
+    setPage(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, statusFilter, paymentFilter, typeFilter, alertFilter])
+
   // データ取得
-  const { reservations, isLoading: isListLoading } = useReservationData({
-    searchTerm,
-    statusFilter,
-    paymentFilter,
-    typeFilter
-  })
+  const { reservations, totalCount, isLoading: isListLoading } = useReservationData(
+    { searchTerm, statusFilter, paymentFilter, typeFilter },
+    { page, pageSize: PAGE_SIZE }
+  )
 
   const { stats, isLoading: isStatsLoading } = useReservationStats()
 
@@ -76,16 +88,26 @@ export function ReservationManagement() {
     return true
   })
 
+  // created_at の形式揺れ（"YYYY-MM-DD HH:mm:ss+00" 等）でも並び替えが壊れないようにする
+  const toEpochMs = (value: string | null | undefined): number => {
+    if (!value) return 0
+    const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+    const ms = Date.parse(normalized)
+    return Number.isFinite(ms) ? ms : 0
+  }
+
   const sortedReservations = [...filteredReservations].sort((a, b) => {
-    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
-    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+    const dateA = toEpochMs(a.created_at)
+    const dateB = toEpochMs(b.created_at)
     return dateB - dateA // 新しい順（降順）
   })
 
   // モバイル用グルーピング (予約受付日ベース)
   const groupedReservations = sortedReservations.reduce((acc, r) => {
     // created_at がない場合は 'undecided'
-    const dateKey = r.created_at ? r.created_at.split('T')[0] : 'undecided'
+    const dateKey = r.created_at
+      ? (r.created_at.includes('T') ? r.created_at.split('T')[0] : r.created_at.split(' ')[0])
+      : 'undecided'
     if (!acc[dateKey]) acc[dateKey] = []
     acc[dateKey].push(r)
     return acc
@@ -123,14 +145,22 @@ export function ReservationManagement() {
 
   const isLoading = isListLoading || isStatsLoading
 
+  const totalPages = Math.max(1, Math.ceil((totalCount || 0) / PAGE_SIZE))
+  const clampedPage = Math.min(Math.max(1, page), totalPages)
+  const startIndex = totalCount === 0 ? 0 : (clampedPage - 1) * PAGE_SIZE + 1
+  const endIndex = Math.min(clampedPage * PAGE_SIZE, totalCount || 0)
+
   if (isLoading) {
     return (
       <AppLayout currentPage="reservations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
         <div className="flex items-center justify-center py-20">
-          <p className="text-muted-foreground text-lg flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-            読み込み中...
-          </p>
+          <div className="text-muted-foreground text-lg flex items-center gap-2">
+            <span
+              aria-hidden
+              className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"
+            />
+            <span>読み込み中...</span>
+          </div>
         </div>
       </AppLayout>
     )
@@ -179,6 +209,38 @@ export function ReservationManagement() {
           <Button variant="outline" size="icon" className="h-10 w-10 bg-white flex-shrink-0">
             <Download className="h-4 w-4" />
           </Button>
+        </div>
+
+        {/* ページネーション */}
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="font-mono">{startIndex}-{endIndex}</span>
+            <span>/</span>
+            <span className="font-mono">{totalCount}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9"
+              disabled={clampedPage <= 1}
+              onClick={() => setPage(Math.max(1, clampedPage - 1))}
+            >
+              前へ
+            </Button>
+            <span className="font-mono">
+              {clampedPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9"
+              disabled={clampedPage >= totalPages}
+              onClick={() => setPage(Math.min(totalPages, clampedPage + 1))}
+            >
+              次へ
+            </Button>
+          </div>
         </div>
 
         {/* フィルター詳細 (維持) */}
@@ -331,22 +393,30 @@ export function ReservationManagement() {
           {selectedReservation && (
             <>
               <div className="p-6 pb-4">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h2 className="text-2xl font-bold tracking-tight">予約詳細</h2>
-                    <div className="mt-2 text-gray-500 text-sm font-medium">
-                      {/* @ts-ignore */}
-                      {selectedReservation.event_date ? format(new Date(selectedReservation.event_date), 'yyyy年MM月dd日 (EEE)', { locale: ja }) : '日付未定'}
-                      <span className="mx-2">
-                        {selectedReservation.event_time || ''} ~ {selectedReservation.end_time ? selectedReservation.end_time.slice(0, 5) : ''}
-                      </span>
+                <DialogHeader className="mb-4">
+                  <div className="flex justify-between items-start">
+                    <div className="min-w-0">
+                      <DialogTitle className="text-2xl font-bold tracking-tight">予約詳細</DialogTitle>
+                      <DialogDescription className="mt-2 text-gray-500 text-sm font-medium">
+                        {/* @ts-ignore */}
+                        {selectedReservation.event_date ? format(new Date(selectedReservation.event_date), 'yyyy年MM月dd日 (EEE)', { locale: ja }) : '日付未定'}
+                        <span className="mx-2">
+                          {selectedReservation.event_time || ''} ~ {selectedReservation.end_time ? selectedReservation.end_time.slice(0, 5) : ''}
+                        </span>
+                      </DialogDescription>
+                      <div className="text-xl font-bold mt-1 text-gray-900 truncate">{selectedReservation.customer_name}</div>
                     </div>
-                    <h3 className="text-xl font-bold mt-1 text-gray-900">{selectedReservation.customer_name}</h3>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSelectedReservation(null)}
+                      className="text-gray-400 hover:text-gray-500"
+                      aria-label="閉じる"
+                    >
+                      <X className="h-6 w-6" />
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedReservation(null)} className="text-gray-400 hover:text-gray-500">
-                    <X className="h-6 w-6" />
-                  </Button>
-                </div>
+                </DialogHeader>
 
                 <div className="space-y-8">
                   {/* 予約情報セクション */}

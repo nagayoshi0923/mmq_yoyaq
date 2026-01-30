@@ -363,7 +363,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
             {/* PC版: 注意事項をここに表示（タブに応じて内容切り替え） */}
             <div className="hidden md:block">
               <BookingNotice 
-                reservationDeadlineHours={events[0]?.reservation_deadline_hours || 24}
+                reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
                 hasPreReading={scenario.has_pre_reading}
                 mode={activeTab}
               />
@@ -479,7 +479,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               {/* モバイル版: 注意事項をタブの下に表示（タブに応じて内容切り替え） */}
               <div className="md:hidden">
                 <BookingNotice 
-                  reservationDeadlineHours={events[0]?.reservation_deadline_hours || 24}
+                  reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
                   hasPreReading={scenario.has_pre_reading}
                   mode={activeTab}
                 />

@@ -33,7 +33,7 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { useLicenseReports } from './hooks/useLicenseReports'
 import { ReportApprovalDialog } from './components/ReportApprovalDialog'
 import { LicenseSummaryCard } from './components/LicenseSummaryCard'
-import { format } from 'date-fns'
+import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import type { ExternalPerformanceReport } from '@/types'
 

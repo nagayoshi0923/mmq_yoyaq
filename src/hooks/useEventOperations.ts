@@ -882,18 +882,13 @@ export function useEventOperations({
           
           // reservations テーブルを更新（店舗と編集された予約者名）
           // customer_name は元のMMQ予約者名として保持し、display_customer_name に編集後の名前を保存
-          let reservationUpdateQuery = supabase
-            .from('reservations')
-            .update({
+          const { error: reservationError } = await supabase.rpc('admin_update_reservation_fields', {
+            p_reservation_id: performanceData.reservation_id,
+            p_updates: {
               store_id: storeId,
-              display_customer_name: performanceData.reservation_name || null, // 編集された予約者名
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', performanceData.reservation_id)
-          if (organizationId) {
-            reservationUpdateQuery = reservationUpdateQuery.eq('organization_id', organizationId)
-          }
-          const { error: reservationError } = await reservationUpdateQuery
+              display_customer_name: performanceData.reservation_name || null
+            }
+          })
           
           if (reservationError) {
             logger.error('❌ reservations更新エラー:', reservationError)
@@ -924,7 +919,7 @@ export function useEventOperations({
           
           // 通常公演の場合は schedule_events テーブルを更新
           // 店舗名を取得（storesには臨時会場が含まれていないのでDBから取得）
-          let storeData = stores.find(s => s.id === performanceData.venue)
+          const storeData = stores.find(s => s.id === performanceData.venue)
           let storeName = storeData?.name || ''
           let isTemporaryVenue = storeData?.is_temporary || false
           
@@ -1141,14 +1136,9 @@ export function useEventOperations({
         }
         
         // 予約を削除
-        let reservationDeleteQuery = supabase
-          .from('reservations')
-          .delete()
-          .eq('id', reservationId)
-        if (organizationId) {
-          reservationDeleteQuery = reservationDeleteQuery.eq('organization_id', organizationId)
-        }
-        const { error } = await reservationDeleteQuery
+        const { error } = await supabase.rpc('admin_delete_reservations_by_ids', {
+          p_reservation_ids: [reservationId]
+        })
         
         if (error) throw error
         
@@ -1414,17 +1404,12 @@ export function useEventOperations({
   const handleUncancelPerformance = useCallback(async (event: ScheduleEvent) => {
     try {
       if (event.is_private_request && event.reservation_id) {
-        let reservationUpdateQuery = supabase
-          .from('reservations')
-          .update({
-            status: 'gm_confirmed',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', event.reservation_id)
-        if (organizationId) {
-          reservationUpdateQuery = reservationUpdateQuery.eq('organization_id', organizationId)
-        }
-        const { error } = await reservationUpdateQuery
+        const { error } = await supabase.rpc('admin_update_reservation_fields', {
+          p_reservation_id: event.reservation_id,
+          p_updates: {
+            status: 'gm_confirmed'
+          }
+        })
         
         if (error) throw error
         
@@ -1581,14 +1566,9 @@ export function useEventOperations({
       // 既存公演を削除
       for (const conflictEvent of conflictingEvents) {
         if (conflictEvent.is_private_request && conflictEvent.reservation_id) {
-          let reservationDeleteQuery = supabase
-            .from('reservations')
-            .delete()
-            .eq('id', conflictEvent.reservation_id)
-          if (organizationId) {
-            reservationDeleteQuery = reservationDeleteQuery.eq('organization_id', organizationId)
-          }
-          await reservationDeleteQuery
+          await supabase.rpc('admin_delete_reservations_by_ids', {
+            p_reservation_ids: [conflictEvent.reservation_id]
+          })
         } else {
           await scheduleApi.delete(conflictEvent.id)
         }

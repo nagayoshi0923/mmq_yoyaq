@@ -261,7 +261,6 @@ export function ScenarioMasterEditDialog({
     // captureフェーズで登録して、他のコンポーネントより先にキャッチ
     window.addEventListener('keydown', handleKeyDown, true)
     return () => window.removeEventListener('keydown', handleKeyDown, true)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, onMasterChange, masterId, masterIdList])
 
   useEffect(() => {

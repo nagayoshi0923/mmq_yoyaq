@@ -117,10 +117,10 @@ export const staffApi = {
             updates.gm_staff = newName
           }
           
-          return supabase
-            .from('reservations')
-            .update(updates)
-            .eq('id', reservation.id)
+          return supabase.rpc('admin_update_reservation_fields', {
+            p_reservation_id: reservation.id,
+            p_updates: updates
+          })
         })
         
         await Promise.all(updatePromises)

@@ -295,10 +295,9 @@ export function AddDemoParticipants() {
             for (const demoRes of demoReservations) {
               if (deletedCount >= excessCount) break
               
-              const { error: deleteError } = await supabase
-                .from('reservations')
-                .delete()
-                .eq('id', demoRes.id)
+              const { error: deleteError } = await supabase.rpc('admin_delete_reservations_by_ids', {
+                p_reservation_ids: [demoRes.id]
+              })
               
               if (deleteError) {
                 log(`❌ デモ予約削除エラー [${event.date} ${event.scenario}]`, 'error')

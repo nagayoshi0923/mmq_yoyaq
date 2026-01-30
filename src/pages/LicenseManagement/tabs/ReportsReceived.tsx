@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import { useLicenseReports } from '@/pages/LicenseReportManagement/hooks/useLicenseReports'
 import { ReportApprovalDialog } from '@/pages/LicenseReportManagement/components/ReportApprovalDialog'
-import { format } from 'date-fns'
+import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import type { ExternalPerformanceReport } from '@/types'
 

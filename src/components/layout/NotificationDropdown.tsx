@@ -5,7 +5,7 @@ import { Bell, Check, CheckCheck, Calendar, Clock, AlertCircle } from 'lucide-re
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useNotifications, Notification } from '@/hooks/useNotifications'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 
 interface NotificationDropdownProps {

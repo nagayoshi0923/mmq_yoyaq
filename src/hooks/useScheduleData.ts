@@ -29,7 +29,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
     }
     
     // デモ顧客を取得（組織でフィルタ）
-    let customerQuery = supabase
+    const customerQuery = supabase
       .from('customers')
       .select('id, name')
       .or('name.ilike.%デモ%,email.ilike.%demo%')

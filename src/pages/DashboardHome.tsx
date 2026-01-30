@@ -23,7 +23,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { devDb } from '@/components/ui/DevField'
 import { useOrganization } from '@/hooks/useOrganization'
 import { staffApi, scheduleApi, storeApi } from '@/lib/api'
-import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from 'date-fns'
+import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import {
   Dialog,

@@ -34,12 +34,18 @@ interface Filters {
   typeFilter: string
 }
 
+interface Pagination {
+  page: number
+  pageSize: number
+}
+
 /**
  * 予約データの取得とフィルタリングを管理するフック
  */
-export function useReservationData(filters: Filters) {
+export function useReservationData(filters: Filters, pagination: Pagination) {
   const [reservations, setReservations] = useState<ReservationWithDetails[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
 
   const loadReservations = useCallback(async () => {
     try {
@@ -55,22 +61,52 @@ export function useReservationData(filters: Filters) {
           *,
           scenarios:scenario_id (title),
           stores:store_id (name)
-        `)
+        `, { count: 'exact' })
       
       // 組織フィルタ
       if (orgId) {
         query = query.eq('organization_id', orgId)
       }
+
+      // フィルタ（サーバー側）
+      if (filters.statusFilter !== 'all') {
+        query = query.eq('status', filters.statusFilter)
+      }
+      if (filters.paymentFilter !== 'all') {
+        query = query.eq('payment_status', filters.paymentFilter)
+      }
+      if (filters.typeFilter !== 'all') {
+        query = query.eq('reservation_source', filters.typeFilter)
+      }
+      if (filters.searchTerm && filters.searchTerm.trim().length > 0) {
+        const term = filters.searchTerm.trim()
+        // reservation_number / customer_name / title で部分一致
+        query = query.or(
+          `reservation_number.ilike.%${term}%,customer_name.ilike.%${term}%,title.ilike.%${term}%`
+        )
+      }
+
+      // ページング（サーバー側）
+      const safePage = Math.max(1, Math.floor(pagination.page || 1))
+      const safePageSize = Math.min(200, Math.max(10, Math.floor(pagination.pageSize || 50)))
+      const from = (safePage - 1) * safePageSize
+      const to = from + safePageSize - 1
       
-      const { data, error } = await query
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: true })
+      const { data, error, count } = await query
+        // 新しい予約が上に来るように（UI側のDateパース失敗でも表示が崩れにくい）
+        .order('created_at', { ascending: false })
+        // priority がある場合は同日時内で優先（NULLは末尾）
+        .order('priority', { ascending: false, nullsFirst: false })
+        .range(from, to)
       
       if (error) {
         logger.error('予約データ取得エラー:', error)
         setReservations([])
+        setTotalCount(0)
         return
       }
+
+      setTotalCount(count ?? 0)
       
       // データを整形
       const formattedData: ReservationWithDetails[] = (data || []).map((reservation: any) => {
@@ -116,41 +152,23 @@ export function useReservationData(filters: Filters) {
     } catch (error) {
       logger.error('予約データの読み込みエラー:', error)
       setReservations([])
+      setTotalCount(0)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [filters.paymentFilter, filters.searchTerm, filters.statusFilter, filters.typeFilter, pagination.page, pagination.pageSize])
 
   useEffect(() => {
     loadReservations()
   }, [loadReservations])
 
-  // フィルタリング処理
-  const filteredReservations = useMemo(() => {
-    const searchLower = (filters.searchTerm || '').toLowerCase()
-
-    return reservations.filter((reservation) => {
-      const matchesSearch =
-        (reservation.reservation_number || '').toLowerCase().includes(searchLower) ||
-        (reservation.customer_name || '').toLowerCase().includes(searchLower) ||
-        (reservation.scenario_title || '').toLowerCase().includes(searchLower)
-
-      const matchesStatus =
-        filters.statusFilter === 'all' || reservation.status === filters.statusFilter
-
-      const matchesPayment =
-        filters.paymentFilter === 'all' || reservation.payment_status === filters.paymentFilter
-
-      const matchesType =
-        filters.typeFilter === 'all' || reservation.reservation_source === filters.typeFilter
-
-      return matchesSearch && matchesStatus && matchesPayment && matchesType
-    })
-  }, [reservations, filters.searchTerm, filters.statusFilter, filters.paymentFilter, filters.typeFilter])
+  // 追加の表示フィルタ（サーバー側で拾いきれないもの用）
+  const filteredReservations = useMemo(() => reservations, [reservations])
 
   return {
     reservations: filteredReservations,
     isLoading,
-    loadReservations
+    loadReservations,
+    totalCount,
   }
 }

@@ -1240,14 +1240,14 @@ ROLLBACK;
 
 -- テスト2: 締切チェック
 BEGIN;
-  -- 締切を過ぎたイベントで予約
+  -- 締切を「公演開始まで（0時間前）」に設定して予約
   UPDATE schedule_events 
-  SET reservation_deadline_hours = 24
+  SET reservation_deadline_hours = 0
   WHERE id = :event_id;
   
-  -- 23時間前に時刻を設定（テスト用）
+  -- 開始後に時刻を設定（テスト用）
   SELECT create_reservation_with_lock(...);
-  -- 期待: P0016エラー（PAST_DEADLINE）
+  -- 期待: 予約不可（開始後の予約はサーバー側で拒否される）
 ROLLBACK;
 ```
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
-import { startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns'
+import { startOfMonth, endOfMonth, isWithinInterval, parseISO } from '@/lib/dateFns'
 
 export interface ReservationStats {
   total: number

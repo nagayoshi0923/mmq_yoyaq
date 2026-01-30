@@ -22,7 +22,7 @@ import {
 import { useOrganization } from '@/hooks/useOrganization'
 import { useExternalReports } from './hooks/useExternalReports'
 import { ReportCreateDialog } from './components/ReportCreateDialog'
-import { format } from 'date-fns'
+import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import { PageHeader } from '@/components/layout/PageHeader'
 

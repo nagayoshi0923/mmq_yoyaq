@@ -32,6 +32,11 @@ interface PublicEvent {
   reservation_deadline_hours: number
 }
 
+const formatReservationDeadlineLabel = (reservationDeadlineHours: number): string => {
+  if (reservationDeadlineHours === 0) return '公演開始まで予約可'
+  return `${reservationDeadlineHours}時間前まで予約可`
+}
+
 // 参加費を計算する関数
 const calculateParticipationFee = async (scenarioId: string, startTime: string, date: string): Promise<number> => {
   try {
@@ -201,7 +206,7 @@ export function CustomerBookingPage() {
             available_seats: (event.max_participants || event.capacity || 8) - (event.current_participants || 0),
             participation_fee: await calculateParticipationFee(event.scenario_id, event.start_time, event.date), // 料金設定から計算
             is_reservation_enabled: event.is_reservation_enabled,
-            reservation_deadline_hours: event.reservation_deadline_hours || 24
+            reservation_deadline_hours: event.reservation_deadline_hours ?? 0
             })
           }
         }
@@ -467,7 +472,7 @@ export function CustomerBookingPage() {
                         </Button>
                         
                         <p className="text-xs text-muted-foreground text-right">
-                          {event.reservation_deadline_hours}時間前まで予約可
+                          {formatReservationDeadlineLabel(event.reservation_deadline_hours)}
                         </p>
                       </div>
                     </div>

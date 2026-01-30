@@ -172,7 +172,7 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
             max_participants: maxParticipants,
             current_participants: currentParticipants,
             available_seats: available, // 満席の場合は0
-            reservation_deadline_hours: event.reservation_deadline_hours || 24,
+            reservation_deadline_hours: event.reservation_deadline_hours ?? 0,
             is_available: available > 0 // 満席の場合はfalse
           }
         })

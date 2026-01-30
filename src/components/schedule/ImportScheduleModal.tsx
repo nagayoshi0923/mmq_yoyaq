@@ -940,10 +940,9 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           // 関連するreservationsを先に削除（外部キー制約対策）
           for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
             const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-            const { error: resDeleteError } = await supabase
-              .from('reservations')
-              .delete()
-              .in('schedule_event_id', batchIds)
+            const { error: resDeleteError } = await supabase.rpc('admin_delete_reservations_by_schedule_event_ids', {
+              p_schedule_event_ids: batchIds
+            })
             
             if (resDeleteError) {
               logger.warn('予約削除警告:', resDeleteError.message)

@@ -117,6 +117,9 @@ $$ LANGUAGE plpgsql;
 -- RLSポリシー
 ALTER TABLE waitlist_notification_queue ENABLE ROW LEVEL SECURITY;
 
+-- 既に存在する場合は作り直せるようにする（再実行で落ちないよう冪等化）
+DROP POLICY IF EXISTS waitlist_notification_queue_org_policy ON waitlist_notification_queue;
+
 CREATE POLICY waitlist_notification_queue_org_policy 
   ON waitlist_notification_queue
   FOR ALL

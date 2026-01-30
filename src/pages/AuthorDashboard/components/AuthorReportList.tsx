@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table'
 import { Calendar, Building2, Search, Users } from 'lucide-react'
 import type { AuthorPerformanceReport } from '@/types'
-import { format } from 'date-fns'
+import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 
 interface AuthorReportListProps {

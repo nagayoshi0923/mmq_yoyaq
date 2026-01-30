@@ -193,9 +193,7 @@
 
 ## 保留項目
 
-### ⏸️ SEC-P0-04: 貸切承認の非アトミック性
-
-**状況**: ✅ 修正完了（本番検証pass）
+- **なし**（全て「修正完了」または「本番Runbookで手動確認」に落とし込み済み）
 
 ---
 
@@ -297,34 +295,25 @@ await supabase.from('reservations').update({
 
 ## 次のステップ
 
-### 即座実施（今日中）
+### 即座実施（本番で必須）
 
-1. **本番DB確認**
-   ```sql
-   -- create_reservation_with_lock のシグネチャ確認
-   \df create_reservation_with_lock
-   
-   -- reservations のRLSポリシー確認
-   SELECT policyname, cmd FROM pg_policies WHERE tablename = 'reservations';
-   ```
+1. **【こっちで必ず確認（手動）】本番SQL Runbook を実行（順不同だが全て必須）**
+   - SEC-P0-02: `docs/deployment/SEC_P0_02_PROD_DB_CHECK_RUNBOOK.md`（改ざんテスト/ROLLBACK付き）
+   - SEC-P1-01: `docs/deployment/SEC_P1_01_RESERVATION_LIMITS_RUNBOOK.md`（TS-0）
+   - SEC-P1-02: `docs/deployment/SEC_P1_02_INVENTORY_CONSISTENCY_RUNBOOK.md`（TS-0）
+   - SEC-P1-03: `docs/deployment/SEC_P1_03_RESERVATIONS_HISTORY_RUNBOOK.md`（TS-0 + TS-1/ROLLBACK）
+   - SEC-P1-XX: `docs/deployment/SEC_P1_XX_IDEMPOTENCY_RUNBOOK.md`（メールキュー UNIQUE 確認）
 
-2. **マイグレーション適用**
-   ```bash
-   # ステージング環境で検証
-   supabase db push
-   
-   # 機能テスト実施
-   ```
+2. **【こっちで必ず確認（手動）】主要導線の軽い動作確認**
+   - 予約作成 / 人数変更 / 日程変更 / キャンセル / キャンセル待ち通知（bookingURLが正しい）
 
-3. **本番適用判断**
-   - ステージングで問題なければ本番適用
-   - 週末など影響が少ない時間帯に実施
+### 余力があれば（推奨）
 
-### 今週中
+3. **攻撃シミュレーション（ブラウザコンソール）**
+   - 顧客の `reservations` 直接UPDATE（`status` / `participant_count` / 料金系）が **RLS（WITH CHECK）で失敗**することを確認
 
-4. **SEC-P0-02対応**（本番DB状態確認後）
-5. **セキュリティテスト実施**
-6. **監視・ログ確認**
+4. **監視・ログ確認**
+   - Supabase Logs / Vercel Logs を確認（異常スパイクやエラーが無いこと）
 
 ---
 
@@ -334,7 +323,18 @@ await supabase.from('reservations').update({
 
 - `database/migrations/026_restrict_customer_reservation_update.sql`
 - `database/migrations/027_add_change_schedule_rpc.sql`
-- `database/migrations/028_atomic_private_booking_approval.sql` （フロント適用は保留）
+- `database/migrations/028_atomic_private_booking_approval.sql`（旧案/参考。実運用は `supabase/migrations/20260130210000_approve_private_booking_atomic.sql` + `20260130220000_fix_approve_private_booking_rls.sql` を使用）
+
+### Supabase migrations（本番適用対象）
+
+- `supabase/migrations/20260130190000_harden_create_reservation_with_lock_server_pricing.sql`（SEC-P0-02）
+- `supabase/migrations/20260130_create_reservation_with_lock_v2.sql`（SEC-P0-02）
+- `supabase/migrations/20260130210000_approve_private_booking_atomic.sql`（SEC-P0-04）
+- `supabase/migrations/20260130220000_fix_approve_private_booking_rls.sql`（SEC-P0-04）
+- `supabase/migrations/20260130233000_enforce_reservation_limits_server_side.sql`（SEC-P1-01）
+- `supabase/migrations/20260130243000_create_reservations_history.sql`（SEC-P1-03）
+- `supabase/migrations/20260130260000_recalc_current_participants_trigger.sql`（SEC-P1-02）
+- `supabase/migrations/20260131003000_booking_email_queue_idempotency.sql`（SEC-P1-XX）
 
 ### 修正
 
@@ -356,22 +356,10 @@ await supabase.from('reservations').update({
 各マイグレーションファイル末尾にロールバックSQLを記載済み。
 
 問題が発生した場合:
-```sql
--- 026のロールバック
-DROP POLICY IF EXISTS reservations_update_customer_restricted ON reservations;
-CREATE POLICY reservations_update_customer ON reservations
-  FOR UPDATE USING (
-    customer_id IN (SELECT id FROM customers WHERE user_id = auth.uid())
-  ) WITH CHECK (
-    customer_id IN (SELECT id FROM customers WHERE user_id = auth.uid())
-  );
-
--- 027のロールバック
-DROP FUNCTION IF EXISTS change_reservation_schedule(UUID, UUID, UUID);
-```
+- SQL: [`docs/deployment/sql/SEC_ROLLBACK_026_027.sql`](docs/deployment/sql/SEC_ROLLBACK_026_027.sql)
 
 ---
 
 **修正者**: AI Assistant  
 **修正日時**: 2026-01-30  
-**レビュー待ち**: あり（本番適用前に確認推奨）
+**レビュー待ち**: あり（本番Runbook完了でクローズ想定）

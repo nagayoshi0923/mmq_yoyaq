@@ -340,7 +340,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logger.log('🚀 初期セッション取得開始')
     try {
       const sessionStartTime = performance.now()
-      let { data: { session }, error } = await supabase.auth.getSession()
+      const { data: { session: initialSession }, error } = await supabase.auth.getSession()
+      let session = initialSession
       const sessionEndTime = performance.now()
       logger.log(`⏱️ getSession 完了: ${((sessionEndTime - sessionStartTime) / 1000).toFixed(2)}秒`)
       

@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS idx_reservations_schedule_event_id ON reservations(sc
 
 -- 3. schedule_eventsテーブルに予約関連情報を追加
 ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS max_participants INTEGER;
-ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS reservation_deadline_hours INTEGER DEFAULT 24; -- 予約締め切り時間（公演開始の何時間前まで）
+ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS reservation_deadline_hours INTEGER DEFAULT 0; -- 予約締め切り時間（公演開始の何時間前まで）
 ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS is_reservation_enabled BOOLEAN DEFAULT true; -- 予約受付可能フラグ
 ALTER TABLE schedule_events ADD COLUMN IF NOT EXISTS reservation_notes TEXT; -- 予約時の注意事項
 

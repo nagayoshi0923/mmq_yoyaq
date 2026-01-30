@@ -44,7 +44,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     store_id: '',
     max_participants_per_booking: 8,
     advance_booking_days: 90,
-    same_day_booking_cutoff: 2,
+    same_day_booking_cutoff: 0,
     private_booking_deadline_days: 7,
     cancellation_policy: '',
     cancellation_deadline_hours: 24,
@@ -105,7 +105,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
           store_id: storeId,
           max_participants_per_booking: 8,
           advance_booking_days: 90,
-          same_day_booking_cutoff: 2,
+          same_day_booking_cutoff: 0,
           private_booking_deadline_days: 7,
           cancellation_policy: '',
           cancellation_deadline_hours: 24,
@@ -236,7 +236,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
                 max="24"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                公演開始の{formData.same_day_booking_cutoff}時間前まで予約可能
+                {formData.same_day_booking_cutoff === 0
+                  ? '公演開始まで予約可能'
+                  : `公演開始の${formData.same_day_booking_cutoff}時間前まで予約可能`}
               </p>
             </div>
           </div>

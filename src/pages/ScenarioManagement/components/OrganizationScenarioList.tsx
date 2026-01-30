@@ -196,9 +196,9 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       // staff_scenario_assignments.scenario_id は旧 scenarios.id を指しているため、
       // scenarios テーブル経由で scenario_master_id にマッピングする
       const scenarioMasterIds = (data || []).map(s => s.scenario_master_id).filter(Boolean)
-      let availableGmsMap = new Map<string, string[]>() // 担当GM（can_main_gm=true または can_sub_gm=true）
-      let experiencedStaffMap = new Map<string, string[]>() // 体験済み（is_experienced=true かつ GM不可）
-      let availableStoresMap = new Map<string, string[]>() // 対応店舗（scenariosテーブルから、旧UIと同じデータソース）
+      const availableGmsMap = new Map<string, string[]>() // 担当GM（can_main_gm=true または can_sub_gm=true）
+      const experiencedStaffMap = new Map<string, string[]>() // 体験済み（is_experienced=true かつ GM不可）
+      const availableStoresMap = new Map<string, string[]>() // 対応店舗（scenariosテーブルから、旧UIと同じデータソース）
       
       if (scenarioMasterIds.length > 0) {
         // まず scenarios テーブルから scenario_master_id に対応する id を取得（組織でフィルタ）

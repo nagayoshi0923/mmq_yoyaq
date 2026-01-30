@@ -91,7 +91,7 @@ WHERE se.scenario = s.title
 -- 全公演で予約受付を有効化
 UPDATE schedule_events 
 SET is_reservation_enabled = true,
-    reservation_deadline_hours = 24
+    reservation_deadline_hours = 0
 WHERE is_reservation_enabled IS NULL;
 
 -- GMテスト公演は予約受付を無効化

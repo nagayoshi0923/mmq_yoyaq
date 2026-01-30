@@ -56,6 +56,7 @@ export function ReservationList({
   const [cancellingReservation, setCancellingReservation] = useState<Reservation | null>(null)
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
   const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
   const [shouldSendEmail, setShouldSendEmail] = useState(true) // メール送信するかどうか
   const [emailContent, setEmailContent] = useState({
     customerEmail: '',
@@ -135,6 +136,14 @@ ${content.organizationName || '店舗'}
   })
   const [customerNames, setCustomerNames] = useState<string[]>([])
 
+  const ACTIVE_RESERVATION_STATUSES = new Set(['pending', 'confirmed', 'gm_confirmed'])
+
+  const sumActiveParticipants = (list: Reservation[]) =>
+    list.reduce((sum, r) => {
+      if (!r?.status || !ACTIVE_RESERVATION_STATUSES.has(r.status)) return sum
+      return sum + (r.participant_count || 0)
+    }, 0)
+
   // 予約データを読み込む
   useEffect(() => {
     const loadReservations = async () => {
@@ -197,7 +206,7 @@ ${content.organizationName || '店舗'}
             setReservations(data)
             
             // 予約リストから合計人数を計算して同期
-            const totalParticipants = data.reduce((sum, r) => sum + (r.participant_count || 0), 0)
+            const totalParticipants = sumActiveParticipants(data)
             if (onParticipantChange && event.id) {
               onParticipantChange(event.id, totalParticipants)
             }
@@ -451,17 +460,25 @@ ${content.organizationName || '店舗'}
   }
   
   // シンプル確認ダイアログからのキャンセル実行（スタッフ用）
-  const handleConfirmCancelFromDialog = () => {
+  const handleConfirmCancelFromDialog = async () => {
     if (!cancellingReservation) return
-    handleExecuteCancel(false)
-    setIsCancelDialogOpen(false)
+    const ok = await handleExecuteCancel(false)
+    // 成功したときだけ閉じる（失敗時はダイアログを残してリトライ可能にする）
+    if (ok) {
+      setIsCancelDialogOpen(false)
+    }
   }
 
   // キャンセル処理を実行
-  const handleExecuteCancel = async (sendEmail: boolean) => {
-    if (!cancellingReservation || !event) return
+  const handleExecuteCancel = async (sendEmail: boolean): Promise<boolean> => {
+    if (!cancellingReservation || !event) return false
+    // 二重実行ガード（連打/二重クリック/ダイアログ経由の重複を防ぐ）
+    if (isCancelling) return false
+    setIsCancelling(true)
 
     try {
+      const reservationId = cancellingReservation.id
+
       // スタッフ参加の場合はシンプルなキャンセル
       const isStaffReservation = cancellingReservation.reservation_source === 'staff_entry' ||
                                  cancellingReservation.reservation_source === 'staff_participation' ||
@@ -470,7 +487,7 @@ ${content.organizationName || '店舗'}
       if (isStaffReservation) {
         // スタッフ予約: RPC経由で在庫返却のみ（通知不要）
         await reservationApi.cancelWithLock(
-          cancellingReservation.id,
+          reservationId,
           cancellingReservation.customer_id ?? null,
           emailContent?.cancellationReason || 'スタッフによるキャンセル'
         )
@@ -478,7 +495,7 @@ ${content.organizationName || '店舗'}
         // 顧客予約: reservationApi.cancel()を使用（在庫返却 + キャンセル待ち通知）
         // ただし、メール送信は既にhandleExecuteCancel内で行うため、ここでは通知のみ
         await reservationApi.cancelWithLock(
-          cancellingReservation.id,
+          reservationId,
           cancellingReservation.customer_id ?? null,
           emailContent?.cancellationReason || 'スタッフによるキャンセル'
         )
@@ -521,25 +538,32 @@ ${content.organizationName || '店舗'}
       
       const cancelledAt = new Date().toISOString()
 
-      // UIを更新（キャンセル済みとして表示を残す）
-      setReservations(prev => 
-        prev.map(r => r.id === cancellingReservation.id 
-          ? { ...r, status: 'cancelled', cancelled_at: cancelledAt } 
-          : r
+      // UIを更新（キャンセルRPC成功後のみ）
+      // UI更新 + 予約数表示を即時反映
+      setReservations(prev => {
+        const next = prev.map(r =>
+          r.id === reservationId
+            ? { ...r, status: 'cancelled' as const, cancelled_at: cancelledAt }
+            : r
         )
-      )
+        // schedule_event_id がない（private- 仮想IDなど）場合でも、ダイアログ上の人数表示は更新したい
+        if (onParticipantChange && event.id) {
+          onParticipantChange(event.id, sumActiveParticipants(next))
+        }
+        return next
+      })
       
-      if (expandedReservation === cancellingReservation.id) {
+      if (expandedReservation === reservationId) {
         setExpandedReservation(null)
       }
       
       setSelectedReservations(prev => {
         const newSelected = new Set(prev)
-        newSelected.delete(cancellingReservation.id)
+        newSelected.delete(reservationId)
         return newSelected
       })
 
-      // 参加者数を再計算
+      // 参加者数を再計算（DBの single source of truth を更新）
       if (event.id && !event.id.startsWith('private-')) {
         try {
           const newCount = await recalculateCurrentParticipants(event.id)
@@ -625,7 +649,7 @@ ${content.organizationName || '店舗'}
           try {
             const { error: emailError } = await supabase.functions.invoke('send-cancellation-confirmation', {
               body: {
-                reservationId: cancellingReservation.id,
+                reservationId,
                 customerEmail: emailContent.customerEmail,
                 customerName: emailContent.customerName,
                 scenarioTitle: emailContent.scenarioTitle,
@@ -675,9 +699,13 @@ ${content.organizationName || '店舗'}
         organizationName: '',
         emailBody: ''
       })
+      return true
     } catch (error) {
       logger.error('予約キャンセルエラー:', error)
       showToast.error('予約のキャンセルに失敗しました')
+      return false
+    } finally {
+      setIsCancelling(false)
     }
   }
 
@@ -1094,20 +1122,14 @@ ${content.organizationName || '店舗'}
                                     return
                                   }
 
-                                  // 料金・参加者名のみ更新（participant_countはRPCで更新済み）
-                                  const { error } = await supabase
-                                    .from('reservations')
-                                    .update({ 
-                                      participant_names: Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者'),
-                                      unit_price: unitPrice,
-                                      base_price: newBasePrice,
-                                      total_price: newTotalPrice,
-                                      final_price: newFinalPrice
-                                    })
-                                    .eq('id', reservation.id)
-                                  
-                                  if (error) {
-                                    showToast.error('人数の更新に失敗しました')
+                                  // 料金/参加者名の再計算はサーバー側で実施（直UPDATE禁止）
+                                  try {
+                                    await reservationApi.recalculatePrices(
+                                      reservation.id,
+                                      Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者')
+                                    )
+                                  } catch (recalcError: any) {
+                                    showToast.error(recalcError?.message || '料金の再計算に失敗しました')
                                     return
                                   }
                                   
@@ -1263,21 +1285,19 @@ ${content.organizationName || '店舗'}
                                       const newTotalPrice = newBasePrice + optionsPrice
                                       const newFinalPrice = newTotalPrice - discountAmount
                                       
-                                      // 予約の人数と料金を更新
-                                      const { error } = await supabase
-                                        .from('reservations')
-                                        .update({ 
-                                          participant_count: newCount,
-                                          participant_names: Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者'),
-                                          unit_price: unitPrice,
-                                          base_price: newBasePrice,
-                                          total_price: newTotalPrice,
-                                          final_price: newFinalPrice
-                                        })
-                                        .eq('id', reservation.id)
-                                      
-                                      if (error) {
-                                        showToast.error('人数の更新に失敗しました')
+                                      // 人数変更はロック付きRPCで実施（直UPDATE禁止）
+                                      try {
+                                        await reservationApi.updateParticipantsWithLock(
+                                          reservation.id,
+                                          newCount,
+                                          reservation.customer_id ?? null
+                                        )
+                                        await reservationApi.recalculatePrices(
+                                          reservation.id,
+                                          Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者')
+                                        )
+                                      } catch (updateError: any) {
+                                        showToast.error(updateError?.message || '人数の更新に失敗しました')
                                         return
                                       }
                                       
@@ -1489,14 +1509,16 @@ ${content.organizationName || '店舗'}
                 setIsCancelDialogOpen(false)
                 setCancellingReservation(null)
               }}
+              disabled={isCancelling}
             >
               キャンセル
             </Button>
             <Button
               variant="destructive"
               onClick={handleConfirmCancelFromDialog}
+              disabled={isCancelling}
             >
-              キャンセル確定
+              {isCancelling ? '処理中...' : 'キャンセル確定'}
             </Button>
           </div>
         </DialogContent>
@@ -1574,14 +1596,16 @@ ${content.organizationName || '店舗'}
                     emailBody: ''
                   })
                 }}
+                disabled={isCancelling}
               >
                 やめる
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => handleExecuteCancel(shouldSendEmail)}
+                disabled={isCancelling}
               >
-                キャンセル確定
+                {isCancelling ? '処理中...' : 'キャンセル確定'}
               </Button>
             </div>
           </div>

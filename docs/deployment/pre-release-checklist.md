@@ -1,7 +1,7 @@
 # リリース前チェックリスト
 
 **作成日**: 2026-01-13  
-**最終更新**: 2026-01-13  
+**最終更新**: 2026-01-31  
 **対象システム**: MMQ Yoyaq（マーダーミステリー店舗管理システム）
 
 ---
@@ -103,12 +103,54 @@
 
 **目的**: 料金/日時の改ざん（API直叩き）を確実に防げていることを、毎回同じ手順で確認する。
 
-- [ ] Runbookを実行した（シグネチャ/定義/適用済みマイグレーション確認）
+- [ ] **【こっちで必ず確認（手動）】Runbookを実行した**（シグネチャ/定義/適用済みマイグレーション確認）
   - [ ] `docs/deployment/SEC_P0_02_PROD_DB_CHECK_RUNBOOK.md` の手順(1)〜(4)を実施
-- [ ] 改ざんテスト（ROLLBACK付き）を実行し、成功した
+- [ ] **【こっちで必ず確認（手動）】改ざんテスト（ROLLBACK付き）を実行し、成功した**
   - [ ] Runbook末尾の「ポストデプロイ検証（必須）: 改ざんテスト（ROLLBACK付き）」を実施
   - [ ] 旧RPC（create_reservation_with_lock）が **サーバー計算値**で上書きしている
   - [ ] v2 RPC（create_reservation_with_lock_v2）が存在し、実行できる
+  - [ ] （代替）SQL Editor都合で予約行の参照が成立しない場合は **TS-2（定義チェック）** を実行
+    - [ ] `docs/deployment/sql/SEC_P0_02_ts2_check_rpc_def_server_pricing.sql`（期待: 両方 `pass=true`）
+
+#### 4.2 SEC-P1-01（必須）: 予約制限（締切/上限/件数）検証（Runbook）
+
+**目的**: 予約制限がフロント依存のfail-openにならず、DB/RPC側でfail-closedに強制されていることを確認する。
+
+- [ ] **【こっちで必ず確認（手動）】Runbookを実行した**（本番DBの関数定義に制限強制が入っていることを確認）
+  - [ ] `docs/deployment/SEC_P1_01_RESERVATION_LIMITS_RUNBOOK.md` の TS-0 を実施
+  - [ ] `docs/deployment/sql/SEC_P1_01_ts0_check_rpc_defs.sql` を実行
+    - **期待結果**: 関数定義に例外コード（`P0033`〜`P0038`）が含まれる（= DB側で制限を強制している）
+
+#### 4.3 SEC-P1-02（必須）: 在庫整合性（current_participants）検証（Runbook）
+
+**目的**: 予約の作成/変更/キャンセル/日程変更など複数経路があっても、`schedule_events.current_participants` が `reservations` の集計値に追従することを確認する。
+
+- [ ] **【こっちで必ず確認（手動）】Runbookを実行した**（トリガ/関数の存在確認）
+  - [ ] `docs/deployment/SEC_P1_02_INVENTORY_CONSISTENCY_RUNBOOK.md` の TS-0 を実施
+  - [ ] `docs/deployment/sql/SEC_P1_02_ts0_check_trigger.sql` を実行
+    - **期待結果**: `trigger_exists=true`
+- [ ] 実地確認（推奨）
+  - [ ] 予約作成/キャンセル/人数変更/日程変更を各1件実施し、直後に `current_participants` と集計値が一致することを確認
+
+#### 4.4 SEC-P1-03（必須）: reservations_history（監査証跡）検証（Runbook）
+
+**目的**: `reservations` の変更が **必ず監査ログに残る**こと、かつ **不正な直接書き込みができない**ことを確認する。
+
+- [ ] **【こっちで必ず確認（手動）】Runbookを実行した**（存在確認 + ROLLBACK付き動作確認）
+  - [ ] `docs/deployment/SEC_P1_03_RESERVATIONS_HISTORY_RUNBOOK.md` の TS-0/TS-1 を実施
+  - [ ] `docs/deployment/sql/SEC_P1_03_ts0_check_objects.sql` を実行
+    - **期待結果**: `reservations_history` と `trg_reservations_history` が存在する
+  - [ ] `docs/deployment/sql/SEC_P1_03_test_update_ts1_stepA.sql` → `docs/deployment/sql/SEC_P1_03_test_update_ts1_stepB_rollback.sql` を順に実行
+    - **期待結果**: StepA の `pass=true`（かつ StepB で ROLLBACK）
+
+#### 4.5 SEC-P1-XX（必須）: 冪等性（予約作成/メール送信）検証（Runbook）
+
+**目的**: 通信断・リトライ・二重クリックがあっても、予約作成/メール送信が二重にならないことを確認する。
+
+- [ ] **【こっちで必ず確認（手動）】Runbookを実行した**（メール送信キューの一意制約確認）
+  - [ ] `docs/deployment/SEC_P1_XX_IDEMPOTENCY_RUNBOOK.md` の手順を実施
+  - [ ] `docs/deployment/sql/SEC_P1_XX_ts0_check_booking_email_queue_unique.sql` を実行
+    - **期待結果**: `unique_index_exists=true`
 
 ### 5. 重要機能の動作確認
 
@@ -384,7 +426,7 @@ _________________________________________________________________
 
 ---
 
-**最終更新**: 2026-01-13  
+**最終更新**: 2026-01-31  
 **次回レビュー**: リリース後1週間以内
 
 

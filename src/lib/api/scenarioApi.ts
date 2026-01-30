@@ -517,16 +517,9 @@ export const scenarioApi = {
     // 関連データの参照をクリア（スケジュールイベントは削除しない）
     
     // 1. reservationsのscenario_idをNULLに設定（組織フィルタ付き）
-    let resQuery = supabase
-      .from('reservations')
-      .update({ scenario_id: null })
-      .eq('scenario_id', id)
-    
-    if (orgId) {
-      resQuery = resQuery.eq('organization_id', orgId)
-    }
-    
-    const { error: reservationError } = await resQuery
+    const { error: reservationError } = await supabase.rpc('admin_clear_reservations_scenario_id', {
+      p_scenario_id: id
+    })
     
     if (reservationError) throw reservationError
     

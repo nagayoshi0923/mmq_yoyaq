@@ -316,7 +316,7 @@ export const assignmentApi = {
     if (!orgId) throw new Error('組織情報が取得できません。')
     
     // 現在の担当関係を取得（組織でフィルタ）
-    let fetchQuery = supabase
+    const fetchQuery = supabase
       .from('staff_scenario_assignments')
       .select('staff_id')
       .eq('scenario_id', scenarioId)

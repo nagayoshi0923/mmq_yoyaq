@@ -54,14 +54,11 @@ export interface ScheduleTableModals {
   performanceModal: {
     isOpen: boolean
     onClose: () => void
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onSave: (eventData: any) => Promise<boolean>
     mode: 'add' | 'edit'
     event: ScheduleEvent | null
     initialData?: { date: string; venue: string; time_slot: string; suggestedStartTime?: string }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     stores: any[]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     scenarios: any[]
     staff: Staff[]
     availableStaffByScenario?: Record<string, Staff[]>
@@ -69,14 +66,12 @@ export interface ScheduleTableModals {
     onParticipantChange?: (eventId: string, newCount: number) => void
   }
   performance: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handleOpenPerformanceModal: any
   }
   conflictWarning: {
     isOpen: boolean
     onClose: () => void
     onContinue: () => void
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     conflictInfo: any
   }
   scheduleDialogs: {
@@ -93,22 +88,16 @@ export interface ScheduleTableModals {
   moveOrCopyDialog: {
     isOpen: boolean
     onClose: () => void
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onMove: any
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onCopy: any
     selectedEvent: ScheduleEvent | null
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     stores: any[]
   }
   contextMenu: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     contextMenu: any
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setContextMenu: (menu: any) => void
     clipboardEvent: ScheduleEvent | null
     handleCopyToClipboard: (event: ScheduleEvent) => void
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handlePasteFromClipboard: any
     // セルに既存の公演があるかチェック（右クリックメニューの「公演を追加」グレーアウト用）
     hasExistingEvent?: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => boolean

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { useExternalReports } from '@/pages/ExternalReports/hooks/useExternalReports'
 import { ReportCreateDialog } from '@/pages/ExternalReports/components/ReportCreateDialog'
-import { format } from 'date-fns'
+import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 
 interface MyReportsProps {

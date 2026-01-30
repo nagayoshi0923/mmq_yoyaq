@@ -217,7 +217,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           official_duration: legacyData.duration,
           player_count_min: legacyData.player_count_min,
           player_count_max: legacyData.player_count_max,
-          author: (legacyData.authors as { name?: string } | null)?.name || '不明',
+          author: legacyData.author || '不明',
           organization_id: legacyData.organization_id,
           genre: legacyData.genre || [],
           participation_fee: legacyData.participation_fee,

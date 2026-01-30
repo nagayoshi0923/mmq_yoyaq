@@ -2,7 +2,7 @@
 
 import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
-import { format } from 'date-fns'
+import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import { Clock, User, ArrowRight, Plus, Trash2, Ban, RotateCcw, Eye, EyeOff, Loader2, UserPlus, UserMinus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'

@@ -32,11 +32,12 @@ export function useFavorites() {
 
       try {
         // まず既存の顧客を検索（user_idで検索）
-        let { data: customer, error: selectError } = await supabase
+        const { data: customerByUserId, error: selectError } = await supabase
           .from('customers')
           .select('id, user_id')
           .eq('user_id', user.id)
           .maybeSingle()
+        let customer = customerByUserId
 
         if (selectError) {
           logger.error('Failed to fetch customer by user_id:', selectError)

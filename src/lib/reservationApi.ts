@@ -352,7 +352,17 @@ export const reservationApi = {
       throw error
     }
 
-    return Boolean(data)
+    // error が無くても false が返るケース（0行更新/権限/想定外）を失敗扱いにする
+    if (data !== true) {
+      logger.error('予約キャンセルRPCが成功扱いにならない:', {
+        reservationId,
+        customerId,
+        data,
+      })
+      throw new Error('予約のキャンセルに失敗しました（DB側で処理できませんでした）')
+    }
+
+    return true
   },
 
   // 参加人数を変更（RPC + FOR UPDATE）
@@ -388,6 +398,16 @@ export const reservationApi = {
     }
 
     return Boolean(data)
+  },
+
+  // 料金/参加者名の再計算（サーバー側で実施）
+  async recalculatePrices(reservationId: string, participantNames?: string[] | null): Promise<boolean> {
+    const { data, error } = await supabase.rpc('admin_recalculate_reservation_prices', {
+      p_reservation_id: reservationId,
+      p_participant_names: participantNames ?? null
+    })
+    if (error) throw error
+    return !!data
   },
 
   // 参加人数を変更（顧客向けシンプルAPI）
@@ -473,17 +493,26 @@ export const reservationApi = {
       originalReservation = original
     }
 
+    // 🚨 lint/no-restricted-syntax 対応: reservations はRPC経由で更新
+    const { data: ok, error: updateError } = await supabase.rpc('admin_update_reservation_fields', {
+      p_reservation_id: id,
+      p_updates: updates as unknown as Record<string, unknown>
+    })
+
+    if (updateError) throw updateError
+    if (!ok) throw new Error('予約の更新に失敗しました')
+
+    // 更新後のデータを取得
     const { data, error } = await supabase
       .from('reservations')
-      .update(updates)
-      .eq('id', id)
       .select(`
         *,
         customers(*),
         schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario)
       `)
+      .eq('id', id)
       .single()
-    
+
     if (error) throw error
 
     // 変更確認メールを送信（sendEmail=trueの場合のみ）
@@ -677,11 +706,9 @@ export const reservationApi = {
 
   // 予約を削除
   async delete(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('reservations')
-      .delete()
-      .eq('id', id)
-    
+    const { error } = await supabase.rpc('admin_delete_reservations_by_ids', {
+      p_reservation_ids: [id]
+    })
     if (error) throw error
   },
 

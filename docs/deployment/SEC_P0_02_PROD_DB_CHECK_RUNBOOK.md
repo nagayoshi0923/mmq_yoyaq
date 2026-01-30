@@ -554,6 +554,18 @@ SQL Editorによっては `NOTICE` が見えづらく、実行結果が `Success
 SQL Editorの実行ロール/ポリシー状態によっては、`reservations` のSELECTがRLSで弾かれ **0行**になることがあります。  
 その場合、SQL Editor（通常は `postgres`）で **`set_config('row_security','off', true)`** を入れて結果を目視します。
 
+> それでも SQL Editor 側の制約で `reservations` / `reservations_history` を参照できず「0行」になり続ける場合があります。  
+> その場合は、代替として **TS-2（定義チェック）** を実行し、「料金/日時がサーバー計算」になっていることを機械的に確認してください。
+
+#### 代替（TS-2）: 定義チェック（置換不要）
+
+```sql
+-- 期待: 両方 pass=true
+-- - create_reservation_with_lock
+-- - create_reservation_with_lock_v2
+-- SQL: docs/deployment/sql/SEC_P0_02_ts2_check_rpc_def_server_pricing.sql
+```
+
 ### テスト1（旧RPC）: passがtrueになること
 
 ```sql

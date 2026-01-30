@@ -25,7 +25,7 @@ import {
 import { Loader2, Calendar, FileText, Users, MapPin } from 'lucide-react'
 import { createExternalReport, getManagedScenarios } from '@/lib/api/externalReportsApi'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
+import { format } from '@/lib/dateFns'
 
 interface ReportCreateDialogProps {
   isOpen: boolean
