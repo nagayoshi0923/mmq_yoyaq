@@ -4,42 +4,17 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getCorsHeaders, maskEmail, sanitizeErrorMessage } from '../_shared/security.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
-// 許可するオリジン（本番環境用）
-const ALLOWED_ORIGINS = [
-  'https://mmq-yoyaq.vercel.app',
-  'https://mmq-yoyaq-git-main-nagayoshi0923s-projects.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:3000',
-]
 
 // サービスロールクライアント（管理操作用）
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 interface DeleteUserRequest {
   userId: string
-}
-
-// メールアドレスをマスキングするヘルパー関数
-function maskEmail(email: string): string {
-  if (!email || !email.includes('@')) return '***'
-  const [local, domain] = email.split('@')
-  const maskedLocal = local.length > 2 ? local.slice(0, 2) + '***' : '***'
-  return `${maskedLocal}@${domain}`
-}
-
-// CORSヘッダーを生成
-function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
-  return {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  }
 }
 
 serve(async (req) => {
@@ -153,7 +128,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `ユーザーの取得に失敗しました: ${getUserError.message}`
+          error: 'ユーザーの取得に失敗しました'
         }),
         { status: 404, headers: corsHeaders }
       )
@@ -240,7 +215,7 @@ serve(async (req) => {
           JSON.stringify({
             success: false,
             error: 'このユーザーは他のデータから参照されているため削除できません。先に関連データを削除してください。',
-            details: deleteError.message
+            // details は内部情報になり得るため返さない
           }),
           { status: 409, headers: corsHeaders }
         )
@@ -249,7 +224,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `ユーザーの削除に失敗しました: ${deleteError.message}`
+          error: 'ユーザーの削除に失敗しました'
         }),
         { status: 500, headers: corsHeaders }
       )
@@ -272,11 +247,11 @@ serve(async (req) => {
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error('❌ Unexpected error:', errorMessage)
+    console.error('❌ Unexpected error:', sanitizeErrorMessage(errorMessage))
     return new Response(
       JSON.stringify({
         success: false,
-        error: errorMessage
+        error: sanitizeErrorMessage(errorMessage)
       }),
       { status: 500, headers: corsHeaders }
     )

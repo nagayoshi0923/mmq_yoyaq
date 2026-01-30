@@ -1,8 +1,9 @@
 // Discordシフトボタンのインタラクション処理
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getDiscordSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders } from '../_shared/security.ts'
+import { getCorsHeaders, checkRateLimit, getClientIP, rateLimitResponse } from '../_shared/security.ts'
 
 // フォールバック用（組織設定がない場合）
 const FALLBACK_DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
@@ -11,6 +12,10 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+function isUuidLike(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+}
 
 /**
  * Discord署名検証
@@ -179,6 +184,26 @@ async function handleShiftButtonClick(interaction: any): Promise<Response> {
   const date = parts[1] // YYYY-MM-DD
   const timeSlot = parts[2] // morning, afternoon, evening, allday
   const notificationId = parts[3]
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return new Response(
+      JSON.stringify({ type: 4, data: { content: 'エラー: 無効な日付です', flags: 64 } }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+  if (!['morning', 'afternoon', 'evening', 'allday'].includes(timeSlot)) {
+    return new Response(
+      JSON.stringify({ type: 4, data: { content: 'エラー: 無効な時間帯です', flags: 64 } }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+  // notificationId は UUID ではなく messageId 等の可能性があるので最低限チェックのみ
+  if (!notificationId || notificationId.length < 6) {
+    return new Response(
+      JSON.stringify({ type: 4, data: { content: 'エラー: 無効なIDです', flags: 64 } }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
   
   // Discord IDからstaff_idを取得
   const discordUserId = interaction.member?.user?.id || interaction.user?.id
@@ -270,6 +295,12 @@ serve(async (req) => {
   }
   
   const body = await req.text()
+  // 🔒 レート制限（Discordボタン連打/DoS対策）
+  const clientIP = getClientIP(req)
+  const rateLimit = await checkRateLimit(supabase, clientIP, 'discord-shift-interactions', 240, 60)
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfter, corsHeaders)
+  }
   
   // 署名検証
   const isValid = await verifySignature(req, body)
@@ -282,6 +313,27 @@ serve(async (req) => {
   }
   
   const interaction = JSON.parse(body)
+
+  // 🔒 冪等化（Discord再送/リプレイ対策）
+  const interactionId = interaction?.id
+  if (typeof interactionId === 'string' && interactionId.length > 0) {
+    const { data: dedupeRow } = await supabase
+      .from('discord_interaction_dedupe')
+      .upsert(
+        { interaction_id: interactionId, handler: 'discord-shift-interactions' },
+        { onConflict: 'interaction_id', ignoreDuplicates: true }
+      )
+      .select('id')
+      .maybeSingle()
+
+    if (!dedupeRow?.id) {
+      // 既に処理済み
+      return new Response(
+        JSON.stringify({ type: 6 }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+  }
   
   // PING に対して PONG を返す
   if (interaction.type === 1) {

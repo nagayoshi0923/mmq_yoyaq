@@ -1,13 +1,17 @@
 // Discord インタラクション処理（署名検証付き + Deferred Response対応）
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders } from '../_shared/security.ts'
+import { getCorsHeaders, checkRateLimit, getClientIP, rateLimitResponse } from '../_shared/security.ts'
 
 const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+function isUuidLike(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+}
 
 function timeToMinutes(time: string): number {
   const [h, m] = (time || '').split(':')
@@ -483,7 +487,12 @@ serve(async (req) => {
   }
 
   const body = await req.text()
-  console.log('Body:', body)
+  // 🔒 レート制限（Discordボタン連打/DoS対策）
+  const clientIP = getClientIP(req)
+  const rateLimit = await checkRateLimit(supabase, clientIP, 'discord-interactions', 120, 60)
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfter, corsHeaders)
+  }
   
   // 署名検証
   console.log('🔐 Starting signature verification...')
@@ -501,7 +510,26 @@ serve(async (req) => {
   console.log('✅ Signature verification passed')
 
   const interaction = JSON.parse(body)
-  console.log('Interaction:', interaction)
+  // 🔒 冪等化（Discord再送/リプレイ対策）
+  const interactionId = interaction?.id
+  if (typeof interactionId === 'string' && interactionId.length > 0) {
+    const { data: dedupeRow } = await supabase
+      .from('discord_interaction_dedupe')
+      .upsert(
+        { interaction_id: interactionId, handler: 'discord-interactions' },
+        { onConflict: 'interaction_id', ignoreDuplicates: true }
+      )
+      .select('id')
+      .maybeSingle()
+
+    if (!dedupeRow?.id) {
+      // 既に処理済み
+      return new Response(
+        JSON.stringify({ type: 6 }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+  }
 
   // PING に対して PONG を返す
   if (interaction.type === 1) {
@@ -536,6 +564,12 @@ serve(async (req) => {
       
       const requestId = interaction.data.custom_id.replace('gm_unavailable_', '')
       console.log('📋 Request ID:', requestId)
+      if (!isUuidLike(requestId)) {
+        return new Response(
+          JSON.stringify({ type: 4, data: { content: 'エラー: 無効なIDです', flags: 64 } }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
       
       // 即座にDEFERRED応答を返す
       const deferredResponse = new Response(
@@ -662,6 +696,12 @@ serve(async (req) => {
       const requestId = parts.slice(2).join('_')
       
       console.log('📋 Date index:', dateIndex, 'Request ID:', requestId)
+      if (!isUuidLike(requestId) || !Number.isFinite(dateIndex) || dateIndex < 0) {
+        return new Response(
+          JSON.stringify({ type: 4, data: { content: 'エラー: 無効なパラメータです', flags: 64 } }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
       
       // 即座にDEFERRED応答を返す（3秒タイムアウト回避）
       const deferredResponse = new Response(

@@ -98,13 +98,19 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     const dateParam = urlParams.get('date')
     const storeParam = urlParams.get('store')
     const slotParam = urlParams.get('slot')
+
+    const isUuidLike = (value: string): boolean =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
     
     if (tabParam === 'private') {
       setActiveTab('private')
       
       // 日付、店舗、時間帯が指定されている場合、それを選択状態にする
       if (dateParam && storeParam && slotParam) {
-        setSelectedStoreIds([storeParam])
+        // store がこのシナリオの組織の店舗に存在する場合のみ適用（不正なIDの注入対策）
+        if (isUuidLike(storeParam) && stores.some((s: any) => s.id === storeParam)) {
+          setSelectedStoreIds([storeParam])
+        }
         
         const slotMap = {
           morning: { label: '午前', startTime: '09:00', endTime: '12:00' },
@@ -113,12 +119,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         }
         
         const slot = slotMap[slotParam as keyof typeof slotMap]
-        if (slot) {
+        if (slot && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
           setSelectedTimeSlots([{ date: dateParam, slot }])
         }
       }
     }
-  }, [scenarioId, setSelectedStoreIds, setSelectedTimeSlots])
+  }, [scenarioId, stores, setSelectedStoreIds, setSelectedTimeSlots])
 
   // 貸切リクエスト完了時のハンドラ（選択状態をクリア）
   const handlePrivateBookingCompleteWithClear = useCallback(() => {

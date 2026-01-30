@@ -31,6 +31,9 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
   const dateParam = urlParams.get('date') || ''
   const storeId = urlParams.get('store') || ''
   const slotParam = urlParams.get('slot') || ''
+
+  const isUuidLike = (value: string): boolean =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
   
   // 日付を正しいフォーマットに変換
   const formatDate = (dateStr: string): string => {
@@ -72,7 +75,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       
       // シナリオデータを取得
       const scenarios = await scenarioApi.getAll()
-      const foundScenario = scenarios.find((s: any) => s.id === scenarioId)
+      const foundScenario = isUuidLike(scenarioId) ? scenarios.find((s: any) => s.id === scenarioId) : null
       
       if (!foundScenario) {
         logger.error('シナリオが見つかりません')
@@ -86,7 +89,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       setStores(storesData)
       
       // URLパラメータから選択済み店舗と時間帯を設定
-      if (storeId) {
+      if (isUuidLike(storeId) && storesData.some((s: any) => s.id === storeId)) {
         setSelectedStoreIds([storeId])
       }
       

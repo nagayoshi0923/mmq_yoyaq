@@ -1,7 +1,8 @@
+// @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, maskEmail, maskName } from '../_shared/security.ts'
+import { getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 
 interface PrivateBookingRejectionRequest {
   organizationId?: string  // マルチテナント対応
@@ -27,6 +28,12 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 認証・権限（管理者系のみ）
+    const authResult = await verifyAuth(req, ['admin', 'license_admin', 'owner'])
+    if (!authResult.success) {
+      return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -39,6 +46,10 @@ serve(async (req) => {
 
     // リクエストボディを取得
     const rejectionData: PrivateBookingRejectionRequest = await req.json()
+
+    if (!rejectionData.organizationId) {
+      return errorResponse('organizationId is required', 400, corsHeaders)
+    }
 
     // 組織設定からメール設定を取得
     const serviceClient = createClient(
@@ -210,7 +221,7 @@ Murder Mystery Queue (MMQ)
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'MMQ予約システム <noreply@mmq.game>',
+        from: `${senderName} <${senderEmail}>`,
         to: [rejectionData.customerEmail],
         subject: `【貸切リクエスト】${rejectionData.scenarioTitle}のお申し込みについて`,
         html: emailHtml,
@@ -240,11 +251,12 @@ Murder Mystery Queue (MMQ)
     )
 
   } catch (error) {
-    console.error('Error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('Error:', sanitizeErrorMessage(msg))
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'メール送信に失敗しました' 
+        error: sanitizeErrorMessage(msg || 'メール送信に失敗しました') 
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

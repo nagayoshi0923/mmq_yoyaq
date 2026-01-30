@@ -1,7 +1,8 @@
+// @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse } from '../_shared/security.ts'
+import { getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 
 interface BookingConfirmationRequest {
   reservationId: string
@@ -363,11 +364,11 @@ Murder Mystery Queue (MMQ)
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error('❌ Error:', errorMessage)
+    console.error('❌ Error:', sanitizeErrorMessage(errorMessage))
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: errorMessage || 'メール送信に失敗しました' 
+        error: sanitizeErrorMessage(errorMessage || 'メール送信に失敗しました') 
       }),
       { headers: corsHeaders, status: 400 }
     )

@@ -21,8 +21,47 @@ interface QueuedNotification {
   max_retries: number
 }
 
+function isAllowedDiscordUrl(rawUrl: string): boolean {
+  try {
+    const url = new URL(rawUrl)
+    if (url.protocol !== 'https:') return false
+    if (url.username || url.password) return false
+    if (url.port && url.port !== '443') return false
+
+    // allowlist: Discord公式ドメインのみ
+    const allowedHosts = new Set([
+      'discord.com',
+      'discordapp.com',
+      'canary.discord.com',
+      'ptb.discord.com',
+    ])
+    if (!allowedHosts.has(url.hostname)) return false
+
+    // bot channel API or webhook API のみ許可
+    const p = url.pathname
+    const isChannelApi =
+      /^\/api\/v\d+\/channels\/\d+\/messages\/?$/.test(p) ||
+      /^\/api\/channels\/\d+\/messages\/?$/.test(p)
+    const isWebhook =
+      /^\/api\/webhooks\/\d+\/[^/]+\/?$/.test(p) ||
+      /^\/api\/v\d+\/webhooks\/\d+\/[^/]+\/?$/.test(p)
+
+    return isChannelApi || isWebhook
+  } catch (_e) {
+    return false
+  }
+}
+
 function isDiscordChannelApi(url: string): boolean {
-  return typeof url === 'string' && url.includes('discord.com/api/') && url.includes('/channels/') && url.includes('/messages')
+  try {
+    const u = new URL(url)
+    return (
+      u.hostname === 'discord.com' &&
+      /^\/api\/v\d+\/channels\/\d+\/messages\/?$/.test(u.pathname)
+    )
+  } catch (_e) {
+    return false
+  }
 }
 
 const PRIVATE_BOOKING_RATE_LIMIT_PER_MINUTE =
@@ -109,6 +148,20 @@ serve(async (req) => {
 
     for (const notification of pendingNotifications as QueuedNotification[]) {
       try {
+        // 🔒 URL検証（SSRF/任意ホスト送信の防止）
+        if (!isAllowedDiscordUrl(notification.webhook_url)) {
+          await serviceClient
+            .from('discord_notification_queue')
+            .update({
+              status: 'failed',
+              last_error: 'invalid_discord_url',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', notification.id)
+          console.error('❌ 不正なDiscord URLのため送信不可:', notification.id)
+          continue
+        }
+
         // 通知種別ごとのON/OFF（キルスイッチ）
         // private booking をOFFにしている場合は送らない（大量送信の再発防止）
         if (notification.notification_type === 'private_booking_request') {

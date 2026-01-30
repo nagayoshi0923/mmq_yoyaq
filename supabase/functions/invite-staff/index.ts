@@ -1,6 +1,8 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
+import { getCorsHeaders, maskEmail, maskName, sanitizeErrorMessage } from '../_shared/security.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -9,13 +11,6 @@ const SITE_URL = (Deno.env.get('SITE_URL') || 'https://mmq-yoyaq.vercel.app').re
 const SET_PASSWORD_REDIRECT = `${SITE_URL}/#/set-password`
 const RESET_PASSWORD_REDIRECT = `${SITE_URL}/#/reset-password`
 
-// 許可するオリジン（本番環境用）
-const ALLOWED_ORIGINS = [
-  'https://mmq-yoyaq.vercel.app',
-  'https://mmq-yoyaq-git-main-nagayoshi0923s-projects.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:3000',
-]
 
 // サービスロールクライアント（管理操作用）
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -31,31 +26,6 @@ interface InviteStaffRequest {
   role?: string[]
   stores?: string[]
   organization_id?: string  // マルチテナント対応
-}
-
-// メールアドレスをマスキングするヘルパー関数
-function maskEmail(email: string): string {
-  if (!email || !email.includes('@')) return '***'
-  const [local, domain] = email.split('@')
-  const maskedLocal = local.length > 2 ? local.slice(0, 2) + '***' : '***'
-  return `${maskedLocal}@${domain}`
-}
-
-// 名前をマスキングするヘルパー関数
-function maskName(name: string): string {
-  if (!name || name.length === 0) return '***'
-  return name.slice(0, 1) + '***'
-}
-
-// CORSヘッダーを生成
-function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
-  return {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  }
 }
 
 serve(async (req) => {
@@ -490,11 +460,11 @@ serve(async (req) => {
     )
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error('❌ invite-staff error:', errorMessage)
+    console.error('❌ invite-staff error:', sanitizeErrorMessage(errorMessage))
     return new Response(
       JSON.stringify({
         success: false,
-        error: errorMessage,
+        error: sanitizeErrorMessage(errorMessage),
       }),
       { status: 500, headers: corsHeaders }
     )

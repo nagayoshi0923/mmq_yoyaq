@@ -1,7 +1,9 @@
 // シフト未提出者へのリマインダー通知
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getDiscordSettings } from '../_shared/organization-settings.ts'
+import { errorResponse, sanitizeErrorMessage, timingSafeEqualString } from '../_shared/security.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -10,16 +12,25 @@ const FALLBACK_DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 interface ReminderPayload {
-  organizationId?: string  // マルチテナント対応
+  organizationId: string  // マルチテナント対応（必須）
   year: number
   month: number
   deadline: string
 }
 
+// Service Role Key による呼び出しかチェック（Cron向け）
+function isServiceRoleCall(req: Request): boolean {
+  const authHeader = req.headers.get('Authorization')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!authHeader || !serviceRoleKey) return false
+  const token = authHeader.replace('Bearer ', '')
+  return timingSafeEqualString(token, serviceRoleKey)
+}
+
 /**
  * 未提出者リストを取得
  */
-async function getUnsubmittedStaff(year: number, month: number): Promise<Array<{
+async function getUnsubmittedStaff(organizationId: string, year: number, month: number): Promise<Array<{
   id: string
   name: string
   discord_user_id?: string
@@ -28,7 +39,8 @@ async function getUnsubmittedStaff(year: number, month: number): Promise<Array<{
   const { data: allStaff, error: staffError } = await supabase
     .from('staff')
     .select('id, name, discord_user_id')
-    .eq('is_active', true)
+    .eq('organization_id', organizationId)
+    .eq('status', 'active')
   
   if (staffError) {
     throw new Error(`Failed to fetch staff: ${staffError.message}`)
@@ -67,6 +79,7 @@ async function getUnsubmittedStaff(year: number, month: number): Promise<Array<{
  */
 async function sendDiscordReminder(
   channelId: string,
+  botToken: string,
   unsubmittedStaff: Array<{ id: string; name: string; discord_user_id?: string }>,
   year: number,
   month: number,
@@ -120,7 +133,7 @@ async function sendDiscordReminder(
     {
       method: 'POST',
       headers: {
-        'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+        'Authorization': `Bot ${botToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
@@ -138,13 +151,26 @@ async function sendDiscordReminder(
 
 serve(async (req) => {
   try {
+    // Service Role のみ許可（Cronジョブからの呼び出し）
+    if (!isServiceRoleCall(req)) {
+      return errorResponse('Unauthorized', 401, { 'Content-Type': 'application/json' })
+    }
+
     const payload: ReminderPayload = await req.json()
-    console.log('📨 Reminder payload:', payload)
+    console.log('📨 Reminder payload received')
     
     const { year, month, deadline } = payload
+    const organizationId = payload.organizationId
+
+    if (!organizationId) {
+      return new Response(JSON.stringify({ success: false, error: 'organizationId is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
     
     // 未提出者を取得
-    const unsubmittedStaff = await getUnsubmittedStaff(year, month)
+    const unsubmittedStaff = await getUnsubmittedStaff(organizationId, year, month)
     
     if (unsubmittedStaff.length === 0) {
       console.log('✅ All staff have submitted shifts')
@@ -158,11 +184,14 @@ serve(async (req) => {
       )
     }
     
-    // チャンネルIDを取得
-    const { data: settings } = await supabase
+    const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+    // チャンネルID/設定を取得（組織スコープ）
+    const { data: settings } = await serviceClient
       .from('notification_settings')
       .select('discord_shift_channel_id, shift_notification_enabled')
-      .single()
+      .eq('organization_id', organizationId)
+      .maybeSingle()
     
     if (!settings?.shift_notification_enabled) {
       console.log('⚠️ Shift notifications are disabled')
@@ -181,10 +210,18 @@ serve(async (req) => {
     if (!channelId) {
       throw new Error('Discord shift channel ID is not configured')
     }
+
+    // Bot token（組織別 > fallback）
+    const discord = await getDiscordSettings(serviceClient, organizationId)
+    const botToken = discord.botToken || FALLBACK_DISCORD_BOT_TOKEN
+    if (!botToken) {
+      throw new Error('Discord bot token is not configured')
+    }
     
     // Discord通知を送信
     await sendDiscordReminder(
       channelId,
+      botToken,
       unsubmittedStaff,
       year,
       month,
@@ -202,10 +239,11 @@ serve(async (req) => {
     )
     
   } catch (error) {
-    console.error('❌ Error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('❌ Error:', sanitizeErrorMessage(msg))
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+        error: sanitizeErrorMessage(msg || 'Unknown error')
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
