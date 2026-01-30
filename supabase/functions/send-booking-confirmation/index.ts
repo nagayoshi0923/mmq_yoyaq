@@ -102,6 +102,72 @@ serve(async (req) => {
       throw new Error('メール送信サービスが設定されていません')
     }
 
+    // -------------------------------------------------------------------------
+    // 冪等性: booking_email_queue に「1予約×1メール種別」で記録し、二重送信を防ぐ
+    // -------------------------------------------------------------------------
+    const emailType = 'booking_confirmation'
+    if (resolvedOrganizationId) {
+      try {
+        const { data: existingQueue } = await serviceClient
+          .from('booking_email_queue')
+          .select('id, status, retry_count, max_retries')
+          .eq('reservation_id', bookingData.reservationId)
+          .eq('email_type', emailType)
+          .maybeSingle()
+
+        // 既に完了なら二重送信しない
+        if (existingQueue?.status === 'completed') {
+          console.log('📭 Already sent (idempotent):', bookingData.reservationNumber)
+          return new Response(
+            JSON.stringify({ success: true, message: '既に送信済みです' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          )
+        }
+
+        // 無ければ作成（UNIQUE: reservation_id + email_type）
+        if (!existingQueue?.id) {
+          await serviceClient
+            .from('booking_email_queue')
+            .upsert(
+              {
+                reservation_id: bookingData.reservationId,
+                organization_id: resolvedOrganizationId,
+                email_type: emailType,
+                customer_email: bookingData.customerEmail,
+                customer_name: bookingData.customerName,
+                scenario_title: bookingData.scenarioTitle,
+                event_date: bookingData.eventDate,
+                start_time: bookingData.startTime,
+                end_time: bookingData.endTime,
+                store_name: bookingData.storeName,
+                store_address: bookingData.storeAddress ?? null,
+                participant_count: bookingData.participantCount,
+                total_price: bookingData.totalPrice,
+                reservation_number: bookingData.reservationNumber,
+                status: 'processing',
+                retry_count: 0,
+                max_retries: 3,
+                updated_at: new Date().toISOString()
+              },
+              { onConflict: 'reservation_id,email_type' }
+            )
+        } else {
+          // 既存がある場合は processing に（送信中）
+          await serviceClient
+            .from('booking_email_queue')
+            .update({
+              status: 'processing',
+              retry_count: (existingQueue.retry_count ?? 0) + 1,
+              last_retry_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingQueue.id)
+        }
+      } catch (queueError) {
+        console.warn('⚠️ booking_email_queue 記録に失敗（送信は継続）:', queueError)
+      }
+    }
+
     // 日付フォーマット関数
     const formatDate = (dateStr: string): string => {
       const date = new Date(dateStr)
@@ -248,11 +314,43 @@ Murder Mystery Queue (MMQ)
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
       console.error('Resend API error:', errorData)
+      // キューがあれば pending に戻してリトライできるようにする
+      if (resolvedOrganizationId) {
+        try {
+          await serviceClient
+            .from('booking_email_queue')
+            .update({
+              status: 'pending',
+              last_error: JSON.stringify(errorData),
+              updated_at: new Date().toISOString()
+            })
+            .eq('reservation_id', bookingData.reservationId)
+            .eq('email_type', emailType)
+        } catch (_e) {
+          // noop
+        }
+      }
       throw new Error(`メール送信に失敗しました: ${JSON.stringify(errorData)}`)
     }
 
     const result = await resendResponse.json()
     console.log('✅ Email sent successfully to:', maskEmail(bookingData.customerEmail))
+
+    // キューを completed に更新（以後の二重送信を防ぐ）
+    if (resolvedOrganizationId) {
+      try {
+        await serviceClient
+          .from('booking_email_queue')
+          .update({
+            status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('reservation_id', bookingData.reservationId)
+          .eq('email_type', emailType)
+      } catch (_e) {
+        // noop
+      }
+    }
 
     return new Response(
       JSON.stringify({ 
