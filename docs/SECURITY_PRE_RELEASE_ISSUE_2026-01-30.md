@@ -1,7 +1,7 @@
 # 本番リリース前 セキュリティ監査（意地悪視点）リスク台帳 / ISSUE
 
 **作成日**: 2026-01-30  
-**最終更新日**: 2026-01-30 23:30  
+**最終更新日**: 2026-01-31 00:10  
 **対象**: 予約サイト/予約システム（フロント: `src/`、DB/RLS/RPC: `database/migrations/`・`supabase/migrations/`、Edge Functions: `supabase/functions/`）  
 **スタンス**:
 - 既存ISSUE/既存監査を信じない（「直したつもり」を疑う）
@@ -27,6 +27,7 @@
 - 2026-01-30 18:00: SEC-P0-01, P0-03, P0-05, P0-06 修正完了
 - 2026-01-30 22:30: SEC-P0-04 貸切承認RPC化 + 本番DBでpass確認、RLS影響を排除（fail-closed）
 - 2026-01-30 23:30: SEC-P1-03 監査証跡（reservations_history）を追加（DBトリガで強制）
+- 2026-01-31 00:10: SEC-P0-02 予約作成RPCの料金/日時をサーバー確定に統一、本番DBで定義確認
 
 ---
 
@@ -37,9 +38,9 @@
 - **SEC-P0-01**: `reservations` の「顧客UPDATE許可」が広すぎる → **✅ 修正完了**（026マイグレーション）
   - 根拠: `database/migrations/025_allow_customer_reservation_update.sql`
   - 対策: 重要列の変更を WITH CHECK でブロック
-- **SEC-P0-02**: 予約作成RPCが料金・日時をサーバー側で再計算/検証していない → **⏸️ 本番DB確認待ち**
-  - 根拠: RPC関数のシグネチャ不一致（022 vs 005/006）
-  - 状況: 調査結果は `docs/SECURITY_INVESTIGATION_RESULTS_2026-01-30.md` 参照
+- **SEC-P0-02**: 予約作成RPCが料金・日時をサーバー側で再計算/検証していない → **✅ 修正完了（本番DBで定義確認）**
+  - 対策: 旧RPC/新RPCともに **料金・日時はサーバー側で確定**（クライアント入力を無視）
+  - 本番検証: `docs/deployment/SEC_P0_02_PROD_DB_CHECK_RUNBOOK.md`
 - **SEC-P0-03**: `notify-waitlist` の **bookingUrlが入力値** → **✅ 修正完了**（サーバー側生成に変更）
   - 根拠: `supabase/functions/notify-waitlist/index.ts`
   - 対策: organizations テーブルから slug/domain を取得して生成
@@ -194,6 +195,10 @@
   - DB側で `schedule_events` から **日時を確定**し、`requested_datetime` は入力値を無視
   - 価格はDB側で `scenarios`/`reservation_settings` から再計算（少なくとも範囲/整合チェック）
   - 予約番号生成・価格計算はサーバー側起点（冪等性キーも導入）
+  - ✅ 実施済み:
+    - `create_reservation_with_lock`（互換維持版）を **料金/日時サーバー確定**に安全化
+    - `create_reservation_with_lock_v2` を追加し、フロントは v2 優先 + 旧RPCフォールバック
+    - 本番DB確認Runbook（SQLファイル含む）で「改ざんしても反映されない」ことを確認
 
 ---
 

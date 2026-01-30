@@ -8,6 +8,25 @@
 
 ## 修正完了項目
 
+### ✅ SEC-P0-02: 料金/日時のクライアント入力（予約作成RPC）
+
+**問題**: API直叩きで `requested_datetime` や料金（`total_price/unit_price/base_price`）を改ざんして予約作成できる疑い
+
+**修正内容**:
+- **DB（Supabase migration）**:
+  - `supabase/migrations/20260130190000_harden_create_reservation_with_lock_server_pricing.sql`
+    - 既存 `create_reservation_with_lock` のシグネチャを維持したまま、**料金/日時はサーバー側で確定**（入力値を無視）
+  - `supabase/migrations/20260130_create_reservation_with_lock_v2.sql`
+    - `create_reservation_with_lock_v2` を追加（必須パラメータのみ、料金/日時は常にサーバー計算）
+- **フロント**:
+  - `src/lib/reservationApi.ts` で v2 優先呼び出し + 旧RPCフォールバック（段階移行）
+
+**本番検証**:
+- Runbook: `docs/deployment/SEC_P0_02_PROD_DB_CHECK_RUNBOOK.md`
+- SQL: `docs/deployment/sql/SEC_P0_02_test_old_rpc_one_query.sql` / `SEC_P0_02_test_v2_one_query.sql`
+
+---
+
 ### ✅ SEC-P1-03: reservations の監査証跡（reservations_history）
 
 **問題**: 予約の状態変更（誰が/いつ/何を）が永続的に追えず、事故時に再現・責任切り分けが困難
@@ -112,21 +131,6 @@
 ---
 
 ## 保留項目
-
-### ⏸️ SEC-P0-02: 料金/日時のクライアント入力
-
-**状況**: RPC関数のシグネチャ不一致を確認
-- 022（最新）: 料金パラメータなし
-- 005/006（古い）: 料金パラメータあり
-- フロント: 料金パラメータを送信
-
-**判定**: 本番DB状態の確認が必要
-- もし022が適用済みなら、予約システムが壊れているはず
-- もし005/006が有効なら、料金改ざんリスクあり
-
-**対応**: 本番DB確認後に判断
-
----
 
 ### ⏸️ SEC-P0-04: 貸切承認の非アトミック性
 
