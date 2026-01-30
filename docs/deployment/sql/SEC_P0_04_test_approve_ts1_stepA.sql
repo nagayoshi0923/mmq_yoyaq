@@ -138,7 +138,7 @@ guard AS (
       WHEN (SELECT selected_end_time FROM picked) IS NULL THEN 'CANDIDATE_END_MISSING'
       ELSE NULL
     END AS guard_error
-),
+)
 SELECT
   set_config('sec_p0_04.guard_error', COALESCE((SELECT guard_error FROM guard), ''), true) AS _guard,
   set_config('sec_p0_04.debug_stats', (SELECT to_jsonb(stats)::text FROM stats), true) AS _stats,
