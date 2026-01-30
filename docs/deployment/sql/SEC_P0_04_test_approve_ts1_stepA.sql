@@ -9,6 +9,11 @@ BEGIN;
 -- Supabase SQL Editorでは `SET LOCAL ROLE authenticated` にするとRLSで対象行が見えないことがある。
 -- ここでは SQL Editor（高権限）でピック/検証を行い、RPC呼び出しはJWT claimを staff に偽装して実行する。
 
+-- -----------------------------------------------------------------------------
+-- まず「候補選定 + RPC実行」を行い、結果をセッション変数へ保存する
+-- （同一ステートメント内だと更新が見えないことがあるため、検証は別ステートメントで行う）
+-- -----------------------------------------------------------------------------
+
 WITH base_reservations AS (
   SELECT
     r.id AS reservation_id,
@@ -134,19 +139,20 @@ guard AS (
       ELSE NULL
     END AS guard_error
 ),
-auth AS (
-  SELECT
-    set_config('request.jwt.claim.sub', (SELECT gm_user_id FROM picked)::text, true) AS _sub,
-    set_config(
-      'request.jwt.claims',
-      json_build_object('sub', (SELECT gm_user_id FROM picked), 'role', 'authenticated')::text,
-      true
-    ) AS _claims
-  WHERE (SELECT guard_error FROM guard) IS NULL
-),
-call AS (
-  SELECT
-    (SELECT reservation_id FROM picked) AS reservation_id,
+SELECT
+  set_config('sec_p0_04.guard_error', COALESCE((SELECT guard_error FROM guard), ''), true) AS _guard,
+  set_config('sec_p0_04.debug_stats', (SELECT to_jsonb(stats)::text FROM stats), true) AS _stats,
+  -- JWT偽装（staffとしてRPCを叩く）
+  set_config('request.jwt.claim.sub', (SELECT gm_user_id FROM picked)::text, true) AS _sub,
+  set_config(
+    'request.jwt.claims',
+    json_build_object('sub', (SELECT gm_user_id FROM picked), 'role', 'authenticated')::text,
+    true
+  ) AS _claims,
+  -- reservation_id / schedule_event_id を保存（検証は次のSELECTで行う）
+  set_config('sec_p0_04.reservation_id', (SELECT reservation_id FROM picked)::text, true) AS _rid,
+  set_config(
+    'sec_p0_04.schedule_event_id',
     approve_private_booking(
       (SELECT reservation_id FROM picked),
       (SELECT selected_date FROM picked),
@@ -157,31 +163,43 @@ call AS (
       (SELECT candidate_datetimes FROM picked),
       (SELECT scenario_title FROM picked),
       (SELECT customer_name FROM picked)
-    ) AS schedule_event_id
-  FROM auth
+    )::text,
+    true
+  ) AS _seid
+WHERE (SELECT guard_error FROM guard) IS NULL;
+
+-- -----------------------------------------------------------------------------
+-- 検証（最終SELECTが結果として表示される）
+-- -----------------------------------------------------------------------------
+
+WITH vars AS (
+  SELECT
+    NULLIF(current_setting('sec_p0_04.guard_error', true), '') AS guard_error,
+    current_setting('sec_p0_04.debug_stats', true) AS debug_stats_text,
+    current_setting('sec_p0_04.reservation_id', true)::uuid AS reservation_id,
+    current_setting('sec_p0_04.schedule_event_id', true)::uuid AS schedule_event_id
 ),
 check_after AS (
   SELECT
-    c.reservation_id,
-    c.schedule_event_id,
+    v.reservation_id,
+    v.schedule_event_id,
     r.status AS reservation_status,
     r.schedule_event_id AS reservation_schedule_event_id,
     se.id AS schedule_event_exists
-  FROM call c
-  JOIN reservations r ON r.id = c.reservation_id
-  LEFT JOIN schedule_events se ON se.id = c.schedule_event_id
+  FROM vars v
+  JOIN reservations r ON r.id = v.reservation_id
+  LEFT JOIN schedule_events se ON se.id = v.schedule_event_id
 )
 SELECT
-  COALESCE((SELECT reservation_id FROM picked), NULL) AS reservation_id,
-  COALESCE((SELECT schedule_event_id FROM call), NULL) AS schedule_event_id,
+  (SELECT reservation_id FROM vars) AS reservation_id,
+  (SELECT schedule_event_id FROM vars) AS schedule_event_id,
   (
-    (SELECT guard_error FROM guard) IS NULL
+    (SELECT guard_error FROM vars) IS NULL
     AND (SELECT reservation_status FROM check_after) = 'confirmed'
-    AND (SELECT reservation_schedule_event_id FROM check_after) = (SELECT schedule_event_id FROM call)
+    AND (SELECT reservation_schedule_event_id FROM check_after) = (SELECT schedule_event_id FROM vars)
   ) AS pass,
-  (SELECT guard_error FROM guard) AS debug_guard_error,
-  (SELECT to_jsonb(stats) FROM stats) AS debug_stats,
-  -- 参考: RLS等でschedule_eventsが見えない環境があるため、存在確認は補助情報として返す
+  (SELECT guard_error FROM vars) AS debug_guard_error,
+  COALESCE((SELECT debug_stats_text::jsonb FROM vars), '{}'::jsonb) AS debug_stats,
   ((SELECT schedule_event_exists FROM check_after) IS NOT NULL) AS debug_schedule_event_visible,
   (SELECT reservation_status FROM check_after) AS debug_reservation_status,
   (SELECT reservation_schedule_event_id FROM check_after) AS debug_reservation_schedule_event_id;
