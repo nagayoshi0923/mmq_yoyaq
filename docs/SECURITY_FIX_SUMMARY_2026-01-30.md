@@ -1,12 +1,73 @@
 # セキュリティ修正サマリ（2026-01-30）
 
-**修正日**: 2026-01-30  
+**修正日**: 2026-01-31  
 **元ISSUE**: `docs/SECURITY_PRE_RELEASE_ISSUE_2026-01-30.md`  
 **修正計画**: `docs/SECURITY_FIX_PLAN_2026-01-30.md`
 
 ---
 
 ## 修正完了項目
+
+### ✅ SEC-P1-XX: 冪等性（予約作成/予約確認メール）
+
+**問題**: 通信断/リトライ/二重クリックで、予約やメールが二重処理される
+
+**修正内容**:
+- **フロント**:
+  - `src/pages/BookingConfirmation/hooks/useBookingSubmit.ts`
+    - 同一送信内で `reservation_number` を固定してリトライ時に同じ番号を使用
+  - `src/lib/reservationApi.ts`
+    - `reservation_number` を受け取り、UNIQUE衝突時は既存予約を取得して成功扱い（1件に収束）
+- **DB（Supabase migration）**:
+  - `supabase/migrations/20260131003000_booking_email_queue_idempotency.sql`
+    - `booking_email_queue(reservation_id,email_type)` を一意化
+- **Edge Function**:
+  - `supabase/functions/send-booking-confirmation/index.ts`
+    - `booking_email_queue` を参照し、`completed` なら送信をスキップ
+    - 成功/失敗でキューを更新してリトライ基盤と整合
+
+**本番検証**:
+- SQL: `docs/deployment/sql/SEC_P1_XX_ts0_check_booking_email_queue_unique.sql`（`unique_index_exists=true`）
+
+---
+
+### ✅ SEC-P1-01: 予約制限チェック（fail-open排除 + DB強制）
+
+**修正内容**:
+- **フロント**: `src/pages/BookingConfirmation/hooks/useBookingSubmit.ts`
+  - 予約制限の取得/判定エラー時は fail-closed（予約不可）に統一
+- **DB（Supabase migration）**: `supabase/migrations/20260130233000_enforce_reservation_limits_server_side.sql`
+  - `create_reservation_with_lock_v2` / `create_reservation_with_lock` に締切/上限/件数制限を追加
+
+---
+
+### ✅ SEC-P1-02: 在庫整合性（current_participants）
+
+**修正内容**:
+- **DB（Supabase migration）**: `supabase/migrations/20260130260000_recalc_current_participants_trigger.sql`
+  - `reservations` 変更時に `schedule_events.current_participants` を再集計して追従
+
+**本番検証**:
+- SQL: `docs/deployment/sql/SEC_P1_02_ts0_check_trigger.sql`（`trigger_exists=true`）
+
+---
+
+### ✅ SEC-P2-01: 予約詳細のID列挙ノイズ
+
+**修正内容**:
+- **フロント**: `src/pages/MyPage/pages/ReservationDetailPage.tsx`
+  - `maybeSingle()` に統一し、「存在しない/権限なし」を区別しないメッセージに統一
+
+---
+
+### ✅ SEC-P2-02: 障害時fail-openの残存
+
+**修正内容**:
+- **フロント**:
+  - `src/pages/BookingConfirmation/hooks/useBookingSubmit.ts`（予約制限はfail-closed化済み）
+  - `src/pages/CustomerBookingPage.tsx`（営業時間チェックを fail-closed 寄りに）
+
+---
 
 ### ✅ SEC-P0-02: 料金/日時のクライアント入力（予約作成RPC）
 
