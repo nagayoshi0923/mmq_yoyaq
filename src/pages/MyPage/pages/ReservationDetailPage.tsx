@@ -116,7 +116,6 @@ export function ReservationDetailPage() {
   }, [reservationId])
 
   const fetchReservation = async () => {
-    logger.log('Fetching reservation with ID:', reservationId)
     try {
       // 予約データを取得
       const { data: resData, error: resError } = await supabase
@@ -127,11 +126,16 @@ export function ReservationDetailPage() {
           notes, scenario_id, store_id, organization_id, created_at, schedule_event_id
         `)
         .eq('id', reservationId)
-        .single()
+        // RLSにより「存在しない」と同様に扱われるケースもあるためmaybeSingleで統一
+        .maybeSingle()
       
-      logger.log('Reservation data:', resData, 'Error:', resError)
-      
-      if (resError) throw resError
+      // 列挙ノイズ対策: 存在しない/権限なし/取得失敗を区別せず同じUXに寄せる
+      if (resError || !resData) {
+        logger.warn('Reservation fetch failed or not accessible')
+        toast.error('予約が見つかりません')
+        setReservation(null)
+        return
+      }
       
       // schedule_eventを別途取得
       let scheduleEvent = null
@@ -140,9 +144,8 @@ export function ReservationDetailPage() {
           .from('schedule_events')
           .select('date, start_time, category, current_participants, max_participants')
           .eq('id', resData.schedule_event_id)
-          .single()
-        logger.log('Schedule event data:', eventData, 'Error:', eventError)
-        if (eventData) {
+          .maybeSingle()
+        if (!eventError && eventData) {
           scheduleEvent = {
             date: eventData.date,
             start_time: eventData.start_time,
@@ -152,7 +155,7 @@ export function ReservationDetailPage() {
           }
         }
       } else {
-        logger.log('No schedule_event_id found')
+        // noop
       }
       
       setReservation({
@@ -205,7 +208,10 @@ export function ReservationDetailPage() {
         if (scenarioData) setScenario(scenarioData)
       }
     } catch (error) {
+      // 列挙ノイズ対策: 例外も同様に扱う
       logger.error('Failed to fetch reservation:', error)
+      toast.error('予約が見つかりません')
+      setReservation(null)
     } finally {
       setLoading(false)
     }
