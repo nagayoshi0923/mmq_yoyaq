@@ -26,7 +26,9 @@ async function verifySignature(req: Request, body: string): Promise<boolean> {
   try {
     const encoder = new TextEncoder()
     const message = encoder.encode(timestamp + body)
-    const publicKey = hexToUint8Array(DISCORD_PUBLIC_KEY)
+    const publicKeyHex = FALLBACK_DISCORD_PUBLIC_KEY
+    if (!publicKeyHex) return false
+    const publicKey = hexToUint8Array(publicKeyHex)
     const signatureBytes = hexToUint8Array(signature)
     
     const key = await crypto.subtle.importKey(
@@ -87,7 +89,8 @@ async function toggleButtonState(
   staffId: string,
   date: string,
   timeSlot: string,
-  notificationId: string
+  notificationId: string,
+  organizationId: string
 ): Promise<boolean> {
   // 現在の状態を取得
   const currentState = await getButtonState(staffId, date, timeSlot)
@@ -113,6 +116,7 @@ async function toggleButtonState(
   await supabase
     .from('shift_submissions')
     .upsert({
+      organization_id: organizationId,
       staff_id: staffId,
       date,
       [column]: newState,
@@ -133,12 +137,15 @@ async function updateMessageButtons(
   messageId: string,
   components: any[]
 ): Promise<void> {
+  const botToken = FALLBACK_DISCORD_BOT_TOKEN
+  if (!botToken) throw new Error('Discord Bot Token not configured')
+
   const response = await fetch(
     `https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`,
     {
       method: 'PATCH',
       headers: {
-        'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+        'Authorization': `Bot ${botToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ components })
@@ -177,7 +184,7 @@ async function handleShiftButtonClick(interaction: any): Promise<Response> {
   const discordUserId = interaction.member?.user?.id || interaction.user?.id
   const { data: staff, error: staffError } = await supabase
     .from('staff')
-    .select('id, name')
+    .select('id, name, organization_id')
     .eq('discord_user_id', discordUserId)
     .single()
   
@@ -194,8 +201,18 @@ async function handleShiftButtonClick(interaction: any): Promise<Response> {
     )
   }
   
+  if (!staff.organization_id) {
+    return new Response(
+      JSON.stringify({ 
+        type: 4,
+        data: { content: 'エラー: 組織情報が取得できません', flags: 64 }
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
   // ボタン状態をトグル
-  const newState = await toggleButtonState(staff.id, date, timeSlot, notificationId)
+  const newState = await toggleButtonState(staff.id, date, timeSlot, notificationId, staff.organization_id)
   
   // メッセージのボタンを更新
   const message = interaction.message

@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { hmac } from 'https://deno.land/x/hmac@v2.0.1/mod.ts'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse, timingSafeEqualString } from '../_shared/security.ts'
 
 function isServiceRoleCall(req: Request): boolean {
   const authHeader = req.headers.get('Authorization')
@@ -9,7 +9,7 @@ function isServiceRoleCall(req: Request): boolean {
 
   if (!authHeader || !serviceRoleKey) return false
   const token = authHeader.replace('Bearer ', '')
-  return token === serviceRoleKey
+  return timingSafeEqualString(token, serviceRoleKey)
 }
 
 function isProbablyPrivateIpHost(hostname: string): boolean {

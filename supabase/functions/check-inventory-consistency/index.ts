@@ -9,7 +9,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString } from '../_shared/security.ts'
 import { sendDiscordNotificationWithRetry } from '../_shared/organization-settings.ts'
 
 /**
@@ -23,7 +23,7 @@ function isServiceRoleCall(req: Request): boolean {
   
   // Service Role Key の先頭20文字で簡易チェック
   const token = authHeader.replace('Bearer ', '')
-  return token === serviceRoleKey
+  return timingSafeEqualString(token, serviceRoleKey)
 }
 
 serve(async (req) => {

@@ -38,14 +38,24 @@ const formatReservationDeadlineLabel = (reservationDeadlineHours: number): strin
 }
 
 // 参加費を計算する関数
-const calculateParticipationFee = async (scenarioId: string, startTime: string, date: string): Promise<number> => {
+const calculateParticipationFee = async (
+  scenarioId: string,
+  startTime: string,
+  date: string,
+  organizationId?: string
+): Promise<number> => {
   try {
     // シナリオの料金設定を取得
-    const { data: scenario, error } = await supabase
+    let query = supabase
       .from('scenarios')
       .select('participation_fee, participation_costs')
       .eq('id', scenarioId)
-      .single()
+
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId)
+    }
+
+    const { data: scenario, error } = await query.single()
 
     if (error) {
       logger.error('シナリオ料金設定取得エラー:', error)
@@ -204,7 +214,12 @@ export function CustomerBookingPage() {
             max_participants: event.max_participants || event.capacity || 8,
             current_participants: event.current_participants || 0,
             available_seats: (event.max_participants || event.capacity || 8) - (event.current_participants || 0),
-            participation_fee: await calculateParticipationFee(event.scenario_id, event.start_time, event.date), // 料金設定から計算
+            participation_fee: await calculateParticipationFee(
+              event.scenario_id,
+              event.start_time,
+              event.date,
+              organization?.id
+            ), // 料金設定から計算
             is_reservation_enabled: event.is_reservation_enabled,
             reservation_deadline_hours: event.reservation_deadline_hours ?? 0
             })
@@ -228,7 +243,7 @@ export function CustomerBookingPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [organization?.id])
 
   const calculateDuration = (startTime: string, endTime: string): number => {
     const [startHour, startMin] = startTime.split(':').map(Number)

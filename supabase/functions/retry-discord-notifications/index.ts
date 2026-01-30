@@ -7,7 +7,7 @@
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getCorsHeaders, errorResponse, sanitizeErrorMessage, timingSafeEqualString } from '../_shared/security.ts'
 import { getDiscordSettings, getNotificationSettings } from '../_shared/organization-settings.ts'
 
 interface QueuedNotification {
@@ -53,7 +53,7 @@ function isServiceRoleCall(req: Request): boolean {
   if (!authHeader || !serviceRoleKey) return false
   
   const token = authHeader.replace('Bearer ', '')
-  return token === serviceRoleKey
+  return timingSafeEqualString(token, serviceRoleKey)
 }
 
 serve(async (req) => {

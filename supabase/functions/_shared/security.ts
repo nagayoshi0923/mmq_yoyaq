@@ -19,13 +19,30 @@ export const ALLOWED_ORIGINS = [
  * @returns CORSヘッダーオブジェクト
  */
 export function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : null
   return {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': allowedOrigin,
+    ...(allowedOrigin ? { 'Access-Control-Allow-Origin': allowedOrigin } : {}),
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   }
+}
+
+/**
+ * 文字列の（概ね）定数時間比較
+ * - 長さの違いで早期returnしない
+ * - service role key のような固定長トークン比較用途
+ */
+export function timingSafeEqualString(a: string, b: string): boolean {
+  const aBytes = new TextEncoder().encode(a || '')
+  const bBytes = new TextEncoder().encode(b || '')
+
+  const len = Math.max(aBytes.length, bBytes.length)
+  let diff = aBytes.length ^ bBytes.length
+  for (let i = 0; i < len; i++) {
+    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0)
+  }
+  return diff === 0
 }
 
 /**

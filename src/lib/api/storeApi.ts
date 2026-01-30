@@ -64,9 +64,16 @@ export const storeApi = {
 
   // 店舗の表示順序を一括更新
   async updateDisplayOrder(storeOrders: { id: string; display_order: number }[]): Promise<void> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) throw new Error('組織情報が取得できません。再ログインしてください。')
+
     // 並列で更新
     const updates = storeOrders.map(({ id, display_order }) =>
-      supabase.from('stores').update({ display_order }).eq('id', id)
+      supabase
+        .from('stores')
+        .update({ display_order })
+        .eq('id', id)
+        .eq('organization_id', orgId)
     )
     
     const results = await Promise.all(updates)
@@ -96,10 +103,14 @@ export const storeApi = {
 
   // 店舗を更新
   async update(id: string, updates: Partial<Store>): Promise<Store> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) throw new Error('組織情報が取得できません。再ログインしてください。')
+
     const { data, error } = await supabase
       .from('stores')
       .update(updates)
       .eq('id', id)
+      .eq('organization_id', orgId)
       .select()
       .single()
     
@@ -109,10 +120,14 @@ export const storeApi = {
 
   // 店舗を削除
   async delete(id: string): Promise<void> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) throw new Error('組織情報が取得できません。再ログインしてください。')
+
     const { error } = await supabase
       .from('stores')
       .delete()
       .eq('id', id)
+      .eq('organization_id', orgId)
     
     if (error) throw error
   }

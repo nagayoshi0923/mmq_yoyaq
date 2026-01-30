@@ -91,6 +91,11 @@ export function SettingsPage() {
     setLoading(true)
     try {
       let query = supabase.from('customers').select('*')
+
+      // マルチテナント: 組織コンテキストがある場合は必ず絞る（複数組織所属時の混線防止）
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId)
+      }
       
       if (user?.id) {
         query = query.eq('user_id', user.id)
