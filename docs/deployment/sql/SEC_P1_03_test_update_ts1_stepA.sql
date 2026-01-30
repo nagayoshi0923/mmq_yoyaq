@@ -17,7 +17,7 @@ WITH picked AS (
 before_cnt AS (
   SELECT
     p.reservation_id,
-    (SELECT COUNT(*) FROM reservations_history h WHERE h.reservation_id = p.reservation_id) AS cnt_before
+    (SELECT COUNT(*) FROM public.reservations_history h WHERE h.reservation_id = p.reservation_id) AS cnt_before
   FROM picked p
 ),
 upd AS (
@@ -30,7 +30,7 @@ after_cnt AS (
   SELECT
     b.reservation_id,
     b.cnt_before,
-    (SELECT COUNT(*) FROM reservations_history h WHERE h.reservation_id = b.reservation_id) AS cnt_after
+    (SELECT COUNT(*) FROM public.reservations_history h WHERE h.reservation_id = b.reservation_id) AS cnt_after
   FROM before_cnt b
 )
 SELECT
