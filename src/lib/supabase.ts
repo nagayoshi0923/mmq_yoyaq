@@ -32,10 +32,8 @@ try {
       ? 'legacy_jwt'
       : 'unknown'
   const prefix = key ? `${key.slice(0, 12)}…` : 'null'
-  // eslint-disable-next-line no-console
   console.info('[supabase] api key kind:', { kind, prefix, len: key.length })
   if (kind === 'legacy_jwt') {
-    // eslint-disable-next-line no-console
     console.warn(
       '[supabase] Legacy JWT key is configured. If Supabase Legacy API keys are disabled, login/REST will fail. Use sb_publishable_...'
     )
