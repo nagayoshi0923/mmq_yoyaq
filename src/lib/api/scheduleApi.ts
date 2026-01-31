@@ -991,7 +991,7 @@ export const scheduleApi = {
       
       let query = supabase
         .from('schedule_events')
-        .select('*')
+        .select('id, organization_id, scenario_id, scenario, store_id, date, start_time, category, gms, capacity, max_participants')
         .eq('is_cancelled', false)
         .order('date', { ascending: true })
       

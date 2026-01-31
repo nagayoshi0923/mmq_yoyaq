@@ -311,7 +311,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('notification_settings')
-        .select('*')
+        .select('id, store_id, organization_id, new_reservation_email, new_reservation_discord, cancellation_email, cancellation_discord, shift_reminder_days, performance_reminder_days, sales_report_notification, discord_webhook_url, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 

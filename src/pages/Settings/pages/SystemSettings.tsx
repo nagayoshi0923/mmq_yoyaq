@@ -97,7 +97,7 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('system_settings')
-        .select('*')
+        .select('id, store_id, timezone, language, currency, date_format, decimal_places')
         .eq('store_id', storeId)
         .maybeSingle()
 

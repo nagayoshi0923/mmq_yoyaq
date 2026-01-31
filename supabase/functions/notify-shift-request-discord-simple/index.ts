@@ -1,8 +1,9 @@
 // Discord Botでシンプルなシフト募集通知を送信（リンク誘導型）
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getDiscordSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString } from '../_shared/security.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -17,6 +18,15 @@ interface ShiftRequestPayload {
   month: number
   deadline?: string
   targetChannelId?: string
+}
+
+// Service Role Key による呼び出しかチェック
+function isServiceRoleCall(req: Request): boolean {
+  const authHeader = req.headers.get('Authorization')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!authHeader || !serviceRoleKey) return false
+  const token = authHeader.replace('Bearer ', '')
+  return timingSafeEqualString(token, serviceRoleKey)
 }
 
 /**
@@ -106,10 +116,22 @@ serve(async (req) => {
       throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set')
     }
     
+    // 🔒 認証（Service Role または管理者）
+    if (!isServiceRoleCall(req)) {
+      const authResult = await verifyAuth(req, ['admin', 'owner', 'license_admin'])
+      if (!authResult.success) {
+        return errorResponse(authResult.error || 'Unauthorized', authResult.statusCode || 401, corsHeaders)
+      }
+    }
+
     const payload: ShiftRequestPayload = await req.json()
-    console.log('📨 Shift request payload:', payload)
+    console.log('📨 Shift request received')
     
     const { organizationId, year, month, deadline, targetChannelId } = payload
+
+    if (!organizationId) {
+      return errorResponse('organizationId is required', 400, corsHeaders)
+    }
     
     // 組織設定からDiscord設定を取得
     let discordBotToken = FALLBACK_DISCORD_BOT_TOKEN
@@ -135,11 +157,11 @@ serve(async (req) => {
     // 設定から通知日・締切日を取得
     const { data: settingsData } = await supabase
       .from('notification_settings')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .select('shift_notification_day, shift_deadline_day')
+      .eq('organization_id', organizationId)
+      .maybeSingle()
     
-    const settings = settingsData && settingsData.length > 0 ? settingsData[0] : null
+    const settings = settingsData || null
     
     const notificationDay = settings?.shift_notification_day || 25
     const deadlineDay = settings?.shift_deadline_day || 25
@@ -156,6 +178,8 @@ serve(async (req) => {
       .from('staff')
       .select('id, name, discord_channel_id')
       .not('discord_channel_id', 'is', null)
+      .eq('organization_id', organizationId)
+      .eq('status', 'active')
     
     if (staffError) {
       console.error('❌ Staff fetch error:', staffError)
@@ -194,6 +218,7 @@ serve(async (req) => {
     
     // 送信記録を保存
     await supabase.from('shift_notifications').insert({
+      organization_id: organizationId,
       year,
       month,
       deadline: deadlineDate,
@@ -219,10 +244,11 @@ serve(async (req) => {
     )
     
   } catch (error) {
-    console.error('❌ Error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('❌ Error:', sanitizeErrorMessage(msg))
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+        error: sanitizeErrorMessage(msg || 'Unknown error') 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

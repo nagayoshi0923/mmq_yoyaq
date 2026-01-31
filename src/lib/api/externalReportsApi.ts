@@ -224,7 +224,7 @@ export async function getLicensePerformanceSummary(
   // ビューから取得
   const { data, error } = await supabase
     .from('license_performance_summary')
-    .select('*')
+    .select('scenario_id, scenario_title, author, license_amount, internal_performance_count, external_performance_count, total_performance_count, total_license_fee')
 
   if (error) {
     logger.error('Failed to fetch license performance summary:', error)

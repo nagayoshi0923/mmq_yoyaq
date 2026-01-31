@@ -5,6 +5,10 @@ import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import type { Store } from '@/types'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const STORE_SELECT_FIELDS =
+  'id, organization_id, name, short_name, address, phone_number, email, opening_date, manager_name, status, ownership_type, franchise_fee, capacity, rooms, notes, color, fixed_costs, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, transport_allowance, created_at, updated_at' as const
+
 export const storeApi = {
   // 全店舗を取得
   // @param includeTemporary - 臨時会場を含めるかどうか（デフォルト: false）
@@ -12,7 +16,7 @@ export const storeApi = {
   // @param skipOrgFilter - trueの場合、組織フィルタをスキップ（全組織のデータを取得）
   // @param excludeOffice - trueの場合、オフィス（ownership_type='office'）を除外（デフォルト: false）
   async getAll(includeTemporary: boolean = false, organizationId?: string, skipOrgFilter?: boolean, excludeOffice: boolean = false): Promise<Store[]> {
-    let query = supabase.from('stores').select('*')
+    let query = supabase.from('stores').select(STORE_SELECT_FIELDS)
     
     // 組織フィルタリング
     if (!skipOrgFilter) {

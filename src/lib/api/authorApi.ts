@@ -13,6 +13,13 @@ import type { Author, AuthorPerformanceReport, AuthorSummary } from '@/types'
 // 旧形式の互換性のため
 export type { Author }
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const AUTHOR_SELECT_FIELDS = 'id, name, email, notes, created_at, updated_at' as const
+const AUTHOR_PERFORMANCE_REPORT_SELECT_FIELDS =
+  'author_email, author_name, scenario_id, scenario_title, organization_id, organization_name, report_id, performance_date, performance_count, participant_count, venue_name, report_status, reported_at, license_amount, calculated_license_fee' as const
+const AUTHOR_SUMMARY_SELECT_FIELDS =
+  'author_email, total_scenarios, total_approved_reports, total_performance_count, total_license_fee, organizations_count' as const
+
 export const authorApi = {
   // ================================================
   // 旧形式の互換性（authors テーブル用）
@@ -22,7 +29,7 @@ export const authorApi = {
   async getAll(): Promise<Author[]> {
     const { data, error } = await supabase
       .from('authors')
-      .select('*')
+      .select(AUTHOR_SELECT_FIELDS)
       .order('name', { ascending: true })
     
     if (error) {
@@ -38,7 +45,7 @@ export const authorApi = {
   async getByName(name: string): Promise<Author | null> {
     const { data, error } = await supabase
       .from('authors')
-      .select('*')
+      .select(AUTHOR_SELECT_FIELDS)
       .eq('name', name)
       .single()
     
@@ -140,7 +147,7 @@ export const authorApi = {
     // author_performance_reports ビューを使用
     let query = supabase
       .from('author_performance_reports')
-      .select('*')
+      .select(AUTHOR_PERFORMANCE_REPORT_SELECT_FIELDS)
       .eq('author_email', email)
       .order('reported_at', { ascending: false })
     
@@ -169,7 +176,7 @@ export const authorApi = {
     // author_summary ビューを使用
     const { data, error } = await supabase
       .from('author_summary')
-      .select('*')
+      .select(AUTHOR_SUMMARY_SELECT_FIELDS)
       .eq('author_email', email)
       .single()
     

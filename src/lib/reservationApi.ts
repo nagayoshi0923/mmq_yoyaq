@@ -4,6 +4,16 @@ import { logger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const CUSTOMER_SELECT_FIELDS =
+  'id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at' as const
+
+const RESERVATION_SELECT_FIELDS =
+  'id, organization_id, reservation_number, reservation_page_id, title, scenario_id, store_id, customer_id, schedule_event_id, requested_datetime, actual_datetime, duration, participant_count, participant_names, assigned_staff, gm_staff, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, payment_method, payment_datetime, status, customer_notes, staff_notes, special_requests, cancellation_reason, cancelled_at, external_reservation_id, reservation_source, created_by, created_at, updated_at, customer_name, customer_email, customer_phone, candidate_datetimes' as const
+
+const RESERVATION_WITH_CUSTOMER_SELECT =
+  'id, organization_id, reservation_number, reservation_page_id, title, scenario_id, store_id, customer_id, schedule_event_id, requested_datetime, actual_datetime, duration, participant_count, participant_names, assigned_staff, gm_staff, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, payment_method, payment_datetime, status, customer_notes, staff_notes, special_requests, cancellation_reason, cancelled_at, external_reservation_id, reservation_source, created_by, created_at, updated_at, customer_name, customer_email, customer_phone, candidate_datetimes, customers(id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at)' as const
+
 type CreateReservationWithLockParams = Omit<
   Reservation,
   'id' | 'created_at' | 'updated_at' | 'reservation_number'
@@ -22,7 +32,7 @@ export const customerApi = {
     
     let query = supabase
       .from('customers')
-      .select('*')
+      .select(CUSTOMER_SELECT_FIELDS)
     
     if (orgId) {
       query = query.eq('organization_id', orgId)
@@ -69,7 +79,7 @@ export const customerApi = {
   async findByEmail(email: string): Promise<Customer | null> {
     const { data, error } = await supabase
       .from('customers')
-      .select('*')
+      .select(CUSTOMER_SELECT_FIELDS)
       .eq('email', email)
       .single()
     
@@ -84,7 +94,7 @@ export const customerApi = {
   async findByPhone(phone: string): Promise<Customer | null> {
     const { data, error } = await supabase
       .from('customers')
-      .select('*')
+      .select(CUSTOMER_SELECT_FIELDS)
       .eq('phone', phone)
       .single()
     
@@ -116,7 +126,7 @@ export const reservationApi = {
     
     let query = supabase
       .from('reservations')
-      .select('*')
+      .select(RESERVATION_SELECT_FIELDS)
     
     if (orgId) {
       query = query.eq('organization_id', orgId)
@@ -136,7 +146,7 @@ export const reservationApi = {
     
     let query = supabase
       .from('reservations')
-      .select('*')
+      .select(RESERVATION_SELECT_FIELDS)
       .gte('requested_datetime', startDate)
       .lte('requested_datetime', endDate)
     
@@ -157,7 +167,7 @@ export const reservationApi = {
     
     let query = supabase
       .from('reservations')
-      .select('*, customers(*)')
+      .select(RESERVATION_WITH_CUSTOMER_SELECT)
       .eq('schedule_event_id', scheduleEventId)
       .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
     
@@ -175,7 +185,7 @@ export const reservationApi = {
   async getByCustomer(customerId: string): Promise<Reservation[]> {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*')
+      .select(RESERVATION_SELECT_FIELDS)
       .eq('customer_id', customerId)
       .order('requested_datetime', { ascending: false })
     
@@ -303,7 +313,7 @@ export const reservationApi = {
         try {
           const { data: existing, error: existingError } = await supabase
             .from('reservations')
-            .select('*')
+            .select(RESERVATION_SELECT_FIELDS)
             .eq('reservation_number', reservationNumber)
             .single()
 
@@ -331,7 +341,7 @@ export const reservationApi = {
 
     const { data, error: fetchError } = await supabase
       .from('reservations')
-      .select('*')
+      .select(RESERVATION_SELECT_FIELDS)
       .eq('id', reservationId)
       .single()
 
@@ -716,7 +726,7 @@ export const reservationApi = {
   async getSummary(scheduleEventId?: string): Promise<ReservationSummary[]> {
     let query = supabase
       .from('reservation_summary')
-      .select('*')
+      .select('schedule_event_id, date, venue, scenario, start_time, end_time, max_participants, current_reservations, available_seats, reservation_count')
     
     if (scheduleEventId) {
       query = query.eq('schedule_event_id', scheduleEventId)
@@ -736,7 +746,7 @@ export const reservationApi = {
   }> {
     const { data, error } = await supabase
       .from('reservation_summary')
-      .select('*')
+      .select('schedule_event_id, max_participants, current_reservations, available_seats')
       .eq('schedule_event_id', scheduleEventId)
       .single()
     

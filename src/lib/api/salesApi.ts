@@ -5,6 +5,10 @@ import { supabase } from '../supabase'
 import { logger } from '@/utils/logger'
 import { getCurrentOrganizationId } from '@/lib/organization'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const SCHEDULE_EVENT_SALES_SELECT_FIELDS =
+  'id, organization_id, date, start_time, end_time, store_id, venue, scenario_id, scenario, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled' as const
+
 export const salesApi = {
   // 期間別売上データを取得
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
@@ -15,7 +19,7 @@ export const salesApi = {
     // まずschedule_eventsを取得
     let query = supabase
       .from('schedule_events')
-      .select('*')
+      .select(SCHEDULE_EVENT_SALES_SELECT_FIELDS)
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('is_cancelled', false)
@@ -352,7 +356,7 @@ export const salesApi = {
     
     let query = supabase
       .from('schedule_events')
-      .select('*')
+      .select(SCHEDULE_EVENT_SALES_SELECT_FIELDS)
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('is_cancelled', false)

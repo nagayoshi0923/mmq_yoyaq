@@ -13,14 +13,15 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 100",
-    "verify": "npm run typecheck && npm run lint && npm run build:fast",
+    "check:security-guardrails": "node scripts/check-security-guardrails.mjs",
+    "verify": "npm run check:security-guardrails && npm run typecheck && npm run lint && npm run build:fast",
     "db:check": "node scripts/check_schema.js",
     "db:reset": "npx supabase db reset --linked",
     "db:diff": "npx supabase db diff --schema public",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "check:multi-tenant": "./scripts/check-multi-tenant.sh",
-    "pre-commit": "npm run check:multi-tenant && npm run typecheck"
+    "pre-commit": "npm run check:security-guardrails && npm run check:multi-tenant && npm run typecheck"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

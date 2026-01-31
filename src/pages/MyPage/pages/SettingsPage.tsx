@@ -90,7 +90,9 @@ export function SettingsPage() {
 
     setLoading(true)
     try {
-      let query = supabase.from('customers').select('*')
+      let query = supabase
+        .from('customers')
+        .select('id, organization_id, user_id, name, nickname, email, phone, address, line_id, notes, avatar_url, notification_settings, created_at, updated_at')
 
       // マルチテナント: 組織コンテキストがある場合は必ず絞る（複数組織所属時の混線防止）
       if (organizationId) {

@@ -32,7 +32,7 @@ export function GmHistoryPage() {
     try {
       const { data, error } = await supabase
         .from('staff')
-        .select('*')
+        .select('id, organization_id, name, email')
         .eq('email', user.email)
         .maybeSingle()
 

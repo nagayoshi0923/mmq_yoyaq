@@ -1,6 +1,7 @@
+// @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders } from '../_shared/security.ts'
+import { getCorsHeaders, sanitizeErrorMessage } from '../_shared/security.ts'
 
 serve(async (req) => {
   const origin = req.headers.get('origin')
@@ -164,11 +165,12 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('Error:', sanitizeErrorMessage(msg))
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'リマインダーメール送信に失敗しました' 
+        error: sanitizeErrorMessage(msg || 'リマインダーメール送信に失敗しました') 
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

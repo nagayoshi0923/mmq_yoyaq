@@ -38,16 +38,23 @@ export function NotificationSettings() {
   const loadSettings = async () => {
     setLoading(true)
     try {
+      // organization_id を取得（マルチテナント対応）
+      const organizationId = await getCurrentOrganizationId()
+      if (!organizationId) {
+        showToast.error('組織情報が取得できませんでした')
+        return
+      }
+
       const { data, error } = await supabase
         .from('notification_settings')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
+        .select('organization_id, shift_notification_enabled, shift_notification_day, shift_deadline_day, shift_reminder_days, created_at, updated_at')
+        .eq('organization_id', organizationId)
+        .maybeSingle()
 
       if (error) throw error
 
-      if (data && data.length > 0) {
-        const settings = data[0]
+      if (data) {
+        const settings = data
         setSettings({
           shift_notification_enabled: settings.shift_notification_enabled ?? true,
           shift_notification_day: settings.shift_notification_day ?? 25,

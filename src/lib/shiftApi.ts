@@ -1,6 +1,10 @@
 import { supabase } from './supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const SHIFT_SUBMISSION_SELECT_FIELDS =
+  'id, staff_id, date, morning, afternoon, evening, all_day, submitted_at, status, notes, organization_id, created_at, updated_at' as const
+
 export interface ShiftSubmission {
   id: string
   staff_id: string
@@ -29,7 +33,7 @@ export const shiftApi = {
     
     let query = supabase
       .from('shift_submissions')
-      .select('*')
+      .select(SHIFT_SUBMISSION_SELECT_FIELDS)
       .eq('staff_id', staffId)
       .gte('date', startDate)
       .lte('date', endDate)
@@ -73,7 +77,7 @@ export const shiftApi = {
     
     let query = supabase
       .from('shift_submissions')
-      .select('*')
+      .select(SHIFT_SUBMISSION_SELECT_FIELDS)
       .eq('date', date)
       .eq('status', 'submitted')
     
@@ -185,7 +189,7 @@ export const shiftApi = {
     
     let query = supabase
       .from('shift_submissions')
-      .select('*')
+      .select(SHIFT_SUBMISSION_SELECT_FIELDS)
       .gte('date', startDate)
       .lte('date', endDate)
       .or('morning.eq.true,afternoon.eq.true,evening.eq.true,all_day.eq.true') // 時間帯が1つ以上選択されている

@@ -148,7 +148,7 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
     try {
       const { data, error } = await supabase
         .from('performance_schedule_settings')
-        .select('*')
+        .select('id, store_id, organization_id, performances_per_day, performance_times, preparation_time, default_duration, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 

@@ -5,6 +5,13 @@ import { logger } from '@/utils/logger'
 import { supabase } from './supabase'
 import type { Organization, Staff } from '@/types'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const ORGANIZATION_SELECT_FIELDS =
+  'id, name, slug, plan, contact_email, contact_name, is_license_manager, is_active, settings, notes, created_at, updated_at' as const
+
+const STAFF_SELECT_FIELDS =
+  'id, organization_id, name, display_name, line_name, x_account, discord_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
+
 // クインズワルツの organization_id（固定値）
 export const QUEENS_WALTZ_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 
@@ -46,7 +53,7 @@ export async function getCurrentStaff(): Promise<Staff | null> {
 
   const { data: staff } = await supabase
     .from('staff')
-    .select('*')
+    .select(STAFF_SELECT_FIELDS)
     .eq('user_id', user.id)
     .maybeSingle()  // レコードが存在しない場合もエラーにならない
 
@@ -62,7 +69,7 @@ export async function getCurrentOrganization(): Promise<Organization | null> {
 
   const { data: org } = await supabase
     .from('organizations')
-    .select('*')
+    .select(ORGANIZATION_SELECT_FIELDS)
     .eq('id', orgId)
     .single()
 
@@ -83,7 +90,7 @@ export async function isLicenseManager(): Promise<boolean> {
 export async function getOrganizations(): Promise<Organization[]> {
   const { data, error } = await supabase
     .from('organizations')
-    .select('*')
+    .select(ORGANIZATION_SELECT_FIELDS)
     .order('name')
 
   if (error) {
@@ -150,7 +157,7 @@ export async function updateOrganization(
 export async function getOrganizationBySlug(slug: string): Promise<Organization | null> {
   const { data, error } = await supabase
     .from('organizations')
-    .select('*')
+    .select(ORGANIZATION_SELECT_FIELDS)
     .eq('slug', slug)
     .maybeSingle()
 

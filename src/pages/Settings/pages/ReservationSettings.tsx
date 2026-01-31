@@ -88,7 +88,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('reservation_settings')
-        .select('*')
+        .select('id, store_id, organization_id, max_participants_per_booking, advance_booking_days, same_day_booking_cutoff, private_booking_deadline_days, cancellation_policy, cancellation_deadline_hours, max_bookings_per_customer, require_phone_verification, cancellation_fees, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 

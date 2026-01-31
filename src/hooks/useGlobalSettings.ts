@@ -17,6 +17,10 @@ export interface GlobalSettings {
   enable_discord_notifications: boolean
 }
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const GLOBAL_SETTINGS_SELECT_FIELDS =
+  'id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, shift_edit_deadline_days_before, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications' as const
+
 /**
  * 全体設定を取得するフック
  * 組織ごとの設定を取得
@@ -44,7 +48,7 @@ export function useGlobalSettings() {
 
       const { data, error: fetchError } = await supabase
         .from('global_settings')
-        .select('*')
+        .select(GLOBAL_SETTINGS_SELECT_FIELDS)
         .eq('organization_id', orgId)
         .single()
 

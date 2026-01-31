@@ -10,6 +10,12 @@ import { supabase } from '@/lib/supabase'
 import type { Organization, Staff } from '@/types'
 import { QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const ORGANIZATION_SELECT_FIELDS =
+  'id, name, slug, plan, contact_email, contact_name, is_license_manager, is_active, settings, notes, created_at, updated_at' as const
+const STAFF_SELECT_FIELDS =
+  'id, organization_id, name, display_name, line_name, x_account, discord_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
+
 interface UseOrganizationResult {
   organization: Organization | null
   staff: Staff | null
@@ -37,7 +43,7 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
   // スタッフ情報を取得
   const { data: staffData, error: staffError } = await supabase
     .from('staff')
-    .select('*')
+    .select(STAFF_SELECT_FIELDS)
     .eq('user_id', user.id)
     .maybeSingle()
 
@@ -54,7 +60,7 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
   
   const { data: orgData, error: orgError } = await supabase
     .from('organizations')
-    .select('*')
+    .select(ORGANIZATION_SELECT_FIELDS)
     .eq('id', orgId)
     .maybeSingle()
 
@@ -125,7 +131,7 @@ export function useOrganizations(): UseOrganizationsResult {
 
       const { data, error: fetchError } = await supabase
         .from('organizations')
-        .select('*')
+        .select(ORGANIZATION_SELECT_FIELDS)
         .order('name')
 
       if (fetchError) throw fetchError

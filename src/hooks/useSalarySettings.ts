@@ -22,6 +22,10 @@ export interface SalarySettings {
   effective_until?: string | null  // 有効終了日（nullは現在まで有効）
 }
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const SALARY_SETTINGS_SELECT_FIELDS =
+  'organization_id, gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, reception_fixed_pay, use_hourly_table, hourly_rates, gm_test_hourly_rates, updated_at' as const
+
 // デフォルト値
 const DEFAULT_SETTINGS: SalarySettings = {
   gm_base_pay: 2000,
@@ -70,7 +74,7 @@ export function useSalarySettings() {
 
       const { data, error } = await supabase
         .from('global_settings')
-        .select('*')
+        .select(SALARY_SETTINGS_SELECT_FIELDS)
         .eq('organization_id', organizationId)
         .single()
 
@@ -176,7 +180,7 @@ export async function fetchSalarySettings(): Promise<SalarySettings> {
 
     const { data, error } = await supabase
       .from('global_settings')
-      .select('*')
+      .select(SALARY_SETTINGS_SELECT_FIELDS)
       .eq('organization_id', organizationId)
       .single()
 
@@ -314,7 +318,7 @@ export async function fetchSalarySettingsForDate(performanceDate: string): Promi
     // 履歴テーブルから、公演日以前で最新の設定を取得
     const { data: historyData, error: historyError } = await supabase
       .from('salary_settings_history')
-      .select('*')
+      .select('effective_from, gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, reception_fixed_pay, use_hourly_table, hourly_rates, gm_test_hourly_rates')
       .eq('organization_id', organizationId)
       .lte('effective_from', performanceDate)
       .order('effective_from', { ascending: false })

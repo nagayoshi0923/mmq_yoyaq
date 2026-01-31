@@ -263,7 +263,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('email_settings')
-        .select('*')
+        .select('id, store_id, organization_id, from_email, from_name, company_name, company_phone, company_email, company_address, reservation_confirmation_template, cancellation_template, reminder_template, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 

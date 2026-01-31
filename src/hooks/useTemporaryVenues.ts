@@ -11,6 +11,10 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import type { Store } from '@/types'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const TEMP_VENUE_SELECT_FIELDS =
+  'id, name, short_name, is_temporary, temporary_dates, temporary_venue_names, display_order' as const
+
 interface UseTemporaryVenuesReturn {
   temporaryVenues: Store[]  // すべての臨時会場（臨時1〜5）
   availableVenues: Store[]  // まだ予約されていない臨時会場
@@ -37,7 +41,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         // 臨時1〜5をすべて取得
         const { data, error } = await supabase
           .from('stores')
-          .select('*')
+          .select(TEMP_VENUE_SELECT_FIELDS)
           .eq('is_temporary', true)
           .order('name', { ascending: true })
         

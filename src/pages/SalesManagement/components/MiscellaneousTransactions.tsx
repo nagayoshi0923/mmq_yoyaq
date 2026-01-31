@@ -112,7 +112,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       
       const { data, error } = await supabase
         .from('miscellaneous_transactions')
-        .select('*')
+        .select('id, organization_id, store_id, scenario_id, date, type, category, amount, description, created_at')
         .gte('date', startStr)
         .lte('date', endStr)
         .order('date', { ascending: false })

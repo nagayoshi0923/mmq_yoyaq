@@ -120,7 +120,7 @@ export function SalarySettings() {
       // まず基本カラムを取得（新カラムが存在しない場合も対応）
       const { data, error } = await supabase
         .from('global_settings')
-        .select('*')
+        .select('id, organization_id, gm_base_pay, gm_hourly_rate, gm_test_base_pay, gm_test_hourly_rate, reception_fixed_pay, use_hourly_table, hourly_rates, gm_test_hourly_rates, updated_at')
         .eq('organization_id', orgId)
         .single()
 

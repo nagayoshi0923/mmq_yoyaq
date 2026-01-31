@@ -18,7 +18,7 @@ export function useCustomerData() {
       const orgId = await getCurrentOrganizationId()
       let query = supabase
         .from('customers')
-        .select('*')
+        .select('id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at')
       
       if (orgId) {
         query = query.eq('organization_id', orgId)

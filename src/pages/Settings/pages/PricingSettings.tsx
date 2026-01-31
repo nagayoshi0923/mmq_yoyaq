@@ -91,7 +91,7 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('pricing_settings')
-        .select('*')
+        .select('id, store_id, organization_id, default_participation_fee, time_based_pricing, early_bird_discount, group_discount, cancellation_fee, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 

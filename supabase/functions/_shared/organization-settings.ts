@@ -7,6 +7,7 @@
  * const settings = await getOrganizationSettings(supabaseClient, organizationId)
  */
 
+// @ts-nocheck
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 export interface EmailTemplates {
@@ -62,7 +63,22 @@ export async function getOrganizationSettings(
 ): Promise<OrganizationSettings | null> {
   const { data, error } = await supabase
     .from('organization_settings')
-    .select('*')
+    .select([
+      'id',
+      'organization_id',
+      'discord_bot_token',
+      'discord_webhook_url',
+      'discord_channel_id',
+      'discord_private_booking_channel_id',
+      'discord_shift_channel_id',
+      'discord_public_key',
+      'resend_api_key',
+      'sender_email',
+      'sender_name',
+      'reply_to_email',
+      'email_templates',
+      'notification_settings',
+    ].join(','))
     .eq('organization_id', organizationId)
     .single()
   

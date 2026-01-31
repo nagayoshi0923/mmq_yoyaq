@@ -70,7 +70,7 @@ export function SalesReportSettings({ storeId }: SalesReportSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('sales_report_settings')
-        .select('*')
+        .select('id, store_id, organization_id, closing_day, author_report_day, report_emails, report_format, auto_send_enabled, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 

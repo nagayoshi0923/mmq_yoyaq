@@ -12,10 +12,11 @@
  * 5. 3回失敗: status = 'failed' に更新
  */
 
+// @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders } from '../_shared/security.ts'
+import { getCorsHeaders, errorResponse, sanitizeErrorMessage, timingSafeEqualString } from '../_shared/security.ts'
 
 interface QueueEntry {
   id: string
@@ -43,6 +44,15 @@ interface WaitlistEntry {
 
 const MAX_RETRIES = 3
 
+// Service Role Key による呼び出しかチェック（Cron向け）
+function isServiceRoleCall(req: Request): boolean {
+  const authHeader = req.headers.get('Authorization')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!authHeader || !serviceRoleKey) return false
+  const token = authHeader.replace('Bearer ', '')
+  return timingSafeEqualString(token, serviceRoleKey)
+}
+
 serve(async (req) => {
   const origin = req.headers.get('origin')
   const corsHeaders = getCorsHeaders(origin)
@@ -52,6 +62,11 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 Service Role のみ許可（Cron/システム呼び出し）
+    if (!isServiceRoleCall(req)) {
+      return errorResponse('Unauthorized', 401, corsHeaders)
+    }
+
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -62,7 +77,22 @@ serve(async (req) => {
     // pending または retry_count < MAX_RETRIES のキューを取得
     const { data: queueEntries, error: queueError } = await serviceClient
       .from('waitlist_notification_queue')
-      .select('*')
+      .select([
+        'id',
+        'schedule_event_id',
+        'organization_id',
+        'freed_seats',
+        'scenario_title',
+        'event_date',
+        'start_time',
+        'end_time',
+        'store_name',
+        'booking_url',
+        'retry_count',
+        'last_error',
+        'status',
+        'created_at',
+      ].join(','))
       .eq('status', 'pending')
       .lt('retry_count', MAX_RETRIES)
       .order('created_at', { ascending: true })
@@ -109,11 +139,12 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('❌ Error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('❌ Error:', sanitizeErrorMessage(msg))
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'キュー処理に失敗しました' 
+        error: sanitizeErrorMessage(msg || 'キュー処理に失敗しました') 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
@@ -248,6 +279,7 @@ async function processQueueEntry(
 
   } catch (error) {
     console.error(`❌ Error processing queue entry ${entry.id}:`, error)
+    const msg = error instanceof Error ? error.message : String(error)
 
     // リトライカウントをインクリメント
     const newRetryCount = entry.retry_count + 1
@@ -259,7 +291,7 @@ async function processQueueEntry(
         status: newStatus,
         retry_count: newRetryCount,
         last_retry_at: new Date().toISOString(),
-        last_error: error.message || 'Unknown error',
+        last_error: sanitizeErrorMessage(msg || 'Unknown error'),
         updated_at: new Date().toISOString()
       })
       .eq('id', entry.id)
@@ -267,7 +299,7 @@ async function processQueueEntry(
     return { 
       success: false, 
       entryId: entry.id, 
-      error: error.message 
+      error: sanitizeErrorMessage(msg) 
     }
   }
 }

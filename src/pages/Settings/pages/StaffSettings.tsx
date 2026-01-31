@@ -68,7 +68,7 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('staff_settings')
-        .select('*')
+        .select('id, store_id, organization_id, default_main_gm_reward, default_sub_gm_reward, shift_deadline_days, staff_rank_enabled, training_period_days')
         .eq('store_id', storeId)
         .maybeSingle()
 

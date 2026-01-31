@@ -11,6 +11,7 @@
  * - 手動実行: POST /functions/v1/process-booking-email-queue
  */
 
+// @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
@@ -82,7 +83,27 @@ serve(async (req) => {
     // 未処理のキューを取得（retry_count < max_retries）
     const { data: queueItems, error: fetchError } = await serviceClient
       .from('booking_email_queue')
-      .select('*')
+      .select([
+        'id',
+        'reservation_id',
+        'organization_id',
+        'email_type',
+        'customer_email',
+        'customer_name',
+        'scenario_title',
+        'event_date',
+        'start_time',
+        'end_time',
+        'store_name',
+        'store_address',
+        'participant_count',
+        'total_price',
+        'reservation_number',
+        'retry_count',
+        'max_retries',
+        'status',
+        'created_at',
+      ].join(','))
       .in('status', ['pending', 'processing'])
       .lt('retry_count', 3)
       .order('created_at', { ascending: true })
@@ -158,7 +179,7 @@ serve(async (req) => {
           .from('booking_email_queue')
           .update({
             status: 'pending',
-            last_error: itemError instanceof Error ? itemError.message : String(itemError),
+            last_error: sanitizeErrorMessage(itemError instanceof Error ? itemError.message : String(itemError)),
             updated_at: new Date().toISOString()
           })
           .eq('id', item.id)

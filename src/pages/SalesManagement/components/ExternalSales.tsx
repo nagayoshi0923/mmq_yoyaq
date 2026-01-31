@@ -97,7 +97,7 @@ export const ExternalSales: React.FC = () => {
 
       const { data, error } = await supabase
         .from('external_sales')
-        .select('*')
+        .select('id, organization_id, type, date, scenario_id, store_name, amount, license_cost, notes, created_at, updated_at')
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false })
@@ -204,7 +204,7 @@ export const ExternalSales: React.FC = () => {
       const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-31`
       const { data } = await supabase
         .from('external_sales')
-        .select('*')
+        .select('id, organization_id, type, date, scenario_id, store_name, amount, license_cost, notes, created_at, updated_at')
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false })

@@ -4,6 +4,10 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentStaff, getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const EVENT_HISTORY_SELECT_FIELDS =
+  'id, schedule_event_id, organization_id, event_date, store_id, time_slot, changed_by_user_id, changed_by_staff_id, changed_by_name, action_type, changes, old_values, new_values, deleted_event_scenario, notes, created_at' as const
+
 // 変更アクションの種類
 export type ActionType = 
   | 'create'              // 新規作成
@@ -196,7 +200,7 @@ export async function getEventHistory(
     // time_slotがnullの場合は.is()を使う、それ以外は.eq()を使う
     let query = supabase
       .from('schedule_event_history')
-      .select('*')
+      .select(EVENT_HISTORY_SELECT_FIELDS)
       .eq('organization_id', organizationId)
       .eq('event_date', cellInfo.date)
       .eq('store_id', cellInfo.storeId)
@@ -229,7 +233,7 @@ export async function getEventHistory(
     
     let eventQuery = supabase
       .from('schedule_event_history')
-      .select('*')
+      .select(EVENT_HISTORY_SELECT_FIELDS)
       .eq('schedule_event_id', scheduleEventId)
       .order('created_at', { ascending: false })
     

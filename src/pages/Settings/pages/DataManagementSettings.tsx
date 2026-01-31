@@ -78,7 +78,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
     try {
       const { data, error } = await supabase
         .from('data_management_settings')
-        .select('*')
+        .select('id, store_id, organization_id, backup_frequency, data_retention_years, auto_archive_enabled, export_format, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 

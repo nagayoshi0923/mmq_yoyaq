@@ -7,6 +7,10 @@ import type { Scenario } from '@/types'
 import type { PaginatedResponse } from './types'
 import { logger } from '@/utils/logger'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const SCENARIO_SELECT_FIELDS =
+  'id, title, slug, description, author, author_email, report_display_name, duration, weekend_duration, player_count_min, player_count_max, difficulty, rating, status, scenario_type, participation_fee, participation_costs, gm_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, external_license_amount, external_gm_test_license_amount, license_rewards, production_cost, genre, has_pre_reading, key_visual_url, notes, required_props, production_costs, kit_count, gm_count, available_stores, scenario_master_id, organization_id, is_shared, extra_preparation_time, available_gms, play_count, release_date, synopsis, official_site_url, created_at, updated_at' as const
+
 /**
  * 渡されたIDから対応するシナリオID（scenarios.id）のリストを取得
  * IDは scenarios.id または scenario_master_id のどちらでも対応
@@ -118,7 +122,7 @@ export const scenarioApi = {
   async getAll(organizationId?: string, skipOrgFilter?: boolean): Promise<Scenario[]> {
     let query = supabase
       .from('scenarios')
-      .select('*')
+      .select(SCENARIO_SELECT_FIELDS)
     
     // 組織フィルタリング
     if (!skipOrgFilter) {
@@ -165,7 +169,7 @@ export const scenarioApi = {
   async getById(id: string, organizationId?: string): Promise<Scenario | null> {
     let query = supabase
       .from('scenarios')
-      .select('*')
+      .select(SCENARIO_SELECT_FIELDS)
       .eq('id', id)
     
     // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
@@ -191,7 +195,7 @@ export const scenarioApi = {
   async getBySlug(slug: string, organizationId?: string): Promise<Scenario | null> {
     let query = supabase
       .from('scenarios')
-      .select('*')
+      .select(SCENARIO_SELECT_FIELDS)
       .eq('slug', slug)
     
     // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得

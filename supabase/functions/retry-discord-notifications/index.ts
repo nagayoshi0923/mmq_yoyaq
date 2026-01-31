@@ -120,7 +120,20 @@ serve(async (req) => {
     // キューからリトライ対象を取得
     const { data: pendingNotifications, error: fetchError } = await serviceClient
       .from('discord_notification_queue')
-      .select('*')
+      .select([
+        'id',
+        'organization_id',
+        'webhook_url',
+        'message_payload',
+        'notification_type',
+        'reference_id',
+        'retry_count',
+        'max_retries',
+        'next_retry_at',
+        'status',
+        'created_at',
+        'updated_at',
+      ].join(','))
       .eq('status', 'pending')
       .lte('next_retry_at', new Date().toISOString())
       .lt('retry_count', 3) // max_retriesのデフォルト値

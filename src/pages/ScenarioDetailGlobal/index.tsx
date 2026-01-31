@@ -171,7 +171,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       if (!useLegacyTable) {
         const { data, error } = await supabase
           .from('scenario_masters')
-          .select('*')
+          .select('id, title, author, author_id, key_visual_url, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, required_items, master_status, created_at, updated_at, gallery_images')
           .eq('id', masterId)
           .limit(1)
         

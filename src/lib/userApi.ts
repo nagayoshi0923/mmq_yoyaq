@@ -14,7 +14,7 @@ export interface User {
 export async function searchUserByEmail(email: string): Promise<User | null> {
   const { data, error } = await supabase
     .from('users')
-    .select('*')
+    .select('id, email, role, created_at, updated_at')
     .eq('email', email)
     .single()
 
@@ -35,7 +35,7 @@ export async function searchUserByEmail(email: string): Promise<User | null> {
 export async function getAllUsers(): Promise<User[]> {
   const { data, error } = await supabase
     .from('users')
-    .select('*')
+    .select('id, email, role, created_at, updated_at')
     .order('created_at', { ascending: false })
 
   if (error) {

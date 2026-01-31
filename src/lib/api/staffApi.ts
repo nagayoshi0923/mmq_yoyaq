@@ -6,6 +6,10 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import type { Staff } from '@/types'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const STAFF_SELECT_FIELDS =
+  'id, organization_id, name, display_name, line_name, x_account, discord_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
+
 export const staffApi = {
   // 全スタッフを取得
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
@@ -13,7 +17,7 @@ export const staffApi = {
   async getAll(organizationId?: string, skipOrgFilter?: boolean): Promise<Staff[]> {
     let query = supabase
       .from('staff')
-      .select('*')
+      .select(STAFF_SELECT_FIELDS)
     
     // 組織フィルタリング
     if (!skipOrgFilter) {
@@ -236,7 +240,7 @@ export const staffApi = {
   async getById(id: string): Promise<Staff | null> {
     const { data, error } = await supabase
       .from('staff')
-      .select('*')
+      .select(STAFF_SELECT_FIELDS)
       .eq('id', id)
       .maybeSingle()
     
@@ -251,7 +255,7 @@ export const staffApi = {
   async getByUserId(userId: string): Promise<Staff | null> {
     const { data, error } = await supabase
       .from('staff')
-      .select('*')
+      .select(STAFF_SELECT_FIELDS)
       .eq('user_id', userId)
       .maybeSingle()
     

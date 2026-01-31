@@ -72,7 +72,7 @@ export function CustomerSettings({ storeId }: CustomerSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('customer_settings')
-        .select('*')
+        .select('id, store_id, organization_id, member_rank_enabled, points_enabled, repeat_customer_discount, birthday_benefit_enabled, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 

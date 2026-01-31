@@ -31,7 +31,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
     try {
       const { data, error } = await supabase
         .from('reservations')
-        .select('*')
+        .select('id, organization_id, reservation_number, reservation_page_id, title, scenario_id, store_id, customer_id, schedule_event_id, requested_datetime, actual_datetime, duration, participant_count, participant_names, assigned_staff, gm_staff, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, payment_method, payment_datetime, status, customer_notes, staff_notes, special_requests, cancellation_reason, cancelled_at, external_reservation_id, reservation_source, created_by, created_at, updated_at, customer_name, customer_email, customer_phone, candidate_datetimes')
         .eq('customer_id', customer.id)
         .order('requested_datetime', { ascending: false })
 

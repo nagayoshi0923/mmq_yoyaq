@@ -31,7 +31,7 @@ export function useNotifications() {
       console.log('🔔 fetchFromDatabase: DBから通知取得開始')
       const { data, error } = await supabase
         .from('user_notifications')
-        .select('*')
+        .select('id, type, title, message, created_at, is_read, link, metadata')
         .order('created_at', { ascending: false })
         .limit(20)
 

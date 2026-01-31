@@ -1,7 +1,8 @@
+// @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, verifyAuth, errorResponse, maskEmail } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, maskEmail, sanitizeErrorMessage } from '../_shared/security.ts'
 
 interface EmailRequest {
   organizationId?: string  // マルチテナント対応
@@ -105,12 +106,13 @@ serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Error sending email:', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('Error sending email:', sanitizeErrorMessage(msg))
 
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'メール送信に失敗しました',
+        error: sanitizeErrorMessage(msg || 'メール送信に失敗しました'),
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

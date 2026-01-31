@@ -88,7 +88,7 @@ export function BookingNoticeSettings() {
       const [noticesRes, storesData] = await Promise.all([
         supabase
           .from('booking_notices')
-          .select('*')
+          .select('id, organization_id, content, applicable_types, store_id, is_active, sort_order, created_at, updated_at')
           .order('sort_order', { ascending: true }),
         storeApi.getAll()
       ])

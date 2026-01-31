@@ -6,6 +6,13 @@ import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const SCENARIO_MASTER_SELECT_FIELDS =
+  'id, title, author, author_id, key_visual_url, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, required_items, master_status, submitted_by_organization_id, approved_by, approved_at, rejection_reason, created_at, updated_at, created_by' as const
+
+const ORG_SCENARIO_WITH_MASTER_SELECT_FIELDS =
+  'id, organization_id, scenario_master_id, slug, org_status, pricing_patterns, gm_assignments, created_at, updated_at, title, author, author_id, key_visual_url, description, synopsis, caution, player_count_min, player_count_max, duration, genre, difficulty, participation_fee, extra_preparation_time, master_status' as const
+
 // ============================================================
 // 型定義
 // ============================================================
@@ -97,7 +104,7 @@ export const scenarioMasterApi = {
   async getAll(): Promise<ScenarioMaster[]> {
     const { data, error } = await supabase
       .from('scenario_masters')
-      .select('*')
+      .select(SCENARIO_MASTER_SELECT_FIELDS)
       .order('title', { ascending: true })
     
     if (error) {
@@ -113,7 +120,7 @@ export const scenarioMasterApi = {
   async getApproved(): Promise<ScenarioMaster[]> {
     const { data, error } = await supabase
       .from('scenario_masters')
-      .select('*')
+      .select(SCENARIO_MASTER_SELECT_FIELDS)
       .eq('master_status', 'approved')
       .order('title', { ascending: true })
     
@@ -130,7 +137,7 @@ export const scenarioMasterApi = {
   async getById(id: string): Promise<ScenarioMaster | null> {
     const { data, error } = await supabase
       .from('scenario_masters')
-      .select('*')
+      .select(SCENARIO_MASTER_SELECT_FIELDS)
       .eq('id', id)
       .single()
     
@@ -225,7 +232,7 @@ export const organizationScenarioApi = {
     
     let query = supabase
       .from('organization_scenarios_with_master')
-      .select('*')
+      .select(ORG_SCENARIO_WITH_MASTER_SELECT_FIELDS)
       .order('title', { ascending: true })
     
     if (orgId) {
@@ -249,7 +256,7 @@ export const organizationScenarioApi = {
     
     let query = supabase
       .from('organization_scenarios_with_master')
-      .select('*')
+      .select(ORG_SCENARIO_WITH_MASTER_SELECT_FIELDS)
       .eq('org_status', 'available')
       .order('title', { ascending: true })
     
@@ -272,7 +279,7 @@ export const organizationScenarioApi = {
   async getById(id: string): Promise<OrganizationScenarioWithMaster | null> {
     const { data, error } = await supabase
       .from('organization_scenarios_with_master')
-      .select('*')
+      .select(ORG_SCENARIO_WITH_MASTER_SELECT_FIELDS)
       .eq('id', id)
       .single()
     
@@ -292,7 +299,7 @@ export const organizationScenarioApi = {
     
     let query = supabase
       .from('organization_scenarios_with_master')
-      .select('*')
+      .select(ORG_SCENARIO_WITH_MASTER_SELECT_FIELDS)
       .eq('slug', slug)
     
     if (orgId) {

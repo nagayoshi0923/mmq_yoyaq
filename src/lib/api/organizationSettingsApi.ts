@@ -5,6 +5,10 @@
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 
+// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+const ORG_SETTINGS_SELECT_FIELDS =
+  'id, organization_id, discord_bot_token, discord_webhook_url, discord_channel_id, discord_private_booking_channel_id, discord_shift_channel_id, discord_public_key, resend_api_key, sender_email, sender_name, reply_to_email, line_channel_access_token, line_channel_secret, google_sheets_id, google_service_account_key, notification_settings, time_slot_settings, created_at, updated_at' as const
+
 // 時間帯設定の型
 export interface TimeSlotSetting {
   start_time: string
@@ -73,7 +77,7 @@ export const organizationSettingsApi = {
     
     const { data, error } = await supabase
       .from('organization_settings')
-      .select('*')
+      .select(ORG_SETTINGS_SELECT_FIELDS)
       .eq('organization_id', organizationId)
       .single()
     
@@ -88,7 +92,7 @@ export const organizationSettingsApi = {
   async getByOrganizationId(organizationId: string): Promise<OrganizationSettings | null> {
     const { data, error } = await supabase
       .from('organization_settings')
-      .select('*')
+      .select(ORG_SETTINGS_SELECT_FIELDS)
       .eq('organization_id', organizationId)
       .single()
     

@@ -62,7 +62,7 @@ export function GeneralSettings() {
       
       const { data, error } = await supabase
         .from('global_settings')
-        .select('*')
+        .select('id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications')
         .eq('organization_id', orgId)
         .single()
 

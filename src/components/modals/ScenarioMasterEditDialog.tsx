@@ -283,7 +283,7 @@ export function ScenarioMasterEditDialog({
 
       const { data: masterData, error: masterError } = await supabase
         .from('scenario_masters')
-        .select('*')
+        .select('id, title, author, author_id, key_visual_url, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, required_items, master_status, submitted_by_organization_id, approved_by, approved_at, rejection_reason, created_at, updated_at, created_by, gallery_images')
         .eq('id', masterId)
         .single()
 
@@ -301,7 +301,7 @@ export function ScenarioMasterEditDialog({
 
       const { data: charData } = await supabase
         .from('scenario_characters')
-        .select('*')
+        .select('id, scenario_master_id, name, description, image_url, sort_order')
         .eq('scenario_master_id', masterId)
         .order('sort_order', { ascending: true })
 
