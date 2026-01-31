@@ -9,7 +9,8 @@ import type { Staff } from '@/types'
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const STAFF_SELECT_FIELDS =
   // DB側は discord_user_id。フロントの既存実装（discord_id）に合わせて alias する。
-  'id, organization_id, name, display_name, line_name, x_account, discord_id:discord_user_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
+  // NOTE: staff.display_name がDBに無い環境があるため、selectに含めない（含めるとPostgRESTが400になる）
+  'id, organization_id, name, line_name, x_account, discord_id:discord_user_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
 
 export const staffApi = {
   // 全スタッフを取得
