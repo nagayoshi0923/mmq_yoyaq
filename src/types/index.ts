@@ -161,6 +161,19 @@ export interface Store {
   updated_at: string
 }
 
+// 「臨時会場」用途で必要な最小フィールド
+// （stores テーブルの全カラムをselectしない画面向け）
+export type TemporaryVenue = Pick<
+  Store,
+  | 'id'
+  | 'name'
+  | 'short_name'
+  | 'is_temporary'
+  | 'temporary_dates'
+  | 'temporary_venue_names'
+  | 'display_order'
+>
+
 // スタッフ関連の型定義
 export interface Staff {
   id: string

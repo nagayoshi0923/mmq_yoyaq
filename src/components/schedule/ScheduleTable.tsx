@@ -5,7 +5,7 @@ import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
 import type { ScheduleEvent } from '@/types/schedule'
-import type { Staff, Store } from '@/types'
+import type { Staff, TemporaryVenue } from '@/types'
 
 interface MonthDay {
   date: string
@@ -19,7 +19,7 @@ export interface ScheduleTableViewConfig {
   currentDate: Date
   monthDays: MonthDay[]
   stores: Array<{ id: string; name: string; short_name: string; is_temporary?: boolean }>
-  temporaryVenues?: Store[]
+  temporaryVenues?: TemporaryVenue[]
   getVenueNameForDate?: (venueId: string, date: string) => string  // 日付ごとの臨時会場名を取得
 }
 

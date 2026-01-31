@@ -9,16 +9,16 @@ import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import type { Store } from '@/types'
+import type { TemporaryVenue } from '@/types'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const TEMP_VENUE_SELECT_FIELDS =
   'id, name, short_name, is_temporary, temporary_dates, temporary_venue_names, display_order' as const
 
 interface UseTemporaryVenuesReturn {
-  temporaryVenues: Store[]  // すべての臨時会場（臨時1〜5）
-  availableVenues: Store[]  // まだ予約されていない臨時会場
-  getVenuesForDate: (date: string) => Store[]  // 指定日付で使用される臨時会場
+  temporaryVenues: TemporaryVenue[]  // すべての臨時会場（臨時1〜5）
+  availableVenues: TemporaryVenue[]  // まだ予約されていない臨時会場
+  getVenuesForDate: (date: string) => TemporaryVenue[]  // 指定日付で使用される臨時会場
   getVenueNameForDate: (venueId: string, date: string) => string  // 日付ごとのカスタム会場名を取得
   addTemporaryVenue: (date: string, venueId: string, customName?: string) => Promise<void>
   updateVenueName: (date: string, venueId: string, newName: string) => Promise<void>  // 臨時会場名を変更
@@ -30,7 +30,7 @@ interface UseTemporaryVenuesReturn {
  * 臨時会場を管理するフック（Supabase連携）
  */
 export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn {
-  const [temporaryVenues, setTemporaryVenues] = useState<Store[]>([])
+  const [temporaryVenues, setTemporaryVenues] = useState<TemporaryVenue[]>([])
   const [loading, setLoading] = useState(false)
 
   // Supabaseから臨時会場を読み込む + Realtime購読
@@ -56,7 +56,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
           }))
         })
         
-        setTemporaryVenues(data || [])
+        setTemporaryVenues((data as TemporaryVenue[]) || [])
       } catch (error) {
         logger.error('臨時会場データの読み込みに失敗:', error)
         setTemporaryVenues([])
@@ -80,8 +80,8 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         },
         (payload) => {
           // Realtimeのペイロードを適切な型にキャスト
-          const newData = payload.new as Partial<Store> | null
-          const oldData = payload.old as Partial<Store> | null
+          const newData = payload.new as Partial<TemporaryVenue> | null
+          const oldData = payload.old as Partial<TemporaryVenue> | null
           
           // 臨時会場以外は無視
           const isTemporary = newData?.is_temporary || oldData?.is_temporary
@@ -103,11 +103,11 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
                 return prev
               }
               logger.log('✅ Realtime: 臨時会場を追加:', newData.name)
-              return [...prev, newData as Store].sort((a, b) => a.name.localeCompare(b.name))
+              return [...prev, newData as TemporaryVenue].sort((a, b) => a.name.localeCompare(b.name))
             })
           } else if (payload.eventType === 'UPDATE' && newData && newData.id) {
             setTemporaryVenues(prev => 
-              prev.map(v => v.id === newData.id ? newData as Store : v)
+              prev.map(v => v.id === newData.id ? newData as TemporaryVenue : v)
             )
             logger.log('🔄 Realtime: 臨時会場を更新:', newData.name)
           } else if (payload.eventType === 'DELETE' && oldData && oldData.id) {

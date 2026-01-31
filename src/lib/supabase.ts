@@ -2,21 +2,49 @@ import { createClient } from '@supabase/supabase-js'
 
 // 環境変数のバリデーション
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Supabaseの新API Keys対応:
+// - publishable key: sb_publishable_...
+// - legacy anon key (JWT): eyJ...
+// 互換性のため両方を許容するが、Legacy API KeysをDisableした環境では publishable key が必須。
+const supabaseKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl || !supabaseKey) {
   throw new Error(
     '⚠️ Supabase環境変数が設定されていません。\n' +
-    'VITE_SUPABASE_URL と VITE_SUPABASE_ANON_KEY を .env.local ファイルに設定してください。\n' +
+    'VITE_SUPABASE_URL と VITE_SUPABASE_PUBLISHABLE_KEY（推奨）または VITE_SUPABASE_ANON_KEY を .env.local ファイルに設定してください。\n' +
     '詳細は env.example を参照してください。'
   )
 }
 
 // 環境変数をエクスポート（他のモジュールでAPI呼び出しに使用）
 export const SUPABASE_URL = supabaseUrl
-export const SUPABASE_ANON_KEY = supabaseAnonKey
+export const SUPABASE_ANON_KEY = supabaseKey
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// デバッグしやすいように「キー種別」だけ出す（値は出さない）
+// ※本番でログが嫌なら VITE_DEBUG=false にしても、これ自体は情報漏洩しない範囲（prefix+長さのみ）
+try {
+  const key = String(supabaseKey || '')
+  const kind = key.startsWith('sb_publishable_')
+    ? 'publishable'
+    : key.startsWith('eyJ')
+      ? 'legacy_jwt'
+      : 'unknown'
+  const prefix = key ? `${key.slice(0, 12)}…` : 'null'
+  // eslint-disable-next-line no-console
+  console.info('[supabase] api key kind:', { kind, prefix, len: key.length })
+  if (kind === 'legacy_jwt') {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[supabase] Legacy JWT key is configured. If Supabase Legacy API keys are disabled, login/REST will fail. Use sb_publishable_...'
+    )
+  }
+} catch {
+  // noop
+}
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     // セッションをlocalStorageに保存（デフォルトはtrue）
     persistSession: true,
