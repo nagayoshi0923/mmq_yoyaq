@@ -10,7 +10,7 @@ const ORGANIZATION_SELECT_FIELDS =
   'id, name, slug, plan, contact_email, contact_name, is_license_manager, is_active, settings, notes, created_at, updated_at' as const
 
 const STAFF_SELECT_FIELDS =
-  'id, organization_id, name, display_name, line_name, x_account, discord_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
+  'id, organization_id, name, display_name, line_name, x_account, discord_id:discord_user_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
 
 // クインズワルツの organization_id（固定値）
 export const QUEENS_WALTZ_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
