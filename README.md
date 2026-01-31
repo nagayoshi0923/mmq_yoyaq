@@ -95,7 +95,9 @@ npm install
 `.env.local` ファイルを作成：
 ```env
 VITE_SUPABASE_URL=https://lgyhbagdfdyycerijtmk.supabase.co
-VITE_SUPABASE_ANON_KEY=your_anon_key
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+# 互換用（Legacy API Keysが有効な場合のみ）
+# VITE_SUPABASE_ANON_KEY=eyJ...
 ```
 
 ### 3. データベーススキーマ確認

@@ -99,7 +99,7 @@ export function useAvailabilityCheck() {
     const gmConflicts: Record<number, boolean> = {}
 
     // GM本人の既存予定（schedule_events.gms）をまとめて取得して、候補と時間重複するかをチェック
-    let gmEventsByDate: Record<string, Array<{ start_time: string; end_time: string }>> = {}
+    const gmEventsByDate: Record<string, Array<{ start_time: string; end_time: string }>> = {}
     if (gmName && request.candidate_datetimes?.candidates?.length) {
       const dates = Array.from(new Set(request.candidate_datetimes.candidates.map(c => c.date).filter(Boolean)))
       if (dates.length > 0) {

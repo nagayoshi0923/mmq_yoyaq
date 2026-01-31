@@ -20,7 +20,7 @@ test.describe('プラットフォーム', () => {
     await page.goto('/')
     
     // ページが正常に読み込まれることを確認
-    await expect(page).toHaveTitle(/MMQ/)
+    await expect(page).toHaveTitle(/MMQ|Queens Waltz/)
   })
 })
 
@@ -30,7 +30,7 @@ test.describe('予約サイト', () => {
     await page.goto('/queens-waltz')
     
     // ページが正常に読み込まれることを確認
-    await expect(page).toHaveTitle(/MMQ|予約/)
+    await expect(page).toHaveTitle(/MMQ|予約|Queens Waltz/)
   })
 
   test('ログインページが表示される', async ({ page }) => {

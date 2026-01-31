@@ -72,7 +72,7 @@ export function useStoreAndGMManagement() {
         if (staffError) {
           logger.warn('スタッフ一覧取得に失敗（GM競合チェック精度が落ちる可能性）:', staffError)
         } else {
-          ;(staffRows || []).forEach((s: any) => {
+          (staffRows || []).forEach((s: any) => {
             if (s?.id && s?.name) gmNameToId.set(s.name, s.id)
           })
         }
