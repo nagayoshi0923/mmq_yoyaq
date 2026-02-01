@@ -414,6 +414,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     totalKits: number
     maxCarrying: number  // ルート中の最大持ち数
     exceedsCapacity: boolean  // 容量オーバーかどうか
+    tripCount: number  // この日のトリップ数（1以上）
   }
 
   // 1人用最適ルートを計算（nearest neighbor heuristic）
@@ -460,28 +461,60 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       storeActions.get(toGroupId)!.dropoff.push(s)
     }
     
-    // Nearest Neighbor で巡回順序を決定
+    // 依存関係を考慮したルート構築
+    // 各店舗でdropoffするキットは、先にpickup店舗を訪問している必要がある
     const allStops = [...storeActions.values()]
     if (allStops.length === 0) return []
     
-    // 最も display_order が小さい店舗から開始
-    allStops.sort((a, b) => a.displayOrder - b.displayOrder)
+    // 依存関係マップ: dropoff店舗 → 必要なpickup店舗のセット
+    const dependencies = new Map<string, Set<string>>()
+    for (const s of validSuggestions) {
+      const fromGroupId = getStoreGroupId(s.from_store_id)
+      const toGroupId = getStoreGroupId(s.to_store_id)
+      if (!dependencies.has(toGroupId)) {
+        dependencies.set(toGroupId, new Set())
+      }
+      dependencies.get(toGroupId)!.add(fromGroupId)
+    }
+    
     const route: StoreAction[] = []
     const visited = new Set<string>()
+    const pickedUpFrom = new Set<string>() // 訪問済みpickup店舗
     
-    // 最初は拾うキットがある店舗から
-    const startCandidates = allStops.filter(s => s.pickup.length > 0)
-    let current = startCandidates.length > 0 ? startCandidates[0] : allStops[0]
+    // 訪問可能かチェック（依存するpickup店舗をすべて訪問済みか）
+    const canVisit = (stop: StoreAction): boolean => {
+      // dropoffがない店舗は常に訪問可能
+      if (stop.dropoff.length === 0) return true
+      // dropoffするキットのpickup元をすべて訪問済みか
+      const deps = dependencies.get(stop.storeId)
+      if (!deps) return true
+      for (const dep of deps) {
+        if (!pickedUpFrom.has(dep)) return false
+      }
+      return true
+    }
+    
+    // 最初の店舗を選択（pickupのみの店舗から開始）
+    allStops.sort((a, b) => a.displayOrder - b.displayOrder)
+    const startCandidates = allStops.filter(s => s.pickup.length > 0 && s.dropoff.length === 0)
+    let current = startCandidates.length > 0 
+      ? startCandidates[0] 
+      : allStops.find(s => canVisit(s)) || allStops[0]
     route.push(current)
     visited.add(current.storeId)
+    if (current.pickup.length > 0) {
+      pickedUpFrom.add(current.storeId)
+    }
     
-    // 残りの店舗を最寄りから順に追加
+    // 残りの店舗を訪問可能な中から最寄りを選択
     while (visited.size < allStops.length) {
       let nearest: StoreAction | null = null
       let nearestDistance = Infinity
       
       for (const stop of allStops) {
         if (visited.has(stop.storeId)) continue
+        if (!canVisit(stop)) continue // 依存関係を満たさない店舗はスキップ
+        
         const distance = Math.abs(stop.displayOrder - current.displayOrder)
         if (distance < nearestDistance) {
           nearestDistance = distance
@@ -492,43 +525,97 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       if (nearest) {
         route.push(nearest)
         visited.add(nearest.storeId)
+        if (nearest.pickup.length > 0) {
+          pickedUpFrom.add(nearest.storeId)
+        }
         current = nearest
+      } else {
+        // 訪問可能な店舗がない（循環依存等）→残りを強制追加
+        for (const stop of allStops) {
+          if (!visited.has(stop.storeId)) {
+            route.push(stop)
+            visited.add(stop.storeId)
+            if (stop.pickup.length > 0) {
+              pickedUpFrom.add(stop.storeId)
+            }
+          }
+        }
+        break
       }
     }
     
-    // 選択された移動曜日の数で分割（デフォルトは1日）
+    // 容量を考慮してルートを分割
+    // 持ち運び上限を超えないようにトリップを分ける
+    const trips: StoreAction[][] = []
+    let currentTrip: StoreAction[] = []
+    let currentCarrying = 0
+    
+    for (const stop of route) {
+      // この店舗で拾った後の持ち数
+      const carryingAfterPickup = currentCarrying + stop.pickup.length
+      
+      // 容量を超える場合、新しいトリップを開始
+      // ただし、現在のトリップが空の場合は強制的に追加（1店舗で上限超えの場合）
+      if (carryingAfterPickup > MAX_CARRY_CAPACITY && currentTrip.length > 0) {
+        trips.push(currentTrip)
+        currentTrip = []
+        currentCarrying = 0
+      }
+      
+      currentTrip.push(stop)
+      currentCarrying += stop.pickup.length - stop.dropoff.length
+    }
+    
+    if (currentTrip.length > 0) {
+      trips.push(currentTrip)
+    }
+    
+    // トリップを日数に割り当て
     const numTransferDays = Math.max(1, transferDays.length)
-    const days = Math.min(numTransferDays, route.length)
-    const stopsPerDay = Math.ceil(route.length / days)
+    const tripsPerDay = Math.ceil(trips.length / numTransferDays)
     const dayRoutes: DayRoute[] = []
     
-    for (let d = 0; d < days; d++) {
-      const startIdx = d * stopsPerDay
-      const endIdx = Math.min((d + 1) * stopsPerDay, route.length)
-      const dayStops = route.slice(startIdx, endIdx)
+    for (let d = 0; d < numTransferDays && d * tripsPerDay < trips.length; d++) {
+      const startTripIdx = d * tripsPerDay
+      const endTripIdx = Math.min((d + 1) * tripsPerDay, trips.length)
+      const dayTrips = trips.slice(startTripIdx, endTripIdx)
       
+      // 日のすべてのトリップを結合
+      const dayStops = dayTrips.flat()
       if (dayStops.length === 0) continue
       
-      // 各店舗での持ち数を計算
+      // 各店舗での持ち数を計算（トリップ間でリセット）
       let carrying = 0
       let maxCarrying = 0
-      const stopsWithCarrying = dayStops.map(stop => {
-        // この店舗で拾う
+      let tripIndex = 0
+      let stopsInCurrentTrip = 0
+      
+      const stopsWithCarrying = dayStops.map((stop, idx) => {
+        // トリップ境界をチェック
+        if (tripIndex < dayTrips.length && stopsInCurrentTrip >= dayTrips[tripIndex].length) {
+          // 新しいトリップ開始 = 持ち数リセット
+          carrying = 0
+          tripIndex++
+          stopsInCurrentTrip = 0
+        }
+        
         carrying += stop.pickup.length
         maxCarrying = Math.max(maxCarrying, carrying)
-        // この店舗で降ろす
         carrying -= stop.dropoff.length
+        stopsInCurrentTrip++
+        
         return {
           ...stop,
           carryingAfter: carrying
         }
       })
       
-      // 所要時間を計算
+      // 所要時間を計算（トリップ間の戻り時間も含む）
       const totalKits = dayStops.reduce((sum, s) => sum + s.pickup.length + s.dropoff.length, 0)
-      const travelTime = (dayStops.length - 1) * TIME_PER_STOP // 店舗間移動
-      const kitTime = totalKits * TIME_PER_KIT // キット積み下ろし
-      const estimatedMinutes = travelTime + kitTime
+      const travelTime = (dayStops.length - 1) * TIME_PER_STOP
+      const returnTrips = dayTrips.length > 1 ? (dayTrips.length - 1) * TIME_PER_STOP * 2 : 0 // 往復
+      const kitTime = totalKits * TIME_PER_KIT
+      const estimatedMinutes = travelTime + returnTrips + kitTime
       
       dayRoutes.push({
         dayNumber: d + 1,
@@ -536,7 +623,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         estimatedMinutes,
         totalKits,
         maxCarrying,
-        exceedsCapacity: maxCarrying > MAX_CARRY_CAPACITY
+        exceedsCapacity: maxCarrying > MAX_CARRY_CAPACITY,
+        tripCount: dayTrips.length
       })
     }
     
@@ -1558,6 +1646,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                 </Badge>
                                 <span className="text-sm">
                                   {dayRoute.stops.length}店舗 / {dayRoute.totalKits}キット
+                                  {dayRoute.tripCount > 1 && ` (${dayRoute.tripCount}往復)`}
                                 </span>
                                 {dayRoute.exceedsCapacity && (
                                   <span className="text-xs text-red-600 dark:text-red-400">
