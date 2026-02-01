@@ -15,23 +15,34 @@
 
 ## アーキテクチャ概要
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   ローカル開発    │     │   ステージング    │     │      本番       │
-├─────────────────┤     ├─────────────────┤     ├─────────────────┤
-│ Supabase Local  │     │ Supabase Staging│     │ Supabase Prod   │
-│ Vite Dev Server │     │ Vercel Preview  │     │ Vercel Prod     │
-└────────┬────────┘     └────────┬────────┘     └────────┬────────┘
-         │                       │                       │
-         │  PR作成               │  mainマージ            │
-         └──────────────────────>│──────────────────────>│
+```mermaid
+flowchart LR
+    subgraph local [ローカル開発]
+        LocalDB[Supabase Local]
+        LocalFE[Vite Dev Server]
+    end
+    
+    subgraph staging [ステージング]
+        StagingDB[Supabase Staging]
+        StagingFE[Vercel Preview]
+    end
+    
+    subgraph production [本番]
+        ProdDB[Supabase Prod]
+        ProdFE[Vercel Prod]
+    end
+    
+    local -->|PR作成| staging
+    staging -->|mainマージ| production
 ```
 
+### 環境一覧
+
 | 環境 | ブランチ | Supabase | Vercel |
-|------|----------|----------|--------|
-| ローカル | feature/* | Supabase Local | localhost:5173 |
-| ステージング | staging | mmq-yoyaq-staging | Preview URL |
-| 本番 | main | cznpcewciwywcqcxktba | mmq-yoyaq.vercel.app |
+|:-----|:---------|:---------|:-------|
+| ローカル | `feature/*` | Supabase Local | `localhost:5173` |
+| ステージング | `staging` | mmq-yoyaq-staging | Preview URL |
+| 本番 | `main` | cznpcewciwywcqcxktba | mmq-yoyaq.vercel.app |
 
 ---
 
