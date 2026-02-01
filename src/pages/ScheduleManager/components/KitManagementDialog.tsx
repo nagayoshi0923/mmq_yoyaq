@@ -397,29 +397,27 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     })
   }, [transferEvents, storeMap, isSameStoreGroup, getStoreGroupId])
 
-  // 店舗アクション型
-  type StoreAction = {
-    storeId: string
-    storeName: string
-    displayOrder: number
-    pickup: KitTransferSuggestion[]  // ここで拾うキット
-    dropoff: KitTransferSuggestion[] // ここで降ろすキット
+  // 個別トリップ型（1回の往復で運ぶ分）
+  type SingleTrip = {
+    tripNumber: number
+    fromStoreId: string
+    fromStoreName: string
+    kits: KitTransferSuggestion[]
+    destinations: { storeId: string, storeName: string, kits: KitTransferSuggestion[] }[]
+    estimatedMinutes: number
   }
 
   // 日別ルート型
   type DayRoute = {
     dayNumber: number
-    stops: (StoreAction & { carryingAfter: number })[]  // 各店舗を出た時点での持ち数
-    estimatedMinutes: number
+    dayOfWeek: number
+    trips: SingleTrip[]
     totalKits: number
-    maxCarrying: number  // ルート中の最大持ち数
-    exceedsCapacity: boolean  // 容量オーバーかどうか
-    tripCount: number  // この日のトリップ数（1以上）
+    estimatedMinutes: number
   }
 
   // 1人用最適ルートを計算
-  // シミュレーション方式: 物理的に不可能な順序を排除
-  // 重要: 各日は独立（日を跨いでキットを持ち越さない）
+  // 各トリップ = 1箇所で拾って複数箇所に配達（最大4個）
   const optimizedRoutes = useMemo((): DayRoute[] => {
     const validSuggestions = suggestions.filter(s => 
       !isSameStoreGroup(s.from_store_id, s.to_store_id)
@@ -431,27 +429,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     // ============================================
     // Step 1: 店舗情報を構築
     // ============================================
-    const storeInfoMap = new Map<string, { storeId: string, storeName: string, displayOrder: number }>()
-    for (const s of validSuggestions) {
-      const fromId = getStoreGroupId(s.from_store_id)
-      const toId = getStoreGroupId(s.to_store_id)
-      
-      if (!storeInfoMap.has(fromId)) {
-        const store = storeMap.get(fromId)
-        storeInfoMap.set(fromId, {
-          storeId: fromId,
-          storeName: store?.short_name || store?.name || '?',
-          displayOrder: store?.display_order ?? 999
-        })
-      }
-      if (!storeInfoMap.has(toId)) {
-        const store = storeMap.get(toId)
-        storeInfoMap.set(toId, {
-          storeId: toId,
-          storeName: store?.short_name || store?.name || '?',
-          displayOrder: store?.display_order ?? 999
-        })
-      }
+    const getStoreName = (storeId: string): string => {
+      const store = storeMap.get(storeId)
+      return store?.short_name || store?.name || '?'
+    }
+    
+    const getStoreOrder = (storeId: string): number => {
+      return storeMap.get(storeId)?.display_order ?? 999
     }
     
     // ============================================
@@ -492,7 +476,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
     
     // ============================================
-    // Step 3: シミュレーション方式でルートを構築
+    // Step 3: 各日のトリップを構築
     // ============================================
     const dayRoutes: DayRoute[] = []
     let dayNumber = 0
@@ -501,169 +485,74 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       dayNumber++
       if (dayKits.length === 0) continue
       
-      // === シミュレーション開始 ===
-      // 状態: 
-      //   - pending: まだ拾っていないキット
-      //   - carrying: 持っているキット（拾ったが届けていない）
-      //   - delivered: 届け終わったキット
+      // 出発店舗ごとにグループ化
+      const kitsBySource = new Map<string, KitTransferSuggestion[]>()
+      for (const kit of dayKits) {
+        const fromId = getStoreGroupId(kit.from_store_id)
+        if (!kitsBySource.has(fromId)) {
+          kitsBySource.set(fromId, [])
+        }
+        kitsBySource.get(fromId)!.push(kit)
+      }
       
-      const pending = new Set(dayKits.map((_, i) => i)) // キットのインデックス
-      const carrying: number[] = [] // 持っているキットのインデックス
-      const route: { storeId: string, pickup: KitTransferSuggestion[], dropoff: KitTransferSuggestion[] }[] = []
+      // 出発店舗をdisplay_order順にソート
+      const sortedSources = [...kitsBySource.entries()].sort((a, b) => 
+        getStoreOrder(a[0]) - getStoreOrder(b[0])
+      )
       
-      // 容量を超えたら一度戻る必要があるためトリップカウント
-      let tripCount = 1
+      // 各出発店舗からのトリップを作成（4個ずつ分割）
+      const trips: SingleTrip[] = []
+      let tripNumber = 0
       
-      // 全キットを届けるまでループ
-      while (pending.size > 0 || carrying.length > 0) {
-        // 次に訪問すべき店舗を決定
-        // 優先順位:
-        // 1. まず拾える店舗（pendingキットがある店舗）をdisplay_order順に
-        // 2. 持っているキットの配達先
-        
-        let nextStoreId: string | null = null
-        let nextAction: 'pickup_first' | 'dropoff_first' = 'pickup_first'
-        
-        // 拾えるキットがある店舗を探す
-        const pickupStores = new Map<string, number[]>()
-        for (const idx of pending) {
-          const kit = dayKits[idx]
-          const fromId = getStoreGroupId(kit.from_store_id)
-          if (!pickupStores.has(fromId)) {
-            pickupStores.set(fromId, [])
-          }
-          pickupStores.get(fromId)!.push(idx)
-        }
-        
-        // 持っているキットの配達先
-        const dropoffStores = new Map<string, number[]>()
-        for (const idx of carrying) {
-          const kit = dayKits[idx]
-          const toId = getStoreGroupId(kit.to_store_id)
-          if (!dropoffStores.has(toId)) {
-            dropoffStores.set(toId, [])
-          }
-          dropoffStores.get(toId)!.push(idx)
-        }
-        
-        // 容量チェック: 満杯なら配達を優先
-        if (carrying.length >= MAX_CARRY_CAPACITY) {
-          // 配達先をdisplay_order順で選ぶ
-          let bestOrder = Infinity
-          for (const [storeId] of dropoffStores) {
-            const order = storeInfoMap.get(storeId)?.displayOrder ?? 999
-            if (order < bestOrder) {
-              bestOrder = order
-              nextStoreId = storeId
+      for (const [sourceId, kits] of sortedSources) {
+        // 4個ずつバッチに分割
+        for (let i = 0; i < kits.length; i += MAX_CARRY_CAPACITY) {
+          tripNumber++
+          const batch = kits.slice(i, i + MAX_CARRY_CAPACITY)
+          
+          // 配達先ごとにグループ化
+          const destMap = new Map<string, KitTransferSuggestion[]>()
+          for (const kit of batch) {
+            const toId = getStoreGroupId(kit.to_store_id)
+            if (!destMap.has(toId)) {
+              destMap.set(toId, [])
             }
+            destMap.get(toId)!.push(kit)
           }
-          nextAction = 'dropoff_first'
-        } else if (pickupStores.size > 0) {
-          // 拾える店舗がある場合、display_order順で選ぶ
-          let bestOrder = Infinity
-          for (const [storeId] of pickupStores) {
-            const order = storeInfoMap.get(storeId)?.displayOrder ?? 999
-            if (order < bestOrder) {
-              bestOrder = order
-              nextStoreId = storeId
-            }
-          }
-          nextAction = 'pickup_first'
-        } else if (dropoffStores.size > 0) {
-          // 配達のみ
-          let bestOrder = Infinity
-          for (const [storeId] of dropoffStores) {
-            const order = storeInfoMap.get(storeId)?.displayOrder ?? 999
-            if (order < bestOrder) {
-              bestOrder = order
-              nextStoreId = storeId
-            }
-          }
-          nextAction = 'dropoff_first'
-        }
-        
-        if (!nextStoreId) break // 無限ループ防止
-        
-        // この店舗でのアクションを実行
-        const pickupsHere = pickupStores.get(nextStoreId) || []
-        const dropoffsHere = dropoffStores.get(nextStoreId) || []
-        
-        const stopPickups: KitTransferSuggestion[] = []
-        const stopDropoffs: KitTransferSuggestion[] = []
-        
-        // 拾う（容量まで）
-        for (const idx of pickupsHere) {
-          if (carrying.length < MAX_CARRY_CAPACITY) {
-            pending.delete(idx)
-            carrying.push(idx)
-            stopPickups.push(dayKits[idx])
-          }
-        }
-        
-        // 届ける（この店舗宛のキットを持っている場合）
-        const toDeliver = [...dropoffsHere]
-        for (const idx of toDeliver) {
-          const carryIdx = carrying.indexOf(idx)
-          if (carryIdx !== -1) {
-            carrying.splice(carryIdx, 1)
-            stopDropoffs.push(dayKits[idx])
-          }
-        }
-        
-        // ルートに追加（既存の店舗があれば統合）
-        const existingStop = route.find(s => s.storeId === nextStoreId)
-        if (existingStop) {
-          existingStop.pickup.push(...stopPickups)
-          existingStop.dropoff.push(...stopDropoffs)
-        } else {
-          route.push({
-            storeId: nextStoreId,
-            pickup: stopPickups,
-            dropoff: stopDropoffs
+          
+          // 配達先をdisplay_order順にソート
+          const destinations = [...destMap.entries()]
+            .sort((a, b) => getStoreOrder(a[0]) - getStoreOrder(b[0]))
+            .map(([storeId, destKits]) => ({
+              storeId,
+              storeName: getStoreName(storeId),
+              kits: destKits
+            }))
+          
+          // 時間計算: 出発店舗 + 配達先店舗数 × 移動時間 + キット数 × 積み下ろし時間
+          const storeCount = 1 + destinations.length
+          const estimatedMinutes = storeCount * TIME_PER_STOP + batch.length * TIME_PER_KIT
+          
+          trips.push({
+            tripNumber,
+            fromStoreId: sourceId,
+            fromStoreName: getStoreName(sourceId),
+            kits: batch,
+            destinations,
+            estimatedMinutes
           })
-        }
-        
-        // 容量を超えたため往復が必要
-        if (pickupsHere.length > stopPickups.length) {
-          tripCount++
         }
       }
       
-      // StoreAction形式に変換
-      let carryingCount = 0
-      let maxCarrying = 0
-      
-      const stopsWithCarrying = route.map(stop => {
-        const storeInfo = storeInfoMap.get(stop.storeId)
-        carryingCount += stop.pickup.length
-        maxCarrying = Math.max(maxCarrying, carryingCount)
-        carryingCount -= stop.dropoff.length
-        
-        return {
-          storeId: stop.storeId,
-          storeName: storeInfo?.storeName || '?',
-          displayOrder: storeInfo?.displayOrder ?? 999,
-          pickup: stop.pickup,
-          dropoff: stop.dropoff,
-          carryingAfter: carryingCount
-        }
-      })
-      
-      // 所要時間を計算
-      const totalKits = route.reduce((sum, s) => sum + s.pickup.length + s.dropoff.length, 0)
-      const travelTime = (route.length - 1) * TIME_PER_STOP
-      const returnTripsTime = tripCount > 1 ? (tripCount - 1) * TIME_PER_STOP * 2 : 0
-      const kitTime = totalKits * TIME_PER_KIT
-      const estimatedMinutes = travelTime + returnTripsTime + kitTime
+      const totalKits = dayKits.length
+      const totalMinutes = trips.reduce((sum, t) => sum + t.estimatedMinutes, 0)
       
       dayRoutes.push({
         dayNumber,
-        stops: stopsWithCarrying,
-        estimatedMinutes,
+        dayOfWeek: transferDayOfWeek,
+        trips,
         totalKits,
-        maxCarrying,
-        exceedsCapacity: maxCarrying > MAX_CARRY_CAPACITY,
-        tripCount
+        estimatedMinutes: totalMinutes
       })
     }
     
@@ -1640,15 +1529,15 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     </div>
                   )}
                   
-                  {/* 1人用最適ルート表示 */}
+                  {/* 1人用トリップ別表示 */}
                   {transferViewMode === 'route' && (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {/* サマリー */}
                       <div className="flex items-center justify-between gap-4 p-2 bg-muted/50 rounded-lg text-sm">
                         <span>
                           {transferDays.length > 1 
-                            ? `${transferDays.map(d => WEEKDAYS.find(w => w.value === d)?.short).join('・')}の${transferDays.length}回に分けて移動`
-                            : '1回で移動'}
+                            ? `${transferDays.map(d => WEEKDAYS.find(w => w.value === d)?.short).join('・')}の${transferDays.length}日に分けて移動`
+                            : '1日で移動'}
                         </span>
                         <div className="flex items-center gap-1">
                           <Clock className="h-4 w-4 text-muted-foreground" />
@@ -1656,171 +1545,74 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         </div>
                       </div>
                       
-                      {/* 容量警告 */}
-                      {optimizedRoutes.some(d => d.exceedsCapacity) && (
-                        <div className="flex items-center gap-2 p-2 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-sm">
-                          <AlertTriangle className="h-4 w-4 shrink-0" />
-                          <span>一度に{MAX_CARRY_CAPACITY}個以上運ぶ必要があります。複数回に分けるか、移動曜日を増やしてください。</span>
-                        </div>
-                      )}
-                      
-                      {/* 日別ルート */}
+                      {/* 日別表示 */}
                       {optimizedRoutes.map((dayRoute) => {
-                        // 対応する曜日を取得（transferDaysの順番で対応）
-                        const dayOfWeek = transferDays[dayRoute.dayNumber - 1]
-                        const dayLabel = WEEKDAYS.find(w => w.value === dayOfWeek)?.label || `${dayRoute.dayNumber}日目`
+                        const dayLabel = WEEKDAYS.find(w => w.value === dayRoute.dayOfWeek)?.label || `${dayRoute.dayNumber}日目`
                         
                         return (
-                        <div key={dayRoute.dayNumber} className="space-y-2">
-                          {/* 日のヘッダー */}
-                          {transferDays.length > 1 && (
-                            <div className={`flex items-center justify-between rounded-lg px-3 py-2 ${
-                              dayRoute.exceedsCapacity 
-                                ? 'bg-red-100 dark:bg-red-900/30' 
-                                : 'bg-primary/10'
-                            }`}>
+                          <div key={dayRoute.dayNumber} className="space-y-2">
+                            {/* 日のヘッダー */}
+                            <div className="flex items-center justify-between rounded-lg px-3 py-2 bg-primary/10">
                               <div className="flex items-center gap-2">
-                                <Badge variant={dayRoute.exceedsCapacity ? 'destructive' : 'default'} className="text-sm">
+                                <Badge variant="default" className="text-sm">
                                   {dayLabel}
                                 </Badge>
                                 <span className="text-sm">
-                                  {dayRoute.stops.length}店舗 / {dayRoute.totalKits}キット
-                                  {dayRoute.tripCount > 1 && ` (${dayRoute.tripCount}往復)`}
+                                  {dayRoute.trips.length}回 / {dayRoute.totalKits}キット
                                 </span>
-                                {dayRoute.exceedsCapacity && (
-                                  <span className="text-xs text-red-600 dark:text-red-400">
-                                    (最大{dayRoute.maxCarrying}個持ち)
-                                  </span>
-                                )}
                               </div>
                               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                 <Clock className="h-3 w-3" />
                                 {formatMinutes(dayRoute.estimatedMinutes)}
                               </div>
                             </div>
-                          )}
-                          
-                          {/* 店舗リスト */}
-                          {dayRoute.stops.map((stop, index) => {
-                            // この店舗を出た後の持ち数が上限超えてるか
-                            const carryingAfterPickup = stop.carryingAfter + stop.dropoff.length
-                            const isOverCapacity = carryingAfterPickup > MAX_CARRY_CAPACITY
                             
-                            return (
-                            <div
-                              key={stop.storeId}
-                              className={`bg-white dark:bg-gray-800 rounded-lg p-3 ${
-                                isOverCapacity ? 'ring-2 ring-red-500' : ''
-                              }`}
-                            >
-                              {/* 店舗ヘッダー */}
-                              <div className="flex items-center gap-2 mb-2 pb-2 border-b">
-                                <div className={`flex items-center justify-center w-6 h-6 rounded-full text-sm font-bold ${
-                                  isOverCapacity 
-                                    ? 'bg-red-500 text-white' 
-                                    : 'bg-primary text-primary-foreground'
-                                }`}>
-                                  {index + 1}
-                                </div>
-                                <span className="font-bold text-lg">{stop.storeName}</span>
-                                <div className="flex items-center gap-2 ml-auto">
-                                  {stop.pickup.length > 0 && (
-                                    <Badge className="bg-blue-500 hover:bg-blue-600">
-                                      <ArrowUp className="h-3 w-3 mr-1" />
-                                      {stop.pickup.length}個拾う
-                                    </Badge>
-                                  )}
-                                  {stop.dropoff.length > 0 && (
-                                    <Badge className="bg-green-500 hover:bg-green-600">
-                                      <ArrowDown className="h-3 w-3 mr-1" />
-                                      {stop.dropoff.length}個降ろす
-                                    </Badge>
-                                  )}
-                                  {/* 持ち数表示 */}
-                                  <Badge variant="outline" className={`text-xs ${
-                                    isOverCapacity ? 'border-red-500 text-red-600' : ''
-                                  }`}>
-                                    持{carryingAfterPickup}→{stop.carryingAfter}
+                            {/* トリップ一覧 */}
+                            {dayRoute.trips.map((trip) => (
+                              <div
+                                key={trip.tripNumber}
+                                className="bg-white dark:bg-gray-800 rounded-lg p-3 border"
+                              >
+                                {/* トリップヘッダー */}
+                                <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+                                  <div className="flex items-center justify-center w-6 h-6 rounded-full text-sm font-bold bg-primary text-primary-foreground">
+                                    {trip.tripNumber}
+                                  </div>
+                                  <span className="font-bold">{trip.fromStoreName}</span>
+                                  <ArrowRight className="h-4 w-4" />
+                                  <span className="text-muted-foreground">
+                                    {trip.destinations.map(d => d.storeName).join(' → ')}
+                                  </span>
+                                  <Badge variant="secondary" className="ml-auto">
+                                    {trip.kits.length}個
                                   </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatMinutes(trip.estimatedMinutes)}
+                                  </span>
+                                </div>
+                                
+                                {/* キット一覧 */}
+                                <div className="space-y-1 text-sm">
+                                  {trip.kits.map((kit, i) => {
+                                    const toStore = storeMap.get(kit.to_store_id)
+                                    const perfDate = new Date(kit.performance_date)
+                                    const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
+                                    return (
+                                      <div key={i} className="flex items-center gap-2 py-0.5">
+                                        <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
+                                          {perfDateStr}公演
+                                        </Badge>
+                                        <span className="truncate max-w-[150px]">{kit.scenario_title}</span>
+                                        <span className="text-muted-foreground text-xs">#{kit.kit_number}</span>
+                                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-xs">{toStore?.short_name || toStore?.name}</span>
+                                      </div>
+                                    )
+                                  })}
                                 </div>
                               </div>
-                              
-                              {/* 拾うキット */}
-                              {stop.pickup.length > 0 && (
-                                <div className="mb-2">
-                                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1 flex items-center gap-1">
-                                    <ArrowUp className="h-3 w-3" />
-                                    拾う
-                                  </div>
-                                  <div className="space-y-0.5 pl-4">
-                                    {stop.pickup.map((s, i) => {
-                                      const toStore = storeMap.get(getStoreGroupId(s.to_store_id))
-                                      // 公演日を短いフォーマットで表示
-                                      const perfDate = new Date(s.performance_date)
-                                      const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
-                                      return (
-                                        <div key={i} className="text-sm flex items-center gap-2">
-                                          <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
-                                            {perfDateStr}公演
-                                          </Badge>
-                                          <span className="truncate max-w-[130px]">{s.scenario_title}</span>
-                                          <span className="text-muted-foreground text-xs">#{s.kit_number}</span>
-                                          <span className="text-muted-foreground text-xs">
-                                            → {toStore?.short_name || toStore?.name}
-                                          </span>
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {/* 降ろすキット */}
-                              {stop.dropoff.length > 0 && (
-                                <div>
-                                  <div className="text-xs text-green-600 dark:text-green-400 font-medium mb-1 flex items-center gap-1">
-                                    <ArrowDown className="h-3 w-3" />
-                                    降ろす
-                                  </div>
-                                  <div className="space-y-0.5 pl-4">
-                                    {stop.dropoff.map((s, i) => {
-                                      const actualToStore = storeMap.get(s.to_store_id)
-                                      const showActualStore = s.to_store_id !== getStoreGroupId(s.to_store_id)
-                                      // 公演日を短いフォーマットで表示
-                                      const perfDate = new Date(s.performance_date)
-                                      const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
-                                      return (
-                                        <div key={i} className="text-sm flex items-center gap-2">
-                                          <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
-                                            {perfDateStr}公演
-                                          </Badge>
-                                          <span className="truncate max-w-[110px]">{s.scenario_title}</span>
-                                          <span className="text-muted-foreground text-xs">#{s.kit_number}</span>
-                                          {showActualStore && (
-                                            <Badge variant="outline" className="text-[10px]">
-                                              {actualToStore?.short_name || actualToStore?.name}
-                                            </Badge>
-                                          )}
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )
-                          })}
-                          
-                          {/* 日別ルート要約 */}
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground justify-center flex-wrap py-1">
-                            {dayRoute.stops.map((stop, index) => (
-                              <span key={stop.storeId} className="flex items-center">
-                                {index > 0 && <ArrowRight className="h-3 w-3 mx-1" />}
-                                <span className="font-medium">{stop.storeName}</span>
-                              </span>
                             ))}
                           </div>
-                        </div>
                         )
                       })}
                     </div>
