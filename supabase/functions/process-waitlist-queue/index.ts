@@ -16,7 +16,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
+import { getCorsHeaders, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall, maskEmail } from '../_shared/security.ts'
 
 interface QueueEntry {
   id: string
@@ -452,7 +452,7 @@ Murder Mystery Queue (MMQ)
 
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
-      console.error('Resend API error for', waitlistEntry.customer_email, ':', errorData)
+      console.error('Resend API error for', maskEmail(waitlistEntry.customer_email), ':', errorData)
       return { success: false, entryId: waitlistEntry.id, error: JSON.stringify(errorData) }
     }
 
@@ -470,10 +470,10 @@ Murder Mystery Queue (MMQ)
       console.error('Waitlist update error:', updateError)
     }
 
-    console.log('✅ Email sent to:', waitlistEntry.customer_email)
+    console.log('✅ Email sent to:', maskEmail(waitlistEntry.customer_email))
     return { success: true, entryId: waitlistEntry.id }
   } catch (err) {
-    console.error('❌ Email send error for', waitlistEntry.customer_email, ':', err)
+    console.error('❌ Email send error for', maskEmail(waitlistEntry.customer_email), ':', err)
     return { success: false, entryId: waitlistEntry.id, error: err.message }
   }
 }

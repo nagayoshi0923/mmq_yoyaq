@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getAnonKey, getCorsHeaders } from '../_shared/security.ts'
+import { getAnonKey, getCorsHeaders, maskEmail } from '../_shared/security.ts'
 
 serve(async (req) => {
   const origin = req.headers.get('origin')
@@ -136,29 +136,26 @@ serve(async (req) => {
 
           if (reminderResponse.ok) {
             const result = await reminderResponse.json()
-            console.log(`リマインドメール送信成功: ${reservation.customer_email}`)
+            console.log(`リマインドメール送信成功: ${maskEmail(reservation.customer_email)}`)
             results.push({
               reservationId: reservation.id,
-              customerEmail: reservation.customer_email,
               daysBefore: schedule.days_before,
               success: true
             })
           } else {
             const error = await reminderResponse.text()
-            console.error(`リマインドメール送信失敗: ${reservation.customer_email}`, error)
+            console.error(`リマインドメール送信失敗: ${maskEmail(reservation.customer_email)}`, error)
             results.push({
               reservationId: reservation.id,
-              customerEmail: reservation.customer_email,
               daysBefore: schedule.days_before,
               success: false,
               error: error
             })
           }
         } catch (error) {
-          console.error(`リマインドメール送信エラー: ${reservation.customer_email}`, error)
+          console.error(`リマインドメール送信エラー: ${maskEmail(reservation.customer_email)}`, error)
           results.push({
             reservationId: reservation.id,
-            customerEmail: reservation.customer_email,
             daysBefore: schedule.days_before,
             success: false,
             error: error.message

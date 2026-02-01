@@ -9,7 +9,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall, maskEmail } from '../_shared/security.ts'
 import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry } from '../_shared/organization-settings.ts'
 
 interface CheckRequest {
@@ -172,9 +172,9 @@ async function sendCancellationNotifications(
           reservation.customer_name || 'お客様',
           event
         )
-        console.log('✅ 中止メール送信:', reservation.customer_email)
+        console.log('✅ 中止メール送信:', maskEmail(reservation.customer_email))
       } catch (emailError) {
-        console.error('❌ メール送信エラー:', reservation.customer_email, emailError)
+        console.error('❌ メール送信エラー:', maskEmail(reservation.customer_email), emailError)
       }
     }
 

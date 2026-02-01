@@ -118,6 +118,50 @@ serve(async (req) => {
       )
     }
 
+    // ============================================
+    // 組織ID検証: 自組織のユーザーのみ削除可能
+    // ============================================
+    // 呼び出し元の組織IDを取得
+    const { data: callerStaff } = await supabase
+      .from('staff')
+      .select('organization_id')
+      .eq('user_id', callerUser.id)
+      .maybeSingle()
+
+    const callerOrgId = callerStaff?.organization_id
+
+    // 削除対象の組織IDを確認（staffまたはcustomersから）
+    if (callerOrgId) {
+      const { data: targetStaff } = await supabase
+        .from('staff')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .maybeSingle()
+      
+      const { data: targetCustomer } = await supabase
+        .from('customers')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .maybeSingle()
+      
+      const targetOrgId = targetStaff?.organization_id || targetCustomer?.organization_id
+      
+      if (targetOrgId && targetOrgId !== callerOrgId) {
+        console.warn('⚠️ 組織ID不一致: 他組織ユーザー削除試行', {
+          caller: maskEmail(callerUser.email || ''),
+          callerOrg: callerOrgId,
+          targetOrg: targetOrgId
+        })
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: '自組織のユーザーのみ削除できます'
+          }),
+          { status: 403, headers: corsHeaders }
+        )
+      }
+    }
+
     console.log('🗑️ User deletion request by admin:', { targetUserId: userId })
 
     // 1. ユーザー情報を取得（削除前の確認用）

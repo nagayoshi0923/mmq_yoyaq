@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getDiscordSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, getServiceRoleKey } from '../_shared/security.ts'
+import { getCorsHeaders, getServiceRoleKey, verifyAuth, isCronOrServiceRoleCall, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 
 const FALLBACK_DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -65,7 +65,8 @@ async function sendDiscordNotification(
   staffName: string,
   year: number,
   month: number,
-  summary: ReturnType<typeof generateShiftSummary>
+  summary: ReturnType<typeof generateShiftSummary>,
+  botToken: string
 ): Promise<void> {
   const { totalDays, morningCount, afternoonCount, eveningCount, allDayCount } = summary
   
@@ -95,7 +96,7 @@ async function sendDiscordNotification(
     {
       method: 'POST',
       headers: {
-        'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+        'Authorization': `Bot ${botToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
@@ -121,6 +122,24 @@ serve(async (req) => {
   }
 
   try {
+    // ============================================
+    // 認証チェック: Cron/システム または認証済みユーザーのみ許可
+    // ============================================
+    if (!isCronOrServiceRoleCall(req)) {
+      const authResult = await verifyAuth(req, ['admin', 'owner', 'staff'])
+      if (!authResult.success) {
+        console.warn('⚠️ 認証失敗: notify-shift-submitted-discord への不正アクセス試行')
+        return errorResponse(
+          authResult.error || '認証が必要です',
+          authResult.statusCode || 401,
+          corsHeaders
+        )
+      }
+      console.log('✅ 認証成功:', authResult.user?.email)
+    } else {
+      console.log('✅ システム認証成功（Cron/Service）')
+    }
+
     const payload: ShiftSubmittedPayload = await req.json()
     console.log('📨 Shift submitted payload:', payload)
     
@@ -129,7 +148,7 @@ serve(async (req) => {
     // スタッフ情報を取得
     const { data: staff, error: staffError } = await supabase
       .from('staff')
-      .select('name, discord_channel_id')
+      .select('name, discord_channel_id, organization_id')
       .eq('id', staff_id)
       .single()
     
@@ -159,6 +178,26 @@ serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    // Discord Bot Tokenを取得（組織設定 or フォールバック）
+    let botToken = FALLBACK_DISCORD_BOT_TOKEN
+    if (staff.organization_id) {
+      const discordSettings = await getDiscordSettings(supabase, staff.organization_id)
+      if (discordSettings.botToken) {
+        botToken = discordSettings.botToken
+      }
+    }
+
+    if (!botToken) {
+      console.log('⚠️ Discord Bot Token not configured, skipping notification')
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Notification skipped (no bot token configured)' 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
     
     // シフトのサマリーを生成
     const summary = generateShiftSummary(shifts)
@@ -169,7 +208,8 @@ serve(async (req) => {
       staff.name,
       year,
       month,
-      summary
+      summary,
+      botToken
     )
     
     return new Response(
@@ -183,10 +223,11 @@ serve(async (req) => {
     )
     
   } catch (error) {
-    console.error('❌ Error:', error)
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+    console.error('❌ Error:', sanitizeErrorMessage(errorMsg))
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+        error: sanitizeErrorMessage(errorMsg)
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
