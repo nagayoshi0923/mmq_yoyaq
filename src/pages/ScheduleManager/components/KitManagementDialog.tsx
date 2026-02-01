@@ -186,22 +186,19 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     const store = storeMap.get(storeId)
     if (!store) return '?'
     
-    // このストアがグループに属しているか確認
-    const groupId = store.kit_group_id
-    if (!groupId) {
-      return store.short_name || store.name
+    const name = store.short_name || store.name
+    
+    // このストアがグループに属しているか、または他のストアから参照されているかチェック
+    const hasGroup = store.kit_group_id || 
+      [...storeMap.values()].some(s => s.kit_group_id === storeId)
+    
+    if (hasGroup) {
+      // 数字や記号（①②など）を除去して共通名を取得
+      const commonName = name.replace(/[①②③④⑤⑥⑦⑧⑨⑩0-9１２３４５６７８９０]/g, '').trim()
+      return commonName || name
     }
     
-    // グループの代表店舗の名前から共通部分を抽出
-    const groupStore = storeMap.get(groupId)
-    if (!groupStore) {
-      return store.short_name || store.name
-    }
-    
-    const name = groupStore.short_name || groupStore.name
-    // 数字や記号（①②など）を除去して共通名を取得
-    const commonName = name.replace(/[①②③④⑤⑥⑦⑧⑨⑩0-9１２３４５６７８９０]/g, '').trim()
-    return commonName || name
+    return name
   }, [storeMap])
   
   // 店舗ごとの在庫（store_id -> シナリオ情報の配列）
@@ -1590,51 +1587,82 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                               </div>
                             </div>
                             
-                            {/* トリップ一覧 */}
-                            {dayRoute.trips.map((trip) => (
-                              <div
-                                key={trip.tripNumber}
-                                className="bg-white dark:bg-gray-800 rounded-lg p-3 border"
-                              >
-                                {/* トリップヘッダー */}
-                                <div className="flex items-center gap-2 mb-2 pb-2 border-b">
-                                  <div className="flex items-center justify-center w-6 h-6 rounded-full text-sm font-bold bg-primary text-primary-foreground">
-                                    {trip.tripNumber}
-                                  </div>
-                                  <span className="font-bold">{trip.fromStoreName}</span>
-                                  <ArrowRight className="h-4 w-4" />
-                                  <span className="text-muted-foreground">
-                                    {trip.destinations.map(d => d.storeName).join(' → ')}
-                                  </span>
-                                  <Badge variant="secondary" className="ml-auto">
-                                    {trip.kits.length}個
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    {formatMinutes(trip.estimatedMinutes)}
-                                  </span>
-                                </div>
+                            {/* 出発店舗ごとにグループ化して表示 */}
+                            {(() => {
+                              // 出発店舗でグループ化
+                              const groupedBySource = new Map<string, typeof dayRoute.trips>()
+                              for (const trip of dayRoute.trips) {
+                                const key = trip.fromStoreId
+                                if (!groupedBySource.has(key)) {
+                                  groupedBySource.set(key, [])
+                                }
+                                groupedBySource.get(key)!.push(trip)
+                              }
+                              
+                              return [...groupedBySource.entries()].map(([sourceId, trips]) => {
+                                const totalKits = trips.reduce((sum, t) => sum + t.kits.length, 0)
+                                const totalMinutes = trips.reduce((sum, t) => sum + t.estimatedMinutes, 0)
+                                // 全配達先を集計（重複排除）
+                                const allDestinations = [...new Set(trips.flatMap(t => t.destinations.map(d => d.storeName)))]
                                 
-                                {/* キット一覧 */}
-                                <div className="space-y-1 text-sm">
-                                  {trip.kits.map((kit, i) => {
-                                    const toStore = storeMap.get(kit.to_store_id)
-                                    const perfDate = new Date(kit.performance_date)
-                                    const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
-                                    return (
-                                      <div key={i} className="flex items-center gap-2 py-0.5">
-                                        <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
-                                          {perfDateStr}公演
+                                return (
+                                  <div
+                                    key={sourceId}
+                                    className="bg-white dark:bg-gray-800 rounded-lg p-3 border"
+                                  >
+                                    {/* ルートヘッダー */}
+                                    <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+                                      <span className="font-bold text-lg">{trips[0].fromStoreName}</span>
+                                      <ArrowRight className="h-4 w-4" />
+                                      <span className="text-muted-foreground">
+                                        {allDestinations.join(' → ')}
+                                      </span>
+                                      <div className="ml-auto flex items-center gap-2">
+                                        <Badge variant="secondary">
+                                          {totalKits}個
+                                          {trips.length > 1 && ` / ${trips.length}往復`}
                                         </Badge>
-                                        <span className="truncate max-w-[150px]">{kit.scenario_title}</span>
-                                        <span className="text-muted-foreground text-xs">#{kit.kit_number}</span>
-                                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                                        <span className="text-xs">{toStore?.short_name || toStore?.name}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {formatMinutes(totalMinutes)}
+                                        </span>
                                       </div>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            ))}
+                                    </div>
+                                    
+                                    {/* 往復ごとのキット一覧 */}
+                                    {trips.map((trip, tripIdx) => (
+                                      <div key={trip.tripNumber} className="mb-2 last:mb-0">
+                                        {trips.length > 1 && (
+                                          <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-muted text-[10px] font-medium">
+                                              {tripIdx + 1}
+                                            </span>
+                                            往復目
+                                          </div>
+                                        )}
+                                        <div className="space-y-0.5 text-sm pl-1">
+                                          {trip.kits.map((kit, i) => {
+                                            const toStore = storeMap.get(kit.to_store_id)
+                                            const perfDate = new Date(kit.performance_date)
+                                            const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
+                                            return (
+                                              <div key={i} className="flex items-center gap-2 py-0.5">
+                                                <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
+                                                  {perfDateStr}公演
+                                                </Badge>
+                                                <span className="truncate max-w-[150px]">{kit.scenario_title}</span>
+                                                <span className="text-muted-foreground text-xs">#{kit.kit_number}</span>
+                                                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                                <span className="text-xs">{toStore?.short_name || toStore?.name}</span>
+                                              </div>
+                                            )
+                                          })}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )
+                              })
+                            })()}
                           </div>
                         )
                       })}
