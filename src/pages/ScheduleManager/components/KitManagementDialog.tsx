@@ -181,6 +181,29 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
   }, [getStoreGroupId])
   
+  // グループ表示名を取得（森①と森②→「森」、グループなし→そのまま）
+  const getGroupDisplayName = useCallback((storeId: string): string => {
+    const store = storeMap.get(storeId)
+    if (!store) return '?'
+    
+    // このストアがグループに属しているか確認
+    const groupId = store.kit_group_id
+    if (!groupId) {
+      return store.short_name || store.name
+    }
+    
+    // グループの代表店舗の名前から共通部分を抽出
+    const groupStore = storeMap.get(groupId)
+    if (!groupStore) {
+      return store.short_name || store.name
+    }
+    
+    const name = groupStore.short_name || groupStore.name
+    // 数字や記号（①②など）を除去して共通名を取得
+    const commonName = name.replace(/[①②③④⑤⑥⑦⑧⑨⑩0-9１２３４５６７８９０]/g, '').trim()
+    return commonName || name
+  }, [storeMap])
+  
   // 店舗ごとの在庫（store_id -> シナリオ情報の配列）
   const storeInventory = useMemo(() => {
     const inventory = new Map<string, Array<{
@@ -520,12 +543,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             destMap.get(toId)!.push(kit)
           }
           
-          // 配達先をdisplay_order順にソート
+          // 配達先をdisplay_order順にソート（グループ名で表示）
           const destinations = [...destMap.entries()]
             .sort((a, b) => getStoreOrder(a[0]) - getStoreOrder(b[0]))
             .map(([storeId, destKits]) => ({
               storeId,
-              storeName: getStoreName(storeId),
+              storeName: getGroupDisplayName(storeId),
               kits: destKits
             }))
           
@@ -536,7 +559,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           trips.push({
             tripNumber,
             fromStoreId: sourceId,
-            fromStoreName: getStoreName(sourceId),
+            fromStoreName: getGroupDisplayName(sourceId),
             kits: batch,
             destinations,
             estimatedMinutes
@@ -557,7 +580,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
     
     return dayRoutes
-  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId, transferDays, TIME_PER_STOP, TIME_PER_KIT, MAX_CARRY_CAPACITY])
+  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId, getGroupDisplayName, transferDays, TIME_PER_STOP, TIME_PER_KIT, MAX_CARRY_CAPACITY])
   
   // 全体の所要時間
   const totalEstimatedMinutes = useMemo(() => {
