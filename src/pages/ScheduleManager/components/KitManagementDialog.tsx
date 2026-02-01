@@ -154,6 +154,25 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return new Map(stores.map(s => [s.id, s]))
   }, [stores])
   
+  // キットグループのマッピング（同じグループの店舗は同一拠点）
+  const getStoreGroupId = useMemo(() => {
+    return (storeId: string): string => {
+      const store = storeMap.get(storeId)
+      if (store?.kit_group_id) {
+        return store.kit_group_id
+      }
+      // 自分が他店舗のkit_group_idとして参照されている場合、自分がグループ代表
+      return storeId
+    }
+  }, [storeMap])
+  
+  // 同じキットグループかどうかをチェック
+  const isSameStoreGroup = useMemo(() => {
+    return (storeId1: string, storeId2: string): boolean => {
+      return getStoreGroupId(storeId1) === getStoreGroupId(storeId2)
+    }
+  }, [getStoreGroupId])
+  
   // 店舗ごとの在庫（store_id -> シナリオ情報の配列）
   const storeInventory = useMemo(() => {
     const inventory = new Map<string, Array<{
@@ -224,11 +243,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         const scenario = scenarioMap.get(scenarioId)
         if (!scenario) continue
         
-        // その店舗にあるキット数をカウント
+        // その店舗（または同じグループの店舗）にあるキット数をカウント
         const kitCount = scenario.kit_count || 1
         let available = 0
         for (let i = 1; i <= kitCount; i++) {
-          if (currentState.get(`${scenarioId}-${i}`) === storeId) {
+          const kitLocation = currentState.get(`${scenarioId}-${i}`)
+          if (kitLocation && isSameStoreGroup(kitLocation, storeId)) {
             available++
           }
         }
@@ -246,7 +266,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
     
     return shortages
-  }, [weekDates, scheduleEvents, kitLocations, scenarioMap])
+  }, [weekDates, scheduleEvents, kitLocations, scenarioMap, isSameStoreGroup])
   
   // 移動提案をルート（店舗→店舗）でグループ化
   const groupedSuggestions = useMemo(() => {
@@ -1057,9 +1077,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                       if (!scenario) return null
                                       const count = storeEvents.filter(e => e.scenario_id === sid).length
                                       
-                                      // この店舗にあるキット数をチェック
+                                      // この店舗（または同じグループの店舗）にあるキット数をチェック
                                       const kitsAtStore = kitLocations.filter(
-                                        loc => loc.scenario_id === sid && loc.store_id === store.id
+                                        loc => loc.scenario_id === sid && isSameStoreGroup(loc.store_id, store.id)
                                       ).length
                                       
                                       // キット不足チェック
