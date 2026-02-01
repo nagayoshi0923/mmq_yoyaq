@@ -417,8 +417,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     tripCount: number  // この日のトリップ数（1以上）
   }
 
-  // 1人用最適ルートを計算（nearest neighbor heuristic）
-  // display_orderを距離の代理として使用
+  // 1人用最適ルートを計算
+  // トポロジカルソートで依存関係を尊重し、起点店舗から効率的なルートを作成
   const optimizedRoutes = useMemo((): DayRoute[] => {
     // 移動が必要なすべてのアイテムを収集
     const validSuggestions = suggestions.filter(s => 
@@ -427,122 +427,122 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     
     if (validSuggestions.length === 0) return []
     
-    // 各店舗グループで何を持っていくか・降ろすかを計算
+    // ============================================
+    // Step 1: 個別のキット移動をエッジとして扱う
+    // ============================================
+    // 各移動は from -> to の順序制約を持つ
+    type KitMove = {
+      suggestion: KitTransferSuggestion
+      fromGroupId: string
+      toGroupId: string
+    }
+    
+    const kitMoves: KitMove[] = validSuggestions.map(s => ({
+      suggestion: s,
+      fromGroupId: getStoreGroupId(s.from_store_id),
+      toGroupId: getStoreGroupId(s.to_store_id)
+    }))
+    
+    // ============================================
+    // Step 2: 各店舗のアクションを構築
+    // ============================================
     const storeActions = new Map<string, StoreAction>()
     
-    for (const s of validSuggestions) {
-      const fromGroupId = getStoreGroupId(s.from_store_id)
-      const toGroupId = getStoreGroupId(s.to_store_id)
-      
+    for (const move of kitMoves) {
       // 拾う側
-      if (!storeActions.has(fromGroupId)) {
-        const store = storeMap.get(fromGroupId)
-        storeActions.set(fromGroupId, {
-          storeId: fromGroupId,
+      if (!storeActions.has(move.fromGroupId)) {
+        const store = storeMap.get(move.fromGroupId)
+        storeActions.set(move.fromGroupId, {
+          storeId: move.fromGroupId,
           storeName: store?.short_name || store?.name || '?',
           displayOrder: store?.display_order ?? 999,
           pickup: [],
           dropoff: []
         })
       }
-      storeActions.get(fromGroupId)!.pickup.push(s)
+      storeActions.get(move.fromGroupId)!.pickup.push(move.suggestion)
       
       // 降ろす側
-      if (!storeActions.has(toGroupId)) {
-        const store = storeMap.get(toGroupId)
-        storeActions.set(toGroupId, {
-          storeId: toGroupId,
+      if (!storeActions.has(move.toGroupId)) {
+        const store = storeMap.get(move.toGroupId)
+        storeActions.set(move.toGroupId, {
+          storeId: move.toGroupId,
           storeName: store?.short_name || store?.name || '?',
           displayOrder: store?.display_order ?? 999,
           pickup: [],
           dropoff: []
         })
       }
-      storeActions.get(toGroupId)!.dropoff.push(s)
+      storeActions.get(move.toGroupId)!.dropoff.push(move.suggestion)
     }
     
-    // 依存関係を考慮したルート構築
-    // 各店舗でdropoffするキットは、先にpickup店舗を訪問している必要がある
+    // ============================================
+    // Step 3: トポロジカルソートで正しい順序を決定
+    // ============================================
+    // 依存関係: to店舗はfrom店舗の後に訪問する必要がある
+    const inDegree = new Map<string, number>()
+    const adjList = new Map<string, Set<string>>()
+    
+    // 初期化
+    for (const storeId of storeActions.keys()) {
+      inDegree.set(storeId, 0)
+      adjList.set(storeId, new Set())
+    }
+    
+    // エッジを追加（from -> to）
+    for (const move of kitMoves) {
+      const from = move.fromGroupId
+      const to = move.toGroupId
+      if (!adjList.get(from)!.has(to)) {
+        adjList.get(from)!.add(to)
+        inDegree.set(to, (inDegree.get(to) || 0) + 1)
+      }
+    }
+    
+    // Kahnのアルゴリズムでトポロジカルソート
+    // 同じレベルの店舗はdisplay_order順
+    const queue: StoreAction[] = []
+    const sortedRoute: StoreAction[] = []
+    
+    // inDegree = 0 の店舗をキューに追加（display_order順）
     const allStops = [...storeActions.values()]
-    if (allStops.length === 0) return []
-    
-    // 依存関係マップ: dropoff店舗 → 必要なpickup店舗のセット
-    const dependencies = new Map<string, Set<string>>()
-    for (const s of validSuggestions) {
-      const fromGroupId = getStoreGroupId(s.from_store_id)
-      const toGroupId = getStoreGroupId(s.to_store_id)
-      if (!dependencies.has(toGroupId)) {
-        dependencies.set(toGroupId, new Set())
-      }
-      dependencies.get(toGroupId)!.add(fromGroupId)
-    }
-    
-    const route: StoreAction[] = []
-    const visited = new Set<string>()
-    const pickedUpFrom = new Set<string>() // 訪問済みpickup店舗
-    
-    // 訪問可能かチェック（依存するpickup店舗をすべて訪問済みか）
-    const canVisit = (stop: StoreAction): boolean => {
-      // dropoffがない店舗は常に訪問可能
-      if (stop.dropoff.length === 0) return true
-      // dropoffするキットのpickup元をすべて訪問済みか
-      const deps = dependencies.get(stop.storeId)
-      if (!deps) return true
-      for (const dep of deps) {
-        if (!pickedUpFrom.has(dep)) return false
-      }
-      return true
-    }
-    
-    // 最初の店舗を選択（pickupのみの店舗から開始）
     allStops.sort((a, b) => a.displayOrder - b.displayOrder)
-    const startCandidates = allStops.filter(s => s.pickup.length > 0 && s.dropoff.length === 0)
-    let current = startCandidates.length > 0 
-      ? startCandidates[0] 
-      : allStops.find(s => canVisit(s)) || allStops[0]
-    route.push(current)
-    visited.add(current.storeId)
-    if (current.pickup.length > 0) {
-      pickedUpFrom.add(current.storeId)
+    
+    for (const stop of allStops) {
+      if (inDegree.get(stop.storeId) === 0) {
+        queue.push(stop)
+      }
     }
     
-    // 残りの店舗を訪問可能な中から最寄りを選択
-    while (visited.size < allStops.length) {
-      let nearest: StoreAction | null = null
-      let nearestDistance = Infinity
+    while (queue.length > 0) {
+      // キュー内をdisplay_order順でソート（起点に近い店舗から）
+      queue.sort((a, b) => a.displayOrder - b.displayOrder)
       
-      for (const stop of allStops) {
-        if (visited.has(stop.storeId)) continue
-        if (!canVisit(stop)) continue // 依存関係を満たさない店舗はスキップ
-        
-        const distance = Math.abs(stop.displayOrder - current.displayOrder)
-        if (distance < nearestDistance) {
-          nearestDistance = distance
-          nearest = stop
-        }
-      }
+      const current = queue.shift()!
+      sortedRoute.push(current)
       
-      if (nearest) {
-        route.push(nearest)
-        visited.add(nearest.storeId)
-        if (nearest.pickup.length > 0) {
-          pickedUpFrom.add(nearest.storeId)
+      // この店舗から行ける店舗のinDegreeを減らす
+      const neighbors = adjList.get(current.storeId)!
+      for (const neighborId of neighbors) {
+        const newDegree = (inDegree.get(neighborId) || 1) - 1
+        inDegree.set(neighborId, newDegree)
+        if (newDegree === 0) {
+          const neighborStop = storeActions.get(neighborId)!
+          queue.push(neighborStop)
         }
-        current = nearest
-      } else {
-        // 訪問可能な店舗がない（循環依存等）→残りを強制追加
-        for (const stop of allStops) {
-          if (!visited.has(stop.storeId)) {
-            route.push(stop)
-            visited.add(stop.storeId)
-            if (stop.pickup.length > 0) {
-              pickedUpFrom.add(stop.storeId)
-            }
-          }
-        }
-        break
       }
     }
+    
+    // 循環依存がある場合は残りを追加
+    if (sortedRoute.length < allStops.length) {
+      for (const stop of allStops) {
+        if (!sortedRoute.find(s => s.storeId === stop.storeId)) {
+          sortedRoute.push(stop)
+        }
+      }
+    }
+    
+    const route = sortedRoute
     
     // 容量を考慮してルートを分割
     // 持ち運び上限を超えないようにトリップを分ける
