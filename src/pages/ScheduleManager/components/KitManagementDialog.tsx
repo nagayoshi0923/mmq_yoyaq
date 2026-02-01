@@ -31,7 +31,7 @@ import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuLabel } from '@/components/ui/context-menu'
-import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical, Route, ArrowDown, ArrowUp, Clock } from 'lucide-react'
+import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical } from 'lucide-react'
 
 // ドラッグ中のキット情報
 interface DraggedKit {
@@ -109,13 +109,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [draggedKit, setDraggedKit] = useState<DraggedKit | null>(null)
   const [dragOverStoreId, setDragOverStoreId] = useState<string | null>(null)
   
-  // 移動計画の表示モード: 'grouped' = ルート別、'route' = 1人用最適ルート
-  const [transferViewMode, setTransferViewMode] = useState<'grouped' | 'route'>('grouped')
-  
-  // 所要時間の見積もり設定（分）
-  const TIME_PER_STOP = 20 // 店舗間の移動時間（平均）
-  const TIME_PER_KIT = 3   // キット1つあたりの積み下ろし時間
-  const MAX_CARRY_CAPACITY = 4 // 一度に持てるキットの最大数
 
   // 週の日付リスト
   const weekDates = useMemo(() => {
@@ -416,182 +409,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       return toOrderA - toOrderB
     })
   }, [transferEvents, storeMap, isSameStoreGroup, getStoreGroupId])
-
-  // 個別トリップ型（1回の往復で運ぶ分）
-  type SingleTrip = {
-    tripNumber: number
-    fromStoreId: string
-    fromStoreName: string
-    kits: KitTransferSuggestion[]
-    destinations: { storeId: string, storeName: string, kits: KitTransferSuggestion[] }[]
-    estimatedMinutes: number
-  }
-
-  // 日別ルート型
-  type DayRoute = {
-    dayNumber: number
-    dayOfWeek: number
-    trips: SingleTrip[]
-    totalKits: number
-    estimatedMinutes: number
-  }
-
-  // 1人用最適ルートを計算
-  // 各トリップ = 1箇所で拾って複数箇所に配達（最大4個）
-  const optimizedRoutes = useMemo((): DayRoute[] => {
-    const validSuggestions = suggestions.filter(s => 
-      !isSameStoreGroup(s.from_store_id, s.to_store_id)
-    )
-    
-    if (validSuggestions.length === 0) return []
-    if (transferDays.length === 0) return []
-    
-    // ============================================
-    // Step 1: 店舗情報を構築
-    // ============================================
-    const getStoreName = (storeId: string): string => {
-      const store = storeMap.get(storeId)
-      return store?.short_name || store?.name || '?'
-    }
-    
-    const getStoreOrder = (storeId: string): number => {
-      return storeMap.get(storeId)?.display_order ?? 999
-    }
-    
-    // ============================================
-    // Step 2: 公演日に基づいて移動日を決定
-    // ============================================
-    const sortedTransferDays = [...transferDays].sort((a, b) => a - b)
-    
-    const getTransferDayForPerformance = (performanceDate: string): number => {
-      const date = new Date(performanceDate)
-      const perfDayOfWeek = date.getDay()
-      
-      let bestTransferDay = sortedTransferDays[sortedTransferDays.length - 1]
-      
-      for (let i = sortedTransferDays.length - 1; i >= 0; i--) {
-        const transferDay = sortedTransferDays[i]
-        if (transferDay < perfDayOfWeek) {
-          bestTransferDay = transferDay
-          break
-        }
-      }
-      
-      if (perfDayOfWeek <= sortedTransferDays[0]) {
-        bestTransferDay = sortedTransferDays[sortedTransferDays.length - 1]
-      }
-      
-      return bestTransferDay
-    }
-    
-    // 移動日ごとにキットをグループ化
-    const kitsByTransferDay = new Map<number, KitTransferSuggestion[]>()
-    for (const day of sortedTransferDays) {
-      kitsByTransferDay.set(day, [])
-    }
-    
-    for (const s of validSuggestions) {
-      const transferDay = getTransferDayForPerformance(s.performance_date)
-      kitsByTransferDay.get(transferDay)!.push(s)
-    }
-    
-    // ============================================
-    // Step 3: 各日のトリップを構築
-    // ============================================
-    const dayRoutes: DayRoute[] = []
-    let dayNumber = 0
-    
-    for (const [transferDayOfWeek, dayKits] of kitsByTransferDay) {
-      dayNumber++
-      if (dayKits.length === 0) continue
-      
-      // 出発店舗ごとにグループ化
-      const kitsBySource = new Map<string, KitTransferSuggestion[]>()
-      for (const kit of dayKits) {
-        const fromId = getStoreGroupId(kit.from_store_id)
-        if (!kitsBySource.has(fromId)) {
-          kitsBySource.set(fromId, [])
-        }
-        kitsBySource.get(fromId)!.push(kit)
-      }
-      
-      // 出発店舗をdisplay_order順にソート
-      const sortedSources = [...kitsBySource.entries()].sort((a, b) => 
-        getStoreOrder(a[0]) - getStoreOrder(b[0])
-      )
-      
-      // 各出発店舗からのトリップを作成（4個ずつ分割）
-      const trips: SingleTrip[] = []
-      let tripNumber = 0
-      
-      for (const [sourceId, kits] of sortedSources) {
-        // 4個ずつバッチに分割
-        for (let i = 0; i < kits.length; i += MAX_CARRY_CAPACITY) {
-          tripNumber++
-          const batch = kits.slice(i, i + MAX_CARRY_CAPACITY)
-          
-          // 配達先ごとにグループ化
-          const destMap = new Map<string, KitTransferSuggestion[]>()
-          for (const kit of batch) {
-            const toId = getStoreGroupId(kit.to_store_id)
-            if (!destMap.has(toId)) {
-              destMap.set(toId, [])
-            }
-            destMap.get(toId)!.push(kit)
-          }
-          
-          // 配達先をdisplay_order順にソート（グループ名で表示）
-          const destinations = [...destMap.entries()]
-            .sort((a, b) => getStoreOrder(a[0]) - getStoreOrder(b[0]))
-            .map(([storeId, destKits]) => ({
-              storeId,
-              storeName: getGroupDisplayName(storeId),
-              kits: destKits
-            }))
-          
-          // 時間計算: 出発店舗 + 配達先店舗数 × 移動時間 + キット数 × 積み下ろし時間
-          const storeCount = 1 + destinations.length
-          const estimatedMinutes = storeCount * TIME_PER_STOP + batch.length * TIME_PER_KIT
-          
-          trips.push({
-            tripNumber,
-            fromStoreId: sourceId,
-            fromStoreName: getGroupDisplayName(sourceId),
-            kits: batch,
-            destinations,
-            estimatedMinutes
-          })
-        }
-      }
-      
-      const totalKits = dayKits.length
-      const totalMinutes = trips.reduce((sum, t) => sum + t.estimatedMinutes, 0)
-      
-      dayRoutes.push({
-        dayNumber,
-        dayOfWeek: transferDayOfWeek,
-        trips,
-        totalKits,
-        estimatedMinutes: totalMinutes
-      })
-    }
-    
-    return dayRoutes
-  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId, getGroupDisplayName, transferDays, TIME_PER_STOP, TIME_PER_KIT, MAX_CARRY_CAPACITY])
-  
-  // 全体の所要時間
-  const totalEstimatedMinutes = useMemo(() => {
-    return optimizedRoutes.reduce((sum, day) => sum + day.estimatedMinutes, 0)
-  }, [optimizedRoutes])
-
-  // 時間をフォーマット（例: 1時間30分）
-  const formatMinutes = (minutes: number): string => {
-    if (minutes < 60) return `約${minutes}分`
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    if (mins === 0) return `約${hours}時間`
-    return `約${hours}時間${mins}分`
-  }
 
   // データ取得
   const fetchData = useCallback(async () => {
@@ -1467,207 +1284,93 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       <AlertTriangle className="h-4 w-4" />
                       移動提案 ({suggestions.length}件)
                     </div>
-                    <div className="flex items-center gap-2">
-                      {/* 表示モード切替 */}
-                      <div className="flex items-center rounded-md border bg-background">
-                        <Button
-                          size="sm"
-                          variant={transferViewMode === 'grouped' ? 'secondary' : 'ghost'}
-                          className="h-7 px-2 rounded-r-none"
-                          onClick={() => setTransferViewMode('grouped')}
-                        >
-                          <MapPin className="h-3 w-3 mr-1" />
-                          ルート別
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={transferViewMode === 'route' ? 'secondary' : 'ghost'}
-                          className="h-7 px-2 rounded-l-none"
-                          onClick={() => setTransferViewMode('route')}
-                        >
-                          <Route className="h-3 w-3 mr-1" />
-                          1人用
-                        </Button>
-                      </div>
-                      <Button size="sm" onClick={handleConfirmSuggestions}>
-                        <Check className="h-4 w-4 mr-1" />
-                        すべて確定
-                      </Button>
-                    </div>
+                    <Button size="sm" onClick={handleConfirmSuggestions}>
+                      <Check className="h-4 w-4 mr-1" />
+                      すべて確定
+                    </Button>
                   </div>
                   
-                  {/* ルート別表示 */}
-                  {transferViewMode === 'grouped' && (
-                    <div className="space-y-3">
-                      {groupedSuggestions.map((group, groupIndex) => (
-                        <div
-                          key={groupIndex}
-                          className="bg-white dark:bg-gray-800 rounded-lg p-3"
-                        >
-                          {/* ルートヘッダー */}
-                          <div className="flex items-center gap-2 mb-2 pb-2 border-b">
-                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{group.from_store_name}</span>
-                            <ArrowRight className="h-4 w-4" />
-                            <span className="font-bold text-primary">{group.to_store_name}</span>
-                            <Badge variant="secondary" className="ml-auto">
-                              {group.items.length}キット
-                            </Badge>
-                          </div>
-                          
-                          {/* キット一覧 */}
-                          <div className="space-y-1">
-                            {group.items.map((suggestion, index) => {
-                              const actualToStore = storeMap.get(suggestion.to_store_id)
-                              const showActualStore = group.isGrouped && suggestion.to_store_id !== group.to_store_id
-                              
-                              return (
-                                <div
-                                  key={index}
-                                  className="flex items-center gap-2 text-sm py-1"
-                                >
-                                  <Badge variant="outline" className="text-xs">
-                                    {formatDate(suggestion.transfer_date)}
-                                  </Badge>
-                                  {showActualStore && (
-                                    <Badge variant="secondary" className="text-[10px] shrink-0">
-                                      → {actualToStore?.short_name || actualToStore?.name}
-                                    </Badge>
-                                  )}
-                                  <span className="truncate max-w-[180px]">
-                                    {suggestion.scenario_title}
-                                  </span>
-                                  <span className="text-muted-foreground text-xs">
-                                    #{suggestion.kit_number}
-                                  </span>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* 1人用トリップ別表示 */}
-                  {transferViewMode === 'route' && (
-                    <div className="space-y-4">
-                      {/* サマリー */}
-                      <div className="flex items-center justify-between gap-4 p-2 bg-muted/50 rounded-lg text-sm">
-                        <span>
-                          {transferDays.length > 1 
-                            ? `${transferDays.map(d => WEEKDAYS.find(w => w.value === d)?.short).join('・')}の${transferDays.length}日に分けて移動`
-                            : '1日で移動'}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span>合計 {formatMinutes(totalEstimatedMinutes)}</span>
-                        </div>
-                      </div>
+                  {/* 出発店舗別にまとめて表示 */}
+                  <div className="space-y-3">
+                    {(() => {
+                      // 出発店舗でグループ化
+                      const bySource = new Map<string, typeof groupedSuggestions>()
+                      for (const group of groupedSuggestions) {
+                        const key = group.from_store_id
+                        if (!bySource.has(key)) {
+                          bySource.set(key, [])
+                        }
+                        bySource.get(key)!.push(group)
+                      }
                       
-                      {/* 日別表示 */}
-                      {optimizedRoutes.map((dayRoute) => {
-                        const dayLabel = WEEKDAYS.find(w => w.value === dayRoute.dayOfWeek)?.label || `${dayRoute.dayNumber}日目`
+                      return [...bySource.entries()].map(([sourceId, routes]) => {
+                        const sourceName = routes[0].from_store_name
+                        const totalKits = routes.reduce((sum, r) => sum + r.items.length, 0)
                         
                         return (
-                          <div key={dayRoute.dayNumber} className="space-y-2">
-                            {/* 日のヘッダー */}
-                            <div className="flex items-center justify-between rounded-lg px-3 py-2 bg-primary/10">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="default" className="text-sm">
-                                  {dayLabel}
-                                </Badge>
-                                <span className="text-sm">
-                                  {dayRoute.trips.length}回 / {dayRoute.totalKits}キット
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Clock className="h-3 w-3" />
-                                {formatMinutes(dayRoute.estimatedMinutes)}
-                              </div>
+                          <div
+                            key={sourceId}
+                            className="bg-white dark:bg-gray-800 rounded-lg p-3"
+                          >
+                            {/* 出発店舗ヘッダー */}
+                            <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+                              <MapPin className="h-4 w-4 text-primary" />
+                              <span className="font-bold text-lg">{sourceName}から</span>
+                              <Badge variant="secondary" className="ml-auto">
+                                {totalKits}キット
+                              </Badge>
                             </div>
                             
-                            {/* 出発店舗ごとにグループ化して表示 */}
-                            {(() => {
-                              // 出発店舗でグループ化
-                              const groupedBySource = new Map<string, typeof dayRoute.trips>()
-                              for (const trip of dayRoute.trips) {
-                                const key = trip.fromStoreId
-                                if (!groupedBySource.has(key)) {
-                                  groupedBySource.set(key, [])
-                                }
-                                groupedBySource.get(key)!.push(trip)
-                              }
-                              
-                              return [...groupedBySource.entries()].map(([sourceId, trips]) => {
-                                const totalKits = trips.reduce((sum, t) => sum + t.kits.length, 0)
-                                const totalMinutes = trips.reduce((sum, t) => sum + t.estimatedMinutes, 0)
-                                // 全配達先を集計（重複排除）
-                                const allDestinations = [...new Set(trips.flatMap(t => t.destinations.map(d => d.storeName)))]
-                                
-                                return (
-                                  <div
-                                    key={sourceId}
-                                    className="bg-white dark:bg-gray-800 rounded-lg p-3 border"
-                                  >
-                                    {/* ルートヘッダー */}
-                                    <div className="flex items-center gap-2 mb-2 pb-2 border-b">
-                                      <span className="font-bold text-lg">{trips[0].fromStoreName}</span>
-                                      <ArrowRight className="h-4 w-4" />
-                                      <span className="text-muted-foreground">
-                                        {allDestinations.join(' → ')}
-                                      </span>
-                                      <div className="ml-auto flex items-center gap-2">
-                                        <Badge variant="secondary">
-                                          {totalKits}個
-                                          {trips.length > 1 && ` / ${trips.length}往復`}
-                                        </Badge>
-                                        <span className="text-xs text-muted-foreground">
-                                          {formatMinutes(totalMinutes)}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* 往復ごとのキット一覧 */}
-                                    {trips.map((trip, tripIdx) => (
-                                      <div key={trip.tripNumber} className="mb-2 last:mb-0">
-                                        {trips.length > 1 && (
-                                          <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-muted text-[10px] font-medium">
-                                              {tripIdx + 1}
-                                            </span>
-                                            往復目
-                                          </div>
-                                        )}
-                                        <div className="space-y-0.5 text-sm pl-1">
-                                          {trip.kits.map((kit, i) => {
-                                            const toStore = storeMap.get(kit.to_store_id)
-                                            const perfDate = new Date(kit.performance_date)
-                                            const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
-                                            return (
-                                              <div key={i} className="flex items-center gap-2 py-0.5">
-                                                <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
-                                                  {perfDateStr}公演
-                                                </Badge>
-                                                <span className="truncate max-w-[150px]">{kit.scenario_title}</span>
-                                                <span className="text-muted-foreground text-xs">#{kit.kit_number}</span>
-                                                <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                                                <span className="text-xs">{toStore?.short_name || toStore?.name}</span>
-                                              </div>
-                                            )
-                                          })}
-                                        </div>
-                                      </div>
-                                    ))}
+                            {/* 配達先ごと */}
+                            <div className="space-y-3">
+                              {routes.map((route, routeIdx) => (
+                                <div key={routeIdx}>
+                                  {/* 配達先ヘッダー */}
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                    <span className="font-medium text-primary">{route.to_store_name}</span>
+                                    <span className="text-sm text-muted-foreground">
+                                      ({route.items.length}キット)
+                                    </span>
                                   </div>
-                                )
-                              })
-                            })()}
+                                  
+                                  {/* キット一覧 */}
+                                  <div className="space-y-1 pl-6">
+                                    {route.items.map((suggestion, index) => {
+                                      const actualToStore = storeMap.get(suggestion.to_store_id)
+                                      const showActualStore = route.isGrouped && suggestion.to_store_id !== route.to_store_id
+                                      
+                                      return (
+                                        <div
+                                          key={index}
+                                          className="flex items-center gap-2 text-sm py-0.5"
+                                        >
+                                          <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
+                                            {formatDate(suggestion.transfer_date)}
+                                          </Badge>
+                                          {showActualStore && (
+                                            <Badge variant="secondary" className="text-[10px] shrink-0">
+                                              {actualToStore?.short_name || actualToStore?.name}
+                                            </Badge>
+                                          )}
+                                          <span className="truncate max-w-[180px]">
+                                            {suggestion.scenario_title}
+                                          </span>
+                                          <span className="text-muted-foreground text-xs">
+                                            #{suggestion.kit_number}
+                                          </span>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )
-                      })}
-                    </div>
-                  )}
+                      })
+                    })()}
+                  </div>
                 </div>
               )}
 
