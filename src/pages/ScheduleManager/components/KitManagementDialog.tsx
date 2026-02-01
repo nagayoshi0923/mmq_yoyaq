@@ -28,7 +28,7 @@ import { showToast } from '@/utils/toast'
 import { calculateKitTransfers, type KitState } from '@/utils/kitOptimizer'
 import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, Scenario } from '@/types'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus } from 'lucide-react'
 
 interface KitManagementDialogProps {
   isOpen: boolean
@@ -93,6 +93,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   // キット数があるシナリオのみフィルタ
   const scenariosWithKits = useMemo(() => {
     return scenarios.filter(s => s.kit_count && s.kit_count > 0)
+  }, [scenarios])
+  
+  // キット未設定のシナリオ
+  const scenariosWithoutKits = useMemo(() => {
+    return scenarios.filter(s => !s.kit_count || s.kit_count === 0)
   }, [scenarios])
 
   // シナリオIDからシナリオ情報を取得
@@ -264,6 +269,24 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
   }
 
+  // キット数を変更
+  const handleChangeKitCount = async (scenarioId: string, newCount: number) => {
+    if (newCount < 1) return
+    
+    try {
+      await scenarioApi.update(scenarioId, { kit_count: newCount })
+      showToast.success(`キット数を${newCount}に変更しました`)
+      
+      // シナリオリストを更新
+      setScenarios(prev => prev.map(s => 
+        s.id === scenarioId ? { ...s, kit_count: newCount } : s
+      ))
+    } catch (error) {
+      console.error('Failed to update kit count:', error)
+      showToast.error('キット数の更新に失敗しました')
+    }
+  }
+
   // 日付フォーマット
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -342,13 +365,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 各シナリオのキットが現在どの店舗にあるかを表示・編集します
               </p>
               
-              {scenariosWithKits.length === 0 ? (
+              {scenariosWithKits.length === 0 && scenariosWithoutKits.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  キット数が設定されているシナリオがありません。
-                  <br />
-                  シナリオ管理画面でkit_countを設定してください。
+                  シナリオがありません。
                 </div>
               ) : (
+                <>
                 <div className="grid gap-3">
                   {scenariosWithKits.map(scenario => {
                     const kitCount = scenario.kit_count || 1
@@ -358,9 +380,28 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       <div key={scenario.id} className="border rounded-lg p-3">
                         <div className="flex items-center justify-between mb-2">
                           <div className="font-medium">{scenario.title}</div>
-                          <Badge variant="outline">
-                            {kitCount}キット
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleChangeKitCount(scenario.id, kitCount - 1)}
+                              disabled={kitCount <= 1}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <Badge variant="outline" className="min-w-[60px] justify-center">
+                              {kitCount}キット
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleChangeKitCount(scenario.id, kitCount + 1)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
@@ -399,6 +440,35 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     )
                   })}
                 </div>
+                
+                {/* キット未設定のシナリオ */}
+                {scenariosWithoutKits.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2">
+                      キット未設定のシナリオ（クリックでキット管理を有効化）
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {scenariosWithoutKits.slice(0, 20).map(scenario => (
+                        <Button
+                          key={scenario.id}
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => handleChangeKitCount(scenario.id, 1)}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          {scenario.title.slice(0, 15)}{scenario.title.length > 15 ? '...' : ''}
+                        </Button>
+                      ))}
+                      {scenariosWithoutKits.length > 20 && (
+                        <span className="text-xs text-muted-foreground self-center">
+                          他 {scenariosWithoutKits.length - 20} 件
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                </>
               )}
             </div>
           </TabsContent>
