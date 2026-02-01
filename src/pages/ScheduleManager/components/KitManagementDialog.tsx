@@ -292,9 +292,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       groups.get(key)!.items.push(s)
     }
     
-    // 配列に変換してアイテム数でソート
-    return [...groups.values()].sort((a, b) => b.items.length - a.items.length)
-  }, [suggestions])
+    // 配列に変換して起点店舗の表示順でソート
+    return [...groups.values()].sort((a, b) => {
+      const fromStoreA = storeMap.get(a.from_store_id)
+      const fromStoreB = storeMap.get(b.from_store_id)
+      const orderA = fromStoreA?.display_order ?? 999
+      const orderB = fromStoreB?.display_order ?? 999
+      if (orderA !== orderB) return orderA - orderB
+      // 同じ起点なら行き先の表示順でソート
+      const toStoreA = storeMap.get(a.to_store_id)
+      const toStoreB = storeMap.get(b.to_store_id)
+      const toOrderA = toStoreA?.display_order ?? 999
+      const toOrderB = toStoreB?.display_order ?? 999
+      return toOrderA - toOrderB
+    })
+  }, [suggestions, storeMap])
   
   // 確定済み移動イベントをルートでグループ化
   const groupedTransferEvents = useMemo(() => {
@@ -324,7 +336,20 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       groups.get(key)!.items.push(e)
     }
     
-    return [...groups.values()].sort((a, b) => b.items.length - a.items.length)
+    // 起点店舗の表示順でソート
+    return [...groups.values()].sort((a, b) => {
+      const fromStoreA = storeMap.get(a.from_store_id)
+      const fromStoreB = storeMap.get(b.from_store_id)
+      const orderA = fromStoreA?.display_order ?? 999
+      const orderB = fromStoreB?.display_order ?? 999
+      if (orderA !== orderB) return orderA - orderB
+      // 同じ起点なら行き先の表示順でソート
+      const toStoreA = storeMap.get(a.to_store_id)
+      const toStoreB = storeMap.get(b.to_store_id)
+      const toOrderA = toStoreA?.display_order ?? 999
+      const toOrderB = toStoreB?.display_order ?? 999
+      return toOrderA - toOrderB
+    })
   }, [transferEvents, storeMap])
 
   // データ取得
