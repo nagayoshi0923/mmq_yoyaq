@@ -1290,81 +1290,150 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     </Button>
                   </div>
                   
-                  {/* 出発店舗別にまとめて表示 */}
-                  <div className="space-y-3">
+                  {/* 移動日別 → 出発店舗別にまとめて表示 */}
+                  <div className="space-y-4">
                     {(() => {
-                      // 出発店舗でグループ化
-                      const bySource = new Map<string, typeof groupedSuggestions>()
-                      for (const group of groupedSuggestions) {
-                        const key = group.from_store_id
-                        if (!bySource.has(key)) {
-                          bySource.set(key, [])
+                      // まず移動日（曜日）でグループ化
+                      const sortedTransferDays = [...transferDays].sort((a, b) => a - b)
+                      
+                      // 公演日から移動日を決定する関数
+                      const getTransferDayForPerformance = (performanceDate: string): number => {
+                        const date = new Date(performanceDate)
+                        const perfDayOfWeek = date.getDay()
+                        
+                        // 公演日より前の直近の移動日を探す
+                        let bestTransferDay = sortedTransferDays[sortedTransferDays.length - 1]
+                        
+                        for (let i = sortedTransferDays.length - 1; i >= 0; i--) {
+                          const transferDay = sortedTransferDays[i]
+                          if (transferDay < perfDayOfWeek) {
+                            bestTransferDay = transferDay
+                            break
+                          }
                         }
-                        bySource.get(key)!.push(group)
+                        
+                        // 公演日が最初の移動日以前なら、前週の最後の移動日
+                        if (perfDayOfWeek <= sortedTransferDays[0]) {
+                          bestTransferDay = sortedTransferDays[sortedTransferDays.length - 1]
+                        }
+                        
+                        return bestTransferDay
                       }
                       
-                      return [...bySource.entries()].map(([sourceId, routes]) => {
-                        const sourceName = routes[0].from_store_name
-                        const totalKits = routes.reduce((sum, r) => sum + r.items.length, 0)
+                      // 移動日ごとにグループ化
+                      const byTransferDay = new Map<number, typeof groupedSuggestions>()
+                      for (const group of groupedSuggestions) {
+                        // グループ内の最初のアイテムで移動日を決定
+                        const firstItem = group.items[0]
+                        const transferDayOfWeek = getTransferDayForPerformance(firstItem.performance_date)
+                        
+                        if (!byTransferDay.has(transferDayOfWeek)) {
+                          byTransferDay.set(transferDayOfWeek, [])
+                        }
+                        byTransferDay.get(transferDayOfWeek)!.push(group)
+                      }
+                      
+                      // 移動日順にソート
+                      const sortedDays = [...byTransferDay.entries()].sort((a, b) => a[0] - b[0])
+                      
+                      return sortedDays.map(([dayOfWeek, groups], dayIndex) => {
+                        const dayLabel = WEEKDAYS.find(w => w.value === dayOfWeek)?.label || '?'
+                        const dayKitCount = groups.reduce((sum, g) => sum + g.items.length, 0)
+                        
+                        // 出発店舗でグループ化
+                        const bySource = new Map<string, typeof groups>()
+                        for (const group of groups) {
+                          const key = group.from_store_id
+                          if (!bySource.has(key)) {
+                            bySource.set(key, [])
+                          }
+                          bySource.get(key)!.push(group)
+                        }
                         
                         return (
-                          <div
-                            key={sourceId}
-                            className="bg-white dark:bg-gray-800 rounded-lg p-3"
-                          >
-                            {/* 出発店舗ヘッダー */}
-                            <div className="flex items-center gap-2 mb-3 pb-2 border-b">
-                              <MapPin className="h-4 w-4 text-primary" />
-                              <span className="font-bold text-lg">{sourceName}から</span>
-                              <Badge variant="secondary" className="ml-auto">
-                                {totalKits}キット
-                              </Badge>
-                            </div>
+                          <div key={dayOfWeek}>
+                            {/* 移動日ヘッダー（複数日ある場合のみ表示） */}
+                            {transferDays.length > 1 && (
+                              <div className="flex items-center gap-2 mb-2 px-2 py-1 bg-primary/10 rounded-lg">
+                                <Calendar className="h-4 w-4 text-primary" />
+                                <span className="font-bold">{dayLabel}移動分</span>
+                                <Badge variant="secondary" className="ml-auto">
+                                  {dayKitCount}キット
+                                </Badge>
+                              </div>
+                            )}
                             
-                            {/* 配達先ごと */}
+                            {/* 出発店舗別 */}
                             <div className="space-y-3">
-                              {routes.map((route, routeIdx) => (
-                                <div key={routeIdx}>
-                                  {/* 配達先ヘッダー */}
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                                    <span className="font-medium text-primary">{route.to_store_name}</span>
-                                    <span className="text-sm text-muted-foreground">
-                                      ({route.items.length}キット)
-                                    </span>
-                                  </div>
-                                  
-                                  {/* キット一覧 */}
-                                  <div className="space-y-1 pl-6">
-                                    {route.items.map((suggestion, index) => {
-                                      const actualToStore = storeMap.get(suggestion.to_store_id)
-                                      const showActualStore = route.isGrouped && suggestion.to_store_id !== route.to_store_id
-                                      
-                                      return (
-                                        <div
-                                          key={index}
-                                          className="flex items-center gap-2 text-sm py-0.5"
-                                        >
-                                          <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
-                                            {formatDate(suggestion.transfer_date)}
-                                          </Badge>
-                                          {showActualStore && (
-                                            <Badge variant="secondary" className="text-[10px] shrink-0">
-                                              {actualToStore?.short_name || actualToStore?.name}
-                                            </Badge>
-                                          )}
-                                          <span className="truncate max-w-[180px]">
-                                            {suggestion.scenario_title}
-                                          </span>
-                                          <span className="text-muted-foreground text-xs">
-                                            #{suggestion.kit_number}
-                                          </span>
+                              {[...bySource.entries()].map(([sourceId, routes]) => {
+                                const sourceName = routes[0].from_store_name
+                                const totalKits = routes.reduce((sum, r) => sum + r.items.length, 0)
+                                
+                                return (
+                                  <div
+                                    key={sourceId}
+                                    className="bg-white dark:bg-gray-800 rounded-lg p-3"
+                                  >
+                                    {/* 出発店舗ヘッダー */}
+                                    <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+                                      <MapPin className="h-4 w-4 text-primary" />
+                                      <span className="font-bold text-lg">{sourceName}から</span>
+                                      <Badge variant="secondary" className="ml-auto">
+                                        {totalKits}キット
+                                      </Badge>
+                                    </div>
+                                    
+                                    {/* 配達先ごと */}
+                                    <div className="space-y-3">
+                                      {routes.map((route, routeIdx) => (
+                                        <div key={routeIdx}>
+                                          {/* 配達先ヘッダー */}
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                            <span className="font-medium text-primary">{route.to_store_name}</span>
+                                            <span className="text-sm text-muted-foreground">
+                                              ({route.items.length}キット)
+                                            </span>
+                                          </div>
+                                          
+                                          {/* キット一覧 */}
+                                          <div className="space-y-1 pl-6">
+                                            {route.items.map((suggestion, index) => {
+                                              const actualToStore = storeMap.get(suggestion.to_store_id)
+                                              const showActualStore = route.isGrouped && suggestion.to_store_id !== route.to_store_id
+                                              // 公演日を表示
+                                              const perfDate = new Date(suggestion.performance_date)
+                                              const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
+                                              
+                                              return (
+                                                <div
+                                                  key={index}
+                                                  className="flex items-center gap-2 text-sm py-0.5"
+                                                >
+                                                  <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
+                                                    {perfDateStr}公演
+                                                  </Badge>
+                                                  {showActualStore && (
+                                                    <Badge variant="secondary" className="text-[10px] shrink-0">
+                                                      {actualToStore?.short_name || actualToStore?.name}
+                                                    </Badge>
+                                                  )}
+                                                  <span className="truncate max-w-[180px]">
+                                                    {suggestion.scenario_title}
+                                                  </span>
+                                                  <span className="text-muted-foreground text-xs">
+                                                    #{suggestion.kit_number}
+                                                  </span>
+                                                </div>
+                                              )
+                                            })}
+                                          </div>
                                         </div>
-                                      )
-                                    })}
+                                      ))}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           </div>
                         )
