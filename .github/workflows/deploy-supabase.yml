@@ -1,0 +1,132 @@
+name: Deploy Supabase
+
+on:
+  push:
+    branches: [staging, main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'デプロイ先環境'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+jobs:
+  # ============================================================================
+  # ステージング環境へのデプロイ
+  # stagingブランチへのpush時に実行
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    if: github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to Staging Project
+        run: |
+          supabase link --project-ref ${{ secrets.SUPABASE_STAGING_PROJECT_ID }}
+
+      - name: Run Database Migrations
+        run: |
+          echo "📦 Running database migrations on staging..."
+          supabase db push
+
+      - name: Deploy Edge Functions
+        run: |
+          echo "⚡ Deploying Edge Functions to staging..."
+          supabase functions deploy --all
+
+      - name: Notify Success
+        if: success()
+        run: |
+          echo "✅ Staging deployment completed successfully!"
+          echo "🔗 Staging URL: https://${{ secrets.SUPABASE_STAGING_PROJECT_ID }}.supabase.co"
+
+  # ============================================================================
+  # 本番環境へのデプロイ
+  # mainブランチへのpush時に実行
+  # ============================================================================
+  deploy-production:
+    name: Deploy to Production
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to Production Project
+        run: |
+          supabase link --project-ref ${{ secrets.SUPABASE_PROD_PROJECT_ID }}
+
+      - name: Run Database Migrations
+        run: |
+          echo "📦 Running database migrations on production..."
+          supabase db push
+
+      - name: Deploy Edge Functions
+        run: |
+          echo "⚡ Deploying Edge Functions to production..."
+          supabase functions deploy --all
+
+      - name: Notify Success
+        if: success()
+        run: |
+          echo "✅ Production deployment completed successfully!"
+          echo "🔗 Production URL: https://${{ secrets.SUPABASE_PROD_PROJECT_ID }}.supabase.co"
+
+  # ============================================================================
+  # PRでのマイグレーション検証（ドライラン）
+  # ============================================================================
+  validate-migrations:
+    name: Validate Migrations (PR)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase Local
+        run: |
+          supabase start
+
+      - name: Validate Migrations
+        run: |
+          echo "🔍 Validating migrations locally..."
+          supabase db reset
+
+      - name: Stop Supabase Local
+        if: always()
+        run: |
+          supabase stop
