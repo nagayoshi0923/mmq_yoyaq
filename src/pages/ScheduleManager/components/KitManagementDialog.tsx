@@ -772,7 +772,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 return (
                   <div
                     key={store.id}
-                    className="flex-shrink-0 w-56 bg-muted/30 rounded-lg flex flex-col"
+                    className="flex-shrink-0 w-48 bg-muted/30 rounded-lg flex flex-col"
                   >
                     {/* カラムヘッダー */}
                     <div className="p-2 border-b bg-muted/50 rounded-t-lg">
@@ -787,9 +787,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     </div>
                     
                     {/* キットカード一覧 */}
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+                    <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
                       {inventory.length === 0 ? (
-                        <p className="text-xs text-muted-foreground text-center py-4">
+                        <p className="text-xs text-muted-foreground text-center py-2">
                           キットなし
                         </p>
                       ) : (
@@ -800,33 +800,30 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                               <div
                                 key={`${item.scenario.id}-${kit.kitNumber}`}
                                 className={`
-                                  p-2 rounded border bg-background text-xs
+                                  px-2 py-1 rounded border bg-background text-xs
                                   ${hasIssue ? 'border-orange-300 dark:border-orange-700' : 'border-border'}
                                 `}
+                                title={kit.conditionNotes || undefined}
                               >
-                                {/* 状態バッジ */}
-                                <div className="flex items-start gap-1 mb-1">
+                                {/* 状態 + シナリオ名 */}
+                                <div className="flex items-center gap-1.5">
                                   <span
-                                    className={`shrink-0 px-1 py-0.5 rounded text-[10px] ${KIT_CONDITION_COLORS[kit.condition]}`}
+                                    className={`shrink-0 w-4 h-4 flex items-center justify-center rounded text-[10px] ${KIT_CONDITION_COLORS[kit.condition]}`}
                                   >
-                                    {kit.condition === 'good' ? '✓' : KIT_CONDITION_LABELS[kit.condition]}
+                                    {kit.condition === 'good' ? '✓' : '!'}
                                   </span>
-                                  {kit.conditionNotes && (
-                                    <span className="text-[10px] text-orange-600 dark:text-orange-400 truncate">
-                                      {kit.conditionNotes}
-                                    </span>
-                                  )}
+                                  <span className="font-medium leading-tight truncate flex-1">
+                                    {(item.scenario.kit_count || 1) > 1 && (
+                                      <span className="text-muted-foreground mr-1">#{kit.kitNumber}</span>
+                                    )}
+                                    {item.scenario.title}
+                                  </span>
                                 </div>
-                                
-                                {/* シナリオ名 */}
-                                <div className="font-medium leading-tight">
-                                  {item.scenario.title}
-                                </div>
-                                
-                                {/* キット番号（複数キットある場合） */}
-                                {(item.scenario.kit_count || 1) > 1 && (
-                                  <div className="text-[10px] text-muted-foreground mt-0.5">
-                                    #{kit.kitNumber}
+                                {/* 問題がある場合のみメモを表示 */}
+                                {hasIssue && (
+                                  <div className="text-[10px] text-orange-600 dark:text-orange-400 mt-0.5 truncate pl-5">
+                                    {KIT_CONDITION_LABELS[kit.condition]}
+                                    {kit.conditionNotes && `: ${kit.conditionNotes}`}
                                   </div>
                                 )}
                               </div>
