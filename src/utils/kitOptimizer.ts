@@ -23,14 +23,17 @@ interface Demand {
  * 1. 日付順に需要をソート
  * 2. 各日の各店舗で必要なキットを確認
  * 3. 現在の配置で足りない場合、他店舗から移動を計画
- * 4. 移動は「前日まで」に完了すると仮定
+ * 4. 移動は指定された曜日のみ（allowedTransferDays）
  * 5. 同じキットは1日に1箇所でしか使えない
+ * 
+ * @param allowedTransferDays - 移動可能な曜日（0=日曜, 1=月曜, ..., 6=土曜）
  */
 export function calculateKitTransfers(
   initialState: KitState,
   demands: Demand[],
   scenarios: Scenario[],
-  stores: Store[]
+  stores: Store[],
+  allowedTransferDays: number[] = [1, 4] // デフォルト: 月・木
 ): KitTransferSuggestion[] {
   const suggestions: KitTransferSuggestion[] = []
   
@@ -128,8 +131,8 @@ export function calculateKitTransfers(
             const { kitNumber, fromStoreId } = otherKits[i]
             const fromStore = storeMap.get(fromStoreId)
             
-            // 移動日は公演日の前日
-            const transferDate = getPreviousDay(date)
+            // 移動日は公演日の直前の許可された曜日
+            const transferDate = findNearestTransferDay(date, allowedTransferDays)
             
             suggestions.push({
               scenario_id: scenarioId,
@@ -167,6 +170,36 @@ function getPreviousDay(dateStr: string): string {
   const date = new Date(dateStr)
   date.setDate(date.getDate() - 1)
   return date.toISOString().split('T')[0]
+}
+
+/**
+ * 指定日の直前の許可された移動曜日を取得
+ * 
+ * @param targetDateStr - 公演日（この日までにキットが必要）
+ * @param allowedDays - 移動可能な曜日（0=日曜, 1=月曜, ..., 6=土曜）
+ * @returns 最も近い許可された曜日の日付
+ */
+function findNearestTransferDay(targetDateStr: string, allowedDays: number[]): string {
+  if (allowedDays.length === 0) {
+    // 許可された曜日がない場合は前日を返す
+    return getPreviousDay(targetDateStr)
+  }
+  
+  const targetDate = new Date(targetDateStr)
+  
+  // 公演日の前日から遡って、許可された曜日を探す
+  for (let daysBack = 1; daysBack <= 7; daysBack++) {
+    const checkDate = new Date(targetDate)
+    checkDate.setDate(targetDate.getDate() - daysBack)
+    const dayOfWeek = checkDate.getDay()
+    
+    if (allowedDays.includes(dayOfWeek)) {
+      return checkDate.toISOString().split('T')[0]
+    }
+  }
+  
+  // 7日以内に見つからない場合（通常ありえない）、前日を返す
+  return getPreviousDay(targetDateStr)
 }
 
 /**

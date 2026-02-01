@@ -27,6 +27,7 @@ import { storeApi, scenarioApi, scheduleApi } from '@/lib/api'
 import { showToast } from '@/utils/toast'
 import { calculateKitTransfers, type KitState } from '@/utils/kitOptimizer'
 import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, Scenario } from '@/types'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw } from 'lucide-react'
 
 interface KitManagementDialogProps {
@@ -36,13 +37,13 @@ interface KitManagementDialogProps {
 
 // 曜日の選択肢
 const WEEKDAYS = [
-  { value: 0, label: '日曜日' },
-  { value: 1, label: '月曜日' },
-  { value: 2, label: '火曜日' },
-  { value: 3, label: '水曜日' },
-  { value: 4, label: '木曜日' },
-  { value: 5, label: '金曜日' },
-  { value: 6, label: '土曜日' },
+  { value: 0, label: '日曜日', short: '日' },
+  { value: 1, label: '月曜日', short: '月' },
+  { value: 2, label: '火曜日', short: '火' },
+  { value: 3, label: '水曜日', short: '水' },
+  { value: 4, label: '木曜日', short: '木' },
+  { value: 5, label: '金曜日', short: '金' },
+  { value: 6, label: '土曜日', short: '土' },
 ]
 
 export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProps) {
@@ -74,6 +75,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   // 移動提案
   const [suggestions, setSuggestions] = useState<KitTransferSuggestion[]>([])
   const [isCalculating, setIsCalculating] = useState(false)
+  
+  // 移動可能曜日（デフォルト: 月・木）
+  const [transferDays, setTransferDays] = useState<number[]>([1, 4])
 
   // 週の日付リスト
   const weekDates = useMemo(() => {
@@ -192,7 +196,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         kitState,
         demands,
         scenariosWithKits,
-        stores
+        stores,
+        transferDays
       )
 
       setSuggestions(result)
@@ -208,7 +213,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     } finally {
       setIsCalculating(false)
     }
-  }, [kitLocations, scheduleEvents, weekDates, scenariosWithKits, stores])
+  }, [kitLocations, scheduleEvents, weekDates, scenariosWithKits, stores, transferDays])
 
   // 移動提案を確定（イベントとして登録）
   const handleConfirmSuggestions = async () => {
@@ -468,13 +473,43 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           {/* 移動計画 */}
           <TabsContent value="transfers" className="flex-1 overflow-auto">
             <div className="space-y-4">
+              {/* 移動曜日設定 */}
+              <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+                <span className="text-sm font-medium whitespace-nowrap">移動曜日:</span>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {WEEKDAYS.map(day => (
+                    <label
+                      key={day.value}
+                      className="flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={transferDays.includes(day.value)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setTransferDays(prev => [...prev, day.value].sort())
+                          } else {
+                            setTransferDays(prev => prev.filter(d => d !== day.value))
+                          }
+                        }}
+                      />
+                      <span className="text-sm">{day.short}</span>
+                    </label>
+                  ))}
+                </div>
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {transferDays.length === 0 
+                    ? '曜日を選択してください' 
+                    : `週${transferDays.length}回の移動`}
+                </span>
+              </div>
+
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
                   週間スケジュールに基づいて最適な移動計画を提案します
                 </p>
                 <Button
                   onClick={handleCalculateTransfers}
-                  disabled={isCalculating}
+                  disabled={isCalculating || transferDays.length === 0}
                 >
                   {isCalculating ? (
                     <>
