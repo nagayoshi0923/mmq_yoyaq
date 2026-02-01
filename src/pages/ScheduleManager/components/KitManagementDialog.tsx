@@ -418,8 +418,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   }
 
   // 1人用最適ルートを計算
+  // シミュレーション方式: 物理的に不可能な順序を排除
   // 重要: 各日は独立（日を跨いでキットを持ち越さない）
-  // 公演日に基づいて移動日を決定
   const optimizedRoutes = useMemo((): DayRoute[] => {
     const validSuggestions = suggestions.filter(s => 
       !isSameStoreGroup(s.from_store_id, s.to_store_id)
@@ -457,22 +457,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     // ============================================
     // Step 2: 公演日に基づいて移動日を決定
     // ============================================
-    // 各キットは「公演日の直前の移動日」に運ぶ
-    // 例: 移動日が月(1)・木(4)の場合
-    //   - 火曜公演 → 月曜に運ぶ
-    //   - 金曜公演 → 木曜に運ぶ
-    //   - 月曜公演 → 前週の木曜に運ぶ（この週なら木曜）
-    
     const sortedTransferDays = [...transferDays].sort((a, b) => a - b)
     
-    // 公演日(曜日)に対応する移動日(曜日)を取得
     const getTransferDayForPerformance = (performanceDate: string): number => {
       const date = new Date(performanceDate)
-      const perfDayOfWeek = date.getDay() // 0=日, 1=月, ...
+      const perfDayOfWeek = date.getDay()
       
-      // 公演日より前で最も近い移動日を探す
-      // 例: 公演が水(3)、移動日が月(1)・木(4) → 月(1)
-      let bestTransferDay = sortedTransferDays[sortedTransferDays.length - 1] // デフォルト: 最後の移動日
+      let bestTransferDay = sortedTransferDays[sortedTransferDays.length - 1]
       
       for (let i = sortedTransferDays.length - 1; i >= 0; i--) {
         const transferDay = sortedTransferDays[i]
@@ -482,8 +473,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         }
       }
       
-      // 公演日が週の最初の移動日より前の場合、前週の最後の移動日
-      // 例: 公演が月(1)、移動日が火(2)・金(5) → 前週の金(5)
       if (perfDayOfWeek <= sortedTransferDays[0]) {
         bestTransferDay = sortedTransferDays[sortedTransferDays.length - 1]
       }
@@ -503,7 +492,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
     
     // ============================================
-    // Step 3: 各移動日のルートを構築
+    // Step 3: シミュレーション方式でルートを構築
     // ============================================
     const dayRoutes: DayRoute[] = []
     let dayNumber = 0
@@ -512,222 +501,160 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       dayNumber++
       if (dayKits.length === 0) continue
       
-      // この日のトリップを構築（容量4個以下）
-      type Trip = {
-        id: number
-        sourceId: string
-        kits: KitTransferSuggestion[]
-        destinationIds: Set<string>
-      }
+      // === シミュレーション開始 ===
+      // 状態: 
+      //   - pending: まだ拾っていないキット
+      //   - carrying: 持っているキット（拾ったが届けていない）
+      //   - delivered: 届け終わったキット
       
-      // 出発店舗ごとにグループ化
-      const kitsBySource = new Map<string, KitTransferSuggestion[]>()
-      for (const s of dayKits) {
-        const fromId = getStoreGroupId(s.from_store_id)
-        if (!kitsBySource.has(fromId)) {
-          kitsBySource.set(fromId, [])
+      const pending = new Set(dayKits.map((_, i) => i)) // キットのインデックス
+      const carrying: number[] = [] // 持っているキットのインデックス
+      const route: { storeId: string, pickup: KitTransferSuggestion[], dropoff: KitTransferSuggestion[] }[] = []
+      
+      // 容量を超えたら一度戻る必要があるためトリップカウント
+      let tripCount = 1
+      
+      // 全キットを届けるまでループ
+      while (pending.size > 0 || carrying.length > 0) {
+        // 次に訪問すべき店舗を決定
+        // 優先順位:
+        // 1. まず拾える店舗（pendingキットがある店舗）をdisplay_order順に
+        // 2. 持っているキットの配達先
+        
+        let nextStoreId: string | null = null
+        let nextAction: 'pickup_first' | 'dropoff_first' = 'pickup_first'
+        
+        // 拾えるキットがある店舗を探す
+        const pickupStores = new Map<string, number[]>()
+        for (const idx of pending) {
+          const kit = dayKits[idx]
+          const fromId = getStoreGroupId(kit.from_store_id)
+          if (!pickupStores.has(fromId)) {
+            pickupStores.set(fromId, [])
+          }
+          pickupStores.get(fromId)!.push(idx)
         }
-        kitsBySource.get(fromId)!.push(s)
-      }
-      
-      // 4個ずつトリップに分割
-      const dayTrips: Trip[] = []
-      let tripId = 0
-      
-      for (const [sourceId, kits] of kitsBySource.entries()) {
-        for (let i = 0; i < kits.length; i += MAX_CARRY_CAPACITY) {
-          const batch = kits.slice(i, i + MAX_CARRY_CAPACITY)
-          const destIds = new Set(batch.map(k => getStoreGroupId(k.to_store_id)))
-          
-          dayTrips.push({
-            id: tripId++,
-            sourceId,
-            kits: batch,
-            destinationIds: destIds
+        
+        // 持っているキットの配達先
+        const dropoffStores = new Map<string, number[]>()
+        for (const idx of carrying) {
+          const kit = dayKits[idx]
+          const toId = getStoreGroupId(kit.to_store_id)
+          if (!dropoffStores.has(toId)) {
+            dropoffStores.set(toId, [])
+          }
+          dropoffStores.get(toId)!.push(idx)
+        }
+        
+        // 容量チェック: 満杯なら配達を優先
+        if (carrying.length >= MAX_CARRY_CAPACITY) {
+          // 配達先をdisplay_order順で選ぶ
+          let bestOrder = Infinity
+          for (const [storeId] of dropoffStores) {
+            const order = storeInfoMap.get(storeId)?.displayOrder ?? 999
+            if (order < bestOrder) {
+              bestOrder = order
+              nextStoreId = storeId
+            }
+          }
+          nextAction = 'dropoff_first'
+        } else if (pickupStores.size > 0) {
+          // 拾える店舗がある場合、display_order順で選ぶ
+          let bestOrder = Infinity
+          for (const [storeId] of pickupStores) {
+            const order = storeInfoMap.get(storeId)?.displayOrder ?? 999
+            if (order < bestOrder) {
+              bestOrder = order
+              nextStoreId = storeId
+            }
+          }
+          nextAction = 'pickup_first'
+        } else if (dropoffStores.size > 0) {
+          // 配達のみ
+          let bestOrder = Infinity
+          for (const [storeId] of dropoffStores) {
+            const order = storeInfoMap.get(storeId)?.displayOrder ?? 999
+            if (order < bestOrder) {
+              bestOrder = order
+              nextStoreId = storeId
+            }
+          }
+          nextAction = 'dropoff_first'
+        }
+        
+        if (!nextStoreId) break // 無限ループ防止
+        
+        // この店舗でのアクションを実行
+        const pickupsHere = pickupStores.get(nextStoreId) || []
+        const dropoffsHere = dropoffStores.get(nextStoreId) || []
+        
+        const stopPickups: KitTransferSuggestion[] = []
+        const stopDropoffs: KitTransferSuggestion[] = []
+        
+        // 拾う（容量まで）
+        for (const idx of pickupsHere) {
+          if (carrying.length < MAX_CARRY_CAPACITY) {
+            pending.delete(idx)
+            carrying.push(idx)
+            stopPickups.push(dayKits[idx])
+          }
+        }
+        
+        // 届ける（この店舗宛のキットを持っている場合）
+        const toDeliver = [...dropoffsHere]
+        for (const idx of toDeliver) {
+          const carryIdx = carrying.indexOf(idx)
+          if (carryIdx !== -1) {
+            carrying.splice(carryIdx, 1)
+            stopDropoffs.push(dayKits[idx])
+          }
+        }
+        
+        // ルートに追加（既存の店舗があれば統合）
+        const existingStop = route.find(s => s.storeId === nextStoreId)
+        if (existingStop) {
+          existingStop.pickup.push(...stopPickups)
+          existingStop.dropoff.push(...stopDropoffs)
+        } else {
+          route.push({
+            storeId: nextStoreId,
+            pickup: stopPickups,
+            dropoff: stopDropoffs
           })
         }
-      }
-      
-      // トリップを依存関係順にソート（同日内で）
-      // トリップAの出発店舗がトリップBの配達先 → Bが先
-      const tripDependencies = new Map<number, Set<number>>()
-      for (const trip of dayTrips) {
-        tripDependencies.set(trip.id, new Set())
-      }
-      
-      for (const tripA of dayTrips) {
-        for (const tripB of dayTrips) {
-          if (tripA.id === tripB.id) continue
-          if (tripB.destinationIds.has(tripA.sourceId)) {
-            tripDependencies.get(tripA.id)!.add(tripB.id)
-          }
-        }
-      }
-      
-      // トポロジカルソート
-      const sortedTrips: Trip[] = []
-      const completed = new Set<number>()
-      const inProgress = new Set<number>()
-      
-      const visitTrip = (id: number): boolean => {
-        if (completed.has(id)) return true
-        if (inProgress.has(id)) return false
         
-        inProgress.add(id)
-        const deps = tripDependencies.get(id)!
-        for (const depId of deps) {
-          if (!visitTrip(depId)) return false
-        }
-        inProgress.delete(id)
-        completed.add(id)
-        sortedTrips.push(dayTrips.find(t => t.id === id)!)
-        return true
-      }
-      
-      // display_order順にソートしてから処理
-      const tripsByOrder = [...dayTrips].sort((a, b) => {
-        const orderA = storeInfoMap.get(a.sourceId)?.displayOrder ?? 999
-        const orderB = storeInfoMap.get(b.sourceId)?.displayOrder ?? 999
-        return orderA - orderB
-      })
-      
-      for (const trip of tripsByOrder) {
-        if (!completed.has(trip.id)) {
-          visitTrip(trip.id)
+        // 容量を超えたため往復が必要
+        if (pickupsHere.length > stopPickups.length) {
+          tripCount++
         }
       }
       
-      // 循環があった場合、残りを追加
-      for (const trip of dayTrips) {
-        if (!completed.has(trip.id)) {
-          sortedTrips.push(trip)
-        }
-      }
-      
-      // この日のルートを構築
-      const dayStops: StoreAction[] = []
-      
-      for (const trip of sortedTrips) {
-        const sourceInfo = storeInfoMap.get(trip.sourceId)
-        
-        // 出発店舗を追加
-        let sourceStop = dayStops.find(s => s.storeId === trip.sourceId)
-        if (!sourceStop) {
-          sourceStop = {
-            storeId: trip.sourceId,
-            storeName: sourceInfo?.storeName || '?',
-            displayOrder: sourceInfo?.displayOrder ?? 999,
-            pickup: [],
-            dropoff: []
-          }
-          dayStops.push(sourceStop)
-        }
-        sourceStop.pickup.push(...trip.kits)
-        
-        // 配達先店舗を追加
-        const destGroups = new Map<string, KitTransferSuggestion[]>()
-        for (const kit of trip.kits) {
-          const destId = getStoreGroupId(kit.to_store_id)
-          if (!destGroups.has(destId)) {
-            destGroups.set(destId, [])
-          }
-          destGroups.get(destId)!.push(kit)
-        }
-        
-        for (const [destId, kits] of destGroups) {
-          const destInfo = storeInfoMap.get(destId)
-          let destStop = dayStops.find(s => s.storeId === destId)
-          if (!destStop) {
-            destStop = {
-              storeId: destId,
-              storeName: destInfo?.storeName || '?',
-              displayOrder: destInfo?.displayOrder ?? 999,
-              pickup: [],
-              dropoff: []
-            }
-            dayStops.push(destStop)
-          }
-          destStop.dropoff.push(...kits)
-        }
-      }
-      
-      // トポロジカルソートで正しい訪問順序
-      const storeDeps = new Map<string, Set<string>>()
-      for (const stop of dayStops) {
-        storeDeps.set(stop.storeId, new Set())
-      }
-      
-      // 依存関係: dropoff店舗 → pickup店舗より後
-      for (const stop of dayStops) {
-        for (const kit of stop.dropoff) {
-          const pickupStoreId = getStoreGroupId(kit.from_store_id)
-          if (pickupStoreId !== stop.storeId) {
-            storeDeps.get(stop.storeId)!.add(pickupStoreId)
-          }
-        }
-      }
-      
-      // Kahnのアルゴリズム
-      const inDegree = new Map<string, number>()
-      for (const stop of dayStops) {
-        inDegree.set(stop.storeId, storeDeps.get(stop.storeId)!.size)
-      }
-      
-      const queue: StoreAction[] = []
-      for (const stop of dayStops) {
-        if (inDegree.get(stop.storeId) === 0) {
-          queue.push(stop)
-        }
-      }
-      
-      const orderedStops: StoreAction[] = []
-      while (queue.length > 0) {
-        queue.sort((a, b) => a.displayOrder - b.displayOrder)
-        const current = queue.shift()!
-        orderedStops.push(current)
-        
-        for (const stop of dayStops) {
-          if (storeDeps.get(stop.storeId)!.has(current.storeId)) {
-            const newDegree = inDegree.get(stop.storeId)! - 1
-            inDegree.set(stop.storeId, newDegree)
-            if (newDegree === 0) {
-              queue.push(stop)
-            }
-          }
-        }
-      }
-      
-      // 循環があった場合、残りを追加
-      for (const stop of dayStops) {
-        if (!orderedStops.find(s => s.storeId === stop.storeId)) {
-          orderedStops.push(stop)
-        }
-      }
-      
-      // 各店舗での持ち数を計算
-      let carrying = 0
+      // StoreAction形式に変換
+      let carryingCount = 0
       let maxCarrying = 0
       
-      const stopsWithCarrying = orderedStops.map(stop => {
-        carrying += stop.pickup.length
-        maxCarrying = Math.max(maxCarrying, carrying)
-        carrying -= stop.dropoff.length
+      const stopsWithCarrying = route.map(stop => {
+        const storeInfo = storeInfoMap.get(stop.storeId)
+        carryingCount += stop.pickup.length
+        maxCarrying = Math.max(maxCarrying, carryingCount)
+        carryingCount -= stop.dropoff.length
         
         return {
-          ...stop,
-          carryingAfter: carrying
+          storeId: stop.storeId,
+          storeName: storeInfo?.storeName || '?',
+          displayOrder: storeInfo?.displayOrder ?? 999,
+          pickup: stop.pickup,
+          dropoff: stop.dropoff,
+          carryingAfter: carryingCount
         }
       })
       
       // 所要時間を計算
-      const totalKits = orderedStops.reduce((sum, s) => sum + s.pickup.length + s.dropoff.length, 0)
-      const travelTime = (orderedStops.length - 1) * TIME_PER_STOP
-      const returnTrips = sortedTrips.length > 1 ? (sortedTrips.length - 1) * TIME_PER_STOP * 2 : 0
+      const totalKits = route.reduce((sum, s) => sum + s.pickup.length + s.dropoff.length, 0)
+      const travelTime = (route.length - 1) * TIME_PER_STOP
+      const returnTripsTime = tripCount > 1 ? (tripCount - 1) * TIME_PER_STOP * 2 : 0
       const kitTime = totalKits * TIME_PER_KIT
-      const estimatedMinutes = travelTime + returnTrips + kitTime
-      
-      // 曜日ラベルを取得
-      const dayLabel = WEEKDAYS.find(w => w.value === transferDayOfWeek)?.label || `${dayNumber}日目`
+      const estimatedMinutes = travelTime + returnTripsTime + kitTime
       
       dayRoutes.push({
         dayNumber,
@@ -736,7 +663,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         totalKits,
         maxCarrying,
         exceedsCapacity: maxCarrying > MAX_CARRY_CAPACITY,
-        tripCount: sortedTrips.length
+        tripCount
       })
     }
     
