@@ -28,7 +28,8 @@ import { showToast } from '@/utils/toast'
 import { calculateKitTransfers, type KitState } from '@/utils/kitOptimizer'
 import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, Scenario } from '@/types'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search } from 'lucide-react'
 
 interface KitManagementDialogProps {
   isOpen: boolean
@@ -78,6 +79,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   
   // 移動可能曜日（デフォルト: 月・木）
   const [transferDays, setTransferDays] = useState<number[]>([1, 4])
+  
+  // シナリオ検索
+  const [scenarioSearch, setScenarioSearch] = useState('')
 
   // 週の日付リスト
   const weekDates = useMemo(() => {
@@ -90,15 +94,29 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return dates
   }, [selectedWeekStart])
 
+  // 検索フィルタ関数
+  const matchesSearch = useCallback((scenario: Scenario) => {
+    if (!scenarioSearch.trim()) return true
+    const search = scenarioSearch.toLowerCase()
+    return (
+      scenario.title.toLowerCase().includes(search) ||
+      scenario.author?.toLowerCase().includes(search)
+    )
+  }, [scenarioSearch])
+  
   // キット数があるシナリオのみフィルタ
   const scenariosWithKits = useMemo(() => {
-    return scenarios.filter(s => s.kit_count && s.kit_count > 0)
-  }, [scenarios])
+    return scenarios
+      .filter(s => s.kit_count && s.kit_count > 0)
+      .filter(matchesSearch)
+  }, [scenarios, matchesSearch])
   
   // キット未設定のシナリオ
   const scenariosWithoutKits = useMemo(() => {
-    return scenarios.filter(s => !s.kit_count || s.kit_count === 0)
-  }, [scenarios])
+    return scenarios
+      .filter(s => !s.kit_count || s.kit_count === 0)
+      .filter(matchesSearch)
+  }, [scenarios, matchesSearch])
 
   // シナリオIDからシナリオ情報を取得
   const scenarioMap = useMemo(() => {
@@ -454,13 +472,35 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           {/* 現在の配置 */}
           <TabsContent value="current" className="flex-1 overflow-auto">
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                各シナリオのキットが現在どの店舗にあるかを表示・編集します
-              </p>
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-muted-foreground flex-1">
+                  各シナリオのキットが現在どの店舗にあるかを表示・編集します
+                </p>
+                <div className="relative w-64">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="シナリオを検索..."
+                    value={scenarioSearch}
+                    onChange={(e) => setScenarioSearch(e.target.value)}
+                    className="pl-8 h-8"
+                  />
+                  {scenarioSearch && (
+                    <button
+                      onClick={() => setScenarioSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
               
               {scenariosWithKits.length === 0 && scenariosWithoutKits.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  シナリオがありません。
+                  {scenarioSearch 
+                    ? `「${scenarioSearch}」に一致するシナリオがありません`
+                    : 'シナリオがありません'
+                  }
                 </div>
               ) : (
                 <>
