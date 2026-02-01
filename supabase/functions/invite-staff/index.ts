@@ -104,6 +104,41 @@ serve(async (req) => {
       )
     }
 
+    // ============================================
+    // 🔒 組織ID検証: 呼び出し元が所属する組織以外への招待を禁止
+    // ============================================
+    const { data: callerStaff, error: callerStaffError } = await supabase
+      .from('staff')
+      .select('organization_id')
+      .eq('user_id', callerUser.id)
+      .maybeSingle()
+
+    // 呼び出し元の組織IDを取得（staffテーブルに存在しない場合はusersテーブルから取得）
+    let callerOrganizationId: string | null = callerStaff?.organization_id || null
+    
+    if (!callerOrganizationId) {
+      const { data: callerUserOrg } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', callerUser.id)
+        .single()
+      callerOrganizationId = callerUserOrg?.organization_id || null
+    }
+
+    // リクエストで指定された organization_id が呼び出し元の組織と一致するか検証
+    const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
+    const requestedOrganizationId = payload.organization_id || DEFAULT_ORG_ID
+
+    if (callerOrganizationId && callerOrganizationId !== requestedOrganizationId) {
+      console.warn('⚠️ 組織ID不一致: 呼び出し元=%s, リクエスト=%s', callerOrganizationId, requestedOrganizationId)
+      return new Response(
+        JSON.stringify({ success: false, error: '自組織以外への招待はできません' }),
+        { status: 403, headers: corsHeaders }
+      )
+    }
+
+    console.log('✅ 組織ID検証成功: organization_id=%s', requestedOrganizationId)
+
     // ログにはマスキングした情報のみ出力
     console.log('📨 Staff invitation request:', { email: maskEmail(email), name: maskName(name) })
 
@@ -155,9 +190,8 @@ serve(async (req) => {
     }
 
     const now = new Date().toISOString()
-    // デフォルト organization_id: クインズワルツ
-    const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
-    const userOrganizationId = payload.organization_id || DEFAULT_ORG_ID
+    // 検証済みの組織IDを使用
+    const userOrganizationId = requestedOrganizationId
     
     const userRecordPayload: Record<string, unknown> = {
       id: userId,
@@ -217,7 +251,8 @@ serve(async (req) => {
     }
 
     let staffId: string
-    const organizationId = payload.organization_id || DEFAULT_ORG_ID
+    // 検証済みの組織IDを使用
+    const organizationId = requestedOrganizationId
     
     const staffPayload = {
       user_id: userId,

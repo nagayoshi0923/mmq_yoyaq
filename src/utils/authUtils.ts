@@ -3,37 +3,27 @@ export type UserRole = 'admin' | 'staff' | 'customer' | 'license_admin'
 /**
  * メールアドレスからユーザーのロールを判定する（フォールバック用）
  * 
+ * 🔒 セキュリティ修正: ハードコードされた管理者メールリストを削除
+ * 
  * 注意: この関数は最終フォールバックとしてのみ使用されます。
  * 通常は以下の順序でロールが決定されます：
- * 1. usersテーブルの既存ロール
+ * 1. usersテーブルの既存ロール（信頼できるソース）
  * 2. staffテーブルへのuser_id紐付け
  * 3. staffテーブルへのemail一致
- * 4. この関数（フォールバック）
+ * 4. この関数（フォールバック: 常に 'customer' を返す）
  * 
- * セキュリティ上、フォールバックでは管理者のみを特定し、
- * それ以外は安全なcustomerとして扱います。
+ * セキュリティ上の理由:
+ * - フロントエンドにadminメールリストを持つのは危険
+ * - ロールの判定はサーバー側（usersテーブル）でのみ行う
+ * - フォールバックは常に最小権限（customer）を付与
  * 
- * @param email ユーザーのメールアドレス
- * @returns 判定されたロール ('admin' | 'customer') - staffは返さない
+ * @param email ユーザーのメールアドレス（未使用だが互換性のため保持）
+ * @returns 常に 'customer' を返す
  */
-export function determineUserRole(email: string | undefined | null): UserRole {
-  if (!email) return 'customer'
-
-  const normalizedEmail = email.toLowerCase()
-  
-  // 管理者メールアドレスのリスト（明示的に指定）
-  const adminEmails = [
-    'mai.nagayoshi@gmail.com',
-    'queens.waltz@gmail.com'
-  ]
-
-  // 管理者のみ特定（明示的なリストに含まれている場合のみ）
-  if (adminEmails.includes(normalizedEmail)) {
-    return 'admin'
-  }
-
-  // それ以外は安全にcustomerとして扱う
-  // staffの判定はAuthContextでstaffテーブルを確認するため、ここでは行わない
+export function determineUserRole(_email: string | undefined | null): UserRole {
+  // 🔒 セキュリティ修正: フロントエンドでのロール判定を行わない
+  // ロールはサーバー側（usersテーブル）でのみ決定される
+  // フォールバックは常に最小権限を付与
   return 'customer'
 }
 

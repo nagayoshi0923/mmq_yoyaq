@@ -2,7 +2,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getDiscordSettings } from '../_shared/organization-settings.ts'
-import { getServiceRoleKey } from '../_shared/security.ts'
+import { 
+  getServiceRoleKey, 
+  getCorsHeaders, 
+  verifyAuth, 
+  errorResponse, 
+  sanitizeErrorMessage,
+  isCronOrServiceRoleCall 
+} from '../_shared/security.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
@@ -162,7 +169,31 @@ async function sendDiscordShiftRequest(
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin')
+  const corsHeaders = getCorsHeaders(origin)
+
+  // CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
   try {
+    // 🔒 認証チェック: Service Role/Cron または admin/staff のみ許可
+    if (!isCronOrServiceRoleCall(req)) {
+      const authResult = await verifyAuth(req, ['admin', 'staff', 'owner', 'license_admin'])
+      if (!authResult.success) {
+        console.warn('⚠️ 認証失敗: notify-shift-request-discord への不正アクセス試行')
+        return errorResponse(
+          authResult.error || '認証が必要です',
+          authResult.statusCode || 401,
+          corsHeaders
+        )
+      }
+      console.log('✅ 認証成功:', authResult.user?.email)
+    } else {
+      console.log('✅ Service Role/Cron 呼び出し')
+    }
+
     const payload: ShiftRequestPayload = await req.json()
     console.log('📨 Shift request payload:', payload)
     
@@ -249,16 +280,15 @@ serve(async (req) => {
         month,
         deadline: deadlineDate
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: corsHeaders }
     )
     
   } catch (error) {
     console.error('❌ Error:', error)
-    return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    return errorResponse(
+      sanitizeErrorMessage(error, 'シフト通知の送信に失敗しました'),
+      500,
+      corsHeaders
     )
   }
 })

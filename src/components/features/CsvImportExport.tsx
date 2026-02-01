@@ -73,6 +73,13 @@ export function CsvImportExport<T>({
 
   const handleExport = () => {
     try {
+      // 🔒 データ量上限チェック（DoS対策）
+      const MAX_EXPORT_ROWS = 10000
+      if (data.length > MAX_EXPORT_ROWS) {
+        showToast.error(`エクスポート件数が上限(${MAX_EXPORT_ROWS}件)を超えています。条件を絞り込んでください。`)
+        return
+      }
+
       const rows = data.map(item => rowMapper(item))
       const csvContent = [headers, ...rows]
         .map(row => row.map(cell => `"${cell}"`).join(','))

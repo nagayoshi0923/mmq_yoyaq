@@ -70,6 +70,13 @@ export default function MyPage() {
     if (!file || !user?.email) return
 
     try {
+      // 🔒 ファイルタイプ検証（セキュリティ強化）
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+      if (!allowedTypes.includes(file.type)) {
+        toast.error('画像ファイル（JPEG, PNG, GIF, WebP）のみアップロード可能です')
+        return
+      }
+
       // ファイルサイズチェック（2MB以下）
       if (file.size > 2 * 1024 * 1024) {
         toast.error('画像サイズは2MB以下にしてください')
@@ -83,8 +90,14 @@ export default function MyPage() {
       }
       reader.readAsDataURL(file)
 
-      // Supabase Storageにアップロード
-      const fileExt = file.name.split('.').pop()
+      // 🔒 MIMEタイプから拡張子を決定（偽装防止）
+      const extMap: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+        'image/webp': 'webp'
+      }
+      const fileExt = extMap[file.type] || 'jpg'
       const fileName = `${user.id}_${Date.now()}.${fileExt}`
       const filePath = `avatars/${fileName}`
 

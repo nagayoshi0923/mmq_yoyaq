@@ -74,31 +74,47 @@ export async function getInvitationByToken(
 
 /**
  * 招待を受諾（パスワード設定 & ユーザー作成）
+ * 🔒 アトミック処理により競合状態を防止
  */
 export async function acceptInvitation(params: {
   token: string
   password: string
 }): Promise<{ success: boolean; error: string | null }> {
   try {
-    // 1. 招待を取得
+    // 🔒 1. アトミックに招待を受諾（競合状態を防止）
+    // この時点で招待が「使用済み」になり、他のリクエストは失敗する
+    const { data: atomicResult, error: atomicError } = await supabase
+      .rpc('accept_invitation_atomic', { p_token: params.token })
+
+    if (atomicError) {
+      logger.error('Failed to accept invitation atomically:', atomicError)
+      return { success: false, error: '招待の処理中にエラーが発生しました' }
+    }
+
+    const invitationResult = atomicResult?.[0] || atomicResult
+    if (!invitationResult?.success) {
+      return { success: false, error: invitationResult?.error_message || '招待の受諾に失敗しました' }
+    }
+
+    // 2. 招待情報を取得（詳細情報が必要な場合）
     const { data: invitation, error: inviteError } = await getInvitationByToken(params.token)
     if (inviteError || !invitation) {
-      return { success: false, error: '招待が見つかりません' }
+      // アトミック処理は成功しているが、詳細取得に失敗
+      // invitationResultの情報を使用
+      logger.warn('Could not fetch invitation details, using atomic result')
     }
 
-    // 2. 有効期限チェック
-    if (new Date(invitation.expires_at) < new Date()) {
-      return { success: false, error: '招待の有効期限が切れています' }
+    const invitationData = invitation || {
+      id: invitationResult.id,
+      email: invitationResult.email,
+      role: invitationResult.role,
+      organization_id: invitationResult.organization_id,
+      name: '',
     }
 
-    // 3. 既に受諾済みかチェック
-    if (invitation.accepted_at) {
-      return { success: false, error: 'この招待は既に使用されています' }
-    }
-
-    // 4. Supabase Auth でユーザーを作成
+    // 3. Supabase Auth でユーザーを作成
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: invitation.email,
+      email: invitationData.email,
       password: params.password,
     })
 
@@ -115,14 +131,18 @@ export async function acceptInvitation(params: {
       return { success: false, error: 'ユーザーの作成に失敗しました' }
     }
 
-    // 5. users テーブルにレコードを作成
+    // 4. users テーブルにレコードを作成
+    const userRole = Array.isArray(invitationData.role) 
+      ? (invitationData.role.some((r: string) => r.includes('管理者')) ? 'admin' : 'staff')
+      : (typeof invitationData.role === 'string' && invitationData.role.includes('管理者') ? 'admin' : 'staff')
+    
     const { error: userError } = await supabase
       .from('users')
       .upsert({
         id: userId,
-        email: invitation.email,
-        role: invitation.role.includes('管理者') ? 'admin' : 'staff',
-        organization_id: invitation.organization_id,
+        email: invitationData.email,
+        role: userRole,
+        organization_id: invitationData.organization_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'id' })
@@ -131,15 +151,15 @@ export async function acceptInvitation(params: {
       logger.error('Failed to create user record:', userError)
     }
 
-    // 6. staff テーブルにレコードを作成
+    // 5. staff テーブルにレコードを作成
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
       .insert({
-        name: invitation.name,
-        email: invitation.email,
+        name: invitationData.name || invitationData.email?.split('@')[0] || '',
+        email: invitationData.email,
         user_id: userId,
-        organization_id: invitation.organization_id,
-        role: invitation.role,
+        organization_id: invitationData.organization_id,
+        role: invitationData.role,
         status: 'active',
         stores: [],
         ng_days: [],
@@ -157,17 +177,16 @@ export async function acceptInvitation(params: {
       // スタッフ作成に失敗しても続行（後で修正可能）
     }
 
-    // 7. 招待を受諾済みに更新
-    const { error: updateError } = await supabase
-      .from('organization_invitations')
-      .update({
-        accepted_at: new Date().toISOString(),
-        staff_id: staffData?.id,
-      })
-      .eq('id', invitation.id)
+    // 6. 招待にstaff_idを紐付け（アトミック処理でaccepted_atは既に設定済み）
+    if (staffData?.id && invitationData.id) {
+      const { error: updateError } = await supabase
+        .from('organization_invitations')
+        .update({ staff_id: staffData.id })
+        .eq('id', invitationData.id)
 
-    if (updateError) {
-      logger.error('Failed to update invitation:', updateError)
+      if (updateError) {
+        logger.error('Failed to link staff to invitation:', updateError)
+      }
     }
 
     return { success: true, error: null }

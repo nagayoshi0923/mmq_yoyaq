@@ -32,11 +32,56 @@ serve(async (req) => {
 
     const { organizationId, to, subject, body }: EmailRequest = await req.json()
 
+    // 🔒 メールアドレス形式検証
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const recipients = Array.isArray(to) ? to : [to]
+    
+    for (const email of recipients) {
+      if (!email || !emailRegex.test(email)) {
+        console.warn('⚠️ 無効なメールアドレス:', maskEmail(email || ''))
+        return errorResponse('無効なメールアドレスが含まれています', 400, corsHeaders)
+      }
+    }
+
+    // 🔒 必須フィールドの検証
+    if (!subject || typeof subject !== 'string' || subject.trim().length === 0) {
+      return errorResponse('件名は必須です', 400, corsHeaders)
+    }
+    if (!body || typeof body !== 'string' || body.trim().length === 0) {
+      return errorResponse('本文は必須です', 400, corsHeaders)
+    }
+
     // 組織設定からメール設定を取得
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       getServiceRoleKey()
     )
+
+    // 🔒 組織ID検証: 呼び出し元ユーザーの組織と一致するか確認
+    if (organizationId) {
+      const { data: callerStaff } = await serviceClient
+        .from('staff')
+        .select('organization_id')
+        .eq('user_id', authResult.user?.id)
+        .maybeSingle()
+
+      let callerOrgId = callerStaff?.organization_id || null
+
+      // staffテーブルにない場合はusersテーブルから取得
+      if (!callerOrgId) {
+        const { data: callerUser } = await serviceClient
+          .from('users')
+          .select('organization_id')
+          .eq('id', authResult.user?.id)
+          .single()
+        callerOrgId = callerUser?.organization_id || null
+      }
+
+      if (callerOrgId && callerOrgId !== organizationId) {
+        console.warn('⚠️ 組織ID不一致: 呼び出し元=%s, リクエスト=%s', callerOrgId, organizationId)
+        return errorResponse('他組織のメール設定は使用できません', 403, corsHeaders)
+      }
+    }
     
     let resendApiKey = Deno.env.get('RESEND_API_KEY')
     let senderEmail = 'noreply@example.com'
@@ -55,9 +100,6 @@ serve(async (req) => {
       console.error('RESEND_API_KEY is not set')
       throw new Error('メール送信サービスが設定されていません')
     }
-
-    // 送信先の配列化
-    const recipients = Array.isArray(to) ? to : [to]
 
     // ログにはマスキングした情報のみ出力
     console.log('📧 Sending email:', {

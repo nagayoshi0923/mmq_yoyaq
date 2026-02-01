@@ -60,6 +60,13 @@ export default function SalaryCalculation() {
       return
     }
 
+    // 🔒 データ量上限チェック（DoS対策）
+    const MAX_EXPORT_ROWS = 10000
+    if (filteredStaffList.length > MAX_EXPORT_ROWS) {
+      showToast.error(`エクスポート件数が上限(${MAX_EXPORT_ROWS}件)を超えています`)
+      return
+    }
+
     const csvRows: string[] = []
     
     // ヘッダー
