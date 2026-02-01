@@ -324,6 +324,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const startDate = weekDates[0]
       const endDate = weekDates[6]
       const eventsData = await scheduleApi.getByDateRange(startDate, endDate)
+      
+      // デバッグログ
+      console.log('📅 スケジュール取得:', {
+        startDate,
+        endDate,
+        totalEvents: eventsData.length,
+        eventsWithScenarioId: eventsData.filter(e => e.scenario_id).length,
+        sampleEvents: eventsData.slice(0, 3).map(e => ({
+          date: e.date,
+          scenario: e.scenario,
+          scenario_id: e.scenario_id,
+          store_id: e.store_id
+        }))
+      })
+      
       setScheduleEvents(eventsData.map(e => ({
         date: e.date,
         store_id: e.store_id || e.venue,
@@ -381,16 +396,31 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         kitState[loc.scenario_id][loc.kit_number] = loc.store_id
       }
 
-      // 週間需要を構築
+      // 週間需要を構築（scenario_idがあるイベントのみ）
       const demands: Array<{ date: string; store_id: string; scenario_id: string }> = []
       for (const event of scheduleEvents) {
-        if (weekDates.includes(event.date)) {
+        if (weekDates.includes(event.date) && event.scenario_id) {
           demands.push({
             date: event.date,
             store_id: event.store_id,
             scenario_id: event.scenario_id
           })
         }
+      }
+
+      // デバッグログ
+      console.log('📦 移動計算デバッグ:', {
+        kitLocations: kitLocations.length,
+        kitState: Object.keys(kitState).length,
+        scheduleEvents: scheduleEvents.length,
+        weekDates,
+        demands: demands.length,
+        scenariosWithKits: scenariosWithKits.length,
+        transferDays
+      })
+      
+      if (demands.length === 0) {
+        console.warn('⚠️ 週間需要が0件です。スケジュールにシナリオが設定されていない可能性があります。')
       }
 
       // 移動計画を計算
@@ -402,10 +432,15 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         transferDays
       )
 
+      console.log('📦 移動計算結果:', result)
       setSuggestions(result)
       
       if (result.length === 0) {
-        showToast.success('移動は不要です')
+        if (demands.length === 0) {
+          showToast.info('この週にシナリオ付きのイベントがありません')
+        } else {
+          showToast.success('移動は不要です（すべてのキットが適切な店舗にあります）')
+        }
       } else {
         showToast.success(`${result.length}件の移動が必要です`)
       }
