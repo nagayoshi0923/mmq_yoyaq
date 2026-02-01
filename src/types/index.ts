@@ -741,6 +741,7 @@ export interface KitTransferSuggestion {
   to_store_id: string
   to_store_name: string
   transfer_date: string
+  performance_date: string  // 実際の公演日
   reason: string  // 移動理由（例: "2/3に新宿店で公演予定"）
 }
 

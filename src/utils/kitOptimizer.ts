@@ -170,6 +170,7 @@ export function calculateKitTransfers(
               to_store_id: storeId,
               to_store_name: store.short_name || store.name,
               transfer_date: transferDate,
+              performance_date: date,
               reason: `${formatDateShort(date)}に${store.short_name || store.name}で公演予定`
             })
             

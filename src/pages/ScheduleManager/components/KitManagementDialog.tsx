@@ -115,6 +115,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   // 所要時間の見積もり設定（分）
   const TIME_PER_STOP = 20 // 店舗間の移動時間（平均）
   const TIME_PER_KIT = 3   // キット1つあたりの積み下ろし時間
+  const MAX_CARRY_CAPACITY = 4 // 一度に持てるキットの最大数
 
   // 週の日付リスト
   const weekDates = useMemo(() => {
@@ -408,9 +409,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   // 日別ルート型
   type DayRoute = {
     dayNumber: number
-    stops: StoreAction[]
+    stops: (StoreAction & { carryingAfter: number })[]  // 各店舗を出た時点での持ち数
     estimatedMinutes: number
     totalKits: number
+    maxCarrying: number  // ルート中の最大持ち数
+    exceedsCapacity: boolean  // 容量オーバーかどうか
   }
 
   // 1人用最適ルートを計算（nearest neighbor heuristic）
@@ -506,6 +509,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       
       if (dayStops.length === 0) continue
       
+      // 各店舗での持ち数を計算
+      let carrying = 0
+      let maxCarrying = 0
+      const stopsWithCarrying = dayStops.map(stop => {
+        // この店舗で拾う
+        carrying += stop.pickup.length
+        maxCarrying = Math.max(maxCarrying, carrying)
+        // この店舗で降ろす
+        carrying -= stop.dropoff.length
+        return {
+          ...stop,
+          carryingAfter: carrying
+        }
+      })
+      
       // 所要時間を計算
       const totalKits = dayStops.reduce((sum, s) => sum + s.pickup.length + s.dropoff.length, 0)
       const travelTime = (dayStops.length - 1) * TIME_PER_STOP // 店舗間移動
@@ -514,14 +532,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       
       dayRoutes.push({
         dayNumber: d + 1,
-        stops: dayStops,
+        stops: stopsWithCarrying,
         estimatedMinutes,
-        totalKits
+        totalKits,
+        maxCarrying,
+        exceedsCapacity: maxCarrying > MAX_CARRY_CAPACITY
       })
     }
     
     return dayRoutes
-  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId, transferDays.length, TIME_PER_STOP, TIME_PER_KIT])
+  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId, transferDays.length, TIME_PER_STOP, TIME_PER_KIT, MAX_CARRY_CAPACITY])
   
   // 全体の所要時間
   const totalEstimatedMinutes = useMemo(() => {
@@ -1509,6 +1529,14 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         </div>
                       </div>
                       
+                      {/* 容量警告 */}
+                      {optimizedRoutes.some(d => d.exceedsCapacity) && (
+                        <div className="flex items-center gap-2 p-2 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-sm">
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          <span>一度に{MAX_CARRY_CAPACITY}個以上運ぶ必要があります。複数回に分けるか、移動曜日を増やしてください。</span>
+                        </div>
+                      )}
+                      
                       {/* 日別ルート */}
                       {optimizedRoutes.map((dayRoute) => {
                         // 対応する曜日を取得（transferDaysの順番で対応）
@@ -1519,14 +1547,23 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         <div key={dayRoute.dayNumber} className="space-y-2">
                           {/* 日のヘッダー */}
                           {transferDays.length > 1 && (
-                            <div className="flex items-center justify-between bg-primary/10 rounded-lg px-3 py-2">
+                            <div className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+                              dayRoute.exceedsCapacity 
+                                ? 'bg-red-100 dark:bg-red-900/30' 
+                                : 'bg-primary/10'
+                            }`}>
                               <div className="flex items-center gap-2">
-                                <Badge variant="default" className="text-sm">
+                                <Badge variant={dayRoute.exceedsCapacity ? 'destructive' : 'default'} className="text-sm">
                                   {dayLabel}
                                 </Badge>
                                 <span className="text-sm">
                                   {dayRoute.stops.length}店舗 / {dayRoute.totalKits}キット
                                 </span>
+                                {dayRoute.exceedsCapacity && (
+                                  <span className="text-xs text-red-600 dark:text-red-400">
+                                    (最大{dayRoute.maxCarrying}個持ち)
+                                  </span>
+                                )}
                               </div>
                               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                 <Clock className="h-3 w-3" />
@@ -1536,14 +1573,25 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           )}
                           
                           {/* 店舗リスト */}
-                          {dayRoute.stops.map((stop, index) => (
+                          {dayRoute.stops.map((stop, index) => {
+                            // この店舗を出た後の持ち数が上限超えてるか
+                            const carryingAfterPickup = stop.carryingAfter + stop.dropoff.length
+                            const isOverCapacity = carryingAfterPickup > MAX_CARRY_CAPACITY
+                            
+                            return (
                             <div
                               key={stop.storeId}
-                              className="bg-white dark:bg-gray-800 rounded-lg p-3"
+                              className={`bg-white dark:bg-gray-800 rounded-lg p-3 ${
+                                isOverCapacity ? 'ring-2 ring-red-500' : ''
+                              }`}
                             >
                               {/* 店舗ヘッダー */}
                               <div className="flex items-center gap-2 mb-2 pb-2 border-b">
-                                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                                <div className={`flex items-center justify-center w-6 h-6 rounded-full text-sm font-bold ${
+                                  isOverCapacity 
+                                    ? 'bg-red-500 text-white' 
+                                    : 'bg-primary text-primary-foreground'
+                                }`}>
                                   {index + 1}
                                 </div>
                                 <span className="font-bold text-lg">{stop.storeName}</span>
@@ -1560,6 +1608,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                       {stop.dropoff.length}個降ろす
                                     </Badge>
                                   )}
+                                  {/* 持ち数表示 */}
+                                  <Badge variant="outline" className={`text-xs ${
+                                    isOverCapacity ? 'border-red-500 text-red-600' : ''
+                                  }`}>
+                                    持{carryingAfterPickup}→{stop.carryingAfter}
+                                  </Badge>
                                 </div>
                               </div>
                               
@@ -1573,9 +1627,15 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                   <div className="space-y-0.5 pl-4">
                                     {stop.pickup.map((s, i) => {
                                       const toStore = storeMap.get(getStoreGroupId(s.to_store_id))
+                                      // 公演日を短いフォーマットで表示
+                                      const perfDate = new Date(s.performance_date)
+                                      const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
                                       return (
                                         <div key={i} className="text-sm flex items-center gap-2">
-                                          <span className="truncate max-w-[150px]">{s.scenario_title}</span>
+                                          <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
+                                            {perfDateStr}公演
+                                          </Badge>
+                                          <span className="truncate max-w-[130px]">{s.scenario_title}</span>
                                           <span className="text-muted-foreground text-xs">#{s.kit_number}</span>
                                           <span className="text-muted-foreground text-xs">
                                             → {toStore?.short_name || toStore?.name}
@@ -1598,9 +1658,15 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                     {stop.dropoff.map((s, i) => {
                                       const actualToStore = storeMap.get(s.to_store_id)
                                       const showActualStore = s.to_store_id !== getStoreGroupId(s.to_store_id)
+                                      // 公演日を短いフォーマットで表示
+                                      const perfDate = new Date(s.performance_date)
+                                      const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
                                       return (
                                         <div key={i} className="text-sm flex items-center gap-2">
-                                          <span className="truncate max-w-[150px]">{s.scenario_title}</span>
+                                          <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
+                                            {perfDateStr}公演
+                                          </Badge>
+                                          <span className="truncate max-w-[110px]">{s.scenario_title}</span>
                                           <span className="text-muted-foreground text-xs">#{s.kit_number}</span>
                                           {showActualStore && (
                                             <Badge variant="outline" className="text-[10px]">
@@ -1614,7 +1680,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                 </div>
                               )}
                             </div>
-                          ))}
+                          )
+                          })}
                           
                           {/* 日別ルート要約 */}
                           <div className="flex items-center gap-1 text-sm text-muted-foreground justify-center flex-wrap py-1">
