@@ -532,9 +532,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           <TabsContent value="current" className="flex-1 overflow-auto">
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <p className="text-sm text-muted-foreground flex-1">
-                  各シナリオのキットが現在どの店舗にあるかを表示・編集します
-                </p>
                 <div className="relative w-64">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -552,6 +549,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     </button>
                   )}
                 </div>
+                <p className="text-sm text-muted-foreground">
+                  各シナリオのキットが現在どの店舗にあるかを表示・編集します
+                </p>
               </div>
               
               {scenariosWithKits.length === 0 && scenariosWithoutKits.length === 0 ? (
