@@ -160,19 +160,20 @@ serve(async (req) => {
       throw new Error('メール送信サービスが設定されていません')
     }
 
-    // 該当イベントのキャンセル待ちを取得（waiting状態のもの、登録順）
+    // 🔒 SEC-P0-03対策: アトミックにキャンセル待ちを取得・ロック・更新
+    // RPCを使用することで、複数のキャンセルが同時発生しても競合しない
     const { data: waitlistEntries, error: waitlistError } = await serviceClient
-      .from('waitlist')
-      .select('id, customer_name, customer_email, participant_count, status, created_at')
-      .eq('schedule_event_id', data.scheduleEventId)
-      .eq('status', 'waiting')
-      .order('created_at', { ascending: true })
+      .rpc('fetch_and_lock_waitlist_entries', {
+        p_schedule_event_id: data.scheduleEventId,
+        p_freed_seats: data.freedSeats
+      })
 
     if (waitlistError) {
       console.error('Waitlist fetch error:', waitlistError)
       throw new Error('キャンセル待ちリストの取得に失敗しました')
     }
 
+    // RPCが空配列を返す場合（キャンセル待ちなし）
     if (!waitlistEntries || waitlistEntries.length === 0) {
       console.log('No waitlist entries found for this event')
       return new Response(
@@ -185,17 +186,8 @@ serve(async (req) => {
       )
     }
 
-    // 空き席数分だけ通知（希望人数が多い順位より先着順を優先）
-    let remainingSeats = data.freedSeats
-    const notifiedEntries: WaitlistEntry[] = []
-
-    for (const entry of waitlistEntries) {
-      // 残り席数より希望人数が多い場合も通知（一部参加でも予約したい場合がある）
-      if (remainingSeats > 0) {
-        notifiedEntries.push(entry)
-        remainingSeats -= entry.participant_count
-      }
-    }
+    // RPCで既にフィルタリング・ステータス更新済みなので、そのまま使用
+    const notifiedEntries: WaitlistEntry[] = waitlistEntries
 
     // 通知対象がいない場合
     if (notifiedEntries.length === 0) {
@@ -363,19 +355,8 @@ ${emailTemplates.footer}
           return { success: false, entryId: entry.id, error: errorData }
         }
 
-        // ステータスを「notified」に更新し、期限を設定
-        const { error: updateError } = await serviceClient
-          .from('waitlist')
-          .update({ 
-            status: 'notified', 
-            notified_at: new Date().toISOString(),
-            expires_at: expiresAt
-          })
-          .eq('id', entry.id)
-
-        if (updateError) {
-          console.error('Waitlist update error:', updateError)
-        }
+        // 🔒 SEC-P0-03: ステータス更新はRPCで既に完了済み
+        // fetch_and_lock_waitlist_entries でアトミックに更新されているため、ここでの更新は不要
 
         console.log('Email sent to:', entry.customer_email)
         return { success: true, entryId: entry.id }

@@ -235,93 +235,28 @@ export const reservationApi = {
       return `${dateStr}-${randomStr}`
     })()
 
-    // SEC-P0-02対策（段階移行）:
-    // 1) v2（サーバー側で料金/日時を確定）を優先して呼び出す
-    // 2) v2が未導入の環境では旧 create_reservation_with_lock にフォールバック
-    // 3) さらに旧関数のシグネチャ不一致（022型）にもフォールバック
+    // 🔒 SEC-P0-01対策: v2のみを使用（レガシーフォールバック削除）
+    // - v2はサーバー側で料金/日時を確定し、クライアント入力の改ざんを防止
+    // - 旧関数（料金検証なし）へのフォールバックは削除
     let reservationId: string | null = null
     let error: any = null
 
-    // (A) v2（推奨）
-    {
-      const res = await supabase.rpc('create_reservation_with_lock_v2', {
-        p_schedule_event_id: reservation.schedule_event_id,
-        p_participant_count: reservation.participant_count,
-        p_customer_id: reservation.customer_id,
-        p_customer_name: reservation.customer_name ?? null,
-        p_customer_email: reservation.customer_email ?? null,
-        p_customer_phone: reservation.customer_phone ?? null,
-        p_notes: reservation.customer_notes ?? null,
-        p_how_found: (reservation as any).how_found ?? null,
-        p_reservation_number: reservationNumber
-      })
+    const res = await supabase.rpc('create_reservation_with_lock_v2', {
+      p_schedule_event_id: reservation.schedule_event_id,
+      p_participant_count: reservation.participant_count,
+      p_customer_id: reservation.customer_id,
+      p_customer_name: reservation.customer_name ?? null,
+      p_customer_email: reservation.customer_email ?? null,
+      p_customer_phone: reservation.customer_phone ?? null,
+      p_notes: reservation.customer_notes ?? null,
+      p_how_found: (reservation as any).how_found ?? null,
+      p_reservation_number: reservationNumber
+    })
 
-      if (!res.error) {
-        reservationId = res.data as any
-      } else {
-        error = res.error
-      }
-    }
-
-    // (B) 旧関数（005/006型）
-    if (!reservationId) {
-      const res = await supabase.rpc('create_reservation_with_lock', {
-        p_schedule_event_id: reservation.schedule_event_id,
-        p_participant_count: reservation.participant_count,
-        p_customer_id: reservation.customer_id,
-        p_customer_name: reservation.customer_name ?? null,
-        p_customer_email: reservation.customer_email ?? null,
-        p_customer_phone: reservation.customer_phone ?? null,
-        p_scenario_id: reservation.scenario_id,
-        p_store_id: reservation.store_id,
-        p_requested_datetime: reservation.requested_datetime,
-        p_duration: reservation.duration,
-        p_base_price: reservation.base_price,
-        p_total_price: reservation.total_price,
-        p_unit_price: reservation.unit_price ?? Math.round(reservation.total_price / reservation.participant_count),
-        p_reservation_number: reservationNumber,
-        p_notes: reservation.customer_notes ?? null,
-        p_created_by: reservation.created_by ?? null,
-        p_organization_id: organizationId,
-        p_title: reservation.title
-      })
-
-      if (!res.error) {
-        reservationId = res.data as any
-        error = null
-      } else {
-        // ここでのエラーは次のフォールバック判定に回す
-        error = res.error
-      }
-    }
-
-    // (C) 旧関数（022型: 価格/日時/予約番号パラメータなし）
-    if (!reservationId && error) {
-      const msg = String(error.message || '')
-      const isSignatureMismatch =
-        error.code === 'PGRST202' ||
-        msg.includes('Could not find the function') ||
-        msg.includes('function public.create_reservation_with_lock')
-
-      if (isSignatureMismatch) {
-        const res = await supabase.rpc('create_reservation_with_lock', {
-          p_schedule_event_id: reservation.schedule_event_id,
-          p_customer_id: reservation.customer_id,
-          p_customer_name: reservation.customer_name ?? null,
-          p_customer_email: reservation.customer_email ?? null,
-          p_customer_phone: reservation.customer_phone ?? null,
-          p_participant_count: reservation.participant_count,
-          p_notes: reservation.customer_notes ?? null,
-          p_how_found: (reservation as any).how_found ?? null
-        })
-
-        if (!res.error) {
-          reservationId = res.data as any
-          error = null
-        } else {
-          error = res.error
-        }
-      }
+    if (!res.error) {
+      reservationId = res.data as any
+    } else {
+      error = res.error
     }
 
     if (error) {
