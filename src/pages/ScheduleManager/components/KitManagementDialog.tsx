@@ -97,7 +97,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [isCalculating, setIsCalculating] = useState(false)
   
   // 移動可能曜日（デフォルト: 月・木）
-  const [transferDays, setTransferDays] = useState<number[]>([1, 4])
+  const [transferDays, setTransferDays] = useState<number[]>([1, 5])
   
   // シナリオ検索
   const [scenarioSearch, setScenarioSearch] = useState('')
