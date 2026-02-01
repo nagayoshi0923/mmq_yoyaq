@@ -1022,23 +1022,46 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                       if (!scenario) return null
                                       const count = storeEvents.filter(e => e.scenario_id === sid).length
                                       
+                                      // この店舗にあるキット数をチェック
+                                      const kitsAtStore = kitLocations.filter(
+                                        loc => loc.scenario_id === sid && loc.store_id === store.id
+                                      ).length
+                                      
                                       // キット不足チェック
                                       const shortage = kitShortages.find(
                                         s => s.date === date && s.store_id === store.id && s.scenario_id === sid
                                       )
                                       const hasShortage = !!shortage
+                                      const notAtStore = kitsAtStore === 0  // この店舗にキットがない
+                                      
+                                      // バッジの色を決定
+                                      let badgeVariant: 'destructive' | 'secondary' | 'outline' = 'secondary'
+                                      let badgeClass = 'text-[10px] truncate max-w-[80px]'
+                                      
+                                      if (hasShortage) {
+                                        badgeVariant = 'destructive'
+                                        badgeClass += ' animate-pulse'
+                                      } else if (notAtStore) {
+                                        // 不足ではないが、この店舗にはない（移動が必要）
+                                        badgeVariant = 'outline'
+                                        badgeClass += ' border-orange-400 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20'
+                                      }
                                       
                                       return (
                                         <Badge
                                           key={sid}
-                                          variant={hasShortage ? 'destructive' : 'secondary'}
-                                          className={`text-[10px] truncate max-w-[80px] ${hasShortage ? 'animate-pulse' : ''}`}
-                                          title={hasShortage 
-                                            ? `${scenario.title} × ${count} ⚠️ キット不足 (在庫: ${shortage.available})`
-                                            : `${scenario.title} × ${count}`
+                                          variant={badgeVariant}
+                                          className={badgeClass}
+                                          title={
+                                            hasShortage 
+                                              ? `${scenario.title} × ${count} ⚠️ キット不足 (在庫: ${shortage.available})`
+                                              : notAtStore
+                                                ? `${scenario.title} × ${count} 📦 要移動 (この店舗にキットなし)`
+                                                : `${scenario.title} × ${count} ✓ 在庫あり`
                                           }
                                         >
                                           {hasShortage && <AlertTriangle className="h-2.5 w-2.5 mr-0.5 inline" />}
+                                          {notAtStore && !hasShortage && <ArrowRight className="h-2.5 w-2.5 mr-0.5 inline" />}
                                           {scenario.title.slice(0, 6)}
                                           {count > 1 && ` ×${count}`}
                                         </Badge>
