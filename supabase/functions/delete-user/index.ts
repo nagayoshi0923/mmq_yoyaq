@@ -164,6 +164,29 @@ serve(async (req) => {
 
     console.log('🗑️ User deletion request by admin:', { targetUserId: userId })
 
+    // ============================================
+    // 監査ログを記録（削除前）
+    // ============================================
+    try {
+      await supabase
+        .from('audit_logs')
+        .insert({
+          user_id: callerUser.id,
+          action: 'USER_DELETE_INITIATED',
+          table_name: 'auth.users',
+          record_id: userId,
+          old_values: {
+            target_user_id: userId,
+            caller_organization_id: callerOrgId
+          },
+          new_values: null
+        })
+      console.log('📝 監査ログ記録: USER_DELETE_INITIATED')
+    } catch (auditError) {
+      // 監査ログの失敗は削除処理を止めない
+      console.warn('⚠️ 監査ログ記録失敗:', auditError)
+    }
+
     // 1. ユーザー情報を取得（削除前の確認用）
     const { data: userData, error: getUserError } = await supabase.auth.admin.getUserById(userId)
     
@@ -275,6 +298,30 @@ serve(async (req) => {
     }
 
     console.log('✅ User deleted successfully:', { userId, email: maskedEmail })
+
+    // ============================================
+    // 監査ログを記録（削除完了）
+    // ============================================
+    try {
+      await supabase
+        .from('audit_logs')
+        .insert({
+          user_id: callerUser.id,
+          action: 'USER_DELETE_COMPLETED',
+          table_name: 'auth.users',
+          record_id: userId,
+          old_values: {
+            target_user_id: userId,
+            target_email_masked: maskedEmail,
+            deleted_customers: customersData?.length || 0,
+            unlinked_staff: staffData?.length || 0
+          },
+          new_values: null
+        })
+      console.log('📝 監査ログ記録: USER_DELETE_COMPLETED')
+    } catch (auditError) {
+      console.warn('⚠️ 監査ログ記録失敗:', auditError)
+    }
 
     return new Response(
       JSON.stringify({
