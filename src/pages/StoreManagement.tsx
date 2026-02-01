@@ -347,6 +347,7 @@ export function StoreManagement() {
         onClose={handleCloseEditModal}
         onSave={handleSaveStore}
         onDelete={handleDeleteStore}
+        allStores={stores}
       />
     </AppLayout>
   )

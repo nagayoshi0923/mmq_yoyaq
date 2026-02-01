@@ -15,9 +15,10 @@ interface StoreEditModalProps {
   onClose: () => void
   onSave: (updatedStore: Store) => void
   onDelete?: (store: Store) => void
+  allStores?: Store[]  // キットグループ選択用
 }
 
-export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: StoreEditModalProps) {
+export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allStores = [] }: StoreEditModalProps) {
   const [formData, setFormData] = useState<Partial<Store>>({})
   const [loading, setLoading] = useState(false)
 
@@ -41,7 +42,8 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
         color: store.color,
         fixed_costs: store.fixed_costs || [],
         region: store.region || '',
-        transport_allowance: store.transport_allowance ?? undefined
+        transport_allowance: store.transport_allowance ?? undefined,
+        kit_group_id: store.kit_group_id
       })
     } else if (isOpen) {
       // 新規作成モード：初期値をセット
@@ -345,6 +347,37 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
                         担当店舗に設定していないスタッフがこの店舗で働く場合に加算される金額
                       </p>
                     </div>
+                    
+                    {/* キットグループ（同一拠点） */}
+                    {allStores.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          キットグループ（同一拠点）
+                        </label>
+                        <Select
+                          value={formData.kit_group_id || 'none'}
+                          onValueChange={(value) => handleInputChange('kit_group_id', value === 'none' ? null : value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="なし（単独店舗）" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">なし（単独店舗）</SelectItem>
+                            {allStores
+                              .filter(s => s.status === 'active' && s.id !== store?.id)
+                              .map(s => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  {s.short_name || s.name}
+                                </SelectItem>
+                              ))
+                            }
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          同じ住所の店舗を選択すると、キット移動計算で同一拠点として扱います
+                        </p>
+                      </div>
+                    )}
 
                     {/* 識別色 */}
                     <div>
