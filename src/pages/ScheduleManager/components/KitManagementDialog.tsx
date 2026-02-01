@@ -31,7 +31,7 @@ import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuLabel } from '@/components/ui/context-menu'
-import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical } from 'lucide-react'
+import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical, Route, ArrowDown, ArrowUp } from 'lucide-react'
 
 // ドラッグ中のキット情報
 interface DraggedKit {
@@ -108,6 +108,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   // ドラッグ&ドロップ
   const [draggedKit, setDraggedKit] = useState<DraggedKit | null>(null)
   const [dragOverStoreId, setDragOverStoreId] = useState<string | null>(null)
+  
+  // 移動計画の表示モード: 'grouped' = ルート別、'route' = 1人用最適ルート
+  const [transferViewMode, setTransferViewMode] = useState<'grouped' | 'route'>('grouped')
 
   // 週の日付リスト
   const weekDates = useMemo(() => {
@@ -388,6 +391,98 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       return toOrderA - toOrderB
     })
   }, [transferEvents, storeMap, isSameStoreGroup, getStoreGroupId])
+
+  // 1人用最適ルートを計算（nearest neighbor heuristic）
+  // display_orderを距離の代理として使用
+  const optimizedRoute = useMemo(() => {
+    // 移動が必要なすべてのアイテムを収集
+    const validSuggestions = suggestions.filter(s => 
+      !isSameStoreGroup(s.from_store_id, s.to_store_id)
+    )
+    
+    if (validSuggestions.length === 0) return []
+    
+    // 各店舗グループで何を持っていくか・降ろすかを計算
+    type StoreAction = {
+      storeId: string
+      storeName: string
+      displayOrder: number
+      pickup: KitTransferSuggestion[]  // ここで拾うキット
+      dropoff: KitTransferSuggestion[] // ここで降ろすキット
+    }
+    
+    const storeActions = new Map<string, StoreAction>()
+    
+    for (const s of validSuggestions) {
+      const fromGroupId = getStoreGroupId(s.from_store_id)
+      const toGroupId = getStoreGroupId(s.to_store_id)
+      
+      // 拾う側
+      if (!storeActions.has(fromGroupId)) {
+        const store = storeMap.get(fromGroupId)
+        storeActions.set(fromGroupId, {
+          storeId: fromGroupId,
+          storeName: store?.short_name || store?.name || '?',
+          displayOrder: store?.display_order ?? 999,
+          pickup: [],
+          dropoff: []
+        })
+      }
+      storeActions.get(fromGroupId)!.pickup.push(s)
+      
+      // 降ろす側
+      if (!storeActions.has(toGroupId)) {
+        const store = storeMap.get(toGroupId)
+        storeActions.set(toGroupId, {
+          storeId: toGroupId,
+          storeName: store?.short_name || store?.name || '?',
+          displayOrder: store?.display_order ?? 999,
+          pickup: [],
+          dropoff: []
+        })
+      }
+      storeActions.get(toGroupId)!.dropoff.push(s)
+    }
+    
+    // Nearest Neighbor で巡回順序を決定
+    // display_orderが近いほど「近い」と仮定
+    const allStops = [...storeActions.values()]
+    if (allStops.length === 0) return []
+    
+    // 最も display_order が小さい店舗から開始
+    allStops.sort((a, b) => a.displayOrder - b.displayOrder)
+    const route: StoreAction[] = []
+    const visited = new Set<string>()
+    
+    // 最初は拾うキットがある店舗から（荷物を持たずにスタート）
+    const startCandidates = allStops.filter(s => s.pickup.length > 0)
+    let current = startCandidates.length > 0 ? startCandidates[0] : allStops[0]
+    route.push(current)
+    visited.add(current.storeId)
+    
+    // 残りの店舗を最寄りから順に追加
+    while (visited.size < allStops.length) {
+      let nearest: StoreAction | null = null
+      let nearestDistance = Infinity
+      
+      for (const stop of allStops) {
+        if (visited.has(stop.storeId)) continue
+        const distance = Math.abs(stop.displayOrder - current.displayOrder)
+        if (distance < nearestDistance) {
+          nearestDistance = distance
+          nearest = stop
+        }
+      }
+      
+      if (nearest) {
+        route.push(nearest)
+        visited.add(nearest.storeId)
+        current = nearest
+      }
+    }
+    
+    return route
+  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId])
 
   // データ取得
   const fetchData = useCallback(async () => {
@@ -1255,70 +1350,195 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 </Button>
               </div>
 
-              {/* 移動提案（ルートでグループ化） */}
+              {/* 移動提案 */}
               {suggestions.length > 0 && (
                 <div className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/20">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2 font-medium text-yellow-800 dark:text-yellow-200">
                       <AlertTriangle className="h-4 w-4" />
-                      移動提案 ({suggestions.length}件 / {groupedSuggestions.length}ルート)
+                      移動提案 ({suggestions.length}件)
                     </div>
-                    <Button size="sm" onClick={handleConfirmSuggestions}>
-                      <Check className="h-4 w-4 mr-1" />
-                      すべて確定
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {/* 表示モード切替 */}
+                      <div className="flex items-center rounded-md border bg-background">
+                        <Button
+                          size="sm"
+                          variant={transferViewMode === 'grouped' ? 'secondary' : 'ghost'}
+                          className="h-7 px-2 rounded-r-none"
+                          onClick={() => setTransferViewMode('grouped')}
+                        >
+                          <MapPin className="h-3 w-3 mr-1" />
+                          ルート別
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={transferViewMode === 'route' ? 'secondary' : 'ghost'}
+                          className="h-7 px-2 rounded-l-none"
+                          onClick={() => setTransferViewMode('route')}
+                        >
+                          <Route className="h-3 w-3 mr-1" />
+                          1人用
+                        </Button>
+                      </div>
+                      <Button size="sm" onClick={handleConfirmSuggestions}>
+                        <Check className="h-4 w-4 mr-1" />
+                        すべて確定
+                      </Button>
+                    </div>
                   </div>
                   
-                  <div className="space-y-3">
-                    {groupedSuggestions.map((group, groupIndex) => (
-                      <div
-                        key={groupIndex}
-                        className="bg-white dark:bg-gray-800 rounded-lg p-3"
-                      >
-                        {/* ルートヘッダー */}
-                        <div className="flex items-center gap-2 mb-2 pb-2 border-b">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{group.from_store_name}</span>
-                          <ArrowRight className="h-4 w-4" />
-                          <span className="font-bold text-primary">{group.to_store_name}</span>
-                          <Badge variant="secondary" className="ml-auto">
-                            {group.items.length}キット
-                          </Badge>
-                        </div>
-                        
-                        {/* キット一覧 */}
-                        <div className="space-y-1">
-                          {group.items.map((suggestion, index) => {
-                            // 実際の行き先店舗名を取得（グループ化されている場合に表示）
-                            const actualToStore = storeMap.get(suggestion.to_store_id)
-                            const showActualStore = group.isGrouped && suggestion.to_store_id !== group.to_store_id
-                            
-                            return (
-                              <div
-                                key={index}
-                                className="flex items-center gap-2 text-sm py-1"
-                              >
-                                <Badge variant="outline" className="text-xs">
-                                  {formatDate(suggestion.transfer_date)}
-                                </Badge>
-                                {showActualStore && (
-                                  <Badge variant="secondary" className="text-[10px] shrink-0">
-                                    → {actualToStore?.short_name || actualToStore?.name}
+                  {/* ルート別表示 */}
+                  {transferViewMode === 'grouped' && (
+                    <div className="space-y-3">
+                      {groupedSuggestions.map((group, groupIndex) => (
+                        <div
+                          key={groupIndex}
+                          className="bg-white dark:bg-gray-800 rounded-lg p-3"
+                        >
+                          {/* ルートヘッダー */}
+                          <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{group.from_store_name}</span>
+                            <ArrowRight className="h-4 w-4" />
+                            <span className="font-bold text-primary">{group.to_store_name}</span>
+                            <Badge variant="secondary" className="ml-auto">
+                              {group.items.length}キット
+                            </Badge>
+                          </div>
+                          
+                          {/* キット一覧 */}
+                          <div className="space-y-1">
+                            {group.items.map((suggestion, index) => {
+                              const actualToStore = storeMap.get(suggestion.to_store_id)
+                              const showActualStore = group.isGrouped && suggestion.to_store_id !== group.to_store_id
+                              
+                              return (
+                                <div
+                                  key={index}
+                                  className="flex items-center gap-2 text-sm py-1"
+                                >
+                                  <Badge variant="outline" className="text-xs">
+                                    {formatDate(suggestion.transfer_date)}
                                   </Badge>
-                                )}
-                                <span className="truncate max-w-[180px]">
-                                  {suggestion.scenario_title}
-                                </span>
-                                <span className="text-muted-foreground text-xs">
-                                  #{suggestion.kit_number}
-                                </span>
-                              </div>
-                            )
-                          })}
+                                  {showActualStore && (
+                                    <Badge variant="secondary" className="text-[10px] shrink-0">
+                                      → {actualToStore?.short_name || actualToStore?.name}
+                                    </Badge>
+                                  )}
+                                  <span className="truncate max-w-[180px]">
+                                    {suggestion.scenario_title}
+                                  </span>
+                                  <span className="text-muted-foreground text-xs">
+                                    #{suggestion.kit_number}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
                         </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* 1人用最適ルート表示 */}
+                  {transferViewMode === 'route' && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground mb-3">
+                        1人で効率よく回るルートです。各店舗で拾う/降ろすキットを表示しています。
+                      </p>
+                      
+                      {optimizedRoute.map((stop, index) => (
+                        <div
+                          key={stop.storeId}
+                          className="bg-white dark:bg-gray-800 rounded-lg p-3"
+                        >
+                          {/* 店舗ヘッダー */}
+                          <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+                            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                              {index + 1}
+                            </div>
+                            <span className="font-bold text-lg">{stop.storeName}</span>
+                            <div className="flex items-center gap-2 ml-auto">
+                              {stop.pickup.length > 0 && (
+                                <Badge className="bg-blue-500 hover:bg-blue-600">
+                                  <ArrowUp className="h-3 w-3 mr-1" />
+                                  {stop.pickup.length}個拾う
+                                </Badge>
+                              )}
+                              {stop.dropoff.length > 0 && (
+                                <Badge className="bg-green-500 hover:bg-green-600">
+                                  <ArrowDown className="h-3 w-3 mr-1" />
+                                  {stop.dropoff.length}個降ろす
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* 拾うキット */}
+                          {stop.pickup.length > 0 && (
+                            <div className="mb-2">
+                              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1 flex items-center gap-1">
+                                <ArrowUp className="h-3 w-3" />
+                                拾う
+                              </div>
+                              <div className="space-y-0.5 pl-4">
+                                {stop.pickup.map((s, i) => {
+                                  const toStore = storeMap.get(getStoreGroupId(s.to_store_id))
+                                  return (
+                                    <div key={i} className="text-sm flex items-center gap-2">
+                                      <span className="truncate max-w-[150px]">{s.scenario_title}</span>
+                                      <span className="text-muted-foreground text-xs">#{s.kit_number}</span>
+                                      <span className="text-muted-foreground text-xs">
+                                        → {toStore?.short_name || toStore?.name}
+                                      </span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* 降ろすキット */}
+                          {stop.dropoff.length > 0 && (
+                            <div>
+                              <div className="text-xs text-green-600 dark:text-green-400 font-medium mb-1 flex items-center gap-1">
+                                <ArrowDown className="h-3 w-3" />
+                                降ろす
+                              </div>
+                              <div className="space-y-0.5 pl-4">
+                                {stop.dropoff.map((s, i) => {
+                                  // グループ内の実際の店舗を表示
+                                  const actualToStore = storeMap.get(s.to_store_id)
+                                  const showActualStore = s.to_store_id !== getStoreGroupId(s.to_store_id)
+                                  return (
+                                    <div key={i} className="text-sm flex items-center gap-2">
+                                      <span className="truncate max-w-[150px]">{s.scenario_title}</span>
+                                      <span className="text-muted-foreground text-xs">#{s.kit_number}</span>
+                                      {showActualStore && (
+                                        <Badge variant="outline" className="text-[10px]">
+                                          {actualToStore?.short_name || actualToStore?.name}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {/* 移動ルート要約 */}
+                      <div className="flex items-center gap-1 pt-2 text-sm text-muted-foreground justify-center flex-wrap">
+                        {optimizedRoute.map((stop, index) => (
+                          <span key={stop.storeId} className="flex items-center">
+                            {index > 0 && <ArrowRight className="h-3 w-3 mx-1" />}
+                            <span className="font-medium">{stop.storeName}</span>
+                          </span>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
 
