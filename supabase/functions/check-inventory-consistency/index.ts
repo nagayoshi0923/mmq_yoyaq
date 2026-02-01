@@ -9,21 +9,14 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, isCronOrServiceRoleCall, getServiceRoleKey } from '../_shared/security.ts'
 import { sendDiscordNotificationWithRetry } from '../_shared/organization-settings.ts'
 
 /**
  * Service Role Key での呼び出しか確認（Cron用）
  */
 function isServiceRoleCall(req: Request): boolean {
-  const authHeader = req.headers.get('Authorization')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  
-  if (!authHeader || !serviceRoleKey) return false
-  
-  // Service Role Key の先頭20文字で簡易チェック
-  const token = authHeader.replace('Bearer ', '')
-  return timingSafeEqualString(token, serviceRoleKey)
+  return isCronOrServiceRoleCall(req)
 }
 
 serve(async (req) => {
@@ -53,7 +46,7 @@ serve(async (req) => {
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      getServiceRoleKey()
     )
 
     console.log('🔍 Starting inventory consistency check...')

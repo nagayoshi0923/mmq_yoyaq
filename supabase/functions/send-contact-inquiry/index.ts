@@ -7,7 +7,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, maskEmail, maskName, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse } from '../_shared/security.ts'
+import { getCorsHeaders, maskEmail, maskName, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse, getServiceRoleKey } from '../_shared/security.ts'
 
 interface ContactInquiryRequest {
   organizationId?: string
@@ -65,7 +65,7 @@ serve(async (req) => {
       )
     }
 
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const serviceRoleKey = getServiceRoleKey()
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
 
     // 🔒 レート制限（公開フォーム対策: 1分あたり10件）

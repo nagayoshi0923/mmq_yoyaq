@@ -15,7 +15,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
 
 interface QueueItem {
   id: string
@@ -37,15 +37,28 @@ interface QueueItem {
   max_retries: number
 }
 
-// Service Role Key による呼び出しかチェック
-function isServiceRoleCall(req: Request): boolean {
-  const authHeader = req.headers.get('Authorization')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  
-  if (!authHeader || !serviceRoleKey) return false
-  
-  const token = authHeader.replace('Bearer ', '')
-  return timingSafeEqualString(token, serviceRoleKey)
+// Service Role Key / Cron Secret による呼び出しかチェック
+function isSystemCall(req: Request): boolean {
+  return isCronOrServiceRoleCall(req)
+}
+
+function logAuthDebug(req: Request) {
+  const authHeader = req.headers.get('Authorization') || ''
+  const token = authHeader.replace(/^Bearer\s+/i, '')
+  const cronHeader =
+    req.headers.get('x-cron-secret') ||
+    req.headers.get('x-edge-cron-secret') ||
+    req.headers.get('x-mmq-cron-secret') ||
+    ''
+  // 秘密は出さない（長さ/先頭数文字のみ）
+  console.warn('auth_debug', {
+    has_authorization: !!authHeader,
+    token_prefix: token ? `${token.slice(0, 4)}…` : null,
+    token_len: token ? token.length : 0,
+    has_cron_secret: !!cronHeader,
+    cron_prefix: cronHeader ? `${cronHeader.slice(0, 4)}…` : null,
+    cron_len: cronHeader ? cronHeader.length : 0,
+  })
 }
 
 serve(async (req) => {
@@ -57,8 +70,9 @@ serve(async (req) => {
   }
 
   try {
-    // 認証チェック: Service Role または管理者のみ
-    if (!isServiceRoleCall(req)) {
+    // 認証チェック: Cron Secret / Service Role または管理者のみ
+    if (!isSystemCall(req)) {
+      logAuthDebug(req)
       const authResult = await verifyAuth(req, ['admin', 'owner', 'license_admin'])
       if (!authResult.success) {
         console.warn('⚠️ 認証失敗: process-booking-email-queue への不正アクセス試行')
@@ -70,12 +84,12 @@ serve(async (req) => {
       }
       console.log('✅ 管理者認証成功:', authResult.user?.email)
     } else {
-      console.log('✅ Service Role Key 認証成功（Cron/システム呼び出し）')
+      console.log('✅ システム認証成功（Cron/トリガー/Service）')
     }
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      getServiceRoleKey()
     )
 
     console.log('📧 予約確認メールリトライキュー処理開始')

@@ -7,7 +7,7 @@
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, errorResponse, sanitizeErrorMessage, timingSafeEqualString } from '../_shared/security.ts'
+import { getCorsHeaders, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
 import { getDiscordSettings, getNotificationSettings } from '../_shared/organization-settings.ts'
 
 interface QueuedNotification {
@@ -84,15 +84,9 @@ async function getSentCountLastMinute(serviceClient: any, organizationId: string
   return count || 0
 }
 
-// Service Role Key による呼び出しかチェック
-function isServiceRoleCall(req: Request): boolean {
-  const authHeader = req.headers.get('Authorization')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  
-  if (!authHeader || !serviceRoleKey) return false
-  
-  const token = authHeader.replace('Bearer ', '')
-  return timingSafeEqualString(token, serviceRoleKey)
+// Service Role Key / Cron Secret による呼び出しかチェック
+function isSystemCall(req: Request): boolean {
+  return isCronOrServiceRoleCall(req)
 }
 
 serve(async (req) => {
@@ -104,17 +98,17 @@ serve(async (req) => {
   }
 
   try {
-    // Service Role のみ許可（Cronジョブからの呼び出し）
-    if (!isServiceRoleCall(req)) {
+    // システム呼び出しのみ許可（Cron/トリガー/Service）
+    if (!isSystemCall(req)) {
       console.warn('⚠️ 認証失敗: retry-discord-notifications への不正アクセス試行')
       return errorResponse('Unauthorized', 401, corsHeaders)
     }
 
-    console.log('✅ Service Role Key 認証成功')
+    console.log('✅ システム認証成功（Cron/トリガー/Service）')
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      getServiceRoleKey()
     )
 
     // キューからリトライ対象を取得

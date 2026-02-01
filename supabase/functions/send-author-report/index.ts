@@ -2,6 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
+import { getServiceRoleKey } from '../_shared/security.ts'
 import { getCorsHeaders, maskEmail, sanitizeErrorMessage } from '../_shared/security.ts'
 
 interface AuthorReportRequest {
@@ -44,7 +45,7 @@ serve(async (req) => {
 
     // Supabase Admin クライアントを作成
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseServiceKey = getServiceRoleKey()
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
     // 組織設定からメール設定を取得

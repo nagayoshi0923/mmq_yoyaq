@@ -9,7 +9,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
 import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry } from '../_shared/organization-settings.ts'
 
 interface CheckRequest {
@@ -30,15 +30,9 @@ interface EventDetail {
   gms: string[]
 }
 
-// Service Role Key による呼び出しかチェック
-function isServiceRoleCall(req: Request): boolean {
-  const authHeader = req.headers.get('Authorization')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  
-  if (!authHeader || !serviceRoleKey) return false
-  
-  const token = authHeader.replace('Bearer ', '')
-  return timingSafeEqualString(token, serviceRoleKey)
+// Cron Secret / Service Role Key による呼び出しかチェック
+function isSystemCall(req: Request): boolean {
+  return isCronOrServiceRoleCall(req)
 }
 
 serve(async (req) => {
@@ -50,8 +44,8 @@ serve(async (req) => {
   }
 
   try {
-    // 認証チェック: Service Role または管理者のみ
-    if (!isServiceRoleCall(req)) {
+    // 認証チェック: Cron/システム または管理者のみ
+    if (!isSystemCall(req)) {
       const authResult = await verifyAuth(req, ['admin', 'owner', 'license_admin'])
       if (!authResult.success) {
         console.warn('⚠️ 認証失敗: check-performance-cancellation への不正アクセス試行')
@@ -63,12 +57,12 @@ serve(async (req) => {
       }
       console.log('✅ 管理者認証成功:', authResult.user?.email)
     } else {
-      console.log('✅ Service Role Key 認証成功（Cron/システム呼び出し）')
+      console.log('✅ システム認証成功（Cron/トリガー/Service）')
     }
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      getServiceRoleKey()
     )
 
     const { check_type }: CheckRequest = await req.json()

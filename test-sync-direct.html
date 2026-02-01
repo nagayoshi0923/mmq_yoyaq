@@ -38,7 +38,13 @@
 
   <script type="module">
     const SUPABASE_URL = 'https://cznpcewciwywcqcxktba.supabase.co'
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6bnBjZXdjaXd5d2NxY3hrdGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjIwMjY3MTEsImV4cCI6MjAzNzYwMjcxMX0.iU5VrfiO6Rf-JLYKQCTtXmBqP58RfwKQ8AYIzJCqcw8'
+    // ✅ Supabase Legacy API keys をDisableしているため、キーの直書きは禁止
+    // 使う場合はブラウザのコンソールで次を設定してください（値は貼らない）:
+    //   localStorage.setItem('SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_...')
+    const SUPABASE_PUBLISHABLE_KEY = localStorage.getItem('SUPABASE_PUBLISHABLE_KEY') || ''
+    if (!SUPABASE_PUBLISHABLE_KEY) {
+      throw new Error('SUPABASE_PUBLISHABLE_KEY が未設定です（localStorageに設定してください）')
+    }
 
     window.testSync = async function() {
       const resultDiv = document.getElementById('result')
@@ -48,7 +54,7 @@
         const response = await fetch(`${SUPABASE_URL}/functions/v1/sync-shifts-to-google-sheet`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({

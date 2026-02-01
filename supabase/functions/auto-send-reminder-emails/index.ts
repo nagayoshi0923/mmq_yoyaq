@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getCorsHeaders, sanitizeErrorMessage, errorResponse, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
 
 serve(async (req) => {
   const origin = req.headers.get('origin')
@@ -13,9 +13,14 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 Cron/システム呼び出しのみ許可（誤爆・悪用防止）
+    if (!isCronOrServiceRoleCall(req)) {
+      return errorResponse('Unauthorized', 401, corsHeaders)
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', // Service Role Key を使用
+      getServiceRoleKey(), // Service Role / Secret Key を使用
     )
 
     // 現在の日時

@@ -5,6 +5,61 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+/**
+ * 環境変数取得（Secrets UIの制約に対応）
+ * - Supabase Dashboard の Edge Function Secrets では `SUPABASE_` 接頭辞が禁止される場合がある
+ * - 既存互換のため、SUPABASE_* があれば優先し、無ければ別名を参照する
+ */
+export function getServiceRoleKey(): string {
+  return (
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ??
+    Deno.env.get('SERVICE_ROLE_KEY') ??
+    Deno.env.get('SUPABASE_SECRET_KEY') ??
+    ''
+  )
+}
+
+export function getAnonKey(): string {
+  return (
+    Deno.env.get('SUPABASE_ANON_KEY') ??
+    Deno.env.get('ANON_KEY') ??
+    Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ??
+    ''
+  )
+}
+
+/**
+ * Cron/DBトリガーからの呼び出し用の共有シークレット
+ * - DBの cron.job / triggers に Supabase の service_role key を埋め込むのは漏洩リスクが高いので分離する
+ * - 設定されていない場合は従来互換で service_role key でも許可できるようにする（段階移行）
+ */
+export function getCronSecret(): string {
+  return Deno.env.get('CRON_SECRET') ?? Deno.env.get('EDGE_FUNCTION_CRON_SECRET') ?? ''
+}
+
+export function isCronOrServiceRoleCall(req: Request): boolean {
+  // IMPORTANT:
+  // Supabase Functions は Authorization ヘッダを JWT として検証するため、
+  // ランダムな CRON_SECRET を Authorization に入れると gateway 側で 401 Invalid JWT になる。
+  // そのため Cron/DB トリガーの共有シークレットは専用ヘッダで受ける。
+  const cronSecret = getCronSecret().trim()
+  const cronHeader =
+    (req.headers.get('x-cron-secret') ||
+      req.headers.get('x-edge-cron-secret') ||
+      req.headers.get('x-mmq-cron-secret') ||
+      '').trim()
+
+  if (cronSecret && cronHeader && timingSafeEqualString(cronHeader, cronSecret)) {
+    return true
+  }
+
+  // 互換: Authorization: Bearer <service_role> の場合は許可
+  const authHeader = (req.headers.get('Authorization') || '').trim()
+  const bearer = authHeader.replace(/^Bearer\s+/i, '').trim()
+  const serviceRoleKey = getServiceRoleKey().trim()
+  return !!serviceRoleKey && !!bearer && timingSafeEqualString(bearer, serviceRoleKey)
+}
+
 // 許可するオリジン（本番環境用）
 export const ALLOWED_ORIGINS = [
   'https://mmq-yoyaq.vercel.app',
@@ -99,8 +154,8 @@ export async function verifyAuth(
   requiredRoles?: string[]
 ): Promise<AuthResult> {
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-  const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const SUPABASE_ANON_KEY = getAnonKey()
+  const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
 
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) {
@@ -113,6 +168,14 @@ export async function verifyAuth(
 
   try {
     // 呼び出し元ユーザーの認証を検証
+    if (!SUPABASE_ANON_KEY) {
+      return {
+        success: false,
+        error: 'サーバー設定エラー（ANON_KEY）',
+        statusCode: 500,
+      }
+    }
+
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } }
     })
@@ -129,6 +192,13 @@ export async function verifyAuth(
 
     // ロールが必要な場合は確認
     if (requiredRoles && requiredRoles.length > 0) {
+      if (!SUPABASE_SERVICE_ROLE_KEY) {
+        return {
+          success: false,
+          error: 'サーバー設定エラー（SERVICE_ROLE_KEY）',
+          statusCode: 500,
+        }
+      }
       const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
       const { data: userData, error: userError } = await serviceClient
         .from('users')

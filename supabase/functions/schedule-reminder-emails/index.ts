@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders } from '../_shared/security.ts'
+import { getAnonKey, getCorsHeaders } from '../_shared/security.ts'
 
 serve(async (req) => {
   const origin = req.headers.get('origin')
@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      getAnonKey(),
       {
         global: {
           headers: { Authorization: req.headers.get('Authorization')! },
@@ -113,7 +113,7 @@ serve(async (req) => {
           const reminderResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-reminder-emails`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+              'Authorization': `Bearer ${getAnonKey()}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({

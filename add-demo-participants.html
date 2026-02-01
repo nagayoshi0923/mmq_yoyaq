@@ -79,9 +79,15 @@
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 
     const SUPABASE_URL = 'https://cznpcewciwywcqcxktba.supabase.co'
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6bnBjZXdjaXd5d2NxY3hrdGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjMzNDM0NzcsImV4cCI6MjAzODkxOTQ3N30.yPd9Ej3PoC8oXEsmSw_lQi2WF5hcW8Pq31DFWRfIBvM'
+    // ✅ Supabase Legacy API keys をDisableしているため、キーの直書きは禁止
+    // 使う場合はブラウザのコンソールで次を設定してください（値は貼らない）:
+    //   localStorage.setItem('SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_...')
+    const SUPABASE_PUBLISHABLE_KEY = localStorage.getItem('SUPABASE_PUBLISHABLE_KEY') || ''
+    if (!SUPABASE_PUBLISHABLE_KEY) {
+      throw new Error('SUPABASE_PUBLISHABLE_KEY が未設定です（localStorageに設定してください）')
+    }
     
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
 
     function log(message, type = 'info') {
       const logDiv = document.getElementById('log')

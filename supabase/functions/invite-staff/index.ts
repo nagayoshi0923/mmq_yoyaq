@@ -2,11 +2,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, maskEmail, maskName, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getCorsHeaders, maskEmail, maskName, sanitizeErrorMessage, getAnonKey, getServiceRoleKey } from '../_shared/security.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
+const SUPABASE_ANON_KEY = getAnonKey()
 const SITE_URL = (Deno.env.get('SITE_URL') || 'https://mmq-yoyaq.vercel.app').replace(/\/$/, '')
 const SET_PASSWORD_REDIRECT = `${SITE_URL}/#/set-password`
 const RESET_PASSWORD_REDIRECT = `${SITE_URL}/#/reset-password`

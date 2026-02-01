@@ -1,11 +1,12 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+// @ts-nocheck
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { errorResponse, getCorsHeaders, sanitizeErrorMessage, timingSafeEqualString, verifyAuth, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
 
 const LINE_NOTIFY_TOKEN = Deno.env.get('LINE_NOTIFY_TOKEN')!
 const DISCORD_WEBHOOK_URL = Deno.env.get('DISCORD_WEBHOOK_URL')!
+const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
 
 interface PrivateBookingNotification {
   type: 'insert'
@@ -36,14 +37,40 @@ interface PrivateBookingNotification {
   old_record: null
 }
 
+function isServiceRoleCall(req: Request): boolean {
+  // Cron Secret / Service Role Key によるシステム呼び出しを許可
+  if (isCronOrServiceRoleCall(req)) return true
+  // 互換: Authorization: Bearer <service_role_key>
+  const auth = (req.headers.get('Authorization') || '').trim()
+  const expected = `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+  return !!SUPABASE_SERVICE_ROLE_KEY && timingSafeEqualString(auth, expected)
+}
+
 serve(async (req) => {
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
+    // 🔒 認可（誤爆防止）:
+    // - DB Webhook / cron（service role）からの呼び出しを許可
+    // - それ以外は admin / license_admin / owner のみ許可
+    if (!isServiceRoleCall(req)) {
+      const auth = await verifyAuth(req, ['admin', 'license_admin', 'owner'])
+      if (!auth.success) {
+        return errorResponse(auth.error || 'forbidden', auth.statusCode || 403, corsHeaders)
+      }
+    }
+
     const payload: PrivateBookingNotification = await req.json()
 
     // Supabaseクライアントを初期化
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      getServiceRoleKey()
     )
 
     // 通知設定をチェック
@@ -70,7 +97,7 @@ serve(async (req) => {
     if (payload.type !== 'insert') {
       return new Response(
         JSON.stringify({ message: 'Not a new booking, skipping notification' }),
-        { headers: { "Content-Type": "application/json" }, status: 200 }
+        { headers: corsHeaders, status: 200 }
       )
     }
 
@@ -204,15 +231,12 @@ ${booking.notes ? `📝 備考: ${booking.notes}` : ''}
         message: 'Notifications sent successfully',
         booking_id: booking.id 
       }),
-      { headers: { "Content-Type": "application/json" }, status: 200 }
+      { headers: corsHeaders, status: 200 }
     )
 
   } catch (error) {
     console.error('Error:', error)
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { "Content-Type": "application/json" }, status: 500 }
-    )
+    return errorResponse(sanitizeErrorMessage(error), 500, corsHeaders)
   }
 })
 

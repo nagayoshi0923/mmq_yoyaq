@@ -16,7 +16,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, errorResponse, sanitizeErrorMessage, timingSafeEqualString } from '../_shared/security.ts'
+import { getCorsHeaders, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
 
 interface QueueEntry {
   id: string
@@ -44,13 +44,9 @@ interface WaitlistEntry {
 
 const MAX_RETRIES = 3
 
-// Service Role Key による呼び出しかチェック（Cron向け）
-function isServiceRoleCall(req: Request): boolean {
-  const authHeader = req.headers.get('Authorization')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (!authHeader || !serviceRoleKey) return false
-  const token = authHeader.replace('Bearer ', '')
-  return timingSafeEqualString(token, serviceRoleKey)
+// Cron Secret / Service Role Key による呼び出しかチェック（Cron向け）
+function isSystemCall(req: Request): boolean {
+  return isCronOrServiceRoleCall(req)
 }
 
 serve(async (req) => {
@@ -62,14 +58,14 @@ serve(async (req) => {
   }
 
   try {
-    // 🔒 Service Role のみ許可（Cron/システム呼び出し）
-    if (!isServiceRoleCall(req)) {
+    // 🔒 システム呼び出しのみ許可（Cron/トリガー/Service）
+    if (!isSystemCall(req)) {
       return errorResponse('Unauthorized', 401, corsHeaders)
     }
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      getServiceRoleKey()
     )
 
     console.log('🔄 Starting waitlist queue processing...')

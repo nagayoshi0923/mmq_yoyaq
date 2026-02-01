@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, maskEmail, maskName } from '../_shared/security.ts'
+import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName } from '../_shared/security.ts'
 
 interface ReminderEmailRequest {
   organizationId?: string  // マルチテナント対応
@@ -33,7 +33,7 @@ serve(async (req) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      getAnonKey(),
       {
         global: {
           headers: { Authorization: req.headers.get('Authorization')! },
@@ -47,7 +47,7 @@ serve(async (req) => {
     // 組織設定からメール設定を取得
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      getServiceRoleKey()
     )
     
     let resendApiKey = Deno.env.get('RESEND_API_KEY')

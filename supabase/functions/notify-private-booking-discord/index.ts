@@ -3,15 +3,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getDiscordSettings, getNotificationSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders } from '../_shared/security.ts'
+import { errorResponse, getCorsHeaders, sanitizeErrorMessage, timingSafeEqualString, verifyAuth, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
 // フォールバック用（組織設定がない場合）
 const FALLBACK_DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
 
 // Supabaseクライアントを初期化
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+function isSystemCall(req: Request): boolean {
+  return isCronOrServiceRoleCall(req)
+}
 
 function timeToMinutes(time: string): number {
   const [h, m] = (time || '').split(':')
@@ -373,18 +377,22 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  console.log('🔥 Discord notification function called!')
-  console.log('Request method:', req.method)
-  console.log('Request headers:', Object.fromEntries(req.headers))
-  
   try {
+    // 🔒 認可:
+    // - DB Webhook / cron（service role）からの呼び出しを許可
+    // - それ以外は admin / license_admin / owner のみ許可（誤爆防止）
+    if (!isSystemCall(req)) {
+      const auth = await verifyAuth(req, ['admin', 'license_admin', 'owner'])
+      if (!auth.success) {
+        return errorResponse(auth.error || 'forbidden', auth.statusCode || 403, corsHeaders)
+      }
+    }
+
     const body = await req.text()
-    console.log('Request body:', body)
     const payload: PrivateBookingNotification = JSON.parse(body)
     
     // 新規作成のみ通知
     if (payload.type.toLowerCase() !== 'insert') {
-      console.log('❌ Not an insert operation:', payload.type)
       return new Response(
         JSON.stringify({ message: 'Not a new booking' }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
@@ -396,7 +404,6 @@ serve(async (req) => {
     
     // デモ予約の場合は通知をスキップ
     if (booking.reservation_source === 'demo' || booking.reservation_source === 'demo_auto') {
-      console.log('⏭️ Skipping notification for demo reservation')
       return new Response(
         JSON.stringify({ message: 'Demo reservation - notification skipped' }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
@@ -450,13 +457,6 @@ serve(async (req) => {
       )
     }
     
-    console.log('📋 Booking data:', {
-      id: booking.id,
-      customer_name: booking.customer_name,
-      scenario_title: booking.scenario_title,
-      organization_id: organizationId
-    })
-    
     // 各GMの個別チャンネルに通知をキューへ積む（送信は retry-discord-notifications が担当）
     await sendNotificationToGMChannels(booking)
 
@@ -471,7 +471,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: sanitizeErrorMessage(error) }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     )
   }

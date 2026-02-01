@@ -144,7 +144,10 @@ npm run test:e2e
 
 ```env
 VITE_SUPABASE_URL=https://xxxxxx.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+# 推奨: Publishable key（sb_publishable_...）
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+# 互換用（Legacy API Keysが有効な場合のみ）
+# VITE_SUPABASE_ANON_KEY=eyJ...
 VITE_APP_ENV=production
 ```
 
