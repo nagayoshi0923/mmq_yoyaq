@@ -26,7 +26,8 @@ import { kitApi } from '@/lib/api/kitApi'
 import { storeApi, scenarioApi, scheduleApi } from '@/lib/api'
 import { showToast } from '@/utils/toast'
 import { calculateKitTransfers, type KitState } from '@/utils/kitOptimizer'
-import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, Scenario } from '@/types'
+import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, Scenario, KitCondition } from '@/types'
+import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search } from 'lucide-react'
@@ -130,7 +131,10 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   
   // 店舗ごとの在庫（store_id -> シナリオ情報の配列）
   const storeInventory = useMemo(() => {
-    const inventory = new Map<string, Array<{ scenario: Scenario; kitNumbers: number[] }>>()
+    const inventory = new Map<string, Array<{
+      scenario: Scenario
+      kits: Array<{ kitNumber: number; condition: KitCondition; conditionNotes?: string | null }>
+    }>>()
     
     // アクティブな店舗で初期化
     stores.filter(s => s.status === 'active').forEach(store => {
@@ -146,10 +150,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       if (!storeKits) continue
       
       const existing = storeKits.find(s => s.scenario.id === loc.scenario_id)
+      const kitInfo = {
+        kitNumber: loc.kit_number,
+        condition: (loc.condition || 'good') as KitCondition,
+        conditionNotes: loc.condition_notes
+      }
+      
       if (existing) {
-        existing.kitNumbers.push(loc.kit_number)
+        existing.kits.push(kitInfo)
       } else {
-        storeKits.push({ scenario, kitNumbers: [loc.kit_number] })
+        storeKits.push({ scenario, kits: [kitInfo] })
       }
     }
     
@@ -448,6 +458,23 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       showToast.error('キット数の更新に失敗しました')
     }
   }
+  
+  // キット状態を更新
+  const handleUpdateCondition = async (
+    scenarioId: string,
+    kitNumber: number,
+    condition: KitCondition,
+    conditionNotes?: string | null
+  ) => {
+    try {
+      await kitApi.updateKitCondition(scenarioId, kitNumber, condition, conditionNotes)
+      showToast.success('キット状態を更新しました')
+      fetchData()
+    } catch (error) {
+      console.error('Failed to update kit condition:', error)
+      showToast.error('状態の更新に失敗しました')
+    }
+  }
 
   // 日付フォーマット
   const formatDate = (dateStr: string) => {
@@ -596,34 +623,104 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {Array.from({ length: kitCount }, (_, i) => {
                             const kitNum = i + 1
                             const location = locations.find(l => l.kit_number === kitNum)
                             const currentStore = location ? storeMap.get(location.store_id) : null
+                            const condition = location?.condition || 'good'
+                            const conditionNotes = location?.condition_notes
                             
                             return (
-                              <div key={kitNum} className="flex items-center gap-2 bg-muted/50 rounded p-2">
-                                <span className="text-sm font-medium w-16">
-                                  キット{kitNum}:
-                                </span>
-                                <Select
-                                  value={location?.store_id || ''}
-                                  onValueChange={(value) => handleSetKitLocation(scenario.id, kitNum, value)}
-                                >
-                                  <SelectTrigger className="flex-1 h-8">
-                                    <SelectValue placeholder="店舗を選択">
-                                      {currentStore?.short_name || currentStore?.name || '未設定'}
-                                    </SelectValue>
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {stores.filter(s => s.status === 'active').map(store => (
-                                      <SelectItem key={store.id} value={store.id}>
-                                        {store.short_name || store.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                              <div
+                                key={kitNum}
+                                className={`rounded p-2 border ${
+                                  condition !== 'good'
+                                    ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/10'
+                                    : 'border-transparent bg-muted/50'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className="text-sm font-medium">
+                                    #{kitNum}
+                                  </span>
+                                  <Select
+                                    value={location?.store_id || ''}
+                                    onValueChange={(value) => handleSetKitLocation(scenario.id, kitNum, value)}
+                                  >
+                                    <SelectTrigger className="flex-1 h-7 text-xs">
+                                      <SelectValue placeholder="店舗を選択">
+                                        {currentStore?.short_name || currentStore?.name || '未設定'}
+                                      </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {stores.filter(s => s.status === 'active').map(store => (
+                                        <SelectItem key={store.id} value={store.id}>
+                                          {store.short_name || store.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                
+                                {/* 状態選択 */}
+                                <div className="flex items-center gap-1.5">
+                                  <Select
+                                    value={condition}
+                                    onValueChange={(value) => handleUpdateCondition(
+                                      scenario.id,
+                                      kitNum,
+                                      value as KitCondition,
+                                      conditionNotes
+                                    )}
+                                    disabled={!location}
+                                  >
+                                    <SelectTrigger className={`h-6 text-[10px] w-[72px] ${KIT_CONDITION_COLORS[condition as KitCondition]}`}>
+                                      <SelectValue>
+                                        {KIT_CONDITION_LABELS[condition as KitCondition]}
+                                      </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {(Object.keys(KIT_CONDITION_LABELS) as KitCondition[]).map(cond => (
+                                        <SelectItem key={cond} value={cond}>
+                                          <span className={`text-xs px-1 rounded ${KIT_CONDITION_COLORS[cond]}`}>
+                                            {KIT_CONDITION_LABELS[cond]}
+                                          </span>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  
+                                  {/* メモ入力 */}
+                                  <Input
+                                    placeholder="メモ..."
+                                    value={conditionNotes || ''}
+                                    onChange={(e) => {
+                                      // ローカル状態を即座に更新（デバウンス用）
+                                      const newNotes = e.target.value
+                                      setKitLocations(prev => prev.map(loc =>
+                                        loc.scenario_id === scenario.id && loc.kit_number === kitNum
+                                          ? { ...loc, condition_notes: newNotes }
+                                          : loc
+                                      ))
+                                    }}
+                                    onBlur={(e) => {
+                                      // フォーカスが外れたら保存
+                                      if (location && e.target.value !== (location.condition_notes || '')) {
+                                        handleUpdateCondition(scenario.id, kitNum, condition as KitCondition, e.target.value || null)
+                                      }
+                                    }}
+                                    className="h-6 text-[10px] flex-1"
+                                    disabled={!location}
+                                  />
+                                </div>
+                                
+                                {/* 状態に問題がある場合の警告 */}
+                                {condition !== 'good' && conditionNotes && (
+                                  <div className="mt-1 text-[10px] text-orange-700 dark:text-orange-300 truncate" title={conditionNotes}>
+                                    ⚠ {conditionNotes}
+                                  </div>
+                                )}
                               </div>
                             )
                           })}
@@ -675,31 +772,51 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               <div className="grid gap-3">
                 {stores.filter(s => s.status === 'active').map(store => {
                   const inventory = storeInventory.get(store.id) || []
-                  const totalKits = inventory.reduce((sum, item) => sum + item.kitNumbers.length, 0)
+                  const totalKits = inventory.reduce((sum, item) => sum + item.kits.length, 0)
+                  const problemKits = inventory.reduce(
+                    (sum, item) => sum + item.kits.filter(k => k.condition !== 'good').length,
+                    0
+                  )
                   
                   return (
                     <div key={store.id} className="border rounded-lg p-3">
                       <div className="flex items-center justify-between mb-2">
                         <div className="font-medium">{store.short_name || store.name}</div>
-                        <Badge variant={totalKits > 0 ? 'default' : 'secondary'}>
-                          {totalKits}キット
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {problemKits > 0 && (
+                            <Badge variant="destructive" className="text-xs">
+                              {problemKits}件要注意
+                            </Badge>
+                          )}
+                          <Badge variant={totalKits > 0 ? 'default' : 'secondary'}>
+                            {totalKits}キット
+                          </Badge>
+                        </div>
                       </div>
                       
                       {inventory.length === 0 ? (
                         <p className="text-sm text-muted-foreground">キットなし</p>
                       ) : (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="space-y-2">
                           {inventory.map(item => (
-                            <Badge
-                              key={item.scenario.id}
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              {item.scenario.title.slice(0, 12)}
-                              {item.scenario.title.length > 12 ? '...' : ''}
-                              {item.kitNumbers.length > 1 && ` ×${item.kitNumbers.length}`}
-                            </Badge>
+                            <div key={item.scenario.id} className="text-sm">
+                              <span className="font-medium">
+                                {item.scenario.title.slice(0, 20)}
+                                {item.scenario.title.length > 20 ? '...' : ''}
+                              </span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {item.kits.map(kit => (
+                                  <span
+                                    key={kit.kitNumber}
+                                    className={`text-[10px] px-1.5 py-0.5 rounded ${KIT_CONDITION_COLORS[kit.condition]}`}
+                                    title={kit.conditionNotes || undefined}
+                                  >
+                                    #{kit.kitNumber}
+                                    {kit.condition !== 'good' && ` ${KIT_CONDITION_LABELS[kit.condition]}`}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
                           ))}
                         </div>
                       )}

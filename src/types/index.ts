@@ -673,6 +673,27 @@ export interface ScheduleEventWithReservations {
 // キット管理関連の型定義
 // ================================================
 
+// キット状態の種類
+export type KitCondition = 'good' | 'damaged' | 'repairing' | 'missing_parts' | 'retired'
+
+// キット状態のラベル
+export const KIT_CONDITION_LABELS: Record<KitCondition, string> = {
+  good: '良好',
+  damaged: '破損',
+  repairing: '修理中',
+  missing_parts: '欠けあり',
+  retired: '引退'
+}
+
+// キット状態の色
+export const KIT_CONDITION_COLORS: Record<KitCondition, string> = {
+  good: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+  damaged: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+  repairing: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+  missing_parts: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+  retired: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
+}
+
 // キット現在位置
 export interface KitLocation {
   id: string
@@ -680,6 +701,8 @@ export interface KitLocation {
   scenario_id: string
   kit_number: number  // 1から始まるキット番号
   store_id: string
+  condition: KitCondition  // キットの状態
+  condition_notes?: string | null  // 状態に関するメモ
   created_at: string
   updated_at: string
   // JOIN時の拡張フィールド

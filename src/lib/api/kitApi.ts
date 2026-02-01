@@ -6,7 +6,7 @@
 
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '../organization'
-import type { KitLocation, KitTransferEvent } from '@/types'
+import type { KitLocation, KitTransferEvent, KitCondition } from '@/types'
 
 export const kitApi = {
   // ============================================
@@ -95,6 +95,42 @@ export const kitApi = {
 
     if (error) {
       console.error('Failed to set kit location:', error)
+      throw error
+    }
+
+    return data
+  },
+
+  /**
+   * キットの状態を更新
+   */
+  async updateKitCondition(
+    scenarioId: string,
+    kitNumber: number,
+    condition: KitCondition,
+    conditionNotes?: string | null
+  ): Promise<KitLocation> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) throw new Error('Organization ID not found')
+
+    const { data, error } = await supabase
+      .from('scenario_kit_locations')
+      .update({
+        condition,
+        condition_notes: conditionNotes
+      })
+      .eq('organization_id', orgId)
+      .eq('scenario_id', scenarioId)
+      .eq('kit_number', kitNumber)
+      .select(`
+        *,
+        scenario:scenarios(id, title, kit_count),
+        store:stores(id, name, short_name)
+      `)
+      .single()
+
+    if (error) {
+      console.error('Failed to update kit condition:', error)
       throw error
     }
 
