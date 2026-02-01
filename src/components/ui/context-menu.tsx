@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 
 interface ContextMenuProps {
@@ -38,10 +39,17 @@ export const ContextMenuItem = React.forwardRef<
   HTMLDivElement,
   ContextMenuItemProps
 >(({ children, onClick, disabled, className }, ref) => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!disabled && onClick) {
+      onClick()
+    }
+  }
+  
   return (
     <div
       ref={ref}
-      onClick={disabled ? undefined : onClick}
+      onClick={handleClick}
       className={cn(
         'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none',
         'hover:bg-accent hover:text-accent-foreground',
@@ -86,7 +94,7 @@ export const ContextMenuLabel = React.forwardRef<
 })
 ContextMenuLabel.displayName = 'ContextMenuLabel'
 
-// Context Menu Content (Popup)
+// Context Menu Content (Popup) - uses Portal to render at document body level
 export const ContextMenuContent: React.FC<ContextMenuContentProps> = ({
   children,
   x,
@@ -140,14 +148,17 @@ export const ContextMenuContent: React.FC<ContextMenuContentProps> = ({
     }
   }, [x, y])
 
-  return (
+  const menuContent = (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[160px] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
+      className="fixed z-[9999] min-w-[160px] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
       style={{ left: adjustedPos.x, top: adjustedPos.y }}
-      onClick={onClose}
+      onClick={(e) => e.stopPropagation()}
     >
       {children}
     </div>
   )
+
+  // Portal to document.body to escape Dialog's stacking context
+  return createPortal(menuContent, document.body)
 }
