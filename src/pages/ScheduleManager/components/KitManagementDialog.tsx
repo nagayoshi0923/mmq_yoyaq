@@ -31,7 +31,7 @@ import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuLabel } from '@/components/ui/context-menu'
-import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical, Route, ArrowDown, ArrowUp } from 'lucide-react'
+import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical, Route, ArrowDown, ArrowUp, Clock } from 'lucide-react'
 
 // ドラッグ中のキット情報
 interface DraggedKit {
@@ -111,6 +111,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   
   // 移動計画の表示モード: 'grouped' = ルート別、'route' = 1人用最適ルート
   const [transferViewMode, setTransferViewMode] = useState<'grouped' | 'route'>('grouped')
+  
+  // ルートを分割する日数（1〜4日）
+  const [routeSplitDays, setRouteSplitDays] = useState(1)
+  
+  // 所要時間の見積もり設定（分）
+  const TIME_PER_STOP = 20 // 店舗間の移動時間（平均）
+  const TIME_PER_KIT = 3   // キット1つあたりの積み下ろし時間
 
   // 週の日付リスト
   const weekDates = useMemo(() => {
@@ -392,9 +399,26 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     })
   }, [transferEvents, storeMap, isSameStoreGroup, getStoreGroupId])
 
+  // 店舗アクション型
+  type StoreAction = {
+    storeId: string
+    storeName: string
+    displayOrder: number
+    pickup: KitTransferSuggestion[]  // ここで拾うキット
+    dropoff: KitTransferSuggestion[] // ここで降ろすキット
+  }
+
+  // 日別ルート型
+  type DayRoute = {
+    dayNumber: number
+    stops: StoreAction[]
+    estimatedMinutes: number
+    totalKits: number
+  }
+
   // 1人用最適ルートを計算（nearest neighbor heuristic）
   // display_orderを距離の代理として使用
-  const optimizedRoute = useMemo(() => {
+  const optimizedRoutes = useMemo((): DayRoute[] => {
     // 移動が必要なすべてのアイテムを収集
     const validSuggestions = suggestions.filter(s => 
       !isSameStoreGroup(s.from_store_id, s.to_store_id)
@@ -403,14 +427,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     if (validSuggestions.length === 0) return []
     
     // 各店舗グループで何を持っていくか・降ろすかを計算
-    type StoreAction = {
-      storeId: string
-      storeName: string
-      displayOrder: number
-      pickup: KitTransferSuggestion[]  // ここで拾うキット
-      dropoff: KitTransferSuggestion[] // ここで降ろすキット
-    }
-    
     const storeActions = new Map<string, StoreAction>()
     
     for (const s of validSuggestions) {
@@ -445,7 +461,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
     
     // Nearest Neighbor で巡回順序を決定
-    // display_orderが近いほど「近い」と仮定
     const allStops = [...storeActions.values()]
     if (allStops.length === 0) return []
     
@@ -454,7 +469,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     const route: StoreAction[] = []
     const visited = new Set<string>()
     
-    // 最初は拾うキットがある店舗から（荷物を持たずにスタート）
+    // 最初は拾うキットがある店舗から
     const startCandidates = allStops.filter(s => s.pickup.length > 0)
     let current = startCandidates.length > 0 ? startCandidates[0] : allStops[0]
     route.push(current)
@@ -481,8 +496,48 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       }
     }
     
-    return route
-  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId])
+    // 日数で分割
+    const days = Math.min(routeSplitDays, route.length)
+    const stopsPerDay = Math.ceil(route.length / days)
+    const dayRoutes: DayRoute[] = []
+    
+    for (let d = 0; d < days; d++) {
+      const startIdx = d * stopsPerDay
+      const endIdx = Math.min((d + 1) * stopsPerDay, route.length)
+      const dayStops = route.slice(startIdx, endIdx)
+      
+      if (dayStops.length === 0) continue
+      
+      // 所要時間を計算
+      const totalKits = dayStops.reduce((sum, s) => sum + s.pickup.length + s.dropoff.length, 0)
+      const travelTime = (dayStops.length - 1) * TIME_PER_STOP // 店舗間移動
+      const kitTime = totalKits * TIME_PER_KIT // キット積み下ろし
+      const estimatedMinutes = travelTime + kitTime
+      
+      dayRoutes.push({
+        dayNumber: d + 1,
+        stops: dayStops,
+        estimatedMinutes,
+        totalKits
+      })
+    }
+    
+    return dayRoutes
+  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId, routeSplitDays, TIME_PER_STOP, TIME_PER_KIT])
+  
+  // 全体の所要時間
+  const totalEstimatedMinutes = useMemo(() => {
+    return optimizedRoutes.reduce((sum, day) => sum + day.estimatedMinutes, 0)
+  }, [optimizedRoutes])
+
+  // 時間をフォーマット（例: 1時間30分）
+  const formatMinutes = (minutes: number): string => {
+    if (minutes < 60) return `約${minutes}分`
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    if (mins === 0) return `約${hours}時間`
+    return `約${hours}時間${mins}分`
+  }
 
   // データ取得
   const fetchData = useCallback(async () => {
@@ -1442,101 +1497,145 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                   
                   {/* 1人用最適ルート表示 */}
                   {transferViewMode === 'route' && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground mb-3">
-                        1人で効率よく回るルートです。各店舗で拾う/降ろすキットを表示しています。
-                      </p>
+                    <div className="space-y-3">
+                      {/* 日数選択とサマリー */}
+                      <div className="flex items-center justify-between gap-4 p-2 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">分割:</span>
+                          <Select
+                            value={String(routeSplitDays)}
+                            onValueChange={(v) => setRouteSplitDays(Number(v))}
+                          >
+                            <SelectTrigger className="w-20 h-7">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1日</SelectItem>
+                              <SelectItem value="2">2日</SelectItem>
+                              <SelectItem value="3">3日</SelectItem>
+                              <SelectItem value="4">4日</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span>合計 {formatMinutes(totalEstimatedMinutes)}</span>
+                        </div>
+                      </div>
                       
-                      {optimizedRoute.map((stop, index) => (
-                        <div
-                          key={stop.storeId}
-                          className="bg-white dark:bg-gray-800 rounded-lg p-3"
-                        >
-                          {/* 店舗ヘッダー */}
-                          <div className="flex items-center gap-2 mb-2 pb-2 border-b">
-                            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold">
-                              {index + 1}
+                      {/* 日別ルート */}
+                      {optimizedRoutes.map((dayRoute) => (
+                        <div key={dayRoute.dayNumber} className="space-y-2">
+                          {/* 日のヘッダー */}
+                          {routeSplitDays > 1 && (
+                            <div className="flex items-center justify-between bg-primary/10 rounded-lg px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="default" className="text-sm">
+                                  {dayRoute.dayNumber}日目
+                                </Badge>
+                                <span className="text-sm">
+                                  {dayRoute.stops.length}店舗 / {dayRoute.totalKits}キット
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                {formatMinutes(dayRoute.estimatedMinutes)}
+                              </div>
                             </div>
-                            <span className="font-bold text-lg">{stop.storeName}</span>
-                            <div className="flex items-center gap-2 ml-auto">
+                          )}
+                          
+                          {/* 店舗リスト */}
+                          {dayRoute.stops.map((stop, index) => (
+                            <div
+                              key={stop.storeId}
+                              className="bg-white dark:bg-gray-800 rounded-lg p-3"
+                            >
+                              {/* 店舗ヘッダー */}
+                              <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+                                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                                  {index + 1}
+                                </div>
+                                <span className="font-bold text-lg">{stop.storeName}</span>
+                                <div className="flex items-center gap-2 ml-auto">
+                                  {stop.pickup.length > 0 && (
+                                    <Badge className="bg-blue-500 hover:bg-blue-600">
+                                      <ArrowUp className="h-3 w-3 mr-1" />
+                                      {stop.pickup.length}個拾う
+                                    </Badge>
+                                  )}
+                                  {stop.dropoff.length > 0 && (
+                                    <Badge className="bg-green-500 hover:bg-green-600">
+                                      <ArrowDown className="h-3 w-3 mr-1" />
+                                      {stop.dropoff.length}個降ろす
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* 拾うキット */}
                               {stop.pickup.length > 0 && (
-                                <Badge className="bg-blue-500 hover:bg-blue-600">
-                                  <ArrowUp className="h-3 w-3 mr-1" />
-                                  {stop.pickup.length}個拾う
-                                </Badge>
+                                <div className="mb-2">
+                                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1 flex items-center gap-1">
+                                    <ArrowUp className="h-3 w-3" />
+                                    拾う
+                                  </div>
+                                  <div className="space-y-0.5 pl-4">
+                                    {stop.pickup.map((s, i) => {
+                                      const toStore = storeMap.get(getStoreGroupId(s.to_store_id))
+                                      return (
+                                        <div key={i} className="text-sm flex items-center gap-2">
+                                          <span className="truncate max-w-[150px]">{s.scenario_title}</span>
+                                          <span className="text-muted-foreground text-xs">#{s.kit_number}</span>
+                                          <span className="text-muted-foreground text-xs">
+                                            → {toStore?.short_name || toStore?.name}
+                                          </span>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
                               )}
+                              
+                              {/* 降ろすキット */}
                               {stop.dropoff.length > 0 && (
-                                <Badge className="bg-green-500 hover:bg-green-600">
-                                  <ArrowDown className="h-3 w-3 mr-1" />
-                                  {stop.dropoff.length}個降ろす
-                                </Badge>
+                                <div>
+                                  <div className="text-xs text-green-600 dark:text-green-400 font-medium mb-1 flex items-center gap-1">
+                                    <ArrowDown className="h-3 w-3" />
+                                    降ろす
+                                  </div>
+                                  <div className="space-y-0.5 pl-4">
+                                    {stop.dropoff.map((s, i) => {
+                                      const actualToStore = storeMap.get(s.to_store_id)
+                                      const showActualStore = s.to_store_id !== getStoreGroupId(s.to_store_id)
+                                      return (
+                                        <div key={i} className="text-sm flex items-center gap-2">
+                                          <span className="truncate max-w-[150px]">{s.scenario_title}</span>
+                                          <span className="text-muted-foreground text-xs">#{s.kit_number}</span>
+                                          {showActualStore && (
+                                            <Badge variant="outline" className="text-[10px]">
+                                              {actualToStore?.short_name || actualToStore?.name}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
                               )}
                             </div>
+                          ))}
+                          
+                          {/* 日別ルート要約 */}
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground justify-center flex-wrap py-1">
+                            {dayRoute.stops.map((stop, index) => (
+                              <span key={stop.storeId} className="flex items-center">
+                                {index > 0 && <ArrowRight className="h-3 w-3 mx-1" />}
+                                <span className="font-medium">{stop.storeName}</span>
+                              </span>
+                            ))}
                           </div>
-                          
-                          {/* 拾うキット */}
-                          {stop.pickup.length > 0 && (
-                            <div className="mb-2">
-                              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1 flex items-center gap-1">
-                                <ArrowUp className="h-3 w-3" />
-                                拾う
-                              </div>
-                              <div className="space-y-0.5 pl-4">
-                                {stop.pickup.map((s, i) => {
-                                  const toStore = storeMap.get(getStoreGroupId(s.to_store_id))
-                                  return (
-                                    <div key={i} className="text-sm flex items-center gap-2">
-                                      <span className="truncate max-w-[150px]">{s.scenario_title}</span>
-                                      <span className="text-muted-foreground text-xs">#{s.kit_number}</span>
-                                      <span className="text-muted-foreground text-xs">
-                                        → {toStore?.short_name || toStore?.name}
-                                      </span>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* 降ろすキット */}
-                          {stop.dropoff.length > 0 && (
-                            <div>
-                              <div className="text-xs text-green-600 dark:text-green-400 font-medium mb-1 flex items-center gap-1">
-                                <ArrowDown className="h-3 w-3" />
-                                降ろす
-                              </div>
-                              <div className="space-y-0.5 pl-4">
-                                {stop.dropoff.map((s, i) => {
-                                  // グループ内の実際の店舗を表示
-                                  const actualToStore = storeMap.get(s.to_store_id)
-                                  const showActualStore = s.to_store_id !== getStoreGroupId(s.to_store_id)
-                                  return (
-                                    <div key={i} className="text-sm flex items-center gap-2">
-                                      <span className="truncate max-w-[150px]">{s.scenario_title}</span>
-                                      <span className="text-muted-foreground text-xs">#{s.kit_number}</span>
-                                      {showActualStore && (
-                                        <Badge variant="outline" className="text-[10px]">
-                                          {actualToStore?.short_name || actualToStore?.name}
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       ))}
-                      
-                      {/* 移動ルート要約 */}
-                      <div className="flex items-center gap-1 pt-2 text-sm text-muted-foreground justify-center flex-wrap">
-                        {optimizedRoute.map((stop, index) => (
-                          <span key={stop.storeId} className="flex items-center">
-                            {index > 0 && <ArrowRight className="h-3 w-3 mx-1" />}
-                            <span className="font-medium">{stop.storeName}</span>
-                          </span>
-                        ))}
-                      </div>
                     </div>
                   )}
                 </div>
