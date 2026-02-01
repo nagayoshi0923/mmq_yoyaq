@@ -3,7 +3,8 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const SHIFT_SUBMISSION_SELECT_FIELDS =
-  'id, staff_id, date, morning, afternoon, evening, all_day, submitted_at, status, notes, organization_id, created_at, updated_at' as const
+  // NOTE: shift_submissions.notes がDBに無い環境があるため、selectに含めない（含めるとPostgRESTが400になる）
+  'id, staff_id, date, morning, afternoon, evening, all_day, submitted_at, status, organization_id, created_at, updated_at' as const
 
 export interface ShiftSubmission {
   id: string
@@ -15,6 +16,7 @@ export interface ShiftSubmission {
   all_day: boolean
   submitted_at?: string | null
   status: 'draft' | 'submitted' | 'approved' | 'rejected'
+  // DBに無い環境があるためオプショナルのまま（画面側は存在しなくても動くようにする）
   notes?: string | null
   organization_id: string  // マルチテナント対応
   created_at: string
