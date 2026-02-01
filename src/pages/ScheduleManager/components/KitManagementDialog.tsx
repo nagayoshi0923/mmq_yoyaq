@@ -112,9 +112,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   // 移動計画の表示モード: 'grouped' = ルート別、'route' = 1人用最適ルート
   const [transferViewMode, setTransferViewMode] = useState<'grouped' | 'route'>('grouped')
   
-  // ルートを分割する日数（1〜4日）
-  const [routeSplitDays, setRouteSplitDays] = useState(1)
-  
   // 所要時間の見積もり設定（分）
   const TIME_PER_STOP = 20 // 店舗間の移動時間（平均）
   const TIME_PER_KIT = 3   // キット1つあたりの積み下ろし時間
@@ -496,8 +493,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       }
     }
     
-    // 日数で分割
-    const days = Math.min(routeSplitDays, route.length)
+    // 選択された移動曜日の数で分割（デフォルトは1日）
+    const numTransferDays = Math.max(1, transferDays.length)
+    const days = Math.min(numTransferDays, route.length)
     const stopsPerDay = Math.ceil(route.length / days)
     const dayRoutes: DayRoute[] = []
     
@@ -523,7 +521,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
     
     return dayRoutes
-  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId, routeSplitDays, TIME_PER_STOP, TIME_PER_KIT])
+  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId, transferDays.length, TIME_PER_STOP, TIME_PER_KIT])
   
   // 全体の所要時間
   const totalEstimatedMinutes = useMemo(() => {
@@ -1498,40 +1496,33 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                   {/* 1人用最適ルート表示 */}
                   {transferViewMode === 'route' && (
                     <div className="space-y-3">
-                      {/* 日数選択とサマリー */}
-                      <div className="flex items-center justify-between gap-4 p-2 bg-muted/50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">分割:</span>
-                          <Select
-                            value={String(routeSplitDays)}
-                            onValueChange={(v) => setRouteSplitDays(Number(v))}
-                          >
-                            <SelectTrigger className="w-20 h-7">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">1日</SelectItem>
-                              <SelectItem value="2">2日</SelectItem>
-                              <SelectItem value="3">3日</SelectItem>
-                              <SelectItem value="4">4日</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
+                      {/* サマリー */}
+                      <div className="flex items-center justify-between gap-4 p-2 bg-muted/50 rounded-lg text-sm">
+                        <span>
+                          {transferDays.length > 1 
+                            ? `${transferDays.map(d => WEEKDAYS.find(w => w.value === d)?.short).join('・')}の${transferDays.length}回に分けて移動`
+                            : '1回で移動'}
+                        </span>
+                        <div className="flex items-center gap-1">
                           <Clock className="h-4 w-4 text-muted-foreground" />
                           <span>合計 {formatMinutes(totalEstimatedMinutes)}</span>
                         </div>
                       </div>
                       
                       {/* 日別ルート */}
-                      {optimizedRoutes.map((dayRoute) => (
+                      {optimizedRoutes.map((dayRoute) => {
+                        // 対応する曜日を取得（transferDaysの順番で対応）
+                        const dayOfWeek = transferDays[dayRoute.dayNumber - 1]
+                        const dayLabel = WEEKDAYS.find(w => w.value === dayOfWeek)?.label || `${dayRoute.dayNumber}日目`
+                        
+                        return (
                         <div key={dayRoute.dayNumber} className="space-y-2">
                           {/* 日のヘッダー */}
-                          {routeSplitDays > 1 && (
+                          {transferDays.length > 1 && (
                             <div className="flex items-center justify-between bg-primary/10 rounded-lg px-3 py-2">
                               <div className="flex items-center gap-2">
                                 <Badge variant="default" className="text-sm">
-                                  {dayRoute.dayNumber}日目
+                                  {dayLabel}
                                 </Badge>
                                 <span className="text-sm">
                                   {dayRoute.stops.length}店舗 / {dayRoute.totalKits}キット
@@ -1635,7 +1626,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                             ))}
                           </div>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
