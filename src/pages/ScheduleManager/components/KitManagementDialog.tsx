@@ -268,26 +268,49 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return shortages
   }, [weekDates, scheduleEvents, kitLocations, scenarioMap, isSameStoreGroup])
   
-  // 移動提案をルート（店舗→店舗）でグループ化
+  // 移動提案をルート（店舗グループ→店舗グループ）でグループ化
+  // ヘッダーはグループ名、個々のアイテムは実際の店舗名を保持
   const groupedSuggestions = useMemo(() => {
     const groups = new Map<string, {
       from_store_id: string
       from_store_name: string
       to_store_id: string
       to_store_name: string
+      isGrouped: boolean  // 複数店舗がグループ化されているか
       items: KitTransferSuggestion[]
     }>()
     
     for (const s of suggestions) {
-      const key = `${s.from_store_id}->${s.to_store_id}`
+      // 同じグループ内の移動は除外
+      if (isSameStoreGroup(s.from_store_id, s.to_store_id)) {
+        continue
+      }
+      
+      // グループの代表店舗IDでキーを作成
+      const fromGroupId = getStoreGroupId(s.from_store_id)
+      const toGroupId = getStoreGroupId(s.to_store_id)
+      const key = `${fromGroupId}->${toGroupId}`
+      
       if (!groups.has(key)) {
+        // グループ代表店舗の名前を取得
+        const fromGroupStore = storeMap.get(fromGroupId)
+        const toGroupStore = storeMap.get(toGroupId)
+        // 行き先がグループ化されているか（代表店舗と違う店舗への移動があるか）
+        const isToGrouped = toGroupId !== s.to_store_id
         groups.set(key, {
-          from_store_id: s.from_store_id,
-          from_store_name: s.from_store_name,
-          to_store_id: s.to_store_id,
-          to_store_name: s.to_store_name,
+          from_store_id: fromGroupId,
+          from_store_name: fromGroupStore?.short_name || fromGroupStore?.name || s.from_store_name,
+          to_store_id: toGroupId,
+          to_store_name: toGroupStore?.short_name || toGroupStore?.name || s.to_store_name,
+          isGrouped: isToGrouped,
           items: []
         })
+      } else {
+        // 既にグループがある場合、異なる店舗への移動があればグループ化フラグを立てる
+        const group = groups.get(key)!
+        if (s.to_store_id !== group.to_store_id && s.to_store_id !== toGroupId) {
+          group.isGrouped = true
+        }
       }
       groups.get(key)!.items.push(s)
     }
@@ -306,32 +329,46 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const toOrderB = toStoreB?.display_order ?? 999
       return toOrderA - toOrderB
     })
-  }, [suggestions, storeMap])
+  }, [suggestions, storeMap, isSameStoreGroup, getStoreGroupId])
   
-  // 確定済み移動イベントをルートでグループ化
+  // 確定済み移動イベントをルート（店舗グループ）でグループ化
   const groupedTransferEvents = useMemo(() => {
-    const activeEvents = transferEvents.filter(e => e.status !== 'cancelled')
+    // 同グループ内の移動を除外
+    const activeEvents = transferEvents.filter(e => 
+      e.status !== 'cancelled' && !isSameStoreGroup(e.from_store_id, e.to_store_id)
+    )
     const groups = new Map<string, {
       from_store_id: string
       from_store_name: string
       to_store_id: string
       to_store_name: string
+      isGrouped: boolean
       items: KitTransferEvent[]
     }>()
     
     for (const e of activeEvents) {
-      const fromStore = storeMap.get(e.from_store_id)
-      const toStore = storeMap.get(e.to_store_id)
-      const key = `${e.from_store_id}->${e.to_store_id}`
+      // グループの代表店舗IDでキーを作成
+      const fromGroupId = getStoreGroupId(e.from_store_id)
+      const toGroupId = getStoreGroupId(e.to_store_id)
+      const key = `${fromGroupId}->${toGroupId}`
       
       if (!groups.has(key)) {
+        const fromGroupStore = storeMap.get(fromGroupId)
+        const toGroupStore = storeMap.get(toGroupId)
+        const isToGrouped = toGroupId !== e.to_store_id
         groups.set(key, {
-          from_store_id: e.from_store_id,
-          from_store_name: fromStore?.short_name || fromStore?.name || '?',
-          to_store_id: e.to_store_id,
-          to_store_name: toStore?.short_name || toStore?.name || '?',
+          from_store_id: fromGroupId,
+          from_store_name: fromGroupStore?.short_name || fromGroupStore?.name || '?',
+          to_store_id: toGroupId,
+          to_store_name: toGroupStore?.short_name || toGroupStore?.name || '?',
+          isGrouped: isToGrouped,
           items: []
         })
+      } else {
+        const group = groups.get(key)!
+        if (e.to_store_id !== group.to_store_id && e.to_store_id !== toGroupId) {
+          group.isGrouped = true
+        }
       }
       groups.get(key)!.items.push(e)
     }
@@ -350,7 +387,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const toOrderB = toStoreB?.display_order ?? 999
       return toOrderA - toOrderB
     })
-  }, [transferEvents, storeMap])
+  }, [transferEvents, storeMap, isSameStoreGroup, getStoreGroupId])
 
   // データ取得
   const fetchData = useCallback(async () => {
@@ -1251,22 +1288,33 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         
                         {/* キット一覧 */}
                         <div className="space-y-1">
-                          {group.items.map((suggestion, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center gap-2 text-sm py-1"
-                            >
-                              <Badge variant="outline" className="text-xs">
-                                {formatDate(suggestion.transfer_date)}
-                              </Badge>
-                              <span className="truncate max-w-[180px]">
-                                {suggestion.scenario_title}
-                              </span>
-                              <span className="text-muted-foreground text-xs">
-                                #{suggestion.kit_number}
-                              </span>
-                            </div>
-                          ))}
+                          {group.items.map((suggestion, index) => {
+                            // 実際の行き先店舗名を取得（グループ化されている場合に表示）
+                            const actualToStore = storeMap.get(suggestion.to_store_id)
+                            const showActualStore = group.isGrouped && suggestion.to_store_id !== group.to_store_id
+                            
+                            return (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2 text-sm py-1"
+                              >
+                                <Badge variant="outline" className="text-xs">
+                                  {formatDate(suggestion.transfer_date)}
+                                </Badge>
+                                {showActualStore && (
+                                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                                    → {actualToStore?.short_name || actualToStore?.name}
+                                  </Badge>
+                                )}
+                                <span className="truncate max-w-[180px]">
+                                  {suggestion.scenario_title}
+                                </span>
+                                <span className="text-muted-foreground text-xs">
+                                  #{suggestion.kit_number}
+                                </span>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     ))}
@@ -1309,6 +1357,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           <div className="space-y-1">
                             {group.items.map(event => {
                               const scenario = scenarioMap.get(event.scenario_id)
+                              // 実際の行き先店舗名を取得
+                              const actualToStore = storeMap.get(event.to_store_id)
+                              const showActualStore = group.isGrouped && event.to_store_id !== group.to_store_id
                               
                               return (
                                 <div
@@ -1320,6 +1371,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                   <Badge variant="outline" className="text-xs">
                                     {formatDate(event.transfer_date)}
                                   </Badge>
+                                  {showActualStore && (
+                                    <Badge variant="secondary" className="text-[10px] shrink-0">
+                                      → {actualToStore?.short_name || actualToStore?.name}
+                                    </Badge>
+                                  )}
                                   <span className="truncate max-w-[180px]">
                                     {scenario?.title || '不明'}
                                   </span>
