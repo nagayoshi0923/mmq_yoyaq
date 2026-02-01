@@ -4,6 +4,19 @@ import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organizatio
 import { logger } from '@/utils/logger'
 import type { TimeSlot } from '../types'
 
+// 貸切予約用RPCエラーコード → ユーザー向けメッセージのマッピング
+const PRIVATE_BOOKING_ERROR_MESSAGES: Record<string, string> = {
+  'P0001': '参加人数が正しくありません',
+  'P0020': 'お名前を入力してください',
+  'P0021': 'メールアドレスを入力してください',
+  'P0022': '電話番号を入力してください',
+  'P0023': '候補日時を選択してください',
+  'P0024': 'シナリオが見つかりません',
+  'P0025': '参加人数が上限を超えています',
+  'P0009': '顧客情報が見つかりません',
+  'P0011': 'この操作を行う権限がありません'
+}
+
 interface UsePrivateBookingSubmitProps {
   scenarioTitle: string
   scenarioId: string
@@ -83,6 +96,10 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         logger.error('顧客レコードの作成/更新エラー:', error)
       }
 
+      if (!customerId) {
+        throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
+      }
+
       // 候補日時のバリデーション
       if (props.selectedTimeSlots.length === 0) {
         throw new Error('候補日時を選択してください')
@@ -101,9 +118,6 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
       const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
       const baseReservationNumber = `${dateStr}-${randomStr}`
-      
-      // 最初の候補を親レコードとして作成
-      const firstEventDateTime = `${firstSlot.date}T${firstSlot.slot.startTime}`
       
       // 候補日時をJSONB形式で準備
       const candidateDatetimes = {
@@ -125,98 +139,40 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         })
       }
       
-      // organization_idを取得（ログインユーザーから、またはデフォルト）
-      const reservationOrgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+      // RPC経由で貸切予約を作成（サーバー側でバリデーション・料金計算を強制）
+      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', {
+        p_scenario_id: props.scenarioId,
+        p_customer_id: customerId,
+        p_customer_name: customerName,
+        p_customer_email: customerEmail,
+        p_customer_phone: customerPhone,
+        p_participant_count: props.maxParticipants,
+        p_candidate_datetimes: candidateDatetimes,
+        p_notes: notes || null,
+        p_reservation_number: baseReservationNumber  // 冪等性キー
+      })
       
-      const { data: parentReservation, error: parentError } = await supabase
-        .from('reservations')
-        .insert({
-          title: `【貸切希望】${props.scenarioTitle}（候補${props.selectedTimeSlots.length}件）`,
-          reservation_number: baseReservationNumber,
-          scenario_id: props.scenarioId,
-          customer_id: customerId,
-          requested_datetime: firstEventDateTime,
-          actual_datetime: firstEventDateTime,
-          duration: 180,
-          participant_count: props.maxParticipants,
-          base_price: props.participationFee * props.maxParticipants,
-          total_price: props.participationFee * props.maxParticipants,
-          final_price: props.participationFee * props.maxParticipants,
-          status: 'pending',
-          priority: 0,
-          candidate_datetimes: candidateDatetimes,
-          customer_notes: notes || null,
-          created_by: props.userId,
-          customer_name: customerName,
-          customer_email: customerEmail,
-          customer_phone: customerPhone,
-          reservation_source: 'web_private',
-          organization_id: reservationOrgId
-        })
-        .select()
-        .single()
-      
-      if (parentError) {
-        logger.error('貸切リクエストエラー:', parentError)
-        throw new Error('貸切リクエストの送信に失敗しました。もう一度お試しください。')
+      if (rpcError) {
+        logger.error('貸切リクエストエラー:', rpcError)
+        const errorCode = rpcError.code || ''
+        const errorMessage = PRIVATE_BOOKING_ERROR_MESSAGES[errorCode] || '貸切リクエストの送信に失敗しました。もう一度お試しください。'
+        throw new Error(errorMessage)
       }
 
-      // このシナリオを担当できるGMを取得（名前も一緒に）
-      const { data: gmAssignments, error: gmError } = await supabase
-        .from('staff_scenario_assignments')
-        .select('staff_id, staff:staff_id(name)')
-        .eq('scenario_id', props.scenarioId)
+      // 予約IDを取得（RPC戻り値からの取得）
+      const parentReservationId = reservationId as string
       
-      if (!gmError && gmAssignments && gmAssignments.length > 0 && parentReservation) {
-        try {
-          // staff_idの重複を排除（同一スタッフが複数の役割で登録されている場合）
-          const uniqueStaffMap = new Map<string, string>()
-          gmAssignments.forEach((a: any) => {
-            if (a.staff_id && !uniqueStaffMap.has(a.staff_id)) {
-              uniqueStaffMap.set(a.staff_id, a.staff?.name || '')
-            }
-          })
-          
-          // 既存のGM確認レコードを取得
-          const { data: existingResponses } = await supabase
-            .from('gm_availability_responses')
-            .select('staff_id')
-            .eq('reservation_id', parentReservation.id)
-          
-          const existingStaffIds = new Set((existingResponses || []).map(r => r.staff_id))
-          
-          // 既存レコードがないGMのみ挿入対象にする
-          const newGmResponses = Array.from(uniqueStaffMap.entries())
-            .filter(([staffId]) => !existingStaffIds.has(staffId))
-            .map(([staffId, gmName]) => ({
-              reservation_id: parentReservation.id,
-              staff_id: staffId,
-              gm_name: gmName,
-              response_status: 'pending',
-              notified_at: new Date().toISOString(),
-              organization_id: reservationOrgId // 組織IDを追加
-            }))
-        
-          // 新規レコードがある場合のみ挿入
-          if (newGmResponses.length > 0) {
-            const { error: insertError } = await supabase
-          .from('gm_availability_responses')
-              .insert(newGmResponses)
-            
-            if (insertError) {
-              // 権限エラー（403）などは警告ログのみ出力し、予約処理は継続
-              // GM確認レコードはDBトリガーまたは管理者が後から作成可能
-              logger.warn('GM確認レコード作成スキップ（権限またはエラー）:', insertError.message)
-            }
-          }
-        } catch (gmResponseError) {
-          // エラーが発生しても予約自体は成功させる
-          logger.warn('GM確認レコード作成エラー:', gmResponseError)
-        }
-      }
+      // 予約情報を取得（メール送信用）
+      const { data: parentReservation } = await supabase
+        .from('reservations')
+        .select('*')
+        .eq('id', parentReservationId)
+        .single()
+
+      // GM確認レコードはRPC関数内で作成済み
 
       // 貸切申し込み完了メールを送信
-      if (parentReservation && customerEmail) {
+      if (parentReservationId && customerEmail) {
         try {
           const candidateDates = candidateDatetimes.candidates.map(c => ({
             date: c.date,
@@ -227,7 +183,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
 
           const { error: emailError } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
             body: {
-              reservationId: parentReservation.id,
+              reservationId: parentReservationId,
               customerEmail,
               customerName,
               scenarioTitle: props.scenarioTitle,

@@ -67,9 +67,10 @@ CREATE INDEX IF NOT EXISTS idx_organization_settings_org_id
 ALTER TABLE public.organization_settings ENABLE ROW LEVEL SECURITY;
 
 -- -----------------------------------------------------------------------------
--- RLSポリシー
+-- RLSポリシー（存在する場合は再作成）
 -- -----------------------------------------------------------------------------
 -- SELECT: 自分の組織の設定のみ参照可能
+DROP POLICY IF EXISTS "organization_settings_select_own_org" ON public.organization_settings;
 CREATE POLICY "organization_settings_select_own_org" ON public.organization_settings
   FOR SELECT
   USING (
@@ -78,6 +79,7 @@ CREATE POLICY "organization_settings_select_own_org" ON public.organization_sett
   );
 
 -- INSERT: 自分の組織の設定のみ作成可能
+DROP POLICY IF EXISTS "organization_settings_insert_own_org" ON public.organization_settings;
 CREATE POLICY "organization_settings_insert_own_org" ON public.organization_settings
   FOR INSERT
   WITH CHECK (
@@ -86,6 +88,7 @@ CREATE POLICY "organization_settings_insert_own_org" ON public.organization_sett
   );
 
 -- UPDATE: 自分の組織の設定のみ更新可能
+DROP POLICY IF EXISTS "organization_settings_update_own_org" ON public.organization_settings;
 CREATE POLICY "organization_settings_update_own_org" ON public.organization_settings
   FOR UPDATE
   USING (
@@ -94,6 +97,7 @@ CREATE POLICY "organization_settings_update_own_org" ON public.organization_sett
   );
 
 -- DELETE: 自分の組織の設定のみ削除可能
+DROP POLICY IF EXISTS "organization_settings_delete_own_org" ON public.organization_settings;
 CREATE POLICY "organization_settings_delete_own_org" ON public.organization_settings
   FOR DELETE
   USING (

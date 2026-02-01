@@ -25,6 +25,12 @@ CREATE INDEX IF NOT EXISTS idx_scenario_kit_locations_store ON scenario_kit_loca
 -- RLSポリシー
 ALTER TABLE scenario_kit_locations ENABLE ROW LEVEL SECURITY;
 
+-- 既存ポリシーを削除
+DROP POLICY IF EXISTS "scenario_kit_locations_select_policy" ON scenario_kit_locations;
+DROP POLICY IF EXISTS "scenario_kit_locations_insert_policy" ON scenario_kit_locations;
+DROP POLICY IF EXISTS "scenario_kit_locations_update_policy" ON scenario_kit_locations;
+DROP POLICY IF EXISTS "scenario_kit_locations_delete_policy" ON scenario_kit_locations;
+
 -- 組織メンバーのみ閲覧可能
 CREATE POLICY "scenario_kit_locations_select_policy" ON scenario_kit_locations
   FOR SELECT USING (
@@ -92,6 +98,12 @@ CREATE INDEX IF NOT EXISTS idx_kit_transfer_events_to_store ON kit_transfer_even
 -- RLSポリシー
 ALTER TABLE kit_transfer_events ENABLE ROW LEVEL SECURITY;
 
+-- 既存ポリシーを削除
+DROP POLICY IF EXISTS "kit_transfer_events_select_policy" ON kit_transfer_events;
+DROP POLICY IF EXISTS "kit_transfer_events_insert_policy" ON kit_transfer_events;
+DROP POLICY IF EXISTS "kit_transfer_events_update_policy" ON kit_transfer_events;
+DROP POLICY IF EXISTS "kit_transfer_events_delete_policy" ON kit_transfer_events;
+
 -- 組織メンバーのみ閲覧可能
 CREATE POLICY "kit_transfer_events_select_policy" ON kit_transfer_events
   FOR SELECT USING (
@@ -139,6 +151,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_scenario_kit_locations_updated_at ON scenario_kit_locations;
 CREATE TRIGGER trigger_update_scenario_kit_locations_updated_at
   BEFORE UPDATE ON scenario_kit_locations
   FOR EACH ROW
@@ -153,6 +166,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_kit_transfer_events_updated_at ON kit_transfer_events;
 CREATE TRIGGER trigger_update_kit_transfer_events_updated_at
   BEFORE UPDATE ON kit_transfer_events
   FOR EACH ROW
@@ -178,6 +192,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_sync_kit_location_on_transfer_complete ON kit_transfer_events;
 CREATE TRIGGER trigger_sync_kit_location_on_transfer_complete
   AFTER INSERT OR UPDATE ON kit_transfer_events
   FOR EACH ROW

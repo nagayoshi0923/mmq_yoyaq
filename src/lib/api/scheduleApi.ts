@@ -414,6 +414,8 @@ export const scheduleApi = {
     const eventsWithActualParticipants = scheduleEvents.map((event) => {
       const reservations = reservationsMap.get(event.id) || []
       
+      // 予約テーブルが single source of truth（active: confirmed/pending/gm_confirmed）
+      // ※ cancelled のみのケースでも reservations は存在し得るが、人数計算は active のみで行う
       const hasAnyReservations = reservations.length > 0
       const actualParticipants = reservations.reduce((sum, reservation) => {
         if (!reservation.status || !ACTIVE_STATUSES.has(reservation.status)) return sum
@@ -456,8 +458,14 @@ export const scheduleApi = {
                         8
       const cappedActualParticipants = Math.min(actualParticipants, maxForSync)
 
-      // 予約が存在する公演は、予約テーブルの集計を single source of truth として同期する
+      // 予約が存在する公演は、予約テーブル（active集計）を single source of truth として同期する
       // （キャンセルで減った場合も反映する）
+      //
+      // NOTE:
+      // - 「手動で満席」(schedule_events.current_participants だけを増やす) の運用があるため、
+      //   予約が1件も無い公演では current_participants を上書きしない。
+      // - デモ参加者を「予約として」追加している場合は hasAnyReservations=true になるので、
+      //   この同期処理で消えることはない（active集計に含まれる）。
       if (hasAnyReservations && cappedActualParticipants !== (event.current_participants || 0)) {
         Promise.resolve(
           supabase
@@ -483,7 +491,7 @@ export const scheduleApi = {
       
       // 表示用の参加者数
       // - 予約がある公演: 実予約数（active）を表示（キャンセルで減るのも反映）
-      // - 予約がない公演: 手動入力された current_participants を表示（過去データ/デモ運用など）
+      // - 予約がない公演: 手動入力された current_participants を表示（過去データ/手動満席など）
       const effectiveParticipants = hasAnyReservations
         ? cappedActualParticipants
         : Math.min(event.current_participants || 0, maxParticipants)

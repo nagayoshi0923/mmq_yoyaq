@@ -150,6 +150,12 @@ ${content.organizationName || '店舗'}
       if (mode === 'edit' && event?.id) {
         setLoadingReservations(true)
         try {
+          const eventOrgId =
+            (event as any)?.organization_id ||
+            (event as any)?.scenarios?.organization_id ||
+            (event as any)?.stores?.organization_id ||
+            null
+
           // 貸切予約の場合
           if (event.is_private_request && event.reservation_id) {
             logger.log('貸切予約を取得:', { reservationId: event.reservation_id, eventId: event.id })
@@ -176,7 +182,7 @@ ${content.organizationName || '店舗'}
               }
             } else {
               // 実IDの場合（schedule_event_idが紐付いている）、schedule_event_idで取得を試みる
-              const reservations = await reservationApi.getByScheduleEvent(event.id)
+              const reservations = await reservationApi.getByScheduleEvent(event.id, eventOrgId)
               
               // schedule_event_idで取得できなかった場合、reservation_idで直接取得（フォールバック）
               if (reservations.length === 0) {
@@ -201,7 +207,7 @@ ${content.organizationName || '店舗'}
             }
           } else {
             // 通常の予約の場合、schedule_event_idで取得
-            const data = await reservationApi.getByScheduleEvent(event.id)
+            const data = await reservationApi.getByScheduleEvent(event.id, eventOrgId)
             logger.log('通常予約データ取得:', { eventId: event.id, count: data.length })
             setReservations(data)
             
@@ -283,8 +289,9 @@ ${content.organizationName || '店舗'}
           r.participant_names?.length
         )
         .flatMap(r => r.participant_names || [])
-      
-      onStaffParticipantsChange(staffParticipants)
+
+      // 重複除去（同一スタッフが複数予約に入る/名前配列が重複するケース対策）
+      onStaffParticipantsChange(Array.from(new Set(staffParticipants)))
     }
   }, [reservations, onStaffParticipantsChange])
 

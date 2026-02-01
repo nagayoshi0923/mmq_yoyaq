@@ -161,33 +161,59 @@ export const reservationApi = {
   },
 
   // スケジュールイベントIDで予約を取得
-  async getByScheduleEvent(scheduleEventId: string): Promise<Reservation[]> {
+  // organizationId を渡せるようにする（管理画面で「閲覧中の組織」とログインユーザー組織が異なるケース対策）
+  async getByScheduleEvent(scheduleEventId: string, organizationId?: string | null): Promise<Reservation[]> {
     // organization_idを自動取得（マルチテナント対応）
-    const organizationId = await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('reservations')
-      .select(RESERVATION_WITH_CUSTOMER_SELECT)
-      .eq('schedule_event_id', scheduleEventId)
-      .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
-    
-    if (organizationId) {
-      query = query.eq('organization_id', organizationId)
+    const orgId = organizationId ?? await getCurrentOrganizationId()
+
+    const run = async (select: string) => {
+      let query = supabase
+        .from('reservations')
+        .select(select)
+        .eq('schedule_event_id', scheduleEventId)
+        .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
+
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+
+      return await query.order('created_at', { ascending: true })
     }
-    
-    const { data, error } = await query.order('created_at', { ascending: true })
-    
-    if (error) throw error
-    return data || []
+
+    // NOTE:
+    // このプロジェクトは環境（migration差分/列追加の進行状況）によって
+    // 予約テーブルの列が揃っていないケースがあり、固定の列リスト select だと 400 になることがある。
+    // 管理画面の公演ダイアログでは安定性を優先し、まずは安全な * を使う。
+    const safe = await run('*, customers(*)')
+    if (!safe.error) {
+      return (safe.data as unknown as Reservation[]) || []
+    }
+
+    // それでも失敗する場合のみ、詳細ログを出してエラーにする
+    logger.error('getByScheduleEvent: safe select failed', {
+      scheduleEventId,
+      orgId,
+      error: safe.error,
+    })
+    throw safe.error
   },
 
   // 顧客IDで予約を取得
-  async getByCustomer(customerId: string): Promise<Reservation[]> {
-    const { data, error } = await supabase
+  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  async getByCustomer(customerId: string, organizationId?: string): Promise<Reservation[]> {
+    // 組織フィルタリング（マルチテナント対応: 他組織の予約が漏れないように）
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('reservations')
       .select(RESERVATION_SELECT_FIELDS)
       .eq('customer_id', customerId)
-      .order('requested_datetime', { ascending: false })
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query.order('requested_datetime', { ascending: false })
     
     if (error) throw error
     return data || []

@@ -157,7 +157,7 @@ export function PerformancesSectionV2({
               </span>
               {apiTotalStaffParticipants > 0 && (
                 <span className="text-xs text-blue-600">
-                  （+{apiTotalStaffParticipants}スタッフ）
+                  （内スタッフ{apiTotalStaffParticipants}）
                 </span>
               )}
             </div>
@@ -248,7 +248,7 @@ export function PerformancesSectionV2({
                           {perf.participants}名
                           {perf.staffParticipants > 0 && (
                             <span className="text-blue-600 text-xs ml-0.5">
-                              (+{perf.staffParticipants}スタッフ)
+                              （内スタッフ{perf.staffParticipants}）
                             </span>
                           )}
                         </span>

@@ -555,8 +555,8 @@ export function PerformanceModal({
                       : `${localCurrentParticipants}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
                     }
                     {staffParticipantsFromDB.length > 0 && (
-                      <span className="text-blue-600 ml-0.5">
-                        (+{staffParticipantsFromDB.length})
+                      <span className="text-blue-600 ml-1">
+                        （内スタッフ{staffParticipantsFromDB.length}）
                       </span>
                     )}
                   </Badge>
@@ -864,12 +864,17 @@ export function PerformanceModal({
                   {formData.gms
                     .map((gm: string, index: number) => {
                     const role = formData.gmRoles?.[gm] || 'main'
+                    const isBackedByStaffReservation =
+                      role === 'staff' && staffParticipantsFromDB.includes(gm)
+
                     const badgeStyle = role === 'observer'
                       ? 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-indigo-200'
                       : role === 'reception'
                         ? 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200'
                         : role === 'staff'
-                          ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
+                          ? (isBackedByStaffReservation
+                              ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
+                              : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200')
                           : role === 'sub' 
                             ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' 
                             : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
@@ -890,7 +895,11 @@ export function PerformanceModal({
                               {gm}
                               {role === 'sub' && <span className="text-[11px] ml-0.5 font-bold">(サブ)</span>}
                               {role === 'reception' && <span className="text-[11px] ml-0.5 font-bold">(受付)</span>}
-                              {role === 'staff' && <span className="text-[11px] ml-0.5 font-bold">(参加)</span>}
+                              {role === 'staff' && (
+                                <span className="text-[11px] ml-0.5 font-bold">
+                                  {isBackedByStaffReservation ? '(参加)' : '(参加予定)'}
+                                </span>
+                              )}
                               {role === 'observer' && <span className="text-[11px] ml-0.5 font-bold">(見学)</span>}
                             </span>
                             <div
@@ -954,8 +963,17 @@ export function PerformanceModal({
                               </p>
                             )}
                             {role === 'staff' && (
-                              <p className="text-[11px] text-green-600 bg-green-50 p-0.5 rounded">
-                                ※参加者カウント
+                              <p
+                                className={cn(
+                                  'text-[11px] p-0.5 rounded',
+                                  isBackedByStaffReservation
+                                    ? 'text-green-600 bg-green-50'
+                                    : 'text-yellow-700 bg-yellow-50'
+                                )}
+                              >
+                                {isBackedByStaffReservation
+                                  ? '※ 予約タブ（スタッフ予約）に紐づく参加'
+                                  : '※ GM欄で「スタッフ参加」として設定されているだけ（予約タブに実体がない）'}
                               </p>
                             )}
                             {role === 'observer' && (

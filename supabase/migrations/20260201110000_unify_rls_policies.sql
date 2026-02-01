@@ -65,6 +65,10 @@ DROP POLICY IF EXISTS "reservations_select_self_or_own_org" ON public.reservatio
 DROP POLICY IF EXISTS "reservations_insert_self_or_own_org" ON public.reservations;
 DROP POLICY IF EXISTS "reservations_update_own_org" ON public.reservations;
 DROP POLICY IF EXISTS "reservations_delete_own_org" ON public.reservations;
+DROP POLICY IF EXISTS "reservations_select_unified" ON public.reservations;
+DROP POLICY IF EXISTS "reservations_insert_unified" ON public.reservations;
+DROP POLICY IF EXISTS "reservations_update_unified" ON public.reservations;
+DROP POLICY IF EXISTS "reservations_delete_unified" ON public.reservations;
 
 -- SELECT: 自分の予約 または 自分の組織のデータ
 CREATE POLICY "reservations_select_unified" ON public.reservations
@@ -123,6 +127,10 @@ DROP POLICY IF EXISTS "schedule_events_select_org_or_anon" ON public.schedule_ev
 DROP POLICY IF EXISTS "schedule_events_insert_own_org" ON public.schedule_events;
 DROP POLICY IF EXISTS "schedule_events_update_own_org" ON public.schedule_events;
 DROP POLICY IF EXISTS "schedule_events_delete_own_org" ON public.schedule_events;
+DROP POLICY IF EXISTS "schedule_events_select_unified" ON public.schedule_events;
+DROP POLICY IF EXISTS "schedule_events_insert_unified" ON public.schedule_events;
+DROP POLICY IF EXISTS "schedule_events_update_unified" ON public.schedule_events;
+DROP POLICY IF EXISTS "schedule_events_delete_unified" ON public.schedule_events;
 
 -- SELECT: 全員閲覧可能（予約サイト用）、ただしキャンセル済みは管理者のみ
 CREATE POLICY "schedule_events_select_unified" ON public.schedule_events
@@ -174,6 +182,10 @@ DROP POLICY IF EXISTS "customers_select_self_or_own_org" ON public.customers;
 DROP POLICY IF EXISTS "customers_insert_self_or_own_org" ON public.customers;
 DROP POLICY IF EXISTS "customers_update_self_or_own_org" ON public.customers;
 DROP POLICY IF EXISTS "customers_delete_own_org" ON public.customers;
+DROP POLICY IF EXISTS "customers_select_unified" ON public.customers;
+DROP POLICY IF EXISTS "customers_insert_unified" ON public.customers;
+DROP POLICY IF EXISTS "customers_update_unified" ON public.customers;
+DROP POLICY IF EXISTS "customers_delete_unified" ON public.customers;
 
 -- SELECT: 自分自身 または 自分の組織のデータ
 CREATE POLICY "customers_select_unified" ON public.customers
@@ -217,6 +229,10 @@ DROP POLICY IF EXISTS "staff_select_org_or_anon" ON public.staff;
 DROP POLICY IF EXISTS "staff_insert_own_org" ON public.staff;
 DROP POLICY IF EXISTS "staff_update_own_org" ON public.staff;
 DROP POLICY IF EXISTS "staff_delete_own_org" ON public.staff;
+DROP POLICY IF EXISTS "staff_select_unified" ON public.staff;
+DROP POLICY IF EXISTS "staff_insert_unified" ON public.staff;
+DROP POLICY IF EXISTS "staff_update_unified" ON public.staff;
+DROP POLICY IF EXISTS "staff_delete_unified" ON public.staff;
 
 -- SELECT: 自分の組織のデータ（匿名は公開情報のみ）
 CREATE POLICY "staff_select_unified" ON public.staff

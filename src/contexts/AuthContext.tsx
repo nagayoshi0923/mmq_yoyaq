@@ -44,6 +44,51 @@ interface AuthProviderProps {
 const AUTH_CHANNEL_NAME = 'mmq-auth-sync'
 
 /**
+ * クライアントのIPアドレスを取得（キャッシュ付き）
+ * 注意: 外部サービスへのリクエストのため、失敗する可能性がある
+ */
+let cachedIpAddress: string | null = null
+let ipFetchPromise: Promise<string | null> | null = null
+
+async function getClientIpAddress(): Promise<string | null> {
+  // キャッシュがあれば返す
+  if (cachedIpAddress) {
+    return cachedIpAddress
+  }
+  
+  // 既にリクエスト中なら、そのPromiseを待つ
+  if (ipFetchPromise) {
+    return ipFetchPromise
+  }
+  
+  ipFetchPromise = (async () => {
+    try {
+      // ipify APIを使用（無料、HTTPS対応）
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 3000) // 3秒タイムアウト
+      
+      const response = await fetch('https://api.ipify.org?format=json', {
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+      
+      if (response.ok) {
+        const data = await response.json()
+        cachedIpAddress = data.ip || null
+        return cachedIpAddress
+      }
+    } catch {
+      // IP取得失敗は無視（ログ記録自体は続行）
+    }
+    return null
+  })()
+  
+  const result = await ipFetchPromise
+  ipFetchPromise = null
+  return result
+}
+
+/**
  * 認証イベントをログに記録
  */
 async function logAuthEvent(
@@ -61,11 +106,15 @@ async function logAuthEvent(
     // クライアント側でIPアドレスとUser-Agentを取得
     const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null
     
+    // IPアドレスを非同期で取得（失敗してもログ記録は続行）
+    const ipAddress = await getClientIpAddress()
+    
     const { error } = await supabase.from('auth_logs').insert({
       user_id: userId,
       event_type: eventType,
       old_role: options?.oldRole,
       new_role: options?.newRole,
+      ip_address: ipAddress,
       user_agent: userAgent,
       success: options?.success ?? true,
       error_message: options?.errorMessage,
