@@ -76,7 +76,7 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
       // 現在のユーザーのstaff_idを取得
       const { data: staffData, error: staffError } = await supabase
         .from('staff')
-        .select('id, discord_id, name')
+        .select('id, discord_id:discord_user_id, name')
         .eq('user_id', userId)
         .single()
       

@@ -8,7 +8,9 @@ import type { Staff } from '@/types'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const STAFF_SELECT_FIELDS =
-  'id, organization_id, name, display_name, line_name, x_account, discord_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
+  // DB側は discord_user_id。フロントの既存実装（discord_id）に合わせて alias する。
+  // NOTE: staff.display_name がDBに無い環境があるため、selectに含めない（含めるとPostgRESTが400になる）
+  'id, organization_id, name, line_name, x_account, discord_id:discord_user_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
 
 export const staffApi = {
   // 全スタッフを取得
@@ -41,9 +43,14 @@ export const staffApi = {
       throw new Error('組織情報が取得できません。再ログインしてください。')
     }
     
+    // DBカラム名へ変換（後方互換）
+    const { discord_id, ...rest } = staff as Staff & { discord_id?: string }
+    const insertRow: Record<string, unknown> = { ...rest, organization_id: organizationId }
+    if (discord_id !== undefined) insertRow.discord_user_id = discord_id
+
     const { data, error } = await supabase
       .from('staff')
-      .insert([{ ...staff, organization_id: organizationId }])
+      .insert([insertRow])
       .select()
       .single()
     
@@ -67,12 +74,17 @@ export const staffApi = {
     }
     
     // DBに存在しないフィールドを除外（UIで追加される仮想フィールド）
-    const { experienced_scenarios, ...dbUpdates } = updates as Staff & { experienced_scenarios?: string[] }
+    const { experienced_scenarios, discord_id, ...dbUpdates } = updates as Staff & {
+      experienced_scenarios?: string[]
+      discord_id?: string
+    }
+    const updateRow: Record<string, unknown> = { ...dbUpdates }
+    if (discord_id !== undefined) updateRow.discord_user_id = discord_id
     
     // スタッフ情報を更新
     const { data, error } = await supabase
       .from('staff')
-      .update(dbUpdates)
+      .update(updateRow)
       .eq('id', id)
       .select()
       .single()
