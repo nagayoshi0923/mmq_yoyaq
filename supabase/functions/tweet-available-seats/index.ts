@@ -1,14 +1,16 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { hmac } from 'https://deno.land/x/hmac@v2.0.1/mod.ts'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse, timingSafeEqualString } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
 
 function isServiceRoleCall(req: Request): boolean {
-  const authHeader = req.headers.get('Authorization')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  // Cron Secret / Service Role Key によるシステム呼び出しを許可
+  if (isCronOrServiceRoleCall(req)) return true
 
+  // 互換: Authorization: Bearer <service_role_key>
+  const authHeader = (req.headers.get('Authorization') || '').trim()
+  const serviceRoleKey = getServiceRoleKey()
   if (!authHeader || !serviceRoleKey) return false
-  const token = authHeader.replace('Bearer ', '')
+  const token = authHeader.replace(/^Bearer\s+/i, '')
   return timingSafeEqualString(token, serviceRoleKey)
 }
 
@@ -41,14 +43,32 @@ function isSafeHttpsUrl(url: string): boolean {
   }
 }
 
+function toBase64(bytes: ArrayBuffer): string {
+  const bin = String.fromCharCode(...new Uint8Array(bytes))
+  return btoa(bin)
+}
+
+async function hmacSha1Base64(key: string, data: string): Promise<string> {
+  const enc = new TextEncoder()
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(key),
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  )
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(data))
+  return toBase64(sig)
+}
+
 // OAuth 1.0a署名生成
-function generateOAuthSignature(
+async function generateOAuthSignature(
   method: string,
   url: string,
   params: Record<string, string>,
   consumerSecret: string,
   tokenSecret: string
-): string {
+): Promise<string> {
   // パラメータをソート
   const sortedParams = Object.keys(params)
     .sort()
@@ -66,12 +86,11 @@ function generateOAuthSignature(
   const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`
 
   // HMAC-SHA1署名
-  const signature = hmac('sha1', signingKey, signatureBaseString, 'utf8', 'base64')
-  return signature as string
+  return await hmacSha1Base64(signingKey, signatureBaseString)
 }
 
 // OAuth 1.0aヘッダー生成
-function generateOAuthHeader(
+async function generateOAuthHeader(
   method: string,
   url: string,
   apiKey: string,
@@ -79,7 +98,7 @@ function generateOAuthHeader(
   accessToken: string,
   accessTokenSecret: string,
   additionalParams: Record<string, string> = {}
-): string {
+): Promise<string> {
   const oauthParams: Record<string, string> = {
     oauth_consumer_key: apiKey,
     oauth_nonce: crypto.randomUUID().replace(/-/g, ''),
@@ -90,7 +109,7 @@ function generateOAuthHeader(
     ...additionalParams
   }
 
-  const signature = generateOAuthSignature(
+  const signature = await generateOAuthSignature(
     method,
     url,
     oauthParams,
@@ -139,14 +158,14 @@ async function uploadMedia(
     }
     
     const imageBuffer = await imageResponse.arrayBuffer()
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)))
+    const base64Image = toBase64(imageBuffer)
 
     const uploadUrl = 'https://upload.twitter.com/1.1/media/upload.json'
     
     const formData = new FormData()
     formData.append('media_data', base64Image)
 
-    const authHeader = generateOAuthHeader(
+    const authHeader = await generateOAuthHeader(
       'POST',
       uploadUrl,
       apiKey,
@@ -188,7 +207,7 @@ async function postTweet(
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   const tweetUrl = 'https://api.twitter.com/2/tweets'
   
-  const authHeader = generateOAuthHeader(
+  const authHeader = await generateOAuthHeader(
     'POST',
     tweetUrl,
     apiKey,
