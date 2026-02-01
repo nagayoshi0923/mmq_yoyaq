@@ -212,6 +212,65 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     
     return shortages
   }, [weekDates, scheduleEvents, kitLocations, scenarioMap])
+  
+  // 移動提案をルート（店舗→店舗）でグループ化
+  const groupedSuggestions = useMemo(() => {
+    const groups = new Map<string, {
+      from_store_id: string
+      from_store_name: string
+      to_store_id: string
+      to_store_name: string
+      items: KitTransferSuggestion[]
+    }>()
+    
+    for (const s of suggestions) {
+      const key = `${s.from_store_id}->${s.to_store_id}`
+      if (!groups.has(key)) {
+        groups.set(key, {
+          from_store_id: s.from_store_id,
+          from_store_name: s.from_store_name,
+          to_store_id: s.to_store_id,
+          to_store_name: s.to_store_name,
+          items: []
+        })
+      }
+      groups.get(key)!.items.push(s)
+    }
+    
+    // 配列に変換してアイテム数でソート
+    return [...groups.values()].sort((a, b) => b.items.length - a.items.length)
+  }, [suggestions])
+  
+  // 確定済み移動イベントをルートでグループ化
+  const groupedTransferEvents = useMemo(() => {
+    const activeEvents = transferEvents.filter(e => e.status !== 'cancelled')
+    const groups = new Map<string, {
+      from_store_id: string
+      from_store_name: string
+      to_store_id: string
+      to_store_name: string
+      items: KitTransferEvent[]
+    }>()
+    
+    for (const e of activeEvents) {
+      const fromStore = storeMap.get(e.from_store_id)
+      const toStore = storeMap.get(e.to_store_id)
+      const key = `${e.from_store_id}->${e.to_store_id}`
+      
+      if (!groups.has(key)) {
+        groups.set(key, {
+          from_store_id: e.from_store_id,
+          from_store_name: fromStore?.short_name || fromStore?.name || '?',
+          to_store_id: e.to_store_id,
+          to_store_name: toStore?.short_name || toStore?.name || '?',
+          items: []
+        })
+      }
+      groups.get(key)!.items.push(e)
+    }
+    
+    return [...groups.values()].sort((a, b) => b.items.length - a.items.length)
+  }, [transferEvents, storeMap])
 
   // データ取得
   const fetchData = useCallback(async () => {
@@ -814,13 +873,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 </Button>
               </div>
 
-              {/* 移動提案 */}
+              {/* 移動提案（ルートでグループ化） */}
               {suggestions.length > 0 && (
                 <div className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/20">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2 font-medium text-yellow-800 dark:text-yellow-200">
                       <AlertTriangle className="h-4 w-4" />
-                      移動提案 ({suggestions.length}件)
+                      移動提案 ({suggestions.length}件 / {groupedSuggestions.length}ルート)
                     </div>
                     <Button size="sm" onClick={handleConfirmSuggestions}>
                       <Check className="h-4 w-4 mr-1" />
@@ -828,100 +887,134 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     </Button>
                   </div>
                   
-                  <div className="space-y-2">
-                    {suggestions.map((suggestion, index) => (
+                  <div className="space-y-3">
+                    {groupedSuggestions.map((group, groupIndex) => (
                       <div
-                        key={index}
-                        className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded p-2 text-sm"
+                        key={groupIndex}
+                        className="bg-white dark:bg-gray-800 rounded-lg p-3"
                       >
-                        <Badge variant="outline">{formatDate(suggestion.transfer_date)}</Badge>
-                        <span className="font-medium truncate max-w-[150px]">
-                          {suggestion.scenario_title}
-                        </span>
-                        <span className="text-muted-foreground">キット{suggestion.kit_number}</span>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          <span>{suggestion.from_store_name}</span>
-                          <ArrowRight className="h-3 w-3" />
-                          <span className="font-medium">{suggestion.to_store_name}</span>
+                        {/* ルートヘッダー */}
+                        <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+                          <MapPin className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">{group.from_store_name}</span>
+                          <ArrowRight className="h-4 w-4" />
+                          <span className="font-bold text-primary">{group.to_store_name}</span>
+                          <Badge variant="secondary" className="ml-auto">
+                            {group.items.length}キット
+                          </Badge>
                         </div>
-                        <span className="text-xs text-muted-foreground ml-auto">
-                          {suggestion.reason}
-                        </span>
+                        
+                        {/* キット一覧 */}
+                        <div className="space-y-1">
+                          {group.items.map((suggestion, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center gap-2 text-sm py-1"
+                            >
+                              <Badge variant="outline" className="text-xs">
+                                {formatDate(suggestion.transfer_date)}
+                              </Badge>
+                              <span className="truncate max-w-[180px]">
+                                {suggestion.scenario_title}
+                              </span>
+                              <span className="text-muted-foreground text-xs">
+                                #{suggestion.kit_number}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* 確定済み移動イベント */}
+              {/* 確定済み移動イベント（ルートでグループ化） */}
               <div>
                 <h3 className="font-medium mb-2">確定済み移動</h3>
-                {transferEvents.filter(e => e.status !== 'cancelled').length === 0 ? (
+                {groupedTransferEvents.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">
                     この週に予定されている移動はありません
                   </p>
                 ) : (
-                  <div className="space-y-2">
-                    {transferEvents
-                      .filter(e => e.status !== 'cancelled')
-                      .map(event => {
-                        const scenario = scenarioMap.get(event.scenario_id)
-                        const fromStore = storeMap.get(event.from_store_id)
-                        const toStore = storeMap.get(event.to_store_id)
-                        
-                        return (
-                          <div
-                            key={event.id}
-                            className={`flex items-center gap-2 border rounded p-2 text-sm ${
-                              event.status === 'completed' ? 'bg-green-50 dark:bg-green-900/20' : ''
-                            }`}
-                          >
-                            <Badge variant={event.status === 'completed' ? 'default' : 'outline'}>
-                              {formatDate(event.transfer_date)}
-                            </Badge>
-                            <span className="font-medium truncate max-w-[150px]">
-                              {scenario?.title || '不明なシナリオ'}
-                            </span>
-                            <span className="text-muted-foreground">キット{event.kit_number}</span>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              <span>{fromStore?.short_name || fromStore?.name || '?'}</span>
-                              <ArrowRight className="h-3 w-3" />
-                              <span className="font-medium">
-                                {toStore?.short_name || toStore?.name || '?'}
-                              </span>
-                            </div>
-                            
-                            {event.status === 'pending' && (
-                              <div className="flex gap-1 ml-auto">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 px-2"
-                                  onClick={() => handleUpdateStatus(event.id, 'completed')}
-                                >
-                                  <Check className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 px-2 text-destructive"
-                                  onClick={() => handleUpdateStatus(event.id, 'cancelled')}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            )}
-                            
-                            {event.status === 'completed' && (
-                              <Badge variant="default" className="ml-auto">
-                                完了
+                  <div className="space-y-3">
+                    {groupedTransferEvents.map((group, groupIndex) => {
+                      const completedCount = group.items.filter(e => e.status === 'completed').length
+                      const allCompleted = completedCount === group.items.length
+                      
+                      return (
+                        <div
+                          key={groupIndex}
+                          className={`border rounded-lg p-3 ${allCompleted ? 'bg-green-50 dark:bg-green-900/20' : ''}`}
+                        >
+                          {/* ルートヘッダー */}
+                          <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{group.from_store_name}</span>
+                            <ArrowRight className="h-4 w-4" />
+                            <span className="font-bold text-primary">{group.to_store_name}</span>
+                            <div className="ml-auto flex items-center gap-2">
+                              <Badge variant={allCompleted ? 'default' : 'secondary'}>
+                                {completedCount}/{group.items.length} 完了
                               </Badge>
-                            )}
+                            </div>
                           </div>
-                        )
-                      })}
+                          
+                          {/* キット一覧 */}
+                          <div className="space-y-1">
+                            {group.items.map(event => {
+                              const scenario = scenarioMap.get(event.scenario_id)
+                              
+                              return (
+                                <div
+                                  key={event.id}
+                                  className={`flex items-center gap-2 text-sm py-1 px-2 rounded ${
+                                    event.status === 'completed' ? 'bg-green-100 dark:bg-green-800/30' : 'hover:bg-muted/50'
+                                  }`}
+                                >
+                                  <Badge variant="outline" className="text-xs">
+                                    {formatDate(event.transfer_date)}
+                                  </Badge>
+                                  <span className="truncate max-w-[180px]">
+                                    {scenario?.title || '不明'}
+                                  </span>
+                                  <span className="text-muted-foreground text-xs">
+                                    #{event.kit_number}
+                                  </span>
+                                  
+                                  {event.status === 'pending' && (
+                                    <div className="flex gap-1 ml-auto">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 px-1.5"
+                                        onClick={() => handleUpdateStatus(event.id, 'completed')}
+                                        title="完了"
+                                      >
+                                        <Check className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 px-1.5 text-destructive"
+                                        onClick={() => handleUpdateStatus(event.id, 'cancelled')}
+                                        title="キャンセル"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                  
+                                  {event.status === 'completed' && (
+                                    <Check className="h-4 w-4 text-green-600 ml-auto" />
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
