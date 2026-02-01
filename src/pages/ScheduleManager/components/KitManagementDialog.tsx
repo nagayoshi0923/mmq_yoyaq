@@ -762,68 +762,82 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             </div>
           </TabsContent>
 
-          {/* 店舗別在庫 */}
+          {/* 店舗別在庫（カラム式） */}
           <TabsContent value="store" className="flex-1 overflow-auto">
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                各店舗に現在あるキットの一覧を表示します
-              </p>
-              
-              <div className="grid gap-3">
-                {stores.filter(s => s.status === 'active').map(store => {
-                  const inventory = storeInventory.get(store.id) || []
-                  const totalKits = inventory.reduce((sum, item) => sum + item.kits.length, 0)
-                  const problemKits = inventory.reduce(
-                    (sum, item) => sum + item.kits.filter(k => k.condition !== 'good').length,
-                    0
-                  )
-                  
-                  return (
-                    <div key={store.id} className="border rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-medium">{store.short_name || store.name}</div>
-                        <div className="flex items-center gap-2">
-                          {problemKits > 0 && (
-                            <Badge variant="destructive" className="text-xs">
-                              {problemKits}件要注意
-                            </Badge>
-                          )}
-                          <Badge variant={totalKits > 0 ? 'default' : 'secondary'}>
-                            {totalKits}キット
-                          </Badge>
-                        </div>
+            <div className="flex gap-3 h-full overflow-x-auto pb-2">
+              {stores.filter(s => s.status === 'active').map(store => {
+                const inventory = storeInventory.get(store.id) || []
+                const totalKits = inventory.reduce((sum, item) => sum + item.kits.length, 0)
+                
+                return (
+                  <div
+                    key={store.id}
+                    className="flex-shrink-0 w-56 bg-muted/30 rounded-lg flex flex-col"
+                  >
+                    {/* カラムヘッダー */}
+                    <div className="p-2 border-b bg-muted/50 rounded-t-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">
+                          {store.short_name || store.name}
+                        </span>
+                        <Badge variant="secondary" className="text-xs h-5">
+                          {totalKits}
+                        </Badge>
                       </div>
-                      
+                    </div>
+                    
+                    {/* キットカード一覧 */}
+                    <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
                       {inventory.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">キットなし</p>
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          キットなし
+                        </p>
                       ) : (
-                        <div className="space-y-2">
-                          {inventory.map(item => (
-                            <div key={item.scenario.id} className="text-sm">
-                              <span className="font-medium">
-                                {item.scenario.title.slice(0, 20)}
-                                {item.scenario.title.length > 20 ? '...' : ''}
-                              </span>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {item.kits.map(kit => (
+                        inventory.flatMap(item =>
+                          item.kits.map(kit => {
+                            const hasIssue = kit.condition !== 'good'
+                            return (
+                              <div
+                                key={`${item.scenario.id}-${kit.kitNumber}`}
+                                className={`
+                                  p-2 rounded border bg-background text-xs
+                                  ${hasIssue ? 'border-orange-300 dark:border-orange-700' : 'border-border'}
+                                `}
+                              >
+                                {/* 状態バッジ */}
+                                <div className="flex items-start gap-1 mb-1">
                                   <span
-                                    key={kit.kitNumber}
-                                    className={`text-[10px] px-1.5 py-0.5 rounded ${KIT_CONDITION_COLORS[kit.condition]}`}
-                                    title={kit.conditionNotes || undefined}
+                                    className={`shrink-0 px-1 py-0.5 rounded text-[10px] ${KIT_CONDITION_COLORS[kit.condition]}`}
                                   >
-                                    #{kit.kitNumber}
-                                    {kit.condition !== 'good' && ` ${KIT_CONDITION_LABELS[kit.condition]}`}
+                                    {kit.condition === 'good' ? '✓' : KIT_CONDITION_LABELS[kit.condition]}
                                   </span>
-                                ))}
+                                  {kit.conditionNotes && (
+                                    <span className="text-[10px] text-orange-600 dark:text-orange-400 truncate">
+                                      {kit.conditionNotes}
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {/* シナリオ名 */}
+                                <div className="font-medium leading-tight">
+                                  {item.scenario.title}
+                                </div>
+                                
+                                {/* キット番号（複数キットある場合） */}
+                                {(item.scenario.kit_count || 1) > 1 && (
+                                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                                    #{kit.kitNumber}
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          ))}
-                        </div>
+                            )
+                          })
+                        )
                       )}
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
             </div>
           </TabsContent>
 
