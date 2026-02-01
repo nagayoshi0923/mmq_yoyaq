@@ -41,6 +41,27 @@ export function calculateKitTransfers(
   const scenarioMap = new Map(scenarios.map(s => [s.id, s]))
   const storeMap = new Map(stores.map(s => [s.id, s]))
   
+  // キットグループのマッピング（store_id -> グループ代表ID）
+  // 同じkit_group_idを持つ店舗は同じグループ代表IDを持つ
+  const storeGroupMap = new Map<string, string>()
+  for (const store of stores) {
+    if (store.kit_group_id) {
+      // kit_group_id が設定されている場合、そのIDをグループ代表とする
+      storeGroupMap.set(store.id, store.kit_group_id)
+    } else {
+      // 自分が他店舗のkit_group_idとして参照されている場合、自分がグループ代表
+      const isGroupParent = stores.some(s => s.kit_group_id === store.id)
+      storeGroupMap.set(store.id, isGroupParent ? store.id : store.id)
+    }
+  }
+  
+  // 同じグループかどうかをチェックするヘルパー関数
+  const isSameGroup = (storeId1: string, storeId2: string): boolean => {
+    const group1 = storeGroupMap.get(storeId1) || storeId1
+    const group2 = storeGroupMap.get(storeId2) || storeId2
+    return group1 === group2
+  }
+  
   // 現在のキット状態をコピー（シミュレーション用）
   const state: KitState = JSON.parse(JSON.stringify(initialState))
   
@@ -84,9 +105,9 @@ export function calculateKitTransfers(
         const kitCount = scenario.kit_count || 1
         const scenarioState = state[scenarioId] || {}
         
-        // この店舗に既にあるキット数をカウント
+        // この店舗（または同じグループの店舗）に既にあるキット数をカウント
         const kitsAtStore = Object.entries(scenarioState)
-          .filter(([_, sid]) => sid === storeId)
+          .filter(([_, sid]) => isSameGroup(sid, storeId))
           .map(([kn]) => parseInt(kn))
         
         const available = kitsAtStore.length
@@ -99,16 +120,22 @@ export function calculateKitTransfers(
           
           for (let kitNum = 1; kitNum <= kitCount; kitNum++) {
             const currentLocation = scenarioState[kitNum]
-            if (currentLocation && currentLocation !== storeId) {
-              // このキットがその日、移動元店舗で使われるか確認
-              const fromStoreNeeds = storeNeeds.get(currentLocation)
-              const fromStoreNeedCount = fromStoreNeeds?.get(scenarioId) || 0
-              const kitsAlreadyAtFromStore = Object.entries(scenarioState)
-                .filter(([_, sid]) => sid === currentLocation)
+            // 同じグループの店舗は移動不要
+            if (currentLocation && !isSameGroup(currentLocation, storeId)) {
+              // このキットがその日、移動元店舗（またはそのグループ）で使われるか確認
+              // 移動元グループ内の全店舗の需要をチェック
+              let fromGroupNeedCount = 0
+              for (const [checkStoreId, checkNeeds] of storeNeeds) {
+                if (isSameGroup(checkStoreId, currentLocation)) {
+                  fromGroupNeedCount += checkNeeds.get(scenarioId) || 0
+                }
+              }
+              const kitsAlreadyAtFromGroup = Object.entries(scenarioState)
+                .filter(([_, sid]) => isSameGroup(sid, currentLocation))
                 .length
               
-              // 移動元に余裕がある場合のみ移動可能
-              if (kitsAlreadyAtFromStore > fromStoreNeedCount) {
+              // 移動元グループに余裕がある場合のみ移動可能
+              if (kitsAlreadyAtFromGroup > fromGroupNeedCount) {
                 otherKits.push({ kitNumber: kitNum, fromStoreId: currentLocation })
               }
             }

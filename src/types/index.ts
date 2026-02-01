@@ -157,6 +157,7 @@ export interface Store {
   display_order?: number  // 表示順序（設定画面で変更可能）
   region?: string  // 地域（例: "東京", "県外"）- 店舗選択でグループ分け表示に使用
   transport_allowance?: number  // 交通費（担当店舗以外のスタッフが出勤した場合に加算される金額）
+  kit_group_id?: string | null  // キットグループの親店舗ID（同じ値を持つ店舗はキット移動計算で同一拠点として扱う）
   created_at: string
   updated_at: string
 }

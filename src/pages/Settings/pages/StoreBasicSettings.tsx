@@ -28,6 +28,7 @@ interface StoreSettings {
   display_order?: number
   is_temporary?: boolean
   ownership_type?: string
+  kit_group_id?: string | null  // キットグループの親店舗ID
 }
 
 interface StoreBasicSettingsProps {
@@ -138,7 +139,8 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
           capacity: formData.capacity,
           rooms: formData.rooms,
           color: formData.color,
-          notes: formData.notes
+          notes: formData.notes,
+          kit_group_id: formData.kit_group_id || null
         })
         .eq('id', formData.id)
 
@@ -362,6 +364,36 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
                 max="10"
               />
             </div>
+          </div>
+          
+          {/* キットグループ設定 */}
+          <div>
+            <Label htmlFor="kit_group">キットグループ（同一拠点）</Label>
+            <Select
+              value={formData.kit_group_id || 'none'}
+              onValueChange={(value) => setFormData(prev => ({
+                ...prev,
+                kit_group_id: value === 'none' ? null : value
+              }))}
+            >
+              <SelectTrigger id="kit_group">
+                <SelectValue placeholder="なし（単独店舗）" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">なし（単独店舗）</SelectItem>
+                {stores
+                  .filter(s => s.status === 'active' && s.id !== formData.id)
+                  .map(store => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.short_name || store.name}
+                    </SelectItem>
+                  ))
+                }
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              同じ住所にある別店舗を選択すると、キット移動計算で同一拠点として扱います（例：森1と森2）
+            </p>
           </div>
 
           <div>
