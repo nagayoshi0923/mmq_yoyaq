@@ -109,6 +109,91 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const storeMap = useMemo(() => {
     return new Map(stores.map(s => [s.id, s]))
   }, [stores])
+  
+  // 店舗ごとの在庫（store_id -> シナリオ情報の配列）
+  const storeInventory = useMemo(() => {
+    const inventory = new Map<string, Array<{ scenario: Scenario; kitNumbers: number[] }>>()
+    
+    // アクティブな店舗で初期化
+    stores.filter(s => s.status === 'active').forEach(store => {
+      inventory.set(store.id, [])
+    })
+    
+    // キット位置情報を集約
+    for (const loc of kitLocations) {
+      const scenario = scenarioMap.get(loc.scenario_id)
+      if (!scenario) continue
+      
+      const storeKits = inventory.get(loc.store_id)
+      if (!storeKits) continue
+      
+      const existing = storeKits.find(s => s.scenario.id === loc.scenario_id)
+      if (existing) {
+        existing.kitNumbers.push(loc.kit_number)
+      } else {
+        storeKits.push({ scenario, kitNumbers: [loc.kit_number] })
+      }
+    }
+    
+    return inventory
+  }, [kitLocations, scenarioMap, stores])
+  
+  // 週間の日付×店舗×シナリオでキット不足を計算
+  const kitShortages = useMemo(() => {
+    const shortages: Array<{
+      date: string
+      store_id: string
+      scenario_id: string
+      needed: number
+      available: number
+    }> = []
+    
+    // 現在のキット状態をシミュレート
+    const currentState = new Map<string, string>() // `${scenario_id}-${kit_number}` -> store_id
+    for (const loc of kitLocations) {
+      currentState.set(`${loc.scenario_id}-${loc.kit_number}`, loc.store_id)
+    }
+    
+    // 日付順に需要をチェック
+    for (const date of weekDates) {
+      const dayEvents = scheduleEvents.filter(e => e.date === date)
+      
+      // 店舗×シナリオで集計
+      const needs = new Map<string, number>() // `${store_id}-${scenario_id}` -> count
+      for (const event of dayEvents) {
+        const key = `${event.store_id}-${event.scenario_id}`
+        needs.set(key, (needs.get(key) || 0) + 1)
+      }
+      
+      // 各需要に対して在庫をチェック
+      for (const [key, needed] of needs) {
+        const [storeId, scenarioId] = key.split('-')
+        const scenario = scenarioMap.get(scenarioId)
+        if (!scenario) continue
+        
+        // その店舗にあるキット数をカウント
+        const kitCount = scenario.kit_count || 1
+        let available = 0
+        for (let i = 1; i <= kitCount; i++) {
+          if (currentState.get(`${scenarioId}-${i}`) === storeId) {
+            available++
+          }
+        }
+        
+        if (available < needed) {
+          shortages.push({
+            date,
+            store_id: storeId,
+            scenario_id: scenarioId,
+            needed,
+            available
+          })
+        }
+      }
+    }
+    
+    return shortages
+  }, [weekDates, scheduleEvents, kitLocations, scenarioMap])
 
   // データ取得
   const fetchData = useCallback(async () => {
@@ -352,9 +437,17 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
         {/* タブ */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="current">現在の配置</TabsTrigger>
-            <TabsTrigger value="demand">週間需要</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="current">シナリオ別</TabsTrigger>
+            <TabsTrigger value="store">店舗別在庫</TabsTrigger>
+            <TabsTrigger value="demand">
+              週間需要
+              {kitShortages.length > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 px-1.5">
+                  {kitShortages.length}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="transfers">移動計画</TabsTrigger>
           </TabsList>
 
@@ -473,9 +566,84 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             </div>
           </TabsContent>
 
+          {/* 店舗別在庫 */}
+          <TabsContent value="store" className="flex-1 overflow-auto">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                各店舗に現在あるキットの一覧を表示します
+              </p>
+              
+              <div className="grid gap-3">
+                {stores.filter(s => s.status === 'active').map(store => {
+                  const inventory = storeInventory.get(store.id) || []
+                  const totalKits = inventory.reduce((sum, item) => sum + item.kitNumbers.length, 0)
+                  
+                  return (
+                    <div key={store.id} className="border rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-medium">{store.short_name || store.name}</div>
+                        <Badge variant={totalKits > 0 ? 'default' : 'secondary'}>
+                          {totalKits}キット
+                        </Badge>
+                      </div>
+                      
+                      {inventory.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">キットなし</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {inventory.map(item => (
+                            <Badge
+                              key={item.scenario.id}
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              {item.scenario.title.slice(0, 12)}
+                              {item.scenario.title.length > 12 ? '...' : ''}
+                              {item.kitNumbers.length > 1 && ` ×${item.kitNumbers.length}`}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </TabsContent>
+
           {/* 週間需要 */}
           <TabsContent value="demand" className="flex-1 overflow-auto">
             <div className="space-y-4">
+              {/* 警告表示 */}
+              {kitShortages.length > 0 && (
+                <div className="border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
+                  <div className="flex items-center gap-2 font-medium text-red-800 dark:text-red-200 mb-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    キット不足警告 ({kitShortages.length}件)
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    {kitShortages.slice(0, 5).map((shortage, index) => {
+                      const store = storeMap.get(shortage.store_id)
+                      const scenario = scenarioMap.get(shortage.scenario_id)
+                      return (
+                        <div key={index} className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                          <span className="font-medium">{formatDate(shortage.date)}</span>
+                          <span>{store?.short_name || store?.name}</span>
+                          <span>-</span>
+                          <span>{scenario?.title.slice(0, 15)}{(scenario?.title.length || 0) > 15 ? '...' : ''}</span>
+                          <span className="text-red-500">
+                            (必要: {shortage.needed}, 在庫: {shortage.available})
+                          </span>
+                        </div>
+                      )
+                    })}
+                    {kitShortages.length > 5 && (
+                      <p className="text-muted-foreground">他 {kitShortages.length - 5} 件</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               <p className="text-sm text-muted-foreground">
                 選択した週の各日・各店舗で必要なキットを表示します
               </p>
@@ -512,13 +680,24 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                       const scenario = scenarioMap.get(sid)
                                       if (!scenario) return null
                                       const count = storeEvents.filter(e => e.scenario_id === sid).length
+                                      
+                                      // キット不足チェック
+                                      const shortage = kitShortages.find(
+                                        s => s.date === date && s.store_id === store.id && s.scenario_id === sid
+                                      )
+                                      const hasShortage = !!shortage
+                                      
                                       return (
                                         <Badge
                                           key={sid}
-                                          variant="secondary"
-                                          className="text-[10px] truncate max-w-[70px]"
-                                          title={`${scenario.title} × ${count}`}
+                                          variant={hasShortage ? 'destructive' : 'secondary'}
+                                          className={`text-[10px] truncate max-w-[80px] ${hasShortage ? 'animate-pulse' : ''}`}
+                                          title={hasShortage 
+                                            ? `${scenario.title} × ${count} ⚠️ キット不足 (在庫: ${shortage.available})`
+                                            : `${scenario.title} × ${count}`
+                                          }
                                         >
+                                          {hasShortage && <AlertTriangle className="h-2.5 w-2.5 mr-0.5 inline" />}
                                           {scenario.title.slice(0, 6)}
                                           {count > 1 && ` ×${count}`}
                                         </Badge>
