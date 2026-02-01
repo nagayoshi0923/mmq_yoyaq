@@ -46,9 +46,10 @@ import { HistoryModal } from '@/components/schedule/modal/HistoryModal'
 import { CategoryGmStatsBar } from '@/components/schedule/CategoryGmStatsBar'
 import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
+import { KitManagementDialog } from './components/KitManagementDialog'
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
@@ -82,6 +83,7 @@ export function ScheduleManager() {
 
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [isKitManagementOpen, setIsKitManagementOpen] = useState(false)
   const [isFillingSeats, setIsFillingSeats] = useState(false)
   const [isFixingData, setIsFixingData] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
@@ -750,6 +752,13 @@ export function ScheduleManager() {
           {/* アクションボタン - 連結グループ */}
           <div className="hidden sm:flex items-center h-9 border border-input rounded-lg overflow-hidden bg-background shrink-0 ml-auto">
             <button
+              onClick={() => setIsKitManagementOpen(true)}
+              title="キット配置管理"
+              className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-r border-input"
+            >
+              <Package className="h-4 w-4" />
+            </button>
+            <button
               onClick={() => setIsImportModalOpen(true)}
               title="インポート"
               className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors"
@@ -1204,6 +1213,12 @@ export function ScheduleManager() {
         cellInfo={historyModal.cellInfo}
         organizationId={organizationId || undefined}
         title={historyModal.title}
+      />
+
+      {/* キット配置管理ダイアログ */}
+      <KitManagementDialog
+        isOpen={isKitManagementOpen}
+        onClose={() => setIsKitManagementOpen(false)}
       />
     </AppLayout>
   )

@@ -624,6 +624,44 @@ export const scheduleApi = {
     return allEvents
   },
 
+  // 日付範囲でスケジュールを取得（キット管理用）
+  async getByDateRange(startDate: string, endDate: string, organizationId?: string) {
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let query = supabase
+      .from('schedule_events')
+      .select(`
+        id,
+        date,
+        venue,
+        store_id,
+        scenario,
+        scenario_id,
+        start_time,
+        end_time,
+        category,
+        is_cancelled
+      `)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('is_cancelled', false)
+      .order('date')
+      .order('start_time')
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
+    
+    if (error) {
+      logger.error('Failed to fetch schedule by date range:', error)
+      throw error
+    }
+    
+    return data || []
+  },
+
   // シナリオIDで指定期間の公演を取得
   async getByScenarioId(scenarioId: string, startDate: string, endDate: string, organizationId?: string) {
     const orgId = organizationId || await getCurrentOrganizationId()

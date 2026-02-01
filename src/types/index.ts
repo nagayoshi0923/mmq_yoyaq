@@ -668,3 +668,64 @@ export interface ScheduleEventWithReservations {
   notes?: string
   is_cancelled: boolean
 }
+
+// ================================================
+// キット管理関連の型定義
+// ================================================
+
+// キット現在位置
+export interface KitLocation {
+  id: string
+  organization_id: string
+  scenario_id: string
+  kit_number: number  // 1から始まるキット番号
+  store_id: string
+  created_at: string
+  updated_at: string
+  // JOIN時の拡張フィールド
+  scenario?: Scenario
+  store?: Store
+}
+
+// キット移動イベント
+export interface KitTransferEvent {
+  id: string
+  organization_id: string
+  scenario_id: string
+  kit_number: number
+  from_store_id: string
+  to_store_id: string
+  transfer_date: string  // YYYY-MM-DD形式
+  status: 'pending' | 'completed' | 'cancelled'
+  notes?: string | null
+  created_by?: string | null
+  created_at: string
+  updated_at: string
+  // JOIN時の拡張フィールド
+  scenario?: Scenario
+  from_store?: Store
+  to_store?: Store
+}
+
+// キット移動提案（最適化アルゴリズムの出力）
+export interface KitTransferSuggestion {
+  scenario_id: string
+  scenario_title: string
+  kit_number: number
+  from_store_id: string
+  from_store_name: string
+  to_store_id: string
+  to_store_name: string
+  transfer_date: string
+  reason: string  // 移動理由（例: "2/3に新宿店で公演予定"）
+}
+
+// 週間キット需要（日×店舗×シナリオ）
+export interface KitDemand {
+  date: string
+  store_id: string
+  store_name: string
+  scenario_id: string
+  scenario_title: string
+  event_count: number  // その日のその店舗でのそのシナリオの公演数
+}

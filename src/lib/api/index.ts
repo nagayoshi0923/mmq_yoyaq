@@ -18,3 +18,6 @@ export { salesApi } from './salesApi'
 // scheduleApi
 export { scheduleApi } from './scheduleApi'
 
+// kitApi
+export { kitApi } from './kitApi'
+
