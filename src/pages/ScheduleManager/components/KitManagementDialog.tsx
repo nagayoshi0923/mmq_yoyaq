@@ -30,7 +30,25 @@ import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, Scena
 import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search } from 'lucide-react'
+import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuLabel } from '@/components/ui/context-menu'
+import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical } from 'lucide-react'
+
+// ドラッグ中のキット情報
+interface DraggedKit {
+  scenarioId: string
+  kitNumber: number
+  fromStoreId: string
+}
+
+// コンテキストメニュー情報
+interface ContextMenuState {
+  x: number
+  y: number
+  scenarioId: string
+  kitNumber: number
+  storeId: string
+  condition: KitCondition
+}
 
 interface KitManagementDialogProps {
   isOpen: boolean
@@ -83,6 +101,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   
   // シナリオ検索
   const [scenarioSearch, setScenarioSearch] = useState('')
+  
+  // コンテキストメニュー
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  
+  // ドラッグ&ドロップ
+  const [draggedKit, setDraggedKit] = useState<DraggedKit | null>(null)
+  const [dragOverStoreId, setDragOverStoreId] = useState<string | null>(null)
 
   // 週の日付リスト
   const weekDates = useMemo(() => {
@@ -475,6 +500,76 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       showToast.error('状態の更新に失敗しました')
     }
   }
+  
+  // キットを別店舗に移動
+  const handleMoveKit = async (scenarioId: string, kitNumber: number, toStoreId: string) => {
+    try {
+      await kitApi.setKitLocation(scenarioId, kitNumber, toStoreId)
+      const targetStore = storeMap.get(toStoreId)
+      showToast.success(`${targetStore?.short_name || targetStore?.name || '別店舗'}に移動しました`)
+      fetchData()
+    } catch (error) {
+      console.error('Failed to move kit:', error)
+      showToast.error('移動に失敗しました')
+    }
+  }
+  
+  // ドラッグ開始
+  const handleDragStart = (e: React.DragEvent, scenarioId: string, kitNumber: number, fromStoreId: string) => {
+    setDraggedKit({ scenarioId, kitNumber, fromStoreId })
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', `${scenarioId}:${kitNumber}`)
+  }
+  
+  // ドラッグ終了
+  const handleDragEnd = () => {
+    setDraggedKit(null)
+    setDragOverStoreId(null)
+  }
+  
+  // ドラッグオーバー（ドロップ先）
+  const handleDragOver = (e: React.DragEvent, storeId: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (draggedKit && draggedKit.fromStoreId !== storeId) {
+      setDragOverStoreId(storeId)
+    }
+  }
+  
+  // ドラッグ離れ
+  const handleDragLeave = () => {
+    setDragOverStoreId(null)
+  }
+  
+  // ドロップ
+  const handleDrop = async (e: React.DragEvent, toStoreId: string) => {
+    e.preventDefault()
+    setDragOverStoreId(null)
+    
+    if (draggedKit && draggedKit.fromStoreId !== toStoreId) {
+      await handleMoveKit(draggedKit.scenarioId, draggedKit.kitNumber, toStoreId)
+    }
+    setDraggedKit(null)
+  }
+  
+  // コンテキストメニュー表示
+  const handleContextMenu = (
+    e: React.MouseEvent,
+    scenarioId: string,
+    kitNumber: number,
+    storeId: string,
+    condition: KitCondition
+  ) => {
+    e.preventDefault()
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      scenarioId,
+      kitNumber,
+      storeId,
+      condition
+    })
+  }
 
   // 日付フォーマット
   const formatDate = (dateStr: string) => {
@@ -764,15 +859,25 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
           {/* 店舗別在庫（カラム式） */}
           <TabsContent value="store" className="flex-1 overflow-auto">
+            <p className="text-xs text-muted-foreground mb-2">
+              ドラッグ&ドロップまたは右クリックで店舗間移動・状態変更ができます
+            </p>
             <div className="flex gap-3 h-full overflow-x-auto pb-2">
               {stores.filter(s => s.status === 'active').map(store => {
                 const inventory = storeInventory.get(store.id) || []
                 const totalKits = inventory.reduce((sum, item) => sum + item.kits.length, 0)
+                const isDragOver = dragOverStoreId === store.id
                 
                 return (
                   <div
                     key={store.id}
-                    className="flex-shrink-0 w-48 bg-muted/30 rounded-lg flex flex-col"
+                    className={`
+                      flex-shrink-0 w-48 bg-muted/30 rounded-lg flex flex-col transition-colors
+                      ${isDragOver ? 'ring-2 ring-primary bg-primary/10' : ''}
+                    `}
+                    onDragOver={(e) => handleDragOver(e, store.id)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, store.id)}
                   >
                     {/* カラムヘッダー */}
                     <div className="p-2 border-b bg-muted/50 rounded-t-lg">
@@ -787,26 +892,35 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     </div>
                     
                     {/* キットカード一覧 */}
-                    <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
+                    <div className="flex-1 overflow-y-auto p-1.5 space-y-1 min-h-[100px]">
                       {inventory.length === 0 ? (
                         <p className="text-xs text-muted-foreground text-center py-2">
-                          キットなし
+                          {isDragOver ? 'ここにドロップ' : 'キットなし'}
                         </p>
                       ) : (
                         inventory.flatMap(item =>
                           item.kits.map(kit => {
                             const hasIssue = kit.condition !== 'good'
+                            const isDragging = draggedKit?.scenarioId === item.scenario.id && 
+                                              draggedKit?.kitNumber === kit.kitNumber
                             return (
                               <div
                                 key={`${item.scenario.id}-${kit.kitNumber}`}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, item.scenario.id, kit.kitNumber, store.id)}
+                                onDragEnd={handleDragEnd}
+                                onContextMenu={(e) => handleContextMenu(e, item.scenario.id, kit.kitNumber, store.id, kit.condition)}
                                 className={`
-                                  px-2 py-1 rounded border bg-background text-xs
+                                  px-2 py-1 rounded border bg-background text-xs cursor-grab active:cursor-grabbing
                                   ${hasIssue ? 'border-orange-300 dark:border-orange-700' : 'border-border'}
+                                  ${isDragging ? 'opacity-50' : ''}
+                                  hover:border-primary/50 hover:shadow-sm transition-all
                                 `}
-                                title={kit.conditionNotes || undefined}
+                                title={kit.conditionNotes || 'ドラッグで移動 / 右クリックでメニュー'}
                               >
                                 {/* 状態 + シナリオ名 */}
                                 <div className="flex items-center gap-1.5">
+                                  <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
                                   <span
                                     className={`shrink-0 w-4 h-4 flex items-center justify-center rounded text-[10px] ${KIT_CONDITION_COLORS[kit.condition]}`}
                                   >
@@ -821,7 +935,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                 </div>
                                 {/* 問題がある場合のみメモを表示 */}
                                 {hasIssue && (
-                                  <div className="text-[10px] text-orange-600 dark:text-orange-400 mt-0.5 truncate pl-5">
+                                  <div className="text-[10px] text-orange-600 dark:text-orange-400 mt-0.5 truncate pl-7">
                                     {KIT_CONDITION_LABELS[kit.condition]}
                                     {kit.conditionNotes && `: ${kit.conditionNotes}`}
                                   </div>
@@ -1150,6 +1264,49 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           </TabsContent>
         </Tabs>
       </DialogContent>
+      
+      {/* コンテキストメニュー */}
+      {contextMenu && (
+        <ContextMenuContent
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+        >
+          <ContextMenuLabel>状態を変更</ContextMenuLabel>
+          {(Object.keys(KIT_CONDITION_LABELS) as KitCondition[]).map(cond => (
+            <ContextMenuItem
+              key={cond}
+              onClick={() => {
+                handleUpdateCondition(contextMenu.scenarioId, contextMenu.kitNumber, cond)
+                setContextMenu(null)
+              }}
+              className={contextMenu.condition === cond ? 'bg-accent' : ''}
+            >
+              <span className={`mr-2 px-1 py-0.5 rounded text-[10px] ${KIT_CONDITION_COLORS[cond]}`}>
+                {cond === 'good' ? '✓' : '!'}
+              </span>
+              {KIT_CONDITION_LABELS[cond]}
+              {contextMenu.condition === cond && <Check className="h-3 w-3 ml-auto" />}
+            </ContextMenuItem>
+          ))}
+          
+          <ContextMenuSeparator />
+          
+          <ContextMenuLabel>店舗に移動</ContextMenuLabel>
+          {stores.filter(s => s.status === 'active' && s.id !== contextMenu.storeId).map(store => (
+            <ContextMenuItem
+              key={store.id}
+              onClick={() => {
+                handleMoveKit(contextMenu.scenarioId, contextMenu.kitNumber, store.id)
+                setContextMenu(null)
+              }}
+            >
+              <ArrowRight className="h-3 w-3 mr-2" />
+              {store.short_name || store.name}
+            </ContextMenuItem>
+          ))}
+        </ContextMenuContent>
+      )}
     </Dialog>
   )
 }
