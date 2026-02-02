@@ -110,7 +110,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [dragOverStoreId, setDragOverStoreId] = useState<string | null>(null)
   
 
-  // 週の日付リスト
+  // 週の日付リスト（移動日判定用）
   const weekDates = useMemo(() => {
     const dates: string[] = []
     for (let i = 0; i < 7; i++) {
@@ -120,6 +120,59 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
     return dates
   }, [selectedWeekStart])
+  
+  // 週間需要で表示する日付リスト（公演期間 = 移動日の翌日〜最後の移動日がカバーする範囲）
+  // 例: 月・金移動の場合 → 火曜〜翌週月曜 (2/3〜2/9)
+  const demandDates = useMemo(() => {
+    if (transferDays.length === 0) return weekDates
+    
+    const sortedTransferDays = [...transferDays].sort((a, b) => a - b)
+    const firstTransferDay = sortedTransferDays[0]
+    const lastTransferDay = sortedTransferDays[sortedTransferDays.length - 1]
+    
+    // 最初の移動日の翌日から開始
+    const startDayOffset = 1 // 翌日から
+    
+    // 最後の移動日がカバーする終了日を計算
+    // 最後の移動日 → 次の移動日まで（最初の移動日に戻る）
+    let endDayOffset = firstTransferDay - lastTransferDay
+    if (endDayOffset <= 0) endDayOffset += 7
+    
+    // 週の最初の移動日を基準に日付を計算
+    const weekStartDayOfWeek = selectedWeekStart.getDay()
+    let daysToFirstTransfer = firstTransferDay - weekStartDayOfWeek
+    if (daysToFirstTransfer < 0) daysToFirstTransfer += 7
+    
+    const firstTransferDate = new Date(selectedWeekStart)
+    firstTransferDate.setDate(selectedWeekStart.getDate() + daysToFirstTransfer)
+    
+    // 公演開始日 = 最初の移動日の翌日
+    const demandStartDate = new Date(firstTransferDate)
+    demandStartDate.setDate(firstTransferDate.getDate() + startDayOffset)
+    
+    // 公演終了日 = 最後の移動日 + そのカバー範囲
+    let daysToLastTransfer = lastTransferDay - weekStartDayOfWeek
+    if (daysToLastTransfer < 0) daysToLastTransfer += 7
+    
+    const lastTransferDate = new Date(selectedWeekStart)
+    lastTransferDate.setDate(selectedWeekStart.getDate() + daysToLastTransfer)
+    
+    const demandEndDate = new Date(lastTransferDate)
+    demandEndDate.setDate(lastTransferDate.getDate() + endDayOffset)
+    
+    // 日付リストを作成
+    const dates: string[] = []
+    const currentDate = new Date(demandStartDate)
+    while (currentDate <= demandEndDate) {
+      const year = currentDate.getFullYear()
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0')
+      const day = String(currentDate.getDate()).padStart(2, '0')
+      dates.push(`${year}-${month}-${day}`)
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+    
+    return dates
+  }, [selectedWeekStart, transferDays, weekDates])
 
   // 検索フィルタ関数
   const matchesSearch = useCallback((scenario: Scenario) => {
@@ -247,8 +300,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       currentState.set(`${loc.scenario_id}-${loc.kit_number}`, loc.store_id)
     }
     
-    // 日付順に需要をチェック
-    for (const date of weekDates) {
+    // 日付順に需要をチェック（公演期間 = demandDates）
+    for (const date of demandDates) {
       const dayEvents = scheduleEvents.filter(e => e.date === date)
       
       // 店舗×シナリオで集計
@@ -287,7 +340,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
     
     return shortages
-  }, [weekDates, scheduleEvents, kitLocations, scenarioMap, isSameStoreGroup])
+  }, [demandDates, scheduleEvents, kitLocations, scenarioMap, isSameStoreGroup])
   
   // 移動提案をルート（店舗グループ→店舗グループ）でグループ化
   // ヘッダーはグループ名、個々のアイテムは実際の店舗名を保持
@@ -1144,7 +1197,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     </tr>
                   </thead>
                   <tbody>
-                    {weekDates.map(date => {
+                    {demandDates.map(date => {
                       const dayEvents = scheduleEvents.filter(e => e.date === date)
                       
                       return (
