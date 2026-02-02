@@ -771,6 +771,6 @@ export interface KitTransferCompletion {
   created_at: string
   updated_at: string
   // JOIN時の拡張フィールド
-  picked_up_by_staff?: { id: string; display_name: string | null; name: string | null }
-  delivered_by_staff?: { id: string; display_name: string | null; name: string | null }
+  picked_up_by_staff?: { id: string; name: string | null }
+  delivered_by_staff?: { id: string; name: string | null }
 }

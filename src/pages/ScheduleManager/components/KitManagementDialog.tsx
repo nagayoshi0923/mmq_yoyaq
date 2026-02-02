@@ -1946,7 +1946,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const completion = getCompletion(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   
                                                   // 誰が設置したか
-                                                  const deliveredByName = completion?.delivered_by_staff?.display_name || completion?.delivered_by_staff?.name
+                                                  const deliveredByName = completion?.delivered_by_staff?.name
                                                   
                                                   return (
                                                     <div key={index} className={`flex items-center gap-2 py-1 ${delivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10 rounded' : ''}`}>
@@ -2006,7 +2006,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const completion = getCompletion(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   
                                                   // 誰が回収したか
-                                                  const pickedUpByName = completion?.picked_up_by_staff?.display_name || completion?.picked_up_by_staff?.name
+                                                  const pickedUpByName = completion?.picked_up_by_staff?.name
                                                   
                                                   return (
                                                     <div key={index} className={`flex items-center gap-2 py-1 ${pickedUp ? 'bg-blue-50 dark:bg-blue-900/10 rounded' : ''} ${delivered ? 'opacity-40' : ''}`}>

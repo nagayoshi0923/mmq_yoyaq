@@ -365,8 +365,8 @@ export const kitApi = {
       .from('kit_transfer_completions')
       .select(`
         *,
-        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, display_name, name),
-        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, display_name, name)
+        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, name),
+        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, name)
       `)
       .eq('organization_id', orgId)
       .gte('performance_date', startDate)
@@ -410,8 +410,8 @@ export const kitApi = {
       })
       .select(`
         *,
-        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, display_name, name),
-        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, display_name, name)
+        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, name),
+        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, name)
       `)
       .single()
 
@@ -481,8 +481,8 @@ export const kitApi = {
       .eq('to_store_id', toStoreId)
       .select(`
         *,
-        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, display_name, name),
-        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, display_name, name)
+        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, name),
+        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, name)
       `)
       .single()
 
