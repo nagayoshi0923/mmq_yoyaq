@@ -424,8 +424,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       setScenarios(scenariosData)
 
       // 週間スケジュールを取得
+      // 金曜移動分は翌週月曜までカバーするので、+3日まで取得
       const startDate = weekDates[0]
-      const endDate = weekDates[6]
+      const endDateObj = new Date(weekDates[6])
+      endDateObj.setDate(endDateObj.getDate() + 3) // 週末+3日（翌週の水曜まで）
+      const endDate = endDateObj.toISOString().split('T')[0]
       const eventsData = await scheduleApi.getByDateRange(startDate, endDate)
       
       // デバッグログ
@@ -448,8 +451,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         scenario_id: e.scenario_id || ''
       })).filter(e => e.scenario_id))
 
-      // 移動イベントを取得
-      const transfersData = await kitApi.getTransferEvents(startDate, endDate)
+      // 移動イベントを取得（週の範囲内のみ）
+      const transfersData = await kitApi.getTransferEvents(weekDates[0], weekDates[6])
       setTransferEvents(transfersData)
     } catch (error) {
       console.error('Failed to fetch kit data:', error)
