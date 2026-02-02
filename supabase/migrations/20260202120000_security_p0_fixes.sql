@@ -143,10 +143,10 @@ BEGIN
     DROP POLICY IF EXISTS "kit_items_update_policy" ON public.kit_items;
     CREATE POLICY "kit_items_update_policy" ON public.kit_items
       FOR UPDATE USING (
-        organization_id = get_user_organization_id() AND is_org_staff()
+        organization_id = get_user_organization_id() AND (is_admin() OR is_org_admin())
       )
       WITH CHECK (
-        organization_id = get_user_organization_id() AND is_org_staff()
+        organization_id = get_user_organization_id() AND (is_admin() OR is_org_admin())
       );
     RAISE NOTICE '✅ P0-2: kit_items WITH CHECK 追加';
   END IF;
@@ -159,10 +159,10 @@ BEGIN
     DROP POLICY IF EXISTS "kit_transfers_update_policy" ON public.kit_transfers;
     CREATE POLICY "kit_transfers_update_policy" ON public.kit_transfers
       FOR UPDATE USING (
-        organization_id = get_user_organization_id() AND is_org_staff()
+        organization_id = get_user_organization_id() AND (is_admin() OR is_org_admin())
       )
       WITH CHECK (
-        organization_id = get_user_organization_id() AND is_org_staff()
+        organization_id = get_user_organization_id() AND (is_admin() OR is_org_admin())
       );
     RAISE NOTICE '✅ P0-2: kit_transfers WITH CHECK 追加';
   END IF;
@@ -175,10 +175,10 @@ BEGIN
     DROP POLICY IF EXISTS "kit_transfer_completions_update_policy" ON public.kit_transfer_completions;
     CREATE POLICY "kit_transfer_completions_update_policy" ON public.kit_transfer_completions
       FOR UPDATE USING (
-        organization_id = get_user_organization_id() AND is_org_staff()
+        organization_id = get_user_organization_id() AND (is_admin() OR is_org_admin())
       )
       WITH CHECK (
-        organization_id = get_user_organization_id() AND is_org_staff()
+        organization_id = get_user_organization_id() AND (is_admin() OR is_org_admin())
       );
     RAISE NOTICE '✅ P0-2: kit_transfer_completions WITH CHECK 追加';
   END IF;
@@ -192,10 +192,10 @@ BEGIN
     DROP POLICY IF EXISTS "reservations_update_own_org" ON public.reservations;
     CREATE POLICY "reservations_update_own_org" ON public.reservations
       FOR UPDATE USING (
-        organization_id = get_user_organization_id() AND (is_org_staff() OR is_org_admin())
+        organization_id = get_user_organization_id() AND (is_org_admin() OR is_org_admin())
       )
       WITH CHECK (
-        organization_id = get_user_organization_id() AND (is_org_staff() OR is_org_admin())
+        organization_id = get_user_organization_id() AND (is_org_admin() OR is_org_admin())
       );
     RAISE NOTICE '✅ P0-2: reservations WITH CHECK 追加';
   END IF;
@@ -209,10 +209,10 @@ BEGIN
     DROP POLICY IF EXISTS "schedule_events_update_own_org" ON public.schedule_events;
     CREATE POLICY "schedule_events_update_own_org" ON public.schedule_events
       FOR UPDATE USING (
-        organization_id = get_user_organization_id() AND (is_org_staff() OR is_org_admin())
+        organization_id = get_user_organization_id() AND (is_org_admin() OR is_org_admin())
       )
       WITH CHECK (
-        organization_id = get_user_organization_id() AND (is_org_staff() OR is_org_admin())
+        organization_id = get_user_organization_id() AND (is_org_admin() OR is_org_admin())
       );
     RAISE NOTICE '✅ P0-2: schedule_events WITH CHECK 追加';
   END IF;
@@ -264,7 +264,7 @@ BEGIN
   -- 🔒 権限確認（本人 or スタッフ/管理者）
   IF v_reservation_customer_id IS DISTINCT FROM v_auth_customer_id 
      AND NOT is_org_admin() 
-     AND NOT is_org_staff() THEN
+     AND NOT is_org_admin() THEN
     RAISE EXCEPTION 'UNAUTHORIZED: 予約の変更権限がありません' USING ERRCODE = 'P0010';
   END IF;
   
