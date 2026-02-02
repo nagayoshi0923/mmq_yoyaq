@@ -126,6 +126,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [draggedKit, setDraggedKit] = useState<DraggedKit | null>(null)
   const [dragOverStoreId, setDragOverStoreId] = useState<string | null>(null)
   
+  // 設置確認ダイアログ
+  const [deliveryConfirm, setDeliveryConfirm] = useState<{
+    scenarioId: string
+    kitNumber: number
+    performanceDate: string
+    toStoreId: string
+    scenarioTitle: string
+    toStoreName: string
+  } | null>(null)
+  
   // ヘルプダイアログ
   const [showHelp, setShowHelp] = useState(false)
 
@@ -670,8 +680,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
   }
   
-  // 設置完了をトグル
-  const handleToggleDelivery = async (
+  // 設置完了をトグル（確認ダイアログを表示）
+  const handleToggleDelivery = (
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
@@ -690,18 +700,36 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     
     const currentlyDelivered = isDelivered(scenarioId, kitNumber, performanceDate, toStoreId)
     
-    // 設置完了時は確認ダイアログを表示（キット位置が変わるため）
-    if (!currentlyDelivered) {
+    if (currentlyDelivered) {
+      // 設置解除は確認なしで実行
+      executeDeliveryToggle(scenarioId, kitNumber, performanceDate, toStoreId, true)
+    } else {
+      // 設置完了時は確認ダイアログを表示
       const toStore = storeMap.get(toStoreId)
       const toStoreName = toStore?.short_name || toStore?.name || '移動先'
-      const confirmed = window.confirm(
-        `「${scenarioTitle || 'このキット'}」を${toStoreName}に設置完了としてマークしますか？\n\n※キットの登録場所も${toStoreName}に更新されます`
-      )
-      if (!confirmed) return
+      setDeliveryConfirm({
+        scenarioId,
+        kitNumber,
+        performanceDate,
+        toStoreId,
+        scenarioTitle: scenarioTitle || 'このキット',
+        toStoreName
+      })
     }
+  }
+  
+  // 設置完了/解除を実行
+  const executeDeliveryToggle = async (
+    scenarioId: string,
+    kitNumber: number,
+    performanceDate: string,
+    toStoreId: string,
+    isUnmark: boolean
+  ) => {
+    if (!currentStaffId) return
     
     try {
-      if (currentlyDelivered) {
+      if (isUnmark) {
         // 設置解除（キット位置は戻さない - 手動で戻す必要あり）
         await kitApi.unmarkDelivered(scenarioId, kitNumber, performanceDate, toStoreId)
       } else {
@@ -716,6 +744,20 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     } catch (error) {
       console.error('Failed to toggle delivery:', error)
       showToast.error('操作に失敗しました')
+    }
+  }
+  
+  // 設置確認ダイアログでOKを押した時
+  const handleConfirmDelivery = () => {
+    if (deliveryConfirm) {
+      executeDeliveryToggle(
+        deliveryConfirm.scenarioId,
+        deliveryConfirm.kitNumber,
+        deliveryConfirm.performanceDate,
+        deliveryConfirm.toStoreId,
+        false
+      )
+      setDeliveryConfirm(null)
     }
   }
   
@@ -2139,6 +2181,46 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           ))}
         </ContextMenuContent>
       )}
+      
+      {/* 設置確認ダイアログ */}
+      <Dialog open={!!deliveryConfirm} onOpenChange={(open) => !open && setDeliveryConfirm(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-green-600" />
+              設置完了の確認
+            </DialogTitle>
+          </DialogHeader>
+          
+          {deliveryConfirm && (
+            <div className="space-y-4">
+              <p className="text-sm">
+                「<span className="font-bold">{deliveryConfirm.scenarioTitle}</span>」を
+                <span className="font-bold text-green-600">{deliveryConfirm.toStoreName}</span>
+                に設置完了としてマークしますか？
+              </p>
+              
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                  ⚠️ キットの登録場所も「{deliveryConfirm.toStoreName}」に更新されます
+                </p>
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setDeliveryConfirm(null)}>
+                  キャンセル
+                </Button>
+                <Button 
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={handleConfirmDelivery}
+                >
+                  設置完了
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       
       {/* ヘルプダイアログ */}
       <Dialog open={showHelp} onOpenChange={setShowHelp}>
