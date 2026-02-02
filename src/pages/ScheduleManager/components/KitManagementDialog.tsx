@@ -108,8 +108,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [suggestions, setSuggestions] = useState<KitTransferSuggestion[]>([])
   const [isCalculating, setIsCalculating] = useState(false)
   
-  // 移動可能曜日（デフォルト: 月・金）
-  const [transferDays, setTransferDays] = useState<number[]>([1, 5])
+  // 移動日（実際の日付文字列、デフォルトは空 - weekDatesが決まってから初期化）
+  const [transferDates, setTransferDates] = useState<string[]>([])
   
   // 移動完了状態（DBから取得）
   const [completions, setCompletions] = useState<KitTransferCompletion[]>([])
@@ -150,58 +150,61 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return dates
   }, [selectedWeekStart])
   
+  // 週が変わったらデフォルトの移動日を設定（月曜と金曜）
+  useEffect(() => {
+    if (weekDates.length > 0) {
+      // 月曜 (index 0) と金曜 (index 4)
+      const defaultDates: string[] = []
+      if (weekDates[0]) defaultDates.push(weekDates[0]) // 月曜
+      if (weekDates[4]) defaultDates.push(weekDates[4]) // 金曜
+      setTransferDates(defaultDates)
+    }
+  }, [weekDates])
+  
   // 週間需要で表示する日付リスト（公演期間 = 移動日の翌日〜最後の移動日がカバーする範囲）
-  // 例: 月・金移動の場合 → 火曜〜翌週月曜 (2/3〜2/9)
+  // 例: 月・金移動の場合 → 火曜〜翌週月曜
   const demandDates = useMemo(() => {
-    if (transferDays.length === 0) return weekDates
+    if (transferDates.length === 0) return weekDates
     
-    const sortedTransferDays = [...transferDays].sort((a, b) => a - b)
-    const firstTransferDay = sortedTransferDays[0]
-    const lastTransferDay = sortedTransferDays[sortedTransferDays.length - 1]
+    const sortedDates = [...transferDates].sort()
+    const firstTransferDateStr = sortedDates[0]
+    const lastTransferDateStr = sortedDates[sortedDates.length - 1]
     
-    // 最初の移動日の翌日から開始
-    const startDayOffset = 1 // 翌日から
+    // 日付文字列からDateオブジェクトを作成
+    const parseDate = (dateStr: string): Date => {
+      const [year, month, day] = dateStr.split('-').map(Number)
+      return new Date(year, month - 1, day)
+    }
     
-    // 最後の移動日がカバーする終了日を計算
-    // 最後の移動日 → 次の移動日まで（最初の移動日に戻る）
-    let endDayOffset = firstTransferDay - lastTransferDay
-    if (endDayOffset <= 0) endDayOffset += 7
+    const formatDate = (date: Date): string => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
     
-    // 週の最初の移動日を基準に日付を計算
-    const weekStartDayOfWeek = selectedWeekStart.getDay()
-    let daysToFirstTransfer = firstTransferDay - weekStartDayOfWeek
-    if (daysToFirstTransfer < 0) daysToFirstTransfer += 7
-    
-    const firstTransferDate = new Date(selectedWeekStart)
-    firstTransferDate.setDate(selectedWeekStart.getDate() + daysToFirstTransfer)
+    const firstTransferDate = parseDate(firstTransferDateStr)
+    const lastTransferDate = parseDate(lastTransferDateStr)
     
     // 公演開始日 = 最初の移動日の翌日
     const demandStartDate = new Date(firstTransferDate)
-    demandStartDate.setDate(firstTransferDate.getDate() + startDayOffset)
+    demandStartDate.setDate(firstTransferDate.getDate() + 1)
     
-    // 公演終了日 = 最後の移動日 + そのカバー範囲
-    let daysToLastTransfer = lastTransferDay - weekStartDayOfWeek
-    if (daysToLastTransfer < 0) daysToLastTransfer += 7
-    
-    const lastTransferDate = new Date(selectedWeekStart)
-    lastTransferDate.setDate(selectedWeekStart.getDate() + daysToLastTransfer)
-    
-    const demandEndDate = new Date(lastTransferDate)
-    demandEndDate.setDate(lastTransferDate.getDate() + endDayOffset)
+    // 公演終了日 = 次週の最初の移動日（lastTransfer + 次の移動日までの日数）
+    // ただしシンプルに最終移動日から7日後の最初の移動日前日まで
+    const demandEndDate = new Date(firstTransferDate)
+    demandEndDate.setDate(firstTransferDate.getDate() + 7) // 翌週の同じ曜日
     
     // 日付リストを作成
     const dates: string[] = []
     const currentDate = new Date(demandStartDate)
     while (currentDate <= demandEndDate) {
-      const year = currentDate.getFullYear()
-      const month = String(currentDate.getMonth() + 1).padStart(2, '0')
-      const day = String(currentDate.getDate()).padStart(2, '0')
-      dates.push(`${year}-${month}-${day}`)
+      dates.push(formatDate(currentDate))
       currentDate.setDate(currentDate.getDate() + 1)
     }
     
     return dates
-  }, [selectedWeekStart, transferDays, weekDates])
+  }, [transferDates, weekDates])
 
   // 検索フィルタ関数
   const matchesSearch = useCallback((scenario: Scenario) => {
@@ -814,6 +817,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         }
       }
 
+      // 移動日から曜日番号を抽出（calculateKitTransfers用）
+      const transferDaysOfWeek = transferDates.map(dateStr => {
+        const [year, month, day] = dateStr.split('-').map(Number)
+        return new Date(year, month - 1, day).getDay()
+      })
+      
       // デバッグログ
       console.log('📦 移動計算デバッグ:', {
         kitLocations: kitLocations.length,
@@ -822,7 +831,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         weekDates,
         demands: demands.length,
         scenariosWithKits: scenariosWithKits.length,
-        transferDays
+        transferDates,
+        transferDaysOfWeek
       })
       
       if (demands.length === 0) {
@@ -835,7 +845,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         demands,
         scenariosWithKits,
         stores,
-        transferDays
+        transferDaysOfWeek
       )
 
       console.log('📦 移動計算結果:', result)
@@ -861,17 +871,17 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     } finally {
       setIsCalculating(false)
     }
-  }, [kitLocations, scheduleEvents, weekDates, scenariosWithKits, stores, transferDays])
+  }, [kitLocations, scheduleEvents, weekDates, scenariosWithKits, stores, transferDates])
 
   // データが揃ったら自動で移動計画を計算（デバウンス付き）
   useEffect(() => {
-    if (isOpen && !loading && kitLocations.length > 0 && scheduleEvents.length > 0 && transferDays.length > 0) {
+    if (isOpen && !loading && kitLocations.length > 0 && scheduleEvents.length > 0 && transferDates.length > 0) {
       const timer = setTimeout(() => {
         handleCalculateTransfers(false)
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [isOpen, loading, kitLocations.length, scheduleEvents.length, transferDays, weekDates, handleCalculateTransfers])
+  }, [isOpen, loading, kitLocations.length, scheduleEvents.length, transferDates, weekDates, handleCalculateTransfers])
 
   // 移動イベントのステータス更新
   const handleUpdateStatus = async (eventId: string, status: 'completed' | 'cancelled') => {
@@ -1540,33 +1550,42 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           {/* 移動計画 */}
           <TabsContent value="transfers" className="flex-1 overflow-auto">
             <div className="space-y-4">
-              {/* 移動曜日設定 */}
-              <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
-                <span className="text-sm font-medium whitespace-nowrap">移動曜日:</span>
-                <div className="flex items-center gap-3 flex-wrap">
-                  {WEEKDAYS.map(day => (
-                    <label
-                      key={day.value}
-                      className="flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Checkbox
-                        checked={transferDays.includes(day.value)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setTransferDays(prev => [...prev, day.value].sort())
+              {/* 移動日設定 */}
+              <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg flex-wrap">
+                <span className="text-sm font-medium whitespace-nowrap">移動日:</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {weekDates.map(dateStr => {
+                    const [year, month, day] = dateStr.split('-').map(Number)
+                    const date = new Date(year, month - 1, day)
+                    const dayOfWeek = date.getDay()
+                    const dayLabel = WEEKDAYS.find(d => d.value === dayOfWeek)?.short || ''
+                    const isSelected = transferDates.includes(dateStr)
+                    
+                    return (
+                      <button
+                        key={dateStr}
+                        onClick={() => {
+                          if (isSelected) {
+                            setTransferDates(prev => prev.filter(d => d !== dateStr))
                           } else {
-                            setTransferDays(prev => prev.filter(d => d !== day.value))
+                            setTransferDates(prev => [...prev, dateStr].sort())
                           }
                         }}
-                      />
-                      <span className="text-sm">{day.short}</span>
-                    </label>
-                  ))}
+                        className={`px-2 py-1 text-xs rounded-md border transition-colors ${
+                          isSelected 
+                            ? 'bg-primary text-primary-foreground border-primary' 
+                            : 'bg-background border-muted-foreground/30 hover:border-primary/50'
+                        }`}
+                      >
+                        {month}/{day}({dayLabel})
+                      </button>
+                    )
+                  })}
                 </div>
                 <span className="text-xs text-muted-foreground ml-auto">
-                  {transferDays.length === 0 
-                    ? '曜日を選択してください' 
-                    : `週${transferDays.length}回の移動`}
+                  {transferDates.length === 0 
+                    ? '移動日を選択してください' 
+                    : `${transferDates.length}日の移動`}
                 </span>
               </div>
 
@@ -1613,7 +1632,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                   {/* 移動日別 → 出発店舗別にまとめて表示 */}
                   <div className="space-y-4">
                     {(() => {
-                      const sortedTransferDays = [...transferDays].sort((a, b) => a - b)
+                      const sortedTransferDateStrs = [...transferDates].sort()
                       
                       // 日付文字列からローカル日付オブジェクトを作成（タイムゾーン問題を回避）
                       const parseLocalDate = (dateStr: string): Date => {
@@ -1629,51 +1648,41 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         return `${year}-${month}-${day}`
                       }
                       
-                      // 公演日から実際の移動日（Date）を計算する関数
-                      // ルール: 当日運搬は危険なので、各移動日は「翌日〜次の移動日」の公演分を担当
-                      // 月曜移動 → 火〜金の公演分 (2,3,4,5)
-                      // 金曜移動 → 土〜月の公演分 (6,0,1)
+                      // 公演日から実際の移動日を計算する関数
+                      // ルール: 当日運搬は危険なので、公演日より前の直近の移動日を使用
                       const getActualTransferDate = (performanceDate: string): string | null => {
-                        if (sortedTransferDays.length === 0) return null
+                        if (sortedTransferDateStrs.length === 0) return null
                         
-                        const perfDate = parseLocalDate(performanceDate)
-                        const perfDayOfWeek = perfDate.getDay()
+                        const perfDateStr = performanceDate
                         
-                        // 各移動日のカバー範囲をチェックして、担当する移動日の曜日を見つける
-                        let responsibleTransferDayOfWeek = sortedTransferDays[0]
+                        // 公演日より前の移動日を探す（直近のもの）
+                        let responsibleTransferDate: string | null = null
                         
-                        for (let i = 0; i < sortedTransferDays.length; i++) {
-                          const currentTransferDay = sortedTransferDays[i]
-                          const nextTransferDay = sortedTransferDays[(i + 1) % sortedTransferDays.length]
-                          
-                          // この移動日がカバーする範囲: (自分の翌日) 〜 (次の移動日) まで
-                          const rangeStart = (currentTransferDay + 1) % 7
-                          const rangeEnd = nextTransferDay
-                          
-                          let inRange = false
-                          if (rangeStart <= rangeEnd) {
-                            // 週をまたがない場合 (月曜の範囲: 2〜5 = 火水木金)
-                            inRange = perfDayOfWeek >= rangeStart && perfDayOfWeek <= rangeEnd
-                          } else {
-                            // 週をまたぐ場合 (金曜の範囲: 6〜1 = 土日月)
-                            inRange = perfDayOfWeek >= rangeStart || perfDayOfWeek <= rangeEnd
-                          }
-                          
-                          if (inRange) {
-                            responsibleTransferDayOfWeek = currentTransferDay
+                        for (let i = sortedTransferDateStrs.length - 1; i >= 0; i--) {
+                          const transferDateStr = sortedTransferDateStrs[i]
+                          if (transferDateStr < perfDateStr) {
+                            responsibleTransferDate = transferDateStr
                             break
                           }
                         }
                         
-                        // 公演日から実際の移動日を計算（公演日より前の直近の該当曜日）
-                        let daysBack = perfDayOfWeek - responsibleTransferDayOfWeek
-                        if (daysBack <= 0) daysBack += 7 // 週をまたぐ場合
+                        // 公演日より前の移動日がない場合、前週の最後の移動日を探す
+                        if (!responsibleTransferDate && sortedTransferDateStrs.length > 0) {
+                          // 最後の移動日を使用（週をまたぐケース）
+                          const lastTransferDate = parseLocalDate(sortedTransferDateStrs[sortedTransferDateStrs.length - 1])
+                          // 1週間前の同じ曜日を計算
+                          const prevWeekDate = new Date(lastTransferDate)
+                          prevWeekDate.setDate(prevWeekDate.getDate() - 7)
+                          responsibleTransferDate = formatDateStr(prevWeekDate)
+                        }
                         
-                        const transferDate = new Date(perfDate)
-                        transferDate.setDate(transferDate.getDate() - daysBack)
-                        
-                        return formatDateStr(transferDate)
+                        return responsibleTransferDate
                       }
+                      
+                      // 間に合わない公演を検出（選択した移動日では対応できない公演）
+                      // 最初の移動日より前の公演は間に合わない
+                      const missedPerformances: typeof suggestions = []
+                      const firstTransferDate = sortedTransferDateStrs[0] || ''
                       
                       // 各キットを個別に移動日で振り分け、その後ルートでグループ化
                       // Map: transferDate -> Map: (from+to+scenario) -> items[]
@@ -1682,29 +1691,33 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       
                       // デバッグ用
                       console.log('🚚 移動日計算デバッグ:', {
-                        sortedTransferDays,
+                        sortedTransferDateStrs,
                         weekDates,
                         totalItems: suggestions.length
                       })
                       
                       // 各アイテムを個別に処理
                       for (const item of suggestions) {
-                        const perfDate = parseLocalDate(item.performance_date)
-                        const perfDayOfWeek = perfDate.getDay()
+                        const perfDateStr = item.performance_date
                         const actualTransferDateStr = getActualTransferDate(item.performance_date)
                         
                         console.log('  📦 キット:', {
                           scenario: item.scenario_title?.slice(0, 10),
                           performance_date: item.performance_date,
-                          perfDayOfWeek,
                           actualTransferDate: actualTransferDateStr,
-                          inWeekDates: actualTransferDateStr ? weekDates.includes(actualTransferDateStr) : false
+                          inTransferDates: actualTransferDateStr ? transferDates.includes(actualTransferDateStr) : false
                         })
+                        
+                        // 間に合わないケースを検出
+                        if (firstTransferDate && perfDateStr <= firstTransferDate) {
+                          missedPerformances.push(item)
+                          continue
+                        }
                         
                         if (!actualTransferDateStr) continue
                         
-                        // 今週の移動日のみ含める（weekDatesに含まれる日付のみ）
-                        if (!weekDates.includes(actualTransferDateStr)) continue
+                        // 選択された移動日のみ含める
+                        if (!transferDates.includes(actualTransferDateStr)) continue
                         
                         // 移動日でグループ化
                         if (!itemsByTransferDate.has(actualTransferDateStr)) {
@@ -1758,15 +1771,52 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         a[0].localeCompare(b[0])
                       )
                       
+                      // 間に合わない公演の警告表示
+                      const missedWarning = missedPerformances.length > 0 ? (
+                        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3 mb-4">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-medium text-orange-800 dark:text-orange-200 text-sm">
+                                以下の公演は選択した移動日では間に合いません
+                              </p>
+                              <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">
+                                前週の移動で対応するか、移動日を追加してください
+                              </p>
+                              <ul className="mt-2 space-y-1">
+                                {missedPerformances.slice(0, 5).map((item, idx) => {
+                                  const perfDate = parseLocalDate(item.performance_date)
+                                  const dayShort = WEEKDAYS.find(w => w.value === perfDate.getDay())?.short || '?'
+                                  return (
+                                    <li key={idx} className="text-xs text-orange-700 dark:text-orange-300">
+                                      {perfDate.getMonth() + 1}/{perfDate.getDate()}({dayShort}) - {item.to_store_name}: {item.scenario_title}
+                                    </li>
+                                  )
+                                })}
+                                {missedPerformances.length > 5 && (
+                                  <li className="text-xs text-orange-600">...他{missedPerformances.length - 5}件</li>
+                                )}
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null
+                      
                       if (sortedDays.length === 0) {
                         return (
-                          <div className="text-center py-4 text-muted-foreground">
-                            今週の移動日に該当する提案はありません
-                          </div>
+                          <>
+                            {missedWarning}
+                            <div className="text-center py-4 text-muted-foreground">
+                              選択した移動日に該当する提案はありません
+                            </div>
+                          </>
                         )
                       }
                       
-                      return sortedDays.map(([dateStr, groups], dayIndex) => {
+                      return (
+                        <>
+                          {missedWarning}
+                          {sortedDays.map(([dateStr, groups], dayIndex) => {
                         const transferDate = parseLocalDate(dateStr)
                         const transferDayOfWeek = transferDate.getDay()
                         const dayShort = WEEKDAYS.find(w => w.value === transferDayOfWeek)?.short || '?'
@@ -1775,18 +1825,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         
                         // この移動日がカバーする公演期間を計算
                         // 移動日の翌日 ～ 次の移動日まで
-                        const currentIdx = sortedTransferDays.indexOf(transferDayOfWeek)
-                        const nextTransferDayOfWeek = sortedTransferDays[(currentIdx + 1) % sortedTransferDays.length]
+                        const currentIdx = sortedTransferDateStrs.indexOf(dateStr)
+                        const nextTransferDateStr = sortedTransferDateStrs[(currentIdx + 1) % sortedTransferDateStrs.length]
+                        const nextTransferDate = parseLocalDate(nextTransferDateStr)
                         
                         // 公演開始日 = 移動日の翌日
                         const perfStartDate = new Date(transferDate)
                         perfStartDate.setDate(perfStartDate.getDate() + 1)
                         
                         // 公演終了日 = 次の移動日
-                        let daysToNext = nextTransferDayOfWeek - transferDayOfWeek
-                        if (daysToNext <= 0) daysToNext += 7
-                        const perfEndDate = new Date(transferDate)
-                        perfEndDate.setDate(perfEndDate.getDate() + daysToNext)
+                        const perfEndDate = nextTransferDate
                         
                         const perfStartLabel = `${perfStartDate.getMonth() + 1}/${perfStartDate.getDate()}`
                         const perfEndLabel = `${perfEndDate.getMonth() + 1}/${perfEndDate.getDate()}`
@@ -1835,7 +1883,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         return (
                           <div key={dateStr}>
                             {/* 移動日ヘッダー（複数日ある場合のみ表示） */}
-                            {transferDays.length > 1 && (
+                            {transferDates.length > 1 && (
                               <div className="flex items-center gap-2 mb-2 px-2 py-1 bg-primary/10 rounded-lg">
                                 <Calendar className="h-4 w-4 text-primary" />
                                 <span className="font-bold">{transferDateLabel} 移動</span>
@@ -2047,7 +2095,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                             </div>
                           </div>
                         )
-                      })
+                      })}
+                        </>
+                      )
                     })()}
                   </div>
                 </div>
@@ -2334,17 +2384,18 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               </div>
             </section>
 
-            {/* 移動曜日の設定 */}
+            {/* 移動日の設定 */}
             <section>
-              <h3 className="font-bold text-base mb-3">移動曜日について</h3>
+              <h3 className="font-bold text-base mb-3">移動日について</h3>
               <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3">
                 <p className="text-muted-foreground">
-                  「移動曜日」で選択した曜日に移動作業を行う前提で計画が作成されます。
+                  「移動日」で選択した日付に移動作業を行う前提で計画が作成されます。
+                  その週の中で実際に移動できる日を選択してください。
                 </p>
                 <ul className="mt-2 space-y-1 text-muted-foreground list-disc list-inside text-xs">
-                  <li>月曜移動 → 火〜金曜の公演分を運ぶ</li>
-                  <li>金曜移動 → 土〜月曜の公演分を運ぶ</li>
+                  <li>例: 2/3(月)と2/7(金)を選択 → 月曜は火〜金公演分、金曜は土〜月公演分</li>
                   <li>当日公演のキットは前日までに運ぶ計算です</li>
+                  <li>選択した移動日より前の公演がある場合は警告が表示されます</li>
                 </ul>
               </div>
             </section>
