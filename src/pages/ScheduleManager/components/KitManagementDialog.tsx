@@ -68,6 +68,16 @@ const WEEKDAYS = [
   { value: 6, label: '土曜日', short: '土' },
 ]
 
+// 日時を「M/D曜」形式でフォーマット
+const formatCompletionDate = (dateStr: string | null): string => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  const dayOfWeek = WEEKDAYS.find(w => w.value === date.getDay())?.short || ''
+  return `${month}/${day}${dayOfWeek}`
+}
+
 export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProps) {
   // データ
   const [kitLocations, setKitLocations] = useState<KitLocation[]>([])
@@ -1955,7 +1965,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
                                                       {delivered && deliveredByName && (
                                                         <span className="text-[10px] text-green-600 font-medium">
-                                                          {deliveredByName}が設置
+                                                          {deliveredByName}設置 {formatCompletionDate(completion?.delivered_at || null)}
                                                         </span>
                                                       )}
                                                       {!pickedUp && (
@@ -2015,7 +2025,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
                                                       {pickedUp && pickedUpByName && (
                                                         <span className="text-[10px] text-blue-600 font-medium">
-                                                          {pickedUpByName}が回収
+                                                          {pickedUpByName}回収 {formatCompletionDate(completion?.picked_up_at || null)}
                                                         </span>
                                                       )}
                                                       {delivered && (
