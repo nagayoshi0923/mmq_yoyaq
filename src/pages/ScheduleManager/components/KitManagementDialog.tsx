@@ -704,20 +704,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
   }
   
-  // 全完了状態をクリア
-  const handleClearAllCompletions = async () => {
-    try {
-      const startDate = weekDates[0]
-      const endDateObj = new Date(weekDates[6])
-      endDateObj.setDate(endDateObj.getDate() + 3)
-      const endDate = endDateObj.toISOString().split('T')[0]
-      await kitApi.clearAllCompletions(startDate, endDate)
-      showToast.success('チェックを解除しました')
-    } catch (error) {
-      console.error('Failed to clear completions:', error)
-      showToast.error('操作に失敗しました')
-    }
-  }
 
   // 週の開始日を変更
   const handleWeekChange = (direction: 'prev' | 'next') => {
@@ -1565,17 +1551,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         )
                       })()}
                     </div>
-                    {completions.length > 0 && (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="text-xs sm:text-sm"
-                        onClick={handleClearAllCompletions}
-                      >
-                        <span className="hidden sm:inline">チェック解除</span>
-                        <span className="sm:hidden">解除</span>
-                      </Button>
-                    )}
                   </div>
                   
                   {/* 移動日別 → 出発店舗別にまとめて表示 */}
@@ -2312,13 +2287,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                   <h4 className="font-semibold text-sm mb-1">誰がキットを運んだか確認したい</h4>
                   <p className="text-xs text-muted-foreground">
                     「移動計画」タブでチェック済みのキットに「○○回収 2/2月」と表示されます
-                  </p>
-                </div>
-                
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <h4 className="font-semibold text-sm mb-1">チェックを全部リセットしたい</h4>
-                  <p className="text-xs text-muted-foreground">
-                    「移動計画」タブ → 「チェック解除」ボタン
                   </p>
                 </div>
                 
