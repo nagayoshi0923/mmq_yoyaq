@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getAnonKey, getCorsHeaders, maskEmail } from '../_shared/security.ts'
+import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, verifyAuth, errorResponse, isCronOrServiceRoleCall } from '../_shared/security.ts'
 
 serve(async (req) => {
   const origin = req.headers.get('origin')
@@ -12,14 +12,19 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 P0修正: 認証チェック追加（cron/Service Role または管理者のみ許可）
+    const isCronCall = isCronOrServiceRoleCall(req)
+    if (!isCronCall) {
+      const authResult = await verifyAuth(req, ['admin', 'owner', 'license_admin'])
+      if (!authResult.success) {
+        return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
+      }
+    }
+
+    // Service Roleクライアントを使用（予約情報を全て取得するため）
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      getAnonKey(),
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      getServiceRoleKey()
     )
 
     // 現在の日時を取得
@@ -109,11 +114,11 @@ serve(async (req) => {
           const event = reservation.schedule_events
           const store = event.stores
 
-          // リマインドメール送信
+          // リマインドメール送信（Service Role Keyを使用して認証）
           const reminderResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-reminder-emails`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${getAnonKey()}`,
+              'Authorization': `Bearer ${getServiceRoleKey()}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({

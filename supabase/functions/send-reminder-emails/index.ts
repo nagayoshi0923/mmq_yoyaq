@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage, isCronOrServiceRoleCall } from '../_shared/security.ts'
 
 interface ReminderEmailRequest {
   organizationId?: string  // マルチテナント対応
@@ -31,10 +31,13 @@ serve(async (req) => {
   }
 
   try {
-    // 🔒 P0-4修正: 認証チェック追加（管理者またはスタッフのみ許可）
-    const authResult = await verifyAuth(req, ['admin', 'staff', 'owner', 'license_admin'])
-    if (!authResult.success) {
-      return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
+    // 🔒 P0-4修正: 認証チェック追加（Service Role / cron / 管理者・スタッフのみ許可）
+    const isServiceCall = isCronOrServiceRoleCall(req)
+    if (!isServiceCall) {
+      const authResult = await verifyAuth(req, ['admin', 'staff', 'owner', 'license_admin'])
+      if (!authResult.success) {
+        return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
+      }
     }
 
     const supabaseClient = createClient(
