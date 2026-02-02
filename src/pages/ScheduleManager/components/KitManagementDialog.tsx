@@ -528,6 +528,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       fetchData()
     }
   }, [isOpen, fetchData])
+  
+  // データが揃ったら自動で移動計画を計算（デバウンス付き）
+  useEffect(() => {
+    if (isOpen && !loading && kitLocations.length > 0 && scheduleEvents.length > 0 && transferDays.length > 0) {
+      const timer = setTimeout(() => {
+        handleCalculateTransfers(false)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen, loading, kitLocations.length, scheduleEvents.length, transferDays, weekDates, handleCalculateTransfers])
 
   // 週の開始日を変更
   const handleWeekChange = (direction: 'prev' | 'next') => {
@@ -550,8 +560,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     setSelectedWeekStart(weekStart)
   }
 
-  // 移動計画を計算
-  const handleCalculateTransfers = useCallback(async () => {
+  // 移動計画を計算（showNotification: 手動実行時のみトースト表示）
+  const handleCalculateTransfers = useCallback(async (showNotification = false) => {
     setIsCalculating(true)
     try {
       // 現在のキット状態を構築
@@ -608,18 +618,23 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       console.log('📦 移動計算結果:', result)
       setSuggestions(result)
       
-      if (result.length === 0) {
-        if (demands.length === 0) {
-          showToast.info('この週にシナリオ付きのイベントがありません')
+      // 手動実行時のみトースト表示
+      if (showNotification) {
+        if (result.length === 0) {
+          if (demands.length === 0) {
+            showToast.info('この週にシナリオ付きのイベントがありません')
+          } else {
+            showToast.success('移動は不要です（すべてのキットが適切な店舗にあります）')
+          }
         } else {
-          showToast.success('移動は不要です（すべてのキットが適切な店舗にあります）')
+          showToast.success(`${result.length}件の移動が必要です`)
         }
-      } else {
-        showToast.success(`${result.length}件の移動が必要です`)
       }
     } catch (error) {
       console.error('Failed to calculate transfers:', error)
-      showToast.error('移動計画の計算に失敗しました')
+      if (showNotification) {
+        showToast.error('移動計画の計算に失敗しました')
+      }
     } finally {
       setIsCalculating(false)
     }
@@ -1338,23 +1353,23 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  週間スケジュールに基づいて最適な移動計画を提案します
+                  {isCalculating ? (
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      計算中...
+                    </span>
+                  ) : (
+                    '週間スケジュールに基づいて最適な移動計画を自動提案します'
+                  )}
                 </p>
                 <Button
-                  onClick={handleCalculateTransfers}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCalculateTransfers(true)}
                   disabled={isCalculating || transferDays.length === 0}
                 >
-                  {isCalculating ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      計算中...
-                    </>
-                  ) : (
-                    <>
-                      <Calendar className="h-4 w-4 mr-2" />
-                      移動計画を計算
-                    </>
-                  )}
+                  <RefreshCw className={`h-4 w-4 ${isCalculating ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline ml-1">再計算</span>
                 </Button>
               </div>
 
