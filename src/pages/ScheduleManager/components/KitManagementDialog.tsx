@@ -1358,25 +1358,27 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         return formatDateStr(transferDate)
                       }
                       
-                      // 移動日ごとにグループ化（実際の日付ベース）
-                      const byTransferDate = new Map<string, typeof groupedSuggestions>()
+                      // 各キットを個別に移動日で振り分け、その後ルートでグループ化
+                      // Map: transferDate -> Map: (from+to+scenario) -> items[]
+                      type ItemWithTransfer = typeof suggestions[0] & { actualTransferDate: string }
+                      const itemsByTransferDate = new Map<string, ItemWithTransfer[]>()
                       
                       // デバッグ用
                       console.log('🚚 移動日計算デバッグ:', {
                         sortedTransferDays,
                         weekDates,
-                        groupedSuggestionsCount: groupedSuggestions.length
+                        totalItems: suggestions.length
                       })
                       
-                      for (const group of groupedSuggestions) {
-                        const firstItem = group.items[0]
-                        const perfDate = parseLocalDate(firstItem.performance_date)
+                      // 各アイテムを個別に処理
+                      for (const item of suggestions) {
+                        const perfDate = parseLocalDate(item.performance_date)
                         const perfDayOfWeek = perfDate.getDay()
-                        const actualTransferDateStr = getActualTransferDate(firstItem.performance_date)
+                        const actualTransferDateStr = getActualTransferDate(item.performance_date)
                         
                         console.log('  📦 キット:', {
-                          scenario: firstItem.scenario_title?.slice(0, 10),
-                          performance_date: firstItem.performance_date,
+                          scenario: item.scenario_title?.slice(0, 10),
+                          performance_date: item.performance_date,
                           perfDayOfWeek,
                           actualTransferDate: actualTransferDateStr,
                           inWeekDates: actualTransferDateStr ? weekDates.includes(actualTransferDateStr) : false
@@ -1388,10 +1390,50 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         if (!weekDates.includes(actualTransferDateStr)) continue
                         
                         // 移動日でグループ化
-                        if (!byTransferDate.has(actualTransferDateStr)) {
-                          byTransferDate.set(actualTransferDateStr, [])
+                        if (!itemsByTransferDate.has(actualTransferDateStr)) {
+                          itemsByTransferDate.set(actualTransferDateStr, [])
                         }
-                        byTransferDate.get(actualTransferDateStr)!.push(group)
+                        itemsByTransferDate.get(actualTransferDateStr)!.push({
+                          ...item,
+                          actualTransferDate: actualTransferDateStr
+                        })
+                      }
+                      
+                      // 移動日ごとにルートでグループ化し直す
+                      const byTransferDate = new Map<string, typeof groupedSuggestions>()
+                      
+                      for (const [transferDateStr, items] of itemsByTransferDate) {
+                        // このtransferDate内でルートごとにグループ化
+                        const routeGroups = new Map<string, typeof items>()
+                        
+                        for (const item of items) {
+                          const fromGroupId = getStoreGroupId(item.from_store_id)
+                          const toGroupId = getStoreGroupId(item.to_store_id)
+                          const routeKey = `${fromGroupId}->${toGroupId}::${item.scenario_id}`
+                          
+                          if (!routeGroups.has(routeKey)) {
+                            routeGroups.set(routeKey, [])
+                          }
+                          routeGroups.get(routeKey)!.push(item)
+                        }
+                        
+                        // groupedSuggestions形式に変換
+                        const groups: typeof groupedSuggestions = []
+                        for (const [, routeItems] of routeGroups) {
+                          const first = routeItems[0]
+                          const fromGroupId = getStoreGroupId(first.from_store_id)
+                          const toGroupId = getStoreGroupId(first.to_store_id)
+                          groups.push({
+                            from_store_id: first.from_store_id,
+                            from_store_name: first.from_store_name,
+                            to_store_id: first.to_store_id,
+                            to_store_name: first.to_store_name,
+                            isGrouped: fromGroupId === toGroupId,
+                            items: routeItems
+                          })
+                        }
+                        
+                        byTransferDate.set(transferDateStr, groups)
                       }
                       
                       // 日付順にソート
