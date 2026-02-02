@@ -2405,6 +2405,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               <h3 className="font-bold text-base mb-3">💡 よくあるケースと対処法</h3>
               <div className="space-y-3">
                 <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold text-sm mb-1">今週は水曜しか移動できない</h4>
+                  <p className="text-xs text-muted-foreground">
+                    移動日の選択で水曜だけを選択 → 火曜公演分は前週に運ぶ必要があるため警告が表示されます
+                  </p>
+                </div>
+                
+                <div className="bg-muted/50 rounded-lg p-3">
                   <h4 className="font-semibold text-sm mb-1">キットの登録場所が間違っている</h4>
                   <p className="text-xs text-muted-foreground">
                     「店舗別在庫」タブ → キットカードを右クリック → 「○○に移動」を選択
