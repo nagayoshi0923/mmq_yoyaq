@@ -304,15 +304,18 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     for (const date of demandDates) {
       const dayEvents = scheduleEvents.filter(e => e.date === date)
       
-      // 店舗×シナリオで集計
-      const needs = new Map<string, number>() // `${store_id}-${scenario_id}` -> count
+      // 店舗×シナリオで集計（同じ日・店舗・シナリオは1キットで済む）
+      const needs = new Set<string>() // `${store_id}-${scenario_id}`
       for (const event of dayEvents) {
-        const key = `${event.store_id}-${event.scenario_id}`
-        needs.set(key, (needs.get(key) || 0) + 1)
+        if (event.scenario_id) {
+          const key = `${event.store_id}-${event.scenario_id}`
+          needs.add(key)
+        }
       }
       
-      // 各需要に対して在庫をチェック
-      for (const [key, needed] of needs) {
+      // 各需要に対して在庫をチェック（needed は常に1）
+      for (const key of needs) {
+        const needed = 1 // 同日なら1キットで足りる
         const [storeId, scenarioId] = key.split('-')
         const scenario = scenarioMap.get(scenarioId)
         if (!scenario) continue
@@ -556,14 +559,20 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       }
 
       // 週間需要を構築（scenario_idがあるイベントのみ）
+      // 同じ日・同じ店舗・同じシナリオは1キットで済む（朝使ったキットを夜も使える）
+      const demandSet = new Set<string>()
       const demands: Array<{ date: string; store_id: string; scenario_id: string }> = []
       for (const event of scheduleEvents) {
         if (weekDates.includes(event.date) && event.scenario_id) {
-          demands.push({
-            date: event.date,
-            store_id: event.store_id,
-            scenario_id: event.scenario_id
-          })
+          const key = `${event.date}::${event.store_id}::${event.scenario_id}`
+          if (!demandSet.has(key)) {
+            demandSet.add(key)
+            demands.push({
+              date: event.date,
+              store_id: event.store_id,
+              scenario_id: event.scenario_id
+            })
+          }
         }
       }
 
