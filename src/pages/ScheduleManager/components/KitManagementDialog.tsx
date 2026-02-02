@@ -1347,8 +1347,14 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       const sortedDays = [...byTransferDay.entries()].sort((a, b) => a[0] - b[0])
                       
                       return sortedDays.map(([dayOfWeek, groups], dayIndex) => {
-                        const dayLabel = WEEKDAYS.find(w => w.value === dayOfWeek)?.label || '?'
+                        const dayShort = WEEKDAYS.find(w => w.value === dayOfWeek)?.short || '?'
                         const dayKitCount = groups.reduce((sum, g) => sum + g.items.length, 0)
+                        
+                        // 実際の日付を取得（weekDatesから該当曜日の日付を探す）
+                        const actualTransferDate = weekDates.find(d => new Date(d).getDay() === dayOfWeek)
+                        const transferDateLabel = actualTransferDate 
+                          ? `${new Date(actualTransferDate).getMonth() + 1}/${new Date(actualTransferDate).getDate()}(${dayShort})`
+                          : dayShort
                         
                         // 出発店舗でグループ化
                         const bySource = new Map<string, typeof groups>()
@@ -1366,7 +1372,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                             {transferDays.length > 1 && (
                               <div className="flex items-center gap-2 mb-2 px-2 py-1 bg-primary/10 rounded-lg">
                                 <Calendar className="h-4 w-4 text-primary" />
-                                <span className="font-bold">{dayLabel}移動分</span>
+                                <span className="font-bold">{transferDateLabel} 移動分</span>
                                 <Badge variant="secondary" className="ml-auto">
                                   {dayKitCount}キット
                                 </Badge>
