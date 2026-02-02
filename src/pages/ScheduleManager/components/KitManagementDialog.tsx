@@ -2270,6 +2270,55 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               </p>
             </section>
 
+            {/* よくあるケースと対処法 */}
+            <section>
+              <h3 className="font-bold text-base mb-3">💡 よくあるケースと対処法</h3>
+              <div className="space-y-3">
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold text-sm mb-1">キットの登録場所が間違っている</h4>
+                  <p className="text-xs text-muted-foreground">
+                    「店舗別在庫」タブ → キットカードを右クリック → 「○○に移動」を選択
+                    <br />
+                    または、キットカードをドラッグして正しい店舗にドロップ
+                  </p>
+                </div>
+                
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold text-sm mb-1">キットが破損・欠品している</h4>
+                  <p className="text-xs text-muted-foreground">
+                    「店舗別在庫」タブ → キットカードを右クリック → 「欠けあり」「要確認」などを選択
+                    <br />
+                    状態に応じて公演に使用できるか判断してください
+                  </p>
+                </div>
+                
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold text-sm mb-1">移動作業の進捗を共有したい</h4>
+                  <p className="text-xs text-muted-foreground">
+                    回収したらチェック → 設置したらチェック
+                    <br />
+                    他のスタッフもリアルタイムで「○○が回収 2/2月」と確認できます
+                  </p>
+                </div>
+                
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold text-sm mb-1">この公演にキットが間に合わない</h4>
+                  <p className="text-xs text-muted-foreground">
+                    「週間需要」タブでオレンジ背景のシナリオを確認
+                    <br />
+                    → その店舗にキットがない状態です。移動計画を確認してください
+                  </p>
+                </div>
+                
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold text-sm mb-1">キット数を増やしたい・減らしたい</h4>
+                  <p className="text-xs text-muted-foreground">
+                    「シナリオ別」タブ → シナリオを探す → +/- ボタンでキット数を変更
+                  </p>
+                </div>
+              </div>
+            </section>
+
             {/* 注意事項 */}
             <section>
               <h3 className="font-bold text-base mb-3 text-orange-600">⚠️ 注意事項</h3>
