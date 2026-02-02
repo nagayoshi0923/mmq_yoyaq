@@ -1815,20 +1815,20 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           allStoreIds.add(group.to_store_id)
                         }
                         
-                        // 店舗を表示順でソート（同じグループは隣接）
-                        const sortedStoreIds = [...allStoreIds].sort((a, b) => {
-                          const storeA = storeMap.get(a)
-                          const storeB = storeMap.get(b)
-                          // まずグループIDでソート（同じグループは隣接）
-                          const groupA = getStoreGroupId(a)
-                          const groupB = getStoreGroupId(b)
-                          if (groupA !== groupB) {
-                            // グループ内の最小display_orderで比較
-                            const groupAOrder = storeA?.display_order || 0
-                            const groupBOrder = storeB?.display_order || 0
-                            return groupAOrder - groupBOrder
+                        // 店舗をグループ別にまとめる（同じkit_group_idは1つのカードに）
+                        const storeGroups = new Map<string, string[]>()
+                        allStoreIds.forEach(storeId => {
+                          const groupId = getStoreGroupId(storeId)
+                          if (!storeGroups.has(groupId)) {
+                            storeGroups.set(groupId, [])
                           }
-                          // 同じグループ内ではdisplay_orderでソート
+                          storeGroups.get(groupId)!.push(storeId)
+                        })
+                        
+                        // グループを表示順でソート
+                        const sortedGroups = [...storeGroups.entries()].sort((a, b) => {
+                          const storeA = storeMap.get(a[1][0])
+                          const storeB = storeMap.get(b[1][0])
                           return (storeA?.display_order || 0) - (storeB?.display_order || 0)
                         })
                         
@@ -1846,22 +1846,32 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                               </div>
                             )}
                             
-                            {/* 店舗別（出発・到着両方表示） */}
+                            {/* 店舗グループ別（同じkit_groupは1つのカードに） */}
                             <div className="space-y-3">
-                              {sortedStoreIds.map((storeId) => {
-                                const store = storeMap.get(storeId)
-                                const storeName = store?.short_name || store?.name || '?'
+                              {sortedGroups.map(([groupId, storeIdsInGroup]) => {
+                                // グループ内の全店舗の出入りを集計
+                                const groupOutgoing: typeof groups = []
+                                const groupIncoming: typeof groups = []
                                 
-                                // ルートを同グループ順にソート
+                                storeIdsInGroup.forEach(storeId => {
+                                  const outgoing = bySource.get(storeId) || []
+                                  const incoming = byDestination.get(storeId) || []
+                                  // 同グループ内への移動は除外（不要な移動）
+                                  outgoing.forEach(route => {
+                                    if (getStoreGroupId(route.to_store_id) !== groupId) {
+                                      groupOutgoing.push(route)
+                                    }
+                                  })
+                                  incoming.forEach(route => {
+                                    if (getStoreGroupId(route.from_store_id) !== groupId) {
+                                      groupIncoming.push(route)
+                                    }
+                                  })
+                                })
+                                
+                                // ルートをソート
                                 const sortRoutesByGroup = (routes: typeof groups) => {
                                   return [...routes].sort((a, b) => {
-                                    const groupA = getStoreGroupId(a.to_store_id)
-                                    const groupB = getStoreGroupId(b.to_store_id)
-                                    if (groupA !== groupB) {
-                                      const storeAData = storeMap.get(a.to_store_id)
-                                      const storeBData = storeMap.get(b.to_store_id)
-                                      return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
-                                    }
                                     const storeAData = storeMap.get(a.to_store_id)
                                     const storeBData = storeMap.get(b.to_store_id)
                                     return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
@@ -1869,32 +1879,32 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                 }
                                 const sortIncomingByGroup = (routes: typeof groups) => {
                                   return [...routes].sort((a, b) => {
-                                    const groupA = getStoreGroupId(a.from_store_id)
-                                    const groupB = getStoreGroupId(b.from_store_id)
-                                    if (groupA !== groupB) {
-                                      const storeAData = storeMap.get(a.from_store_id)
-                                      const storeBData = storeMap.get(b.from_store_id)
-                                      return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
-                                    }
                                     const storeAData = storeMap.get(a.from_store_id)
                                     const storeBData = storeMap.get(b.from_store_id)
                                     return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
                                   })
                                 }
-                                const outgoingRoutes = sortRoutesByGroup(bySource.get(storeId) || [])
-                                const incomingRoutes = sortIncomingByGroup(byDestination.get(storeId) || [])
+                                
+                                const outgoingRoutes = sortRoutesByGroup(groupOutgoing)
+                                const incomingRoutes = sortIncomingByGroup(groupIncoming)
                                 const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.length, 0)
                                 const incomingCount = incomingRoutes.reduce((sum, r) => sum + r.items.length, 0)
                                 
+                                // グループ名（複数店舗ならスラッシュで繋ぐ）
+                                const groupStoreName = storeIdsInGroup.map(id => {
+                                  const store = storeMap.get(id)
+                                  return store?.short_name || store?.name || '?'
+                                }).join(' / ')
+                                
                                 return (
                                   <div
-                                    key={storeId}
+                                    key={groupId}
                                     className="bg-white dark:bg-gray-800 rounded-lg p-3"
                                   >
-                                    {/* 店舗ヘッダー */}
+                                    {/* 店舗グループヘッダー */}
                                     <div className="flex items-center gap-2 mb-3 pb-2 border-b">
                                       <MapPin className="h-4 w-4 text-primary" />
-                                      <span className="font-bold text-lg">{storeName}</span>
+                                      <span className="font-bold text-lg">{groupStoreName}</span>
                                       <div className="ml-auto flex items-center gap-2">
                                         {outgoingCount > 0 && (
                                           <Badge variant="outline" className="bg-red-50 text-red-700">
@@ -1909,18 +1919,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                       </div>
                                     </div>
                                     
-                                    {/* 到着（この店舗が必要としているキット）- 設置チェック */}
+                                    {/* 到着（このグループが必要としているキット）- 設置チェック */}
                                     {incomingRoutes.length > 0 && (
                                       <div className="mb-3">
                                         <div className="text-xs font-medium text-blue-600 mb-1 flex items-center gap-1">
                                           <ArrowRight className="h-3 w-3" />
-                                          この店舗へ届ける（設置）
+                                          ここへ届ける（設置）
                                         </div>
                                         <div className="space-y-2 pl-2 border-l-2 border-blue-200">
-                                          {incomingRoutes.map((route, routeIdx) => (
+                                          {incomingRoutes.map((route, routeIdx) => {
+                                            const toStore = storeMap.get(route.to_store_id)
+                                            const toStoreName = toStore?.short_name || toStore?.name || ''
+                                            return (
                                             <div key={`in-${routeIdx}`}>
                                               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5">
-                                                ← {route.from_store_name}から
+                                                ← {route.from_store_name}から {storeIdsInGroup.length > 1 && `→ ${toStoreName}へ`}
                                               </div>
                                               <div className="space-y-1">
                                                 {route.items.map((suggestion, index) => {
@@ -1961,24 +1974,27 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                 })}
                                               </div>
                                             </div>
-                                          ))}
+                                          )})}
                                         </div>
                                       </div>
                                     )}
                                     
-                                    {/* 出発（この店舗から持ち出すキット）- 回収チェック */}
+                                    {/* 出発（このグループから持ち出すキット）- 回収チェック */}
                                     {outgoingRoutes.length > 0 && (
                                       <div>
                                         <div className="text-xs font-medium text-red-600 mb-1 flex items-center gap-1">
                                           <ArrowRight className="h-3 w-3 rotate-180" />
-                                          この店舗から持ち出す（回収）
+                                          ここから持ち出す（回収）
                                         </div>
                                         <div className="space-y-2 pl-2 border-l-2 border-red-200">
-                                          {outgoingRoutes.map((route, routeIdx) => (
+                                          {outgoingRoutes.map((route, routeIdx) => {
+                                            const fromStore = storeMap.get(route.from_store_id)
+                                            const fromStoreName = fromStore?.short_name || fromStore?.name || ''
+                                            return (
                                             <div key={`out-${routeIdx}`}>
                                               {/* 配達先ヘッダー */}
                                               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5">
-                                                → {route.to_store_name}へ
+                                                {storeIdsInGroup.length > 1 && `${fromStoreName}から `}→ {route.to_store_name}へ
                                               </div>
                                               
                                               {/* キット一覧 */}
@@ -2021,7 +2037,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                 })}
                                               </div>
                                             </div>
-                                          ))}
+                                          )})}
                                         </div>
                                       </div>
                                     )}
