@@ -31,7 +31,7 @@ import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuLabel } from '@/components/ui/context-menu'
-import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical } from 'lucide-react'
+import { Package, ArrowRight, Calendar, MapPin, Check, X, AlertTriangle, RefreshCw, Plus, Minus, Search, GripVertical, HelpCircle } from 'lucide-react'
 
 // ドラッグ中のキット情報
 interface DraggedKit {
@@ -114,6 +114,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [draggedKit, setDraggedKit] = useState<DraggedKit | null>(null)
   const [dragOverStoreId, setDragOverStoreId] = useState<string | null>(null)
   
+  // ヘルプダイアログ
+  const [showHelp, setShowHelp] = useState(false)
 
   // 週の日付リスト（移動日判定用）
   const weekDates = useMemo(() => {
@@ -807,10 +809,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent size="xl" className="max-h-[100dvh] sm:max-h-[90vh] h-[100dvh] sm:h-auto overflow-hidden flex flex-col w-full sm:w-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            キット配置管理
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              キット配置管理
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowHelp(true)}
+              className="h-8 w-8 p-0 mr-6"
+              title="使い方を見る"
+            >
+              <HelpCircle className="h-5 w-5" />
+            </Button>
+          </div>
           <DialogDescription>
             シナリオキットの現在位置を確認し、週間の公演スケジュールに合わせた移動計画を作成します
           </DialogDescription>
@@ -2010,6 +2023,150 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           ))}
         </ContextMenuContent>
       )}
+      
+      {/* ヘルプダイアログ */}
+      <Dialog open={showHelp} onOpenChange={setShowHelp}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5" />
+              キット配置管理の使い方
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 text-sm">
+            {/* 概要 */}
+            <section>
+              <h3 className="font-bold text-base mb-2 flex items-center gap-2">
+                <Package className="h-4 w-4 text-primary" />
+                この機能について
+              </h3>
+              <p className="text-muted-foreground">
+                公演に必要なシナリオキットが各店舗に正しく配置されているか確認し、
+                週間スケジュールに合わせてどのキットをどこに運ぶべきかを管理する機能です。
+              </p>
+            </section>
+
+            {/* タブの説明 */}
+            <section>
+              <h3 className="font-bold text-base mb-3">タブの説明</h3>
+              
+              <div className="space-y-4">
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold mb-1">📦 移動計画</h4>
+                  <p className="text-muted-foreground">
+                    今週必要なキット移動の一覧です。どの店舗からどの店舗へ、どのキットを運ぶべきかが表示されます。
+                  </p>
+                  <ul className="mt-2 space-y-1 text-muted-foreground list-disc list-inside">
+                    <li><span className="text-red-600 font-medium">持ち出す（回収）</span>：この店舗から持っていくキット</li>
+                    <li><span className="text-blue-600 font-medium">届ける（設置）</span>：この店舗に届けるキット</li>
+                  </ul>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold mb-1">📅 週間需要</h4>
+                  <p className="text-muted-foreground">
+                    各日付・各店舗で必要なシナリオを一覧表示します。
+                    赤い警告マークはキットが不足している状態を示します。
+                  </p>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold mb-1">🎭 シナリオ別</h4>
+                  <p className="text-muted-foreground">
+                    シナリオごとにキットが今どの店舗にあるか確認できます。
+                    キット数の増減もここで行えます。
+                  </p>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold mb-1">🏪 店舗別在庫</h4>
+                  <p className="text-muted-foreground">
+                    各店舗にあるキットを一覧表示します。
+                    ドラッグ&ドロップや右クリックでキットの移動・状態変更ができます。
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* チェックボックスの使い方 */}
+            <section>
+              <h3 className="font-bold text-base mb-3">チェックボックスの使い方</h3>
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 space-y-2">
+                <p className="text-muted-foreground">
+                  移動作業を2段階でチェックできます：
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                  <li>
+                    <span className="text-blue-600 font-medium">回収チェック</span>（持ち出す側）
+                    <br />
+                    <span className="text-xs ml-5">→ キットを持ち出したらチェック</span>
+                  </li>
+                  <li>
+                    <span className="text-green-600 font-medium">設置チェック</span>（届ける側）
+                    <br />
+                    <span className="text-xs ml-5">→ キットを届けたらチェック（回収後のみ有効）</span>
+                  </li>
+                </ol>
+                <p className="text-xs text-muted-foreground mt-2">
+                  ※ チェック状態はページを離れるとリセットされます
+                </p>
+              </div>
+            </section>
+
+            {/* 移動曜日の設定 */}
+            <section>
+              <h3 className="font-bold text-base mb-3">移動曜日について</h3>
+              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3">
+                <p className="text-muted-foreground">
+                  「移動曜日」で選択した曜日に移動作業を行う前提で計画が作成されます。
+                </p>
+                <ul className="mt-2 space-y-1 text-muted-foreground list-disc list-inside text-xs">
+                  <li>月曜移動 → 火〜金曜の公演分を運ぶ</li>
+                  <li>金曜移動 → 土〜月曜の公演分を運ぶ</li>
+                  <li>当日公演のキットは前日までに運ぶ計算になっています</li>
+                </ul>
+              </div>
+            </section>
+
+            {/* キット状態の変更 */}
+            <section>
+              <h3 className="font-bold text-base mb-3">キット状態の変更</h3>
+              <p className="text-muted-foreground mb-2">
+                「店舗別在庫」タブでキットカードを<strong>右クリック</strong>すると：
+              </p>
+              <ul className="space-y-1 text-muted-foreground list-disc list-inside">
+                <li>状態の変更（良好 / 欠けあり / 要確認 / 使用不可）</li>
+                <li>別の店舗への移動</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2">
+                ※ キットカードをドラッグして別店舗にドロップしても移動できます
+              </p>
+            </section>
+
+            {/* 注意事項 */}
+            <section>
+              <h3 className="font-bold text-base mb-3 text-orange-600">⚠️ 注意事項</h3>
+              <ul className="space-y-2 text-muted-foreground">
+                <li className="flex gap-2">
+                  <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+                  <span>移動計画は目安です。実際の状況に応じて調整してください。</span>
+                </li>
+                <li className="flex gap-2">
+                  <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+                  <span>キットの現在位置が間違っている場合は「店舗別在庫」で修正してください。</span>
+                </li>
+              </ul>
+            </section>
+          </div>
+
+          <div className="flex justify-end mt-4">
+            <Button onClick={() => setShowHelp(false)}>
+              閉じる
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
