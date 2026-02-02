@@ -2302,18 +2302,30 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 </div>
                 
                 <div className="bg-muted/50 rounded-lg p-3">
-                  <h4 className="font-semibold text-sm mb-1">この公演にキットが間に合わない</h4>
+                  <h4 className="font-semibold text-sm mb-1">キット数を増やしたい・減らしたい</h4>
                   <p className="text-xs text-muted-foreground">
-                    「週間需要」タブでオレンジ背景のシナリオを確認
-                    <br />
-                    → その店舗にキットがない状態です。移動計画を確認してください
+                    「シナリオ別」タブ → シナリオを探す → +/- ボタンでキット数を変更
                   </p>
                 </div>
                 
                 <div className="bg-muted/50 rounded-lg p-3">
-                  <h4 className="font-semibold text-sm mb-1">キット数を増やしたい・減らしたい</h4>
+                  <h4 className="font-semibold text-sm mb-1">誰がキットを運んだか確認したい</h4>
                   <p className="text-xs text-muted-foreground">
-                    「シナリオ別」タブ → シナリオを探す → +/- ボタンでキット数を変更
+                    「移動計画」タブでチェック済みのキットに「○○回収 2/2月」と表示されます
+                  </p>
+                </div>
+                
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold text-sm mb-1">チェックを全部リセットしたい</h4>
+                  <p className="text-xs text-muted-foreground">
+                    「移動計画」タブ → 「チェック解除」ボタン
+                  </p>
+                </div>
+                
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold text-sm mb-1">新しいシナリオのキットを登録したい</h4>
+                  <p className="text-xs text-muted-foreground">
+                    「シナリオ別」タブで下にスクロール → 「キット未設定のシナリオ」から +ボタンでキット数を設定
                   </p>
                 </div>
               </div>
