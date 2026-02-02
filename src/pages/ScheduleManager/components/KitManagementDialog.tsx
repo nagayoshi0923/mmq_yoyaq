@@ -1584,7 +1584,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         
                         const perfStartLabel = `${perfStartDate.getMonth() + 1}/${perfStartDate.getDate()}`
                         const perfEndLabel = `${perfEndDate.getMonth() + 1}/${perfEndDate.getDate()}`
-                        const perfPeriodLabel = `${perfStartLabel}~${perfEndLabel}公演`
+                        const perfPeriodLabel = `${perfStartLabel}~${perfEndLabel}公演分`
                         
                         // 出発店舗でグループ化
                         const bySource = new Map<string, typeof groups>()
