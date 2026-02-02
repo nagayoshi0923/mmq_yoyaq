@@ -675,7 +675,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
-    toStoreId: string
+    toStoreId: string,
+    scenarioTitle?: string
   ) => {
     if (!currentStaffId) {
       showToast.error('スタッフ情報が取得できません')
@@ -688,6 +689,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
     
     const currentlyDelivered = isDelivered(scenarioId, kitNumber, performanceDate, toStoreId)
+    
+    // 設置完了時は確認ダイアログを表示（キット位置が変わるため）
+    if (!currentlyDelivered) {
+      const toStore = storeMap.get(toStoreId)
+      const toStoreName = toStore?.short_name || toStore?.name || '移動先'
+      const confirmed = window.confirm(
+        `「${scenarioTitle || 'このキット'}」を${toStoreName}に設置完了としてマークしますか？\n\n※キットの登録場所も${toStoreName}に更新されます`
+      )
+      if (!confirmed) return
+    }
     
     try {
       if (currentlyDelivered) {
@@ -1885,7 +1896,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       {/* 設置チェックボックス */}
                                                       <div 
                                                         className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${pickedUp ? 'cursor-pointer active:scale-95 hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${delivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
-                                                        onClick={() => handleToggleDelivery(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)}
+                                                        onClick={() => handleToggleDelivery(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id, suggestion.scenario_title)}
                                                         title={pickedUp ? '設置完了' : '回収してから設置できます'}
                                                       >
                                                         {delivered && <Check className="h-3 w-3 text-white" />}
