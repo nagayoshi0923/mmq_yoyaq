@@ -1747,19 +1747,23 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           routeGroups.get(routeKey)!.push(item)
                         }
                         
-                        // groupedSuggestions形式に変換
+                        // groupedSuggestions形式に変換（アイテムは公演日の昇順でソート）
                         const groups: typeof groupedSuggestions = []
                         for (const [, routeItems] of routeGroups) {
                           const first = routeItems[0]
                           const fromGroupId = getStoreGroupId(first.from_store_id)
                           const toGroupId = getStoreGroupId(first.to_store_id)
+                          // 公演日の昇順でソート
+                          const sortedItems = [...routeItems].sort((a, b) => 
+                            a.performance_date.localeCompare(b.performance_date)
+                          )
                           groups.push({
                             from_store_id: first.from_store_id,
                             from_store_name: first.from_store_name,
                             to_store_id: first.to_store_id,
                             to_store_name: first.to_store_name,
                             isGrouped: fromGroupId === toGroupId,
-                            items: routeItems
+                            items: sortedItems
                           })
                         }
                         
@@ -1985,8 +1989,26 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                               </div>
                                               <div className="space-y-1">
                                                 {route.items.map((suggestion, index) => {
-                                                  const perfDate = new Date(suggestion.performance_date)
-                                                  const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
+                                                  // 全ての公演日を収集（同じシナリオ・キット番号）
+                                                  const allDatesForKit = route.items
+                                                    .filter(item => 
+                                                      item.scenario_id === suggestion.scenario_id && 
+                                                      item.kit_number === suggestion.kit_number
+                                                    )
+                                                    .map(item => item.performance_date)
+                                                    .sort()
+                                                  const allDatesStr = allDatesForKit.map(d => {
+                                                    const date = parseLocalDate(d)
+                                                    return `${date.getMonth() + 1}/${date.getDate()}`
+                                                  }).join(', ')
+                                                  
+                                                  // 最初の日付のみ表示（重複を避ける）
+                                                  const isFirstForKit = route.items.findIndex(item => 
+                                                    item.scenario_id === suggestion.scenario_id && 
+                                                    item.kit_number === suggestion.kit_number
+                                                  ) === index
+                                                  if (!isFirstForKit) return null
+                                                  
                                                   const pickedUp = isPickedUp(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const completion = getCompletion(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
@@ -2005,7 +2027,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                         {delivered && <Check className="h-3 w-3 text-white" />}
                                                       </div>
                                                       <Badge variant="outline" className="text-[9px] px-1 py-0">
-                                                        {perfDateStr}
+                                                        {allDatesStr}
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered ? 'line-through' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
@@ -2048,8 +2070,26 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                               {/* キット一覧 */}
                                               <div className="space-y-1">
                                                 {route.items.map((suggestion, index) => {
-                                                  const perfDate = new Date(suggestion.performance_date)
-                                                  const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
+                                                  // 全ての公演日を収集（同じシナリオ・キット番号）
+                                                  const allDatesForKit = route.items
+                                                    .filter(item => 
+                                                      item.scenario_id === suggestion.scenario_id && 
+                                                      item.kit_number === suggestion.kit_number
+                                                    )
+                                                    .map(item => item.performance_date)
+                                                    .sort()
+                                                  const allDatesStr = allDatesForKit.map(d => {
+                                                    const date = parseLocalDate(d)
+                                                    return `${date.getMonth() + 1}/${date.getDate()}`
+                                                  }).join(', ')
+                                                  
+                                                  // 最初の日付のみ表示（重複を避ける）
+                                                  const isFirstForKit = route.items.findIndex(item => 
+                                                    item.scenario_id === suggestion.scenario_id && 
+                                                    item.kit_number === suggestion.kit_number
+                                                  ) === index
+                                                  if (!isFirstForKit) return null
+                                                  
                                                   const pickedUp = isPickedUp(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const completion = getCompletion(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
@@ -2068,7 +2108,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                         {pickedUp && <Check className="h-3 w-3 text-white" />}
                                                       </div>
                                                       <Badge variant="outline" className="text-[9px] px-1 py-0">
-                                                        {perfDateStr}
+                                                        {allDatesStr}
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered ? 'line-through' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
