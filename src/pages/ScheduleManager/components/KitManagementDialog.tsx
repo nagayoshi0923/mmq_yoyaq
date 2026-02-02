@@ -2256,8 +2256,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 この機能について
               </h3>
               <p className="text-muted-foreground">
-                公演に必要なシナリオキットが各店舗に正しく配置されているか確認し、
-                週間スケジュールに合わせてどのキットをどこに運ぶべきかを管理する機能です。
+                公演に必要なシナリオキットを管理し、週間スケジュールに合わせて
+                どのキットをどこに運ぶべきかを確認・追跡する機能です。
               </p>
             </section>
 
@@ -2266,64 +2266,70 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               <h3 className="font-bold text-base mb-3">タブの説明</h3>
               
               <div className="space-y-4">
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <h4 className="font-semibold mb-1">🎭 シナリオ別</h4>
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border-l-4 border-blue-500">
+                  <h4 className="font-semibold mb-1">📦 移動計画（メイン）</h4>
                   <p className="text-muted-foreground">
-                    シナリオごとにキットが今どの店舗にあるか確認できます。
-                    キット数の増減もここで行えます。
+                    今週必要なキット移動の一覧。店舗ごとに何を持ち出すか・届けるかを確認できます。
                   </p>
-                </div>
-
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <h4 className="font-semibold mb-1">🏪 店舗別在庫</h4>
-                  <p className="text-muted-foreground">
-                    各店舗にあるキットを一覧表示します。
-                    ドラッグ&ドロップや右クリックでキットの移動・状態変更ができます。
+                  <ul className="mt-2 space-y-1 text-muted-foreground list-disc list-inside text-xs">
+                    <li><span className="text-red-600 font-medium">持ち出す（回収）</span>：この拠点から持っていくキット</li>
+                    <li><span className="text-blue-600 font-medium">届ける（設置）</span>：この拠点に届けるキット</li>
+                  </ul>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    ※ 同じ住所の店舗（森① / 森②など）は1つにまとめて表示されます
                   </p>
                 </div>
 
                 <div className="bg-muted/50 rounded-lg p-3">
                   <h4 className="font-semibold mb-1">📅 週間需要</h4>
                   <p className="text-muted-foreground">
-                    各日付・各店舗で必要なシナリオを一覧表示します。
-                    オレンジ色の背景は、その店舗にキットがない状態を示します。
+                    各日付・各店舗で必要なシナリオを一覧表示。
+                    オレンジ色の背景は、その拠点にキットがない状態を示します。
                   </p>
                 </div>
 
                 <div className="bg-muted/50 rounded-lg p-3">
-                  <h4 className="font-semibold mb-1">📦 移動計画</h4>
+                  <h4 className="font-semibold mb-1">🎭 シナリオ別</h4>
                   <p className="text-muted-foreground">
-                    今週必要なキット移動の一覧です。どの店舗からどの店舗へ、どのキットを運ぶべきかが表示されます。
+                    シナリオごとにキットが今どの店舗にあるか確認・登録できます。
+                    キット数の増減もここで行います。
                   </p>
-                  <ul className="mt-2 space-y-1 text-muted-foreground list-disc list-inside">
-                    <li><span className="text-red-600 font-medium">持ち出す（回収）</span>：この店舗から持っていくキット</li>
-                    <li><span className="text-blue-600 font-medium">届ける（設置）</span>：この店舗に届けるキット</li>
-                  </ul>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold mb-1">🏪 店舗別在庫</h4>
+                  <p className="text-muted-foreground">
+                    各店舗にあるキットを一覧表示。
+                    ドラッグ&ドロップや右クリックでキットの移動・状態変更ができます。
+                  </p>
                 </div>
               </div>
             </section>
 
             {/* チェックボックスの使い方 */}
             <section>
-              <h3 className="font-bold text-base mb-3">チェックボックスの使い方</h3>
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 space-y-2">
+              <h3 className="font-bold text-base mb-3">回収・設置チェックの使い方</h3>
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 space-y-2">
                 <p className="text-muted-foreground">
-                  移動作業を2段階でチェックできます：
+                  移動作業を2段階でチェックして進捗を共有：
                 </p>
                 <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
                   <li>
-                    <span className="text-blue-600 font-medium">回収チェック</span>（持ち出す側）
-                    <br />
-                    <span className="text-xs ml-5">→ キットを持ち出したらチェック</span>
+                    <span className="text-blue-600 font-medium">回収チェック</span>
+                    <span className="text-xs">（キットを持ち出したらチェック）</span>
                   </li>
                   <li>
-                    <span className="text-green-600 font-medium">設置チェック</span>（届ける側）
-                    <br />
-                    <span className="text-xs ml-5">→ キットを届けたらチェック（回収後のみ有効）</span>
+                    <span className="text-green-600 font-medium">設置チェック</span>
+                    <span className="text-xs">（届けたらチェック → 確認ダイアログが出ます）</span>
                   </li>
                 </ol>
+                <div className="bg-yellow-100 dark:bg-yellow-900/30 rounded p-2 mt-2">
+                  <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                    ⚠️ 設置完了をチェックすると、キットの登録場所が自動的に移動先に更新されます
+                  </p>
+                </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  ※ チェック状態はページを離れるとリセットされます
+                  ✓ チェック状態は保存され、他のスタッフとリアルタイム共有されます
                 </p>
               </div>
             </section>
@@ -2338,24 +2344,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 <ul className="mt-2 space-y-1 text-muted-foreground list-disc list-inside text-xs">
                   <li>月曜移動 → 火〜金曜の公演分を運ぶ</li>
                   <li>金曜移動 → 土〜月曜の公演分を運ぶ</li>
-                  <li>当日公演のキットは前日までに運ぶ計算になっています</li>
+                  <li>当日公演のキットは前日までに運ぶ計算です</li>
                 </ul>
               </div>
-            </section>
-
-            {/* キット状態の変更 */}
-            <section>
-              <h3 className="font-bold text-base mb-3">キット状態の変更</h3>
-              <p className="text-muted-foreground mb-2">
-                「店舗別在庫」タブでキットカードを<strong>右クリック</strong>すると：
-              </p>
-              <ul className="space-y-1 text-muted-foreground list-disc list-inside">
-                <li>状態の変更（良好 / 欠けあり / 要確認 / 使用不可）</li>
-                <li>別の店舗への移動</li>
-              </ul>
-              <p className="text-xs text-muted-foreground mt-2">
-                ※ キットカードをドラッグして別店舗にドロップしても移動できます
-              </p>
             </section>
 
             {/* よくあるケースと対処法 */}
@@ -2375,24 +2366,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                   <h4 className="font-semibold text-sm mb-1">キットが破損・欠品している</h4>
                   <p className="text-xs text-muted-foreground">
                     「店舗別在庫」タブ → キットカードを右クリック → 「欠けあり」「要確認」などを選択
-                    <br />
-                    状態に応じて公演に使用できるか判断してください
-                  </p>
-                </div>
-                
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <h4 className="font-semibold text-sm mb-1">移動作業の進捗を共有したい</h4>
-                  <p className="text-xs text-muted-foreground">
-                    回収したらチェック → 設置したらチェック
-                    <br />
-                    他のスタッフもリアルタイムで「○○が回収 2/2月」と確認できます
-                  </p>
-                </div>
-                
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <h4 className="font-semibold text-sm mb-1">キット数を増やしたい・減らしたい</h4>
-                  <p className="text-xs text-muted-foreground">
-                    「シナリオ別」タブ → シナリオを探す → +/- ボタンでキット数を変更
                   </p>
                 </div>
                 
@@ -2404,9 +2377,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 </div>
                 
                 <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold text-sm mb-1">キット数を増やしたい・減らしたい</h4>
+                  <p className="text-xs text-muted-foreground">
+                    「シナリオ別」タブ → シナリオを探す → +/- ボタンでキット数を変更
+                  </p>
+                </div>
+                
+                <div className="bg-muted/50 rounded-lg p-3">
                   <h4 className="font-semibold text-sm mb-1">新しいシナリオのキットを登録したい</h4>
                   <p className="text-xs text-muted-foreground">
-                    「シナリオ別」タブで下にスクロール → 「キット未設定のシナリオ」から +ボタンでキット数を設定
+                    「シナリオ別」タブで下にスクロール → 「キット未設定のシナリオ」から +ボタンで追加
                   </p>
                 </div>
               </div>
@@ -2422,7 +2402,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 </li>
                 <li className="flex gap-2">
                   <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
-                  <span>キットの現在位置が間違っている場合は「店舗別在庫」で修正してください。</span>
+                  <span>設置チェックを入れるとキットの登録場所が自動更新されます。間違えた場合は「店舗別在庫」で修正してください。</span>
                 </li>
               </ul>
             </section>
