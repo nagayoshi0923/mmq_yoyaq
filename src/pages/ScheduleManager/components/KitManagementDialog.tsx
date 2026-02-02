@@ -96,8 +96,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [suggestions, setSuggestions] = useState<KitTransferSuggestion[]>([])
   const [isCalculating, setIsCalculating] = useState(false)
   
-  // 移動可能曜日（デフォルト: 月・木）
+  // 移動可能曜日（デフォルト: 月・金）
   const [transferDays, setTransferDays] = useState<number[]>([1, 5])
+  
+  // 移動完了チェック（キーは "scenario_id-kit_number-performance_date-to_store_id"）
+  const [completedTransfers, setCompletedTransfers] = useState<Set<string>>(new Set())
   
   // シナリオ検索
   const [scenarioSearch, setScenarioSearch] = useState('')
@@ -1348,11 +1351,32 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     <div className="flex items-center gap-2 font-medium text-yellow-800 dark:text-yellow-200">
                       <AlertTriangle className="h-4 w-4" />
                       移動提案 ({suggestions.length}件)
+                      {completedTransfers.size > 0 && (
+                        <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800">
+                          {completedTransfers.size}件完了
+                        </Badge>
+                      )}
+                      {suggestions.length - completedTransfers.size > 0 && completedTransfers.size > 0 && (
+                        <Badge variant="destructive" className="ml-1">
+                          残り{suggestions.length - completedTransfers.size}件
+                        </Badge>
+                      )}
                     </div>
-                    <Button size="sm" onClick={handleConfirmSuggestions}>
-                      <Check className="h-4 w-4 mr-1" />
-                      すべて確定
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {completedTransfers.size > 0 && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => setCompletedTransfers(new Set())}
+                        >
+                          チェック解除
+                        </Button>
+                      )}
+                      <Button size="sm" onClick={handleConfirmSuggestions}>
+                        <Check className="h-4 w-4 mr-1" />
+                        すべて確定
+                      </Button>
+                    </div>
                   </div>
                   
                   {/* 移動日別 → 出発店舗別にまとめて表示 */}
@@ -1603,12 +1627,33 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                               const perfDate = new Date(suggestion.performance_date)
                                               const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
                                               
+                                              // 完了チェック用のキー
+                                              const transferKey = `${suggestion.scenario_id}-${suggestion.kit_number}-${suggestion.performance_date}-${suggestion.to_store_id}`
+                                              const isCompleted = completedTransfers.has(transferKey)
+                                              
+                                              const toggleComplete = () => {
+                                                setCompletedTransfers(prev => {
+                                                  const next = new Set(prev)
+                                                  if (next.has(transferKey)) {
+                                                    next.delete(transferKey)
+                                                  } else {
+                                                    next.add(transferKey)
+                                                  }
+                                                  return next
+                                                })
+                                              }
+                                              
                                               return (
                                                 <div
                                                   key={index}
-                                                  className="flex items-center gap-2 text-sm py-0.5"
+                                                  className={`flex items-center gap-2 text-sm py-0.5 cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 ${isCompleted ? 'opacity-50' : ''}`}
+                                                  onClick={toggleComplete}
                                                 >
-                                                  <Badge variant="outline" className="text-[10px] shrink-0 bg-orange-50 dark:bg-orange-900/20">
+                                                  {/* チェックボックス */}
+                                                  <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${isCompleted ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                                                    {isCompleted && <Check className="h-3 w-3 text-white" />}
+                                                  </div>
+                                                  <Badge variant="outline" className={`text-[10px] shrink-0 ${isCompleted ? 'bg-gray-100' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
                                                     {perfDateStr}公演
                                                   </Badge>
                                                   {showActualStore && (
@@ -1616,7 +1661,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       {actualToStore?.short_name || actualToStore?.name}
                                                     </Badge>
                                                   )}
-                                                  <span className="truncate max-w-[180px]">
+                                                  <span className={`truncate max-w-[180px] ${isCompleted ? 'line-through' : ''}`}>
                                                     {suggestion.scenario_title}
                                                   </span>
                                                   <span className="text-muted-foreground text-xs">
