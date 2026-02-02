@@ -830,31 +830,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
   }, [isOpen, loading, kitLocations.length, scheduleEvents.length, transferDays, weekDates, handleCalculateTransfers])
 
-  // 移動提案を確定（イベントとして登録）
-  const handleConfirmSuggestions = async () => {
-    if (suggestions.length === 0) return
-
-    try {
-      const events = suggestions.map(s => ({
-        scenario_id: s.scenario_id,
-        kit_number: s.kit_number,
-        from_store_id: s.from_store_id,
-        to_store_id: s.to_store_id,
-        transfer_date: s.transfer_date,
-        status: 'pending' as const,
-        notes: s.reason
-      }))
-
-      await kitApi.createTransferEvents(events)
-      showToast.success('移動計画を登録しました')
-      setSuggestions([])
-      fetchData()
-    } catch (error) {
-      console.error('Failed to create transfer events:', error)
-      showToast.error('移動計画の登録に失敗しました')
-    }
-  }
-
   // 移動イベントのステータス更新
   const handleUpdateStatus = async (eventId: string, status: 'completed' | 'cancelled') => {
     try {
@@ -1552,27 +1527,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 </span>
               </div>
 
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  {isCalculating ? (
-                    <span className="flex items-center gap-2">
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      計算中...
-                    </span>
-                  ) : (
-                    '週間スケジュールに基づいて最適な移動計画を自動提案します'
-                  )}
+              {isCalculating && (
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  計算中...
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleCalculateTransfers(true)}
-                  disabled={isCalculating || transferDays.length === 0}
-                >
-                  <RefreshCw className={`h-4 w-4 ${isCalculating ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline ml-1">再計算</span>
-                </Button>
-              </div>
+              )}
 
               {/* 移動提案 */}
               {suggestions.length > 0 && (
@@ -1605,24 +1565,17 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         )
                       })()}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {completions.length > 0 && (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="text-xs sm:text-sm"
-                          onClick={handleClearAllCompletions}
-                        >
-                          <span className="hidden sm:inline">チェック解除</span>
-                          <span className="sm:hidden">解除</span>
-                        </Button>
-                      )}
-                      <Button size="sm" className="text-xs sm:text-sm" onClick={handleConfirmSuggestions}>
-                        <Check className="h-4 w-4 sm:mr-1" />
-                        <span className="hidden sm:inline">すべて確定</span>
-                        <span className="sm:hidden">確定</span>
+                    {completions.length > 0 && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="text-xs sm:text-sm"
+                        onClick={handleClearAllCompletions}
+                      >
+                        <span className="hidden sm:inline">チェック解除</span>
+                        <span className="sm:hidden">解除</span>
                       </Button>
-                    </div>
+                    )}
                   </div>
                   
                   {/* 移動日別 → 出発店舗別にまとめて表示 */}
