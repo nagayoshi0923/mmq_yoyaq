@@ -1624,10 +1624,20 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           allStoreIds.add(group.to_store_id)
                         }
                         
-                        // 店舗を表示順でソート
+                        // 店舗を表示順でソート（同じグループは隣接）
                         const sortedStoreIds = [...allStoreIds].sort((a, b) => {
                           const storeA = storeMap.get(a)
                           const storeB = storeMap.get(b)
+                          // まずグループIDでソート（同じグループは隣接）
+                          const groupA = getStoreGroupId(a)
+                          const groupB = getStoreGroupId(b)
+                          if (groupA !== groupB) {
+                            // グループ内の最小display_orderで比較
+                            const groupAOrder = storeA?.display_order || 0
+                            const groupBOrder = storeB?.display_order || 0
+                            return groupAOrder - groupBOrder
+                          }
+                          // 同じグループ内ではdisplay_orderでソート
                           return (storeA?.display_order || 0) - (storeB?.display_order || 0)
                         })
                         
@@ -1678,12 +1688,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                       </div>
                                     </div>
                                     
-                                    {/* 到着（この店舗が必要としているキット） */}
+                                    {/* 到着（この店舗が必要としているキット）- 設置チェック */}
                                     {incomingRoutes.length > 0 && (
                                       <div className="mb-3">
                                         <div className="text-xs font-medium text-blue-600 mb-1 flex items-center gap-1">
                                           <ArrowRight className="h-3 w-3" />
-                                          この店舗へ届ける
+                                          この店舗へ届ける（設置）
                                         </div>
                                         <div className="space-y-2 pl-2 border-l-2 border-blue-200">
                                           {incomingRoutes.map((route, routeIdx) => (
@@ -1696,15 +1706,41 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const perfDate = new Date(suggestion.performance_date)
                                                   const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
                                                   const transferKey = `${suggestion.scenario_id}-${suggestion.kit_number}-${suggestion.performance_date}-${suggestion.to_store_id}`
+                                                  const isPickedUp = pickedUpTransfers.has(transferKey)
                                                   const isDelivered = deliveredTransfers.has(transferKey)
                                                   
+                                                  const toggleDelivery = (e: React.MouseEvent) => {
+                                                    e.stopPropagation()
+                                                    if (!isPickedUp) return
+                                                    setDeliveredTransfers(prev => {
+                                                      const next = new Set(prev)
+                                                      if (next.has(transferKey)) {
+                                                        next.delete(transferKey)
+                                                      } else {
+                                                        next.add(transferKey)
+                                                      }
+                                                      return next
+                                                    })
+                                                  }
+                                                  
                                                   return (
-                                                    <div key={index} className={`text-xs flex items-center gap-1 ${isDelivered ? 'opacity-40 line-through' : ''}`}>
+                                                    <div key={index} className={`flex items-center gap-2 py-1 ${isDelivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10 rounded' : ''}`}>
+                                                      {/* 設置チェックボックス */}
+                                                      <div 
+                                                        className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${isPickedUp ? 'cursor-pointer active:scale-95 hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${isDelivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
+                                                        onClick={toggleDelivery}
+                                                        title={isPickedUp ? '設置完了' : '回収してから設置できます'}
+                                                      >
+                                                        {isDelivered && <Check className="h-3 w-3 text-white" />}
+                                                      </div>
                                                       <Badge variant="outline" className="text-[9px] px-1 py-0">
                                                         {perfDateStr}
                                                       </Badge>
-                                                      <span className="truncate">{suggestion.scenario_title}</span>
-                                                      <span className="text-muted-foreground">#{suggestion.kit_number}</span>
+                                                      <span className={`text-xs truncate ${isDelivered ? 'line-through' : ''}`}>{suggestion.scenario_title}</span>
+                                                      <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
+                                                      {!isPickedUp && (
+                                                        <span className="text-[10px] text-orange-500">未回収</span>
+                                                      )}
                                                     </div>
                                                   )
                                                 })}
@@ -1715,12 +1751,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                       </div>
                                     )}
                                     
-                                    {/* 出発（この店舗から持ち出すキット） */}
+                                    {/* 出発（この店舗から持ち出すキット）- 回収チェック */}
                                     {outgoingRoutes.length > 0 && (
                                       <div>
                                         <div className="text-xs font-medium text-red-600 mb-1 flex items-center gap-1">
                                           <ArrowRight className="h-3 w-3 rotate-180" />
-                                          この店舗から持ち出す
+                                          この店舗から持ち出す（回収）
                                         </div>
                                         <div className="space-y-2 pl-2 border-l-2 border-red-200">
                                           {outgoingRoutes.map((route, routeIdx) => (
@@ -1732,108 +1768,56 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                               
                                               {/* キット一覧 */}
                                               <div className="space-y-1">
-                                            {route.items.map((suggestion, index) => {
-                                              const actualToStore = storeMap.get(suggestion.to_store_id)
-                                              const showActualStore = route.isGrouped && suggestion.to_store_id !== route.to_store_id
-                                              // 公演日を表示
-                                              const perfDate = new Date(suggestion.performance_date)
-                                              const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
-                                              
-                                              // 完了チェック用のキー
-                                              const transferKey = `${suggestion.scenario_id}-${suggestion.kit_number}-${suggestion.performance_date}-${suggestion.to_store_id}`
-                                              const isPickedUp = pickedUpTransfers.has(transferKey)
-                                              const isDelivered = deliveredTransfers.has(transferKey)
-                                              
-                                              const togglePickup = (e: React.MouseEvent) => {
-                                                e.stopPropagation()
-                                                setPickedUpTransfers(prev => {
-                                                  const next = new Set(prev)
-                                                  if (next.has(transferKey)) {
-                                                    next.delete(transferKey)
-                                                    // 回収解除したら設置も解除
-                                                    setDeliveredTransfers(p => {
-                                                      const n = new Set(p)
-                                                      n.delete(transferKey)
-                                                      return n
-                                                    })
-                                                  } else {
-                                                    next.add(transferKey)
-                                                  }
-                                                  return next
-                                                })
-                                              }
-                                              
-                                              const toggleDelivery = (e: React.MouseEvent) => {
-                                                e.stopPropagation()
-                                                if (!isPickedUp) return // 回収してないと設置できない
-                                                setDeliveredTransfers(prev => {
-                                                  const next = new Set(prev)
-                                                  if (next.has(transferKey)) {
-                                                    next.delete(transferKey)
-                                                  } else {
-                                                    next.add(transferKey)
-                                                  }
-                                                  return next
-                                                })
-                                              }
-                                              
-                                              // 回収元・設置先の店舗名
-                                              const fromStore = storeMap.get(suggestion.from_store_id)
-                                              const toStore = storeMap.get(suggestion.to_store_id)
-                                              const fromStoreName = fromStore?.short_name || fromStore?.name || '?'
-                                              const toStoreName = toStore?.short_name || toStore?.name || '?'
-                                              
-                                              return (
-                                                <div
-                                                  key={index}
-                                                  className={`flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1 rounded px-1 -mx-1 ${isDelivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10' : isPickedUp ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
-                                                >
-                                                  {/* キット情報行 */}
-                                                  <div className="flex items-center gap-1 sm:gap-2">
-                                                    <Badge variant="outline" className={`text-[10px] shrink-0 ${isDelivered ? 'bg-gray-100' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
-                                                      {perfDateStr}
-                                                    </Badge>
-                                                    <span className={`truncate max-w-[150px] sm:max-w-[180px] ${isDelivered ? 'line-through text-muted-foreground' : ''}`}>
-                                                      {suggestion.scenario_title}
-                                                    </span>
-                                                    <span className="text-muted-foreground text-[10px] sm:text-xs">
-                                                      #{suggestion.kit_number}
-                                                    </span>
-                                                  </div>
+                                                {route.items.map((suggestion, index) => {
+                                                  const perfDate = new Date(suggestion.performance_date)
+                                                  const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
+                                                  const transferKey = `${suggestion.scenario_id}-${suggestion.kit_number}-${suggestion.performance_date}-${suggestion.to_store_id}`
+                                                  const isPickedUp = pickedUpTransfers.has(transferKey)
+                                                  const isDelivered = deliveredTransfers.has(transferKey)
                                                   
-                                                  {/* 回収・設置チェック行 */}
-                                                  <div className="flex items-center gap-2 pl-1 sm:pl-0 sm:ml-auto">
-                                                    {/* 回収チェック */}
-                                                    <div 
-                                                      className={`flex items-center gap-1 cursor-pointer active:scale-95 ${isPickedUp ? '' : 'hover:opacity-80'}`}
-                                                      onClick={togglePickup}
-                                                    >
-                                                      <div className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${isPickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300 hover:border-blue-400'}`}>
+                                                  const togglePickup = (e: React.MouseEvent) => {
+                                                    e.stopPropagation()
+                                                    setPickedUpTransfers(prev => {
+                                                      const next = new Set(prev)
+                                                      if (next.has(transferKey)) {
+                                                        next.delete(transferKey)
+                                                        // 回収解除したら設置も解除
+                                                        setDeliveredTransfers(p => {
+                                                          const n = new Set(p)
+                                                          n.delete(transferKey)
+                                                          return n
+                                                        })
+                                                      } else {
+                                                        next.add(transferKey)
+                                                      }
+                                                      return next
+                                                    })
+                                                  }
+                                                  
+                                                  return (
+                                                    <div key={index} className={`flex items-center gap-2 py-1 ${isPickedUp ? 'bg-blue-50 dark:bg-blue-900/10 rounded' : ''} ${isDelivered ? 'opacity-40' : ''}`}>
+                                                      {/* 回収チェックボックス */}
+                                                      <div 
+                                                        className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 cursor-pointer active:scale-95 hover:border-blue-400 ${isPickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
+                                                        onClick={togglePickup}
+                                                        title="回収"
+                                                      >
                                                         {isPickedUp && <Check className="h-3 w-3 text-white" />}
                                                       </div>
-                                                      <span className={`text-[10px] sm:text-xs ${isPickedUp ? 'text-blue-600 font-medium' : 'text-muted-foreground'}`}>
-                                                        {fromStoreName}回収
-                                                      </span>
+                                                      <Badge variant="outline" className="text-[9px] px-1 py-0">
+                                                        {perfDateStr}
+                                                      </Badge>
+                                                      <span className={`text-xs truncate ${isDelivered ? 'line-through' : ''}`}>{suggestion.scenario_title}</span>
+                                                      <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
+                                                      {isPickedUp && !isDelivered && (
+                                                        <span className="text-[10px] text-blue-500">回収済</span>
+                                                      )}
+                                                      {isDelivered && (
+                                                        <span className="text-[10px] text-green-500">完了</span>
+                                                      )}
                                                     </div>
-                                                    
-                                                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                                                    
-                                                    {/* 設置チェック */}
-                                                    <div 
-                                                      className={`flex items-center gap-1 ${isPickedUp ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed opacity-30'}`}
-                                                      onClick={toggleDelivery}
-                                                    >
-                                                      <div className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${isDelivered ? 'bg-green-500 border-green-500' : isPickedUp ? 'border-gray-300 hover:border-green-400' : 'border-gray-300'}`}>
-                                                        {isDelivered && <Check className="h-3 w-3 text-white" />}
-                                                      </div>
-                                                      <span className={`text-[10px] sm:text-xs ${isDelivered ? 'text-green-600 font-medium' : 'text-muted-foreground'}`}>
-                                                        {toStoreName}設置
-                                                      </span>
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              )
-                                            })}
+                                                  )
+                                                })}
                                               </div>
                                             </div>
                                           ))}
