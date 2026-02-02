@@ -810,7 +810,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               ← 前週
             </Button>
             <span className="font-medium min-w-[200px] text-center">
-              {formatDate(weekDates[0])} 〜 {formatDate(weekDates[6])}
+              {formatDate(demandDates[0] || weekDates[0])} 〜 {formatDate(demandDates[demandDates.length - 1] || weekDates[6])}
             </span>
             <Button variant="outline" size="sm" onClick={() => handleWeekChange('next')}>
               次週 →
