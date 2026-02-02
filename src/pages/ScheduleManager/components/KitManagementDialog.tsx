@@ -1660,8 +1660,38 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                               {sortedStoreIds.map((storeId) => {
                                 const store = storeMap.get(storeId)
                                 const storeName = store?.short_name || store?.name || '?'
-                                const outgoingRoutes = bySource.get(storeId) || []
-                                const incomingRoutes = byDestination.get(storeId) || []
+                                
+                                // ルートを同グループ順にソート
+                                const sortRoutesByGroup = (routes: typeof groups) => {
+                                  return [...routes].sort((a, b) => {
+                                    const groupA = getStoreGroupId(a.to_store_id)
+                                    const groupB = getStoreGroupId(b.to_store_id)
+                                    if (groupA !== groupB) {
+                                      const storeAData = storeMap.get(a.to_store_id)
+                                      const storeBData = storeMap.get(b.to_store_id)
+                                      return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
+                                    }
+                                    const storeAData = storeMap.get(a.to_store_id)
+                                    const storeBData = storeMap.get(b.to_store_id)
+                                    return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
+                                  })
+                                }
+                                const sortIncomingByGroup = (routes: typeof groups) => {
+                                  return [...routes].sort((a, b) => {
+                                    const groupA = getStoreGroupId(a.from_store_id)
+                                    const groupB = getStoreGroupId(b.from_store_id)
+                                    if (groupA !== groupB) {
+                                      const storeAData = storeMap.get(a.from_store_id)
+                                      const storeBData = storeMap.get(b.from_store_id)
+                                      return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
+                                    }
+                                    const storeAData = storeMap.get(a.from_store_id)
+                                    const storeBData = storeMap.get(b.from_store_id)
+                                    return (storeAData?.display_order || 0) - (storeBData?.display_order || 0)
+                                  })
+                                }
+                                const outgoingRoutes = sortRoutesByGroup(bySource.get(storeId) || [])
+                                const incomingRoutes = sortIncomingByGroup(byDestination.get(storeId) || [])
                                 const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.length, 0)
                                 const incomingCount = incomingRoutes.reduce((sum, r) => sum + r.items.length, 0)
                                 
