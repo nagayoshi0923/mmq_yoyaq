@@ -970,7 +970,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent size="xl" className="max-h-[100dvh] sm:max-h-[90vh] h-[100dvh] sm:h-auto overflow-hidden flex flex-col w-full sm:w-auto">
+      <DialogContent size="xl" className="max-h-[100dvh] sm:max-h-[90vh] h-[100dvh] sm:h-[85vh] overflow-hidden flex flex-col w-full sm:w-[900px]">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
