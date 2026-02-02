@@ -2053,25 +2053,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               
               <div className="space-y-4">
                 <div className="bg-muted/50 rounded-lg p-3">
-                  <h4 className="font-semibold mb-1">📦 移動計画</h4>
-                  <p className="text-muted-foreground">
-                    今週必要なキット移動の一覧です。どの店舗からどの店舗へ、どのキットを運ぶべきかが表示されます。
-                  </p>
-                  <ul className="mt-2 space-y-1 text-muted-foreground list-disc list-inside">
-                    <li><span className="text-red-600 font-medium">持ち出す（回収）</span>：この店舗から持っていくキット</li>
-                    <li><span className="text-blue-600 font-medium">届ける（設置）</span>：この店舗に届けるキット</li>
-                  </ul>
-                </div>
-
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <h4 className="font-semibold mb-1">📅 週間需要</h4>
-                  <p className="text-muted-foreground">
-                    各日付・各店舗で必要なシナリオを一覧表示します。
-                    赤い警告マークはキットが不足している状態を示します。
-                  </p>
-                </div>
-
-                <div className="bg-muted/50 rounded-lg p-3">
                   <h4 className="font-semibold mb-1">🎭 シナリオ別</h4>
                   <p className="text-muted-foreground">
                     シナリオごとにキットが今どの店舗にあるか確認できます。
@@ -2085,6 +2066,25 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     各店舗にあるキットを一覧表示します。
                     ドラッグ&ドロップや右クリックでキットの移動・状態変更ができます。
                   </p>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold mb-1">📅 週間需要</h4>
+                  <p className="text-muted-foreground">
+                    各日付・各店舗で必要なシナリオを一覧表示します。
+                    オレンジ色の背景は、その店舗にキットがない状態を示します。
+                  </p>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <h4 className="font-semibold mb-1">📦 移動計画</h4>
+                  <p className="text-muted-foreground">
+                    今週必要なキット移動の一覧です。どの店舗からどの店舗へ、どのキットを運ぶべきかが表示されます。
+                  </p>
+                  <ul className="mt-2 space-y-1 text-muted-foreground list-disc list-inside">
+                    <li><span className="text-red-600 font-medium">持ち出す（回収）</span>：この店舗から持っていくキット</li>
+                    <li><span className="text-blue-600 font-medium">届ける（設置）</span>：この店舗に届けるキット</li>
+                  </ul>
                 </div>
               </div>
             </section>
