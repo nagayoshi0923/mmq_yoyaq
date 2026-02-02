@@ -6,7 +6,7 @@
 
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '../organization'
-import type { KitLocation, KitTransferEvent, KitCondition } from '@/types'
+import type { KitLocation, KitTransferEvent, KitCondition, KitTransferCompletion } from '@/types'
 
 export const kitApi = {
   // ============================================
@@ -341,6 +341,209 @@ export const kitApi = {
 
     if (error) {
       console.error('Failed to cancel pending transfers:', error)
+      throw error
+    }
+
+    return data?.length || 0
+  },
+
+  // ============================================
+  // キット移動完了状態関連
+  // ============================================
+
+  /**
+   * 期間内の移動完了状態を取得
+   */
+  async getTransferCompletions(
+    startDate: string,
+    endDate: string
+  ): Promise<KitTransferCompletion[]> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) return []
+
+    const { data, error } = await supabase
+      .from('kit_transfer_completions')
+      .select(`
+        *,
+        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, display_name, name),
+        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, display_name, name)
+      `)
+      .eq('organization_id', orgId)
+      .gte('performance_date', startDate)
+      .lte('performance_date', endDate)
+
+    if (error) {
+      console.error('Failed to fetch transfer completions:', error)
+      throw error
+    }
+
+    return data || []
+  },
+
+  /**
+   * 回収完了をマーク
+   */
+  async markPickedUp(
+    scenarioId: string,
+    kitNumber: number,
+    performanceDate: string,
+    fromStoreId: string,
+    toStoreId: string,
+    staffId: string
+  ): Promise<KitTransferCompletion> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) throw new Error('Organization ID not found')
+
+    const { data, error } = await supabase
+      .from('kit_transfer_completions')
+      .upsert({
+        organization_id: orgId,
+        scenario_id: scenarioId,
+        kit_number: kitNumber,
+        performance_date: performanceDate,
+        from_store_id: fromStoreId,
+        to_store_id: toStoreId,
+        picked_up_at: new Date().toISOString(),
+        picked_up_by: staffId
+      }, {
+        onConflict: 'organization_id,scenario_id,kit_number,performance_date,to_store_id'
+      })
+      .select(`
+        *,
+        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, display_name, name),
+        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, display_name, name)
+      `)
+      .single()
+
+    if (error) {
+      console.error('Failed to mark picked up:', error)
+      throw error
+    }
+
+    return data
+  },
+
+  /**
+   * 回収完了を解除
+   */
+  async unmarkPickedUp(
+    scenarioId: string,
+    kitNumber: number,
+    performanceDate: string,
+    toStoreId: string
+  ): Promise<void> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) throw new Error('Organization ID not found')
+
+    const { error } = await supabase
+      .from('kit_transfer_completions')
+      .update({
+        picked_up_at: null,
+        picked_up_by: null,
+        delivered_at: null,
+        delivered_by: null
+      })
+      .eq('organization_id', orgId)
+      .eq('scenario_id', scenarioId)
+      .eq('kit_number', kitNumber)
+      .eq('performance_date', performanceDate)
+      .eq('to_store_id', toStoreId)
+
+    if (error) {
+      console.error('Failed to unmark picked up:', error)
+      throw error
+    }
+  },
+
+  /**
+   * 設置完了をマーク
+   */
+  async markDelivered(
+    scenarioId: string,
+    kitNumber: number,
+    performanceDate: string,
+    toStoreId: string,
+    staffId: string
+  ): Promise<KitTransferCompletion> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) throw new Error('Organization ID not found')
+
+    const { data, error } = await supabase
+      .from('kit_transfer_completions')
+      .update({
+        delivered_at: new Date().toISOString(),
+        delivered_by: staffId
+      })
+      .eq('organization_id', orgId)
+      .eq('scenario_id', scenarioId)
+      .eq('kit_number', kitNumber)
+      .eq('performance_date', performanceDate)
+      .eq('to_store_id', toStoreId)
+      .select(`
+        *,
+        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, display_name, name),
+        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, display_name, name)
+      `)
+      .single()
+
+    if (error) {
+      console.error('Failed to mark delivered:', error)
+      throw error
+    }
+
+    return data
+  },
+
+  /**
+   * 設置完了を解除
+   */
+  async unmarkDelivered(
+    scenarioId: string,
+    kitNumber: number,
+    performanceDate: string,
+    toStoreId: string
+  ): Promise<void> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) throw new Error('Organization ID not found')
+
+    const { error } = await supabase
+      .from('kit_transfer_completions')
+      .update({
+        delivered_at: null,
+        delivered_by: null
+      })
+      .eq('organization_id', orgId)
+      .eq('scenario_id', scenarioId)
+      .eq('kit_number', kitNumber)
+      .eq('performance_date', performanceDate)
+      .eq('to_store_id', toStoreId)
+
+    if (error) {
+      console.error('Failed to unmark delivered:', error)
+      throw error
+    }
+  },
+
+  /**
+   * 全完了状態をクリア（期間指定）
+   */
+  async clearAllCompletions(
+    startDate: string,
+    endDate: string
+  ): Promise<number> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) return 0
+
+    const { data, error } = await supabase
+      .from('kit_transfer_completions')
+      .delete()
+      .eq('organization_id', orgId)
+      .gte('performance_date', startDate)
+      .lte('performance_date', endDate)
+      .select('id')
+
+    if (error) {
+      console.error('Failed to clear completions:', error)
       throw error
     }
 

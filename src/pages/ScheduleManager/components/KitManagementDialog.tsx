@@ -26,7 +26,9 @@ import { kitApi } from '@/lib/api/kitApi'
 import { storeApi, scenarioApi, scheduleApi } from '@/lib/api'
 import { showToast } from '@/utils/toast'
 import { calculateKitTransfers, type KitState } from '@/utils/kitOptimizer'
-import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, Scenario, KitCondition } from '@/types'
+import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, Scenario, KitCondition, KitTransferCompletion } from '@/types'
+import { getCurrentStaff } from '@/lib/organization'
+import { supabase } from '@/lib/supabase'
 import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -99,10 +101,10 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   // 移動可能曜日（デフォルト: 月・金）
   const [transferDays, setTransferDays] = useState<number[]>([1, 5])
   
-  // 移動完了チェック（キーは "scenario_id-kit_number-performance_date-to_store_id"）
-  // pickup: 回収済み, delivery: 設置済み
-  const [pickedUpTransfers, setPickedUpTransfers] = useState<Set<string>>(new Set())
-  const [deliveredTransfers, setDeliveredTransfers] = useState<Set<string>>(new Set())
+  // 移動完了状態（DBから取得）
+  const [completions, setCompletions] = useState<KitTransferCompletion[]>([])
+  const [currentStaffId, setCurrentStaffId] = useState<string | null>(null)
+  const [currentStaffName, setCurrentStaffName] = useState<string>('')
   
   // シナリオ検索
   const [scenarioSearch, setScenarioSearch] = useState('')
@@ -473,10 +475,72 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     })
   }, [transferEvents, storeMap, isSameStoreGroup, getStoreGroupId])
 
+  // 完了状態のキー生成
+  const getCompletionKey = useCallback((
+    scenarioId: string,
+    kitNumber: number,
+    performanceDate: string,
+    toStoreId: string
+  ) => {
+    return `${scenarioId}-${kitNumber}-${performanceDate}-${toStoreId}`
+  }, [])
+  
+  // 完了状態のマップ（高速ルックアップ用）
+  const completionMap = useMemo(() => {
+    const map = new Map<string, KitTransferCompletion>()
+    for (const c of completions) {
+      const key = getCompletionKey(c.scenario_id, c.kit_number, c.performance_date, c.to_store_id)
+      map.set(key, c)
+    }
+    return map
+  }, [completions, getCompletionKey])
+  
+  // 回収済みかどうか
+  const isPickedUp = useCallback((
+    scenarioId: string,
+    kitNumber: number,
+    performanceDate: string,
+    toStoreId: string
+  ) => {
+    const key = getCompletionKey(scenarioId, kitNumber, performanceDate, toStoreId)
+    const completion = completionMap.get(key)
+    return completion?.picked_up_at != null
+  }, [completionMap, getCompletionKey])
+  
+  // 設置済みかどうか
+  const isDelivered = useCallback((
+    scenarioId: string,
+    kitNumber: number,
+    performanceDate: string,
+    toStoreId: string
+  ) => {
+    const key = getCompletionKey(scenarioId, kitNumber, performanceDate, toStoreId)
+    const completion = completionMap.get(key)
+    return completion?.delivered_at != null
+  }, [completionMap, getCompletionKey])
+  
+  // 完了情報を取得
+  const getCompletion = useCallback((
+    scenarioId: string,
+    kitNumber: number,
+    performanceDate: string,
+    toStoreId: string
+  ): KitTransferCompletion | undefined => {
+    const key = getCompletionKey(scenarioId, kitNumber, performanceDate, toStoreId)
+    return completionMap.get(key)
+  }, [completionMap, getCompletionKey])
+
   // データ取得
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
+      // スタッフ情報を取得
+      const staff = await getCurrentStaff()
+      if (staff) {
+        setCurrentStaffId(staff.id)
+        setCurrentStaffName(staff.display_name || staff.name || '')
+      }
+      
       const [locationsData, storesData, scenariosData] = await Promise.all([
         kitApi.getKitLocations(),
         storeApi.getAll(),
@@ -493,6 +557,10 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       endDateObj.setDate(endDateObj.getDate() + 3) // 週末+3日（翌週の水曜まで）
       const endDate = endDateObj.toISOString().split('T')[0]
       const eventsData = await scheduleApi.getByDateRange(startDate, endDate)
+      
+      // 完了状態を取得
+      const completionsData = await kitApi.getTransferCompletions(startDate, endDate)
+      setCompletions(completionsData)
       
       // デバッグログ
       console.log('📅 スケジュール取得:', {
@@ -530,6 +598,116 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       fetchData()
     }
   }, [isOpen, fetchData])
+  
+  // リアルタイム購読（完了状態の変更を他ユーザーと同期）
+  useEffect(() => {
+    if (!isOpen) return
+    
+    const channel = supabase
+      .channel('kit_transfer_completions_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'kit_transfer_completions'
+        },
+        async (payload) => {
+          console.log('🔄 リアルタイム更新:', payload)
+          // 完了状態を再取得
+          const startDate = weekDates[0]
+          const endDateObj = new Date(weekDates[6])
+          endDateObj.setDate(endDateObj.getDate() + 3)
+          const endDate = endDateObj.toISOString().split('T')[0]
+          const completionsData = await kitApi.getTransferCompletions(startDate, endDate)
+          setCompletions(completionsData)
+        }
+      )
+      .subscribe()
+    
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [isOpen, weekDates])
+  
+  // 回収完了をトグル
+  const handleTogglePickup = async (
+    scenarioId: string,
+    kitNumber: number,
+    performanceDate: string,
+    fromStoreId: string,
+    toStoreId: string
+  ) => {
+    if (!currentStaffId) {
+      showToast.error('スタッフ情報が取得できません')
+      return
+    }
+    
+    const currentlyPickedUp = isPickedUp(scenarioId, kitNumber, performanceDate, toStoreId)
+    
+    try {
+      if (currentlyPickedUp) {
+        // 回収解除（設置も解除される）
+        await kitApi.unmarkPickedUp(scenarioId, kitNumber, performanceDate, toStoreId)
+      } else {
+        // 回収完了
+        await kitApi.markPickedUp(scenarioId, kitNumber, performanceDate, fromStoreId, toStoreId, currentStaffId)
+      }
+      // リアルタイム購読で更新されるので手動更新不要
+    } catch (error) {
+      console.error('Failed to toggle pickup:', error)
+      showToast.error('操作に失敗しました')
+    }
+  }
+  
+  // 設置完了をトグル
+  const handleToggleDelivery = async (
+    scenarioId: string,
+    kitNumber: number,
+    performanceDate: string,
+    toStoreId: string
+  ) => {
+    if (!currentStaffId) {
+      showToast.error('スタッフ情報が取得できません')
+      return
+    }
+    
+    // 回収されていない場合は設置できない
+    if (!isPickedUp(scenarioId, kitNumber, performanceDate, toStoreId)) {
+      return
+    }
+    
+    const currentlyDelivered = isDelivered(scenarioId, kitNumber, performanceDate, toStoreId)
+    
+    try {
+      if (currentlyDelivered) {
+        // 設置解除
+        await kitApi.unmarkDelivered(scenarioId, kitNumber, performanceDate, toStoreId)
+      } else {
+        // 設置完了
+        await kitApi.markDelivered(scenarioId, kitNumber, performanceDate, toStoreId, currentStaffId)
+      }
+      // リアルタイム購読で更新されるので手動更新不要
+    } catch (error) {
+      console.error('Failed to toggle delivery:', error)
+      showToast.error('操作に失敗しました')
+    }
+  }
+  
+  // 全完了状態をクリア
+  const handleClearAllCompletions = async () => {
+    try {
+      const startDate = weekDates[0]
+      const endDateObj = new Date(weekDates[6])
+      endDateObj.setDate(endDateObj.getDate() + 3)
+      const endDate = endDateObj.toISOString().split('T')[0]
+      await kitApi.clearAllCompletions(startDate, endDate)
+      showToast.success('チェックを解除しました')
+    } catch (error) {
+      console.error('Failed to clear completions:', error)
+      showToast.error('操作に失敗しました')
+    }
+  }
 
   // 週の開始日を変更
   const handleWeekChange = (direction: 'prev' | 'next') => {
@@ -1393,32 +1571,37 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     <div className="flex flex-wrap items-center gap-1 sm:gap-2 font-medium text-yellow-800 dark:text-yellow-200">
                       <AlertTriangle className="h-4 w-4" />
                       <span className="text-sm sm:text-base">移動提案 ({suggestions.length}件)</span>
-                      {deliveredTransfers.size > 0 && (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
-                          {deliveredTransfers.size}件完了
-                        </Badge>
-                      )}
-                      {pickedUpTransfers.size > deliveredTransfers.size && (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
-                          {pickedUpTransfers.size - deliveredTransfers.size}件移動中
-                        </Badge>
-                      )}
-                      {suggestions.length - deliveredTransfers.size > 0 && deliveredTransfers.size > 0 && (
-                        <Badge variant="destructive" className="text-xs">
-                          残り{suggestions.length - deliveredTransfers.size}件
-                        </Badge>
-                      )}
+                      {(() => {
+                        const deliveredCount = completions.filter(c => c.delivered_at).length
+                        const pickedUpCount = completions.filter(c => c.picked_up_at && !c.delivered_at).length
+                        return (
+                          <>
+                            {deliveredCount > 0 && (
+                              <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                                {deliveredCount}件完了
+                              </Badge>
+                            )}
+                            {pickedUpCount > 0 && (
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                                {pickedUpCount}件移動中
+                              </Badge>
+                            )}
+                            {deliveredCount > 0 && suggestions.length - deliveredCount > 0 && (
+                              <Badge variant="destructive" className="text-xs">
+                                残り{suggestions.length - deliveredCount}件
+                              </Badge>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                     <div className="flex items-center gap-2">
-                      {(pickedUpTransfers.size > 0 || deliveredTransfers.size > 0) && (
+                      {completions.length > 0 && (
                         <Button 
                           size="sm" 
                           variant="outline"
                           className="text-xs sm:text-sm"
-                          onClick={() => {
-                            setPickedUpTransfers(new Set())
-                            setDeliveredTransfers(new Set())
-                          }}
+                          onClick={handleClearAllCompletions}
                         >
                           <span className="hidden sm:inline">チェック解除</span>
                           <span className="sm:hidden">解除</span>
@@ -1748,40 +1931,34 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                 {route.items.map((suggestion, index) => {
                                                   const perfDate = new Date(suggestion.performance_date)
                                                   const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
-                                                  const transferKey = `${suggestion.scenario_id}-${suggestion.kit_number}-${suggestion.performance_date}-${suggestion.to_store_id}`
-                                                  const isPickedUp = pickedUpTransfers.has(transferKey)
-                                                  const isDelivered = deliveredTransfers.has(transferKey)
+                                                  const pickedUp = isPickedUp(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
+                                                  const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
+                                                  const completion = getCompletion(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   
-                                                  const toggleDelivery = (e: React.MouseEvent) => {
-                                                    e.stopPropagation()
-                                                    if (!isPickedUp) return
-                                                    setDeliveredTransfers(prev => {
-                                                      const next = new Set(prev)
-                                                      if (next.has(transferKey)) {
-                                                        next.delete(transferKey)
-                                                      } else {
-                                                        next.add(transferKey)
-                                                      }
-                                                      return next
-                                                    })
-                                                  }
+                                                  // 誰が設置したか
+                                                  const deliveredByName = completion?.delivered_by_staff?.display_name || completion?.delivered_by_staff?.name
                                                   
                                                   return (
-                                                    <div key={index} className={`flex items-center gap-2 py-1 ${isDelivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10 rounded' : ''}`}>
+                                                    <div key={index} className={`flex items-center gap-2 py-1 ${delivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10 rounded' : ''}`}>
                                                       {/* 設置チェックボックス */}
                                                       <div 
-                                                        className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${isPickedUp ? 'cursor-pointer active:scale-95 hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${isDelivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
-                                                        onClick={toggleDelivery}
-                                                        title={isPickedUp ? '設置完了' : '回収してから設置できます'}
+                                                        className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${pickedUp ? 'cursor-pointer active:scale-95 hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${delivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
+                                                        onClick={() => handleToggleDelivery(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)}
+                                                        title={pickedUp ? '設置完了' : '回収してから設置できます'}
                                                       >
-                                                        {isDelivered && <Check className="h-3 w-3 text-white" />}
+                                                        {delivered && <Check className="h-3 w-3 text-white" />}
                                                       </div>
                                                       <Badge variant="outline" className="text-[9px] px-1 py-0">
                                                         {perfDateStr}
                                                       </Badge>
-                                                      <span className={`text-xs truncate ${isDelivered ? 'line-through' : ''}`}>{suggestion.scenario_title}</span>
+                                                      <span className={`text-xs truncate ${delivered ? 'line-through' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
-                                                      {!isPickedUp && (
+                                                      {delivered && deliveredByName && (
+                                                        <span className="text-[10px] text-green-600 font-medium">
+                                                          {deliveredByName}が設置
+                                                        </span>
+                                                      )}
+                                                      {!pickedUp && (
                                                         <span className="text-[10px] text-orange-500">未回収</span>
                                                       )}
                                                     </div>
@@ -1814,48 +1991,34 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                 {route.items.map((suggestion, index) => {
                                                   const perfDate = new Date(suggestion.performance_date)
                                                   const perfDateStr = `${perfDate.getMonth() + 1}/${perfDate.getDate()}`
-                                                  const transferKey = `${suggestion.scenario_id}-${suggestion.kit_number}-${suggestion.performance_date}-${suggestion.to_store_id}`
-                                                  const isPickedUp = pickedUpTransfers.has(transferKey)
-                                                  const isDelivered = deliveredTransfers.has(transferKey)
+                                                  const pickedUp = isPickedUp(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
+                                                  const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
+                                                  const completion = getCompletion(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   
-                                                  const togglePickup = (e: React.MouseEvent) => {
-                                                    e.stopPropagation()
-                                                    setPickedUpTransfers(prev => {
-                                                      const next = new Set(prev)
-                                                      if (next.has(transferKey)) {
-                                                        next.delete(transferKey)
-                                                        // 回収解除したら設置も解除
-                                                        setDeliveredTransfers(p => {
-                                                          const n = new Set(p)
-                                                          n.delete(transferKey)
-                                                          return n
-                                                        })
-                                                      } else {
-                                                        next.add(transferKey)
-                                                      }
-                                                      return next
-                                                    })
-                                                  }
+                                                  // 誰が回収したか
+                                                  const pickedUpByName = completion?.picked_up_by_staff?.display_name || completion?.picked_up_by_staff?.name
                                                   
                                                   return (
-                                                    <div key={index} className={`flex items-center gap-2 py-1 ${isPickedUp ? 'bg-blue-50 dark:bg-blue-900/10 rounded' : ''} ${isDelivered ? 'opacity-40' : ''}`}>
+                                                    <div key={index} className={`flex items-center gap-2 py-1 ${pickedUp ? 'bg-blue-50 dark:bg-blue-900/10 rounded' : ''} ${delivered ? 'opacity-40' : ''}`}>
                                                       {/* 回収チェックボックス */}
                                                       <div 
-                                                        className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 cursor-pointer active:scale-95 hover:border-blue-400 ${isPickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
-                                                        onClick={togglePickup}
+                                                        className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 cursor-pointer active:scale-95 hover:border-blue-400 ${pickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
+                                                        onClick={() => handleTogglePickup(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.from_store_id, suggestion.to_store_id)}
                                                         title="回収"
                                                       >
-                                                        {isPickedUp && <Check className="h-3 w-3 text-white" />}
+                                                        {pickedUp && <Check className="h-3 w-3 text-white" />}
                                                       </div>
                                                       <Badge variant="outline" className="text-[9px] px-1 py-0">
                                                         {perfDateStr}
                                                       </Badge>
-                                                      <span className={`text-xs truncate ${isDelivered ? 'line-through' : ''}`}>{suggestion.scenario_title}</span>
+                                                      <span className={`text-xs truncate ${delivered ? 'line-through' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
-                                                      {isPickedUp && !isDelivered && (
-                                                        <span className="text-[10px] text-blue-500">回収済</span>
+                                                      {pickedUp && pickedUpByName && (
+                                                        <span className="text-[10px] text-blue-600 font-medium">
+                                                          {pickedUpByName}が回収
+                                                        </span>
                                                       )}
-                                                      {isDelivered && (
+                                                      {delivered && (
                                                         <span className="text-[10px] text-green-500">完了</span>
                                                       )}
                                                     </div>

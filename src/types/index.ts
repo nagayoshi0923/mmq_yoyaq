@@ -754,3 +754,23 @@ export interface KitDemand {
   scenario_title: string
   event_count: number  // その日のその店舗でのそのシナリオの公演数
 }
+
+// キット移動完了状態
+export interface KitTransferCompletion {
+  id: string
+  organization_id: string
+  scenario_id: string
+  kit_number: number
+  performance_date: string  // YYYY-MM-DD形式
+  from_store_id: string
+  to_store_id: string
+  picked_up_at: string | null
+  picked_up_by: string | null
+  delivered_at: string | null
+  delivered_by: string | null
+  created_at: string
+  updated_at: string
+  // JOIN時の拡張フィールド
+  picked_up_by_staff?: { id: string; display_name: string | null; name: string | null }
+  delivered_by_staff?: { id: string; display_name: string | null; name: string | null }
+}
