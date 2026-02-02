@@ -1297,27 +1297,37 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       const sortedTransferDays = [...transferDays].sort((a, b) => a - b)
                       
                       // 公演日から移動日を決定する関数
+                      // ルール: 当日運搬は危険なので、各移動日は「翌日〜次の移動日」の公演分を担当
+                      // 例: 月曜移動 → 火〜金の公演分、金曜移動 → 土〜月の公演分
                       const getTransferDayForPerformance = (performanceDate: string): number => {
                         const date = new Date(performanceDate)
                         const perfDayOfWeek = date.getDay()
                         
-                        // 公演日より前の直近の移動日を探す
-                        let bestTransferDay = sortedTransferDays[sortedTransferDays.length - 1]
-                        
-                        for (let i = sortedTransferDays.length - 1; i >= 0; i--) {
-                          const transferDay = sortedTransferDays[i]
-                          if (transferDay < perfDayOfWeek) {
-                            bestTransferDay = transferDay
-                            break
+                        // 各移動日のカバー範囲をチェック
+                        for (let i = 0; i < sortedTransferDays.length; i++) {
+                          const currentTransferDay = sortedTransferDays[i]
+                          const nextTransferDay = sortedTransferDays[(i + 1) % sortedTransferDays.length]
+                          
+                          // この移動日がカバーする範囲: (自分の翌日) 〜 (次の移動日) まで
+                          const rangeStart = (currentTransferDay + 1) % 7
+                          const rangeEnd = nextTransferDay
+                          
+                          // 範囲内かチェック（週をまたぐ場合も考慮）
+                          let inRange = false
+                          if (rangeStart <= rangeEnd) {
+                            // 週をまたがない場合 (例: 2〜5)
+                            inRange = perfDayOfWeek >= rangeStart && perfDayOfWeek <= rangeEnd
+                          } else {
+                            // 週をまたぐ場合 (例: 6〜1 = 土日月)
+                            inRange = perfDayOfWeek >= rangeStart || perfDayOfWeek <= rangeEnd
+                          }
+                          
+                          if (inRange) {
+                            return currentTransferDay
                           }
                         }
                         
-                        // 公演日が最初の移動日以前なら、前週の最後の移動日
-                        if (perfDayOfWeek <= sortedTransferDays[0]) {
-                          bestTransferDay = sortedTransferDays[sortedTransferDays.length - 1]
-                        }
-                        
-                        return bestTransferDay
+                        return sortedTransferDays[0] // フォールバック
                       }
                       
                       // 移動日ごとにグループ化
