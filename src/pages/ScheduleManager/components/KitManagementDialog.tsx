@@ -1298,13 +1298,28 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     {(() => {
                       const sortedTransferDays = [...transferDays].sort((a, b) => a - b)
                       
+                      // 日付文字列からローカル日付オブジェクトを作成（タイムゾーン問題を回避）
+                      const parseLocalDate = (dateStr: string): Date => {
+                        const [year, month, day] = dateStr.split('-').map(Number)
+                        return new Date(year, month - 1, day)
+                      }
+                      
+                      // 日付をYYYY-MM-DD形式の文字列に変換（ローカル）
+                      const formatDateStr = (date: Date): string => {
+                        const year = date.getFullYear()
+                        const month = String(date.getMonth() + 1).padStart(2, '0')
+                        const day = String(date.getDate()).padStart(2, '0')
+                        return `${year}-${month}-${day}`
+                      }
+                      
                       // 公演日から実際の移動日（Date）を計算する関数
                       // ルール: 当日運搬は危険なので、各移動日は「翌日〜次の移動日」の公演分を担当
-                      // 例: 月曜移動 → 火〜金の公演分、金曜移動 → 土〜月の公演分
+                      // 月曜移動 → 火〜金の公演分 (2,3,4,5)
+                      // 金曜移動 → 土〜月の公演分 (6,0,1)
                       const getActualTransferDate = (performanceDate: string): string | null => {
                         if (sortedTransferDays.length === 0) return null
                         
-                        const perfDate = new Date(performanceDate)
+                        const perfDate = parseLocalDate(performanceDate)
                         const perfDayOfWeek = perfDate.getDay()
                         
                         // 各移動日のカバー範囲をチェックして、担当する移動日の曜日を見つける
@@ -1320,8 +1335,10 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           
                           let inRange = false
                           if (rangeStart <= rangeEnd) {
+                            // 週をまたがない場合 (月曜の範囲: 2〜5 = 火水木金)
                             inRange = perfDayOfWeek >= rangeStart && perfDayOfWeek <= rangeEnd
                           } else {
+                            // 週をまたぐ場合 (金曜の範囲: 6〜1 = 土日月)
                             inRange = perfDayOfWeek >= rangeStart || perfDayOfWeek <= rangeEnd
                           }
                           
@@ -1338,15 +1355,32 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         const transferDate = new Date(perfDate)
                         transferDate.setDate(transferDate.getDate() - daysBack)
                         
-                        return transferDate.toISOString().split('T')[0]
+                        return formatDateStr(transferDate)
                       }
                       
                       // 移動日ごとにグループ化（実際の日付ベース）
                       const byTransferDate = new Map<string, typeof groupedSuggestions>()
                       
+                      // デバッグ用
+                      console.log('🚚 移動日計算デバッグ:', {
+                        sortedTransferDays,
+                        weekDates,
+                        groupedSuggestionsCount: groupedSuggestions.length
+                      })
+                      
                       for (const group of groupedSuggestions) {
                         const firstItem = group.items[0]
+                        const perfDate = parseLocalDate(firstItem.performance_date)
+                        const perfDayOfWeek = perfDate.getDay()
                         const actualTransferDateStr = getActualTransferDate(firstItem.performance_date)
+                        
+                        console.log('  📦 キット:', {
+                          scenario: firstItem.scenario_title?.slice(0, 10),
+                          performance_date: firstItem.performance_date,
+                          perfDayOfWeek,
+                          actualTransferDate: actualTransferDateStr,
+                          inWeekDates: actualTransferDateStr ? weekDates.includes(actualTransferDateStr) : false
+                        })
                         
                         if (!actualTransferDateStr) continue
                         
