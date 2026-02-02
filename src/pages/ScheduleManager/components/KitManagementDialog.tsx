@@ -1296,17 +1296,20 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                   {/* 移動日別 → 出発店舗別にまとめて表示 */}
                   <div className="space-y-4">
                     {(() => {
-                      // まず移動日（曜日）でグループ化
                       const sortedTransferDays = [...transferDays].sort((a, b) => a - b)
                       
-                      // 公演日から移動日を決定する関数
+                      // 公演日から実際の移動日（Date）を計算する関数
                       // ルール: 当日運搬は危険なので、各移動日は「翌日〜次の移動日」の公演分を担当
                       // 例: 月曜移動 → 火〜金の公演分、金曜移動 → 土〜月の公演分
-                      const getTransferDayForPerformance = (performanceDate: string): number => {
-                        const date = new Date(performanceDate)
-                        const perfDayOfWeek = date.getDay()
+                      const getActualTransferDate = (performanceDate: string): string | null => {
+                        if (sortedTransferDays.length === 0) return null
                         
-                        // 各移動日のカバー範囲をチェック
+                        const perfDate = new Date(performanceDate)
+                        const perfDayOfWeek = perfDate.getDay()
+                        
+                        // 各移動日のカバー範囲をチェックして、担当する移動日の曜日を見つける
+                        let responsibleTransferDayOfWeek = sortedTransferDays[0]
+                        
                         for (let i = 0; i < sortedTransferDays.length; i++) {
                           const currentTransferDay = sortedTransferDays[i]
                           const nextTransferDay = sortedTransferDays[(i + 1) % sortedTransferDays.length]
@@ -1315,49 +1318,66 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           const rangeStart = (currentTransferDay + 1) % 7
                           const rangeEnd = nextTransferDay
                           
-                          // 範囲内かチェック（週をまたぐ場合も考慮）
                           let inRange = false
                           if (rangeStart <= rangeEnd) {
-                            // 週をまたがない場合 (例: 2〜5)
                             inRange = perfDayOfWeek >= rangeStart && perfDayOfWeek <= rangeEnd
                           } else {
-                            // 週をまたぐ場合 (例: 6〜1 = 土日月)
                             inRange = perfDayOfWeek >= rangeStart || perfDayOfWeek <= rangeEnd
                           }
                           
                           if (inRange) {
-                            return currentTransferDay
+                            responsibleTransferDayOfWeek = currentTransferDay
+                            break
                           }
                         }
                         
-                        return sortedTransferDays[0] // フォールバック
+                        // 公演日から実際の移動日を計算（公演日より前の直近の該当曜日）
+                        let daysBack = perfDayOfWeek - responsibleTransferDayOfWeek
+                        if (daysBack <= 0) daysBack += 7 // 週をまたぐ場合
+                        
+                        const transferDate = new Date(perfDate)
+                        transferDate.setDate(transferDate.getDate() - daysBack)
+                        
+                        return transferDate.toISOString().split('T')[0]
                       }
                       
-                      // 移動日ごとにグループ化
-                      const byTransferDay = new Map<number, typeof groupedSuggestions>()
+                      // 移動日ごとにグループ化（実際の日付ベース）
+                      const byTransferDate = new Map<string, typeof groupedSuggestions>()
+                      
                       for (const group of groupedSuggestions) {
-                        // グループ内の最初のアイテムで移動日を決定
                         const firstItem = group.items[0]
-                        const transferDayOfWeek = getTransferDayForPerformance(firstItem.performance_date)
+                        const actualTransferDateStr = getActualTransferDate(firstItem.performance_date)
                         
-                        if (!byTransferDay.has(transferDayOfWeek)) {
-                          byTransferDay.set(transferDayOfWeek, [])
+                        if (!actualTransferDateStr) continue
+                        
+                        // 今週の移動日のみ含める（weekDatesに含まれる日付のみ）
+                        if (!weekDates.includes(actualTransferDateStr)) continue
+                        
+                        // 移動日でグループ化
+                        if (!byTransferDate.has(actualTransferDateStr)) {
+                          byTransferDate.set(actualTransferDateStr, [])
                         }
-                        byTransferDay.get(transferDayOfWeek)!.push(group)
+                        byTransferDate.get(actualTransferDateStr)!.push(group)
                       }
                       
-                      // 移動日順にソート
-                      const sortedDays = [...byTransferDay.entries()].sort((a, b) => a[0] - b[0])
+                      // 日付順にソート
+                      const sortedDays = [...byTransferDate.entries()].sort((a, b) => 
+                        a[0].localeCompare(b[0])
+                      )
                       
-                      return sortedDays.map(([dayOfWeek, groups], dayIndex) => {
-                        const dayShort = WEEKDAYS.find(w => w.value === dayOfWeek)?.short || '?'
+                      if (sortedDays.length === 0) {
+                        return (
+                          <div className="text-center py-4 text-muted-foreground">
+                            今週の移動日に該当する提案はありません
+                          </div>
+                        )
+                      }
+                      
+                      return sortedDays.map(([dateStr, groups], dayIndex) => {
+                        const transferDate = new Date(dateStr)
+                        const dayShort = WEEKDAYS.find(w => w.value === transferDate.getDay())?.short || '?'
                         const dayKitCount = groups.reduce((sum, g) => sum + g.items.length, 0)
-                        
-                        // 実際の日付を取得（weekDatesから該当曜日の日付を探す）
-                        const actualTransferDate = weekDates.find(d => new Date(d).getDay() === dayOfWeek)
-                        const transferDateLabel = actualTransferDate 
-                          ? `${new Date(actualTransferDate).getMonth() + 1}/${new Date(actualTransferDate).getDate()}(${dayShort})`
-                          : dayShort
+                        const transferDateLabel = `${transferDate.getMonth() + 1}/${transferDate.getDate()}(${dayShort})`
                         
                         // 出発店舗でグループ化
                         const bySource = new Map<string, typeof groups>()
@@ -1370,7 +1390,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         }
                         
                         return (
-                          <div key={dayOfWeek}>
+                          <div key={dateStr}>
                             {/* 移動日ヘッダー（複数日ある場合のみ表示） */}
                             {transferDays.length > 1 && (
                               <div className="flex items-center gap-2 mb-2 px-2 py-1 bg-primary/10 rounded-lg">
