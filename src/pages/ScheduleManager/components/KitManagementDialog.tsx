@@ -1021,13 +1021,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               キット配置管理
             </DialogTitle>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={() => setShowHelp(true)}
-              className="h-8 w-8 p-0 mr-6"
-              title="使い方を見る"
+              className="mr-6 gap-1"
             >
-              <HelpCircle className="h-5 w-5" />
+              <HelpCircle className="h-4 w-4" />
+              使い方
             </Button>
           </div>
           <DialogDescription>
