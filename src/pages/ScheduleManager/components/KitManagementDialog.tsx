@@ -68,14 +68,14 @@ const WEEKDAYS = [
   { value: 6, label: '土曜日', short: '土' },
 ]
 
-// 日時を「M/D曜」形式でフォーマット
+// 日時を「M/D(曜)」形式でフォーマット
 const formatCompletionDate = (dateStr: string | null): string => {
   if (!dateStr) return ''
   const date = new Date(dateStr)
   const month = date.getMonth() + 1
   const day = date.getDate()
   const dayOfWeek = WEEKDAYS.find(w => w.value === date.getDay())?.short || ''
-  return `${month}/${day}${dayOfWeek}`
+  return `${month}/${day}(${dayOfWeek})`
 }
 
 export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProps) {
@@ -2430,7 +2430,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 <div className="bg-muted/50 rounded-lg p-3">
                   <h4 className="font-semibold text-sm mb-1">誰がキットを運んだか確認したい</h4>
                   <p className="text-xs text-muted-foreground">
-                    「移動計画」タブでチェック済みのキットに「○○回収 2/2月」と表示されます
+                    「移動計画」タブでチェック済みのキットに「○○回収 2/2(月)」と表示されます
                   </p>
                 </div>
                 
