@@ -92,7 +92,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
   // UI状態
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('current')
+  const [activeTab, setActiveTab] = useState('transfers')
   const [startDayOfWeek, setStartDayOfWeek] = useState(1) // デフォルト: 月曜日
   const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(() => {
     // 今日を含む週の開始日
@@ -1081,13 +1081,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         {/* タブ */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="grid w-full grid-cols-4 h-auto">
-            <TabsTrigger value="current" className="text-xs sm:text-sm py-1.5 sm:py-2">
-              <span className="hidden sm:inline">シナリオ別</span>
-              <span className="sm:hidden">シナリオ</span>
-            </TabsTrigger>
-            <TabsTrigger value="store" className="text-xs sm:text-sm py-1.5 sm:py-2">
-              <span className="hidden sm:inline">店舗別在庫</span>
-              <span className="sm:hidden">在庫</span>
+            <TabsTrigger value="transfers" className="text-xs sm:text-sm py-1.5 sm:py-2">
+              <span className="hidden sm:inline">移動計画</span>
+              <span className="sm:hidden">移動</span>
             </TabsTrigger>
             <TabsTrigger value="demand" className="text-xs sm:text-sm py-1.5 sm:py-2">
               <span className="hidden sm:inline">週間需要</span>
@@ -1098,9 +1094,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="transfers" className="text-xs sm:text-sm py-1.5 sm:py-2">
-              <span className="hidden sm:inline">移動計画</span>
-              <span className="sm:hidden">移動</span>
+            <TabsTrigger value="current" className="text-xs sm:text-sm py-1.5 sm:py-2">
+              <span className="hidden sm:inline">シナリオ別</span>
+              <span className="sm:hidden">シナリオ</span>
+            </TabsTrigger>
+            <TabsTrigger value="store" className="text-xs sm:text-sm py-1.5 sm:py-2">
+              <span className="hidden sm:inline">店舗別在庫</span>
+              <span className="sm:hidden">在庫</span>
             </TabsTrigger>
           </TabsList>
 
