@@ -749,7 +749,16 @@ export function ScheduleManager() {
             )}
           </div>
           
-          {/* アクションボタン - 連結グループ */}
+          {/* アクションボタン - スマホ用 */}
+          <button
+            onClick={() => setIsKitManagementOpen(true)}
+            title="キット配置管理"
+            className="sm:hidden h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 ml-auto"
+          >
+            <Package className="h-4 w-4" />
+          </button>
+          
+          {/* アクションボタン - PC用連結グループ */}
           <div className="hidden sm:flex items-center h-9 border border-input rounded-lg overflow-hidden bg-background shrink-0 ml-auto">
             <button
               onClick={() => setIsKitManagementOpen(true)}
