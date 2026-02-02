@@ -790,7 +790,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent size="xl" className="max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent size="xl" className="max-h-[100dvh] sm:max-h-[90vh] h-[100dvh] sm:h-auto overflow-hidden flex flex-col w-full sm:w-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
@@ -802,11 +802,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         </DialogHeader>
 
         {/* 週選択 */}
-        <div className="flex items-center gap-4 py-2 border-b">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 py-2 border-b">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">起点曜日:</span>
+            <span className="text-sm text-muted-foreground hidden sm:inline">起点曜日:</span>
             <Select value={startDayOfWeek.toString()} onValueChange={handleStartDayChange}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[100px] sm:w-[120px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -819,43 +819,55 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             </Select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleWeekChange('prev')}>
-              ← 前週
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="outline" size="sm" className="px-2 sm:px-3" onClick={() => handleWeekChange('prev')}>
+              <span className="hidden sm:inline">← 前週</span>
+              <span className="sm:hidden">←</span>
             </Button>
-            <span className="font-medium min-w-[200px] text-center">
+            <span className="font-medium text-sm sm:text-base min-w-[140px] sm:min-w-[200px] text-center">
               {formatDate(demandDates[0] || weekDates[0])} 〜 {formatDate(demandDates[demandDates.length - 1] || weekDates[6])}
             </span>
-            <Button variant="outline" size="sm" onClick={() => handleWeekChange('next')}>
-              次週 →
+            <Button variant="outline" size="sm" className="px-2 sm:px-3" onClick={() => handleWeekChange('next')}>
+              <span className="hidden sm:inline">次週 →</span>
+              <span className="sm:hidden">→</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="px-2 sm:px-3"
+              onClick={fetchData}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline ml-1">更新</span>
             </Button>
           </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchData}
-            disabled={loading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-            更新
-          </Button>
         </div>
 
         {/* タブ */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="current">シナリオ別</TabsTrigger>
-            <TabsTrigger value="store">店舗別在庫</TabsTrigger>
-            <TabsTrigger value="demand">
-              週間需要
+          <TabsList className="grid w-full grid-cols-4 h-auto">
+            <TabsTrigger value="current" className="text-xs sm:text-sm py-1.5 sm:py-2">
+              <span className="hidden sm:inline">シナリオ別</span>
+              <span className="sm:hidden">シナリオ</span>
+            </TabsTrigger>
+            <TabsTrigger value="store" className="text-xs sm:text-sm py-1.5 sm:py-2">
+              <span className="hidden sm:inline">店舗別在庫</span>
+              <span className="sm:hidden">在庫</span>
+            </TabsTrigger>
+            <TabsTrigger value="demand" className="text-xs sm:text-sm py-1.5 sm:py-2">
+              <span className="hidden sm:inline">週間需要</span>
+              <span className="sm:hidden">需要</span>
               {kitShortages.length > 0 && (
-                <Badge variant="destructive" className="ml-1 h-5 px-1.5">
+                <Badge variant="destructive" className="ml-1 h-4 sm:h-5 px-1 sm:px-1.5 text-[10px] sm:text-xs">
                   {kitShortages.length}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="transfers">移動計画</TabsTrigger>
+            <TabsTrigger value="transfers" className="text-xs sm:text-sm py-1.5 sm:py-2">
+              <span className="hidden sm:inline">移動計画</span>
+              <span className="sm:hidden">移動</span>
+            </TabsTrigger>
           </TabsList>
 
           {/* 現在の配置 */}
@@ -1349,22 +1361,22 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               {/* 移動提案 */}
               {suggestions.length > 0 && (
                 <div className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/20">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2 font-medium text-yellow-800 dark:text-yellow-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-2 font-medium text-yellow-800 dark:text-yellow-200">
                       <AlertTriangle className="h-4 w-4" />
-                      移動提案 ({suggestions.length}件)
+                      <span className="text-sm sm:text-base">移動提案 ({suggestions.length}件)</span>
                       {deliveredTransfers.size > 0 && (
-                        <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800">
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
                           {deliveredTransfers.size}件完了
                         </Badge>
                       )}
                       {pickedUpTransfers.size > deliveredTransfers.size && (
-                        <Badge variant="secondary" className="ml-1 bg-blue-100 text-blue-800">
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
                           {pickedUpTransfers.size - deliveredTransfers.size}件移動中
                         </Badge>
                       )}
                       {suggestions.length - deliveredTransfers.size > 0 && deliveredTransfers.size > 0 && (
-                        <Badge variant="destructive" className="ml-1">
+                        <Badge variant="destructive" className="text-xs">
                           残り{suggestions.length - deliveredTransfers.size}件
                         </Badge>
                       )}
@@ -1374,17 +1386,20 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         <Button 
                           size="sm" 
                           variant="outline"
+                          className="text-xs sm:text-sm"
                           onClick={() => {
                             setPickedUpTransfers(new Set())
                             setDeliveredTransfers(new Set())
                           }}
                         >
-                          チェック解除
+                          <span className="hidden sm:inline">チェック解除</span>
+                          <span className="sm:hidden">解除</span>
                         </Button>
                       )}
-                      <Button size="sm" onClick={handleConfirmSuggestions}>
-                        <Check className="h-4 w-4 mr-1" />
-                        すべて確定
+                      <Button size="sm" className="text-xs sm:text-sm" onClick={handleConfirmSuggestions}>
+                        <Check className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">すべて確定</span>
+                        <span className="sm:hidden">確定</span>
                       </Button>
                     </div>
                   </div>
@@ -1678,36 +1693,36 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                               return (
                                                 <div
                                                   key={index}
-                                                  className={`flex items-center gap-2 text-sm py-1 rounded px-1 -mx-1 ${isDelivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10' : isPickedUp ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                                                  className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1 rounded px-1 -mx-1 ${isDelivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10' : isPickedUp ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                                                 >
                                                   {/* 回収チェックボックス */}
                                                   <div 
-                                                    className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 cursor-pointer hover:border-blue-400 ${isPickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
+                                                    className={`w-7 h-7 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 cursor-pointer active:scale-95 hover:border-blue-400 ${isPickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
                                                     onClick={togglePickup}
                                                     title="回収"
                                                   >
-                                                    {isPickedUp && <Check className="h-3 w-3 text-white" />}
+                                                    {isPickedUp && <Check className="h-4 w-4 sm:h-3 sm:w-3 text-white" />}
                                                   </div>
                                                   {/* 設置チェックボックス */}
                                                   <div 
-                                                    className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${isPickedUp ? 'cursor-pointer hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${isDelivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
+                                                    className={`w-7 h-7 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 active:scale-95 ${isPickedUp ? 'cursor-pointer hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${isDelivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
                                                     onClick={toggleDelivery}
                                                     title="設置"
                                                   >
-                                                    {isDelivered && <Check className="h-3 w-3 text-white" />}
+                                                    {isDelivered && <Check className="h-4 w-4 sm:h-3 sm:w-3 text-white" />}
                                                   </div>
                                                   <Badge variant="outline" className={`text-[10px] shrink-0 ${isDelivered ? 'bg-gray-100' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
-                                                    {perfDateStr}公演
+                                                    {perfDateStr}
                                                   </Badge>
                                                   {showActualStore && (
                                                     <Badge variant="secondary" className="text-[10px] shrink-0">
                                                       {actualToStore?.short_name || actualToStore?.name}
                                                     </Badge>
                                                   )}
-                                                  <span className={`truncate max-w-[180px] ${isDelivered ? 'line-through text-muted-foreground' : ''}`}>
+                                                  <span className={`truncate max-w-[120px] sm:max-w-[180px] ${isDelivered ? 'line-through text-muted-foreground' : ''}`}>
                                                     {suggestion.scenario_title}
                                                   </span>
-                                                  <span className="text-muted-foreground text-xs">
+                                                  <span className="text-muted-foreground text-[10px] sm:text-xs">
                                                     #{suggestion.kit_number}
                                                   </span>
                                                 </div>
