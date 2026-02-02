@@ -691,13 +691,17 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     
     try {
       if (currentlyDelivered) {
-        // 設置解除
+        // 設置解除（キット位置は戻さない - 手動で戻す必要あり）
         await kitApi.unmarkDelivered(scenarioId, kitNumber, performanceDate, toStoreId)
       } else {
         // 設置完了
         await kitApi.markDelivered(scenarioId, kitNumber, performanceDate, toStoreId, currentStaffId)
+        // キットの登録場所も移動先に更新
+        await kitApi.setKitLocation(scenarioId, kitNumber, toStoreId)
       }
       // リアルタイム購読で更新されるので手動更新不要
+      // ただしキット位置変更は再取得が必要
+      fetchData()
     } catch (error) {
       console.error('Failed to toggle delivery:', error)
       showToast.error('操作に失敗しました')
