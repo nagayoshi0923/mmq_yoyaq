@@ -2,8 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getServiceRoleKey } from '../_shared/security.ts'
-import { getCorsHeaders, maskEmail, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getServiceRoleKey, getCorsHeaders, maskEmail, sanitizeErrorMessage, verifyAuth, errorResponse } from '../_shared/security.ts'
 
 interface AuthorReportRequest {
   organizationId?: string  // マルチテナント対応
@@ -38,10 +37,35 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 P0-5修正: 認証チェック追加（管理者またはライセンス管理者のみ許可）
+    // このファンクションはmagic linkを生成できるため、厳格な認証が必須
+    const authResult = await verifyAuth(req, ['admin', 'license_admin', 'owner'])
+    if (!authResult.success) {
+      return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
+    }
+
     const body = await req.json()
-    console.log('Received body:', JSON.stringify(body, null, 2))
+    
+    // ログにはマスキングした情報のみ出力
+    console.log('📧 Sending author report:', {
+      to: maskEmail(body.to),
+      authorName: body.authorName,
+      year: body.year,
+      month: body.month,
+    })
+    
     const { organizationId, to, authorName, year, month, totalEvents, totalLicenseCost, scenarios }: AuthorReportRequest = body
-    console.log('scenarios:', JSON.stringify(scenarios, null, 2))
+
+    // 入力バリデーション
+    if (!to || !authorName || !year || !month) {
+      return errorResponse('必須パラメータが不足しています', 400, corsHeaders)
+    }
+
+    // メールアドレスの形式チェック
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(to)) {
+      return errorResponse('無効なメールアドレス形式です', 400, corsHeaders)
+    }
 
     // Supabase Admin クライアントを作成
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!

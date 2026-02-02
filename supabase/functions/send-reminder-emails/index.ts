@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName } from '../_shared/security.ts'
+import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 
 interface ReminderEmailRequest {
   organizationId?: string  // マルチテナント対応
@@ -31,6 +31,12 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 P0-4修正: 認証チェック追加（管理者またはスタッフのみ許可）
+    const authResult = await verifyAuth(req, ['admin', 'staff', 'owner', 'license_admin'])
+    if (!authResult.success) {
+      return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       getAnonKey(),
@@ -43,6 +49,34 @@ serve(async (req) => {
 
     // リクエストボディを取得
     const reminderData: ReminderEmailRequest = await req.json()
+
+    // 🔒 予約の正当性を検証
+    const { data: reservation, error: reservationError } = await supabaseClient
+      .from('reservations')
+      .select('id, customer_email, organization_id')
+      .eq('id', reminderData.reservationId)
+      .single()
+
+    if (reservationError || !reservation) {
+      return errorResponse('予約が見つかりません', 404, corsHeaders)
+    }
+
+    if (!reservation.customer_email || reservation.customer_email !== reminderData.customerEmail) {
+      return errorResponse('メールアドレスが一致しません', 403, corsHeaders)
+    }
+
+    if (reminderData.organizationId && reservation.organization_id && reminderData.organizationId !== reservation.organization_id) {
+      return errorResponse('組織が一致しません', 403, corsHeaders)
+    }
+
+    // ログにはマスキングした情報のみ出力
+    console.log('📧 Sending reminder email:', {
+      reservationId: reminderData.reservationId,
+      reservationNumber: reminderData.reservationNumber,
+      customerEmail: maskEmail(reminderData.customerEmail),
+      customerName: maskName(reminderData.customerName),
+      daysBefore: reminderData.daysBefore,
+    })
 
     // 組織設定からメール設定を取得
     const serviceClient = createClient(

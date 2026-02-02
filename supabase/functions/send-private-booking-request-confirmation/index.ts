@@ -2,7 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, sanitizeErrorMessage } from '../_shared/security.ts'
+import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, sanitizeErrorMessage, verifyAuth, errorResponse } from '../_shared/security.ts'
 
 interface PrivateBookingRequestConfirmationRequest {
   organizationId?: string  // マルチテナント対応
@@ -35,6 +35,12 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 P0-3修正: 認証チェック追加
+    const authResult = await verifyAuth(req)
+    if (!authResult.success) {
+      return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       getAnonKey(),
@@ -47,6 +53,33 @@ serve(async (req) => {
 
     // リクエストボディを取得
     const requestData: PrivateBookingRequestConfirmationRequest = await req.json()
+
+    // 🔒 予約の正当性を検証（存在確認 + メールアドレス照合）
+    const { data: reservation, error: reservationError } = await supabaseClient
+      .from('reservations')
+      .select('id, customer_email, organization_id')
+      .eq('id', requestData.reservationId)
+      .single()
+
+    if (reservationError || !reservation) {
+      return errorResponse('予約が見つかりません', 404, corsHeaders)
+    }
+
+    if (!reservation.customer_email || reservation.customer_email !== requestData.customerEmail) {
+      return errorResponse('メールアドレスが一致しません', 403, corsHeaders)
+    }
+
+    if (requestData.organizationId && reservation.organization_id && requestData.organizationId !== reservation.organization_id) {
+      return errorResponse('組織が一致しません', 403, corsHeaders)
+    }
+
+    // ログにはマスキングした情報のみ出力
+    console.log('📧 Sending private booking request confirmation:', {
+      reservationId: requestData.reservationId,
+      reservationNumber: requestData.reservationNumber,
+      customerEmail: maskEmail(requestData.customerEmail),
+      customerName: maskName(requestData.customerName),
+    })
 
     // 組織設定からメール設定を取得
     const serviceClient = createClient(
