@@ -1989,25 +1989,23 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                               </div>
                                               <div className="space-y-1">
                                                 {route.items.map((suggestion, index) => {
-                                                  // 全ての公演日を収集（同じシナリオ・キット番号）
-                                                  const allDatesForKit = route.items
-                                                    .filter(item => 
-                                                      item.scenario_id === suggestion.scenario_id && 
-                                                      item.kit_number === suggestion.kit_number
+                                                  // 移動先店舗（グループ含む）でこのシナリオが使われる全ての日付を取得
+                                                  const toGroupId = getStoreGroupId(suggestion.to_store_id)
+                                                  const allDatesForScenario = scheduleEvents
+                                                    .filter(event => 
+                                                      event.scenario_id === suggestion.scenario_id &&
+                                                      getStoreGroupId(event.store_id) === toGroupId &&
+                                                      demandDates.includes(event.date)
                                                     )
-                                                    .map(item => item.performance_date)
+                                                    .map(event => event.date)
+                                                    .filter((date, idx, arr) => arr.indexOf(date) === idx) // 重複排除
                                                     .sort()
-                                                  const allDatesStr = allDatesForKit.map(d => {
-                                                    const date = parseLocalDate(d)
-                                                    return `${date.getMonth() + 1}/${date.getDate()}`
-                                                  }).join(', ')
-                                                  
-                                                  // 最初の日付のみ表示（重複を避ける）
-                                                  const isFirstForKit = route.items.findIndex(item => 
-                                                    item.scenario_id === suggestion.scenario_id && 
-                                                    item.kit_number === suggestion.kit_number
-                                                  ) === index
-                                                  if (!isFirstForKit) return null
+                                                  const allDatesStr = allDatesForScenario.length > 0 
+                                                    ? allDatesForScenario.map(d => {
+                                                        const date = parseLocalDate(d)
+                                                        return `${date.getMonth() + 1}/${date.getDate()}`
+                                                      }).join(', ')
+                                                    : `${parseLocalDate(suggestion.performance_date).getMonth() + 1}/${parseLocalDate(suggestion.performance_date).getDate()}`
                                                   
                                                   const pickedUp = isPickedUp(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
@@ -2070,25 +2068,23 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                               {/* キット一覧 */}
                                               <div className="space-y-1">
                                                 {route.items.map((suggestion, index) => {
-                                                  // 全ての公演日を収集（同じシナリオ・キット番号）
-                                                  const allDatesForKit = route.items
-                                                    .filter(item => 
-                                                      item.scenario_id === suggestion.scenario_id && 
-                                                      item.kit_number === suggestion.kit_number
+                                                  // 移動先店舗（グループ含む）でこのシナリオが使われる全ての日付を取得
+                                                  const toGroupId = getStoreGroupId(suggestion.to_store_id)
+                                                  const allDatesForScenario = scheduleEvents
+                                                    .filter(event => 
+                                                      event.scenario_id === suggestion.scenario_id &&
+                                                      getStoreGroupId(event.store_id) === toGroupId &&
+                                                      demandDates.includes(event.date)
                                                     )
-                                                    .map(item => item.performance_date)
+                                                    .map(event => event.date)
+                                                    .filter((date, idx, arr) => arr.indexOf(date) === idx) // 重複排除
                                                     .sort()
-                                                  const allDatesStr = allDatesForKit.map(d => {
-                                                    const date = parseLocalDate(d)
-                                                    return `${date.getMonth() + 1}/${date.getDate()}`
-                                                  }).join(', ')
-                                                  
-                                                  // 最初の日付のみ表示（重複を避ける）
-                                                  const isFirstForKit = route.items.findIndex(item => 
-                                                    item.scenario_id === suggestion.scenario_id && 
-                                                    item.kit_number === suggestion.kit_number
-                                                  ) === index
-                                                  if (!isFirstForKit) return null
+                                                  const allDatesStr = allDatesForScenario.length > 0 
+                                                    ? allDatesForScenario.map(d => {
+                                                        const date = parseLocalDate(d)
+                                                        return `${date.getMonth() + 1}/${date.getDate()}`
+                                                      }).join(', ')
+                                                    : `${parseLocalDate(suggestion.performance_date).getMonth() + 1}/${parseLocalDate(suggestion.performance_date).getDate()}`
                                                   
                                                   const pickedUp = isPickedUp(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
