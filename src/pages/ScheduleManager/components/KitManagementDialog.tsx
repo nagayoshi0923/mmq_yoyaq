@@ -1690,41 +1690,60 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                 })
                                               }
                                               
+                                              // 回収元・設置先の店舗名
+                                              const fromStore = storeMap.get(suggestion.from_store_id)
+                                              const toStore = storeMap.get(suggestion.to_store_id)
+                                              const fromStoreName = fromStore?.short_name || fromStore?.name || '?'
+                                              const toStoreName = toStore?.short_name || toStore?.name || '?'
+                                              
                                               return (
                                                 <div
                                                   key={index}
-                                                  className={`flex items-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1 rounded px-1 -mx-1 ${isDelivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10' : isPickedUp ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                                                  className={`flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-1 rounded px-1 -mx-1 ${isDelivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10' : isPickedUp ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                                                 >
-                                                  {/* 回収チェックボックス */}
-                                                  <div 
-                                                    className={`w-7 h-7 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 cursor-pointer active:scale-95 hover:border-blue-400 ${isPickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
-                                                    onClick={togglePickup}
-                                                    title="回収"
-                                                  >
-                                                    {isPickedUp && <Check className="h-4 w-4 sm:h-3 sm:w-3 text-white" />}
-                                                  </div>
-                                                  {/* 設置チェックボックス */}
-                                                  <div 
-                                                    className={`w-7 h-7 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 active:scale-95 ${isPickedUp ? 'cursor-pointer hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${isDelivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
-                                                    onClick={toggleDelivery}
-                                                    title="設置"
-                                                  >
-                                                    {isDelivered && <Check className="h-4 w-4 sm:h-3 sm:w-3 text-white" />}
-                                                  </div>
-                                                  <Badge variant="outline" className={`text-[10px] shrink-0 ${isDelivered ? 'bg-gray-100' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
-                                                    {perfDateStr}
-                                                  </Badge>
-                                                  {showActualStore && (
-                                                    <Badge variant="secondary" className="text-[10px] shrink-0">
-                                                      {actualToStore?.short_name || actualToStore?.name}
+                                                  {/* キット情報行 */}
+                                                  <div className="flex items-center gap-1 sm:gap-2">
+                                                    <Badge variant="outline" className={`text-[10px] shrink-0 ${isDelivered ? 'bg-gray-100' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
+                                                      {perfDateStr}
                                                     </Badge>
-                                                  )}
-                                                  <span className={`truncate max-w-[120px] sm:max-w-[180px] ${isDelivered ? 'line-through text-muted-foreground' : ''}`}>
-                                                    {suggestion.scenario_title}
-                                                  </span>
-                                                  <span className="text-muted-foreground text-[10px] sm:text-xs">
-                                                    #{suggestion.kit_number}
-                                                  </span>
+                                                    <span className={`truncate max-w-[150px] sm:max-w-[180px] ${isDelivered ? 'line-through text-muted-foreground' : ''}`}>
+                                                      {suggestion.scenario_title}
+                                                    </span>
+                                                    <span className="text-muted-foreground text-[10px] sm:text-xs">
+                                                      #{suggestion.kit_number}
+                                                    </span>
+                                                  </div>
+                                                  
+                                                  {/* 回収・設置チェック行 */}
+                                                  <div className="flex items-center gap-2 pl-1 sm:pl-0 sm:ml-auto">
+                                                    {/* 回収チェック */}
+                                                    <div 
+                                                      className={`flex items-center gap-1 cursor-pointer active:scale-95 ${isPickedUp ? '' : 'hover:opacity-80'}`}
+                                                      onClick={togglePickup}
+                                                    >
+                                                      <div className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${isPickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300 hover:border-blue-400'}`}>
+                                                        {isPickedUp && <Check className="h-3 w-3 text-white" />}
+                                                      </div>
+                                                      <span className={`text-[10px] sm:text-xs ${isPickedUp ? 'text-blue-600 font-medium' : 'text-muted-foreground'}`}>
+                                                        {fromStoreName}回収
+                                                      </span>
+                                                    </div>
+                                                    
+                                                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                                    
+                                                    {/* 設置チェック */}
+                                                    <div 
+                                                      className={`flex items-center gap-1 ${isPickedUp ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed opacity-30'}`}
+                                                      onClick={toggleDelivery}
+                                                    >
+                                                      <div className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${isDelivered ? 'bg-green-500 border-green-500' : isPickedUp ? 'border-gray-300 hover:border-green-400' : 'border-gray-300'}`}>
+                                                        {isDelivered && <Check className="h-3 w-3 text-white" />}
+                                                      </div>
+                                                      <span className={`text-[10px] sm:text-xs ${isDelivered ? 'text-green-600 font-medium' : 'text-muted-foreground'}`}>
+                                                        {toStoreName}設置
+                                                      </span>
+                                                    </div>
+                                                  </div>
                                                 </div>
                                               )
                                             })}
