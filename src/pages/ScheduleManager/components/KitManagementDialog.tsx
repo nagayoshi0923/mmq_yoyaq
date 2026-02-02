@@ -100,7 +100,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [transferDays, setTransferDays] = useState<number[]>([1, 5])
   
   // 移動完了チェック（キーは "scenario_id-kit_number-performance_date-to_store_id"）
-  const [completedTransfers, setCompletedTransfers] = useState<Set<string>>(new Set())
+  // pickup: 回収済み, delivery: 設置済み
+  const [pickedUpTransfers, setPickedUpTransfers] = useState<Set<string>>(new Set())
+  const [deliveredTransfers, setDeliveredTransfers] = useState<Set<string>>(new Set())
   
   // シナリオ検索
   const [scenarioSearch, setScenarioSearch] = useState('')
@@ -1351,23 +1353,31 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     <div className="flex items-center gap-2 font-medium text-yellow-800 dark:text-yellow-200">
                       <AlertTriangle className="h-4 w-4" />
                       移動提案 ({suggestions.length}件)
-                      {completedTransfers.size > 0 && (
+                      {deliveredTransfers.size > 0 && (
                         <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800">
-                          {completedTransfers.size}件完了
+                          {deliveredTransfers.size}件完了
                         </Badge>
                       )}
-                      {suggestions.length - completedTransfers.size > 0 && completedTransfers.size > 0 && (
+                      {pickedUpTransfers.size > deliveredTransfers.size && (
+                        <Badge variant="secondary" className="ml-1 bg-blue-100 text-blue-800">
+                          {pickedUpTransfers.size - deliveredTransfers.size}件移動中
+                        </Badge>
+                      )}
+                      {suggestions.length - deliveredTransfers.size > 0 && deliveredTransfers.size > 0 && (
                         <Badge variant="destructive" className="ml-1">
-                          残り{suggestions.length - completedTransfers.size}件
+                          残り{suggestions.length - deliveredTransfers.size}件
                         </Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {completedTransfers.size > 0 && (
+                      {(pickedUpTransfers.size > 0 || deliveredTransfers.size > 0) && (
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => setCompletedTransfers(new Set())}
+                          onClick={() => {
+                            setPickedUpTransfers(new Set())
+                            setDeliveredTransfers(new Set())
+                          }}
                         >
                           チェック解除
                         </Button>
@@ -1629,10 +1639,32 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                               
                                               // 完了チェック用のキー
                                               const transferKey = `${suggestion.scenario_id}-${suggestion.kit_number}-${suggestion.performance_date}-${suggestion.to_store_id}`
-                                              const isCompleted = completedTransfers.has(transferKey)
+                                              const isPickedUp = pickedUpTransfers.has(transferKey)
+                                              const isDelivered = deliveredTransfers.has(transferKey)
                                               
-                                              const toggleComplete = () => {
-                                                setCompletedTransfers(prev => {
+                                              const togglePickup = (e: React.MouseEvent) => {
+                                                e.stopPropagation()
+                                                setPickedUpTransfers(prev => {
+                                                  const next = new Set(prev)
+                                                  if (next.has(transferKey)) {
+                                                    next.delete(transferKey)
+                                                    // 回収解除したら設置も解除
+                                                    setDeliveredTransfers(p => {
+                                                      const n = new Set(p)
+                                                      n.delete(transferKey)
+                                                      return n
+                                                    })
+                                                  } else {
+                                                    next.add(transferKey)
+                                                  }
+                                                  return next
+                                                })
+                                              }
+                                              
+                                              const toggleDelivery = (e: React.MouseEvent) => {
+                                                e.stopPropagation()
+                                                if (!isPickedUp) return // 回収してないと設置できない
+                                                setDeliveredTransfers(prev => {
                                                   const next = new Set(prev)
                                                   if (next.has(transferKey)) {
                                                     next.delete(transferKey)
@@ -1646,14 +1678,25 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                               return (
                                                 <div
                                                   key={index}
-                                                  className={`flex items-center gap-2 text-sm py-0.5 cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 ${isCompleted ? 'opacity-50' : ''}`}
-                                                  onClick={toggleComplete}
+                                                  className={`flex items-center gap-2 text-sm py-1 rounded px-1 -mx-1 ${isDelivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10' : isPickedUp ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                                                 >
-                                                  {/* チェックボックス */}
-                                                  <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${isCompleted ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
-                                                    {isCompleted && <Check className="h-3 w-3 text-white" />}
+                                                  {/* 回収チェックボックス */}
+                                                  <div 
+                                                    className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 cursor-pointer hover:border-blue-400 ${isPickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
+                                                    onClick={togglePickup}
+                                                    title="回収"
+                                                  >
+                                                    {isPickedUp && <Check className="h-3 w-3 text-white" />}
                                                   </div>
-                                                  <Badge variant="outline" className={`text-[10px] shrink-0 ${isCompleted ? 'bg-gray-100' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
+                                                  {/* 設置チェックボックス */}
+                                                  <div 
+                                                    className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${isPickedUp ? 'cursor-pointer hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${isDelivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
+                                                    onClick={toggleDelivery}
+                                                    title="設置"
+                                                  >
+                                                    {isDelivered && <Check className="h-3 w-3 text-white" />}
+                                                  </div>
+                                                  <Badge variant="outline" className={`text-[10px] shrink-0 ${isDelivered ? 'bg-gray-100' : 'bg-orange-50 dark:bg-orange-900/20'}`}>
                                                     {perfDateStr}公演
                                                   </Badge>
                                                   {showActualStore && (
@@ -1661,7 +1704,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       {actualToStore?.short_name || actualToStore?.name}
                                                     </Badge>
                                                   )}
-                                                  <span className={`truncate max-w-[180px] ${isCompleted ? 'line-through' : ''}`}>
+                                                  <span className={`truncate max-w-[180px] ${isDelivered ? 'line-through text-muted-foreground' : ''}`}>
                                                     {suggestion.scenario_title}
                                                   </span>
                                                   <span className="text-muted-foreground text-xs">
