@@ -528,16 +528,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       fetchData()
     }
   }, [isOpen, fetchData])
-  
-  // データが揃ったら自動で移動計画を計算（デバウンス付き）
-  useEffect(() => {
-    if (isOpen && !loading && kitLocations.length > 0 && scheduleEvents.length > 0 && transferDays.length > 0) {
-      const timer = setTimeout(() => {
-        handleCalculateTransfers(false)
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [isOpen, loading, kitLocations.length, scheduleEvents.length, transferDays, weekDates, handleCalculateTransfers])
 
   // 週の開始日を変更
   const handleWeekChange = (direction: 'prev' | 'next') => {
@@ -639,6 +629,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       setIsCalculating(false)
     }
   }, [kitLocations, scheduleEvents, weekDates, scenariosWithKits, stores, transferDays])
+
+  // データが揃ったら自動で移動計画を計算（デバウンス付き）
+  useEffect(() => {
+    if (isOpen && !loading && kitLocations.length > 0 && scheduleEvents.length > 0 && transferDays.length > 0) {
+      const timer = setTimeout(() => {
+        handleCalculateTransfers(false)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen, loading, kitLocations.length, scheduleEvents.length, transferDays, weekDates, handleCalculateTransfers])
 
   // 移動提案を確定（イベントとして登録）
   const handleConfirmSuggestions = async () => {
