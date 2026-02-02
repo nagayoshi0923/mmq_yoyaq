@@ -1450,10 +1450,30 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       }
                       
                       return sortedDays.map(([dateStr, groups], dayIndex) => {
-                        const transferDate = new Date(dateStr)
-                        const dayShort = WEEKDAYS.find(w => w.value === transferDate.getDay())?.short || '?'
+                        const transferDate = parseLocalDate(dateStr)
+                        const transferDayOfWeek = transferDate.getDay()
+                        const dayShort = WEEKDAYS.find(w => w.value === transferDayOfWeek)?.short || '?'
                         const dayKitCount = groups.reduce((sum, g) => sum + g.items.length, 0)
                         const transferDateLabel = `${transferDate.getMonth() + 1}/${transferDate.getDate()}(${dayShort})`
+                        
+                        // この移動日がカバーする公演期間を計算
+                        // 移動日の翌日 ～ 次の移動日まで
+                        const currentIdx = sortedTransferDays.indexOf(transferDayOfWeek)
+                        const nextTransferDayOfWeek = sortedTransferDays[(currentIdx + 1) % sortedTransferDays.length]
+                        
+                        // 公演開始日 = 移動日の翌日
+                        const perfStartDate = new Date(transferDate)
+                        perfStartDate.setDate(perfStartDate.getDate() + 1)
+                        
+                        // 公演終了日 = 次の移動日
+                        let daysToNext = nextTransferDayOfWeek - transferDayOfWeek
+                        if (daysToNext <= 0) daysToNext += 7
+                        const perfEndDate = new Date(transferDate)
+                        perfEndDate.setDate(perfEndDate.getDate() + daysToNext)
+                        
+                        const perfStartLabel = `${perfStartDate.getMonth() + 1}/${perfStartDate.getDate()}`
+                        const perfEndLabel = `${perfEndDate.getMonth() + 1}/${perfEndDate.getDate()}`
+                        const perfPeriodLabel = `${perfStartLabel}~${perfEndLabel}公演`
                         
                         // 出発店舗でグループ化
                         const bySource = new Map<string, typeof groups>()
@@ -1471,7 +1491,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                             {transferDays.length > 1 && (
                               <div className="flex items-center gap-2 mb-2 px-2 py-1 bg-primary/10 rounded-lg">
                                 <Calendar className="h-4 w-4 text-primary" />
-                                <span className="font-bold">{transferDateLabel} 移動分</span>
+                                <span className="font-bold">{transferDateLabel} 移動</span>
+                                <span className="text-sm text-muted-foreground">→ {perfPeriodLabel}</span>
                                 <Badge variant="secondary" className="ml-auto">
                                   {dayKitCount}キット
                                 </Badge>
