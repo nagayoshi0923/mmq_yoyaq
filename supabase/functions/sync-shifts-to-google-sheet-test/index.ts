@@ -1,6 +1,6 @@
 // テスト用: 最小限の実装
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { getCorsHeaders } from '../_shared/security.ts'
+import { errorResponse, getCorsHeaders, isCronOrServiceRoleCall } from '../_shared/security.ts'
 
 serve(async (req) => {
   const origin = req.headers.get('origin')
@@ -11,6 +11,11 @@ serve(async (req) => {
   }
 
   try {
+    // 🔒 テスト用関数だが、公開アクセスは許可しない（Cron/Service Role のみ）
+    if (!isCronOrServiceRoleCall(req)) {
+      return errorResponse('Unauthorized', 401, corsHeaders)
+    }
+
     const payload = await req.json()
     console.log('📊 リクエスト受信:', payload)
 

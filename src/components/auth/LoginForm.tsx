@@ -181,15 +181,6 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         setMessage('ログイン成功！リダイレクト中...')
         setError('') // エラーをクリア
         
-        // ログイン成功後のリダイレクト
-        // 戻り先URLがある場合はそこへ、なければ通常のリダイレクト
-        const returnUrl = sessionStorage.getItem('returnUrl')
-        if (returnUrl) {
-          sessionStorage.removeItem('returnUrl') // クリア
-          window.location.href = returnUrl
-          return
-        }
-        
         // AuthContextがユーザー情報を更新するのを少し待ってからリダイレクト
         setTimeout(async () => {
           try {
@@ -209,14 +200,40 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                   .single()
                 
                 if (staffData.role === 'admin' || staffData.role === 'staff') {
-                  window.location.href = '/dashboard'
+                  // スタッフ/管理者はログイン後にスケジュールページを開く
+                  const slug = orgData?.slug || 'queens-waltz'
+                  // 既存の returnUrl（例: /dashboard）より優先してスケジュールへ
+                  sessionStorage.removeItem('returnUrl')
+                  window.location.href = `/${slug}/schedule`
                 } else {
+                  // 戻り先URLがある場合はそこへ、なければ通常のリダイレクト
+                  const returnUrl = sessionStorage.getItem('returnUrl')
+                  if (returnUrl) {
+                    sessionStorage.removeItem('returnUrl') // クリア
+                    window.location.href = returnUrl
+                    return
+                  }
+
                   window.location.href = `/${orgData?.slug || 'queens-waltz'}`
                 }
               } else {
+                // 戻り先URLがある場合はそこへ、なければトップへ
+                const returnUrl = sessionStorage.getItem('returnUrl')
+                if (returnUrl) {
+                  sessionStorage.removeItem('returnUrl')
+                  window.location.href = returnUrl
+                  return
+                }
                 window.location.href = '/'
               }
             } else {
+              // 戻り先URLがある場合はそこへ、なければトップへ
+              const returnUrl = sessionStorage.getItem('returnUrl')
+              if (returnUrl) {
+                sessionStorage.removeItem('returnUrl')
+                window.location.href = returnUrl
+                return
+              }
               window.location.href = '/'
             }
           } catch (err) {

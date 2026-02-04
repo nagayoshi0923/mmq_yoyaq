@@ -676,7 +676,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         // 回収完了
         await kitApi.markPickedUp(scenarioId, kitNumber, performanceDate, fromStoreId, toStoreId, currentStaffId)
       }
-      // リアルタイム購読で更新されるので手動更新不要
+      // 完了状態を手動で再取得（リアルタイム購読のバックアップ）
+      const startDate = weekDates[0]
+      const endDateObj = new Date(weekDates[6])
+      endDateObj.setDate(endDateObj.getDate() + 3)
+      const endDate = endDateObj.toISOString().split('T')[0]
+      const completionsData = await kitApi.getTransferCompletions(startDate, endDate)
+      setCompletions(completionsData)
     } catch (error) {
       console.error('Failed to toggle pickup:', error)
       showToast.error('操作に失敗しました')

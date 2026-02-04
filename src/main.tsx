@@ -1,18 +1,22 @@
 import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
+import App from './AppRoot.tsx'
 import './index.css'
 
-// Service Workerを完全に解除してキャッシュも削除
-if ('serviceWorker' in navigator) {
-  // すべてのService Workerを解除
+// Service Worker を解除するのは基本的に開発時のみ
+// 本番で毎回キャッシュを削除すると表示速度が落ちるため、必要な場合だけ明示的に無効化する
+const shouldDisableServiceWorker =
+  import.meta.env.DEV || import.meta.env.VITE_DISABLE_SW === 'true'
+
+if (shouldDisableServiceWorker && 'serviceWorker' in navigator) {
+  // すべての Service Worker を解除
   navigator.serviceWorker.getRegistrations().then((registrations) => {
     for (const registration of registrations) {
       registration.unregister()
       console.log('🧹 Service Worker unregistered')
     }
   })
-  
-  // workboxのキャッシュを削除
+
+  // workbox のキャッシュを削除
   if ('caches' in window) {
     caches.keys().then((cacheNames) => {
       cacheNames.forEach((cacheName) => {

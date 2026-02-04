@@ -60,12 +60,38 @@ export function isCronOrServiceRoleCall(req: Request): boolean {
   return !!serviceRoleKey && !!bearer && timingSafeEqualString(bearer, serviceRoleKey)
 }
 
-// 許可するオリジン（本番環境用）
-export const ALLOWED_ORIGINS = [
+// 許可するオリジン
+// - 本番: 本番ドメインのみ（安全側デフォルト）
+// - 開発/ステージング: localhost 等を追加
+function isNonProduction(): boolean {
+  // 明示指定があるならそれを優先
+  const env = (Deno.env.get('APP_ENV') || '').toLowerCase()
+  if (env) {
+    return env !== 'production' && env !== 'prod'
+  }
+
+  // ローカルSupabaseなら非本番として扱う
+  const supabaseUrl = (Deno.env.get('SUPABASE_URL') || '').toLowerCase()
+  if (supabaseUrl.includes('localhost') || supabaseUrl.includes('127.0.0.1')) {
+    return true
+  }
+
+  // env未設定かつURLもローカルではない場合は「本番」とみなす（安全側）
+  return false
+}
+
+const PROD_ALLOWED_ORIGINS = [
   'https://mmq-yoyaq.vercel.app',
-  'https://mmq-yoyaq-git-main-nagayoshi0923s-projects.vercel.app',
+]
+
+const NON_PROD_ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3000',
+]
+
+export const ALLOWED_ORIGINS = [
+  ...PROD_ALLOWED_ORIGINS,
+  ...(isNonProduction() ? NON_PROD_ALLOWED_ORIGINS : []),
 ]
 
 /**
