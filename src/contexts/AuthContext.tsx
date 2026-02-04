@@ -16,8 +16,6 @@ function getOrganizationSlugFromUrl(): string {
 
 // パスワードリセット中フラグのキー（sessionStorage使用）
 const PASSWORD_RESET_FLAG_KEY = 'MMQ_PASSWORD_RESET_IN_PROGRESS'
-// ログイン直後にスケジュールへ遷移するためのフラグ（ログイン経路に依存させない）
-export const POST_LOGIN_REDIRECT_TO_SCHEDULE_KEY = 'MMQ_POST_LOGIN_REDIRECT_TO_SCHEDULE'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -289,14 +287,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
             
             // OAuthログイン後のreturnUrl処理（予約フローに戻る）
             if (event === 'SIGNED_IN') {
-              // ログイン直後は（staff/admin/license_admin の場合）スケジュールへ遷移させたいので、
-              // まずフラグを立てて、画面側で一度だけリダイレクトする（returnUrlがあればそちらを優先）
-              sessionStorage.setItem(POST_LOGIN_REDIRECT_TO_SCHEDULE_KEY, '1')
               const returnUrl = sessionStorage.getItem('returnUrl')
               if (returnUrl) {
                 sessionStorage.removeItem('returnUrl')
-                // returnUrl がある場合はスケジュール遷移より優先するためフラグを下ろす
-                sessionStorage.removeItem(POST_LOGIN_REDIRECT_TO_SCHEDULE_KEY)
                 logger.log('🔄 OAuth後のリダイレクト:', returnUrl)
                 // 現在のパスと異なる場合のみリダイレクト
                 if (window.location.pathname !== returnUrl && !returnUrl.startsWith(window.location.pathname)) {

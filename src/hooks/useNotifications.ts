@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 export interface Notification {
   id: string
@@ -21,26 +22,21 @@ export interface Notification {
  */
 export function useNotifications() {
   const { user } = useAuth()
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading, setLoading] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  const queryClient = useQueryClient()
+  const queryKey = useMemo(() => ['user_notifications', user?.email || ''] as const, [user?.email])
 
   // DBから通知を取得
   const fetchFromDatabase = useCallback(async (): Promise<Notification[] | null> => {
     try {
-      console.log('🔔 fetchFromDatabase: DBから通知取得開始')
       const { data, error } = await supabase
         .from('user_notifications')
         .select('id, type, title, message, created_at, is_read, link, metadata')
         .order('created_at', { ascending: false })
         .limit(20)
 
-      console.log('🔔 fetchFromDatabase結果:', { data, error, count: data?.length })
-
       if (error) {
         // テーブルが存在しない場合はnullを返してフォールバック
         if (error.code === '42P01' || error.message.includes('does not exist')) {
-          console.log('🔔 user_notificationsテーブルが存在しないため、フォールバック処理を使用')
           return null
         }
         throw error
@@ -57,7 +53,8 @@ export function useNotifications() {
         data: row.metadata
       })) || []
     } catch (error) {
-      console.error('🔔 DB通知取得エラー:', error)
+      // DB通知の取得に失敗した場合はフォールバックへ
+      logger.warn('DB通知取得エラー（フォールバックへ）:', error)
       return null
     }
   }, [])
@@ -174,31 +171,41 @@ export function useNotifications() {
     return newNotifications
   }, [user?.email])
 
-  // 通知を取得（DB優先、フォールバックあり）
-  const fetchNotifications = useCallback(async () => {
-    if (!user?.email) return
+  const {
+    data: notifications = [],
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey,
+    enabled: !!user?.email,
+    // DB優先、フォールバックあり
+    queryFn: async () => {
+      if (!user?.email) return []
+      const fromDb = await fetchFromDatabase()
+      if (fromDb !== null) return fromDb
+      return await fetchFromExistingData()
+    },
+    // 連打防止（同一画面での複数マウント/再レンダリングでも共通キャッシュを利用）
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: 1,
+  })
 
-    setLoading(true)
-    try {
-      // まずDBから取得を試みる
-      let notifs = await fetchFromDatabase()
-      
-      // DBテーブルがない場合はフォールバック
-      if (notifs === null) {
-        notifs = await fetchFromExistingData()
-      }
-
-      setNotifications(notifs)
-      setUnreadCount(notifs.filter(n => !n.read).length)
-    } catch (error) {
-      logger.error('通知取得エラー:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [user?.email, fetchFromDatabase, fetchFromExistingData])
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications]
+  )
 
   // 通知を既読にする
   const markAsRead = useCallback(async (notificationId: string) => {
+    // 先にUIを更新（楽観的更新）
+    queryClient.setQueryData(queryKey, (prev) => {
+      const current = (prev as Notification[] | undefined) ?? []
+      return current.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+    })
+
     // DBの通知の場合
     if (notificationId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
       try {
@@ -220,15 +227,16 @@ export function useNotifications() {
         logger.error('既読情報の保存に失敗:', e)
       }
     }
-    
-    setNotifications(prev => 
-      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-    )
-    setUnreadCount(prev => Math.max(0, prev - 1))
-  }, [])
+  }, [queryClient, queryKey])
 
   // すべての通知を既読にする
   const markAllAsRead = useCallback(async () => {
+    // 先にUIを更新（楽観的更新）
+    queryClient.setQueryData(queryKey, (prev) => {
+      const current = (prev as Notification[] | undefined) ?? []
+      return current.map((n) => ({ ...n, read: true }))
+    })
+
     // DBの通知を一括更新
     const dbNotificationIds = notifications
       .filter(n => !n.read && n.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i))
@@ -260,23 +268,16 @@ export function useNotifications() {
         logger.error('既読情報の保存に失敗:', e)
       }
     }
-    
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-    setUnreadCount(0)
-  }, [notifications])
 
-  // 初回読み込み
-  useEffect(() => {
-    if (user?.email) {
-      fetchNotifications()
-    }
-  }, [user?.email, fetchNotifications])
+    // DB反映の取りこぼしがあると困るので、最後に一度だけ同期
+    void refetch()
+  }, [notifications, queryClient, queryKey, refetch])
 
   return {
     notifications,
-    loading,
+    loading: isFetching,
     unreadCount,
-    fetchNotifications,
+    fetchNotifications: refetch,
     markAsRead,
     markAllAsRead
   }

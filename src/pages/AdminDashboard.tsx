@@ -6,7 +6,6 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { useAuth } from '@/contexts/AuthContext'
-import { POST_LOGIN_REDIRECT_TO_SCHEDULE_KEY } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { 
   Store, 
@@ -215,16 +214,6 @@ export function AdminDashboard() {
 
     const isCustomerOrLoggedOut = !user || user.role === 'customer'
     const defaultOrg = organization?.slug || 'queens-waltz'
-
-    // ログイン直後（OAuth/メール/他タブ等も含む）は、スタッフ/管理者をスケジュールへ誘導
-    // ※returnUrl があるケースは AuthContext 側でフラグを下ろしている
-    if (sessionStorage.getItem(POST_LOGIN_REDIRECT_TO_SCHEDULE_KEY) === '1') {
-      sessionStorage.removeItem(POST_LOGIN_REDIRECT_TO_SCHEDULE_KEY)
-      if (user?.role === 'admin' || user?.role === 'staff' || user?.role === 'license_admin') {
-        navigate(`/${defaultOrg}/schedule`, { replace: true })
-        return
-      }
-    }
     
     // ルートパス（/）はプラットフォームトップを表示（リダイレクトしない）
     if (location.pathname === '/') {
@@ -234,13 +223,6 @@ export function AdminDashboard() {
     // 顧客/ログアウト状態で管理ページにいる場合は予約サイトにリダイレクト
     if (isCustomerOrLoggedOut && ADMIN_PATHS.includes(currentPage)) {
       navigate(`/${defaultOrg}`, { replace: true })
-      return
-    }
-
-    // staff/admin はログイン直後にスケジュールへ（ログイン方法に依存しない最終ガード）
-    // 旧挙動の /dashboard を踏んだ場合も確実にスケジュールに着地させる
-    if ((user?.role === 'admin' || user?.role === 'staff' || user?.role === 'license_admin') && currentPage === 'dashboard') {
-      navigate(`/${defaultOrg}/schedule`, { replace: true })
       return
     }
   }, [user, currentPage, isInitialized, loading, location.pathname, navigate, organization?.slug])
