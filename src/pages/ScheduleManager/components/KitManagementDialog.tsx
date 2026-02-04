@@ -667,28 +667,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     }
     
     const currentlyPickedUp = isPickedUp(scenarioId, kitNumber, performanceDate, toStoreId)
-    console.log('🔄 handleTogglePickup:', { scenarioId, kitNumber, performanceDate, fromStoreId, toStoreId, currentlyPickedUp })
     
     try {
       if (currentlyPickedUp) {
         // 回収解除（設置も解除される）
-        console.log('🔓 Unmarking pickup...')
         await kitApi.unmarkPickedUp(scenarioId, kitNumber, performanceDate, toStoreId)
-        console.log('✅ Unmark succeeded')
       } else {
         // 回収完了
-        console.log('🔒 Marking pickup...')
         await kitApi.markPickedUp(scenarioId, kitNumber, performanceDate, fromStoreId, toStoreId, currentStaffId)
-        console.log('✅ Mark succeeded')
       }
       // 完了状態を手動で再取得（リアルタイム購読のバックアップ）
       const startDate = weekDates[0]
       const endDateObj = new Date(weekDates[6])
       endDateObj.setDate(endDateObj.getDate() + 3)
       const endDate = endDateObj.toISOString().split('T')[0]
-      console.log('📥 Fetching completions...')
       const completionsData = await kitApi.getTransferCompletions(startDate, endDate)
-      console.log('📥 Completions fetched:', completionsData.length)
       setCompletions(completionsData)
     } catch (error) {
       console.error('Failed to toggle pickup:', error)

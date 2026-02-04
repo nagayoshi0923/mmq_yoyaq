@@ -435,23 +435,19 @@ export const kitApi = {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) throw new Error('Organization ID not found')
 
-    console.log('🔓 unmarkPickedUp params:', { orgId, scenarioId, kitNumber, performanceDate, toStoreId })
-
-    const { error, count } = await supabase
+    const { error } = await supabase
       .from('kit_transfer_completions')
       .update({
         picked_up_at: null,
         picked_up_by: null,
         delivered_at: null,
         delivered_by: null
-      }, { count: 'exact' })
+      })
       .eq('organization_id', orgId)
       .eq('scenario_id', scenarioId)
       .eq('kit_number', kitNumber)
       .eq('performance_date', performanceDate)
       .eq('to_store_id', toStoreId)
-
-    console.log('🔓 unmarkPickedUp result:', { error, count })
 
     if (error) {
       console.error('Failed to unmark picked up:', error)
