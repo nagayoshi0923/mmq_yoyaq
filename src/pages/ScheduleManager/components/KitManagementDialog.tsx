@@ -807,10 +807,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
       // 週間需要を構築（scenario_idがあるイベントのみ）
       // 同じ日・同じ店舗・同じシナリオは1キットで済む（朝使ったキットを夜も使える）
+      // demandDatesを使用して、移動日がカバーする期間全体の公演を含める
       const demandSet = new Set<string>()
       const demands: Array<{ date: string; store_id: string; scenario_id: string }> = []
       for (const event of scheduleEvents) {
-        if (weekDates.includes(event.date) && event.scenario_id) {
+        if (demandDates.includes(event.date) && event.scenario_id) {
           const key = `${event.date}::${event.store_id}::${event.scenario_id}`
           if (!demandSet.has(key)) {
             demandSet.add(key)
@@ -834,7 +835,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         kitLocations: kitLocations.length,
         kitState: Object.keys(kitState).length,
         scheduleEvents: scheduleEvents.length,
-        weekDates,
+        demandDates,
         demands: demands.length,
         scenariosWithKits: scenariosWithKits.length,
         transferDates,
@@ -877,7 +878,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     } finally {
       setIsCalculating(false)
     }
-  }, [kitLocations, scheduleEvents, weekDates, scenariosWithKits, stores, transferDates])
+  }, [kitLocations, scheduleEvents, demandDates, scenariosWithKits, stores, transferDates])
 
   // データが揃ったら自動で移動計画を計算（デバウンス付き）
   useEffect(() => {
@@ -887,7 +888,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [isOpen, loading, kitLocations.length, scheduleEvents.length, transferDates, weekDates, handleCalculateTransfers])
+  }, [isOpen, loading, kitLocations.length, scheduleEvents.length, transferDates, demandDates, handleCalculateTransfers])
 
   // 移動イベントのステータス更新
   const handleUpdateStatus = async (eventId: string, status: 'completed' | 'cancelled') => {
