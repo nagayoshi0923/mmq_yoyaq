@@ -1834,17 +1834,26 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         const transferDateLabel = `${transferDate.getMonth() + 1}/${transferDate.getDate()}(${dayShort})`
                         
                         // この移動日がカバーする公演期間を計算
-                        // 移動日の翌日 ～ 次の移動日まで
+                        // 移動日の翌日 ～ 次の移動日まで（最後の移動日は需要期間の終わりまで）
                         const currentIdx = sortedTransferDateStrs.indexOf(dateStr)
-                        const nextTransferDateStr = sortedTransferDateStrs[(currentIdx + 1) % sortedTransferDateStrs.length]
-                        const nextTransferDate = parseLocalDate(nextTransferDateStr)
+                        const isLastTransferDate = currentIdx === sortedTransferDateStrs.length - 1
                         
                         // 公演開始日 = 移動日の翌日
                         const perfStartDate = new Date(transferDate)
                         perfStartDate.setDate(perfStartDate.getDate() + 1)
                         
-                        // 公演終了日 = 次の移動日
-                        const perfEndDate = nextTransferDate
+                        // 公演終了日 = 次の移動日、または最後なら需要期間の終わり
+                        let perfEndDate: Date
+                        if (isLastTransferDate) {
+                          // 需要期間の最後の日（demandDatesの最大値）
+                          const lastDemandDate = demandDates.length > 0 
+                            ? demandDates.reduce((max, d) => d > max ? d : max, demandDates[0])
+                            : dateStr
+                          perfEndDate = parseLocalDate(lastDemandDate)
+                        } else {
+                          const nextTransferDateStr = sortedTransferDateStrs[currentIdx + 1]
+                          perfEndDate = parseLocalDate(nextTransferDateStr)
+                        }
                         
                         const perfStartLabel = `${perfStartDate.getMonth() + 1}/${perfStartDate.getDate()}`
                         const perfEndLabel = `${perfEndDate.getMonth() + 1}/${perfEndDate.getDate()}`

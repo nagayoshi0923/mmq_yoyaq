@@ -665,14 +665,22 @@ export const scenarioApi = {
     const scenarioIds = await resolveScenarioIds(scenarioId)
     logger.log('📊 getScenarioStats: resolveScenarioIds', { input: scenarioId, resolved: scenarioIds })
 
-    // シナリオの最大参加者数を取得（参加者数の上限チェック用）
+    // シナリオの最大参加者数とライセンス料を取得
     const { data: scenarioData } = await supabase
       .from('scenarios')
-      .select('player_count_max')
+      .select('player_count_max, license_amount, gm_test_license_amount, license_rewards')
       .in('id', scenarioIds)
       .limit(1)
       .single()
     const maxParticipants = scenarioData?.player_count_max || 99
+    const defaultLicenseAmount = scenarioData?.license_amount || 0
+    const defaultGmTestLicenseAmount = scenarioData?.gm_test_license_amount || 0
+    // license_rewards からも取得を試みる（新形式対応）
+    const licenseRewards = scenarioData?.license_rewards as Array<{ item: string; amount: number }> | undefined
+    const normalLicenseFromRewards = licenseRewards?.find(r => r.item === 'normal')?.amount
+    const gmTestLicenseFromRewards = licenseRewards?.find(r => r.item === 'gmtest')?.amount
+    const normalLicenseAmount = normalLicenseFromRewards ?? defaultLicenseAmount
+    const gmTestLicenseAmount = gmTestLicenseFromRewards ?? defaultGmTestLicenseAmount
 
     // 公演回数（中止以外、今日まで、出張公演除外）
     let perfQuery = supabase
@@ -823,7 +831,15 @@ export const scenarioApi = {
         totalStaffParticipants += staffCount
         totalRevenue += event.total_revenue || 0
         totalGmCost += event.gm_cost || 0
-        totalLicenseCost += event.license_cost || 0
+        
+        // ライセンス料の計算: event.license_cost が0または未設定の場合はシナリオの設定値から計算
+        let licenseCost = event.license_cost || 0
+        if (licenseCost === 0) {
+          // カテゴリに応じて適切なライセンス料を設定
+          const isGmTest = event.category === 'gmtest'
+          licenseCost = isGmTest ? gmTestLicenseAmount : normalLicenseAmount
+        }
+        totalLicenseCost += licenseCost
       }
       
       // リスト表示用には中止公演も含める

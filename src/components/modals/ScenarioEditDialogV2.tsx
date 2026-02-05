@@ -937,6 +937,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             totalParticipants={scenarioStats.totalParticipants}
             totalStaffParticipants={scenarioStats.totalStaffParticipants}
             totalRevenue={scenarioStats.totalRevenue}
+            scenarioTitle={formData.title || 'シナリオ'}
           />
         )
       default:

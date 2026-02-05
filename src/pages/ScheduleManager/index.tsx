@@ -81,6 +81,9 @@ export function ScheduleManager() {
   // シフト提出者フィルター（空スロットに表示されるシフト提出者を絞り込む）
   const [selectedShiftStaff, setSelectedShiftStaff] = useState<string[]>([])
 
+  // シナリオ検索（単一選択）
+  const [selectedScenarioIds, setSelectedScenarioIds] = useState<string[]>([])
+
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isKitManagementOpen, setIsKitManagementOpen] = useState(false)
@@ -425,6 +428,48 @@ export function ScheduleManager() {
   const scheduleTableProps = useScheduleTable({ currentDate })
   const modals = scheduleTableProps.modals!
 
+  // シナリオ候補（MultiSelect用）
+  const scenarioOptions = useMemo(() => {
+    const scenarios = (modals?.performanceModal?.scenarios || []) as Array<any>
+    const map = new Map<string, { id: string; name: string; displayInfo?: string; displayInfoSearchText?: string }>()
+    scenarios.forEach((s) => {
+      const id = String(s?.id || '').trim()
+      const title = String(s?.title || s?.scenario || '').trim()
+      if (!id || !title) return
+      if (map.has(id)) return
+      const max = s?.player_count_max ? `〜${s.player_count_max}` : undefined
+      map.set(id, {
+        id,
+        name: title,
+        displayInfo: max,
+        displayInfoSearchText: max
+      })
+    })
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+  }, [modals?.performanceModal?.scenarios])
+
+  const selectedScenarioId = selectedScenarioIds[0] || null
+  const selectedScenarioTitle = useMemo(() => {
+    if (!selectedScenarioId) return null
+    return scenarioOptions.find(o => o.id === selectedScenarioId)?.name || null
+  }, [selectedScenarioId, scenarioOptions])
+
+  const normalizeScenarioKey = useCallback((s: string) => {
+    return (s || '').replace(/[\s\-・／/]/g, '').toLowerCase()
+  }, [])
+
+  const scenarioMatchesEvent = useCallback((event: any) => {
+    if (!selectedScenarioId || !selectedScenarioTitle) return true
+    // 通常公演: JOINされた scenarios.id
+    if (event?.scenarios?.id && String(event.scenarios.id) === String(selectedScenarioId)) {
+      return true
+    }
+    // 貸切/フォールバック: タイトルで照合
+    const eventTitle = String(event?.scenario || '').trim()
+    if (!eventTitle) return false
+    return normalizeScenarioKey(eventTitle) === normalizeScenarioKey(selectedScenarioTitle)
+  }, [normalizeScenarioKey, selectedScenarioId, selectedScenarioTitle])
+
   // カテゴリーフィルター（ScheduleManager独自機能）
   const timeSlots = ['morning', 'afternoon', 'evening'] as const
   const allEventsForMonth = useMemo(() => 
@@ -466,6 +511,11 @@ export function ScheduleManager() {
       if (selectedCategory !== 'all') {
         events = events.filter(event => event.category === selectedCategory)
       }
+
+      // シナリオフィルター（単一）
+      if (selectedScenarioId) {
+        events = events.filter(scenarioMatchesEvent)
+      }
       
       // スタッフフィルター（複数選択対応）
       if (selectedGMs.length > 0) {
@@ -491,7 +541,7 @@ export function ScheduleManager() {
       return events
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategory, selectedGMs, gmList])
+  }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategory, selectedScenarioId, scenarioMatchesEvent, selectedGMs, gmList])
 
   // 店舗フィルター適用版の店舗リスト
   const filteredStores = useMemo(() => {
@@ -502,6 +552,69 @@ export function ScheduleManager() {
       selectedStores.includes(store.id)
     )
   }, [scheduleTableProps.viewConfig.stores, selectedStores])
+
+  // シナリオの該当日（現在の月・現在のフィルタ条件に基づく）
+  const scenarioMatchedDates = useMemo(() => {
+    if (!selectedScenarioId) return []
+    const visibleStoreIds = new Set(filteredStores.map(s => s.id))
+    const dates = new Set<string>()
+    for (const event of (scheduleTableProps.events || [])) {
+      // カテゴリ
+      if (selectedCategory !== 'all' && event.category !== selectedCategory) continue
+      // シナリオ
+      if (!scenarioMatchesEvent(event)) continue
+      // GM
+      if (selectedGMs.length > 0) {
+        if (!event.gms || !Array.isArray(event.gms)) continue
+        const ok = selectedGMs.some(selectedId => {
+          const selectedStaff = gmList.find(s => s.id === selectedId)
+          const selectedStaffName = selectedStaff?.display_name || selectedStaff?.name
+          return event.gms.some(gm =>
+            String(gm) === String(selectedId) ||
+            (selectedStaffName && String(gm) === selectedStaffName)
+          )
+        })
+        if (!ok) continue
+      }
+      // 店舗（店舗未確定の貸切リクエストは全店舗に出るので通す）
+      if (selectedStores.length > 0) {
+        const isPrivateUnassigned = !!event.is_private_request && !event.venue
+        if (!isPrivateUnassigned && event.venue && !visibleStoreIds.has(event.venue)) continue
+      }
+      if (event.date) dates.add(event.date)
+    }
+    return [...dates].sort()
+  }, [
+    selectedScenarioId,
+    scheduleTableProps.events,
+    selectedCategory,
+    scenarioMatchesEvent,
+    selectedGMs,
+    gmList,
+    selectedStores,
+    filteredStores
+  ])
+
+  const scrollToDate = useCallback((date: string) => {
+    const row = document.querySelector(`[data-date="${date}"]`) as HTMLElement | null
+    if (!row) return
+    row.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
+  const jumpScenarioMatch = useCallback((direction: 'prev' | 'next') => {
+    if (!selectedScenarioId || scenarioMatchedDates.length === 0) return
+    const base = currentVisibleDate || scenarioMatchedDates[0]
+    if (direction === 'next') {
+      const next = scenarioMatchedDates.find(d => d > base) || scenarioMatchedDates[0]
+      scrollToDate(next)
+      return
+    }
+    const prevCandidates = scenarioMatchedDates.filter(d => d < base)
+    const prev = prevCandidates.length > 0
+      ? prevCandidates[prevCandidates.length - 1]
+      : scenarioMatchedDates[scenarioMatchedDates.length - 1]
+    scrollToDate(prev)
+  }, [selectedScenarioId, scenarioMatchedDates, currentVisibleDate, scrollToDate])
 
   // シフト提出者一覧を取得（MultiSelectのオプション用）
   const shiftStaffOptions = useMemo(() => {
@@ -720,6 +833,21 @@ export function ScheduleManager() {
                 />
               </div>
             )}
+
+            {scenarioOptions.length > 0 && (
+              <div className="flex-1 border-r border-input">
+                <MultiSelect
+                  options={scenarioOptions}
+                  selectedValues={selectedScenarioIds}
+                  onSelectionChange={(values) => setSelectedScenarioIds(values.slice(-1))}
+                  placeholder="シナリオ"
+                  searchPlaceholder="シナリオ検索..."
+                  closeOnSelect={true}
+                  useIdAsValue={true}
+                  className="h-9 w-full border-0 rounded-none shadow-none"
+                />
+              </div>
+            )}
             
             {shiftStaffOptions.length > 0 && (
               <div className="flex-1">
@@ -735,17 +863,53 @@ export function ScheduleManager() {
               </div>
             )}
             
-            {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedShiftStaff.length > 0) && (
+            {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedScenarioIds.length > 0 || selectedShiftStaff.length > 0) && (
               <button
                 onClick={() => {
                   setSelectedGMs([])
                   setSelectedStores([])
+                  setSelectedScenarioIds([])
                   setSelectedShiftStaff([])
                 }}
                 className="h-9 px-3 text-sm text-muted-foreground hover:bg-accent transition-colors border-l border-input whitespace-nowrap"
               >
                 クリア
               </button>
+            )}
+
+            {/* シナリオ該当日ジャンプ（選択中のみ表示） */}
+            {selectedScenarioId && (
+              <div className="flex items-center border-l border-input shrink-0">
+                <button
+                  type="button"
+                  onClick={() => jumpScenarioMatch('prev')}
+                  disabled={scenarioMatchedDates.length === 0}
+                  title="前の該当日へ"
+                  className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (scenarioMatchedDates.length > 0) scrollToDate(scenarioMatchedDates[0])
+                  }}
+                  disabled={scenarioMatchedDates.length === 0}
+                  title={selectedScenarioTitle ? `${selectedScenarioTitle} の該当日へ` : '該当日へ'}
+                  className="h-9 px-2 text-[11px] text-muted-foreground hover:bg-accent transition-colors disabled:opacity-40 disabled:hover:bg-transparent whitespace-nowrap"
+                >
+                  {scenarioMatchedDates.length}件
+                </button>
+                <button
+                  type="button"
+                  onClick={() => jumpScenarioMatch('next')}
+                  disabled={scenarioMatchedDates.length === 0}
+                  title="次の該当日へ"
+                  className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </div>
             )}
           </div>
           

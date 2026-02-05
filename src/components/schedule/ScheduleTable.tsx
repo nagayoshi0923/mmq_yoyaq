@@ -188,6 +188,8 @@ export function ScheduleTable({
                   key={`${day.date}-${venue.id}`} 
                   className={`min-h-[80px] group bg-background hover:bg-muted/5 ${isFirstVenueOfDay ? 'border-t-[3px] border-t-slate-400' : ''}`}
                   data-date={day.date}
+                  // stickyツールバーに隠れないように余白を確保
+                  style={{ scrollMarginTop: '140px' }}
                 >
                   {/* 日付・曜日セル - 最初の会場行のみ表示、rowSpanで結合 */}
                   {isFirstVenueOfDay && (() => {
