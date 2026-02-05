@@ -140,12 +140,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [showHelp, setShowHelp] = useState(false)
 
   // 週の日付リスト（移動日判定用）
+  // ローカル日付を使用（toISOStringはUTCに変換されるため日本時間だとずれる）
   const weekDates = useMemo(() => {
     const dates: string[] = []
     for (let i = 0; i < 7; i++) {
       const date = new Date(selectedWeekStart)
       date.setDate(selectedWeekStart.getDate() + i)
-      dates.push(date.toISOString().split('T')[0])
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      dates.push(`${year}-${month}-${day}`)
     }
     return dates
   }, [selectedWeekStart])
