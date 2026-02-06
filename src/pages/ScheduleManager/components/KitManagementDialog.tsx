@@ -800,9 +800,15 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const handleCalculateTransfers = useCallback(async (showNotification = false) => {
     setIsCalculating(true)
     try {
-      // 現在のキット状態を構築
+      // 現在のキット状態を構築（使用可能なキットのみ）
+      // 破損(damaged)、修理中(repairing)、欠けあり(missing_parts)、引退(retired)は除外
+      const USABLE_CONDITIONS: KitCondition[] = ['good']
       const kitState: KitState = {}
       for (const loc of kitLocations) {
+        // 使用不可のキットは移動計算から除外
+        if (!USABLE_CONDITIONS.includes(loc.condition)) {
+          continue
+        }
         if (!kitState[loc.scenario_id]) {
           kitState[loc.scenario_id] = {}
         }
