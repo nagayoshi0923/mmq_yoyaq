@@ -116,27 +116,49 @@ export function calculateKitTransfers(
         if (shortage > 0) {
           // 他の店舗からキットを移動
           // どのキットを移動するか決定（その日に使われていないキット優先）
-          const otherKits: Array<{ kitNumber: number; fromStoreId: string }> = []
+          const otherKits: Array<{ kitNumber: number; fromStoreId: string; transferDate: string }> = []
+          
+          // 移動日を先に計算
+          const proposedTransferDate = findNearestTransferDay(date, allowedTransferDays)
+          
+          // 移動日に移動元店舗で使用されるシナリオ・店舗の組み合わせを取得
+          const transferDateDemands = demandsByDate.get(proposedTransferDate) || []
           
           for (let kitNum = 1; kitNum <= kitCount; kitNum++) {
             const currentLocation = scenarioState[kitNum]
             // 同じグループの店舗は移動不要
             if (currentLocation && !isSameGroup(currentLocation, storeId)) {
-              // このキットがその日、移動元店舗（またはそのグループ）で使われるか確認
-              // 移動元グループ内の全店舗の需要をチェック
+              // このキットがその日（公演日）、移動元店舗（またはそのグループ）で使われるか確認
               let fromGroupNeedCount = 0
               for (const [checkStoreId, checkNeeds] of storeNeeds) {
                 if (isSameGroup(checkStoreId, currentLocation)) {
                   fromGroupNeedCount += checkNeeds.get(scenarioId) || 0
                 }
               }
+              
+              // 移動日当日に移動元グループでこのシナリオが使われるかチェック
+              let usedOnTransferDate = false
+              for (const transferDemand of transferDateDemands) {
+                if (transferDemand.scenario_id === scenarioId && 
+                    isSameGroup(transferDemand.store_id, currentLocation)) {
+                  usedOnTransferDate = true
+                  break
+                }
+              }
+              
+              // 移動日当日に使用される場合はスキップ
+              if (usedOnTransferDate) {
+                console.log(`⚠️ キット移動スキップ: ${scenarioId}#${kitNum} は移動日(${proposedTransferDate})に移動元で使用中`)
+                continue
+              }
+              
               const kitsAlreadyAtFromGroup = Object.entries(scenarioState)
                 .filter(([_, sid]) => isSameGroup(sid, currentLocation))
                 .length
               
               // 移動元グループに余裕がある場合のみ移動可能
               if (kitsAlreadyAtFromGroup > fromGroupNeedCount) {
-                otherKits.push({ kitNumber: kitNum, fromStoreId: currentLocation })
+                otherKits.push({ kitNumber: kitNum, fromStoreId: currentLocation, transferDate: proposedTransferDate })
               }
             }
           }
@@ -148,18 +170,15 @@ export function calculateKitTransfers(
               // ここでは最初のアクティブ店舗を仮の出発点とする
               const firstStore = stores.find(s => s.status === 'active')
               if (firstStore) {
-                otherKits.push({ kitNumber: kitNum, fromStoreId: firstStore.id })
+                otherKits.push({ kitNumber: kitNum, fromStoreId: firstStore.id, transferDate: proposedTransferDate })
               }
             }
           }
           
           // 必要数だけ移動を計画
           for (let i = 0; i < shortage && i < otherKits.length; i++) {
-            const { kitNumber, fromStoreId } = otherKits[i]
+            const { kitNumber, fromStoreId, transferDate } = otherKits[i]
             const fromStore = storeMap.get(fromStoreId)
-            
-            // 移動日は公演日の直前の許可された曜日
-            const transferDate = findNearestTransferDay(date, allowedTransferDays)
             
             suggestions.push({
               scenario_id: scenarioId,
