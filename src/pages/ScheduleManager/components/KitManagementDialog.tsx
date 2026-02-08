@@ -538,6 +538,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const key = getCompletionKeyFull(c.scenario_id, c.kit_number, c.performance_date, c.to_store_id)
       map.set(key, c)
     }
+    console.log('🗂️ completionMapFull:', { size: map.size, keys: Array.from(map.keys()).slice(0, 5) })
     return map
   }, [completions, getCompletionKeyFull])
   
@@ -553,6 +554,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       // 後のエントリが上書きするので、最新の日付のものが残る
       map.set(key, c)
     }
+    console.log('🗂️ completionMapLoose:', { 
+      size: map.size, 
+      keys: Array.from(map.keys()),
+      sampleValues: Array.from(map.values()).slice(0, 3).map(v => ({
+        scenario_id: v.scenario_id,
+        kit_number: v.kit_number,
+        picked_up_at: v.picked_up_at,
+        delivered_at: v.delivered_at
+      }))
+    })
     return map
   }, [completions, getCompletionKeyLoose])
   
@@ -573,7 +584,18 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       completion = completionMapLoose.get(looseKey)
     }
     
-    return completion?.picked_up_at != null
+    const result = completion?.picked_up_at != null
+    // 最初の数件だけログ出力
+    if (completionMapLoose.size > 0) {
+      console.log('🔍 isPickedUp check:', {
+        scenarioId: scenarioId.substring(0, 8),
+        kitNumber,
+        looseKey: `${scenarioId}-${kitNumber}`,
+        found: !!completion,
+        result
+      })
+    }
+    return result
   }, [completionMapFull, completionMapLoose, getCompletionKeyFull, getCompletionKeyLoose])
   
   // 設置済みかどうか（フルキーまたはルーズキーでマッチ）
