@@ -618,20 +618,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   
   // 提案と完了記録をマージ（過去の完了記録をオプティマイザ提案に追加）
   const mergedSuggestions = useMemo(() => {
-    // オプティマイザの提案に存在するキーを記録
-    const suggestionKeys = new Set<string>()
+    // オプティマイザの提案に存在するキーを記録（フルキー: scenario+kit+date+store）
+    const suggestionFullKeys = new Set<string>()
     for (const s of suggestions) {
-      suggestionKeys.add(`${s.scenario_id}-${s.kit_number}`)
+      suggestionFullKeys.add(`${s.scenario_id}-${s.kit_number}-${s.performance_date}-${s.to_store_id}`)
     }
     
-    // 完了記録から追加の「提案」を生成（オプティマイザにない場合）
+    // 完了記録から追加の「提案」を生成（すべての完了記録を追加）
     const additionalFromCompletions: typeof suggestions = []
     
     for (const c of completions) {
-      const key = `${c.scenario_id}-${c.kit_number}`
+      // フルキーで重複チェック
+      const fullKey = `${c.scenario_id}-${c.kit_number}-${c.performance_date}-${c.to_store_id}`
       
       // オプティマイザの提案にすでにある場合はスキップ
-      if (suggestionKeys.has(key)) continue
+      if (suggestionFullKeys.has(fullKey)) continue
       
       // シナリオ情報を取得
       const scenario = scenarios.find(s => s.id === c.scenario_id)
@@ -655,7 +656,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       })
       
       // キーを追加して重複を防ぐ
-      suggestionKeys.add(key)
+      suggestionFullKeys.add(fullKey)
     }
     
     return [...suggestions, ...additionalFromCompletions]
