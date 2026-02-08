@@ -359,11 +359,7 @@ export const kitApi = {
     endDate: string
   ): Promise<KitTransferCompletion[]> {
     const orgId = await getCurrentOrganizationId()
-    console.log('[kitApi] getTransferCompletions called:', { startDate, endDate, orgId })
-    if (!orgId) {
-      console.warn('[kitApi] No organization ID found')
-      return []
-    }
+    if (!orgId) return []
 
     const { data, error } = await supabase
       .from('kit_transfer_completions')
@@ -376,7 +372,6 @@ export const kitApi = {
       .gte('performance_date', startDate)
       .lte('performance_date', endDate)
 
-    console.log('[kitApi] getTransferCompletions result:', { count: data?.length, error })
     if (error) {
       console.error('Failed to fetch transfer completions:', error)
       throw error

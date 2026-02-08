@@ -538,7 +538,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const key = getCompletionKeyFull(c.scenario_id, c.kit_number, c.performance_date, c.to_store_id)
       map.set(key, c)
     }
-    console.log('🗂️ completionMapFull:', { size: map.size, keys: Array.from(map.keys()).slice(0, 5) })
     return map
   }, [completions, getCompletionKeyFull])
   
@@ -554,16 +553,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       // 後のエントリが上書きするので、最新の日付のものが残る
       map.set(key, c)
     }
-    console.log('🗂️ completionMapLoose:', { 
-      size: map.size, 
-      keys: Array.from(map.keys()),
-      sampleValues: Array.from(map.values()).slice(0, 3).map(v => ({
-        scenario_id: v.scenario_id,
-        kit_number: v.kit_number,
-        picked_up_at: v.picked_up_at,
-        delivered_at: v.delivered_at
-      }))
-    })
     return map
   }, [completions, getCompletionKeyLoose])
   
@@ -584,18 +573,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       completion = completionMapLoose.get(looseKey)
     }
     
-    const result = completion?.picked_up_at != null
-    // 最初の数件だけログ出力
-    if (completionMapLoose.size > 0) {
-      console.log('🔍 isPickedUp check:', {
-        scenarioId: scenarioId.substring(0, 8),
-        kitNumber,
-        looseKey: `${scenarioId}-${kitNumber}`,
-        found: !!completion,
-        result
-      })
-    }
-    return result
+    return completion?.picked_up_at != null
   }, [completionMapFull, completionMapLoose, getCompletionKeyFull, getCompletionKeyLoose])
   
   // 設置済みかどうか（フルキーまたはルーズキーでマッチ）
@@ -637,6 +615,51 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     
     return completion
   }, [completionMapFull, completionMapLoose, getCompletionKeyFull, getCompletionKeyLoose])
+  
+  // 提案と完了記録をマージ（過去の完了記録をオプティマイザ提案に追加）
+  const mergedSuggestions = useMemo(() => {
+    // オプティマイザの提案に存在するキーを記録
+    const suggestionKeys = new Set<string>()
+    for (const s of suggestions) {
+      suggestionKeys.add(`${s.scenario_id}-${s.kit_number}`)
+    }
+    
+    // 完了記録から追加の「提案」を生成（オプティマイザにない場合）
+    const additionalFromCompletions: typeof suggestions = []
+    
+    for (const c of completions) {
+      const key = `${c.scenario_id}-${c.kit_number}`
+      
+      // オプティマイザの提案にすでにある場合はスキップ
+      if (suggestionKeys.has(key)) continue
+      
+      // シナリオ情報を取得
+      const scenario = scenarios.find(s => s.id === c.scenario_id)
+      if (!scenario) continue
+      
+      // 店舗情報を取得
+      const fromStore = stores.find(s => s.id === c.from_store_id)
+      const toStore = stores.find(s => s.id === c.to_store_id)
+      if (!fromStore || !toStore) continue
+      
+      // 提案形式に変換
+      additionalFromCompletions.push({
+        scenario_id: c.scenario_id,
+        scenario_title: scenario.title,
+        kit_number: c.kit_number,
+        from_store_id: c.from_store_id,
+        from_store_name: fromStore.short_name || fromStore.name,
+        to_store_id: c.to_store_id,
+        to_store_name: toStore.short_name || toStore.name,
+        performance_date: c.performance_date
+      })
+      
+      // キーを追加して重複を防ぐ
+      suggestionKeys.add(key)
+    }
+    
+    return [...suggestions, ...additionalFromCompletions]
+  }, [suggestions, completions, scenarios, stores])
 
   // データ取得
   const fetchData = useCallback(async () => {
@@ -1695,12 +1718,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               )}
 
               {/* 移動提案 */}
-              {suggestions.length > 0 && (
+              {mergedSuggestions.length > 0 && (
                 <div className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/20">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div className="flex flex-wrap items-center gap-1 sm:gap-2 font-medium text-yellow-800 dark:text-yellow-200">
                       <AlertTriangle className="h-4 w-4" />
-                      <span className="text-sm sm:text-base">移動提案 ({suggestions.length}件)</span>
+                      <span className="text-sm sm:text-base">移動提案 ({mergedSuggestions.length}件)</span>
                       {(() => {
                         const deliveredCount = completions.filter(c => c.delivered_at).length
                         const pickedUpCount = completions.filter(c => c.picked_up_at && !c.delivered_at).length
@@ -1716,9 +1739,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                 {pickedUpCount}件移動中
                               </Badge>
                             )}
-                            {deliveredCount > 0 && suggestions.length - deliveredCount > 0 && (
+                            {deliveredCount > 0 && mergedSuggestions.length - deliveredCount > 0 && (
                               <Badge variant="destructive" className="text-xs">
-                                残り{suggestions.length - deliveredCount}件
+                                残り{mergedSuggestions.length - deliveredCount}件
                               </Badge>
                             )}
                           </>
@@ -1799,11 +1822,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       console.log('🚚 移動日計算デバッグ:', {
                         sortedTransferDateStrs,
                         weekDates,
-                        totalItems: suggestions.length
+                        totalItems: mergedSuggestions.length
                       })
                       
                       // 各アイテムを個別に処理
-                      for (const item of suggestions) {
+                      for (const item of mergedSuggestions) {
                         const perfDateStr = item.performance_date
                         const actualTransferDateStr = getActualTransferDate(item.performance_date)
                         
