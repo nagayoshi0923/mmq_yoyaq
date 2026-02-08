@@ -710,8 +710,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const endDate = endDateObj.toISOString().split('T')[0]
       const eventsData = await scheduleApi.getByDateRange(startDate, endDate)
       
-      // 完了状態を取得
-      const completionsData = await kitApi.getTransferCompletions(startDate, endDate)
+      // 完了状態を取得（週の開始の1週間前から取得して、前週の公演で今週移動したものも含める）
+      const completionsStartDateObj = new Date(weekDates[0])
+      completionsStartDateObj.setDate(completionsStartDateObj.getDate() - 7)
+      const completionsStartDate = `${completionsStartDateObj.getFullYear()}-${String(completionsStartDateObj.getMonth() + 1).padStart(2, '0')}-${String(completionsStartDateObj.getDate()).padStart(2, '0')}`
+      const completionsData = await kitApi.getTransferCompletions(completionsStartDate, endDate)
       setCompletions(completionsData)
       
       // デバッグログ
