@@ -522,13 +522,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return `${scenarioId}-${kitNumber}-${performanceDate}-${toStoreId}`
   }, [])
   
-  // 完了状態のキー生成（performance_dateを除く - 同じシナリオ・キット・店舗なら一致とみなす）
+  // 完了状態のキー生成（シナリオとキット番号のみ - 同じキットなら一致とみなす）
   const getCompletionKeyLoose = useCallback((
     scenarioId: string,
     kitNumber: number,
-    toStoreId: string
+    _toStoreId?: string  // 未使用（互換性のため残す）
   ) => {
-    return `${scenarioId}-${kitNumber}-${toStoreId}`
+    return `${scenarioId}-${kitNumber}`
   }, [])
   
   // 完了状態のマップ（高速ルックアップ用）- フルキーとルーズキーの両方で登録
