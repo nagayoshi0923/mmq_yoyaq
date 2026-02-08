@@ -1901,6 +1901,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       for (const item of mergedSuggestions) {
                         const perfDateStr = item.performance_date
                         
+                        // 設置完了済みはスキップ（全てのケースで）
+                        if (isDelivered(item.scenario_id, item.kit_number, item.performance_date, item.to_store_id)) {
+                          continue
+                        }
+                        
                         // 完了記録からの項目かどうか
                         const isFromCompletion = !!item.transfer_date
                         
@@ -1925,17 +1930,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           actualTransferDateStr = getActualTransferDate(item.performance_date)
                         }
                         
-                        console.log('  📦 キット:', {
-                          scenario: item.scenario_title?.slice(0, 10),
-                          performance_date: item.performance_date,
-                          originalTransferDate: item.transfer_date,
-                          actualTransferDate: actualTransferDateStr,
-                          isFromCompletion
-                        })
-                        
-                        // 間に合わないケースを検出（オプティマイザ提案のみ）
-                        if (!isFromCompletion && firstTransferDate && perfDateStr <= firstTransferDate) {
-                          missedPerformances.push(item)
+                        // 移動日より前または同日の公演はスキップ（間に合わない）
+                        if (actualTransferDateStr && perfDateStr <= actualTransferDateStr) {
+                          if (!isFromCompletion) {
+                            missedPerformances.push(item)
+                          }
                           continue
                         }
                         
