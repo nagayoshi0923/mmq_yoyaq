@@ -154,6 +154,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return dates
   }, [selectedWeekStart])
   
+  // 過去の週かどうかを判定（今日より前の週末なら過去）
+  const isPastWeek = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const weekEnd = new Date(selectedWeekStart)
+    weekEnd.setDate(selectedWeekStart.getDate() + 6)
+    weekEnd.setHours(23, 59, 59, 999)
+    return weekEnd < today
+  }, [selectedWeekStart])
+  
   // 週が変わったらデフォルトの移動日を設定（月曜と金曜）
   useEffect(() => {
     if (weekDates.length > 0) {
@@ -1645,6 +1655,58 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       })()}
                     </div>
                   </div>
+                  
+                  {/* 過去週の場合は完了記録を表示 */}
+                  {isPastWeek && (
+                    <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="h-5 w-5 text-amber-600" />
+                        <h4 className="font-medium text-amber-800 dark:text-amber-200">過去週の完了記録</h4>
+                      </div>
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                        この週は過去のため、記録された完了状態を表示しています。
+                      </p>
+                      <div className="space-y-2">
+                        {completions.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">この週の完了記録はありません</p>
+                        ) : (
+                          completions.map((completion, idx) => {
+                            const scenario = scenarios.find(s => s.id === completion.scenario_id)
+                            const fromStore = stores.find(s => s.id === completion.from_store_id)
+                            const toStore = stores.find(s => s.id === completion.to_store_id)
+                            const isCompleted = !!completion.delivered_at
+                            const isInTransit = !!completion.picked_up_at && !completion.delivered_at
+                            
+                            return (
+                              <div 
+                                key={idx}
+                                className={`flex items-center gap-2 p-2 rounded text-sm ${
+                                  isCompleted 
+                                    ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200' 
+                                    : isInTransit
+                                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
+                                    : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200'
+                                }`}
+                              >
+                                <span className="font-medium">
+                                  {isCompleted ? '✓ 完了' : isInTransit ? '→ 移動中' : '✗ 未完了'}
+                                </span>
+                                <span className="truncate">{scenario?.title || '不明'} #{completion.kit_number}</span>
+                                <span className="text-xs opacity-75">
+                                  {fromStore?.short_name || '?'} → {toStore?.short_name || '?'}
+                                </span>
+                                {completion.delivered_at && (
+                                  <span className="text-xs opacity-75">
+                                    {formatCompletionDate(completion.delivered_at)}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
                   
                   {/* 移動日別 → 出発店舗別にまとめて表示 */}
                   <div className="space-y-4">
