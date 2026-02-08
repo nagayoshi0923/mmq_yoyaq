@@ -512,8 +512,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     })
   }, [transferEvents, storeMap, isSameStoreGroup, getStoreGroupId])
 
-  // 完了状態のキー生成
-  const getCompletionKey = useCallback((
+  // 完了状態のキー生成（performance_dateを含むフルキー）
+  const getCompletionKeyFull = useCallback((
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
@@ -522,50 +522,99 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return `${scenarioId}-${kitNumber}-${performanceDate}-${toStoreId}`
   }, [])
   
-  // 完了状態のマップ（高速ルックアップ用）
-  const completionMap = useMemo(() => {
+  // 完了状態のキー生成（performance_dateを除く - 同じシナリオ・キット・店舗なら一致とみなす）
+  const getCompletionKeyLoose = useCallback((
+    scenarioId: string,
+    kitNumber: number,
+    toStoreId: string
+  ) => {
+    return `${scenarioId}-${kitNumber}-${toStoreId}`
+  }, [])
+  
+  // 完了状態のマップ（高速ルックアップ用）- フルキーとルーズキーの両方で登録
+  const completionMapFull = useMemo(() => {
     const map = new Map<string, KitTransferCompletion>()
     for (const c of completions) {
-      const key = getCompletionKey(c.scenario_id, c.kit_number, c.performance_date, c.to_store_id)
+      const key = getCompletionKeyFull(c.scenario_id, c.kit_number, c.performance_date, c.to_store_id)
       map.set(key, c)
     }
     return map
-  }, [completions, getCompletionKey])
+  }, [completions, getCompletionKeyFull])
   
-  // 回収済みかどうか
+  // ルーズキーのマップ（同じシナリオ・キット・店舗の最新完了状態）
+  const completionMapLoose = useMemo(() => {
+    const map = new Map<string, KitTransferCompletion>()
+    // 日付順にソートして最新を保持
+    const sorted = [...completions].sort((a, b) => 
+      (a.performance_date || '').localeCompare(b.performance_date || '')
+    )
+    for (const c of sorted) {
+      const key = getCompletionKeyLoose(c.scenario_id, c.kit_number, c.to_store_id)
+      // 後のエントリが上書きするので、最新の日付のものが残る
+      map.set(key, c)
+    }
+    return map
+  }, [completions, getCompletionKeyLoose])
+  
+  // 回収済みかどうか（フルキーまたはルーズキーでマッチ）
   const isPickedUp = useCallback((
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
     toStoreId: string
   ) => {
-    const key = getCompletionKey(scenarioId, kitNumber, performanceDate, toStoreId)
-    const completion = completionMap.get(key)
+    // まずフルキーで探す
+    const fullKey = getCompletionKeyFull(scenarioId, kitNumber, performanceDate, toStoreId)
+    let completion = completionMapFull.get(fullKey)
+    
+    // なければルーズキーで探す
+    if (!completion) {
+      const looseKey = getCompletionKeyLoose(scenarioId, kitNumber, toStoreId)
+      completion = completionMapLoose.get(looseKey)
+    }
+    
     return completion?.picked_up_at != null
-  }, [completionMap, getCompletionKey])
+  }, [completionMapFull, completionMapLoose, getCompletionKeyFull, getCompletionKeyLoose])
   
-  // 設置済みかどうか
+  // 設置済みかどうか（フルキーまたはルーズキーでマッチ）
   const isDelivered = useCallback((
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
     toStoreId: string
   ) => {
-    const key = getCompletionKey(scenarioId, kitNumber, performanceDate, toStoreId)
-    const completion = completionMap.get(key)
+    // まずフルキーで探す
+    const fullKey = getCompletionKeyFull(scenarioId, kitNumber, performanceDate, toStoreId)
+    let completion = completionMapFull.get(fullKey)
+    
+    // なければルーズキーで探す
+    if (!completion) {
+      const looseKey = getCompletionKeyLoose(scenarioId, kitNumber, toStoreId)
+      completion = completionMapLoose.get(looseKey)
+    }
+    
     return completion?.delivered_at != null
-  }, [completionMap, getCompletionKey])
+  }, [completionMapFull, completionMapLoose, getCompletionKeyFull, getCompletionKeyLoose])
   
-  // 完了情報を取得
+  // 完了情報を取得（フルキーまたはルーズキーでマッチ）
   const getCompletion = useCallback((
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
     toStoreId: string
   ): KitTransferCompletion | undefined => {
-    const key = getCompletionKey(scenarioId, kitNumber, performanceDate, toStoreId)
-    return completionMap.get(key)
-  }, [completionMap, getCompletionKey])
+    // まずフルキーで探す
+    const fullKey = getCompletionKeyFull(scenarioId, kitNumber, performanceDate, toStoreId)
+    let completion = completionMapFull.get(fullKey)
+    
+    // なければルーズキーで探す
+    if (!completion) {
+      const looseKey = getCompletionKeyLoose(scenarioId, kitNumber, toStoreId)
+      completion = completionMapLoose.get(looseKey)
+    }
+    
+    return completion
+  }, [completionMapFull, completionMapLoose, getCompletionKeyFull, getCompletionKeyLoose])
 
   // データ取得
   const fetchData = useCallback(async () => {
