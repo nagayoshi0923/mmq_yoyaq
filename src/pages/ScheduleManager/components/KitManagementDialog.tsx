@@ -1849,20 +1849,38 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       // 各アイテムを個別に処理
                       for (const item of mergedSuggestions) {
                         const perfDateStr = item.performance_date
-                        // transfer_date が設定されていればそれを使用（完了記録から復元した場合）
-                        // なければ performance_date から計算
-                        const actualTransferDateStr = item.transfer_date || getActualTransferDate(item.performance_date)
+                        
+                        // 完了記録からの項目かどうか
+                        const isFromCompletion = !!item.transfer_date
+                        
+                        // 移動日を決定
+                        let actualTransferDateStr: string | null
+                        if (isFromCompletion) {
+                          // 完了記録: 実際のピックアップ日より前の最も近い選択された移動日を使用
+                          const completionTransferDate = item.transfer_date!
+                          actualTransferDateStr = null
+                          for (let i = sortedTransferDateStrs.length - 1; i >= 0; i--) {
+                            if (sortedTransferDateStrs[i] <= completionTransferDate) {
+                              actualTransferDateStr = sortedTransferDateStrs[i]
+                              break
+                            }
+                          }
+                          // 見つからない場合は最初の移動日を使用
+                          if (!actualTransferDateStr && sortedTransferDateStrs.length > 0) {
+                            actualTransferDateStr = sortedTransferDateStrs[0]
+                          }
+                        } else {
+                          // オプティマイザ提案: performance_date から計算
+                          actualTransferDateStr = getActualTransferDate(item.performance_date)
+                        }
                         
                         console.log('  📦 キット:', {
                           scenario: item.scenario_title?.slice(0, 10),
                           performance_date: item.performance_date,
-                          transfer_date: item.transfer_date,
+                          originalTransferDate: item.transfer_date,
                           actualTransferDate: actualTransferDateStr,
-                          inTransferDates: actualTransferDateStr ? transferDates.includes(actualTransferDateStr) : false
+                          isFromCompletion
                         })
-                        
-                        // 完了記録からの項目は間に合わないチェックをスキップ（実際に移動済み）
-                        const isFromCompletion = !!item.transfer_date
                         
                         // 間に合わないケースを検出（オプティマイザ提案のみ）
                         if (!isFromCompletion && firstTransferDate && perfDateStr <= firstTransferDate) {
@@ -1872,10 +1890,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         
                         if (!actualTransferDateStr) continue
                         
-                        // 選択された移動日のみ含める（ただし完了記録は常に表示）
-                        if (!isFromCompletion && !transferDates.includes(actualTransferDateStr)) continue
-                        // 完了記録は選択された移動日と一致しなくても、週の範囲内なら表示
-                        if (isFromCompletion && !weekDates.includes(actualTransferDateStr)) continue
+                        // 選択された移動日のみ含める
+                        if (!transferDates.includes(actualTransferDateStr)) continue
                         
                         // 移動日でグループ化
                         if (!itemsByTransferDate.has(actualTransferDateStr)) {
