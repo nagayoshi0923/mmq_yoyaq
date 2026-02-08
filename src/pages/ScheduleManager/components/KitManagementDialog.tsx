@@ -1897,12 +1897,29 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         totalItems: mergedSuggestions.length
                       })
                       
+                      // キットの現在位置マップを作成
+                      const kitCurrentLocationMap = new Map<string, string>()
+                      for (const loc of kitLocations) {
+                        kitCurrentLocationMap.set(`${loc.scenario_id}-${loc.kit_number}`, loc.store_id)
+                      }
+                      
                       // 各アイテムを個別に処理
                       for (const item of mergedSuggestions) {
                         const perfDateStr = item.performance_date
                         
+                        // キットが既に目的地にある場合はスキップ（移動不要）
+                        const currentLocation = kitCurrentLocationMap.get(`${item.scenario_id}-${item.kit_number}`)
+                        if (currentLocation === item.to_store_id) {
+                          continue
+                        }
+                        
                         // 設置完了済みはスキップ（全てのケースで）
                         if (isDelivered(item.scenario_id, item.kit_number, item.performance_date, item.to_store_id)) {
+                          continue
+                        }
+                        
+                        // 回収完了済みもスキップ（移動中）
+                        if (isPickedUp(item.scenario_id, item.kit_number, item.performance_date, item.to_store_id)) {
                           continue
                         }
                         
