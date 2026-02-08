@@ -27,7 +27,7 @@ import { storeApi, scenarioApi, scheduleApi } from '@/lib/api'
 import { showToast } from '@/utils/toast'
 import { calculateKitTransfers, type KitState } from '@/utils/kitOptimizer'
 import type { KitLocation, KitTransferEvent, KitTransferSuggestion, Store, Scenario, KitCondition, KitTransferCompletion } from '@/types'
-import { getCurrentStaff } from '@/lib/organization'
+import { getCurrentStaff, getCurrentOrganizationId } from '@/lib/organization'
 import { supabase } from '@/lib/supabase'
 import { KIT_CONDITION_LABELS, KIT_CONDITION_COLORS } from '@/types'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -618,14 +618,31 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   
   // 提案と完了記録をマージ（過去の完了記録をオプティマイザ提案に追加）
   const mergedSuggestions = useMemo(() => {
-    // オプティマイザの提案に存在するキーを記録（フルキー: scenario+kit+date+store）
+    // 設置完了済みのキーを記録（これらは新規計画から除外）
+    const deliveredKeys = new Set<string>()
+    for (const c of completions) {
+      if (c.delivered_at) {
+        // scenario+kit+performance_date で一意（同じ公演に対する移動は完了）
+        deliveredKeys.add(`${c.scenario_id}-${c.kit_number}-${c.performance_date}`)
+      }
+    }
+    
+    // オプティマイザの提案から、既に設置完了済みのものを除外
+    const filteredSuggestions = suggestions.filter(s => {
+      const key = `${s.scenario_id}-${s.kit_number}-${s.performance_date}`
+      return !deliveredKeys.has(key)
+    })
+    
+    // 過去の完了記録を追加（履歴表示用）
     const suggestionFullKeys = new Set<string>()
-    for (const s of suggestions) {
+    for (const s of filteredSuggestions) {
       suggestionFullKeys.add(`${s.scenario_id}-${s.kit_number}-${s.performance_date}-${s.to_store_id}`)
     }
     
-    // 完了記録から追加の「提案」を生成（すべての完了記録を追加）
+    // 完了記録から追加の「提案」を生成（過去の移動日のもののみ）
     const additionalFromCompletions: typeof suggestions = []
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     
     for (const c of completions) {
       // フルキーで重複チェック
@@ -661,6 +678,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         actualTransferDate = `${perfDate.getFullYear()}-${String(perfDate.getMonth() + 1).padStart(2, '0')}-${String(perfDate.getDate()).padStart(2, '0')}`
       }
       
+      // 過去の移動日のもののみ追加（履歴表示用）
+      if (actualTransferDate >= todayStr) continue
+      
       // 提案形式に変換
       additionalFromCompletions.push({
         scenario_id: c.scenario_id,
@@ -679,7 +699,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       suggestionFullKeys.add(fullKey)
     }
     
-    return [...suggestions, ...additionalFromCompletions]
+    return [...filteredSuggestions, ...additionalFromCompletions]
   }, [suggestions, completions, scenarios, stores])
 
   // データ取得
@@ -1057,6 +1077,27 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     if (newCount < 1) return
     
     try {
+      // キット数を減らす場合、超過するkit_locationレコードを削除
+      const currentScenario = scenarios.find(s => s.id === scenarioId)
+      const currentCount = currentScenario?.kit_count || 0
+      
+      if (newCount < currentCount) {
+        // 超過するキット位置レコードを削除
+        const orgId = await getCurrentOrganizationId()
+        if (orgId) {
+          const { error: deleteError } = await supabase
+            .from('scenario_kit_locations')
+            .delete()
+            .eq('organization_id', orgId)
+            .eq('scenario_id', scenarioId)
+            .gt('kit_number', newCount)
+          
+          if (deleteError) {
+            console.error('Failed to delete excess kit locations:', deleteError)
+          }
+        }
+      }
+      
       await scenarioApi.update(scenarioId, { kit_count: newCount })
       showToast.success(`キット数を${newCount}に変更しました`)
       
@@ -1064,6 +1105,10 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       setScenarios(prev => prev.map(s => 
         s.id === scenarioId ? { ...s, kit_count: newCount } : s
       ))
+      
+      // キット位置も再取得して同期
+      const locationsData = await kitApi.getKitLocations()
+      setKitLocations(locationsData)
     } catch (error) {
       console.error('Failed to update kit count:', error)
       showToast.error('キット数の更新に失敗しました')
