@@ -457,6 +457,7 @@ export const kitApi = {
 
   /**
    * 設置完了をマーク
+   * キットの所在地も移動先店舗に更新する
    */
   async markDelivered(
     scenarioId: string,
@@ -468,6 +469,7 @@ export const kitApi = {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) throw new Error('Organization ID not found')
 
+    // 1. 完了状態を更新
     const { data, error } = await supabase
       .from('kit_transfer_completions')
       .update({
@@ -489,6 +491,22 @@ export const kitApi = {
     if (error) {
       console.error('Failed to mark delivered:', error)
       throw error
+    }
+
+    // 2. キットの所在地を移動先店舗に更新
+    const { error: locationError } = await supabase
+      .from('scenario_kit_locations')
+      .update({
+        store_id: toStoreId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('organization_id', orgId)
+      .eq('scenario_id', scenarioId)
+      .eq('kit_number', kitNumber)
+
+    if (locationError) {
+      console.error('Failed to update kit location:', locationError)
+      // 完了状態の更新は成功しているので、ログだけ出してエラーはスローしない
     }
 
     return data
