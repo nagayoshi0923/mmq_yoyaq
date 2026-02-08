@@ -175,6 +175,28 @@ export function calculateKitTransfers(
             }
           }
           
+          // 同じ地域の店舗からの移動を優先（距離が近いほうが移動コストが低い）
+          const destinationRegion = store.region || ''
+          otherKits.sort((a, b) => {
+            const storeA = storeMap.get(a.fromStoreId)
+            const storeB = storeMap.get(b.fromStoreId)
+            const regionA = storeA?.region || ''
+            const regionB = storeB?.region || ''
+            
+            // 同じ地域のキットを優先
+            const aIsSameRegion = regionA === destinationRegion && destinationRegion !== ''
+            const bIsSameRegion = regionB === destinationRegion && destinationRegion !== ''
+            
+            if (aIsSameRegion && !bIsSameRegion) return -1
+            if (!aIsSameRegion && bIsSameRegion) return 1
+            
+            // 同じ地域でない場合は、空文字（未設定）でないほうを優先
+            if (regionA && !regionB) return -1
+            if (!regionA && regionB) return 1
+            
+            return 0
+          })
+          
           // 必要数だけ移動を計画
           for (let i = 0; i < shortage && i < otherKits.length; i++) {
             const { kitNumber, fromStoreId, transferDate } = otherKits[i]
