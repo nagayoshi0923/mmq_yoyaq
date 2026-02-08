@@ -643,14 +643,18 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const toStore = stores.find(s => s.id === c.to_store_id)
       if (!fromStore || !toStore) continue
       
-      // 実際の移動日を計算（picked_up_at から取得、なければ performance_date の前日）
+      // 実際の移動日を計算（picked_up_at から取得、なければ created_at、最後の手段で performance_date の前日）
       let actualTransferDate: string
       if (c.picked_up_at) {
         // picked_up_at の日付部分を取得（ローカル時間に変換）
         const pickedUpDate = new Date(c.picked_up_at)
         actualTransferDate = `${pickedUpDate.getFullYear()}-${String(pickedUpDate.getMonth() + 1).padStart(2, '0')}-${String(pickedUpDate.getDate()).padStart(2, '0')}`
+      } else if (c.created_at) {
+        // created_at の日付部分を取得（記録作成日 = 移動計画が立てられた日）
+        const createdDate = new Date(c.created_at)
+        actualTransferDate = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}-${String(createdDate.getDate()).padStart(2, '0')}`
       } else {
-        // picked_up_at がない場合は performance_date の前日
+        // 最後の手段: performance_date の前日
         const [year, month, day] = c.performance_date.split('-').map(Number)
         const perfDate = new Date(year, month - 1, day)
         perfDate.setDate(perfDate.getDate() - 1)
