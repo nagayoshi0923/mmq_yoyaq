@@ -643,6 +643,20 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const toStore = stores.find(s => s.id === c.to_store_id)
       if (!fromStore || !toStore) continue
       
+      // 実際の移動日を計算（picked_up_at から取得、なければ performance_date の前日）
+      let actualTransferDate: string
+      if (c.picked_up_at) {
+        // picked_up_at の日付部分を取得（ローカル時間に変換）
+        const pickedUpDate = new Date(c.picked_up_at)
+        actualTransferDate = `${pickedUpDate.getFullYear()}-${String(pickedUpDate.getMonth() + 1).padStart(2, '0')}-${String(pickedUpDate.getDate()).padStart(2, '0')}`
+      } else {
+        // picked_up_at がない場合は performance_date の前日
+        const [year, month, day] = c.performance_date.split('-').map(Number)
+        const perfDate = new Date(year, month - 1, day)
+        perfDate.setDate(perfDate.getDate() - 1)
+        actualTransferDate = `${perfDate.getFullYear()}-${String(perfDate.getMonth() + 1).padStart(2, '0')}-${String(perfDate.getDate()).padStart(2, '0')}`
+      }
+      
       // 提案形式に変換
       additionalFromCompletions.push({
         scenario_id: c.scenario_id,
@@ -652,7 +666,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         from_store_name: fromStore.short_name || fromStore.name,
         to_store_id: c.to_store_id,
         to_store_name: toStore.short_name || toStore.name,
-        performance_date: c.performance_date
+        transfer_date: actualTransferDate,
+        performance_date: c.performance_date,
+        reason: '完了記録から復元'
       })
       
       // キーを追加して重複を防ぐ
@@ -1829,25 +1845,33 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       // 各アイテムを個別に処理
                       for (const item of mergedSuggestions) {
                         const perfDateStr = item.performance_date
-                        const actualTransferDateStr = getActualTransferDate(item.performance_date)
+                        // transfer_date が設定されていればそれを使用（完了記録から復元した場合）
+                        // なければ performance_date から計算
+                        const actualTransferDateStr = item.transfer_date || getActualTransferDate(item.performance_date)
                         
                         console.log('  📦 キット:', {
                           scenario: item.scenario_title?.slice(0, 10),
                           performance_date: item.performance_date,
+                          transfer_date: item.transfer_date,
                           actualTransferDate: actualTransferDateStr,
                           inTransferDates: actualTransferDateStr ? transferDates.includes(actualTransferDateStr) : false
                         })
                         
-                        // 間に合わないケースを検出
-                        if (firstTransferDate && perfDateStr <= firstTransferDate) {
+                        // 完了記録からの項目は間に合わないチェックをスキップ（実際に移動済み）
+                        const isFromCompletion = !!item.transfer_date
+                        
+                        // 間に合わないケースを検出（オプティマイザ提案のみ）
+                        if (!isFromCompletion && firstTransferDate && perfDateStr <= firstTransferDate) {
                           missedPerformances.push(item)
                           continue
                         }
                         
                         if (!actualTransferDateStr) continue
                         
-                        // 選択された移動日のみ含める
-                        if (!transferDates.includes(actualTransferDateStr)) continue
+                        // 選択された移動日のみ含める（ただし完了記録は常に表示）
+                        if (!isFromCompletion && !transferDates.includes(actualTransferDateStr)) continue
+                        // 完了記録は選択された移動日と一致しなくても、週の範囲内なら表示
+                        if (isFromCompletion && !weekDates.includes(actualTransferDateStr)) continue
                         
                         // 移動日でグループ化
                         if (!itemsByTransferDate.has(actualTransferDateStr)) {
