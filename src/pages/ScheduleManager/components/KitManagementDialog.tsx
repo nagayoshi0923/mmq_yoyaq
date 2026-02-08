@@ -645,6 +645,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     
     for (const c of completions) {
+      // 設置完了済みはスキップ（履歴表示も不要）
+      if (c.delivered_at) continue
+      
       // フルキーで重複チェック
       const fullKey = `${c.scenario_id}-${c.kit_number}-${c.performance_date}-${c.to_store_id}`
       
@@ -678,7 +681,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         actualTransferDate = `${perfDate.getFullYear()}-${String(perfDate.getMonth() + 1).padStart(2, '0')}-${String(perfDate.getDate()).padStart(2, '0')}`
       }
       
-      // 過去の移動日のもののみ追加（履歴表示用）
+      // 過去の移動日で未完了のもののみ追加（チェック漏れを表示）
       if (actualTransferDate >= todayStr) continue
       
       // 提案形式に変換
