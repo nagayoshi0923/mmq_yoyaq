@@ -1705,58 +1705,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                     </div>
                   </div>
                   
-                  {/* 過去週の場合は完了記録を表示 */}
-                  {isPastWeek && (
-                    <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                      <div className="flex items-center gap-2 mb-3">
-                        <AlertTriangle className="h-5 w-5 text-amber-600" />
-                        <h4 className="font-medium text-amber-800 dark:text-amber-200">過去週の完了記録</h4>
-                      </div>
-                      <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
-                        この週は過去のため、記録された完了状態を表示しています。
-                      </p>
-                      <div className="space-y-2">
-                        {completions.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">この週の完了記録はありません</p>
-                        ) : (
-                          completions.map((completion, idx) => {
-                            const scenario = scenarios.find(s => s.id === completion.scenario_id)
-                            const fromStore = stores.find(s => s.id === completion.from_store_id)
-                            const toStore = stores.find(s => s.id === completion.to_store_id)
-                            const isCompleted = !!completion.delivered_at
-                            const isInTransit = !!completion.picked_up_at && !completion.delivered_at
-                            
-                            return (
-                              <div 
-                                key={idx}
-                                className={`flex items-center gap-2 p-2 rounded text-sm ${
-                                  isCompleted 
-                                    ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200' 
-                                    : isInTransit
-                                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
-                                    : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200'
-                                }`}
-                              >
-                                <span className="font-medium">
-                                  {isCompleted ? '✓ 完了' : isInTransit ? '→ 移動中' : '✗ 未完了'}
-                                </span>
-                                <span className="truncate">{scenario?.title || '不明'} #{completion.kit_number}</span>
-                                <span className="text-xs opacity-75">
-                                  {fromStore?.short_name || '?'} → {toStore?.short_name || '?'}
-                                </span>
-                                {completion.delivered_at && (
-                                  <span className="text-xs opacity-75">
-                                    {formatCompletionDate(completion.delivered_at)}
-                                  </span>
-                                )}
-                              </div>
-                            )
-                          })
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
                   {/* 移動日別 → 出発店舗別にまとめて表示 */}
                   <div className="space-y-4">
                     {(() => {
@@ -1989,85 +1937,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         const perfEndLabel = `${perfEndDate.getMonth() + 1}/${perfEndDate.getDate()}`
                         const perfPeriodLabel = `${perfStartLabel}~${perfEndLabel}公演分`
                         
-                        // この移動日が過去かどうか
+                        // この移動日が過去かどうか（表示のみに使用、チェックは可能）
                         const isPastTransferDate = isTransferDatePast(dateStr)
-                        
-                        // 過去の移動日の場合は、完了記録から表示
-                        if (isPastTransferDate) {
-                          // この期間（perfStartDate〜perfEndDate）の完了記録を取得
-                          const perfStartStr = formatDateStr(perfStartDate)
-                          const perfEndStr = formatDateStr(perfEndDate)
-                          const periodCompletions = completions.filter(c => 
-                            c.performance_date >= perfStartStr && c.performance_date <= perfEndStr
-                          )
-                          
-                          return (
-                            <div key={dateStr} className="border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden">
-                              {/* 移動日ヘッダー（過去） */}
-                              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/30">
-                                <Calendar className="h-4 w-4 text-amber-600" />
-                                <span className="font-bold text-amber-800 dark:text-amber-200">{transferDateLabel} 移動</span>
-                                <span className="text-sm text-amber-600 dark:text-amber-400">→ {perfPeriodLabel}</span>
-                                <Badge variant="secondary" className="ml-auto bg-amber-100 text-amber-800">
-                                  過去
-                                </Badge>
-                              </div>
-                              <div className="p-3 space-y-2">
-                                {periodCompletions.length === 0 ? (
-                                  <p className="text-sm text-muted-foreground text-center py-2">
-                                    この期間の移動記録はありません
-                                  </p>
-                                ) : (
-                                  periodCompletions.map((completion, idx) => {
-                                    const scenario = scenarios.find(s => s.id === completion.scenario_id)
-                                    const fromStore = stores.find(s => s.id === completion.from_store_id)
-                                    const toStore = stores.find(s => s.id === completion.to_store_id)
-                                    const isCompleted = !!completion.delivered_at
-                                    const isInTransit = !!completion.picked_up_at && !completion.delivered_at
-                                    const pickedUpByName = completion.picked_up_by_staff?.name
-                                    const deliveredByName = completion.delivered_by_staff?.name
-                                    
-                                    return (
-                                      <div 
-                                        key={idx}
-                                        className={`flex items-center gap-2 p-2 rounded text-sm ${
-                                          isCompleted 
-                                            ? 'bg-green-50 dark:bg-green-900/20' 
-                                            : isInTransit
-                                            ? 'bg-blue-50 dark:bg-blue-900/20'
-                                            : 'bg-red-50 dark:bg-red-900/20'
-                                        }`}
-                                      >
-                                        <span className={`font-medium shrink-0 ${
-                                          isCompleted ? 'text-green-700 dark:text-green-300' 
-                                          : isInTransit ? 'text-blue-700 dark:text-blue-300'
-                                          : 'text-red-700 dark:text-red-300'
-                                        }`}>
-                                          {isCompleted ? '✓完了' : isInTransit ? '→移動中' : '✗未完了'}
-                                        </span>
-                                        <span className="truncate">{scenario?.title || '不明'}</span>
-                                        <span className="text-muted-foreground text-xs">#{completion.kit_number}</span>
-                                        <span className="text-xs text-muted-foreground shrink-0">
-                                          {fromStore?.short_name || '?'} → {toStore?.short_name || '?'}
-                                        </span>
-                                        {pickedUpByName && (
-                                          <span className="text-xs text-blue-600 shrink-0">
-                                            回収:{pickedUpByName}
-                                          </span>
-                                        )}
-                                        {deliveredByName && (
-                                          <span className="text-xs text-green-600 shrink-0">
-                                            設置:{deliveredByName}
-                                          </span>
-                                        )}
-                                      </div>
-                                    )
-                                  })
-                                )}
-                              </div>
-                            </div>
-                          )
-                        }
                         
                         // 出発店舗・到着店舗でグループ化
                         const bySource = new Map<string, typeof groups>()
@@ -2113,10 +1984,15 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           <div key={dateStr}>
                             {/* 移動日ヘッダー（複数日ある場合のみ表示） */}
                             {transferDates.length > 1 && (
-                              <div className="flex items-center gap-2 mb-2 px-2 py-1 bg-primary/10 rounded-lg">
-                                <Calendar className="h-4 w-4 text-primary" />
+                              <div className={`flex items-center gap-2 mb-2 px-2 py-1 rounded-lg ${isPastTransferDate ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-primary/10'}`}>
+                                <Calendar className={`h-4 w-4 ${isPastTransferDate ? 'text-amber-600' : 'text-primary'}`} />
                                 <span className="font-bold">{transferDateLabel} 移動</span>
                                 <span className="text-sm text-muted-foreground">→ {perfPeriodLabel}</span>
+                                {isPastTransferDate && (
+                                  <Badge variant="secondary" className="bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200">
+                                    過去
+                                  </Badge>
+                                )}
                                 <Badge variant="secondary" className="ml-auto">
                                   {dayKitCount}キット
                                 </Badge>
