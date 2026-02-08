@@ -1776,6 +1776,14 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         return `${year}-${month}-${day}`
                       }
                       
+                      // 今日の日付（ローカル）
+                      const todayStr = formatDateStr(new Date())
+                      
+                      // 移動日が過去かどうかを判定
+                      const isTransferDatePast = (transferDateStr: string): boolean => {
+                        return transferDateStr < todayStr
+                      }
+                      
                       // 公演日から実際の移動日を計算する関数
                       // ルール: 当日運搬は危険なので、公演日より前の直近の移動日を使用
                       const getActualTransferDate = (performanceDate: string): string | null => {
@@ -1980,6 +1988,86 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         const perfStartLabel = `${perfStartDate.getMonth() + 1}/${perfStartDate.getDate()}`
                         const perfEndLabel = `${perfEndDate.getMonth() + 1}/${perfEndDate.getDate()}`
                         const perfPeriodLabel = `${perfStartLabel}~${perfEndLabel}公演分`
+                        
+                        // この移動日が過去かどうか
+                        const isPastTransferDate = isTransferDatePast(dateStr)
+                        
+                        // 過去の移動日の場合は、完了記録から表示
+                        if (isPastTransferDate) {
+                          // この期間（perfStartDate〜perfEndDate）の完了記録を取得
+                          const perfStartStr = formatDateStr(perfStartDate)
+                          const perfEndStr = formatDateStr(perfEndDate)
+                          const periodCompletions = completions.filter(c => 
+                            c.performance_date >= perfStartStr && c.performance_date <= perfEndStr
+                          )
+                          
+                          return (
+                            <div key={dateStr} className="border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden">
+                              {/* 移動日ヘッダー（過去） */}
+                              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/30">
+                                <Calendar className="h-4 w-4 text-amber-600" />
+                                <span className="font-bold text-amber-800 dark:text-amber-200">{transferDateLabel} 移動</span>
+                                <span className="text-sm text-amber-600 dark:text-amber-400">→ {perfPeriodLabel}</span>
+                                <Badge variant="secondary" className="ml-auto bg-amber-100 text-amber-800">
+                                  過去
+                                </Badge>
+                              </div>
+                              <div className="p-3 space-y-2">
+                                {periodCompletions.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground text-center py-2">
+                                    この期間の移動記録はありません
+                                  </p>
+                                ) : (
+                                  periodCompletions.map((completion, idx) => {
+                                    const scenario = scenarios.find(s => s.id === completion.scenario_id)
+                                    const fromStore = stores.find(s => s.id === completion.from_store_id)
+                                    const toStore = stores.find(s => s.id === completion.to_store_id)
+                                    const isCompleted = !!completion.delivered_at
+                                    const isInTransit = !!completion.picked_up_at && !completion.delivered_at
+                                    const pickedUpByName = completion.picked_up_by_staff?.name
+                                    const deliveredByName = completion.delivered_by_staff?.name
+                                    
+                                    return (
+                                      <div 
+                                        key={idx}
+                                        className={`flex items-center gap-2 p-2 rounded text-sm ${
+                                          isCompleted 
+                                            ? 'bg-green-50 dark:bg-green-900/20' 
+                                            : isInTransit
+                                            ? 'bg-blue-50 dark:bg-blue-900/20'
+                                            : 'bg-red-50 dark:bg-red-900/20'
+                                        }`}
+                                      >
+                                        <span className={`font-medium shrink-0 ${
+                                          isCompleted ? 'text-green-700 dark:text-green-300' 
+                                          : isInTransit ? 'text-blue-700 dark:text-blue-300'
+                                          : 'text-red-700 dark:text-red-300'
+                                        }`}>
+                                          {isCompleted ? '✓完了' : isInTransit ? '→移動中' : '✗未完了'}
+                                        </span>
+                                        <span className="truncate">{scenario?.title || '不明'}</span>
+                                        <span className="text-muted-foreground text-xs">#{completion.kit_number}</span>
+                                        <span className="text-xs text-muted-foreground shrink-0">
+                                          {fromStore?.short_name || '?'} → {toStore?.short_name || '?'}
+                                        </span>
+                                        {pickedUpByName && (
+                                          <span className="text-xs text-blue-600 shrink-0">
+                                            回収:{pickedUpByName}
+                                          </span>
+                                        )}
+                                        {deliveredByName && (
+                                          <span className="text-xs text-green-600 shrink-0">
+                                            設置:{deliveredByName}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          )
+                        }
                         
                         // 出発店舗・到着店舗でグループ化
                         const bySource = new Map<string, typeof groups>()
