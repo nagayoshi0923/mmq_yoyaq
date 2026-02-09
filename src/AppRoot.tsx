@@ -218,7 +218,15 @@ function AppRoutes() {
 
   // プロフィール設定ページ（新規登録メール確認後）
   // type=signup でリダイレクトされるが、/complete-profile の場合はこちらを優先
+  // ただし未ログインの場合はログインページへリダイレクト
   if (location.pathname === '/complete-profile') {
+    if (!loading && !user) {
+      return (
+        <Suspense fallback={<FullPageSpinner />}>
+          <LoginForm />
+        </Suspense>
+      )
+    }
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <CompleteProfile />
