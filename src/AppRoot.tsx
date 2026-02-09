@@ -153,15 +153,15 @@ function AppRoutes() {
     }
   }, [user?.role])
 
-  // 顧客ユーザーは「氏名/電話/メール」が揃うまでマイページ等の保護ページを利用させない
-  // 公開ページ（予約サイト閲覧）はプロフィール未完了でも閲覧可能
+  // 顧客ユーザーは「氏名/電話/メール」が揃うまで全ページでプロフィール登録を求める
+  // ただし /complete-profile 自体はリダイレクト対象外（無限ループ防止）
+  // 未ログインユーザーはリダイレクトしない（公開ページ閲覧可能）
   // NOTE: Hooksの順序を守るため、早期returnより前に定義する
   React.useEffect(() => {
-    // プロフィール完了を必須とするページ（保護ページ）
-    const requiresProfile =
-      location.pathname.startsWith('/mypage')
+    // /complete-profile 自体はスキップ（無限ループ防止）
+    const isCompleteProfilePage = location.pathname === '/complete-profile'
 
-    if (!user || user.role !== 'customer' || !requiresProfile) {
+    if (!user || user.role !== 'customer' || isCompleteProfilePage) {
       setIsProfileCheckRunning(false)
       return
     }
@@ -272,7 +272,7 @@ function AppRoutes() {
     return <FullPageSpinner />
   }
 
-  if (user?.role === 'customer' && isProfileCheckRunning && location.pathname.startsWith('/mypage')) {
+  if (user?.role === 'customer' && isProfileCheckRunning) {
     return <FullPageSpinner />
   }
 
