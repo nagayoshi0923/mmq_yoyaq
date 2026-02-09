@@ -105,6 +105,7 @@ async function toggleButtonState(
   await supabase
     .from('shift_button_states')
     .upsert({
+      organization_id: organizationId,
       staff_id: staffId,
       notification_id: notificationId,
       date,

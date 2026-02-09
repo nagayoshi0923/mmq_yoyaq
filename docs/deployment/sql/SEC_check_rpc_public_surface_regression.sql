@@ -29,6 +29,7 @@ with allowlist as (
   select 'accept_invitation_atomic'::text as function_name, 'p_token text, p_user_id uuid'::text as identity_args
   union all select 'check_rate_limit', 'p_identifier text, p_endpoint text, p_max_requests integer, p_window_seconds integer'
   union all select 'create_reservation_with_lock_v2', 'p_schedule_event_id uuid, p_participant_count integer, p_customer_id uuid, p_customer_name text, p_customer_email text, p_customer_phone text, p_notes text, p_how_found text, p_reservation_number text'
+  union all select 'update_reservation_participants', 'p_reservation_id uuid, p_new_count integer, p_customer_id uuid'
 
   -- Helper-style functions currently exposed to anon (keep unless you confirm nothing depends on them)
   union all select 'current_organization_id', ''
@@ -110,6 +111,7 @@ with allowlist as (
   union all select 'is_org_admin', ''
   union all select 'is_organization_member', 'p_organization_id uuid'
   union all select 'is_staff_or_admin', ''
+  union all select 'update_reservation_participants', 'p_reservation_id uuid, p_new_count integer, p_customer_id uuid'
 ),
 funcs as (
   select
