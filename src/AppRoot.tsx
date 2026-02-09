@@ -153,17 +153,15 @@ function AppRoutes() {
     }
   }, [user?.role])
 
-  // 顧客ユーザーは「氏名/電話/メール」が揃うまで利用させない（OAuthでも同様）
+  // 顧客ユーザーは「氏名/電話/メール」が揃うまでマイページ等の保護ページを利用させない
+  // 公開ページ（予約サイト閲覧）はプロフィール未完了でも閲覧可能
   // NOTE: Hooksの順序を守るため、早期returnより前に定義する
   React.useEffect(() => {
-    const shouldSkip =
-      location.pathname === '/complete-profile' ||
-      location.pathname === '/login' ||
-      location.pathname === '/signup' ||
-      location.pathname === '/reset-password' ||
-      location.pathname === '/set-password'
+    // プロフィール完了を必須とするページ（保護ページ）
+    const requiresProfile =
+      location.pathname.startsWith('/mypage')
 
-    if (!user || user.role !== 'customer' || shouldSkip) {
+    if (!user || user.role !== 'customer' || !requiresProfile) {
       setIsProfileCheckRunning(false)
       return
     }
@@ -183,7 +181,7 @@ function AppRoutes() {
 
         if (error) {
           // 読み取り失敗時は安全側（必須情報が揃っていると確定できない）
-          navigate('/complete-profile', { replace: true })
+          navigate('/complete-profile?next=' + encodeURIComponent(location.pathname), { replace: true })
           return
         }
 
@@ -198,7 +196,7 @@ function AppRoutes() {
         }
       } catch {
         if (!cancelled) {
-          navigate('/complete-profile', { replace: true })
+          navigate('/complete-profile?next=' + encodeURIComponent(location.pathname), { replace: true })
         }
       } finally {
         if (!cancelled) setIsProfileCheckRunning(false)
@@ -274,7 +272,7 @@ function AppRoutes() {
     return <FullPageSpinner />
   }
 
-  if (user?.role === 'customer' && isProfileCheckRunning) {
+  if (user?.role === 'customer' && isProfileCheckRunning && location.pathname.startsWith('/mypage')) {
     return <FullPageSpinner />
   }
 
