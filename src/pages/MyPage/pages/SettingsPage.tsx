@@ -169,18 +169,17 @@ export function SettingsPage() {
       } else if (user?.id) {
         const orgId = organizationId || QUEENS_WALTZ_ORG_ID
         
-        // email/user_id 重複対策: 既存行があれば UPDATE、なければ INSERT
+        // user_id で自分のレコードを検索（RLSで確実に読み書き可能）
         const { data: existingCust } = await supabase
           .from('customers')
           .select('id')
-          .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+          .eq('user_id', user.id)
           .maybeSingle()
         
         const { error } = existingCust
           ? await supabase
               .from('customers')
               .update({
-                user_id: user.id,
                 name: formData.name,
                 nickname: formData.nickname || null,
                 phone: formData.phone || null,

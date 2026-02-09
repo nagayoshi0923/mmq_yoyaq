@@ -133,7 +133,7 @@ export function CompleteProfile() {
           : 'customer'
 
       const organizationId = existingUser?.organization_id || DEFAULT_ORG_ID
-      await supabase
+      const { error: usersUpsertError } = await supabase
         .from('users')
         .upsert({
           id: userId,
@@ -144,33 +144,52 @@ export function CompleteProfile() {
           updated_at: new Date().toISOString()
         }, { onConflict: 'id' })
       
-      logger.log('✅ usersテーブル更新完了')
+      if (usersUpsertError) {
+        logger.warn('⚠️ usersテーブル更新エラー（続行）:', usersUpsertError)
+        // usersテーブルのエラーは致命的ではない（handle_new_userトリガーで作成済みの場合がある）
+        // ただし organization_id の設定が重要なので、個別にUPDATEを試行
+        const { error: updateOrgErr } = await supabase
+          .from('users')
+          .update({ 
+            organization_id: organizationId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId)
+        
+        if (updateOrgErr) {
+          logger.warn('⚠️ organization_id更新もエラー:', updateOrgErr)
+        } else {
+          logger.log('✅ organization_id個別更新成功')
+        }
+      } else {
+        logger.log('✅ usersテーブル更新完了')
+      }
       
       // 3. customersテーブルにレコードを作成/更新
-      // user_id / email どちらの重複でも対応するため、先に既存行を確認してから INSERT or UPDATE を使い分ける
-      const { data: existingCustomer } = await supabase
+      // user_id で自分のレコードを検索（RLSで確実に読み書き可能）
+      const { data: existingByUserId } = await supabase
         .from('customers')
         .select('id')
-        .or(`user_id.eq.${userId},email.eq.${userEmail}`)
+        .eq('user_id', userId)
         .maybeSingle()
 
-      if (existingCustomer) {
-        // 既存行がある → UPDATE（user_id / email / org を上書き）
+      if (existingByUserId) {
+        // 自分のレコードがある → UPDATE
         const { error: updateCustErr } = await supabase
           .from('customers')
           .update({
-            user_id: userId,
             name: name.trim(),
             email: userEmail,
             phone: phone.trim(),
             organization_id: organizationId,
             updated_at: new Date().toISOString()
           })
-          .eq('id', existingCustomer.id)
+          .eq('id', existingByUserId.id)
 
         if (updateCustErr) {
           throw updateCustErr
         }
+        logger.log('✅ 既存の顧客レコードを更新しました')
       } else {
         // 新規 → INSERT
         const { error: insertCustErr } = await supabase
@@ -188,7 +207,58 @@ export function CompleteProfile() {
           })
 
         if (insertCustErr) {
-          throw insertCustErr
+          // email重複エラーの場合、既存レコードのuser_idを自分に紐付けてリトライ
+          if (insertCustErr.code === '23505') {
+            logger.warn('⚠️ email重複のためuser_id紐付けを試行:', userEmail)
+            // メールアドレスでuser_id未設定のレコードを探して紐付け
+            const { data: byEmail } = await supabase
+              .from('customers')
+              .select('id, user_id')
+              .eq('email', userEmail)
+              .maybeSingle()
+
+            if (byEmail && !byEmail.user_id) {
+              // user_idが未設定なら紐付けて更新
+              const { error: linkErr } = await supabase
+                .from('customers')
+                .update({
+                  user_id: userId,
+                  name: name.trim(),
+                  phone: phone.trim(),
+                  organization_id: organizationId,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', byEmail.id)
+              
+              if (linkErr) {
+                throw linkErr
+              }
+              logger.log('✅ 既存メール顧客にuser_idを紐付けました')
+            } else {
+              // 別のuser_idに紐付いている場合は新規で作成（emailなし）
+              logger.warn('⚠️ 既存メール顧客は別ユーザーに紐付け済み、email除外で新規作成')
+              const { error: insertNoEmail } = await supabase
+                .from('customers')
+                .insert({
+                  user_id: userId,
+                  name: name.trim(),
+                  phone: phone.trim(),
+                  visit_count: 0,
+                  total_spent: 0,
+                  organization_id: organizationId,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                })
+              if (insertNoEmail) {
+                throw insertNoEmail
+              }
+              logger.log('✅ 新規顧客レコードを作成しました（email除外）')
+            }
+          } else {
+            throw insertCustErr
+          }
+        } else {
+          logger.log('✅ 新規顧客レコードを作成しました')
         }
       }
       
