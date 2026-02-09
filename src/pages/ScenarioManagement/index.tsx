@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -45,20 +46,33 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { generateSlugFromTitle } from '@/utils/toRomaji'
 
-// localStorageから新旧UIモードを取得
+/**
+ * 旧UIの表示切替は無効化（切り離し）
+ * - コンポーネント/実装は残すが、シナリオページでは新UIのみ表示する
+ * - 将来復活させたい場合は true に戻す
+ */
+const ENABLE_LEGACY_SCENARIO_UI = false as const
+
+// localStorageから新旧UIモードを取得（ENABLE_LEGACY_SCENARIO_UI=true の場合のみ使用）
 const getUIMode = (): 'legacy' | 'new' => {
   const saved = localStorage.getItem('scenarioManagementUIMode')
   return saved === 'new' ? 'new' : 'legacy'
 }
 
 export function ScenarioManagement() {
+  const location = useLocation()
+  const navigate = useNavigate()
+
   // UI状態
-  const [uiMode, setUIMode] = useState<'legacy' | 'new'>(getUIMode)
+  const [uiMode, setUIMode] = useState<'legacy' | 'new'>(() =>
+    ENABLE_LEGACY_SCENARIO_UI ? getUIMode() : 'new'
+  )
   const [displayMode, setDisplayMode] = useState<'compact' | 'detailed'>('compact')
   const [isImporting, setIsImporting] = useState(false)
   
   // UIモード切り替え時にlocalStorageに保存
   const handleUIModeChange = (mode: 'legacy' | 'new') => {
+    if (!ENABLE_LEGACY_SCENARIO_UI) return
     setUIMode(mode)
     localStorage.setItem('scenarioManagementUIMode', mode)
   }
@@ -69,6 +83,25 @@ export function ScenarioManagement() {
   // 編集モーダル状態
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null)
+
+  // 旧ルート（/scenarios/edit/:id）などからの受け口: ?edit=<scenarioId|new>
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const edit = params.get('edit')
+    if (!edit) return
+
+    // 開く
+    setEditingScenarioId(edit === 'new' ? null : edit)
+    setEditDialogOpen(true)
+
+    // パラメータを消してURLをクリーンにする（再オープン防止）
+    params.delete('edit')
+    const nextSearch = params.toString()
+    navigate(
+      nextSearch ? `${location.pathname}?${nextSearch}` : location.pathname,
+      { replace: true }
+    )
+  }, [location.pathname, location.search, navigate])
   
   // 新UI用のリフレッシュキー（保存後に更新をトリガー）
   const [orgScenarioRefreshKey, setOrgScenarioRefreshKey] = useState(0)
@@ -394,35 +427,10 @@ export function ScenarioManagement() {
             <HelpButton topic="scenario" label="シナリオ管理マニュアル" />
           </PageHeader>
 
-          {/* 新旧UI切り替え */}
           <div className="flex items-center justify-between">
+            {/* 旧UI切り替えは無効化。常に新UIを表示 */}
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">UIモード:</span>
-              <div className="flex rounded-lg border bg-gray-100 p-0.5">
-                <button
-                  onClick={() => handleUIModeChange('legacy')}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    uiMode === 'legacy' 
-                      ? 'bg-white shadow text-gray-900 font-medium' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  旧UI
-                </button>
-                <button
-                  onClick={() => handleUIModeChange('new')}
-                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    uiMode === 'new' 
-                      ? 'bg-white shadow text-gray-900 font-medium' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  新UI（マスタ連携）
-                </button>
-              </div>
-              {uiMode === 'new' && (
-                <Badge variant="secondary" className="text-xs">β版</Badge>
-              )}
+              <Badge variant="secondary" className="text-xs">新UI（マスタ連携）</Badge>
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
               <CsvImportExport
@@ -461,7 +469,7 @@ export function ScenarioManagement() {
               }}
               refreshKey={orgScenarioRefreshKey}
             />
-          ) : (
+          ) : ENABLE_LEGACY_SCENARIO_UI ? (
             <>
               {/* エラー表示 */}
               {error && (
@@ -661,7 +669,7 @@ export function ScenarioManagement() {
             </div>
           )}
             </>
-          )}
+          ) : null}
         </div>
 
         {/* 削除確認ダイアログ */}

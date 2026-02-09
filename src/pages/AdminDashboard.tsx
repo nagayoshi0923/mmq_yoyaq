@@ -21,7 +21,6 @@ import {
 // コード分割：各ページを動的インポート
 const StoreManagement = lazy(() => import('./StoreManagement').then(m => ({ default: m.StoreManagement })))
 const ScenarioManagement = lazy(() => import('./ScenarioManagement').then(m => ({ default: m.ScenarioManagement })))
-const ScenarioEdit = lazy(() => import('./ScenarioEdit'))
 const StaffManagement = lazy(() => import('./StaffManagement').then(m => ({ default: m.StaffManagement })))
 const ScheduleManager = lazy(() => import('./ScheduleManager/index').then(m => ({ default: m.ScheduleManager })))
 const SalesManagement = lazy(() => import('./SalesManagement'))
@@ -64,6 +63,18 @@ const PlatformTop = lazy(() => import('./PlatformTop').then(m => ({ default: m.P
 const DesignPreview = lazy(() => import('./dev/DesignPreview').then(m => ({ default: m.DesignPreview })))
 const ComponentGallery = lazy(() => import('./dev/ComponentGallery').then(m => ({ default: m.ComponentGallery })))
 const NotFoundPage = lazy(() => import('./NotFoundPage').then(m => ({ default: m.NotFoundPage })))
+
+function ScenarioEditRedirect({ organizationSlug, scenarioId }: { organizationSlug: string; scenarioId: string | null }) {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const editId = scenarioId || 'new'
+    const target = `/${organizationSlug}/scenarios?edit=${encodeURIComponent(editId)}`
+    navigate(target, { replace: true })
+  }, [navigate, organizationSlug, scenarioId])
+
+  return <LoadingScreen message="シナリオ編集を新UIへ移動中..." />
+}
 
 // 静的ページ（公開ページ）
 const TermsPage = lazy(() => import('./static').then(m => ({ default: m.TermsPage })))
@@ -288,11 +299,8 @@ export function AdminDashboard() {
   }
   
   if (currentPage === 'scenarios-edit') {
-    return (
-      <Suspense fallback={<LoadingScreen message="シナリオ編集を読み込み中..." />}>
-        <ScenarioEdit />
-      </Suspense>
-    )
+    // 旧編集ページは切り離し。シナリオ管理（V2）へ寄せて編集ダイアログを開く
+    return <ScenarioEditRedirect organizationSlug={organizationSlug} scenarioId={currentScenarioId} />
   }
   
   if (currentPage === 'staff') {

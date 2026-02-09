@@ -24,24 +24,50 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
   if (!user) return null
 
   // まず users テーブルから取得（高速・406エラー回避）
-  const { data: userData } = await supabase
-    .from('users')
-    .select('organization_id')
-    .eq('id', user.id)
-    .maybeSingle()
+  try {
+    const { data: userData } = await supabase
+      .from('users')
+      .select('organization_id')
+      .eq('id', user.id)
+      .maybeSingle()
+    
+    if (userData?.organization_id) {
+      return userData.organization_id
+    }
+  } catch (err) {
+    // RLS/ネットワークなどで失敗しても次のフォールバックへ
+    logger.warn('getCurrentOrganizationId: users lookup failed; fallback', err)
+  }
   
-  if (userData?.organization_id) {
-    return userData.organization_id
+  // フォールバック: staff テーブルから取得（後方互換性）
+  try {
+    const { data: staff } = await supabase
+      .from('staff')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (staff?.organization_id) {
+      return staff.organization_id
+    }
+  } catch (err) {
+    logger.warn('getCurrentOrganizationId: staff lookup failed; fallback', err)
   }
 
-  // フォールバック: staff テーブルから取得（後方互換性）
-  const { data: staff } = await supabase
-    .from('staff')
-    .select('organization_id')
-    .eq('user_id', user.id)
-    .maybeSingle()
+  // 最終フォールバック: DB関数（auth.uid()ベース）で取得
+  // - RLS/ポリシー設定の揺れで users/staff の SELECT が不安定な場合の救済
+  try {
+    const { data: orgId, error } = await supabase.rpc('get_user_organization_id')
+    if (error) {
+      logger.warn('getCurrentOrganizationId: rpc get_user_organization_id failed', error)
+    } else if (orgId) {
+      return String(orgId)
+    }
+  } catch (err) {
+    logger.warn('getCurrentOrganizationId: rpc fallback threw', err)
+  }
 
-  return staff?.organization_id || null
+  return null
 }
 
 /**

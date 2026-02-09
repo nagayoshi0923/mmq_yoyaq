@@ -16,7 +16,7 @@ import { supabase } from '@/lib/supabase'
 import { renderExpandedRow } from './utils/tableColumns'
 import { useScenariosQuery } from '../ScenarioManagement/hooks/useScenarioQuery'
 import type { AuthorPerformance } from './types'
-import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
+import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 import { AuthorEmailDialog } from './components/AuthorEmailDialog'
 import { AuthorLicenseEmailDialog } from './components/AuthorLicenseEmailDialog'
 import { authorApi, storeApi, type Author } from '@/lib/api'
@@ -236,10 +236,11 @@ export default function AuthorReport() {
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6">
-      <ScenarioEditDialog
+      <ScenarioEditDialogV2
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         scenarioId={editScenarioId}
+        onScenarioChange={setEditScenarioId}
         onSaved={() => {
           // 保存完了時に作者レポートをリフレッシュ
           refresh()

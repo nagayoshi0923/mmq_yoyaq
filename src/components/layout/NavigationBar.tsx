@@ -42,7 +42,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     '/dashboard', '/stores', '/staff', '/scenarios', '/schedule', 
     '/shift-submission', '/gm-availability', '/private-booking-management', 
     '/reservations', '/accounts', '/sales', '/settings', '/manual', 
-    '/staff-profile', '/license-management', '/scenarios-edit',
+    '/staff-profile', '/license-management',
     '/admin/scenario-masters'
   ]
   

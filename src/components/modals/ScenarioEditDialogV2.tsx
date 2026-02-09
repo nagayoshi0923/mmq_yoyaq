@@ -118,6 +118,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     },
     key_visual_url: ''
   })
+  const [isScenarioLoaded, setIsScenarioLoaded] = useState<boolean>(!scenarioId) // 新規はloaded扱い
 
   const { data: scenarios = [] } = useScenariosQuery()
   const scenarioMutation = useScenarioMutation()
@@ -464,6 +465,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       // scenario_master_id または id で検索（新UI/旧UI両対応）
       const scenario = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
       if (scenario) {
+        setIsScenarioLoaded(true)
         // データをフォームにマッピング
         // participation_costs：DBに存在する場合は使用、なければ生成
         const normalFee = scenario.participation_fee || 3000
@@ -563,9 +565,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           key_visual_url: scenario.key_visual_url || '',
           available_stores: scenario.available_stores || []
         })
+      } else {
+        setIsScenarioLoaded(false)
+        showToast.error('シナリオの読み込みに失敗しました', '権限/組織情報の可能性があります。再ログイン後に再度お試しください')
       }
     } else {
       // 新規作成時は初期値にリセット
+      setIsScenarioLoaded(true)
       setFormData({
         title: '',
         slug: '',
@@ -627,6 +633,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   }, [isOpen, scenarioId, scenarios.length])
 
   const handleSave = async (statusOverride?: 'available' | 'unavailable' | 'draft') => {
+    if (scenarioId && !isScenarioLoaded) {
+      showToast.error('保存できません', 'シナリオが読み込めていません（権限/組織情報の可能性）')
+      return
+    }
     if (!formData.title.trim()) {
       showToast.warning('タイトルを入力してください')
       setActiveTab('basic')

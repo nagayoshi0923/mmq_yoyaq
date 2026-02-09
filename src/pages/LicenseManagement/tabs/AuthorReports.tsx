@@ -20,7 +20,7 @@ import {
   ExternalLink
 } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
-import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
+import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 import { AuthorEmailDialog } from '@/pages/AuthorReport/components/AuthorEmailDialog'
 import { AuthorLicenseEmailDialog } from '@/pages/AuthorReport/components/AuthorLicenseEmailDialog'
 import { authorApi, scenarioApi, salesApi, storeApi } from '@/lib/api'
@@ -344,7 +344,7 @@ export function AuthorReports() {
   return (
     <div className="space-y-6">
       {/* ダイアログ */}
-      <ScenarioEditDialog
+      <ScenarioEditDialogV2
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         scenarioId={editScenarioId}

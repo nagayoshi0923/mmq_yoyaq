@@ -78,6 +78,7 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
     key_visual_url: '',
     available_stores: []
   })
+  const [isScenarioLoaded, setIsScenarioLoaded] = useState<boolean>(!propScenarioId) // 新規はloaded扱い
 
   // スタッフデータ
   const [staff, setStaff] = useState<Staff[]>([])
@@ -105,6 +106,7 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
     if (scenarioId && scenarios.length > 0) {
       const scenario = scenarios.find(s => s.id === scenarioId)
       if (scenario) {
+        setIsScenarioLoaded(true)
         // 参加費の配列を構築（既存データがない場合は participation_fee から生成）
         let participationCosts = scenario.participation_costs || []
         if (participationCosts.length === 0) {
@@ -201,6 +203,10 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
           available_stores: scenario.available_stores || []
         })
         loadCurrentAssignments(scenarioId)
+      } else {
+        // RLS/組織ID取得失敗などで一覧に存在しないケース
+        setIsScenarioLoaded(false)
+        showToast.error('シナリオの読み込みに失敗しました', '権限/組織情報を確認し、再ログインをお試しください')
       }
     }
   }, [scenarioId, scenarios])
@@ -237,6 +243,10 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
   }
 
   const handleSave = async () => {
+    if (scenarioId && !isScenarioLoaded) {
+      showToast.error('保存できません', 'シナリオが読み込めていません（権限/組織情報の可能性）')
+      return
+    }
     // バリデーション
     if (!formData.title.trim()) {
       showToast.warning('タイトルを入力してください')
