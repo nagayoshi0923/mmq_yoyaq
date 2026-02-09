@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { supabase } from '@/lib/supabase'
 
 // コード分割：初期ロードを軽くする
 const LoginForm = lazy(() =>
@@ -138,6 +139,8 @@ function AppRoutes() {
   const location = useLocation()
   const navigate = useNavigate()
 
+  const [isProfileCheckRunning, setIsProfileCheckRunning] = React.useState(false)
+
   // 開発者モード: license_adminの場合にbodyにdev-modeクラスを付与
   React.useEffect(() => {
     if (user?.role === 'license_admin') {
@@ -203,6 +206,66 @@ function AppRoutes() {
   }
 
   if (loading) {
+    return <FullPageSpinner />
+  }
+
+  // 顧客ユーザーは「氏名/電話/メール」が揃うまで利用させない（OAuthでも同様）
+  React.useEffect(() => {
+    const shouldSkip =
+      location.pathname === '/complete-profile' ||
+      location.pathname === '/login' ||
+      location.pathname === '/signup' ||
+      location.pathname === '/reset-password' ||
+      location.pathname === '/set-password'
+
+    if (!user || user.role !== 'customer' || shouldSkip) {
+      setIsProfileCheckRunning(false)
+      return
+    }
+
+    let cancelled = false
+
+    ;(async () => {
+      setIsProfileCheckRunning(true)
+      try {
+        const { data: customer, error } = await supabase
+          .from('customers')
+          .select('id, name, phone, email')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (cancelled) return
+
+        if (error) {
+          // 読み取り失敗時は安全側（必須情報が揃っていると確定できない）
+          navigate('/complete-profile', { replace: true })
+          return
+        }
+
+        const nameOk = Boolean(customer?.name && String(customer.name).trim().length > 0)
+        const phoneOk = Boolean(customer?.phone && String(customer.phone).trim().length > 0)
+        const emailOk = Boolean(customer?.email && String(customer.email).trim().length > 0)
+
+        const isComplete = nameOk && phoneOk && emailOk
+        if (!isComplete) {
+          const next = `${location.pathname}${location.search}`
+          navigate(`/complete-profile?next=${encodeURIComponent(next)}`, { replace: true })
+        }
+      } catch {
+        if (!cancelled) {
+          navigate('/complete-profile', { replace: true })
+        }
+      } finally {
+        if (!cancelled) setIsProfileCheckRunning(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [location.pathname, location.search, navigate, user?.id, user?.role])
+
+  if (user?.role === 'customer' && isProfileCheckRunning) {
     return <FullPageSpinner />
   }
 

@@ -1,6 +1,7 @@
 /**
  * プロフィール設定ページ
- * メール確認後にパスワード・氏名・電話番号を設定
+ * 初回ログイン後に氏名・電話番号を設定（OAuthでも必須）
+ * メールサインアップ（確認メール経由）の場合はパスワードも設定
  * @path /complete-profile
  */
 import { useState, useEffect } from 'react'
@@ -10,7 +11,6 @@ import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertCircle, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { logger } from '@/utils/logger'
-import { determineUserRole } from '@/utils/authUtils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link } from 'react-router-dom'
 
@@ -29,6 +29,7 @@ export function CompleteProfile() {
   const [isCheckingSession, setIsCheckingSession] = useState(true)
   const [userEmail, setUserEmail] = useState('')
   const [userId, setUserId] = useState('')
+  const [isOAuthUser, setIsOAuthUser] = useState(false)
 
   useEffect(() => {
     // セッションを確認
@@ -39,6 +40,8 @@ export function CompleteProfile() {
         if (session?.user) {
           setUserEmail(session.user.email || '')
           setUserId(session.user.id)
+          const provider = (session.user.app_metadata as any)?.provider as string | undefined
+          setIsOAuthUser(Boolean(provider && provider !== 'email'))
           logger.log('✅ セッション確認完了:', session.user.email)
         } else {
           logger.warn('セッションが見つかりません')
@@ -75,39 +78,68 @@ export function CompleteProfile() {
       setError('電話番号は10〜11桁で入力してください')
       return
     }
-    
-    if (password.length < 6) {
-      setError('パスワードは6文字以上で入力してください')
+    if (!userEmail.trim()) {
+      setError('メールアドレスが取得できませんでした。別のログイン方法をお試しください。')
       return
     }
-    
-    if (password !== confirmPassword) {
-      setError('パスワードが一致しません')
-      return
+
+    // メールサインアップ（確認メール）ではパスワード設定が必要
+    if (!isOAuthUser) {
+      if (password.length < 6) {
+        setError('パスワードは6文字以上で入力してください')
+        return
+      }
+      
+      if (password !== confirmPassword) {
+        setError('パスワードが一致しません')
+        return
+      }
     }
     
     setIsLoading(true)
     
     try {
-      // 1. パスワードを設定
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password
-      })
-      
-      if (updateError) {
-        throw updateError
+      // next（完了後の遷移先）: open redirect対策として相対パスのみ許可
+      const nextParam = new URLSearchParams(window.location.search).get('next')
+      const nextUrl =
+        nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/'
+
+      // 1. パスワードを設定（メールサインアップのみ）
+      if (!isOAuthUser) {
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: password
+        })
+        
+        if (updateError) {
+          throw updateError
+        }
+        
+        logger.log('✅ パスワード設定完了')
       }
       
-      logger.log('✅ パスワード設定完了')
-      
       // 2. usersテーブルにレコードを作成/更新
-      const role = determineUserRole(userEmail)
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('role, organization_id')
+        .eq('id', userId)
+        .maybeSingle()
+
+      // CompleteProfile は顧客向け。既に staff/admin 等が設定済みなら維持、それ以外は customer に固定。
+      const role =
+        existingUser?.role === 'admin' ||
+        existingUser?.role === 'staff' ||
+        existingUser?.role === 'license_admin'
+          ? existingUser.role
+          : 'customer'
+
+      const organizationId = existingUser?.organization_id || DEFAULT_ORG_ID
       await supabase
         .from('users')
         .upsert({
           id: userId,
           email: userEmail,
           role: role,
+          organization_id: organizationId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }, { onConflict: 'id' })
@@ -124,7 +156,7 @@ export function CompleteProfile() {
           phone: phone.trim(),
           visit_count: 0,
           total_spent: 0,
-          organization_id: DEFAULT_ORG_ID,
+          organization_id: organizationId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }, { onConflict: 'email' })
@@ -135,7 +167,7 @@ export function CompleteProfile() {
       
       // 3秒後にトップページへリダイレクト
       setTimeout(() => {
-        window.location.href = '/'
+        window.location.href = nextUrl
       }, 3000)
       
     } catch (err: unknown) {
@@ -285,61 +317,64 @@ export function CompleteProfile() {
                   />
                 </div>
 
-                {/* パスワード */}
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
-                    パスワード <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      minLength={6}
-                      autoComplete="new-password"
-                      placeholder="6文字以上"
-                      className="pr-10 h-12"
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    6文字以上で入力してください
-                  </p>
-                </div>
+                {/* パスワード（メールサインアップのみ） */}
+                {!isOAuthUser && (
+                  <>
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+                        パスワード <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          minLength={6}
+                          autoComplete="new-password"
+                          placeholder="6文字以上"
+                          className="pr-10 h-12"
+                          disabled={isLoading}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        6文字以上で入力してください
+                      </p>
+                    </div>
 
-                {/* パスワード確認 */}
-                <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1.5">
-                    パスワード（確認） <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    id="confirmPassword"
-                    type={showPassword ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    autoComplete="new-password"
-                    placeholder="もう一度入力"
-                    className="h-12"
-                    disabled={isLoading}
-                  />
-                  {confirmPassword && password === confirmPassword && (
-                    <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" />
-                      パスワードが一致しています
-                    </p>
-                  )}
-                </div>
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1.5">
+                        パスワード（確認） <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        id="confirmPassword"
+                        type={showPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        minLength={6}
+                        autoComplete="new-password"
+                        placeholder="もう一度入力"
+                        className="h-12"
+                        disabled={isLoading}
+                      />
+                      {confirmPassword && password === confirmPassword && (
+                        <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          パスワードが一致しています
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 {/* エラー表示 */}
                 {error && (
