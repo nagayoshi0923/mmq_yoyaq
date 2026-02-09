@@ -147,7 +147,7 @@ export function CompleteProfile() {
       logger.log('✅ usersテーブル更新完了')
       
       // 3. customersテーブルにレコードを作成
-      await supabase
+      const { error: customerError } = await supabase
         .from('customers')
         .upsert({
           user_id: userId,
@@ -159,7 +159,11 @@ export function CompleteProfile() {
           organization_id: organizationId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        }, { onConflict: 'email' })
+        }, { onConflict: 'user_id' }) // email ではなく user_id で競合判定
+
+      if (customerError) {
+        throw customerError
+      }
       
       logger.log('✅ customersテーブル作成完了')
       
