@@ -169,21 +169,44 @@ export function SettingsPage() {
       } else if (user?.id) {
         const orgId = organizationId || QUEENS_WALTZ_ORG_ID
         
-        const { error } = await supabase
+        // email/user_id 重複対策: 既存行があれば UPDATE、なければ INSERT
+        const { data: existingCust } = await supabase
           .from('customers')
-          .insert({
-            user_id: user.id,
-            name: formData.name,
-            nickname: formData.nickname || null,
-            phone: formData.phone || null,
-            address: formData.address || null,
-            line_id: formData.lineId || null,
-            notes: formData.notes || null,
-            email: user.email || null,
-            visit_count: 0,
-            total_spent: 0,
-            organization_id: orgId,
-          })
+          .select('id')
+          .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+          .maybeSingle()
+        
+        const { error } = existingCust
+          ? await supabase
+              .from('customers')
+              .update({
+                user_id: user.id,
+                name: formData.name,
+                nickname: formData.nickname || null,
+                phone: formData.phone || null,
+                address: formData.address || null,
+                line_id: formData.lineId || null,
+                notes: formData.notes || null,
+                email: user.email || null,
+                organization_id: orgId,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existingCust.id)
+          : await supabase
+              .from('customers')
+              .insert({
+                user_id: user.id,
+                name: formData.name,
+                nickname: formData.nickname || null,
+                phone: formData.phone || null,
+                address: formData.address || null,
+                line_id: formData.lineId || null,
+                notes: formData.notes || null,
+                email: user.email || null,
+                visit_count: 0,
+                total_spent: 0,
+                organization_id: orgId,
+              })
 
         if (error) throw error
         showToast.success('プロフィールを作成しました')

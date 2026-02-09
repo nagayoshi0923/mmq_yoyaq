@@ -146,26 +146,53 @@ export function CompleteProfile() {
       
       logger.log('✅ usersテーブル更新完了')
       
-      // 3. customersテーブルにレコードを作成
-      const { error: customerError } = await supabase
+      // 3. customersテーブルにレコードを作成/更新
+      // user_id / email どちらの重複でも対応するため、先に既存行を確認してから INSERT or UPDATE を使い分ける
+      const { data: existingCustomer } = await supabase
         .from('customers')
-        .upsert({
-          user_id: userId,
-          name: name.trim(),
-          email: userEmail,
-          phone: phone.trim(),
-          visit_count: 0,
-          total_spent: 0,
-          organization_id: organizationId,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' }) // email ではなく user_id で競合判定
+        .select('id')
+        .or(`user_id.eq.${userId},email.eq.${userEmail}`)
+        .maybeSingle()
 
-      if (customerError) {
-        throw customerError
+      if (existingCustomer) {
+        // 既存行がある → UPDATE（user_id / email / org を上書き）
+        const { error: updateCustErr } = await supabase
+          .from('customers')
+          .update({
+            user_id: userId,
+            name: name.trim(),
+            email: userEmail,
+            phone: phone.trim(),
+            organization_id: organizationId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingCustomer.id)
+
+        if (updateCustErr) {
+          throw updateCustErr
+        }
+      } else {
+        // 新規 → INSERT
+        const { error: insertCustErr } = await supabase
+          .from('customers')
+          .insert({
+            user_id: userId,
+            name: name.trim(),
+            email: userEmail,
+            phone: phone.trim(),
+            visit_count: 0,
+            total_spent: 0,
+            organization_id: organizationId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+
+        if (insertCustErr) {
+          throw insertCustErr
+        }
       }
       
-      logger.log('✅ customersテーブル作成完了')
+      logger.log('✅ customersテーブル作成/更新完了')
       
       setSuccess(true)
       
