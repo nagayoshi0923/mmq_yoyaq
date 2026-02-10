@@ -632,7 +632,32 @@ CREATE POLICY "users_delete_admin" ON public.users
 
 
 -- =============================================================================
--- 5. 検証: is_admin() のみで org チェックがないポリシーが0件であること
+-- 5. stores テーブルの緩すぎる SELECT ポリシーを修正
+-- stores_public_read (true), Allow anon read active stores, stores_select_org_or_anon
+-- がグローバルに全店舗を公開していた
+-- =============================================================================
+
+DROP POLICY IF EXISTS "stores_public_read" ON public.stores;
+DROP POLICY IF EXISTS "Allow anon read active stores" ON public.stores;
+DROP POLICY IF EXISTS "stores_select_org_or_anon" ON public.stores;
+DROP POLICY IF EXISTS "stores_strict" ON public.stores;
+
+-- 未認証: アクティブ店舗のみ（公開予約ページ用）
+-- 認証済み: 自組織の店舗のみ
+CREATE POLICY "stores_select_policy" ON public.stores
+  FOR SELECT USING (
+    CASE
+      WHEN auth.uid() IS NULL THEN
+        status = 'active'
+      ELSE
+        organization_id = get_user_organization_id()
+        OR (is_admin() AND organization_id = get_user_organization_id())
+    END
+  );
+
+
+-- =============================================================================
+-- 6. 検証: is_admin() のみで org チェックがないポリシーが0件であること
 -- =============================================================================
 DO $$
 DECLARE
