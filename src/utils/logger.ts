@@ -90,6 +90,28 @@ export const logger = {
 }
 
 /**
+ * P1-12: 相関ID（Correlation ID）
+ * 一連の操作（予約→メール→通知）を一つのリクエストとして追跡するためのID
+ */
+export function generateCorrelationId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+/**
+ * 相関ID付きロガーを作成
+ * 一つの操作フロー内で同じIDを付与し、ログの追跡を容易にする
+ */
+export function createCorrelatedLogger(correlationId: string, context?: string) {
+  const prefix = context ? `[${correlationId}][${context}]` : `[${correlationId}]`
+  return {
+    log: (...args: any[]) => logger.log(prefix, ...args),
+    info: (...args: any[]) => logger.info(prefix, ...args),
+    warn: (...args: any[]) => logger.warn(prefix, ...args),
+    error: (...args: any[]) => logger.error(prefix, ...args),
+  }
+}
+
+/**
  * デバッグモード専用のログ（より詳細な情報）
  * 環境変数 VITE_DEBUG=true の時のみ出力
  */

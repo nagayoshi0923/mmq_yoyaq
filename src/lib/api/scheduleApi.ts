@@ -912,7 +912,7 @@ export const scheduleApi = {
     is_reservation_name_overwritten: boolean  // 予約者名が手動上書きされたか
     is_private_request: boolean  // 貸切リクエストかどうか
     reservation_id: string | null  // 貸切リクエストID
-  }>, organizationId?: string) {
+  }>, organizationId?: string, expectedUpdatedAt?: string) {
     // シナリオ名から自動でマッチングして scenario_id と正式名称を設定
     const finalUpdates: Record<string, unknown> = { ...updates }
     if (updates.scenario && !updates.scenario_id) {
@@ -961,13 +961,20 @@ export const scheduleApi = {
       finalUpdates.category = 'open'
     }
     
-    let updatePayload: Record<string, unknown> = { ...finalUpdates }
+    let updatePayload: Record<string, unknown> = { ...finalUpdates, updated_at: new Date().toISOString() }
     let lastError: { message?: string; details?: string; hint?: string } | null = null
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('schedule_events')
         .update(updatePayload)
         .eq('id', id)
+
+      // ⚠️ 楽観的ロック: updated_at が読み込み時と一致する場合のみ更新
+      if (expectedUpdatedAt) {
+        query = query.eq('updated_at', expectedUpdatedAt)
+      }
+
+      const { data, error } = await query
         .select(`
           *,
           stores:store_id (
@@ -983,6 +990,11 @@ export const scheduleApi = {
         .single()
 
       if (!error) return data
+
+      // 楽観的ロック失敗（PGRST116 = 0 rows = 他の人が先に更新した）
+      if (expectedUpdatedAt && error.code === 'PGRST116') {
+        throw new Error('他のユーザーが先にこのイベントを更新しました。ページを再読み込みして最新データを確認してください。')
+      }
 
       lastError = error
       const removal = removeMissingScheduleColumn(updatePayload, error)

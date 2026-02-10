@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
-import { logger } from '@/utils/logger'
+import { logger, generateCorrelationId, createCorrelatedLogger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
 
@@ -561,6 +561,10 @@ export const reservationApi = {
 
   // 予約をキャンセル
   async cancel(id: string, cancellationReason?: string): Promise<Reservation> {
+    // ⚠️ P1-12: 相関ID — キャンセル→メール→通知を一つのフローとして追跡
+    const clog = createCorrelatedLogger(generateCorrelationId(), 'cancel')
+    clog.info('キャンセル開始', { reservationId: id })
+
     // 予約情報を取得（メール送信用）
     const { data: reservation, error: fetchError } = await supabase
       .from('reservations')
@@ -599,6 +603,8 @@ export const reservationApi = {
         const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
         const cancellationFee = hoursUntilEvent < 24 ? (reservation.total_price || 0) : 0
 
+        // ⚠️ P1-8: べき等性キー（同じキャンセルに対する重複通知を防止）
+        const idempotencyKey = `cancel-confirm-${reservation.id}-${Date.now()}`
         await supabase.functions.invoke('send-cancellation-confirmation', {
           body: {
             reservationId: reservation.id,
@@ -614,7 +620,8 @@ export const reservationApi = {
             reservationNumber: reservation.reservation_number,
             cancelledBy: 'customer',
             cancellationReason: cancellationReason || 'お客様のご都合によるキャンセル',
-            cancellationFee
+            cancellationFee,
+            idempotencyKey
           }
         })
         logger.log('キャンセル確認メール送信成功')
@@ -638,6 +645,8 @@ export const reservationApi = {
           // 🔒 SEC-P0-03対策: bookingUrl はサーバー側で生成（送信しない）
           
           try {
+            // ⚠️ P1-8: べき等性キー（同じキャンセルに対する重複待ちリスト通知を防止）
+            const waitlistIdempotencyKey = `waitlist-notify-${reservation.id}-${reservation.schedule_event_id}`
             const notificationData = {
               organizationId: reservation.organization_id,
               scheduleEventId: reservation.schedule_event_id,
@@ -646,7 +655,8 @@ export const reservationApi = {
               eventDate: scheduleEvent?.date,
               startTime: scheduleEvent?.start_time,
               endTime: scheduleEvent?.end_time,
-              storeName
+              storeName,
+              idempotencyKey: waitlistIdempotencyKey
               // bookingUrl を削除（サーバー側で生成）
             }
             

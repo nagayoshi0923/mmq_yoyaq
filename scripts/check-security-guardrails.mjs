@@ -121,6 +121,58 @@ function checkMigrationRls() {
 }
 
 // ===================================================================
+// P1-9: マイグレーション関数の上書きリスク検出
+// CREATE OR REPLACE FUNCTION がセキュリティ重要関数を上書きしていないかチェック
+// ===================================================================
+const SECURITY_CRITICAL_FUNCTIONS = new Set([
+  'is_admin',
+  'is_org_admin',
+  'get_user_organization_id',
+  'current_organization_id',
+  'is_license_manager',
+  'create_reservation_with_lock',
+  'create_reservation_with_lock_v2',
+  'cancel_reservation_with_lock',
+  'initialize_organization_data',
+])
+
+function checkFunctionOverwrite() {
+  const migrationsDir = path.join(REPO_ROOT, 'supabase', 'migrations')
+  if (!isDirectory(migrationsDir)) return []
+
+  const sqlFiles = fs.readdirSync(migrationsDir)
+    .filter(f => f.endsWith('.sql'))
+    .sort()
+
+  const warnings = []
+  const functionDefinitions = new Map() // funcName -> [{ file, line }]
+
+  for (const file of sqlFiles) {
+    const text = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
+    const re = /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:public\.)?["']?(\w+)["']?\s*\(/gi
+    let m
+    while ((m = re.exec(text)) !== null) {
+      const funcName = m[1].toLowerCase()
+      const line = getLineNumberFromIndex(text, m.index)
+      if (!functionDefinitions.has(funcName)) {
+        functionDefinitions.set(funcName, [])
+      }
+      functionDefinitions.get(funcName).push({ file, line })
+    }
+  }
+
+  // セキュリティ重要関数が複数のマイグレーションで定義されている場合に警告
+  for (const [funcName, defs] of functionDefinitions) {
+    if (SECURITY_CRITICAL_FUNCTIONS.has(funcName) && defs.length > 1) {
+      const locations = defs.map(d => `${d.file}:${d.line}`).join(', ')
+      warnings.push(`セキュリティ関数 "${funcName}" が ${defs.length} 回定義されています: ${locations}`)
+    }
+  }
+
+  return warnings
+}
+
+// ===================================================================
 // RLS ポリシー危険パターン検出
 // ===================================================================
 function checkDangerousRlsPatterns() {
@@ -246,6 +298,16 @@ function main() {
       console.warn(`  ⚠️  ${w}`)
     }
     // 警告のみ: exitCode は変更しない（将来的にブロックに昇格可能）
+  }
+
+  // P1-9: セキュリティ関数の上書き検出
+  const overwriteWarnings = checkFunctionOverwrite()
+  if (overwriteWarnings.length > 0) {
+    console.warn(`[FUNC_OVERWRITE] セキュリティ関数の上書き検出: ${overwriteWarnings.length}`)
+    for (const w of overwriteWarnings) {
+      console.warn(`  ⚠️  ${w}`)
+    }
+    // 警告のみ: 意図的な上書きもあるため CI は止めない
   }
 
   if (exitCode === 0) {
