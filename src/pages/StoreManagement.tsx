@@ -41,7 +41,9 @@ export function StoreManagement() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
-      if (hash && hash !== 'stores') {
+      // ハッシュ値をホワイトリストで検証（オープンリダイレクト防止）
+      const allowedHashes = ['schedule', 'staff', 'stores', 'scenarios', 'settings', 'dashboard']
+      if (hash && hash !== 'stores' && allowedHashes.includes(hash)) {
         // 他のページに切り替わった場合、AdminDashboardに戻る
         window.location.href = '/' + hash
       } else if (!hash) {

@@ -182,7 +182,9 @@ export function StaffManagement() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
-      if (hash && hash !== 'staff') {
+      // ハッシュ値をホワイトリストで検証（オープンリダイレクト防止）
+      const allowedHashes = ['schedule', 'staff', 'stores', 'scenarios', 'settings', 'dashboard']
+      if (hash && hash !== 'staff' && allowedHashes.includes(hash)) {
         window.location.href = '/' + hash
       } else if (!hash) {
         window.location.href = '/'

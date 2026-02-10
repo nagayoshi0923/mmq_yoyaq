@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { determineUserRole } from '@/utils/authUtils'
+import { validateRedirectUrl } from '@/lib/utils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link } from 'react-router-dom'
 import { 
@@ -108,12 +109,12 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     try {
       setError('')
       // 戻り先URLをsessionStorageから取得（予約フローなどからのリダイレクト対応）
-      const returnUrl = sessionStorage.getItem('returnUrl') || '/'
+      const safeReturnUrl = validateRedirectUrl(sessionStorage.getItem('returnUrl'))
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}${returnUrl}`,
+          redirectTo: `${window.location.origin}${safeReturnUrl}`,
           // Googleの場合、毎回アカウント選択画面を表示
           queryParams: provider === 'google' ? {
             prompt: 'select_account',
@@ -207,10 +208,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                   window.location.href = `/${slug}/schedule`
                 } else {
                   // 戻り先URLがある場合はそこへ、なければ通常のリダイレクト
-                  const returnUrl = sessionStorage.getItem('returnUrl')
-                  if (returnUrl) {
+                  const rawReturnUrl1 = sessionStorage.getItem('returnUrl')
+                  if (rawReturnUrl1) {
                     sessionStorage.removeItem('returnUrl') // クリア
-                    window.location.href = returnUrl
+                    window.location.href = validateRedirectUrl(rawReturnUrl1)
                     return
                   }
 
@@ -218,20 +219,20 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                 }
               } else {
                 // 戻り先URLがある場合はそこへ、なければトップへ
-                const returnUrl = sessionStorage.getItem('returnUrl')
-                if (returnUrl) {
+                const rawReturnUrl2 = sessionStorage.getItem('returnUrl')
+                if (rawReturnUrl2) {
                   sessionStorage.removeItem('returnUrl')
-                  window.location.href = returnUrl
+                  window.location.href = validateRedirectUrl(rawReturnUrl2)
                   return
                 }
                 window.location.href = '/'
               }
             } else {
               // 戻り先URLがある場合はそこへ、なければトップへ
-              const returnUrl = sessionStorage.getItem('returnUrl')
-              if (returnUrl) {
+              const rawReturnUrl3 = sessionStorage.getItem('returnUrl')
+              if (rawReturnUrl3) {
                 sessionStorage.removeItem('returnUrl')
-                window.location.href = returnUrl
+                window.location.href = validateRedirectUrl(rawReturnUrl3)
                 return
               }
               window.location.href = '/'

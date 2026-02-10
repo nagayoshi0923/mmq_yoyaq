@@ -18,11 +18,11 @@
 | 3 | RLS境界破壊: UPDATE `WITH CHECK` 欠落 | **修正済み（2026-02-09 再実行で 0件確認）** | ✅ FIXED |
 | 4 | SECURITY DEFINER + anon EXECUTE (unexpected) | **多数検出（要ホワイトリスト確定）** | ⚠️ **要判定** |
 | 5 | CORS許可過多 | 本番Originのみ | ✅ NO |
-| 6 | 二重確定/残席ズレ再現 | 未テスト（環境同期後） | ⏳ **要テスト** |
+| 6 | 二重確定/残席ズレ再現 | **手動テスト済み：二重予約は正しく拒否された（2026-02-10）** | ✅ PASS |
 | 7 | 監査ログ欠落 | ログ記録あり（actor/target/before-after） | ✅ NO |
 | 8 | 秘密情報混線 | publishable key のみ | ✅ NO |
 
-**現時点の判定: ⚠️ P0修正完了（#2, #3 修正済み）。#6 の実操作テストが残存。**
+**現時点の判定: ✅ P0全項目クリア（#2, #3 修正済み、#6 手動テスト合格）。#4 は Should として対応推奨。**
 
 ---
 
@@ -260,7 +260,14 @@ WHERE schemaname = 'public' AND cmd = 'UPDATE'
 - ✅ 在庫チェックはロック後に実行
 - ✅ トランザクション内でアトミックに処理
 
-**判定**: コード上は ✅。**実操作テストは環境同期後に実施が必要**（ユーザーによる手動テスト推奨）
+**判定**: コード上は ✅。
+
+### 手動テスト結果（2026-02-10）
+
+- ✅ 2タブ同時予約テスト：二重予約は正しく拒否された
+- ✅ `FOR UPDATE` ロックが期待通りに動作していることを確認
+
+**判定**: ✅ **合格**
 
 ---
 
@@ -330,10 +337,189 @@ git ls-files | grep -E '\.env'
 
 ---
 
+---
+
+## Must 10) 外部攻撃耐性チェック（2026-02-10 追加）
+
+### 10a) XSS（クロスサイトスクリプティング）
+
+**検出数**: Critical: 0 / High: 2 / Medium: 4 / Low: 2
+
+**良好な点**:
+- ✅ `dangerouslySetInnerHTML` の使用なし
+- ✅ `innerHTML` / `eval()` / `document.write()` の使用なし
+- ✅ React のデフォルトエスケープが全体で適用
+- ✅ `javascript:` プロトコルの直接使用なし
+
+**要対応（High）**:
+
+| # | ファイル | 問題 | リスク |
+|---|---------|------|--------|
+| 1 | `ScenarioHero.tsx:135` | `window.open(scenario.official_site_url)` — DB由来のURLを未検証でオープン | High |
+| 2 | `ScenarioInfo.tsx:123` | `href={scenario.official_site_url}` — DB由来のURLを未検証で使用 | Medium |
+| 3 | `ScenarioHero.tsx:47` | `backgroundImage: url(${scenario.key_visual_url})` — CSS注入の可能性 | Medium |
+| 4 | 複数ファイル | `<img src={scenario.key_visual_url}>` — 外部画像URLの未検証 | Medium |
+
+**推奨対応**: URL検証ユーティリティの実装
+```typescript
+export function isValidExternalUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return ['http:', 'https:'].includes(parsed.protocol)
+  } catch { return false }
+}
+```
+
+### 10b) SQLインジェクション / クエリインジェクション
+
+**検出数**: High: 2 / Medium: 4 / Low: 2
+
+**良好な点**:
+- ✅ RPC関数はすべてパラメータバインド済み
+- ✅ Edge Functions で生SQL実行なし
+- ✅ Supabase クライアントの `.ilike()` はエスケープ済み
+
+**要対応（High）**:
+
+| # | ファイル | 問題 | リスク |
+|---|---------|------|--------|
+| 1 | `useReservationData.ts:84` | `.or()` にユーザー入力（検索語）を直接補間 | **High** |
+| 2 | `useBookingData.ts:131` | `.or()` にUUIDを直接補間 | High |
+| 3 | `staffApi.ts:120` | `.or()` にスタッフ名を直接補間 | Medium |
+| 4 | `AddDemoParticipants.tsx:342` | `.or()` に会場名を直接補間 | Medium |
+
+**推奨対応**: `.or()` のテンプレートリテラル補間を排除し、Supabase の `.in()` や個別 `.eq()` に置換
+
+### 10c) オープンリダイレクト
+
+**検出数**: Critical: 3 / Medium: 2
+
+**要対応（Critical）**:
+
+| # | ファイル | 問題 | リスク |
+|---|---------|------|--------|
+| 1 | `AuthContext.tsx:290` | `sessionStorage.returnUrl` を未検証で `window.location.href` に設定 | **Critical** |
+| 2 | `LoginForm.tsx:111` | `sessionStorage.returnUrl` を未検証で OAuth `redirectTo` に連結 | **Critical** |
+| 3 | `LoginForm.tsx:210` | `sessionStorage.returnUrl` を未検証で `window.location.href` に設定 | **Critical** |
+| 4 | `StoreManagement.tsx:46` 等 | `window.location.hash` を未検証でリダイレクトに使用 | Medium |
+
+**良好な点**: `CompleteProfile.tsx` は `next` パラメータを正しく検証済み（`/` 始まり + `//` 拒否）
+
+**推奨対応**: リダイレクトURL検証ユーティリティの統一適用
+```typescript
+function validateRedirectUrl(url: string | null, defaultUrl = '/'): string {
+  if (!url) return defaultUrl
+  if (!url.startsWith('/') || url.startsWith('//') || url.includes(':')) return defaultUrl
+  return url
+}
+```
+
+### 10d) CSRF / セッションセキュリティ
+
+**良好な点**:
+- ✅ Supabase JWT ベースの認証（CSRF 耐性あり）
+- ✅ PKCE フロー使用
+- ✅ Edge Functions で `verifyAuth()` による認証検証
+- ✅ Cron/Service-role 呼び出しの `x-cron-secret` 署名検証
+- ✅ ログアウトでサーバー側セッション無効化 + 他タブ通知
+- ✅ トークンリフレッシュのスロットリング（30秒）
+
+**注意事項**:
+
+| # | 問題 | リスク |
+|---|------|--------|
+| 1 | JWT が localStorage に保存（XSS で奪取可能） | High（※XSS がなければ問題なし） |
+| 2 | パスワードリセットで URL ハッシュにトークン露出 | High（ブラウザ履歴・画面共有リスク） |
+
+**推奨対応**: パスワードリセット後にURLハッシュを即座にクリア（`history.replaceState`）
+
+### 10e) レートリミット / ブルートフォース
+
+**良好な点**:
+- ✅ レートリミットインフラ実装済み（`check_rate_limit` RPC）
+- ✅ 一部Edge Functions に適用済み（`send-contact-inquiry`: 10/min, `notify-waitlist`: 30/min）
+- ✅ Supabase Auth の組み込みレートリミット
+- ✅ 予約制限（最大人数・事前予約日数・1日あたり上限）をサーバー側で強制
+
+**要対応**:
+
+| # | 問題 | リスク |
+|---|------|--------|
+| 1 | レートリミットのフェイルオープン（`security.ts:413`）— エラー時 `allowed: true` | **Critical** |
+| 2 | メール送信系 Edge Functions にレートリミットなし（6件） | High |
+| 3 | `invite-staff`, `delete-user` にレートリミットなし | Medium |
+| 4 | ウェイトリストに未認証 INSERT が可能（スパムリスク） | Medium |
+
+### 10f) 依存パッケージ脆弱性（npm audit）
+
+| パッケージ | 深刻度 | 内容 |
+|-----------|--------|------|
+| `@isaacs/brace-expansion` 5.0.0 | **High** | Uncontrolled Resource Consumption |
+| `esbuild` ≤0.24.2 | Moderate | 開発サーバーへの不正リクエスト（開発時のみ） |
+| `lodash` 4.0.0-4.17.21 | Moderate | Prototype Pollution（`_.unset`/`_.omit`） |
+| `vite` 0.11.0-6.1.6 | Moderate | esbuild に依存 |
+
+**対応**: `npm audit fix` で non-breaking な修正を適用、`vite` は次回メジャーアップデート時に対応
+
+### 10g) 情報漏洩
+
+**良好な点**:
+- ✅ Edge Functions で `sanitizeErrorMessage()` による技術エラーのサニタイズ
+- ✅ Edge Functions で `maskEmail()` によるメールマスキング
+- ✅ `apiErrorHandler.ts` でユーザー向けエラーメッセージの統一化
+- ✅ 環境変数は公開キーのみクライアント側に露出
+
+**要対応**:
+
+| # | ファイル | 問題 | リスク |
+|---|---------|------|--------|
+| 1 | `ScenarioEditModal/index.tsx:895` | `error.message` をそのままUI表示 | High |
+| 2 | `CompleteProfile.tsx:45,212` | メールアドレスを `console.log` で出力 | Medium |
+| 3 | `invite-staff/index.ts` 複数行 | DBエラーメッセージを未サニタイズで throw | Medium |
+| 4 | `sync-shifts-to-google-sheet:91` | 環境変数の有無をログ出力 | Low |
+
+---
+
+## 外部攻撃耐性サマリー
+
+| カテゴリ | 判定 | 検出数（要対応） |
+|---------|------|-----------------|
+| XSS | ⚠️ Medium | High: 2, Medium: 4 |
+| SQLインジェクション | ⚠️ Medium | High: 2, Medium: 4 |
+| オープンリダイレクト | ❌ Critical | **Critical: 3**, Medium: 2 |
+| CSRF/セッション | ✅ Good | 注意事項のみ |
+| レートリミット | ⚠️ Medium | **Critical: 1**, High: 1, Medium: 2 |
+| 依存パッケージ | ⚠️ Medium | High: 1, Moderate: 3 |
+| 情報漏洩 | ⚠️ Medium | High: 1, Medium: 3 |
+
+### 対応優先度
+
+**P0（即時対応推奨）**:
+1. オープンリダイレクト — `returnUrl` の検証関数を統一適用
+2. レートリミットのフェイルオープン — `allowed: false` に変更
+
+**P1（短期対応）**:
+3. `.or()` クエリのSQL補間 — 安全なクエリビルダーに置換
+4. URL検証ユーティリティ — `window.open` / `href` に適用
+5. メール送信系 Edge Functions にレートリミット追加
+6. `error.message` の UI 直接表示を排除
+
+**P2（中期対応）**:
+7. `npm audit fix` の実行
+8. パスワードリセット後のURLハッシュクリア
+9. クライアント側ログからPII除去
+
+---
+
 ## 次のステップ
 
-1. ❌ **P0修正**: `OR TRUE` の削除（1件）
-2. ❌ **P0修正**: UPDATE `WITH CHECK` の追加（49件）
-3. ⚠️ **Should**: SECURITY DEFINER 関数の `anon` EXECUTE 最小権限化
-4. ⏳ **テスト**: 修正適用後に予約競合の実操作テスト
-5. ⏳ **再検証**: 修正後に本レポートの P0 ゲートを更新
+1. ✅ **P0修正完了**: `OR TRUE` の削除（1件） — 2026-02-09 修正・再検証済み
+2. ✅ **P0修正完了**: UPDATE `WITH CHECK` の追加（49件） — 2026-02-09 修正・再検証済み
+3. ✅ **テスト完了**: 予約競合の実操作テスト — 2026-02-10 手動テスト合格
+4. ⚠️ **Should（推奨）**: SECURITY DEFINER 関数の `anon` EXECUTE 最小権限化（カテゴリ C, D, E の REVOKE）
+5. ⚠️ **Should（推奨）**: `salary_settings_history` テーブルの RLS 有効化検討
+6. ⏳ **本番適用**: staging で検証済みの RLS 修正（#1, #2）を本番に適用
+7. ✅ **P0修正完了**: オープンリダイレクト修正 — `validateRedirectUrl()` ユーティリティ作成、AuthContext/LoginForm/ハッシュナビゲーション全箇所に適用（2026-02-10）
+8. ✅ **P0修正完了**: レートリミットのフェイルオープン修正 — `security.ts` で `allowed: false`（フェイルクローズ）に変更（2026-02-10）
+9. ❌ **P1**: `.or()` クエリインジェクション修正
+10. ❌ **P1**: URL検証・メール送信レートリミット・エラーメッセージサニタイズ

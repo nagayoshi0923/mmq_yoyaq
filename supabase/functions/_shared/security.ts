@@ -412,29 +412,30 @@ export async function checkRateLimit(
 
     if (error) {
       console.error('Rate limit check error:', error)
-      // エラー時は許可（フェイルオープン）
+      // エラー時は拒否（フェイルクローズ）— 安全側に倒す
       return {
-        allowed: true,
-        currentCount: 0,
-        resetAt: new Date(),
-        retryAfter: 0,
+        allowed: false,
+        currentCount: maxRequests,
+        resetAt: new Date(Date.now() + windowSeconds * 1000),
+        retryAfter: windowSeconds,
       }
     }
 
     const result = data?.[0] || data
     return {
-      allowed: result?.allowed ?? true,
+      allowed: result?.allowed ?? false,
       currentCount: result?.current_count ?? 0,
       resetAt: new Date(result?.reset_at ?? Date.now()),
       retryAfter: result?.retry_after ?? 0,
     }
   } catch (err) {
     console.error('Rate limit check exception:', err)
+    // 例外時も拒否（フェイルクローズ）— 安全側に倒す
     return {
-      allowed: true,
-      currentCount: 0,
-      resetAt: new Date(),
-      retryAfter: 0,
+      allowed: false,
+      currentCount: maxRequests,
+      resetAt: new Date(Date.now() + windowSeconds * 1000),
+      retryAfter: windowSeconds,
     }
   }
 }
