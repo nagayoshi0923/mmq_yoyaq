@@ -18,6 +18,7 @@ import { staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { useSalarySettings } from '@/hooks/useSalarySettings'
 import { parseIntSafe, parseIntOrUndefined } from '@/utils/number'
@@ -892,7 +893,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         stack: (error as Error).stack,
         error: error
       })
-      showToast.error('シナリオの保存に失敗しました', (error as Error).message || 'Unknown error')
+      showToast.error('シナリオの保存に失敗しました', getSafeErrorMessage(error, '不明なエラー'))
     }
   }
 

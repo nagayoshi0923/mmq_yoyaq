@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 
 interface SlotTimes {
@@ -331,7 +332,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         details: error?.details,
         hint: error?.hint
       })
-      showToast.error(`保存に失敗しました: ${error?.message || '不明なエラー'}`)
+      showToast.error(getSafeErrorMessage(error, '保存に失敗しました'))
     } finally {
       setSaving(false)
     }

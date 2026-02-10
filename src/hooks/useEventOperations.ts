@@ -6,6 +6,7 @@ import { reservationApi } from '@/lib/reservationApi' // 追加
 import { supabase } from '@/lib/supabase'
 import { saveEmptySlotMemo } from '@/components/schedule/SlotMemoInput'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { getTimeSlot } from '@/utils/scheduleUtils'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -1276,8 +1277,7 @@ export function useEventOperations({
       logger.error('公演削除エラー:', error)
       
       // エラーメッセージを詳細化
-      const errorMessage = error instanceof Error ? error.message : '公演の削除に失敗しました'
-      showToast.error(errorMessage)
+      showToast.error(getSafeErrorMessage(error, '公演の削除に失敗しました'))
       
       setIsDeleteDialogOpen(false)
       setDeletingEvent(null)

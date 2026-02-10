@@ -5,6 +5,7 @@ import type { User } from '@supabase/supabase-js'
 import { determineUserRole } from '@/utils/authUtils'
 import { maskEmail } from '@/utils/security'
 import { validateRedirectUrl } from '@/lib/utils'
+import { setUser as setSentryUser } from '@/lib/sentry'
 
 /**
  * 現在のURLからorganizationSlugを抽出するヘルパー関数
@@ -148,6 +149,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // userが変更されたらrefも更新
   React.useEffect(() => {
     userRef.current = user
+  }, [user])
+
+  // Sentryにユーザー情報を紐付け（エラー追跡の改善）
+  React.useEffect(() => {
+    if (user) {
+      setSentryUser(user.id, user.role)
+    } else {
+      setSentryUser(null)
+    }
   }, [user])
   
   // 手動セッションリフレッシュ関数

@@ -16,6 +16,7 @@ import { Trash2, AlertTriangle, User, Mail, Bell, Lock, ChevronRight, Phone, Map
 import { useAuth } from '@/contexts/AuthContext'
 import { deleteMyAccount } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -215,7 +216,7 @@ export function SettingsPage() {
       setActiveDialog(null)
     } catch (error: any) {
       logger.error('プロフィール更新エラー:', error)
-      showToast.error(error.message || '更新に失敗しました')
+      showToast.error(getSafeErrorMessage(error, '更新に失敗しました'))
     } finally {
       setSaving(false)
     }
@@ -353,7 +354,7 @@ export function SettingsPage() {
       window.location.href = '/login'
     } catch (error: any) {
       logger.error('アカウント削除エラー:', error)
-      showToast.error('アカウントの削除に失敗しました', error.message)
+      showToast.error('アカウントの削除に失敗しました', getSafeErrorMessage(error))
     } finally {
       setDeleting(false)
       setActiveDialog(null)

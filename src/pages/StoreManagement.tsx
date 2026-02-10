@@ -11,6 +11,7 @@ import { storeApi } from '@/lib/api'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import type { Store } from '@/types'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { 
   Store as StoreIcon, 
@@ -97,7 +98,7 @@ export function StoreManagement() {
       }
     } catch (err: any) {
       logger.error('Error saving store:', err)
-      showToast.error('店舗の保存に失敗しました', err.message)
+      showToast.error('店舗の保存に失敗しました', getSafeErrorMessage(err))
       throw err // モーダルでエラーハンドリングするため再throw
     }
   }
@@ -109,7 +110,7 @@ export function StoreManagement() {
       setStores(prev => prev.filter(s => s.id !== store.id))
     } catch (err: any) {
       logger.error('Error deleting store:', err)
-      showToast.error('店舗の削除に失敗しました', err.message)
+      showToast.error('店舗の削除に失敗しました', getSafeErrorMessage(err))
     }
   }
 

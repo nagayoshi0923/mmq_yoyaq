@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -239,7 +240,7 @@ export function StaffManagement() {
       await staffMutation.mutateAsync({ staff: staffData, isEdit: !!editingStaff })
       closeEditModal()
     } catch (err: any) {
-      showToast.error(err.message)
+      showToast.error(getSafeErrorMessage(err, '保存に失敗しました'))
     }
   }
 
@@ -306,7 +307,7 @@ export function StaffManagement() {
       showToast.success(`${linkingStaff.name}さんを${searchedUser.email}と紐付けました`)
       closeLinkModal()
     } catch (err: any) {
-      showToast.error('紐付けに失敗しました', err.message)
+      showToast.error('紐付けに失敗しました', getSafeErrorMessage(err))
     } finally {
       setLinkLoading(false)
     }

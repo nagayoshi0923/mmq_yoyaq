@@ -13,6 +13,7 @@ import { reservationApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { findMatchingStaff } from '@/utils/staffUtils'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -1125,7 +1126,7 @@ ${content.organizationName || '店舗'}
                                       reservation.customer_id ?? null
                                     )
                                   } catch (updateError: any) {
-                                    showToast.error(updateError?.message || '人数の更新に失敗しました')
+                                    showToast.error(getSafeErrorMessage(updateError, '人数の更新に失敗しました'))
                                     return
                                   }
 
@@ -1136,7 +1137,7 @@ ${content.organizationName || '店舗'}
                                       Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者')
                                     )
                                   } catch (recalcError: any) {
-                                    showToast.error(recalcError?.message || '料金の再計算に失敗しました')
+                                    showToast.error(getSafeErrorMessage(recalcError, '料金の再計算に失敗しました'))
                                     return
                                   }
                                   
@@ -1304,7 +1305,7 @@ ${content.organizationName || '店舗'}
                                           Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者')
                                         )
                                       } catch (updateError: any) {
-                                        showToast.error(updateError?.message || '人数の更新に失敗しました')
+                                        showToast.error(getSafeErrorMessage(updateError, '人数の更新に失敗しました'))
                                         return
                                       }
                                       
