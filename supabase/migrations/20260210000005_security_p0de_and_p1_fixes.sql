@@ -217,12 +217,15 @@ $$;
 -- =============================================================================
 -- P0-E: reservations_history SELECT ポリシー — is_org_admin() のみで全組織閲覧可能
 -- =============================================================================
-DROP POLICY IF EXISTS "reservations_history_select_staff_or_admin" ON public.reservations_history;
-
-CREATE POLICY "reservations_history_select_org_scoped" ON public.reservations_history
-  FOR SELECT USING (
-    organization_id = get_user_organization_id()
-  );
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = 'public' AND c.relname = 'reservations_history') THEN
+    EXECUTE 'DROP POLICY IF EXISTS "reservations_history_select_staff_or_admin" ON public.reservations_history';
+    EXECUTE 'CREATE POLICY "reservations_history_select_org_scoped" ON public.reservations_history FOR SELECT USING (organization_id = get_user_organization_id())';
+  ELSE
+    RAISE NOTICE 'reservations_history テーブルが存在しないためスキップ';
+  END IF;
+END $$;
 
 -- =============================================================================
 -- P1-18: initialize_organization_data() に SET search_path 追加
@@ -307,13 +310,17 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- =============================================================================
 -- P1-21: auth_logs INSERT ポリシーを service_role のみに制限
+-- テーブルが存在しない環境ではスキップ
 -- =============================================================================
-DROP POLICY IF EXISTS "認証システムはログを記録可能" ON public.auth_logs;
-
-CREATE POLICY "auth_logs_insert_service_role_only" ON public.auth_logs
-  FOR INSERT WITH CHECK (
-    auth.role() = 'service_role'
-  );
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = 'public' AND c.relname = 'auth_logs') THEN
+    EXECUTE 'DROP POLICY IF EXISTS "認証システムはログを記録可能" ON public.auth_logs';
+    EXECUTE 'CREATE POLICY "auth_logs_insert_service_role_only" ON public.auth_logs FOR INSERT WITH CHECK (auth.role() = ''service_role'')';
+  ELSE
+    RAISE NOTICE 'auth_logs テーブルが存在しないためスキップ';
+  END IF;
+END $$;
 
 -- =============================================================================
 -- P0-F: discord_notification_queue ポリシーに組織境界追加
