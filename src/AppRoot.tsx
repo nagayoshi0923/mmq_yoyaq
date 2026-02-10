@@ -187,7 +187,11 @@ function AppRoutes() {
 
         const nameOk = Boolean(customer?.name && String(customer.name).trim().length > 0)
         const phoneOk = Boolean(customer?.phone && String(customer.phone).trim().length > 0)
-        const emailOk = Boolean(customer?.email && String(customer.email).trim().length > 0)
+        // OAuth ユーザーは auth session にメールがあるので、customer レコードに無くても OK
+        const emailOk = Boolean(
+          (customer?.email && String(customer.email).trim().length > 0) ||
+          (user.email && String(user.email).trim().length > 0)
+        )
 
         const isComplete = nameOk && phoneOk && emailOk
         if (!isComplete) {

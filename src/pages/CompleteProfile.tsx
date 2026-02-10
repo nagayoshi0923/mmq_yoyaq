@@ -264,12 +264,33 @@ export function CompleteProfile() {
       
       logger.log('✅ customersテーブル作成/更新完了')
       
+      // 保存結果を検証（RLSで静かにブロックされるケースを検出）
+      const { data: verify, error: verifyErr } = await supabase
+        .from('customers')
+        .select('id, name, phone, email')
+        .eq('user_id', userId)
+        .maybeSingle()
+      
+      if (verifyErr) {
+        logger.warn('⚠️ 保存検証クエリエラー:', verifyErr)
+      } else if (!verify) {
+        logger.error('❌ 顧客レコードが見つかりません（RLSブロックの可能性）')
+        throw new Error('プロフィールの保存に失敗しました。もう一度お試しください。')
+      } else {
+        const savedOk = Boolean(verify.name) && Boolean(verify.phone)
+        if (!savedOk) {
+          logger.error('❌ 保存データが不完全:', verify)
+          throw new Error('プロフィールの保存が不完全です。もう一度お試しください。')
+        }
+        logger.log('✅ 保存検証OK:', { name: verify.name, phone: verify.phone, email: verify.email })
+      }
+      
       setSuccess(true)
       
-      // 3秒後にトップページへリダイレクト
+      // 2秒後にトップページへリダイレクト
       setTimeout(() => {
         window.location.href = nextUrl
-      }, 3000)
+      }, 2000)
       
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'エラーが発生しました'
