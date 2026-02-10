@@ -325,21 +325,25 @@ END $$;
 -- =============================================================================
 -- P0-F: discord_notification_queue ポリシーに組織境界追加
 -- =============================================================================
-DROP POLICY IF EXISTS "discord_queue_admin" ON public.discord_notification_queue;
-
-CREATE POLICY "discord_queue_admin_org_scoped" ON public.discord_notification_queue
-  FOR ALL USING (
-    is_org_admin()
-    AND organization_id = get_user_organization_id()
-  );
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = 'public' AND c.relname = 'discord_notification_queue') THEN
+    EXECUTE 'DROP POLICY IF EXISTS "discord_queue_admin" ON public.discord_notification_queue';
+    EXECUTE 'CREATE POLICY "discord_queue_admin_org_scoped" ON public.discord_notification_queue FOR ALL USING (is_org_admin() AND organization_id = get_user_organization_id())';
+  ELSE
+    RAISE NOTICE 'discord_notification_queue テーブルが存在しないためスキップ';
+  END IF;
+END $$;
 
 -- =============================================================================
 -- P0-G: performance_cancellation_logs ポリシーに組織境界追加
 -- =============================================================================
-DROP POLICY IF EXISTS "performance_cancellation_logs_admin" ON public.performance_cancellation_logs;
-
-CREATE POLICY "performance_cancellation_logs_admin_org_scoped" ON public.performance_cancellation_logs
-  FOR ALL USING (
-    is_org_admin()
-    AND organization_id = get_user_organization_id()
-  );
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = 'public' AND c.relname = 'performance_cancellation_logs') THEN
+    EXECUTE 'DROP POLICY IF EXISTS "performance_cancellation_logs_admin" ON public.performance_cancellation_logs';
+    EXECUTE 'CREATE POLICY "performance_cancellation_logs_admin_org_scoped" ON public.performance_cancellation_logs FOR ALL USING (is_org_admin() AND organization_id = get_user_organization_id())';
+  ELSE
+    RAISE NOTICE 'performance_cancellation_logs テーブルが存在しないためスキップ';
+  END IF;
+END $$;

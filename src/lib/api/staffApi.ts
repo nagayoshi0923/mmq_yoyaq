@@ -3,6 +3,7 @@
  */
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 import type { Staff } from '@/types'
 
@@ -133,7 +134,7 @@ export const staffApi = {
       
       // 2. reservationsのassigned_staff配列を更新
       // ⚠️ P1-16: サニタイズ — 名前に特殊文字が含まれる場合に備えてエスケープ
-      const safeOldName = oldName.replace(/[{},()."\\]/g, '')
+      const safeOldName = sanitizeForPostgRestFilter(oldName) || oldName
       let resQuery = supabase
         .from('reservations')
         .select('id, assigned_staff, gm_staff')

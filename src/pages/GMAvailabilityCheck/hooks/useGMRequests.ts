@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import * as storeApi from '@/lib/api'
 import { logger } from '@/utils/logger'
 
@@ -126,7 +127,7 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
             )
           )
         `)
-        .or(`staff_id.eq.${staffId}${staffData.discord_id ? `,gm_discord_id.eq.${staffData.discord_id}` : ''}`)
+        .or(`staff_id.eq.${sanitizeForPostgRestFilter(staffId) || staffId}${staffData.discord_id ? `,gm_discord_id.eq.${sanitizeForPostgRestFilter(staffData.discord_id) || staffData.discord_id}` : ''}`)
         .order('response_datetime', { ascending: false })
       
       if (responsesError) {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 import type { Reservation } from '@/types'
 
@@ -79,11 +80,13 @@ export function useReservationData(filters: Filters, pagination: Pagination) {
         query = query.eq('reservation_source', filters.typeFilter)
       }
       if (filters.searchTerm && filters.searchTerm.trim().length > 0) {
-        const term = filters.searchTerm.trim()
-        // reservation_number / customer_name / title で部分一致
-        query = query.or(
-          `reservation_number.ilike.%${term}%,customer_name.ilike.%${term}%,title.ilike.%${term}%`
-        )
+        const term = sanitizeForPostgRestFilter(filters.searchTerm.trim())
+        if (term) {
+          // reservation_number / customer_name / title で部分一致
+          query = query.or(
+            `reservation_number.ilike.%${term}%,customer_name.ilike.%${term}%,title.ilike.%${term}%`
+          )
+        }
       }
 
       // ページング（サーバー側）

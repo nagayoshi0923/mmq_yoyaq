@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 
 // デフォルト組織ID（クインズワルツ）
@@ -94,10 +95,12 @@ export function useFavorites() {
         if (insertError) {
           // 重複エラーの場合は再取得
           if (insertError.code === '23505') {
+            const safeUserId = sanitizeForPostgRestFilter(user.id) || user.id
+            const safeEmail = sanitizeForPostgRestFilter(user.email) || user.email
             const { data: existingCustomer } = await supabase
               .from('customers')
               .select('id')
-              .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+              .or(`user_id.eq.${safeUserId},email.eq.${safeEmail}`)
               .maybeSingle()
             setCustomerId(existingCustomer?.id || null)
           } else {

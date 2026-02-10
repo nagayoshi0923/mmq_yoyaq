@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 
 /**
@@ -214,7 +215,7 @@ export const useConflictCheck = () => {
           .select('id, gms')
           .eq('date', date)
           .eq('is_cancelled', false)
-          .or(`start_time.lte.${startTime},end_time.gte.${endTime}`)
+          .or(`start_time.lte.${sanitizeForPostgRestFilter(startTime) || startTime},end_time.gte.${sanitizeForPostgRestFilter(endTime) || endTime}`)
 
         if (conflictError) {
           logger.error('GM競合チェックエラー:', conflictError)

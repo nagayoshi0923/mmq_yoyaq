@@ -156,6 +156,16 @@ export function validateRedirectUrl(url: string | null | undefined, defaultUrl =
 }
 
 /**
+ * PostgREST .or() / .eq() 等のフィルタ値に渡す文字列をサニタイズする。
+ * 特殊文字によるフィルタインジェクションを防止する。
+ */
+export function sanitizeForPostgRestFilter(value: string | null | undefined): string {
+  if (value == null || typeof value !== 'string') return ''
+  // フィルタ構文を壊す文字のみ除去（, " \ ; ( ) { } ）。@ . はメール等で必要
+  return value.replace(/[{}"\\;,()]/g, '')
+}
+
+/**
  * 外部URLが安全か検証する（http/https のみ許可）。
  * DB由来のURL等を window.open / href に渡す前に使用する。
  */
