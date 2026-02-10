@@ -187,6 +187,23 @@ export function getUserFriendlyMessage(error: ApiError): string {
 }
 
 /**
+ * ⚠️ P1-19: 任意のエラーからユーザー安全なメッセージを取得
+ * error.message に含まれるテーブル名・カラム名・SQL ヒントを隠蔽する
+ * showToast.error() や setError() の引数として使用する
+ */
+export function getSafeErrorMessage(error: unknown, fallback?: string): string {
+  if (error instanceof ApiError) {
+    return getUserFriendlyMessage(error)
+  }
+  const apiError = handleSupabaseError(error)
+  // 開発環境では詳細をログに残す
+  if (import.meta.env.DEV) {
+    logApiError(apiError)
+  }
+  return fallback || getUserFriendlyMessage(apiError)
+}
+
+/**
  * エラーをログに出力（開発環境のみ詳細表示）
  */
 export function logApiError(error: ApiError, additionalInfo?: Record<string, unknown>): void {

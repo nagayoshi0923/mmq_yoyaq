@@ -107,12 +107,17 @@ export const staffApi = {
     // 名前が変更された場合、スケジュールと予約も更新
     if (oldName && updates.name && oldName !== updates.name) {
       const newName = updates.name
+      // ⚠️ P1-15: 組織IDでフィルタして他組織のデータを変更しない
+      const orgId = await getCurrentOrganizationId()
       
       // 1. schedule_eventsのgms配列を更新
-      const { data: scheduleEvents, error: scheduleError } = await supabase
+      let scheduleQuery = supabase
         .from('schedule_events')
         .select('id, gms')
         .contains('gms', [oldName])
+      if (orgId) scheduleQuery = scheduleQuery.eq('organization_id', orgId)
+
+      const { data: scheduleEvents, error: scheduleError } = await scheduleQuery
       
       if (!scheduleError && scheduleEvents && scheduleEvents.length > 0) {
         const updatePromises = scheduleEvents.map(event => {
@@ -127,10 +132,15 @@ export const staffApi = {
       }
       
       // 2. reservationsのassigned_staff配列を更新
-      const { data: reservations, error: resError } = await supabase
+      // ⚠️ P1-16: サニタイズ — 名前に特殊文字が含まれる場合に備えてエスケープ
+      const safeOldName = oldName.replace(/[{},()."\\]/g, '')
+      let resQuery = supabase
         .from('reservations')
         .select('id, assigned_staff, gm_staff')
-        .or(`assigned_staff.cs.{${oldName}},gm_staff.eq.${oldName}`)
+        .or(`assigned_staff.cs.{${safeOldName}},gm_staff.eq.${safeOldName}`)
+      if (orgId) resQuery = resQuery.eq('organization_id', orgId)
+
+      const { data: reservations, error: resError } = await resQuery
       
       if (!resError && reservations && reservations.length > 0) {
         const updatePromises = reservations.map(reservation => {

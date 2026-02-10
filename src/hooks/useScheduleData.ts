@@ -158,7 +158,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       const { data: store, error: storeError } = await supabase
         .from('stores')
         .select('id')
-        .or(`name.eq.${event.venue},short_name.eq.${event.venue}`)
+        .or(`name.eq.${(event.venue || '').replace(/[{},()."\\]/g, '')},short_name.eq.${(event.venue || '').replace(/[{},()."\\]/g, '')}`)
         .eq('organization_id', orgId)
         .single()
       

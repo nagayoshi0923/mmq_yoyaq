@@ -6,7 +6,12 @@ import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
+// ⚠️ P1-17: 通常の取得では機密トークンを含めない（XSS 時の漏洩防止）
 const ORG_SETTINGS_SELECT_FIELDS =
+  'id, organization_id, discord_webhook_url, discord_channel_id, discord_private_booking_channel_id, discord_shift_channel_id, discord_public_key, sender_email, sender_name, reply_to_email, google_sheets_id, notification_settings, time_slot_settings, created_at, updated_at' as const
+
+// 機密トークンを含む全フィールド（設定保存画面専用）
+const ORG_SETTINGS_ALL_FIELDS =
   'id, organization_id, discord_bot_token, discord_webhook_url, discord_channel_id, discord_private_booking_channel_id, discord_shift_channel_id, discord_public_key, resend_api_key, sender_email, sender_name, reply_to_email, line_channel_access_token, line_channel_secret, google_sheets_id, google_service_account_key, notification_settings, time_slot_settings, created_at, updated_at' as const
 
 // 時間帯設定の型
@@ -88,6 +93,24 @@ export const organizationSettingsApi = {
     return data
   },
   
+  // 機密トークン含む全設定を取得（設定編集画面専用）
+  async getWithSecrets(): Promise<OrganizationSettings | null> {
+    const organizationId = await getCurrentOrganizationId()
+    if (!organizationId) return null
+    
+    const { data, error } = await supabase
+      .from('organization_settings')
+      .select(ORG_SETTINGS_ALL_FIELDS)
+      .eq('organization_id', organizationId)
+      .single()
+    
+    if (error) {
+      if (error.code === 'PGRST116') return null
+      throw error
+    }
+    return data
+  },
+
   // 組織IDで設定を取得
   async getByOrganizationId(organizationId: string): Promise<OrganizationSettings | null> {
     const { data, error } = await supabase

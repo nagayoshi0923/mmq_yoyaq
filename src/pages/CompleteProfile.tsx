@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertCircle, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { logger } from '@/utils/logger'
+import { validateRedirectUrl } from '@/lib/utils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link } from 'react-router-dom'
 
@@ -99,10 +100,9 @@ export function CompleteProfile() {
     setIsLoading(true)
     
     try {
-      // next（完了後の遷移先）: open redirect対策として相対パスのみ許可
+      // ⚠️ P1-20: validateRedirectUrl() で統一（javascript: / data: も拒否）
       const nextParam = new URLSearchParams(window.location.search).get('next')
-      const nextUrl =
-        nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/'
+      const nextUrl = validateRedirectUrl(nextParam, '/')
 
       // 1. パスワードを設定（メールサインアップのみ）
       if (!isOAuthUser) {
