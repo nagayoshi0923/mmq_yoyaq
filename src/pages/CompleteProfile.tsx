@@ -525,6 +525,20 @@ export function CompleteProfile() {
                 <Link to="/privacy" className="underline hover:text-gray-700">プライバシーポリシー</Link>
                 に同意したものとみなされます。
               </p>
+
+              {/* ログアウトリンク */}
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await supabase.auth.signOut()
+                    window.location.href = '/'
+                  }}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline"
+                >
+                  ログアウトしてトップページに戻る
+                </button>
+              </div>
             </CardContent>
           </Card>
         </div>

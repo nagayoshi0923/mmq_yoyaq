@@ -179,18 +179,8 @@ function AppRoutes() {
 
         if (cancelled) return
 
-        // デバッグ: プロフィールチェック結果をログ出力
-        console.log('🔍 プロフィールチェック:', {
-          userId: user.id,
-          userEmail: user.email,
-          customerFound: !!customer,
-          customer: customer ? { id: customer.id, name: customer.name, phone: customer.phone, email: customer.email } : null,
-          error: error ? { code: error.code, message: error.message } : null,
-        })
-
         if (error) {
           // 読み取り失敗時は安全側（必須情報が揃っていると確定できない）
-          console.warn('❌ プロフィールチェック: customersクエリエラー', error)
           navigate('/complete-profile?next=' + encodeURIComponent(location.pathname), { replace: true })
           return
         }
@@ -204,8 +194,6 @@ function AppRoutes() {
         )
 
         const isComplete = nameOk && phoneOk && emailOk
-        console.log('🔍 プロフィール完了判定:', { nameOk, phoneOk, emailOk, isComplete })
-        
         if (!isComplete) {
           const next = `${location.pathname}${location.search}`
           navigate(`/complete-profile?next=${encodeURIComponent(next)}`, { replace: true })
