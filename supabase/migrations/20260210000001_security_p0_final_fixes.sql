@@ -196,8 +196,11 @@ $$;
 -- =============================================================================
 
 -- cancel_reservation_with_lock には2つのオーバーロードがある:
--- (UUID) と (UUID, UUID, TEXT)
--- 両方を修正
+-- (UUID, TEXT) と (UUID, UUID, TEXT)
+-- パラメータ名が異なる場合 CREATE OR REPLACE できないため、先に DROP する
+
+DROP FUNCTION IF EXISTS public.cancel_reservation_with_lock(UUID, TEXT);
+DROP FUNCTION IF EXISTS public.cancel_reservation_with_lock(UUID, UUID, TEXT);
 
 -- シグネチャ 1: (UUID, TEXT)
 CREATE OR REPLACE FUNCTION public.cancel_reservation_with_lock(
