@@ -64,9 +64,22 @@ export const customerApi = {
 
   // 顧客を更新
   async update(id: string, updates: Partial<Customer>): Promise<Customer> {
+    // ⚠️ Mass Assignment 防止: 更新可能フィールドのホワイトリスト
+    const CUSTOMER_UPDATABLE_FIELDS = [
+      'name', 'email', 'phone', 'nickname', 'line_name', 'notes', 'status',
+      'preferred_staff', 'visit_count', 'last_visit_date', 'reservation_count',
+      'discord_user_id', 'avatar_url',
+    ] as const
+    const safeUpdates: Record<string, unknown> = {}
+    for (const key of Object.keys(updates)) {
+      if ((CUSTOMER_UPDATABLE_FIELDS as readonly string[]).includes(key)) {
+        safeUpdates[key] = (updates as Record<string, unknown>)[key]
+      }
+    }
+
     const { data, error } = await supabase
       .from('customers')
-      .update(updates)
+      .update(safeUpdates)
       .eq('id', id)
       .select()
       .single()

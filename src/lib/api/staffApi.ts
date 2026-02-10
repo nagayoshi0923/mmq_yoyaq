@@ -78,8 +78,21 @@ export const staffApi = {
       experienced_scenarios?: string[]
       discord_id?: string
     }
-    const updateRow: Record<string, unknown> = { ...dbUpdates }
+
+    // ⚠️ Mass Assignment 防止: 更新可能フィールドのホワイトリスト
+    const STAFF_UPDATABLE_FIELDS = [
+      'name', 'line_name', 'x_account', 'discord_user_id', 'discord_channel_id',
+      'role', 'stores', 'ng_days', 'want_to_learn', 'available_scenarios',
+      'notes', 'phone', 'email', 'availability', 'experience',
+      'special_scenarios', 'status', 'avatar_url', 'avatar_color', 'display_name',
+    ] as const
+    const updateRow: Record<string, unknown> = {}
     if (discord_id !== undefined) updateRow.discord_user_id = discord_id
+    for (const key of Object.keys(dbUpdates)) {
+      if ((STAFF_UPDATABLE_FIELDS as readonly string[]).includes(key)) {
+        updateRow[key] = (dbUpdates as Record<string, unknown>)[key]
+      }
+    }
     
     // スタッフ情報を更新
     const { data, error } = await supabase
