@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { formatDateJST } from '@/utils/dateUtils'
 import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter } from 'lucide-react'
 import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
@@ -156,7 +157,7 @@ export function PlatformTop() {
 
       // 今日以降のイベントを取得（店舗の地域情報も含む）
       // 貸切公演は除外、オープン公演のみ
-      const today = new Date().toISOString().split('T')[0]
+      const today = formatDateJST(new Date())
       const { data: eventData, error: eventError } = await supabase
         .from('schedule_events')
         .select(`
@@ -193,12 +194,12 @@ export function PlatformTop() {
           if (!scenario.organization_id || !orgMap[scenario.organization_id]) return
 
           // 今日の公演で開始時間を過ぎたものは除外
-          const now = new Date()
-          const nowJST = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }))
-          const todayStr = nowJST.toISOString().split('T')[0]
-          if (e.date === todayStr && e.start_time) {
+          const nowForFilter = new Date()
+          const nowJSTForFilter = new Date(nowForFilter.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }))
+          const todayJSTStr = formatDateJST(nowForFilter)
+          if (e.date === todayJSTStr && e.start_time) {
             const [h, m] = e.start_time.split(':').map(Number)
-            if (h < nowJST.getHours() || (h === nowJST.getHours() && m <= nowJST.getMinutes())) {
+            if (h < nowJSTForFilter.getHours() || (h === nowJSTForFilter.getHours() && m <= nowJSTForFilter.getMinutes())) {
               return
             }
           }
