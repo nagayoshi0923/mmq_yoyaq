@@ -21,6 +21,7 @@ import { OrganizationCreateDialog } from '@/pages/OrganizationManagement/compone
 import { OrganizationInviteDialog } from '@/pages/OrganizationManagement/components/OrganizationInviteDialog'
 import { OrganizationEditDialog } from '@/pages/OrganizationManagement/components/OrganizationEditDialog'
 import type { Organization } from '@/types'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 
 export function TenantManagementSettings() {
   const { isLicenseManager, isLoading: orgLoading } = useOrganization()
@@ -71,7 +72,7 @@ export function TenantManagementSettings() {
     return (
       <Card className="border-destructive">
         <CardContent className="p-6">
-          <p className="text-destructive">エラーが発生しました: {error.message}</p>
+          <p className="text-destructive">エラーが発生しました: {getSafeErrorMessage(error, 'エラーが発生しました')}</p>
           <Button variant="outline" onClick={refetch} className="mt-4">
             再試行
           </Button>
@@ -157,7 +158,7 @@ export function TenantManagementSettings() {
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-lg">{org.name}</h3>
                       <Badge variant={getPlanBadgeVariant(org.plan)}>
-                        {org.plan.toUpperCase()}
+                        {(org.plan || 'free').toUpperCase()}
                       </Badge>
                       {org.is_license_manager && (
                         <Badge variant="secondary">ライセンス管理</Badge>

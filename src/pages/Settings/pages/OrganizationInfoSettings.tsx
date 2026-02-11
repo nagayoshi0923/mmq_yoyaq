@@ -228,7 +228,7 @@ export function OrganizationInfoSettings() {
         <CardContent>
           <div className="flex items-center gap-4">
             <Badge className="text-lg px-4 py-1">
-              {organization.plan.toUpperCase()}
+              {(organization.plan || 'free').toUpperCase()}
             </Badge>
             <span className="text-sm text-muted-foreground">
               プランの変更は管理者にお問い合わせください
