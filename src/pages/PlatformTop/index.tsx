@@ -191,6 +191,17 @@ export function PlatformTop() {
           // 基本チェック
           if (!scenario || !store || scenario.status !== 'available') return
           if (!scenario.organization_id || !orgMap[scenario.organization_id]) return
+
+          // 今日の公演で開始時間を過ぎたものは除外
+          const now = new Date()
+          const nowJST = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }))
+          const todayStr = nowJST.toISOString().split('T')[0]
+          if (e.date === todayStr && e.start_time) {
+            const [h, m] = e.start_time.split(':').map(Number)
+            if (h < nowJST.getHours() || (h === nowJST.getHours() && m <= nowJST.getMinutes())) {
+              return
+            }
+          }
           
           // GMテストを除外
           if (scenario.scenario_type === 'gm_test') return
