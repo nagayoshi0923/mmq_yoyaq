@@ -205,7 +205,7 @@ DROP FUNCTION IF EXISTS public.cancel_reservation_with_lock(UUID, UUID, TEXT);
 -- シグネチャ 1: (UUID, TEXT)
 CREATE OR REPLACE FUNCTION public.cancel_reservation_with_lock(
   p_reservation_id UUID,
-  p_reason TEXT DEFAULT NULL
+  p_cancellation_reason TEXT DEFAULT NULL
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -255,7 +255,7 @@ BEGIN
   UPDATE public.reservations
   SET status = 'cancelled',
       cancelled_at = NOW(),
-      cancellation_reason = p_reason,
+      cancellation_reason = p_cancellation_reason,
       updated_at = NOW()
   WHERE id = p_reservation_id;
 
@@ -270,7 +270,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.cancel_reservation_with_lock(
   p_reservation_id UUID,
   p_customer_id UUID,
-  p_reason TEXT DEFAULT NULL
+  p_cancellation_reason TEXT DEFAULT NULL
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -320,7 +320,7 @@ BEGIN
   UPDATE public.reservations
   SET status = 'cancelled',
       cancelled_at = NOW(),
-      cancellation_reason = p_reason,
+      cancellation_reason = p_cancellation_reason,
       updated_at = NOW()
   WHERE id = p_reservation_id;
 
@@ -334,67 +334,73 @@ $$;
 --
 -- 現状: is_admin() がグローバル true → 他組織のユーザーも更新可能
 -- 修正: admin は自組織のユーザーのみ更新可能
+-- 注意: organization_invitations が存在しない環境では簡易ポリシーを使用
 -- =============================================================================
 
-DROP POLICY IF EXISTS "users_update_self_or_admin" ON public.users;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "users_update_self_or_admin" ON public.users;
 
-CREATE POLICY "users_update_self_or_admin" ON public.users
-  FOR UPDATE
-  USING (
-    auth.role() = 'service_role'::text
-    -- ★ admin は同組織のユーザーのみ（グローバル admin を防止）
-    OR (
-      is_admin()
-      AND users.organization_id = get_user_organization_id()
-    )
-    OR id = auth.uid()
-  )
-  WITH CHECK (
-    -- Service role: OK
-    auth.role() = 'service_role'::text
-    -- ★ admin は同組織のユーザーのみ
-    OR (
-      is_admin()
-      AND users.organization_id = get_user_organization_id()
-    )
-    OR (
-      id = auth.uid()
-      AND email = (SELECT u2.email FROM public.users u2 WHERE u2.id = auth.uid())
-      AND (
-        -- (a) no-op: keep role/org unchanged
-        (
-          role = (SELECT u2.role FROM public.users u2 WHERE u2.id = auth.uid())
-          AND organization_id = (SELECT u2.organization_id FROM public.users u2 WHERE u2.id = auth.uid())
-        )
-        OR
-        -- (b) invitation-driven promotion (customer -> staff/admin) with org match
-        (
-          (SELECT u2.role FROM public.users u2 WHERE u2.id = auth.uid()) = 'customer'::app_role
-          AND EXISTS (
-            SELECT 1
-            FROM public.organization_invitations oi
-            WHERE oi.email = auth.email()
-              AND oi.accepted_at IS NOT NULL
-              AND oi.organization_id = users.organization_id
-              AND (
-                (users.role = 'admin'::app_role AND (('管理者' = ANY(oi.role)) OR ('admin' = ANY(oi.role))))
-                OR
-                (users.role = 'staff'::app_role)
-              )
-          )
-        )
-        OR
-        -- (c) staff link repair (customer -> staff) if staff row exists and org matches
-        (
-          users.role = 'staff'::app_role
-          AND EXISTS (SELECT 1 FROM public.staff s WHERE s.user_id = auth.uid())
-          AND users.organization_id = (
-            SELECT s.organization_id FROM public.staff s WHERE s.user_id = auth.uid() LIMIT 1
-          )
-        )
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'organization_invitations'
+  ) THEN
+    CREATE POLICY "users_update_self_or_admin" ON public.users
+      FOR UPDATE
+      USING (
+        auth.role() = 'service_role'::text
+        OR (is_admin() AND users.organization_id = get_user_organization_id())
+        OR id = auth.uid()
       )
-    )
-  );
+      WITH CHECK (
+        auth.role() = 'service_role'::text
+        OR (is_admin() AND users.organization_id = get_user_organization_id())
+        OR (
+          id = auth.uid()
+          AND email = (SELECT u2.email FROM public.users u2 WHERE u2.id = auth.uid())
+          AND (
+            (
+              role = (SELECT u2.role FROM public.users u2 WHERE u2.id = auth.uid())
+              AND organization_id = (SELECT u2.organization_id FROM public.users u2 WHERE u2.id = auth.uid())
+            )
+            OR (
+              (SELECT u2.role FROM public.users u2 WHERE u2.id = auth.uid()) = 'customer'::app_role
+              AND EXISTS (
+                SELECT 1
+                FROM public.organization_invitations oi
+                WHERE oi.email = auth.email()
+                  AND oi.accepted_at IS NOT NULL
+                  AND oi.organization_id = users.organization_id
+                  AND (
+                    (users.role = 'admin'::app_role AND (('管理者' = ANY(oi.role)) OR ('admin' = ANY(oi.role))))
+                    OR (users.role = 'staff'::app_role)
+                  )
+              )
+            )
+            OR (
+              users.role = 'staff'::app_role
+              AND EXISTS (SELECT 1 FROM public.staff s WHERE s.user_id = auth.uid())
+              AND users.organization_id = (SELECT s.organization_id FROM public.staff s WHERE s.user_id = auth.uid() LIMIT 1)
+            )
+          )
+        )
+      );
+  ELSE
+    RAISE NOTICE 'ℹ️  organization_invitations が存在しないため簡易ポリシーを適用';
+    CREATE POLICY "users_update_self_or_admin" ON public.users
+      FOR UPDATE
+      USING (
+        auth.role() = 'service_role'::text
+        OR (is_admin() AND users.organization_id = get_user_organization_id())
+        OR id = auth.uid()
+      )
+      WITH CHECK (
+        auth.role() = 'service_role'::text
+        OR (is_admin() AND users.organization_id = get_user_organization_id())
+        OR id = auth.uid()
+      );
+  END IF;
+END $$;
 
 
 -- =============================================================================

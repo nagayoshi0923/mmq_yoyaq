@@ -551,7 +551,7 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION create_reservation_with_lock_v2 IS 
+COMMENT ON FUNCTION create_reservation_with_lock_v2(UUID, UUID, TEXT, TEXT, TEXT, INTEGER, INTEGER, INTEGER, TEXT, TEXT, UUID, TEXT) IS 
 '予約作成RPC（在庫ロック・重複チェック付き）。
 🔒 セキュリティ修正:
   - P0-7: 重複チェックにFOR UPDATE SKIP LOCKEDを追加（競合防止）

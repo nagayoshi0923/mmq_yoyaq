@@ -34,9 +34,10 @@ BEGIN
     WHERE q.id = r.id
       AND r.rn > 1;
   END IF;
+  -- 2) UNIQUE 制約（reservation_id + email_type）
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'booking_email_queue') THEN
+    CREATE UNIQUE INDEX IF NOT EXISTS booking_email_queue_reservation_type_unique
+      ON public.booking_email_queue (reservation_id, email_type);
+  END IF;
 END $$;
-
--- 2) UNIQUE 制約（reservation_id + email_type）
-CREATE UNIQUE INDEX IF NOT EXISTS booking_email_queue_reservation_type_unique
-  ON public.booking_email_queue (reservation_id, email_type);
 

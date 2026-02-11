@@ -65,10 +65,19 @@ $$;
 
 DROP TRIGGER IF EXISTS trigger_recalc_participants ON public.reservations;
 
-CREATE TRIGGER trigger_recalc_participants
-AFTER INSERT OR UPDATE OF participant_count, status, schedule_event_id OR DELETE ON public.reservations
-FOR EACH ROW
-EXECUTE FUNCTION public.recalc_current_participants_trigger();
+-- schedule_event_id カラムが存在する場合のみトリガーを作成
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'reservations' AND column_name = 'schedule_event_id'
+  ) THEN
+    CREATE TRIGGER trigger_recalc_participants
+    AFTER INSERT OR UPDATE OF participant_count, status, schedule_event_id OR DELETE ON public.reservations
+    FOR EACH ROW
+    EXECUTE FUNCTION public.recalc_current_participants_trigger();
+  END IF;
+END $$;
 
 COMMENT ON FUNCTION public.recalc_current_participants_for_event(UUID) IS
 'reservations の集計値から schedule_events.current_participants を再計算して更新する（SEC-P1-02）。';
