@@ -63,9 +63,15 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreId
     const year = listViewMonth.getFullYear()
     const month = listViewMonth.getMonth()
     
-    // 月の日付を生成
+    // 月の日付を生成（過去の日付はスキップ）
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const dates = Array.from({ length: daysInMonth }, (_, i) => i + 1)
+    const now = new Date()
+    const todayYear = now.getFullYear()
+    const todayMonth = now.getMonth()
+    const todayDate = now.getDate()
+    // 当月の場合は今日以降の日付のみ、未来の月は全日付
+    const startDay = (year === todayYear && month === todayMonth) ? todayDate : 1
+    const dates = Array.from({ length: daysInMonth - startDay + 1 }, (_, i) => startDay + i)
     
     // 通常店舗はフィルター適用、臨時会場は別処理
     const regularStores = stores.filter(store => !store.is_temporary)

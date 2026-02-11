@@ -17,8 +17,13 @@ UPDATE stores SET display_order = 903 WHERE short_name = '臨時3' OR name = '�
 UPDATE stores SET display_order = 904 WHERE short_name = '臨時4' OR name = '臨時会場4';
 UPDATE stores SET display_order = 905 WHERE short_name = '臨時5' OR name = '臨時会場5';
 
--- オフィスは表示しないが、念のため順序設定
-UPDATE stores SET display_order = 999 WHERE ownership_type = 'office';
+-- オフィスは表示しないが、念のため順序設定（ownership_type が存在する場合のみ）
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='stores' AND column_name='ownership_type') THEN
+    UPDATE public.stores SET display_order = 999 WHERE ownership_type = 'office';
+  END IF;
+END $$;
 
 -- インデックス追加（並び替えパフォーマンス向上）
 CREATE INDEX IF NOT EXISTS idx_stores_display_order ON stores(display_order);

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertCircle, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { logger } from '@/utils/logger'
+import { validateRedirectUrl } from '@/lib/utils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link } from 'react-router-dom'
 
@@ -99,10 +100,9 @@ export function CompleteProfile() {
     setIsLoading(true)
     
     try {
-      // next（完了後の遷移先）: open redirect対策として相対パスのみ許可
+      // ⚠️ P1-20: validateRedirectUrl() で統一（javascript: / data: も拒否）
       const nextParam = new URLSearchParams(window.location.search).get('next')
-      const nextUrl =
-        nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/'
+      const nextUrl = validateRedirectUrl(nextParam, '/')
 
       // 1. パスワードを設定（メールサインアップのみ）
       if (!isOAuthUser) {
@@ -133,7 +133,7 @@ export function CompleteProfile() {
           : 'customer'
 
       const organizationId = existingUser?.organization_id || DEFAULT_ORG_ID
-      await supabase
+      const { error: usersUpsertError } = await supabase
         .from('users')
         .upsert({
           id: userId,
@@ -144,31 +144,153 @@ export function CompleteProfile() {
           updated_at: new Date().toISOString()
         }, { onConflict: 'id' })
       
-      logger.log('✅ usersテーブル更新完了')
+      if (usersUpsertError) {
+        logger.warn('⚠️ usersテーブル更新エラー（続行）:', usersUpsertError)
+        // usersテーブルのエラーは致命的ではない（handle_new_userトリガーで作成済みの場合がある）
+        // ただし organization_id の設定が重要なので、個別にUPDATEを試行
+        const { error: updateOrgErr } = await supabase
+          .from('users')
+          .update({ 
+            organization_id: organizationId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId)
+        
+        if (updateOrgErr) {
+          logger.warn('⚠️ organization_id更新もエラー:', updateOrgErr)
+        } else {
+          logger.log('✅ organization_id個別更新成功')
+        }
+      } else {
+        logger.log('✅ usersテーブル更新完了')
+      }
       
-      // 3. customersテーブルにレコードを作成
-      await supabase
+      // 3. customersテーブルにレコードを作成/更新
+      // user_id で自分のレコードを検索（RLSで確実に読み書き可能）
+      const { data: existingByUserId } = await supabase
         .from('customers')
-        .upsert({
-          user_id: userId,
-          name: name.trim(),
-          email: userEmail,
-          phone: phone.trim(),
-          visit_count: 0,
-          total_spent: 0,
-          organization_id: organizationId,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'email' })
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (existingByUserId) {
+        // 自分のレコードがある → UPDATE
+        const { error: updateCustErr } = await supabase
+          .from('customers')
+          .update({
+            name: name.trim(),
+            email: userEmail,
+            phone: phone.trim(),
+            organization_id: organizationId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingByUserId.id)
+
+        if (updateCustErr) {
+          throw updateCustErr
+        }
+        logger.log('✅ 既存の顧客レコードを更新しました')
+      } else {
+        // 新規 → INSERT
+        const { error: insertCustErr } = await supabase
+          .from('customers')
+          .insert({
+            user_id: userId,
+            name: name.trim(),
+            email: userEmail,
+            phone: phone.trim(),
+            visit_count: 0,
+            total_spent: 0,
+            organization_id: organizationId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+
+        if (insertCustErr) {
+          // email重複エラーの場合、既存レコードのuser_idを自分に紐付けてリトライ
+          if (insertCustErr.code === '23505') {
+            logger.warn('⚠️ email重複のためuser_id紐付けを試行:', userEmail)
+            // メールアドレスでuser_id未設定のレコードを探して紐付け
+            const { data: byEmail } = await supabase
+              .from('customers')
+              .select('id, user_id')
+              .eq('email', userEmail)
+              .maybeSingle()
+
+            if (byEmail && !byEmail.user_id) {
+              // user_idが未設定なら紐付けて更新
+              const { error: linkErr } = await supabase
+                .from('customers')
+                .update({
+                  user_id: userId,
+                  name: name.trim(),
+                  phone: phone.trim(),
+                  organization_id: organizationId,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', byEmail.id)
+              
+              if (linkErr) {
+                throw linkErr
+              }
+              logger.log('✅ 既存メール顧客にuser_idを紐付けました')
+            } else {
+              // 別のuser_idに紐付いている場合は新規で作成（emailなし）
+              logger.warn('⚠️ 既存メール顧客は別ユーザーに紐付け済み、email除外で新規作成')
+              const { error: insertNoEmail } = await supabase
+                .from('customers')
+                .insert({
+                  user_id: userId,
+                  name: name.trim(),
+                  phone: phone.trim(),
+                  visit_count: 0,
+                  total_spent: 0,
+                  organization_id: organizationId,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                })
+              if (insertNoEmail) {
+                throw insertNoEmail
+              }
+              logger.log('✅ 新規顧客レコードを作成しました（email除外）')
+            }
+          } else {
+            throw insertCustErr
+          }
+        } else {
+          logger.log('✅ 新規顧客レコードを作成しました')
+        }
+      }
       
-      logger.log('✅ customersテーブル作成完了')
+      logger.log('✅ customersテーブル作成/更新完了')
+      
+      // 保存結果を検証（RLSで静かにブロックされるケースを検出）
+      const { data: verify, error: verifyErr } = await supabase
+        .from('customers')
+        .select('id, name, phone, email')
+        .eq('user_id', userId)
+        .maybeSingle()
+      
+      if (verifyErr) {
+        logger.warn('⚠️ 保存検証クエリエラー:', verifyErr)
+      } else if (!verify) {
+        logger.error('❌ 顧客レコードが見つかりません（RLSブロックの可能性）')
+        throw new Error('プロフィールの保存に失敗しました。もう一度お試しください。')
+      } else {
+        const savedOk = Boolean(verify.name) && Boolean(verify.phone)
+        if (!savedOk) {
+          logger.error('❌ 保存データが不完全:', verify)
+          throw new Error('プロフィールの保存が不完全です。もう一度お試しください。')
+        }
+        logger.log('✅ 保存検証OK:', { name: verify.name, phone: verify.phone, email: verify.email })
+      }
       
       setSuccess(true)
       
-      // 3秒後にトップページへリダイレクト
+      // 2秒後にトップページへリダイレクト
       setTimeout(() => {
         window.location.href = nextUrl
-      }, 3000)
+      }, 2000)
       
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'エラーが発生しました'
@@ -403,6 +525,20 @@ export function CompleteProfile() {
                 <Link to="/privacy" className="underline hover:text-gray-700">プライバシーポリシー</Link>
                 に同意したものとみなされます。
               </p>
+
+              {/* ログアウトリンク */}
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await supabase.auth.signOut()
+                    window.location.href = '/'
+                  }}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline"
+                >
+                  ログアウトしてトップページに戻る
+                </button>
+              </div>
             </CardContent>
           </Card>
         </div>

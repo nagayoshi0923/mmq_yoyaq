@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { Button } from '@/components/ui/button'
@@ -336,10 +337,11 @@ export function AddDemoParticipants() {
           participationFee = scenario.participation_fee || 0
         }
         
+        const safeVenue = sanitizeForPostgRestFilter(event.venue)
         const { data: store } = await supabase
           .from('stores')
           .select('id')
-          .or(`name.eq.${event.venue},short_name.eq.${event.venue}`)
+          .or(`name.eq.${safeVenue},short_name.eq.${safeVenue}`)
           .single()
         
         if (!store) {

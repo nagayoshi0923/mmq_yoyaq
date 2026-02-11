@@ -3,6 +3,7 @@
  */
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 import type { Staff } from '@/types'
 
@@ -78,8 +79,21 @@ export const staffApi = {
       experienced_scenarios?: string[]
       discord_id?: string
     }
-    const updateRow: Record<string, unknown> = { ...dbUpdates }
+
+    // ⚠️ Mass Assignment 防止: 更新可能フィールドのホワイトリスト
+    const STAFF_UPDATABLE_FIELDS = [
+      'name', 'line_name', 'x_account', 'discord_user_id', 'discord_channel_id',
+      'role', 'stores', 'ng_days', 'want_to_learn', 'available_scenarios',
+      'notes', 'phone', 'email', 'availability', 'experience',
+      'special_scenarios', 'status', 'avatar_url', 'avatar_color', 'display_name',
+    ] as const
+    const updateRow: Record<string, unknown> = {}
     if (discord_id !== undefined) updateRow.discord_user_id = discord_id
+    for (const key of Object.keys(dbUpdates)) {
+      if ((STAFF_UPDATABLE_FIELDS as readonly string[]).includes(key)) {
+        updateRow[key] = (dbUpdates as Record<string, unknown>)[key]
+      }
+    }
     
     // スタッフ情報を更新
     const { data, error } = await supabase
@@ -94,12 +108,17 @@ export const staffApi = {
     // 名前が変更された場合、スケジュールと予約も更新
     if (oldName && updates.name && oldName !== updates.name) {
       const newName = updates.name
+      // ⚠️ P1-15: 組織IDでフィルタして他組織のデータを変更しない
+      const orgId = await getCurrentOrganizationId()
       
       // 1. schedule_eventsのgms配列を更新
-      const { data: scheduleEvents, error: scheduleError } = await supabase
+      let scheduleQuery = supabase
         .from('schedule_events')
         .select('id, gms')
         .contains('gms', [oldName])
+      if (orgId) scheduleQuery = scheduleQuery.eq('organization_id', orgId)
+
+      const { data: scheduleEvents, error: scheduleError } = await scheduleQuery
       
       if (!scheduleError && scheduleEvents && scheduleEvents.length > 0) {
         const updatePromises = scheduleEvents.map(event => {
@@ -114,10 +133,15 @@ export const staffApi = {
       }
       
       // 2. reservationsのassigned_staff配列を更新
-      const { data: reservations, error: resError } = await supabase
+      // ⚠️ P1-16: サニタイズ — 名前に特殊文字が含まれる場合に備えてエスケープ
+      const safeOldName = sanitizeForPostgRestFilter(oldName) || oldName
+      let resQuery = supabase
         .from('reservations')
         .select('id, assigned_staff, gm_staff')
-        .or(`assigned_staff.cs.{${oldName}},gm_staff.eq.${oldName}`)
+        .or(`assigned_staff.cs.{${safeOldName}},gm_staff.eq.${safeOldName}`)
+      if (orgId) resQuery = resQuery.eq('organization_id', orgId)
+
+      const { data: reservations, error: resError } = await resQuery
       
       if (!resError && reservations && reservations.length > 0) {
         const updatePromises = reservations.map(reservation => {

@@ -23,17 +23,24 @@ BEGIN
   END IF;
 END $$;
 
--- 既存データの更新: production_costsからキット数を計算
--- キット費用が30000円/個として計算
-UPDATE scenarios
-SET kit_count = GREATEST(1, (
-  SELECT COALESCE(
-    (elem->>'amount')::integer / 30000,
-    1
-  )
-  FROM jsonb_array_elements(production_costs::jsonb) AS elem
-  WHERE elem->>'item' = 'キット'
-  LIMIT 1
-))
-WHERE kit_count IS NULL OR kit_count = 1;
+-- 既存データの更新: production_costsからキット数を計算（production_costs カラムが存在する場合のみ）
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'scenarios' AND column_name = 'production_costs'
+  ) THEN
+    UPDATE public.scenarios
+    SET kit_count = GREATEST(1, (
+      SELECT COALESCE(
+        (elem->>'amount')::integer / 30000,
+        1
+      )
+      FROM jsonb_array_elements(production_costs::jsonb) AS elem
+      WHERE elem->>'item' = 'キット'
+      LIMIT 1
+    ))
+    WHERE kit_count IS NULL OR kit_count = 1;
+  END IF;
+END $$;
 

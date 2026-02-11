@@ -19,6 +19,7 @@ import { CostsPropsSectionV2 } from './ScenarioEditDialogV2/sections/CostsPropsS
 import { PerformancesSectionV2 } from './ScenarioEditDialogV2/sections/PerformancesSectionV2'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 
 // API関連
@@ -888,11 +889,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           // CHECK制約違反
           errorMessage = '入力値が無効です。ステータスなどの設定を確認してください。'
         } else {
-          errorMessage = errorObj.message || 'データベースエラーが発生しました'
+          errorMessage = getSafeErrorMessage(err, 'データベースエラーが発生しました')
         }
       }
       
-      showToast.error('保存に失敗しました', errorMessage || '不明なエラー')
+      showToast.error('保存に失敗しました', errorMessage || getSafeErrorMessage(err, '不明なエラー'))
     }
   }
 

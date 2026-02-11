@@ -5,6 +5,7 @@ import { scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 import { handleSupabaseError, getUserFriendlyMessage, logApiError } from '@/lib/apiErrorHandler'
 import type { ScheduleEvent } from '@/types/schedule'
@@ -158,7 +159,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       const { data: store, error: storeError } = await supabase
         .from('stores')
         .select('id')
-        .or(`name.eq.${event.venue},short_name.eq.${event.venue}`)
+        .or(`name.eq.${sanitizeForPostgRestFilter(event.venue)},short_name.eq.${sanitizeForPostgRestFilter(event.venue)}`)
         .eq('organization_id', orgId)
         .single()
       

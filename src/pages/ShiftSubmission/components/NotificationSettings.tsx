@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -144,7 +145,7 @@ export function NotificationSettings() {
       showToast.success(message)
     } catch (error) {
       logger.error('テスト通知エラー:', error)
-      showToast.error('テスト通知の送信に失敗しました', error instanceof Error ? error.message : '不明なエラー')
+      showToast.error('テスト通知の送信に失敗しました', getSafeErrorMessage(error, '不明なエラー'))
     } finally {
       setTesting(false)
     }

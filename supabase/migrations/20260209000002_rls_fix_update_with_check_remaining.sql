@@ -10,18 +10,24 @@
 -- =============================================================================
 DO $$
 BEGIN
-  IF EXISTS (
+  IF NOT EXISTS (
     SELECT 1 FROM information_schema.tables
     WHERE table_schema = 'public' AND table_name = 'users'
   ) THEN
-    ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+    RETURN;
+  END IF;
 
-    DROP POLICY IF EXISTS "users_update_self_or_admin" ON public.users;
-    DROP POLICY IF EXISTS "users_update_self" ON public.users;
+  ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
-    -- Keep/ensure INSERT policy exists (older migrations created it). We tighten it slightly:
-    -- self insert allowed, but staff/admin insert requires accepted invitation.
-    DROP POLICY IF EXISTS "users_insert_self" ON public.users;
+  DROP POLICY IF EXISTS "users_update_self_or_admin" ON public.users;
+  DROP POLICY IF EXISTS "users_update_self" ON public.users;
+  DROP POLICY IF EXISTS "users_insert_self" ON public.users;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'organization_invitations'
+  ) THEN
+    -- Full policy: staff/admin insert requires accepted invitation
     CREATE POLICY "users_insert_self" ON public.users
       FOR INSERT
       WITH CHECK (
@@ -39,7 +45,17 @@ BEGIN
           )
         )
       );
+  ELSE
+    -- Fallback: allow self-insert (organization_invitations not yet present)
+    CREATE POLICY "users_insert_self" ON public.users
+      FOR INSERT
+      WITH CHECK (id = auth.uid());
+  END IF;
 
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'organization_invitations'
+  ) THEN
     CREATE POLICY "users_update_self_or_admin" ON public.users
       FOR UPDATE
       USING (
@@ -90,6 +106,20 @@ BEGIN
             )
           )
         )
+      );
+  ELSE
+    -- Fallback: simpler UPDATE policy when organization_invitations not present
+    CREATE POLICY "users_update_self_or_admin" ON public.users
+      FOR UPDATE
+      USING (
+        auth.role() = 'service_role'::text
+        OR is_admin()
+        OR id = auth.uid()
+      )
+      WITH CHECK (
+        auth.role() = 'service_role'::text
+        OR is_admin()
+        OR id = auth.uid()
       );
   END IF;
 END $$;

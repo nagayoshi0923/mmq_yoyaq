@@ -1,6 +1,7 @@
 // React
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 
 // API
@@ -187,7 +188,7 @@ export function ScheduleManager() {
         .eq('is_cancelled', false)
       
       if (fetchError) {
-        showToast.error(`取得エラー: ${fetchError.message}`)
+        showToast.error(getSafeErrorMessage(fetchError, 'データの取得に失敗しました'))
         return
       }
       
@@ -398,7 +399,7 @@ export function ScheduleManager() {
       showToast.success(`${successCount}件を満席に設定しました`)
       // Realtimeで自動的にデータが更新されるため、ページリロードは不要
     } catch (err) {
-      showToast.error(`エラー: ${err}`)
+      showToast.error(getSafeErrorMessage(err, 'エラーが発生しました'))
     } finally {
       setIsFillingSeats(false)
     }
@@ -418,7 +419,7 @@ export function ScheduleManager() {
         showToast.error('データ修復に失敗しました')
       }
     } catch (err) {
-      showToast.error(`エラー: ${err}`)
+      showToast.error(getSafeErrorMessage(err, 'エラーが発生しました'))
     } finally {
       setIsFixingData(false)
     }
@@ -688,7 +689,9 @@ export function ScheduleManager() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
-      if (hash && hash !== 'schedule') {
+      // ハッシュ値をホワイトリストで検証（オープンリダイレクト防止）
+      const allowedHashes = ['schedule', 'staff', 'stores', 'scenarios', 'settings', 'dashboard']
+      if (hash && hash !== 'schedule' && allowedHashes.includes(hash)) {
         window.location.href = '/' + hash
       } else if (!hash) {
         window.location.href = '/'

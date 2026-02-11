@@ -6,6 +6,7 @@ import { inviteStaff, type InviteStaffRequest } from '@/lib/staffInviteApi'
 import { staffKeys } from './useStaffQuery'
 import type { Staff } from '@/types'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 
 interface UseStaffInvitationProps {
@@ -72,7 +73,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       }
     } catch (err: any) {
       logger.error('Error inviting staff:', err)
-      const errorMessage = 'スタッフの招待に失敗しました: ' + err.message
+      const errorMessage = getSafeErrorMessage(err, 'スタッフの招待に失敗しました')
       showToast.error(errorMessage)
       onError?.(errorMessage)
     }
@@ -213,7 +214,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       // }
     } catch (err: any) {
       logger.error('Error inviting and linking:', err)
-      const errorMessage = '招待に失敗しました: ' + err.message
+      const errorMessage = getSafeErrorMessage(err, '招待に失敗しました')
       showToast.error(errorMessage)
       onError?.(errorMessage)
     }
@@ -278,7 +279,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       onSuccess?.()
     } catch (err: any) {
       logger.error('Error unlinking user:', err)
-      const errorMessage = '連携解除に失敗しました: ' + err.message
+      const errorMessage = getSafeErrorMessage(err, '連携解除に失敗しました')
       showToast.error(errorMessage)
       onError?.(errorMessage)
     }
@@ -318,7 +319,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       }
     } catch (err: any) {
       logger.error('Error reinviting staff:', err)
-      const errorMessage = '再招待に失敗しました: ' + err.message
+      const errorMessage = getSafeErrorMessage(err, '再招待に失敗しました')
       showToast.error(errorMessage)
       onError?.(errorMessage)
     }

@@ -28,12 +28,14 @@ DO $$
 DECLARE
   r record;
 BEGIN
-  -- gm_availability_responses
-  FOR r IN
-    SELECT policyname FROM pg_policies WHERE schemaname='public' AND tablename='gm_availability_responses'
-  LOOP
-    EXECUTE format('DROP POLICY IF EXISTS %I ON public.gm_availability_responses', r.policyname);
-  END LOOP;
+  -- gm_availability_responses (skip if table does not exist)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='gm_availability_responses') THEN
+    FOR r IN
+      SELECT policyname FROM pg_policies WHERE schemaname='public' AND tablename='gm_availability_responses'
+    LOOP
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.gm_availability_responses', r.policyname);
+    END LOOP;
+  END IF;
 
   -- pricing_settings
   FOR r IN
@@ -79,60 +81,64 @@ BEGIN
 END $$;
 
 -- -----------------------------------------------------------------------------
--- 1) gm_availability_responses (P0: remove OR TRUE)
+-- 1) gm_availability_responses (P0: remove OR TRUE) - skip if table does not exist
 -- -----------------------------------------------------------------------------
-ALTER TABLE public.gm_availability_responses ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='gm_availability_responses') THEN
+    RAISE NOTICE 'ℹ️  gm_availability_responses が存在しないためスキップ';
+    RETURN;
+  END IF;
 
--- SELECT: staff/admin in same org (or org admin)
-CREATE POLICY gm_availability_responses_select_strict ON public.gm_availability_responses
-  FOR SELECT
-  USING (
-    (get_user_organization_id() IS NOT NULL AND organization_id = get_user_organization_id())
-    OR is_org_admin()
-  );
+  ALTER TABLE public.gm_availability_responses ENABLE ROW LEVEL SECURITY;
 
--- INSERT: self staff only (or org admin), org must match, reservation must match org
-CREATE POLICY gm_availability_responses_insert_strict ON public.gm_availability_responses
-  FOR INSERT
-  WITH CHECK (
-    (
-      is_org_admin()
-      OR (
-        staff_id IN (
-          SELECT s.id
-          FROM public.staff s
-          WHERE s.user_id = auth.uid()
-            AND s.organization_id = gm_availability_responses.organization_id
+  CREATE POLICY gm_availability_responses_select_strict ON public.gm_availability_responses
+    FOR SELECT
+    USING (
+      (get_user_organization_id() IS NOT NULL AND organization_id = get_user_organization_id())
+      OR is_org_admin()
+    );
+
+  CREATE POLICY gm_availability_responses_insert_strict ON public.gm_availability_responses
+    FOR INSERT
+    WITH CHECK (
+      (
+        is_org_admin()
+        OR (
+          staff_id IN (
+            SELECT s.id
+            FROM public.staff s
+            WHERE s.user_id = auth.uid()
+              AND s.organization_id = gm_availability_responses.organization_id
+          )
         )
       )
-    )
-    AND gm_availability_responses.organization_id = (
-      SELECT r.organization_id FROM public.reservations r WHERE r.id = gm_availability_responses.reservation_id
-    )
-  );
+      AND gm_availability_responses.organization_id = (
+        SELECT r.organization_id FROM public.reservations r WHERE r.id = gm_availability_responses.reservation_id
+      )
+    );
 
--- UPDATE: self staff only (or org admin), cannot escape org
-CREATE POLICY gm_availability_responses_update_strict ON public.gm_availability_responses
-  FOR UPDATE
-  USING (
-    is_org_admin()
-    OR (
-      staff_id IN (SELECT s.id FROM public.staff s WHERE s.user_id = auth.uid())
-      AND organization_id = get_user_organization_id()
+  CREATE POLICY gm_availability_responses_update_strict ON public.gm_availability_responses
+    FOR UPDATE
+    USING (
+      is_org_admin()
+      OR (
+        staff_id IN (SELECT s.id FROM public.staff s WHERE s.user_id = auth.uid())
+        AND organization_id = get_user_organization_id()
+      )
     )
-  )
-  WITH CHECK (
-    is_org_admin()
-    OR (
-      staff_id IN (SELECT s.id FROM public.staff s WHERE s.user_id = auth.uid())
-      AND organization_id = get_user_organization_id()
-    )
-  );
+    WITH CHECK (
+      is_org_admin()
+      OR (
+        staff_id IN (SELECT s.id FROM public.staff s WHERE s.user_id = auth.uid())
+        AND organization_id = get_user_organization_id()
+      )
+    );
 
--- DELETE: org admin only
-CREATE POLICY gm_availability_responses_delete_strict ON public.gm_availability_responses
-  FOR DELETE
-  USING (is_org_admin());
+  CREATE POLICY gm_availability_responses_delete_strict ON public.gm_availability_responses
+    FOR DELETE
+    USING (is_org_admin());
+END $$;
 
 -- -----------------------------------------------------------------------------
 -- 2) pricing_settings (remove NULL-org and NULL-current-org escape hatches)

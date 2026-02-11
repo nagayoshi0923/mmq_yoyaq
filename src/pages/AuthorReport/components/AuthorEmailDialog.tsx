@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -75,7 +76,7 @@ export function AuthorEmailDialog({ isOpen, onClose, authorName, onSave }: Autho
         showToast.error('レコードが見つかりませんでした')
       } else {
         logger.error('保存に失敗:', error)
-        showToast.error('保存に失敗しました', error?.message || '不明なエラー')
+        showToast.error('保存に失敗しました', getSafeErrorMessage(error, '不明なエラー'))
       }
     } finally {
       setSaving(false)

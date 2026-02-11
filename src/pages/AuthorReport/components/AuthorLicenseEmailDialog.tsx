@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -79,7 +80,7 @@ export function AuthorLicenseEmailDialog({
       onClose()
     } catch (error: any) {
       logger.error('メール送信エラー:', error)
-      showToast.error('メール送信に失敗しました', error?.message || '不明なエラー')
+      showToast.error('メール送信に失敗しました', getSafeErrorMessage(error, '不明なエラー'))
     } finally {
       setSending(false)
     }

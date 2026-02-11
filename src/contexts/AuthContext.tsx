@@ -4,6 +4,8 @@ import { logger } from '@/utils/logger'
 import type { User } from '@supabase/supabase-js'
 import { determineUserRole } from '@/utils/authUtils'
 import { maskEmail } from '@/utils/security'
+import { validateRedirectUrl } from '@/lib/utils'
+import { setUser as setSentryUser } from '@/lib/sentry'
 
 /**
  * 現在のURLからorganizationSlugを抽出するヘルパー関数
@@ -148,6 +150,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   React.useEffect(() => {
     userRef.current = user
   }, [user])
+
+  // Sentryにユーザー情報を紐付け（エラー追跡の改善）
+  React.useEffect(() => {
+    if (user) {
+      setSentryUser(user.id, user.role)
+    } else {
+      setSentryUser(null)
+    }
+  }, [user])
   
   // 手動セッションリフレッシュ関数
   const refreshSession = useCallback(async () => {
@@ -287,13 +298,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
             
             // OAuthログイン後のreturnUrl処理（予約フローに戻る）
             if (event === 'SIGNED_IN') {
-              const returnUrl = sessionStorage.getItem('returnUrl')
-              if (returnUrl) {
+              const rawReturnUrl = sessionStorage.getItem('returnUrl')
+              if (rawReturnUrl) {
                 sessionStorage.removeItem('returnUrl')
-                logger.log('🔄 OAuth後のリダイレクト:', returnUrl)
+                const safeReturnUrl = validateRedirectUrl(rawReturnUrl)
+                logger.log('🔄 OAuth後のリダイレクト:', safeReturnUrl)
                 // 現在のパスと異なる場合のみリダイレクト
-                if (window.location.pathname !== returnUrl && !returnUrl.startsWith(window.location.pathname)) {
-                  window.location.href = returnUrl
+                if (window.location.pathname !== safeReturnUrl && !safeReturnUrl.startsWith(window.location.pathname)) {
+                  window.location.href = safeReturnUrl
                 }
               }
             }

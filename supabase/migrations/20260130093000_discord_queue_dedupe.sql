@@ -22,28 +22,29 @@
 --
 -- =============================================================================
 
-BEGIN;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'discord_notification_queue') THEN
+    -- 1) 既存重複を削除（最新1件を残す）
+    WITH ranked AS (
+      SELECT
+        ctid,
+        row_number() OVER (
+          PARTITION BY organization_id, notification_type, reference_id, webhook_url
+          ORDER BY created_at DESC, id DESC
+        ) AS rn
+      FROM public.discord_notification_queue
+      WHERE reference_id IS NOT NULL
+    )
+    DELETE FROM public.discord_notification_queue q
+    USING ranked r
+    WHERE q.ctid = r.ctid
+      AND r.rn > 1;
 
--- 1) 既存重複を削除（最新1件を残す）
-WITH ranked AS (
-  SELECT
-    ctid,
-    row_number() OVER (
-      PARTITION BY organization_id, notification_type, reference_id, webhook_url
-      ORDER BY created_at DESC, id DESC
-    ) AS rn
-  FROM public.discord_notification_queue
-  WHERE reference_id IS NOT NULL
-)
-DELETE FROM public.discord_notification_queue q
-USING ranked r
-WHERE q.ctid = r.ctid
-  AND r.rn > 1;
-
--- 2) ユニークインデックスを追加（冪等化の要）
-CREATE UNIQUE INDEX IF NOT EXISTS uq_discord_notification_queue_dedupe
-  ON public.discord_notification_queue(organization_id, notification_type, reference_id, webhook_url)
-  WHERE reference_id IS NOT NULL;
-
-COMMIT;
+    -- 2) ユニークインデックスを追加（冪等化の要）
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_discord_notification_queue_dedupe
+      ON public.discord_notification_queue(organization_id, notification_type, reference_id, webhook_url)
+      WHERE reference_id IS NOT NULL;
+  END IF;
+END $$;
 

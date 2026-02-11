@@ -23,6 +23,7 @@ import { supabase } from '@/lib/supabase'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 
 // 分離されたコンポーネント
@@ -630,7 +631,7 @@ export function PrivateBookingManagement() {
                       stores
                     )
                     if (result && !result.success && result.error) {
-                      showToast.error(result.error)
+                      showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
                     }
                   }}
                   onReject={() => handleRejectClick(selectedRequest.id)}

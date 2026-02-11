@@ -153,17 +153,15 @@ function AppRoutes() {
     }
   }, [user?.role])
 
-  // 顧客ユーザーは「氏名/電話/メール」が揃うまで利用させない（OAuthでも同様）
+  // 顧客ユーザーは「氏名/電話/メール」が揃うまで全ページでプロフィール登録を求める
+  // ただし /complete-profile 自体はリダイレクト対象外（無限ループ防止）
+  // 未ログインユーザーはリダイレクトしない（公開ページ閲覧可能）
   // NOTE: Hooksの順序を守るため、早期returnより前に定義する
   React.useEffect(() => {
-    const shouldSkip =
-      location.pathname === '/complete-profile' ||
-      location.pathname === '/login' ||
-      location.pathname === '/signup' ||
-      location.pathname === '/reset-password' ||
-      location.pathname === '/set-password'
+    // /complete-profile 自体はスキップ（無限ループ防止）
+    const isCompleteProfilePage = location.pathname === '/complete-profile'
 
-    if (!user || user.role !== 'customer' || shouldSkip) {
+    if (!user || user.role !== 'customer' || isCompleteProfilePage) {
       setIsProfileCheckRunning(false)
       return
     }
@@ -183,13 +181,17 @@ function AppRoutes() {
 
         if (error) {
           // 読み取り失敗時は安全側（必須情報が揃っていると確定できない）
-          navigate('/complete-profile', { replace: true })
+          navigate('/complete-profile?next=' + encodeURIComponent(location.pathname), { replace: true })
           return
         }
 
         const nameOk = Boolean(customer?.name && String(customer.name).trim().length > 0)
         const phoneOk = Boolean(customer?.phone && String(customer.phone).trim().length > 0)
-        const emailOk = Boolean(customer?.email && String(customer.email).trim().length > 0)
+        // OAuth ユーザーは auth session にメールがあるので、customer レコードに無くても OK
+        const emailOk = Boolean(
+          (customer?.email && String(customer.email).trim().length > 0) ||
+          (user.email && String(user.email).trim().length > 0)
+        )
 
         const isComplete = nameOk && phoneOk && emailOk
         if (!isComplete) {
@@ -198,7 +200,7 @@ function AppRoutes() {
         }
       } catch {
         if (!cancelled) {
-          navigate('/complete-profile', { replace: true })
+          navigate('/complete-profile?next=' + encodeURIComponent(location.pathname), { replace: true })
         }
       } finally {
         if (!cancelled) setIsProfileCheckRunning(false)
@@ -218,7 +220,15 @@ function AppRoutes() {
 
   // プロフィール設定ページ（新規登録メール確認後）
   // type=signup でリダイレクトされるが、/complete-profile の場合はこちらを優先
+  // ただし未ログインの場合はログインページへリダイレクト
   if (location.pathname === '/complete-profile') {
+    if (!loading && !user) {
+      return (
+        <Suspense fallback={<FullPageSpinner />}>
+          <LoginForm />
+        </Suspense>
+      )
+    }
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <CompleteProfile />

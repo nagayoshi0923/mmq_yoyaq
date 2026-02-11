@@ -110,9 +110,24 @@ export const storeApi = {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) throw new Error('組織情報が取得できません。再ログインしてください。')
 
+    // ⚠️ Mass Assignment 防止: 更新可能フィールドのホワイトリスト
+    const STORE_UPDATABLE_FIELDS = [
+      'name', 'short_name', 'address', 'phone_number', 'email',
+      'opening_date', 'manager_name', 'status', 'ownership_type', 'franchise_fee',
+      'capacity', 'rooms', 'notes', 'color', 'fixed_costs',
+      'is_temporary', 'temporary_date', 'temporary_dates', 'temporary_venue_names',
+      'display_order', 'region', 'transport_allowance', 'kit_group_id',
+    ] as const
+    const safeUpdates: Record<string, unknown> = {}
+    for (const key of Object.keys(updates)) {
+      if ((STORE_UPDATABLE_FIELDS as readonly string[]).includes(key)) {
+        safeUpdates[key] = (updates as Record<string, unknown>)[key]
+      }
+    }
+
     const { data, error } = await supabase
       .from('stores')
-      .update(updates)
+      .update(safeUpdates)
       .eq('id', id)
       .eq('organization_id', orgId)
       .select()

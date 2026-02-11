@@ -130,6 +130,55 @@ export function getStoreName(storeId: string): string {
   return storeNames[storeId as keyof typeof storeNames] || storeId
 }
 
+// ──────────────────────────────────────────────
+// セキュリティ: URL検証ユーティリティ
+// ──────────────────────────────────────────────
+
+/**
+ * リダイレクト先URLを検証し、安全な値を返す。
+ * オープンリダイレクト攻撃を防止するため、以下を拒否する:
+ * - 外部URL（http://evil.com）
+ * - プロトコル相対URL（//evil.com）
+ * - javascript: / data: 等のスキーム
+ * - 空文字や null
+ */
+export function validateRedirectUrl(url: string | null | undefined, defaultUrl = '/'): string {
+  if (!url || typeof url !== 'string') return defaultUrl
+  const trimmed = url.trim()
+  if (!trimmed) return defaultUrl
+  // 相対パス（/で始まる）のみ許可
+  if (!trimmed.startsWith('/')) return defaultUrl
+  // プロトコル相対URL（//）を拒否
+  if (trimmed.startsWith('//')) return defaultUrl
+  // コロンを含むパスを拒否（javascript:, data: 等を防止）
+  if (trimmed.includes(':')) return defaultUrl
+  return trimmed
+}
+
+/**
+ * PostgREST .or() / .eq() 等のフィルタ値に渡す文字列をサニタイズする。
+ * 特殊文字によるフィルタインジェクションを防止する。
+ */
+export function sanitizeForPostgRestFilter(value: string | null | undefined): string {
+  if (value == null || typeof value !== 'string') return ''
+  // フィルタ構文を壊す文字のみ除去（, " \ ; ( ) { } ）。@ . はメール等で必要
+  return value.replace(/[{}"\\;,()]/g, '')
+}
+
+/**
+ * 外部URLが安全か検証する（http/https のみ許可）。
+ * DB由来のURL等を window.open / href に渡す前に使用する。
+ */
+export function isValidExternalUrl(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') return false
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 // カテゴリ名の取得
 export function getCategoryName(category: string): string {
   const categoryNames = {

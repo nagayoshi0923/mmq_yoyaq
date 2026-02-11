@@ -47,6 +47,7 @@ import { scenarioApi, salesApi, storeApi, authorApi } from '@/lib/api'
 import { getAllExternalReports } from '@/lib/api/externalReportsApi'
 import type { Scenario, Author } from '@/types'
 import { supabase } from '@/lib/supabase'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { StickyNote } from 'lucide-react'
@@ -254,7 +255,7 @@ ${scenariosText}
       
       if (selectError) {
         logger.error('Failed to check existing record:', selectError)
-        showToast.error('他社公演数の保存に失敗しました', selectError.message)
+        showToast.error('他社公演数の保存に失敗しました', getSafeErrorMessage(selectError))
         return
       }
       
@@ -347,7 +348,7 @@ ${scenariosText}
       }
       
       if (saveError) {
-        showToast.error('他社公演数の保存に失敗しました', saveError.message)
+        showToast.error('他社公演数の保存に失敗しました', getSafeErrorMessage(saveError))
       }
     } catch (error) {
       logger.error('Failed to save external input:', error)

@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { logger } from '@/utils/logger'
+import { captureException } from '@/lib/sentry'
 
 interface Props {
   children: ReactNode
@@ -39,8 +40,10 @@ export class ErrorBoundary extends Component<Props, State> {
     logger.error('ErrorBoundary caught an error:', error)
     logger.error('Error info:', errorInfo)
     
-    // 将来的にはエラー監視サービス（Sentry等）に送信
-    // reportErrorToService(error, errorInfo)
+    // Sentry にエラーを送信（DSN設定済みの場合のみ）
+    captureException(error, {
+      componentStack: errorInfo?.componentStack,
+    })
   }
 
   handleReload = (): void => {

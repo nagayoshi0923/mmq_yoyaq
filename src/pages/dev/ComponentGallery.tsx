@@ -97,6 +97,7 @@ const NAV_ITEMS = [
   { id: 'tooltips', label: 'ツールチップ', category: 'フィードバック' },
   { id: 'tables', label: 'テーブル', category: 'データ表示' },
   { id: 'status', label: 'ステータス', category: 'データ表示' },
+  { id: 'sentry', label: 'Sentry', category: '開発ツール' },
   { id: 'hero', label: 'ヒーロー', category: 'トップページ' },
   { id: 'scenario-card', label: 'シナリオカード', category: 'トップページ' },
   { id: 'store-card', label: '店舗カード', category: 'トップページ' },
@@ -212,6 +213,24 @@ export function ComponentGallery() {
           {/* メインコンテンツ */}
           <main className="flex-1 min-w-0">
             {/* ====== ボタン ====== */}
+            {/* Sentry エラー送信テスト用 */}
+            <Section
+              id="sentry"
+              title="Sentry エラー送信テスト"
+              description="VITE_SENTRY_DSN 設定時に Sentry へエラーが送信されるか確認"
+            >
+              <ComponentBox>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    throw new Error('Sentry動作確認テスト')
+                  }}
+                >
+                  Sentry にテストエラーを送信
+                </Button>
+              </ComponentBox>
+            </Section>
+
             <Section
               id="buttons"
               title="ボタン"

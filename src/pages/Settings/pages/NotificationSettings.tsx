@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import type { Staff } from '@/types'
 
@@ -162,7 +163,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
       logger.log('シフト提出通知テスト結果:', data)
     } catch (error) {
       logger.error('シフト提出通知テストエラー:', error)
-      showToast.error('テスト送信に失敗しました', error instanceof Error ? error.message : '不明なエラー')
+      showToast.error('テスト送信に失敗しました', getSafeErrorMessage(error, '不明なエラー'))
     } finally {
       setTestingType(null)
     }
@@ -230,7 +231,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
       logger.log('貸切予約通知テスト結果:', response.data)
     } catch (error) {
       logger.error('貸切予約通知テストエラー:', error)
-      showToast.error('テスト送信に失敗しました', error instanceof Error ? error.message : '不明なエラー')
+      showToast.error('テスト送信に失敗しました', getSafeErrorMessage(error, '不明なエラー'))
     } finally {
       setTestingType(null)
     }
@@ -282,7 +283,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
       logger.log('シフト募集通知テスト結果:', response.data)
     } catch (error) {
       logger.error('シフト募集通知テストエラー:', error)
-      showToast.error('テスト送信に失敗しました', error instanceof Error ? error.message : '不明なエラー')
+      showToast.error('テスト送信に失敗しました', getSafeErrorMessage(error, '不明なエラー'))
     } finally {
       setTestingType(null)
     }
