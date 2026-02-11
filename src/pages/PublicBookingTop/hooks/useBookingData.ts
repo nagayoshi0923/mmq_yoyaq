@@ -224,7 +224,13 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       logger.log(`⏱️ データ取得完了: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
       logger.log(`📊 取得データ: シナリオ${scenariosData.length}件, 店舗${storesData.length}件, 公演${allEventsData.length}件`)
       
-      // 予約可能な通常公演のみフィルタリング（貸切公演は除外）
+      // 予約可能な通常公演のみフィルタリング（貸切公演・過去時間の公演は除外）
+      const now = new Date()
+      const nowJST = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }))
+      const todayStr = formatDateJST(now)
+      const nowHour = nowJST.getHours()
+      const nowMinute = nowJST.getMinutes()
+
       const publicEvents = allEventsData.filter((event: any) => {
         const isNotCancelled = !event.is_cancelled
         
@@ -234,6 +240,14 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         
         // 通常公演: category='open' かつ is_reservation_enabled=true
         const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open')
+
+        // 今日の公演で開始時間を過ぎたものは非表示
+        if (event.date === todayStr && event.start_time) {
+          const [h, m] = event.start_time.split(':').map(Number)
+          if (h < nowHour || (h === nowHour && m <= nowMinute)) {
+            return false
+          }
+        }
         
         return isNotCancelled && isOpenAndEnabled
       })
