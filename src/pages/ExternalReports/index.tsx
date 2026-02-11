@@ -86,7 +86,7 @@ export default function ExternalReports() {
         <CardContent className="p-4 flex items-center gap-3">
           <Building2 className="w-5 h-5 text-muted-foreground" />
           <span className="font-medium">{organization.name}</span>
-          <Badge variant="outline">{organization.plan.toUpperCase()}</Badge>
+          <Badge variant="outline">{(organization.plan || 'free').toUpperCase()}</Badge>
         </CardContent>
       </Card>
 

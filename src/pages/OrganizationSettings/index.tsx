@@ -266,7 +266,7 @@ export default function OrganizationSettings() {
             <div className="flex items-center gap-4">
               <div>
                 <Badge className="text-lg px-4 py-1">
-                  {organization.plan.toUpperCase()}
+                  {(organization.plan || 'free').toUpperCase()}
                 </Badge>
               </div>
               <div className="text-sm text-muted-foreground">

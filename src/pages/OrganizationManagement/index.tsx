@@ -23,6 +23,7 @@ import {
   Pencil
 } from 'lucide-react'
 import { useOrganization, useOrganizations } from '@/hooks/useOrganization'
+import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { OrganizationCreateDialog } from './components/OrganizationCreateDialog'
 import { OrganizationInviteDialog } from './components/OrganizationInviteDialog'
 import { OrganizationEditDialog } from './components/OrganizationEditDialog'
@@ -84,7 +85,7 @@ export default function OrganizationManagement() {
       <AppLayout currentPage="organizations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
           <Card className="border-destructive">
             <CardContent className="p-6">
-              <p className="text-destructive">エラーが発生しました: {error.message}</p>
+              <p className="text-destructive">エラーが発生しました: {getSafeErrorMessage(error, 'エラーが発生しました')}</p>
               <Button variant="outline" onClick={refetch} className="mt-4">
                 再試行
               </Button>
@@ -185,7 +186,7 @@ export default function OrganizationManagement() {
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-lg">{org.name}</h3>
                       <Badge variant={getPlanBadgeVariant(org.plan)}>
-                        {org.plan.toUpperCase()}
+                        {(org.plan || 'free').toUpperCase()}
                       </Badge>
                       {org.is_license_manager && (
                         <Badge variant="secondary">ライセンス管理</Badge>
