@@ -221,6 +221,7 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = 'public' AND c.relname = 'reservations_history') THEN
     EXECUTE 'DROP POLICY IF EXISTS "reservations_history_select_staff_or_admin" ON public.reservations_history';
+    EXECUTE 'DROP POLICY IF EXISTS "reservations_history_select_org_scoped" ON public.reservations_history';
     EXECUTE 'CREATE POLICY "reservations_history_select_org_scoped" ON public.reservations_history FOR SELECT USING (organization_id = get_user_organization_id())';
   ELSE
     RAISE NOTICE 'reservations_history テーブルが存在しないためスキップ';
