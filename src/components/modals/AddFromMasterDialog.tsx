@@ -109,8 +109,7 @@ export function AddFromMasterDialog({
           organization_id: organizationId,
           scenario_master_id: master.id,
           duration: master.official_duration,
-          org_status: 'coming_soon',  // 初期状態は「近日公開」
-          extra_preparation_time: 30
+          org_status: 'coming_soon'  // 初期状態は「近日公開」
         })
 
       if (error) {

@@ -5,7 +5,7 @@
  *         - マスタ由来の項目: 通常ヘッダー（グレー）
  *         - 組織設定の項目: 色付きヘッダー（青）
  */
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -104,9 +104,12 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [scenarioToDelete, setScenarioToDelete] = useState<OrganizationScenarioWithMaster | null>(null)
 
-  const fetchScenarios = useCallback(async () => {
+  const fetchScenarios = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true)
+      // リフレッシュ時はローディング表示しない（バックグラウンド更新）
+      if (!isRefresh) {
+        setLoading(true)
+      }
       setError(null)
       
       const organizationId = await getCurrentOrganizationId()
@@ -300,8 +303,18 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
     }
   }, [])
 
+  // 初回ロード済みフラグ
+  const initialLoadDoneRef = useRef(false)
+
   useEffect(() => {
-    fetchScenarios()
+    if (!initialLoadDoneRef.current) {
+      // 初回: ローディング表示あり
+      initialLoadDoneRef.current = true
+      fetchScenarios(false)
+    } else {
+      // リフレッシュ: バックグラウンド更新（ローディング表示なし）
+      fetchScenarios(true)
+    }
   }, [fetchScenarios, refreshKey])
 
   // フィルタリング
@@ -981,7 +994,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchScenarios}>
+          <Button variant="outline" size="sm" onClick={() => fetchScenarios(true)}>
             <RefreshCw className="w-4 h-4 mr-1" />
             更新
           </Button>
