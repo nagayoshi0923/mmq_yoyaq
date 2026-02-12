@@ -515,36 +515,57 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           setCurrentAssignments(gmAssignments)
           setSelectedStaffIds(gmAssignments.map(a => a.staff_id))
         } else {
-          // staff_scenario_assignments が空の場合、複数のフォールバック元からGM名を収集
-          const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
-          let gmNames: string[] = scenarioData?.available_gms || []
+          // staff_scenario_assignments が空の場合、organization_scenarios から直接GM名を取得
+          // （一覧表示と同じフォールバック順序: available_gms → gm_assignments）
+          let gmNames: string[] = []
           
-          // available_gms が空の場合、organization_scenarios の gm_assignments からも検索
-          if (gmNames.length === 0) {
-            try {
-              const masterId = scenarioData?.scenario_master_id || scenarioId
-              const { data: orgScenario } = await supabase
-                .from('organization_scenarios')
-                .select('gm_assignments')
-                .eq('scenario_master_id', masterId)
-                .eq('organization_id', orgId!)
-                .maybeSingle()
-              
-              if (orgScenario?.gm_assignments && Array.isArray(orgScenario.gm_assignments)) {
+          try {
+            // scenarioId は scenario_master_id として渡される
+            const masterId = scenarioId
+            const { data: orgScenario } = await supabase
+              .from('organization_scenarios')
+              .select('available_gms, gm_assignments')
+              .eq('scenario_master_id', masterId)
+              .eq('organization_id', orgId!)
+              .maybeSingle()
+            
+            logger.log('🔍 organization_scenarios fallback:', {
+              masterId,
+              available_gms: orgScenario?.available_gms,
+              gm_assignments_count: orgScenario?.gm_assignments?.length,
+            })
+            
+            if (orgScenario) {
+              // 1. available_gms (text[]) を優先
+              if (orgScenario.available_gms && Array.isArray(orgScenario.available_gms) && orgScenario.available_gms.length > 0) {
+                gmNames = orgScenario.available_gms
+              }
+              // 2. gm_assignments (JSONB) からスタッフ名を抽出
+              else if (orgScenario.gm_assignments && Array.isArray(orgScenario.gm_assignments) && orgScenario.gm_assignments.length > 0) {
                 gmNames = orgScenario.gm_assignments
                   .map((gm: any) => gm.staff_name || gm.name || '')
                   .filter((name: string) => name.length > 0)
               }
-            } catch {
-              // 取得失敗は無視
             }
+          } catch {
+            // 取得失敗は無視
           }
+          
+          // 旧 scenarios テーブルの available_gms もフォールバック
+          if (gmNames.length === 0) {
+            const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
+            gmNames = scenarioData?.available_gms || []
+          }
+          
+          logger.log('🔍 fallback gmNames:', gmNames)
           
           if (gmNames.length > 0 && staff.length > 0) {
             // 名前からスタッフIDを逆引き
             const matchedStaffIds = staff
               .filter(s => gmNames.includes(s.name))
               .map(s => s.id)
+            
+            logger.log('🔍 matched staff:', matchedStaffIds.length, '/', gmNames.length)
             
             if (matchedStaffIds.length > 0) {
               setSelectedStaffIds(matchedStaffIds)
@@ -593,30 +614,39 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     if (isLoadingAssignments) return
     
     const loadFallbackGms = async () => {
-      // available_gms（名前配列）からスタッフIDを逆引き
-      const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
-      let gmNames: string[] = scenarioData?.available_gms || []
+      // organization_scenarios から直接 GM名を取得（一覧と同じフォールバック順序）
+      let gmNames: string[] = []
       
-      // available_gms が空の場合、organization_scenarios からも検索
-      if (gmNames.length === 0) {
-        try {
-          const orgId = await getCurrentOrganizationId()
-          const masterId = scenarioData?.scenario_master_id || scenarioId
-          const { data: orgScenario } = await supabase
-            .from('organization_scenarios')
-            .select('gm_assignments')
-            .eq('scenario_master_id', masterId)
-            .eq('organization_id', orgId!)
-            .maybeSingle()
-          
-          if (orgScenario?.gm_assignments && Array.isArray(orgScenario.gm_assignments)) {
+      try {
+        const orgId = await getCurrentOrganizationId()
+        const masterId = scenarioId // scenarioId は scenario_master_id
+        const { data: orgScenario } = await supabase
+          .from('organization_scenarios')
+          .select('available_gms, gm_assignments')
+          .eq('scenario_master_id', masterId)
+          .eq('organization_id', orgId!)
+          .maybeSingle()
+        
+        if (orgScenario) {
+          // 1. available_gms (text[]) を優先
+          if (orgScenario.available_gms && Array.isArray(orgScenario.available_gms) && orgScenario.available_gms.length > 0) {
+            gmNames = orgScenario.available_gms
+          }
+          // 2. gm_assignments (JSONB) からスタッフ名を抽出
+          else if (orgScenario.gm_assignments && Array.isArray(orgScenario.gm_assignments) && orgScenario.gm_assignments.length > 0) {
             gmNames = orgScenario.gm_assignments
               .map((gm: any) => gm.staff_name || gm.name || '')
               .filter((name: string) => name.length > 0)
           }
-        } catch {
-          // 取得失敗は無視
         }
+      } catch {
+        // 取得失敗は無視
+      }
+      
+      // 旧 scenarios テーブルの available_gms もフォールバック
+      if (gmNames.length === 0) {
+        const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
+        gmNames = scenarioData?.available_gms || []
       }
       
       if (gmNames.length > 0) {
