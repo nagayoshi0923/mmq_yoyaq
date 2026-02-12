@@ -1224,40 +1224,124 @@ export function PerformanceModal({
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 p-1.5 sm:p-2 border-t bg-background shrink-0">
           {/* 左側：シナリオ情報（省スペース表示） */}
           <div className="flex-1 min-w-0 hidden sm:block">
-            {formData.scenario && (() => {
-              const selectedScenario = scenarios.find(s => s.title === formData.scenario)
-              if (selectedScenario) {
-                // 参加費を取得
-                const getParticipationFee = () => {
+            {(() => {
+              const category = formData.category
+              
+              // シナリオの通常参加費（1名あたり）を取得するヘルパー
+              const getNormalFeeAmount = (scenario: Scenario): number | null => {
+                if (scenario.participation_costs && scenario.participation_costs.length > 0) {
+                  const normalCosts = scenario.participation_costs.filter(
+                    c => (c.time_slot === 'normal' || c.time_slot === '通常') && (c.status === 'active' || !c.status)
+                  )
+                  if (normalCosts.length >= 1) {
+                    return normalCosts[0].amount
+                  }
+                }
+                return scenario.participation_fee || null
+              }
+
+              // カテゴリに準じた料金を取得
+              const getCategoryFee = (): { label: string; fee: string } | null => {
+                // MTG・メモは料金表示なし
+                if (category === 'mtg' || category === 'memo') return null
+                
+                // 場所貸し：formData の venue_rental_fee を使用
+                if (category === 'venue_rental') {
+                  const fee = formData.venue_rental_fee ?? 12000
+                  return { label: '場所貸し', fee: `¥${fee.toLocaleString()}` }
+                }
+                
+                // 場所貸無料
+                if (category === 'venue_rental_free') {
+                  return { label: '場所貸し', fee: '¥0' }
+                }
+                
+                // テストプレイ：無料
+                if (category === 'testplay') {
+                  return { label: 'テストプレイ', fee: '¥0' }
+                }
+                
+                // シナリオが選択されていない場合はここで終了
+                const selectedScenario = scenarios.find(s => s.title === formData.scenario)
+                if (!formData.scenario || !selectedScenario) return null
+                
+                // GMテスト：GMテスト用料金を使用
+                if (category === 'gmtest') {
                   if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
-                    const activeCosts = selectedScenario.participation_costs.filter(c => c.status === 'active' || !c.status)
-                    if (activeCosts.length === 1) {
-                      return `¥${activeCosts[0].amount.toLocaleString()}`
-                    } else if (activeCosts.length > 1) {
-                      const amounts = activeCosts.map(c => c.amount)
-                      const min = Math.min(...amounts)
-                      const max = Math.max(...amounts)
-                      return min === max ? `¥${min.toLocaleString()}` : `¥${min.toLocaleString()}〜`
+                    const gmtestCost = selectedScenario.participation_costs.find(
+                      c => c.time_slot === 'gmtest' && (c.status === 'active' || !c.status)
+                    )
+                    if (gmtestCost) {
+                      return { label: 'GMテスト', fee: `¥${gmtestCost.amount.toLocaleString()}` }
                     }
                   }
-                  return selectedScenario.participation_fee ? `¥${selectedScenario.participation_fee.toLocaleString()}` : null
+                  if (selectedScenario.gm_test_participation_fee) {
+                    return { label: 'GMテスト', fee: `¥${selectedScenario.gm_test_participation_fee.toLocaleString()}` }
+                  }
+                  return { label: 'GMテスト', fee: '¥0' }
                 }
-                const fee = getParticipationFee()
                 
+                // 貸切公演：参加費 × 最大人数 = 合計金額
+                if (category === 'private') {
+                  const perPerson = getNormalFeeAmount(selectedScenario)
+                  if (perPerson) {
+                    const maxP = selectedScenario.player_count_max || formData.max_participants || 1
+                    const total = perPerson * maxP
+                    return { label: '貸切', fee: `¥${total.toLocaleString()}` }
+                  }
+                  return null
+                }
+                
+                // open, offsite, package, その他：通常料金（1名あたり）
+                if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
+                  const normalCosts = selectedScenario.participation_costs.filter(
+                    c => (c.time_slot === 'normal' || c.time_slot === '通常') && (c.status === 'active' || !c.status)
+                  )
+                  if (normalCosts.length === 1) {
+                    return { label: '', fee: `¥${normalCosts[0].amount.toLocaleString()}` }
+                  } else if (normalCosts.length > 1) {
+                    const amounts = normalCosts.map(c => c.amount)
+                    const min = Math.min(...amounts)
+                    const max = Math.max(...amounts)
+                    const feeStr = min === max ? `¥${min.toLocaleString()}` : `¥${min.toLocaleString()}〜`
+                    return { label: '', fee: feeStr }
+                  }
+                }
+                if (selectedScenario.participation_fee) {
+                  return { label: '', fee: `¥${selectedScenario.participation_fee.toLocaleString()}` }
+                }
+                return null
+              }
+              
+              const selectedScenario = formData.scenario ? scenarios.find(s => s.title === formData.scenario) : null
+              const categoryFee = getCategoryFee()
+              
+              // シナリオ情報がある場合はシナリオ情報＋料金を表示
+              if (selectedScenario) {
                 return (
                   <div className="flex items-center gap-2 text-[11px] sm:text-xs font-medium">
                     <span>{selectedScenario.duration}h</span>
                     <span className="text-muted-foreground">|</span>
                     <span>最大{selectedScenario.player_count_max}名</span>
-                    {fee && (
+                    {categoryFee && (
                       <>
                         <span className="text-muted-foreground">|</span>
-                        <span>{fee}</span>
+                        <span>{categoryFee.label ? `${categoryFee.label} ` : ''}{categoryFee.fee}</span>
                       </>
                     )}
                   </div>
                 )
               }
+              
+              // シナリオなしでも料金表示があるカテゴリ（場所貸しなど）
+              if (categoryFee) {
+                return (
+                  <div className="flex items-center gap-2 text-[11px] sm:text-xs font-medium">
+                    <span>{categoryFee.label ? `${categoryFee.label} ` : ''}{categoryFee.fee}</span>
+                  </div>
+                )
+              }
+              
               return null
             })()}
           </div>
