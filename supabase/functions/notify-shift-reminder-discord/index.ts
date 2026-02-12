@@ -117,7 +117,7 @@ async function sendDiscordReminder(
           type: 2,
           style: 5, // リンクボタン
           label: "シフト提出ページを開く",
-          url: `${Deno.env.get('SITE_URL') || 'https://your-site.com'}/#/shift-submission`
+          url: `${Deno.env.get('SITE_URL') || 'https://mmq.game'}/#/shift-submission`
         }
       ]
     }

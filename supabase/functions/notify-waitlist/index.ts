@@ -137,7 +137,7 @@ serve(async (req) => {
     // 組織のドメインがあればそれを使用、なければデフォルトドメイン + slug
     const bookingUrl = org.domain 
       ? `https://${org.domain}`
-      : `https://mmq-yoyaq.vercel.app/${org.slug || 'queens-waltz'}`
+      : `https://mmq.game/${org.slug || 'queens-waltz'}`
     
     console.log('✅ bookingUrl generated server-side:', bookingUrl)
 

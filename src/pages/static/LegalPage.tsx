@@ -70,7 +70,7 @@ export function LegalPage() {
                   販売URL
                 </th>
                 <td className="px-6 py-4 text-sm text-gray-700">
-                  https://mmq-yoyaq.vercel.app
+                  https://mmq.game
                 </td>
               </tr>
               <tr>

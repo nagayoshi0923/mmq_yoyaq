@@ -574,7 +574,7 @@ serve(async (req) => {
     console.log(`ツイート対象の公演数: ${availableEvents.length}`)
 
     // 予約ページのベースURL（環境変数から取得、なければデフォルト）
-    const baseUrl = Deno.env.get('PUBLIC_BOOKING_URL') || 'https://mmq-yoyaq.vercel.app/booking'
+    const baseUrl = Deno.env.get('PUBLIC_BOOKING_URL') || 'https://mmq.game/booking'
 
     let tweetCount = 0
     const errors: string[] = []

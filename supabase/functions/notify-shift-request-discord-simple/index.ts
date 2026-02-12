@@ -8,7 +8,7 @@ import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timing
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
 const FALLBACK_DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
-const SITE_URL = Deno.env.get('SITE_URL') || 'https://mmq-yoyaq-git-main-nagayoshi0923s-projects.vercel.app'
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://mmq.game'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 

@@ -81,6 +81,7 @@ function isNonProduction(): boolean {
 }
 
 const PROD_ALLOWED_ORIGINS = [
+  'https://mmq.game',
   'https://mmq-yoyaq.vercel.app',
 ]
 

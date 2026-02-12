@@ -7,7 +7,7 @@ import { getCorsHeaders, maskEmail, maskName, sanitizeErrorMessage, getAnonKey, 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
 const SUPABASE_ANON_KEY = getAnonKey()
-const SITE_URL = (Deno.env.get('SITE_URL') || 'https://mmq-yoyaq.vercel.app').replace(/\/$/, '')
+const SITE_URL = (Deno.env.get('SITE_URL') || 'https://mmq.game').replace(/\/$/, '')
 const SET_PASSWORD_REDIRECT = `${SITE_URL}/#/set-password`
 const RESET_PASSWORD_REDIRECT = `${SITE_URL}/#/reset-password`
 

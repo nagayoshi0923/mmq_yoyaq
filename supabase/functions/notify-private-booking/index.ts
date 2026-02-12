@@ -133,7 +133,7 @@ ${candidatesText}
 
 ${booking.notes ? `📝 備考: ${booking.notes}` : ''}
 
-▶️ 確認: ${Deno.env.get('SITE_URL') || 'https://your-site.com'}#gm-availability-check`
+▶️ 確認: ${Deno.env.get('SITE_URL') || 'https://mmq.game'}#gm-availability-check`
 
     // LINE通知を送信（メール通知設定が有効な場合のみ）
     if (LINE_NOTIFY_TOKEN && notificationSettings?.new_reservation_email !== false) {
