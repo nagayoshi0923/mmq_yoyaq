@@ -243,7 +243,7 @@ function PerformanceCardBase({
                 <Badge 
                   variant="outline" 
                   size="sm" 
-                  className={`font-normal text-[10px] px-1 py-0 h-4 whitespace-nowrap hidden sm:inline-flex items-center cursor-pointer transition-all ${
+                  className={`font-normal text-[10px] px-1.5 py-0 h-4 rounded-full whitespace-nowrap hidden sm:inline-flex items-center cursor-pointer transition-all ${
                     isPublished 
                       ? 'bg-green-50 text-green-700 border-green-300 hover:bg-green-100' 
                       : 'bg-gray-50 text-gray-500 border-gray-300 hover:bg-gray-100'
