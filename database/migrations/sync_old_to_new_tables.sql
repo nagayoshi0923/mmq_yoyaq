@@ -77,21 +77,18 @@ gm_names_direct AS (
     AND ssa.scenario_id IN (SELECT id FROM scenario_masters)
   GROUP BY ssa.scenario_id, ssa.organization_id
 ),
--- 統合
-all_gms AS (
-  SELECT scenario_master_id, organization_id, gm_list FROM gm_names
-  UNION ALL
-  SELECT scenario_master_id, organization_id, gm_list FROM gm_names_direct
+-- 統合（全レコードを1行ずつに展開してから再集約）
+all_gm_rows AS (
+  SELECT scenario_master_id, organization_id, unnest(gm_list) as name FROM gm_names
+  UNION
+  SELECT scenario_master_id, organization_id, unnest(gm_list) as name FROM gm_names_direct
 ),
--- 重複をマージ
 merged_gms AS (
   SELECT 
     scenario_master_id,
     organization_id,
-    ARRAY(
-      SELECT DISTINCT unnest(gm_list) ORDER BY 1
-    ) as merged_gm_list
-  FROM all_gms
+    ARRAY_AGG(DISTINCT name ORDER BY name) as merged_gm_list
+  FROM all_gm_rows
   GROUP BY scenario_master_id, organization_id
 )
 UPDATE organization_scenarios os
@@ -135,19 +132,17 @@ exp_names_direct AS (
     AND ssa.scenario_id IN (SELECT id FROM scenario_masters)
   GROUP BY ssa.scenario_id, ssa.organization_id
 ),
-all_exp AS (
-  SELECT scenario_master_id, organization_id, exp_list FROM exp_names
-  UNION ALL
-  SELECT scenario_master_id, organization_id, exp_list FROM exp_names_direct
+all_exp_rows AS (
+  SELECT scenario_master_id, organization_id, unnest(exp_list) as name FROM exp_names
+  UNION
+  SELECT scenario_master_id, organization_id, unnest(exp_list) as name FROM exp_names_direct
 ),
 merged_exp AS (
   SELECT 
     scenario_master_id,
     organization_id,
-    ARRAY(
-      SELECT DISTINCT unnest(exp_list) ORDER BY 1
-    ) as merged_exp_list
-  FROM all_exp
+    ARRAY_AGG(DISTINCT name ORDER BY name) as merged_exp_list
+  FROM all_exp_rows
   GROUP BY scenario_master_id, organization_id
 )
 UPDATE organization_scenarios os
