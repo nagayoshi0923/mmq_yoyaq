@@ -140,6 +140,14 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     : null
   const currentMasterId = currentScenario?.scenario_master_id || formData.scenario_master_id
   
+  // scenarioId が scenario_master_id の場合、旧 scenarios.id に解決する
+  // staff_scenario_assignments は旧 scenarios.id を使用するため必須
+  const resolvedScenarioId = useMemo(() => {
+    if (!scenarioId) return null
+    const found = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
+    return found?.id || scenarioId
+  }, [scenarioId, scenarios])
+  
   // 組織名を取得
   const [organizationName, setOrganizationName] = useState<string>('')
   useEffect(() => {
@@ -408,21 +416,22 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   // シナリオIDが変わった時（またはモーダルが開いた時）に担当関係と累計公演回数を取得
   useEffect(() => {
     const loadAssignments = async () => {
-      if (isOpen && scenarioId) {
+      // resolvedScenarioId を使用（scenario_master_id → 旧scenarios.id に解決済み）
+      if (isOpen && resolvedScenarioId) {
         try {
           setIsLoadingAssignments(true)
-          const assignments = await assignmentApi.getScenarioAssignments(scenarioId)
+          const assignments = await assignmentApi.getScenarioAssignments(resolvedScenarioId)
           setCurrentAssignments(assignments)
           setSelectedStaffIds(assignments.map(a => a.staff_id))
           
           // 統計情報を取得
           try {
-            const stats = await scenarioApi.getScenarioStats(scenarioId)
+            const stats = await scenarioApi.getScenarioStats(resolvedScenarioId)
             setScenarioStats(stats)
           } catch (statsError) {
             logger.error('Error loading scenario stats:', statsError)
             // フォールバック: 公演回数だけ取得
-            const count = await scenarioApi.getPerformanceCount(scenarioId)
+            const count = await scenarioApi.getPerformanceCount(resolvedScenarioId)
             setScenarioStats(prev => ({ ...prev, performanceCount: count }))
           }
         } catch (error) {
@@ -430,7 +439,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         } finally {
           setIsLoadingAssignments(false)
         }
-      } else {
+      } else if (!scenarioId) {
         // 新規作成時またはIDなし
         setCurrentAssignments([])
         setSelectedStaffIds([])
@@ -452,7 +461,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     if (isOpen) {
       loadAssignments()
     }
-  }, [isOpen, scenarioId])
+  }, [isOpen, resolvedScenarioId, scenarioId])
 
   // フォームの初回ロード済みキーを追跡（保存後の不要なフォームリセットを防止）
   const formLoadedKeyRef = useRef<string>('')
@@ -713,11 +722,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       })
 
       // 担当GMの更新処理
-      // 編集モードの場合、または新規作成でIDが取得できた場合
-      // result は mutation の戻り値だが、Supabase の戻り値が含まれているか確認が必要
-      // useScenarioMutation の実装によっては result が void の可能性もあるが、
-      // とりあえず編集モード (scenarioIdがある) 場合は確実に実行
-      const targetScenarioId = scenarioId || (result && typeof result === 'object' && 'id' in result ? result.id : undefined)
+      // staff_scenario_assignments は旧 scenarios.id を使用するため、resolvedScenarioId を優先
+      const targetScenarioId = resolvedScenarioId || (result && typeof result === 'object' && 'id' in result ? result.id : undefined)
 
       if (targetScenarioId) {
         try {

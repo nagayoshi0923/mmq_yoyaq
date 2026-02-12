@@ -375,8 +375,13 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
   // 既に追加済みのマスタIDリスト
   const existingMasterIds = useMemo(() => scenarios.map(s => s.scenario_master_id), [scenarios])
 
-  // ステータス変更
+  // ステータス変更（ローカルstate即時更新 → DB保存）
   const handleStatusChange = async (scenario: OrganizationScenarioWithMaster, newStatus: string) => {
+    // 楽観的更新: まずローカルstateを即時反映（リロードなし）
+    setScenarios(prev => prev.map(s => 
+      s.id === scenario.id ? { ...s, org_status: newStatus as OrganizationScenarioWithMaster['org_status'] } : s
+    ))
+
     try {
       const { error } = await supabase
         .from('organization_scenarios')
@@ -386,14 +391,21 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       if (error) {
         logger.error('Failed to update status:', error)
         toast.error('ステータス更新に失敗しました')
+        // エラー時はロールバック
+        setScenarios(prev => prev.map(s => 
+          s.id === scenario.id ? { ...s, org_status: scenario.org_status } : s
+        ))
         return
       }
 
       toast.success(`「${scenario.title}」を${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}に変更しました`)
-      fetchScenarios()
     } catch (err) {
       logger.error('Error updating status:', err)
       toast.error('エラーが発生しました')
+      // エラー時はロールバック
+      setScenarios(prev => prev.map(s => 
+        s.id === scenario.id ? { ...s, org_status: scenario.org_status } : s
+      ))
     }
   }
 
@@ -414,9 +426,10 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       }
 
       toast.success(`「${scenarioToDelete.title}」を解除しました`)
+      // ローカルstateから即時削除（リロードなし）
+      setScenarios(prev => prev.filter(s => s.id !== scenarioToDelete.id))
       setDeleteDialogOpen(false)
       setScenarioToDelete(null)
-      fetchScenarios()
     } catch (err) {
       logger.error('Error unlinking scenario:', err)
       toast.error('エラーが発生しました')
