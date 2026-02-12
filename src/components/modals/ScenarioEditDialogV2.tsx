@@ -329,6 +329,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
   // ローディング状態
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false)
+  // デバッグ情報（一時的）
+  const [debugGmInfo, setDebugGmInfo] = useState('')
   
   // 保存成功メッセージ
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
@@ -518,54 +520,63 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           // staff_scenario_assignments が空の場合、organization_scenarios から直接GM名を取得
           // （一覧表示と同じフォールバック順序: available_gms → gm_assignments）
           let gmNames: string[] = []
+          let debugSource = 'none'
           
           try {
             // scenarioId は scenario_master_id として渡される
             const masterId = scenarioId
-            const { data: orgScenario } = await supabase
+            const { data: orgScenario, error: orgError } = await supabase
               .from('organization_scenarios')
               .select('available_gms, gm_assignments')
               .eq('scenario_master_id', masterId)
               .eq('organization_id', orgId!)
               .maybeSingle()
             
-            logger.log('🔍 organization_scenarios fallback:', {
-              masterId,
-              available_gms: orgScenario?.available_gms,
-              gm_assignments_count: orgScenario?.gm_assignments?.length,
-            })
+            const debugParts = [
+              `masterId: ${masterId}`,
+              `orgId: ${orgId}`,
+              `orgError: ${orgError?.message || 'none'}`,
+              `orgScenario: ${orgScenario ? 'found' : 'null'}`,
+              `available_gms: ${JSON.stringify(orgScenario?.available_gms)}`,
+              `gm_assignments: ${JSON.stringify(orgScenario?.gm_assignments?.slice?.(0, 2))}`,
+              `staff.length: ${staff.length}`,
+            ]
             
             if (orgScenario) {
               // 1. available_gms (text[]) を優先
               if (orgScenario.available_gms && Array.isArray(orgScenario.available_gms) && orgScenario.available_gms.length > 0) {
                 gmNames = orgScenario.available_gms
+                debugSource = `available_gms(${gmNames.length})`
               }
               // 2. gm_assignments (JSONB) からスタッフ名を抽出
               else if (orgScenario.gm_assignments && Array.isArray(orgScenario.gm_assignments) && orgScenario.gm_assignments.length > 0) {
                 gmNames = orgScenario.gm_assignments
                   .map((gm: any) => gm.staff_name || gm.name || '')
                   .filter((name: string) => name.length > 0)
+                debugSource = `gm_assignments(${gmNames.length})`
               }
             }
-          } catch {
-            // 取得失敗は無視
+            
+            // 旧 scenarios テーブルの available_gms もフォールバック
+            if (gmNames.length === 0) {
+              const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
+              gmNames = scenarioData?.available_gms || []
+              if (gmNames.length > 0) debugSource = `old_scenarios(${gmNames.length})`
+            }
+            
+            const matchedIds = staff.filter(s => gmNames.includes(s.name)).map(s => s.id)
+            debugParts.push(`source: ${debugSource}`, `gmNames: [${gmNames.join(', ')}]`, `matched: ${matchedIds.length}`)
+            setDebugGmInfo(debugParts.join(' | '))
+            
+          } catch (err) {
+            setDebugGmInfo(`fallback error: ${err}`)
           }
-          
-          // 旧 scenarios テーブルの available_gms もフォールバック
-          if (gmNames.length === 0) {
-            const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
-            gmNames = scenarioData?.available_gms || []
-          }
-          
-          logger.log('🔍 fallback gmNames:', gmNames)
           
           if (gmNames.length > 0 && staff.length > 0) {
             // 名前からスタッフIDを逆引き
             const matchedStaffIds = staff
               .filter(s => gmNames.includes(s.name))
               .map(s => s.id)
-            
-            logger.log('🔍 matched staff:', matchedStaffIds.length, '/', gmNames.length)
             
             if (matchedStaffIds.length > 0) {
               setSelectedStaffIds(matchedStaffIds)
@@ -1152,16 +1163,23 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         return <PricingSectionV2 formData={formData} setFormData={setFormData} />
       case 'gm':
         return (
-          <GmSettingsSectionV2 
-            formData={formData} 
-            setFormData={setFormData} 
-            staff={staff}
-            loadingStaff={loadingStaff}
-            selectedStaffIds={selectedStaffIds}
-            onStaffSelectionChange={setSelectedStaffIds}
-            currentAssignments={currentAssignments}
-            onAssignmentUpdate={handleAssignmentUpdate}
-          />
+          <>
+            {debugGmInfo && (
+              <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-[10px] break-all">
+                {debugGmInfo}
+              </div>
+            )}
+            <GmSettingsSectionV2 
+              formData={formData} 
+              setFormData={setFormData} 
+              staff={staff}
+              loadingStaff={loadingStaff}
+              selectedStaffIds={selectedStaffIds}
+              onStaffSelectionChange={setSelectedStaffIds}
+              currentAssignments={currentAssignments}
+              onAssignmentUpdate={handleAssignmentUpdate}
+            />
+          </>
         )
       case 'costs':
         return <CostsPropsSectionV2 formData={formData} setFormData={setFormData} scenarioStats={scenarioStats} />
