@@ -515,14 +515,35 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           setCurrentAssignments(gmAssignments)
           setSelectedStaffIds(gmAssignments.map(a => a.staff_id))
         } else {
-          // staff_scenario_assignments が空の場合、available_gms（名前配列）からフォールバック
+          // staff_scenario_assignments が空の場合、複数のフォールバック元からGM名を収集
           const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
-          const availableGmNames: string[] = scenarioData?.available_gms || []
+          let gmNames: string[] = scenarioData?.available_gms || []
           
-          if (availableGmNames.length > 0 && staff.length > 0) {
+          // available_gms が空の場合、organization_scenarios の gm_assignments からも検索
+          if (gmNames.length === 0) {
+            try {
+              const masterId = scenarioData?.scenario_master_id || scenarioId
+              const { data: orgScenario } = await supabase
+                .from('organization_scenarios')
+                .select('gm_assignments')
+                .eq('scenario_master_id', masterId)
+                .eq('organization_id', orgId!)
+                .maybeSingle()
+              
+              if (orgScenario?.gm_assignments && Array.isArray(orgScenario.gm_assignments)) {
+                gmNames = orgScenario.gm_assignments
+                  .map((gm: any) => gm.staff_name || gm.name || '')
+                  .filter((name: string) => name.length > 0)
+              }
+            } catch {
+              // 取得失敗は無視
+            }
+          }
+          
+          if (gmNames.length > 0 && staff.length > 0) {
             // 名前からスタッフIDを逆引き
             const matchedStaffIds = staff
-              .filter(s => availableGmNames.includes(s.name))
+              .filter(s => gmNames.includes(s.name))
               .map(s => s.id)
             
             if (matchedStaffIds.length > 0) {
@@ -563,7 +584,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, scenarioId])
 
-  // staff ロード後に available_gms からフォールバックで担当GMを設定
+  // staff ロード後に available_gms / organization_scenarios.gm_assignments からフォールバックで担当GMを設定
   useEffect(() => {
     if (!isOpen || !scenarioId || staff.length === 0) return
     // 既に selectedStaffIds が設定されている場合はスキップ
@@ -571,27 +592,53 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     // ローディング中はスキップ
     if (isLoadingAssignments) return
     
-    // available_gms（名前配列）からスタッフIDを逆引き
-    const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
-    const availableGmNames: string[] = scenarioData?.available_gms || []
-    
-    if (availableGmNames.length > 0) {
-      const matchedStaffIds = staff
-        .filter(s => availableGmNames.includes(s.name))
-        .map(s => s.id)
+    const loadFallbackGms = async () => {
+      // available_gms（名前配列）からスタッフIDを逆引き
+      const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
+      let gmNames: string[] = scenarioData?.available_gms || []
       
-      if (matchedStaffIds.length > 0) {
-        setSelectedStaffIds(matchedStaffIds)
-        setCurrentAssignments(matchedStaffIds.map(id => ({
-          staff_id: id,
-          scenario_id: resolvedScenarioIdRef.current || scenarioId,
-          can_main_gm: true,
-          can_sub_gm: true,
-          is_experienced: false,
-          staff: staff.find(s => s.id === id) || { id, name: '', line_name: '' }
-        })))
+      // available_gms が空の場合、organization_scenarios からも検索
+      if (gmNames.length === 0) {
+        try {
+          const orgId = await getCurrentOrganizationId()
+          const masterId = scenarioData?.scenario_master_id || scenarioId
+          const { data: orgScenario } = await supabase
+            .from('organization_scenarios')
+            .select('gm_assignments')
+            .eq('scenario_master_id', masterId)
+            .eq('organization_id', orgId!)
+            .maybeSingle()
+          
+          if (orgScenario?.gm_assignments && Array.isArray(orgScenario.gm_assignments)) {
+            gmNames = orgScenario.gm_assignments
+              .map((gm: any) => gm.staff_name || gm.name || '')
+              .filter((name: string) => name.length > 0)
+          }
+        } catch {
+          // 取得失敗は無視
+        }
+      }
+      
+      if (gmNames.length > 0) {
+        const matchedStaffIds = staff
+          .filter(s => gmNames.includes(s.name))
+          .map(s => s.id)
+        
+        if (matchedStaffIds.length > 0) {
+          setSelectedStaffIds(matchedStaffIds)
+          setCurrentAssignments(matchedStaffIds.map(id => ({
+            staff_id: id,
+            scenario_id: resolvedScenarioIdRef.current || scenarioId,
+            can_main_gm: true,
+            can_sub_gm: true,
+            is_experienced: false,
+            staff: staff.find(s => s.id === id) || { id, name: '', line_name: '' }
+          })))
+        }
       }
     }
+
+    loadFallbackGms()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, scenarioId, staff.length, selectedStaffIds.length, isLoadingAssignments])
 
