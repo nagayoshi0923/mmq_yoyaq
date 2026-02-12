@@ -484,12 +484,11 @@ export function PerformanceModal({
   }
 
   const handleScenarioSaved = async () => {
-    // シナリオリストを更新
+    // シナリオリストを更新（ダイアログは開いたままなので editingScenarioId はリセットしない）
+    // editingScenarioId のリセットは onClose 時に行う
     if (onScenariosUpdate) {
       await onScenariosUpdate()
     }
-    // 編集中のシナリオIDをリセット
-    setEditingScenarioId(null)
   }
 
   const handleCreateStaff = async (newStaff: StaffType) => {
