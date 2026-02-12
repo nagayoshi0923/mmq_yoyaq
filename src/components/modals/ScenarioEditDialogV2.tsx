@@ -996,6 +996,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   participation_fee: scenarioData.participation_fee,
                   extra_preparation_time: scenarioData.extra_preparation_time ?? null,
                   org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
+                  custom_key_visual_url: scenarioData.key_visual_url || null,
                   available_stores: scenarioData.available_stores || [],
                   participation_costs: scenarioData.participation_costs || [],
                   gm_costs: scenarioData.gm_costs || [],
@@ -1028,6 +1029,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   participation_fee: scenarioData.participation_fee,
                   extra_preparation_time: scenarioData.extra_preparation_time ?? null,
                   org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
+                  custom_key_visual_url: scenarioData.key_visual_url || null,
                   available_stores: scenarioData.available_stores || [],
                   participation_costs: scenarioData.participation_costs || [],
                   gm_costs: scenarioData.gm_costs || [],
@@ -1056,6 +1058,36 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           }
         } catch (orgErr) {
           logger.error('organization_scenarios処理エラー:', orgErr)
+        }
+        
+        // scenario_masters のマスタフィールドも同期更新
+        try {
+          const masterUpdates: Record<string, unknown> = {}
+          if (scenarioData.title) masterUpdates.title = scenarioData.title
+          if (scenarioData.author !== undefined) masterUpdates.author = scenarioData.author
+          if (scenarioData.key_visual_url !== undefined) masterUpdates.key_visual_url = scenarioData.key_visual_url
+          if (scenarioData.description !== undefined) masterUpdates.description = scenarioData.description
+          if (scenarioData.player_count_min !== undefined) masterUpdates.player_count_min = scenarioData.player_count_min
+          if (scenarioData.player_count_max !== undefined) masterUpdates.player_count_max = scenarioData.player_count_max
+          if (scenarioData.duration !== undefined) masterUpdates.official_duration = scenarioData.duration
+          if (scenarioData.genre !== undefined) masterUpdates.genre = scenarioData.genre
+          if (scenarioData.difficulty !== undefined) masterUpdates.difficulty = scenarioData.difficulty
+          
+          if (Object.keys(masterUpdates).length > 0) {
+            masterUpdates.updated_at = new Date().toISOString()
+            const { error: masterError } = await supabase
+              .from('scenario_masters')
+              .update(masterUpdates)
+              .eq('id', formData.scenario_master_id)
+            
+            if (masterError) {
+              logger.error('scenario_masters同期更新エラー（無視）:', masterError)
+            } else {
+              logger.log('scenario_mastersを同期更新しました:', Object.keys(masterUpdates))
+            }
+          }
+        } catch (masterErr) {
+          logger.error('scenario_masters同期エラー:', masterErr)
         }
       }
 

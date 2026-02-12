@@ -490,6 +490,54 @@ export const scenarioApi = {
         }
       }
       
+      // scenario_masters も同期更新（マスタ共通フィールド）
+      const masterColumnMapping: Record<string, string> = {
+        'title': 'title',
+        'author': 'author',
+        'key_visual_url': 'key_visual_url',
+        'description': 'description',
+        'synopsis': 'synopsis',
+        'caution': 'caution',
+        'player_count_min': 'player_count_min',
+        'player_count_max': 'player_count_max',
+        'duration': 'official_duration',
+        'genre': 'genre',
+        'difficulty': 'difficulty',
+      }
+      
+      const masterUpdates: Record<string, unknown> = {}
+      for (const [scenarioCol, masterCol] of Object.entries(masterColumnMapping)) {
+        if (dbData[scenarioCol] !== undefined) {
+          masterUpdates[masterCol] = dbData[scenarioCol]
+        }
+      }
+      
+      if (Object.keys(masterUpdates).length > 0) {
+        masterUpdates.updated_at = new Date().toISOString()
+        logger.log('📝 scenario_masters同期更新:', Object.keys(masterUpdates))
+        const { error: masterError } = await supabase
+          .from('scenario_masters')
+          .update(masterUpdates)
+          .eq('id', scenarioMasterId)
+        
+        if (masterError) {
+          logger.error('scenario_masters更新エラー（無視）:', masterError)
+        }
+      }
+      
+      // organization_scenarios にもカスタム画像を同期
+      if (dbData.key_visual_url !== undefined) {
+        const { error: kvError } = await supabase
+          .from('organization_scenarios')
+          .update({ custom_key_visual_url: dbData.key_visual_url, updated_at: new Date().toISOString() })
+          .eq('scenario_master_id', scenarioMasterId)
+          .eq('organization_id', orgId)
+        
+        if (kvError) {
+          logger.error('organization_scenarios画像更新エラー（無視）:', kvError)
+        }
+      }
+      
       // 組織が「公開中」にした場合、マスターがdraftならpendingに昇格
       if (dbData.status === 'available') {
         const { data: masterData } = await supabase
