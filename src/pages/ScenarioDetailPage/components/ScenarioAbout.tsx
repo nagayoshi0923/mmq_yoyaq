@@ -17,21 +17,6 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
 
   return (
     <div className="space-y-4">
-      {/* 注意事項セクション */}
-      {scenario.caution && (
-        <div className="bg-amber-50 border border-amber-300 rounded-md">
-          <div className="px-4 py-3 border-b border-amber-300 flex items-center gap-2 bg-amber-100">
-            <AlertTriangle className="w-4 h-4 text-amber-700" />
-            <h3 className="font-semibold text-amber-800 text-sm">注意事項</h3>
-          </div>
-          <div className="p-4">
-            <p className="leading-relaxed whitespace-pre-wrap text-sm text-amber-900">
-              {scenario.caution}
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* あらすじセクション */}
       {scenario.synopsis && (
         <div className="bg-gray-50 border border-gray-200">
@@ -62,6 +47,21 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
                 <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 注意事項セクション */}
+      {scenario.caution && (
+        <div className="bg-white border border-gray-200 rounded">
+          <div className="px-4 py-2.5 flex items-center gap-2 border-b border-gray-200">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+            <h3 className="font-semibold text-gray-900 text-sm">注意事項</h3>
+          </div>
+          <div className="px-4 py-3">
+            <p className="leading-relaxed whitespace-pre-wrap text-sm text-gray-700">
+              {scenario.caution}
+            </p>
           </div>
         </div>
       )}
