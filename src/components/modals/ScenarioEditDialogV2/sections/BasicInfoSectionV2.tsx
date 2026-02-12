@@ -301,10 +301,10 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
         </CardContent>
       </Card>
 
-      {/* 特記事項 */}
+      {/* シナリオ特記事項 */}
       <Card>
         <CardContent className="p-2">
-          <Label className={labelStyle}>特記事項</Label>
+          <Label className={labelStyle}>シナリオ特記事項</Label>
           <p className={hintStyle}>予約サイトのシナリオ詳細ページに表示されます</p>
           <Textarea
             id="caution"
