@@ -41,7 +41,7 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     }
   }, [scrollYKey, scrollTimeKey])
 
-  // マウント時にスクロール位置を即座に復元（リロード直後のみ）
+  // マウント時にスクロール位置を即座に復元（詳細ページから戻った際も復元）
   useEffect(() => {
     const savedY = sessionStorage.getItem(scrollYKey)
     const savedTime = sessionStorage.getItem(scrollTimeKey)
@@ -49,8 +49,8 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     
     if (savedY && savedTime) {
       const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-      // 10秒以内のスクロール位置のみ復元（リロード直後と判定）
-      if (timeSinceScroll < 10000) {
+      // 5分以内のスクロール位置を復元（詳細ページから戻るケースに対応）
+      if (timeSinceScroll < 300000) {
         // 少し待ってからスクロール位置を復元
         restoreTimer = setTimeout(() => {
           window.scrollTo(0, parseInt(savedY, 10))
@@ -71,8 +71,8 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
       
       if (savedY && savedTime) {
         const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-        // 10秒以内のスクロール位置のみ復元（リロード直後と判定）
-        if (timeSinceScroll < 10000) {
+        // 5分以内のスクロール位置を復元（詳細ページから戻るケースに対応）
+        if (timeSinceScroll < 300000) {
           // データ読み込み後にスクロール復元
           restoreTimer = setTimeout(() => {
             window.scrollTo(0, parseInt(savedY, 10))
