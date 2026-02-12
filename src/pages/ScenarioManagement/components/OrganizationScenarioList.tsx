@@ -236,11 +236,12 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         const uniqueSearchIds = [...new Set(allSearchIds)]
         
         if (uniqueSearchIds.length > 0) {
-          // 全候補IDで staff_scenario_assignments を検索（組織でフィルタ）
+          // 全候補IDで staff_scenario_assignments を検索
+          // organization_id でフィルタ、またはNULL（旧インポートデータ）も含める
           const { data: assignmentsData } = await supabase
             .from('staff_scenario_assignments')
-            .select('scenario_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id, name, organization_id)')
-            .eq('organization_id', organizationId)
+            .select('scenario_id, can_main_gm, can_sub_gm, is_experienced, organization_id, staff:staff_id(id, name, organization_id)')
+            .or(`organization_id.eq.${organizationId},organization_id.is.null`)
             .in('scenario_id', uniqueSearchIds)
           
           if (assignmentsData) {
@@ -698,18 +699,19 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       headerClassName: ORG_HEADER_CLASS,
       cellClassName: ORG_CELL_CLASS + ' overflow-hidden',
       render: (scenario) => {
-        // gm_assignments (JSONB) または available_gms (TEXT[]) から取得
-        const gmAssignments = scenario.gm_assignments || []
+        // available_gms (TEXT[]) を優先。staff_scenario_assignments からマージ済みの正確な値
+        // gm_assignments (JSONB) はフォールバック
         const availableGms = scenario.available_gms || []
+        const gmAssignments = scenario.gm_assignments || []
         
         const maxDisplay = 4
         let gms: string[] = []
         
-        // gm_assignmentsがあればそちらを優先（名前情報を持つ）
-        if (gmAssignments.length > 0) {
-          gms = gmAssignments.map((gm: any) => gm.staff_name || gm.name || '?')
-        } else if (availableGms.length > 0) {
+        // available_gms を優先（staff_scenario_assignments からマージした最新データ）
+        if (availableGms.length > 0) {
           gms = availableGms
+        } else if (gmAssignments.length > 0) {
+          gms = gmAssignments.map((gm: any) => gm.staff_name || gm.name || '?')
         }
         
         if (gms.length === 0) {

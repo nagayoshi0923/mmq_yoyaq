@@ -244,6 +244,7 @@ export const assignmentApi = {
 
   // スタッフの担当シナリオを一括更新
   // 後方互換性: string[] (シナリオIDのみ) または 詳細オブジェクト配列 の両方をサポート
+  // ※ string[]の場合はGM更新のみ。体験済みのみレコードは保護する
   async updateStaffAssignments(staffId: string, assignments: string[] | Array<{
     scenarioId: string
     can_main_gm: boolean
@@ -254,71 +255,120 @@ export const assignmentApi = {
   }>, organizationId?: string) {
     const orgId = organizationId || await getCurrentOrganizationId()
     
-    // 既存の担当関係を削除（組織でフィルタ）
-    let deleteQuery = supabase
-      .from('staff_scenario_assignments')
-      .delete()
-      .eq('staff_id', staffId)
+    // 入力形式を判定: string[] か オブジェクト配列か
+    const isStringArray = assignments.length === 0 || typeof assignments[0] === 'string'
     
-    if (orgId) {
-      deleteQuery = deleteQuery.eq('organization_id', orgId)
-    }
-    
-    await deleteQuery
-
-    // 新しい担当関係を追加
-    if (assignments.length > 0) {
-      // 入力形式を判定: string[] か オブジェクト配列か
-      const isStringArray = typeof assignments[0] === 'string'
+    if (isStringArray) {
+      // string[]の場合: GM更新のみ。体験済みのみレコードは保護
+      const newGmScenarioIds = (assignments as string[]).filter(id => id && typeof id === 'string')
       
-      // DBテーブルに存在するカラムのみ使用（statusは存在しない）
-      // 無効なscenarioIdをフィルタリング
-      const records = isStringArray 
-        ? (assignments as string[])
-            .filter(scenarioId => scenarioId && typeof scenarioId === 'string')
-            .map(scenarioId => ({
-              staff_id: staffId,
-              scenario_id: scenarioId,
-              can_main_gm: true, // デフォルト: GM可能
-              can_sub_gm: true,
-              is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
-              notes: null,
-              assigned_at: new Date().toISOString(),
-              organization_id: orgId
-            }))
-        : (assignments as Array<{ scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; notes?: string }>)
-            .filter(a => a.scenarioId && typeof a.scenarioId === 'string')
-            .map(a => ({
-        staff_id: staffId,
-        scenario_id: a.scenarioId,
-        can_main_gm: a.can_main_gm,
-        can_sub_gm: a.can_sub_gm,
-        is_experienced: a.is_experienced,
-        notes: a.notes || null,
-        assigned_at: new Date().toISOString(),
-        organization_id: orgId
-      }))
-
-      // 有効なレコードがある場合のみ挿入
-      if (records.length > 0) {
-      const { error } = await supabase
+      // 既存の全レコードを取得
+      let fetchQuery = supabase
         .from('staff_scenario_assignments')
-        .insert(records)
+        .select('scenario_id, can_main_gm, can_sub_gm, is_experienced')
+        .eq('staff_id', staffId)
+      if (orgId) {
+        fetchQuery = fetchQuery.eq('organization_id', orgId)
+      }
+      const { data: currentAll, error: fetchError } = await fetchQuery
+      if (fetchError) throw fetchError
+      
+      const currentGmScenarioIds = (currentAll || [])
+        .filter(a => a.can_main_gm || a.can_sub_gm)
+        .map(a => a.scenario_id)
+      
+      // GMから外れるシナリオ → 体験済みに降格（削除しない）
+      const toRemoveFromGm = currentGmScenarioIds.filter(id => !newGmScenarioIds.includes(id))
+      if (toRemoveFromGm.length > 0) {
+        const { error: downgradeError } = await supabase
+          .from('staff_scenario_assignments')
+          .update({ can_main_gm: false, can_sub_gm: false, is_experienced: true })
+          .eq('staff_id', staffId)
+          .in('scenario_id', toRemoveFromGm)
+        if (orgId) {
+          // Note: eq is already chained above, need separate query
+        }
+        if (downgradeError) throw downgradeError
+      }
+      
+      // 新規GM追加: 既存の体験済みレコードがあれば昇格、なければ新規作成
+      const toAddAsGm = newGmScenarioIds.filter(id => !currentGmScenarioIds.includes(id))
+      if (toAddAsGm.length > 0) {
+        const existingExpIds = (currentAll || [])
+          .filter(a => !a.can_main_gm && !a.can_sub_gm && toAddAsGm.includes(a.scenario_id))
+          .map(a => a.scenario_id)
+        
+        // 体験済み → GM昇格
+        if (existingExpIds.length > 0) {
+          await supabase
+            .from('staff_scenario_assignments')
+            .update({ can_main_gm: true, can_sub_gm: true, is_experienced: false })
+            .eq('staff_id', staffId)
+            .in('scenario_id', existingExpIds)
+        }
+        
+        // 完全新規
+        const trulyNew = toAddAsGm.filter(id => !existingExpIds.includes(id))
+        if (trulyNew.length > 0) {
+          const newRecords = trulyNew.map(scenarioId => ({
+            staff_id: staffId,
+            scenario_id: scenarioId,
+            can_main_gm: true,
+            can_sub_gm: true,
+            is_experienced: false,
+            notes: null,
+            assigned_at: new Date().toISOString(),
+            organization_id: orgId
+          }))
+          const { error: insertError } = await supabase
+            .from('staff_scenario_assignments')
+            .insert(newRecords)
+          if (insertError) throw insertError
+        }
+      }
+    } else {
+      // 詳細オブジェクト配列の場合: 全レコードを置き換え（StaffProfile等から呼ばれる）
+      let deleteQuery = supabase
+        .from('staff_scenario_assignments')
+        .delete()
+        .eq('staff_id', staffId)
+      if (orgId) {
+        deleteQuery = deleteQuery.eq('organization_id', orgId)
+      }
+      await deleteQuery
 
-      if (error) throw error
+      const records = (assignments as Array<{ scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; notes?: string }>)
+        .filter(a => a.scenarioId && typeof a.scenarioId === 'string')
+        .map(a => ({
+          staff_id: staffId,
+          scenario_id: a.scenarioId,
+          can_main_gm: a.can_main_gm,
+          can_sub_gm: a.can_sub_gm,
+          is_experienced: a.is_experienced,
+          notes: a.notes || null,
+          assigned_at: new Date().toISOString(),
+          organization_id: orgId
+        }))
+
+      if (records.length > 0) {
+        const { error } = await supabase
+          .from('staff_scenario_assignments')
+          .insert(records)
+        if (error) throw error
       }
     }
   },
 
   // シナリオの担当スタッフを一括更新（差分更新）
+  // ※ GM可能スタッフのみ対象。体験済みのみ(is_experienced=true)のレコードは保護する
   async updateScenarioAssignments(scenarioId: string, staffIds: string[], notes?: string, organizationId?: string) {
     const orgId = organizationId || await getCurrentOrganizationId()
     if (!orgId) throw new Error('組織情報が取得できません。')
     
-    // 現在の担当関係を取得（組織でフィルタ）
+    // 現在のGM担当関係のみ取得（体験済みのみのレコードは除外）
     const fetchQuery = supabase
       .from('staff_scenario_assignments')
-      .select('staff_id')
+      .select('staff_id, can_main_gm, can_sub_gm, is_experienced')
       .eq('scenario_id', scenarioId)
       .eq('organization_id', orgId)
     
@@ -326,46 +376,82 @@ export const assignmentApi = {
     
     if (fetchError) throw fetchError
 
-    const currentStaffIds = currentAssignments?.map(a => a.staff_id) || []
+    // GM可能なスタッフのみを対象（体験済みのみレコードは保護）
+    const gmAssignments = (currentAssignments || []).filter(
+      a => a.can_main_gm === true || a.can_sub_gm === true
+    )
+    const currentGmStaffIds = gmAssignments.map(a => a.staff_id)
     
-    // 削除対象: 現在のリストにあるが、新しいリストにないもの
-    const toDelete = currentStaffIds.filter(id => !staffIds.includes(id))
+    // 削除対象: 現在のGMリストにあるが、新しいリストにないもの
+    const toDelete = currentGmStaffIds.filter(id => !staffIds.includes(id))
     
-    // 追加対象: 新しいリストにあるが、現在のリストにないもの
-    const toAdd = staffIds.filter(id => !currentStaffIds.includes(id))
+    // 追加対象: 新しいリストにあるが、現在のGMリストにないもの
+    const toAdd = staffIds.filter(id => !currentGmStaffIds.includes(id))
     
-    // 削除実行（組織でフィルタ）
+    // 削除実行: GMレコードのみ削除（体験済みのみレコードは保護）
+    // 削除されるGMが体験済みだった場合、is_experienced=trueに変換して保持
     if (toDelete.length > 0) {
-      const { error: deleteError } = await supabase
+      // 削除対象のGMスタッフを体験済みに変換（GM→体験済みへの降格）
+      // DB制約: is_experienced=trueの場合、can_main_gm=false, can_sub_gm=false
+      const { error: updateError } = await supabase
         .from('staff_scenario_assignments')
-        .delete()
+        .update({
+          can_main_gm: false,
+          can_sub_gm: false,
+          is_experienced: true
+        })
         .eq('scenario_id', scenarioId)
         .eq('organization_id', orgId)
         .in('staff_id', toDelete)
       
-      if (deleteError) throw deleteError
+      if (updateError) throw updateError
     }
     
     // 追加実行（デフォルト設定: can_main_gm=true, can_sub_gm=true）
-    // DBテーブルに存在するカラムのみ使用（statusは存在しない）
     // 注意: gm_experienced_check制約により、GM可能ならis_experiencedはfalse
     if (toAdd.length > 0) {
-      const newAssignments = toAdd.map(staffId => ({
-        staff_id: staffId,
-        scenario_id: scenarioId,
-        can_main_gm: true,
-        can_sub_gm: true,
-        is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
-        notes: notes || null,
-        assigned_at: new Date().toISOString(),
-        organization_id: orgId
-      }))
-
-      const { error: insertError } = await supabase
-        .from('staff_scenario_assignments')
-        .insert(newAssignments)
+      // 追加対象に既存の体験済みレコードがあるか確認
+      const existingExpOnly = (currentAssignments || []).filter(
+        a => !a.can_main_gm && !a.can_sub_gm && a.is_experienced && toAdd.includes(a.staff_id)
+      )
+      const existingExpStaffIds = existingExpOnly.map(a => a.staff_id)
       
-      if (insertError) throw insertError
+      // 既存の体験済みレコードをGMに昇格
+      if (existingExpStaffIds.length > 0) {
+        const { error: upgradeError } = await supabase
+          .from('staff_scenario_assignments')
+          .update({
+            can_main_gm: true,
+            can_sub_gm: true,
+            is_experienced: false // DB制約: GM可能ならis_experiencedはfalse
+          })
+          .eq('scenario_id', scenarioId)
+          .eq('organization_id', orgId)
+          .in('staff_id', existingExpStaffIds)
+        
+        if (upgradeError) throw upgradeError
+      }
+      
+      // 新規レコードのみINSERT（既存の体験済みから昇格したものは除く）
+      const trulyNew = toAdd.filter(id => !existingExpStaffIds.includes(id))
+      if (trulyNew.length > 0) {
+        const newAssignments = trulyNew.map(staffId => ({
+          staff_id: staffId,
+          scenario_id: scenarioId,
+          can_main_gm: true,
+          can_sub_gm: true,
+          is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
+          notes: notes || null,
+          assigned_at: new Date().toISOString(),
+          organization_id: orgId
+        }))
+
+        const { error: insertError } = await supabase
+          .from('staff_scenario_assignments')
+          .insert(newAssignments)
+        
+        if (insertError) throw insertError
+      }
     }
   },
 
