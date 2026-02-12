@@ -222,6 +222,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   // シナリオカードクリック（メモ化）
   // ScenarioCardからはslug（またはID）が渡される
   const handleCardClick = useCallback((slugOrId: string) => {
+    // ナビゲーション前にスクロール位置を保存（ScrollToTopに上書きされる前に）
+    sessionStorage.setItem(`booking-${organizationSlug || 'platform'}ScrollY`, window.scrollY.toString())
     if (onScenarioSelect) {
       onScenarioSelect(slugOrId)
     } else {

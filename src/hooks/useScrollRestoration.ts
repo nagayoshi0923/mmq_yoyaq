@@ -40,10 +40,10 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     return () => {
       window.removeEventListener('scroll', handleScroll)
       clearTimeout(scrollTimer)
-      // アンマウント時に現在位置を保存
-      if (!restoringRef.current) {
-        sessionStorage.setItem(scrollYKey, window.scrollY.toString())
-      }
+      // ※アンマウント時の保存は行わない
+      // ScrollToTopが先にscrollTo(0,0)を実行するため、
+      // アンマウント時のscrollYは常に0になってしまう。
+      // 代わりにナビゲーション前のクリックハンドラで保存する。
     }
   }, [scrollYKey])
 

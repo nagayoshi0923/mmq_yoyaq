@@ -343,6 +343,8 @@ export function PlatformTop() {
   }
 
   const handleScenarioClick = (slugOrId: string) => {
+    // ナビゲーション前にスクロール位置を保存（ScrollToTopに上書きされる前に）
+    sessionStorage.setItem('platform-topScrollY', window.scrollY.toString())
     // シナリオ共通トップページに遷移
     navigate(`/scenario/${slugOrId}`)
   }
