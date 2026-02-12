@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react'
-import { BrowserRouter, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
@@ -83,13 +83,16 @@ export function getOrganizationSlugFromPath(): string {
   return 'queens-waltz'
 }
 
-// ページ遷移時にスクロール位置をトップに戻す
+// ページ遷移時にスクロール位置をトップに戻す（「戻る」操作時はスキップ）
 function ScrollToTop() {
   const { pathname } = useLocation()
+  const navType = useNavigationType()
 
   React.useEffect(() => {
+    // POP = ブラウザの戻る/進む → スクロール復元に任せる
+    if (navType === 'POP') return
     window.scrollTo(0, 0)
-  }, [pathname])
+  }, [pathname, navType])
 
   return null
 }
