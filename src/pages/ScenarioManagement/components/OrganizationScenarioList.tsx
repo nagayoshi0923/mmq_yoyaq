@@ -376,7 +376,9 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
   const existingMasterIds = useMemo(() => scenarios.map(s => s.scenario_master_id), [scenarios])
 
   // ステータス変更（ローカルstate即時更新 → DB保存）
-  const handleStatusChange = async (scenario: OrganizationScenarioWithMaster, newStatus: string) => {
+  // useCallbackで安定化し、columns useMemoの不要な再計算を防止
+  const handleStatusChange = useCallback(async (scenario: OrganizationScenarioWithMaster, newStatus: string) => {
+    const previousStatus = scenario.org_status
     // 楽観的更新: まずローカルstateを即時反映（リロードなし）
     setScenarios(prev => prev.map(s => 
       s.id === scenario.id ? { ...s, org_status: newStatus as OrganizationScenarioWithMaster['org_status'] } : s
@@ -393,7 +395,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         toast.error('ステータス更新に失敗しました')
         // エラー時はロールバック
         setScenarios(prev => prev.map(s => 
-          s.id === scenario.id ? { ...s, org_status: scenario.org_status } : s
+          s.id === scenario.id ? { ...s, org_status: previousStatus } : s
         ))
         return
       }
@@ -404,10 +406,10 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       toast.error('エラーが発生しました')
       // エラー時はロールバック
       setScenarios(prev => prev.map(s => 
-        s.id === scenario.id ? { ...s, org_status: scenario.org_status } : s
+        s.id === scenario.id ? { ...s, org_status: previousStatus } : s
       ))
     }
-  }
+  }, [])
 
   // シナリオ解除（組織からの紐付けを削除、マスタは残る）
   const handleUnlink = async () => {

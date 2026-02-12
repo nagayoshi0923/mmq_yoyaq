@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -105,6 +105,12 @@ export function ScenarioManagement() {
   
   // 新UI用のリフレッシュキー（保存後に更新をトリガー）
   const [orgScenarioRefreshKey, setOrgScenarioRefreshKey] = useState(0)
+  
+  // 組織シナリオリストからの編集（useCallbackで安定化）
+  const handleEditFromOrgList = useCallback((id: string) => {
+    setEditingScenarioId(id)
+    setEditDialogOpen(true)
+  }, [])
   
   // スクロール監視用
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
@@ -461,12 +467,7 @@ export function ScenarioManagement() {
           {/* 新UIモード（マスタ連携）: OrganizationScenarioList を表示 */}
           {uiMode === 'new' ? (
             <OrganizationScenarioList
-              onEdit={(id) => {
-                // 組織シナリオIDから編集を開く場合は、別途組織シナリオ編集UIが必要
-                // 現状は旧シナリオ編集を利用
-                setEditingScenarioId(id)
-                setEditDialogOpen(true)
-              }}
+              onEdit={handleEditFromOrgList}
               refreshKey={orgScenarioRefreshKey}
             />
           ) : ENABLE_LEGACY_SCENARIO_UI ? (
