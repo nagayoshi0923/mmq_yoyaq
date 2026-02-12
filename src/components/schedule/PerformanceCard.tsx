@@ -216,30 +216,46 @@ function PerformanceCardBase({
           )}
           
           {/* 公開状況バッジ */}
-          {!event.is_cancelled && (
-            <div
-              className={`w-2 h-2 rounded-full flex-shrink-0 transition-all cursor-pointer ${
-                event.is_private_request 
-                  ? 'bg-green-400' 
-                  : event.is_reservation_enabled 
-                    ? 'bg-green-400' 
-                    : 'bg-gray-400'
-              }`}
-              title={
-                event.is_private_request 
-                  ? '貸切公演は常に公開中です' 
-                  : event.is_reservation_enabled 
-                    ? '予約サイトに公開中（クリックで非公開）' 
-                    : '予約サイトに非公開（クリックで公開）'
+          {!event.is_cancelled && (() => {
+            const isPublished = event.is_private_request || event.is_reservation_enabled
+            const handleClick = (e: React.MouseEvent) => {
+              e.stopPropagation();
+              if (!event.is_private_request) {
+                onToggleReservation?.(event);
               }
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!event.is_private_request) {
-                  onToggleReservation?.(event);
-                }
-              }}
-            />
-          )}
+            }
+            const title = event.is_private_request 
+              ? '貸切公演は常に公開中です' 
+              : event.is_reservation_enabled 
+                ? '予約サイトに公開中（クリックで非公開）' 
+                : '予約サイトに非公開（クリックで公開）'
+            return (
+              <>
+                {/* モバイル：ドット表示 */}
+                <div
+                  className={`w-2 h-2 rounded-full flex-shrink-0 transition-all cursor-pointer sm:hidden ${
+                    isPublished ? 'bg-green-400' : 'bg-gray-400'
+                  }`}
+                  title={title}
+                  onClick={handleClick}
+                />
+                {/* PC：バッジ表示 */}
+                <Badge 
+                  variant="outline" 
+                  size="sm" 
+                  className={`font-normal text-[10px] px-1 py-0 h-4 whitespace-nowrap hidden sm:inline-flex items-center cursor-pointer transition-all ${
+                    isPublished 
+                      ? 'bg-green-50 text-green-700 border-green-300 hover:bg-green-100' 
+                      : 'bg-gray-50 text-gray-500 border-gray-300 hover:bg-gray-100'
+                  }`}
+                  title={title}
+                  onClick={handleClick}
+                >
+                  {isPublished ? '公開' : '非公開'}
+                </Badge>
+              </>
+            )
+          })()}
         </div>
       </div>
       
