@@ -784,6 +784,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           flexible_pricing: scenario.flexible_pricing || defaultFlexiblePricing,
           key_visual_url: scenario.key_visual_url || '',
           available_stores: scenario.available_stores || [],
+          extra_preparation_time: scenario.extra_preparation_time || undefined,
           caution: ''
         })
         
@@ -928,6 +929,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         status: saveStatus,
         // slugが空文字列の場合はnullとして保存
         slug: dbFields.slug?.trim() || null,
+        // 追加準備時間: undefinedやfalsyはnullとして保存（意図しないデフォルト値を防ぐ）
+        extra_preparation_time: formData.extra_preparation_time || null,
         participation_fee: normalParticipationCost?.amount || formData.participation_fee || 3000,
         // 参加費設定（時間帯別料金）を保存
         participation_costs: formData.participation_costs || [],

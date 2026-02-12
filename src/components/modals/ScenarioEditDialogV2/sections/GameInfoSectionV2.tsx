@@ -120,10 +120,11 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
                   id="extra_preparation_time"
                   type="text"
                   inputMode="numeric"
-                  value={formData.extra_preparation_time === 0 ? '' : String(formData.extra_preparation_time ?? '')}
+                  value={formData.extra_preparation_time ? String(formData.extra_preparation_time) : ''}
                   onChange={(e) => {
                     const val = e.target.value.replace(/[^0-9]/g, '')
-                    setFormData(prev => ({ ...prev, extra_preparation_time: val === '' ? 0 : parseInt(val, 10) }))
+                    const num = val === '' ? undefined : parseInt(val, 10)
+                    setFormData(prev => ({ ...prev, extra_preparation_time: num || undefined }))
                   }}
                   className={`${inputStyle} pr-8`}
                 />

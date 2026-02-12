@@ -49,7 +49,7 @@ export interface OrganizationScenario {
   slug: string | null
   duration: number | null
   participation_fee: number | null
-  extra_preparation_time: number
+  extra_preparation_time: number | null
   org_status: 'available' | 'unavailable' | 'coming_soon'
   custom_key_visual_url: string | null
   custom_description: string | null
@@ -86,7 +86,7 @@ export interface OrganizationScenarioWithMaster {
   genre: string[]
   difficulty: string | null
   participation_fee: number | null
-  extra_preparation_time: number
+  extra_preparation_time: number | null
   master_status: 'draft' | 'pending' | 'approved' | 'rejected'
 }
 

@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Upload, X, Trash2, Wand2 } from 'lucide-react'
+import { Upload, X, Trash2, Wand2, Pencil } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
@@ -251,17 +251,36 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className={labelStyle}>作者 *</Label>
-                  <MultiSelect
-                    options={authorOptions}
-                    selectedValues={formData.author ? [formData.author] : []}
-                    onSelectionChange={(values) => handleAuthorChange(values[0] || '')}
-                    placeholder="選択"
-                    showBadges={true}
-                    emptyText="見つかりません"
-                    emptyActionLabel="+ 追加"
-                    onEmptyAction={() => setIsAddAuthorDialogOpen(true)}
-                    closeOnSelect={true}
-                  />
+                  <div className="flex items-center gap-1">
+                    <div className="flex-1">
+                      <MultiSelect
+                        options={authorOptions}
+                        selectedValues={formData.author ? [formData.author] : []}
+                        onSelectionChange={(values) => handleAuthorChange(values[0] || '')}
+                        placeholder="選択"
+                        showBadges={true}
+                        emptyText="見つかりません"
+                        emptyActionLabel="+ 追加"
+                        onEmptyAction={() => setIsAddAuthorDialogOpen(true)}
+                        closeOnSelect={true}
+                      />
+                    </div>
+                    {formData.author && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 flex-shrink-0"
+                        title="作者名を編集"
+                        onClick={() => {
+                          setNewAuthorName(formData.author || '')
+                          setIsAddAuthorDialogOpen(true)
+                        }}
+                      >
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label className={labelStyle}>
@@ -390,12 +409,14 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
         </CardContent>
       </Card>
 
-      {/* 作者追加ダイアログ */}
-      <Dialog open={isAddAuthorDialogOpen} onOpenChange={setIsAddAuthorDialogOpen}>
+      {/* 作者追加・編集ダイアログ */}
+      <Dialog open={isAddAuthorDialogOpen} onOpenChange={(open) => { if (!open) setNewAuthorName(''); setIsAddAuthorDialogOpen(open) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新しい作者を追加</DialogTitle>
-            <DialogDescription>新しい作者名を入力してください</DialogDescription>
+            <DialogTitle>{formData.author && newAuthorName ? '作者名を編集' : '新しい作者を追加'}</DialogTitle>
+            <DialogDescription>
+              {formData.author && newAuthorName ? '作者名を変更できます' : '新しい作者名を入力してください'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -414,7 +435,9 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
             <Button variant="outline" onClick={() => { setNewAuthorName(''); setIsAddAuthorDialogOpen(false) }}>
               キャンセル
             </Button>
-            <Button onClick={handleAddAuthor}>追加</Button>
+            <Button onClick={handleAddAuthor}>
+              {formData.author && newAuthorName ? '変更' : '追加'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
