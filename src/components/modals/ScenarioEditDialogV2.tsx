@@ -519,10 +519,45 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           a.can_main_gm === true || a.can_sub_gm === true
         )
         
-        debugLines.push(`GM該当: ${gmAssignments.length}名 [${gmAssignments.map((a: any) => a.staff?.name || a.staff_id).join(', ')}]`)
+        debugLines.push(`assignments: ${gmAssignments.length}名`)
+        
+        if (gmAssignments.length > 0) {
+          // staff_scenario_assignments にデータがある場合はそのまま使用
+          setCurrentAssignments(gmAssignments)
+          setSelectedStaffIds(gmAssignments.map(a => a.staff_id))
+          debugLines.push(`[${gmAssignments.map((a: any) => a.staff?.name || a.staff_id).join(', ')}]`)
+        } else {
+          // staff_scenario_assignments が空の場合、available_gms（名前配列）からフォールバック
+          // useScenariosQuery のデータからシナリオを探す
+          const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
+          const availableGmNames: string[] = scenarioData?.available_gms || []
+          debugLines.push(`fallback available_gms: [${availableGmNames.join(', ')}]`)
+          
+          if (availableGmNames.length > 0 && staff.length > 0) {
+            // 名前からスタッフIDを逆引き
+            const matchedStaffIds = staff
+              .filter(s => availableGmNames.includes(s.name))
+              .map(s => s.id)
+            debugLines.push(`名前マッチ: ${matchedStaffIds.length}名`)
+            
+            if (matchedStaffIds.length > 0) {
+              setSelectedStaffIds(matchedStaffIds)
+              // currentAssignments はダミーで作成（can_main_gm/can_sub_gm のデフォルト値）
+              setCurrentAssignments(matchedStaffIds.map(id => ({
+                staff_id: id,
+                scenario_id: resolvedScenarioIdRef.current || scenarioId,
+                can_main_gm: true,
+                can_sub_gm: true,
+                is_experienced: false,
+                staff: staff.find(s => s.id === id) || { id, name: '', line_name: '' }
+              })))
+            }
+          } else if (availableGmNames.length > 0 && staff.length === 0) {
+            debugLines.push('スタッフ未ロード、再試行待ち')
+          }
+        }
+        
         setDebugGmInfo(debugLines.join(' | '))
-        setCurrentAssignments(gmAssignments)
-        setSelectedStaffIds(gmAssignments.map(a => a.staff_id))
         
         // 統計情報を取得
         const statsId = resolvedScenarioIdRef.current
@@ -547,6 +582,38 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     loadAssignments()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, scenarioId])
+
+  // staff ロード後に available_gms からフォールバックで担当GMを設定
+  useEffect(() => {
+    if (!isOpen || !scenarioId || staff.length === 0) return
+    // 既に selectedStaffIds が設定されている場合はスキップ
+    if (selectedStaffIds.length > 0) return
+    // ローディング中はスキップ
+    if (isLoadingAssignments) return
+    
+    // available_gms（名前配列）からスタッフIDを逆引き
+    const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
+    const availableGmNames: string[] = scenarioData?.available_gms || []
+    
+    if (availableGmNames.length > 0) {
+      const matchedStaffIds = staff
+        .filter(s => availableGmNames.includes(s.name))
+        .map(s => s.id)
+      
+      if (matchedStaffIds.length > 0) {
+        setSelectedStaffIds(matchedStaffIds)
+        setCurrentAssignments(matchedStaffIds.map(id => ({
+          staff_id: id,
+          scenario_id: resolvedScenarioIdRef.current || scenarioId,
+          can_main_gm: true,
+          can_sub_gm: true,
+          is_experienced: false,
+          staff: staff.find(s => s.id === id) || { id, name: '', line_name: '' }
+        })))
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, scenarioId, staff.length, selectedStaffIds.length, isLoadingAssignments])
 
   // フォームの初回ロード済みキーを追跡（保存後の不要なフォームリセットを防止）
   const formLoadedKeyRef = useRef<string>('')
