@@ -142,11 +142,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   
   // scenarioId が scenario_master_id の場合、旧 scenarios.id に解決する
   // staff_scenario_assignments は旧 scenarios.id を使用するため必須
-  const resolvedScenarioId = useMemo(() => {
-    if (!scenarioId) return null
-    const found = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
-    return found?.id || scenarioId
-  }, [scenarioId, scenarios])
+  const resolvedScenarioIdRef = useRef<string | null>(null)
   
   // 組織名を取得
   const [organizationName, setOrganizationName] = useState<string>('')
@@ -416,22 +412,49 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   // シナリオIDが変わった時（またはモーダルが開いた時）に担当関係と累計公演回数を取得
   useEffect(() => {
     const loadAssignments = async () => {
-      // resolvedScenarioId を使用（scenario_master_id → 旧scenarios.id に解決済み）
-      if (isOpen && resolvedScenarioId) {
+      if (isOpen && scenarioId) {
         try {
           setIsLoadingAssignments(true)
-          const assignments = await assignmentApi.getScenarioAssignments(resolvedScenarioId)
+          
+          // scenarioId を旧 scenarios.id に解決する
+          // staff_scenario_assignments は旧IDを使用するため、DB直接クエリで確実に解決
+          let oldScenarioId = scenarioId
+          
+          // まずメモリ内のscenariosから探す（高速）
+          const found = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
+          if (found) {
+            oldScenarioId = found.id
+          } else {
+            // メモリにない場合、scenario_master_idとしてDBから旧IDを検索
+            const orgId = await getCurrentOrganizationId()
+            if (orgId) {
+              const { data: scenarioRecord } = await supabase
+                .from('scenarios')
+                .select('id')
+                .eq('scenario_master_id', scenarioId)
+                .eq('organization_id', orgId)
+                .maybeSingle()
+              if (scenarioRecord) {
+                oldScenarioId = scenarioRecord.id
+              }
+            }
+          }
+          
+          // 解決されたIDを保存（保存時にも使用）
+          resolvedScenarioIdRef.current = oldScenarioId
+          
+          const assignments = await assignmentApi.getScenarioAssignments(oldScenarioId)
           setCurrentAssignments(assignments)
           setSelectedStaffIds(assignments.map(a => a.staff_id))
           
           // 統計情報を取得
           try {
-            const stats = await scenarioApi.getScenarioStats(resolvedScenarioId)
+            const stats = await scenarioApi.getScenarioStats(oldScenarioId)
             setScenarioStats(stats)
           } catch (statsError) {
             logger.error('Error loading scenario stats:', statsError)
             // フォールバック: 公演回数だけ取得
-            const count = await scenarioApi.getPerformanceCount(resolvedScenarioId)
+            const count = await scenarioApi.getPerformanceCount(oldScenarioId)
             setScenarioStats(prev => ({ ...prev, performanceCount: count }))
           }
         } catch (error) {
@@ -439,8 +462,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         } finally {
           setIsLoadingAssignments(false)
         }
-      } else if (!scenarioId) {
+      } else {
         // 新規作成時またはIDなし
+        resolvedScenarioIdRef.current = null
         setCurrentAssignments([])
         setSelectedStaffIds([])
         setIsLoadingAssignments(false)
@@ -461,7 +485,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     if (isOpen) {
       loadAssignments()
     }
-  }, [isOpen, resolvedScenarioId, scenarioId])
+  }, [isOpen, scenarioId, scenarios])
 
   // フォームの初回ロード済みキーを追跡（保存後の不要なフォームリセットを防止）
   const formLoadedKeyRef = useRef<string>('')
@@ -722,8 +746,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       })
 
       // 担当GMの更新処理
-      // staff_scenario_assignments は旧 scenarios.id を使用するため、resolvedScenarioId を優先
-      const targetScenarioId = resolvedScenarioId || (result && typeof result === 'object' && 'id' in result ? result.id : undefined)
+      // staff_scenario_assignments は旧 scenarios.id を使用するため、resolvedScenarioIdRef を優先
+      const targetScenarioId = resolvedScenarioIdRef.current || scenarioId || (result && typeof result === 'object' && 'id' in result ? result.id : undefined)
 
       if (targetScenarioId) {
         try {
