@@ -618,20 +618,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   
   // 提案と完了記録をマージ（過去の完了記録をオプティマイザ提案に追加）
   const mergedSuggestions = useMemo(() => {
-    // 設置完了済みのキーを記録（これらは新規計画から除外）
+    // 設置完了済みのキーを記録（カウント用）
     const deliveredKeys = new Set<string>()
     for (const c of completions) {
       if (c.delivered_at) {
-        // scenario+kit+performance_date で一意（同じ公演に対する移動は完了）
         deliveredKeys.add(`${c.scenario_id}-${c.kit_number}-${c.performance_date}`)
       }
     }
     
-    // オプティマイザの提案から、既に設置完了済みのものを除外
-    const filteredSuggestions = suggestions.filter(s => {
-      const key = `${s.scenario_id}-${s.kit_number}-${s.performance_date}`
-      return !deliveredKeys.has(key)
-    })
+    // 全ての提案を保持（設置完了済みも含む - チェック状態確認のため）
+    const filteredSuggestions = [...suggestions]
     
     // 過去の完了記録を追加（履歴表示用）
     const suggestionFullKeys = new Set<string>()
@@ -1799,6 +1795,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       {(() => {
                         const deliveredCount = completions.filter(c => c.delivered_at).length
                         const pickedUpCount = completions.filter(c => c.picked_up_at && !c.delivered_at).length
+                        const remainingCount = mergedSuggestions.length - deliveredCount - pickedUpCount
                         return (
                           <>
                             {deliveredCount > 0 && (
@@ -1811,9 +1808,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                 {pickedUpCount}件移動中
                               </Badge>
                             )}
-                            {deliveredCount > 0 && mergedSuggestions.length - deliveredCount > 0 && (
+                            {(deliveredCount > 0 || pickedUpCount > 0) && remainingCount > 0 && (
                               <Badge variant="destructive" className="text-xs">
-                                残り{mergedSuggestions.length - deliveredCount}件
+                                残り{remainingCount}件
                               </Badge>
                             )}
                           </>
@@ -1908,20 +1905,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         const perfDateStr = item.performance_date
                         
                         // キットが既に目的地にある場合はスキップ（移動不要）
+                        // ただし回収済み or 設置完了済みはチェック状態表示のため残す
                         const currentLocation = kitCurrentLocationMap.get(`${item.scenario_id}-${item.kit_number}`)
-                        if (currentLocation === item.to_store_id) {
+                        const itemPickedUp = isPickedUp(item.scenario_id, item.kit_number, item.performance_date, item.to_store_id)
+                        const itemDelivered = isDelivered(item.scenario_id, item.kit_number, item.performance_date, item.to_store_id)
+                        if (currentLocation === item.to_store_id && !itemPickedUp && !itemDelivered) {
                           continue
                         }
                         
-                        // 設置完了済みはスキップ（全てのケースで）
-                        if (isDelivered(item.scenario_id, item.kit_number, item.performance_date, item.to_store_id)) {
-                          continue
-                        }
-                        
-                        // 回収完了済みもスキップ（移動中）
-                        if (isPickedUp(item.scenario_id, item.kit_number, item.performance_date, item.to_store_id)) {
-                          continue
-                        }
+                        // 回収済み・設置済みも表示する（チェック状態を確認できるように）
+                        // 視覚的にはスタイリングで区別される（青=回収済み、緑=設置完了）
                         
                         // 完了記録からの項目かどうか
                         const isFromCompletion = !!item.transfer_date
