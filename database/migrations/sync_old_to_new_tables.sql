@@ -134,8 +134,7 @@ FROM organization_scenarios WHERE available_gms IS NOT NULL AND available_gms !=
 --    3つのソースを統合:
 --    a) staff_scenario_assignments.is_experienced (scenarios.id経由)
 --    b) staff_scenario_assignments.is_experienced (scenario_master_id直接)
---    c) scenarios.experienced_staff (旧UIで保存されたtext配列)
---    d) organization_scenarios.experienced_staff (既存データを保持)
+--    c) organization_scenarios.experienced_staff (既存データを保持)
 -- ============================================================
 
 WITH exp_from_assignments AS (
@@ -163,17 +162,6 @@ exp_from_assignments_direct AS (
     AND st.name IS NOT NULL
     AND ssa.scenario_id IN (SELECT id FROM scenario_masters)
 ),
-exp_from_scenarios AS (
-  -- c) scenarios.experienced_staff (旧UIの text[] データ)
-  SELECT 
-    s.scenario_master_id,
-    s.organization_id,
-    unnest(s.experienced_staff) as name
-  FROM scenarios s
-  WHERE s.scenario_master_id IS NOT NULL
-    AND s.experienced_staff IS NOT NULL
-    AND array_length(s.experienced_staff, 1) > 0
-),
 exp_from_existing AS (
   -- d) organization_scenarios.experienced_staff (既存データ保持)
   SELECT 
@@ -188,8 +176,6 @@ all_exp_rows AS (
   SELECT scenario_master_id, organization_id, name FROM exp_from_assignments
   UNION
   SELECT scenario_master_id, organization_id, name FROM exp_from_assignments_direct
-  UNION
-  SELECT scenario_master_id, organization_id, name FROM exp_from_scenarios
   UNION
   SELECT scenario_master_id, organization_id, name FROM exp_from_existing
 ),
