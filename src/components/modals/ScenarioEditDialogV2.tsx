@@ -417,45 +417,86 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           setIsLoadingAssignments(true)
           
           // scenarioId を旧 scenarios.id に解決する
-          // staff_scenario_assignments は旧IDを使用するため、DB直接クエリで確実に解決
-          let oldScenarioId = scenarioId
+          // staff_scenario_assignments は旧IDを使用するため、確実に解決が必要
+          // OrganizationScenarioList と同じアプローチ: DBから全候補IDを取得
+          const orgId = await getCurrentOrganizationId()
+          let oldScenarioIds: string[] = []
           
-          // まずメモリ内のscenariosから探す（高速）
-          const found = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
-          if (found) {
-            oldScenarioId = found.id
+          // 方法1: scenarioId を直接 scenarios.id として検索
+          const { data: directMatch } = await supabase
+            .from('scenarios')
+            .select('id')
+            .eq('id', scenarioId)
+            .maybeSingle()
+          
+          if (directMatch) {
+            oldScenarioIds = [directMatch.id]
           } else {
-            // メモリにない場合、scenario_master_idとしてDBから旧IDを検索
-            const orgId = await getCurrentOrganizationId()
+            // 方法2: scenarioId を scenario_master_id として検索（複数ヒット対応）
+            let query = supabase
+              .from('scenarios')
+              .select('id')
+              .eq('scenario_master_id', scenarioId)
             if (orgId) {
-              const { data: scenarioRecord } = await supabase
-                .from('scenarios')
-                .select('id')
-                .eq('scenario_master_id', scenarioId)
-                .eq('organization_id', orgId)
-                .maybeSingle()
-              if (scenarioRecord) {
-                oldScenarioId = scenarioRecord.id
-              }
+              query = query.eq('organization_id', orgId)
+            }
+            const { data: byMaster } = await query
+            if (byMaster && byMaster.length > 0) {
+              oldScenarioIds = byMaster.map(s => s.id)
             }
           }
           
-          // 解決されたIDを保存（保存時にも使用）
-          resolvedScenarioIdRef.current = oldScenarioId
+          // 解決されたIDを保存（保存時にも使用、最初の1つ）
+          const primaryOldId = oldScenarioIds.length > 0 ? oldScenarioIds[0] : scenarioId
+          resolvedScenarioIdRef.current = primaryOldId
           
-          const assignments = await assignmentApi.getScenarioAssignments(oldScenarioId)
-          setCurrentAssignments(assignments)
-          setSelectedStaffIds(assignments.map(a => a.staff_id))
+          logger.log('🔍 担当GM読み込み: scenarioId =', scenarioId, '→ oldScenarioIds =', oldScenarioIds, '→ primaryOldId =', primaryOldId)
+          
+          // 全候補IDでアサインメントを検索（OrganizationScenarioListと同じ方法）
+          let allAssignments: any[] = []
+          if (oldScenarioIds.length > 0) {
+            const { data: assignmentsData, error: assignError } = await supabase
+              .from('staff_scenario_assignments')
+              .select(`
+                *,
+                staff:staff_id (
+                  id,
+                  name,
+                  line_name
+                )
+              `)
+              .in('scenario_id', oldScenarioIds)
+              .order('assigned_at', { ascending: false })
+            
+            if (assignError) {
+              logger.error('Failed to fetch assignments:', assignError)
+            } else {
+              // GM可能なスタッフのみフィルタ（can_main_gm OR can_sub_gm）
+              allAssignments = (assignmentsData || []).filter(a => 
+                a.can_main_gm === true || a.can_sub_gm === true
+              )
+            }
+          } else {
+            // fallback: assignmentApi を使用（scenarioIdをそのまま使用）
+            allAssignments = await assignmentApi.getScenarioAssignments(scenarioId)
+          }
+          
+          logger.log('🔍 担当GM結果:', allAssignments.length, '名')
+          setCurrentAssignments(allAssignments)
+          setSelectedStaffIds(allAssignments.map(a => a.staff_id))
           
           // 統計情報を取得
           try {
-            const stats = await scenarioApi.getScenarioStats(oldScenarioId)
+            const stats = await scenarioApi.getScenarioStats(primaryOldId)
             setScenarioStats(stats)
           } catch (statsError) {
             logger.error('Error loading scenario stats:', statsError)
-            // フォールバック: 公演回数だけ取得
-            const count = await scenarioApi.getPerformanceCount(oldScenarioId)
-            setScenarioStats(prev => ({ ...prev, performanceCount: count }))
+            try {
+              const count = await scenarioApi.getPerformanceCount(primaryOldId)
+              setScenarioStats(prev => ({ ...prev, performanceCount: count }))
+            } catch {
+              // 統計取得失敗は無視
+            }
           }
         } catch (error) {
           logger.error('Error loading assignments:', error)
@@ -485,7 +526,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     if (isOpen) {
       loadAssignments()
     }
-  }, [isOpen, scenarioId, scenarios])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, scenarioId])
 
   // フォームの初回ロード済みキーを追跡（保存後の不要なフォームリセットを防止）
   const formLoadedKeyRef = useRef<string>('')
