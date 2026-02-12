@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -454,13 +454,24 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     }
   }, [isOpen, scenarioId])
 
+  // フォームの初回ロード済みキーを追跡（保存後の不要なフォームリセットを防止）
+  const formLoadedKeyRef = useRef<string>('')
+
   // シナリオデータをロード
   useEffect(() => {
-    // ダイアログが閉じている時は何もしない
-    if (!isOpen) return
+    // ダイアログが閉じている時はロード済みキーをリセット
+    if (!isOpen) {
+      formLoadedKeyRef.current = ''
+      return
+    }
 
     // scenariosがまだ読み込まれていない場合は待つ
     if (scenarios.length === 0) return
+
+    // 既にこのシナリオIDでロード済みの場合はスキップ（保存後のリフェッチでフォームが上書きされるのを防止）
+    const loadKey = `${scenarioId || 'new'}`
+    if (formLoadedKeyRef.current === loadKey) return
+    formLoadedKeyRef.current = loadKey
 
     if (scenarioId) {
       // scenario_master_id または id で検索（新UI/旧UI両対応）
