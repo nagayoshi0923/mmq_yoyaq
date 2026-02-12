@@ -328,7 +328,7 @@ export const scenarioApi = {
             slug: scenario.slug || null,
             duration: scenario.duration || null,
             participation_fee: scenario.participation_fee || null,
-            extra_preparation_time: scenario.extra_preparation_time || 0,
+            extra_preparation_time: scenario.extra_preparation_time ?? null,
             org_status: orgStatus,
             license_amount: scenario.license_amount || null,
             gm_test_license_amount: scenario.gm_test_license_amount || null,
