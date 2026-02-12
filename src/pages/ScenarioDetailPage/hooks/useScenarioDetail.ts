@@ -182,12 +182,32 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
           return a.start_time.localeCompare(b.start_time)
         })
       
+      // 注意事項を organization_scenarios_with_master から取得
+      // （scenariosテーブルにはcautionカラムがないため）
+      let caution: string | undefined = undefined
+      if (scenarioData.scenario_master_id && orgId) {
+        try {
+          const { data: orgScenarioData } = await supabase
+            .from('organization_scenarios_with_master')
+            .select('caution')
+            .eq('scenario_master_id', scenarioData.scenario_master_id)
+            .eq('organization_id', orgId)
+            .maybeSingle()
+          if (orgScenarioData?.caution) {
+            caution = orgScenarioData.caution
+          }
+        } catch (e) {
+          logger.error('注意事項の取得エラー:', e)
+        }
+      }
+      
       setScenario({
         scenario_id: scenarioData.id,
         scenario_title: scenarioData.title,
         key_visual_url: scenarioData.key_visual_url,
         synopsis: scenarioData.synopsis || scenarioData.description,
         description: scenarioData.description,
+        caution,
         author: scenarioData.author,
         genre: scenarioData.genre || [],
         duration: scenarioData.duration,

@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Clock, Users, ChevronDown, BookOpen } from 'lucide-react'
+import { Clock, Users, ChevronDown, BookOpen, AlertTriangle } from 'lucide-react'
 import type { ScenarioDetail } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -17,6 +17,21 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
 
   return (
     <div className="space-y-4">
+      {/* 注意事項セクション */}
+      {scenario.caution && (
+        <div className="bg-amber-50 border border-amber-300 rounded-md">
+          <div className="px-4 py-3 border-b border-amber-300 flex items-center gap-2 bg-amber-100">
+            <AlertTriangle className="w-4 h-4 text-amber-700" />
+            <h3 className="font-semibold text-amber-800 text-sm">注意事項</h3>
+          </div>
+          <div className="p-4">
+            <p className="leading-relaxed whitespace-pre-wrap text-sm text-amber-900">
+              {scenario.caution}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* あらすじセクション */}
       {scenario.synopsis && (
         <div className="bg-gray-50 border border-gray-200">

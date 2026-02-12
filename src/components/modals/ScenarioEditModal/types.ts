@@ -63,6 +63,8 @@ export interface ScenarioFormData {
   // 柔軟な料金設定
   use_flexible_pricing: boolean
   flexible_pricing: FlexiblePricing
+  // 注意事項（予約ページに表示）
+  caution?: string
   // キービジュアル画像URL
   key_visual_url?: string
   // ライセンス金額

@@ -8,6 +8,7 @@ export interface ScenarioDetail {
   key_visual_url?: string
   synopsis?: string
   description?: string
+  caution?: string
   author: string
   genre: string[]
   duration: number

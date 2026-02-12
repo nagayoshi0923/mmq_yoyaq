@@ -99,6 +99,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       { item: 'normal', amount: 0, type: 'fixed' },
       { item: 'gmtest', amount: 0, type: 'fixed' }
     ],
+    caution: '',
     has_pre_reading: false,
     gm_count: 1,
     gm_assignments: [],  // 空配列 = デフォルト報酬を使用
@@ -782,8 +783,41 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           use_flexible_pricing: scenario.use_flexible_pricing || false, // フォーム専用フィールド
           flexible_pricing: scenario.flexible_pricing || defaultFlexiblePricing,
           key_visual_url: scenario.key_visual_url || '',
-          available_stores: scenario.available_stores || []
+          available_stores: scenario.available_stores || [],
+          caution: ''
         })
+        
+        // organization_scenarios / scenario_masters から caution を取得
+        // （scenariosテーブルにはcautionカラムがないため別途取得）
+        if (scenario.scenario_master_id) {
+          try {
+            const loadOrgId = await getCurrentOrganizationId()
+            if (loadOrgId) {
+              const { data: osData } = await supabase
+                .from('organization_scenarios')
+                .select('custom_caution')
+                .eq('scenario_master_id', scenario.scenario_master_id)
+                .eq('organization_id', loadOrgId)
+                .maybeSingle()
+              
+              if (osData?.custom_caution) {
+                setFormData(prev => ({ ...prev, caution: osData.custom_caution || '' }))
+              } else {
+                // custom_caution がなければ scenario_masters.caution を取得
+                const { data: masterCaution } = await supabase
+                  .from('scenario_masters')
+                  .select('caution')
+                  .eq('id', scenario.scenario_master_id)
+                  .maybeSingle()
+                if (masterCaution?.caution) {
+                  setFormData(prev => ({ ...prev, caution: masterCaution.caution || '' }))
+                }
+              }
+            }
+          } catch (e) {
+            logger.error('caution取得エラー:', e)
+          }
+        }
       } else {
         setIsScenarioLoaded(false)
         showToast.error('シナリオの読み込みに失敗しました', '権限/組織情報の可能性があります。再ログイン後に再度お試しください')
@@ -844,6 +878,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             special_requirements: ''
           }
         },
+        caution: '',
         key_visual_url: '',
         available_stores: []
       })
@@ -1064,6 +1099,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   extra_preparation_time: scenarioData.extra_preparation_time ?? null,
                   org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
                   custom_key_visual_url: scenarioData.key_visual_url || null,
+                  custom_caution: formData.caution || null,
                   available_stores: scenarioData.available_stores || [],
                   participation_costs: scenarioData.participation_costs || [],
                   gm_costs: scenarioData.gm_costs || [],
@@ -1097,6 +1133,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   extra_preparation_time: scenarioData.extra_preparation_time ?? null,
                   org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
                   custom_key_visual_url: scenarioData.key_visual_url || null,
+                  custom_caution: formData.caution || null,
                   available_stores: scenarioData.available_stores || [],
                   participation_costs: scenarioData.participation_costs || [],
                   gm_costs: scenarioData.gm_costs || [],
