@@ -1281,13 +1281,13 @@ export function PerformanceModal({
                   return { label: 'GMテスト', fee: '¥0' }
                 }
                 
-                // 貸切公演：参加費 × 最大人数 = 合計金額
+                // 貸切公演：1名あたり × 最大人数 = 合計金額
                 if (category === 'private') {
                   const perPerson = getNormalFeeAmount(selectedScenario)
                   if (perPerson) {
                     const maxP = selectedScenario.player_count_max || formData.max_participants || 1
                     const total = perPerson * maxP
-                    return { label: '貸切', fee: `¥${total.toLocaleString()}` }
+                    return { label: '貸切', fee: `¥${perPerson.toLocaleString()}×${maxP}名=¥${total.toLocaleString()}` }
                   }
                   return null
                 }
