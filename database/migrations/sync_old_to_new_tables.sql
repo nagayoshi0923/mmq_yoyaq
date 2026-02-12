@@ -47,41 +47,67 @@ SELECT 'organization_scenarios画像同期完了' as result;
 
 -- ============================================================
 -- 3. available_gms (担当GM名) を同期
---    staff_scenario_assignments → organization_scenarios.available_gms
+--    4つのソースを統合:
+--    a) staff_scenario_assignments (scenarios.id経由)
+--    b) staff_scenario_assignments (scenario_master_id直接)
+--    c) scenarios.available_gms (旧UIで保存されたtext配列)
+--    d) organization_scenarios.available_gms (既存データを保持)
 -- ============================================================
 
--- 3a. scenarios.id 経由のマッピング
-WITH gm_names AS (
+WITH gm_from_assignments AS (
+  -- a) staff_scenario_assignments → scenarios.scenario_master_id 経由
   SELECT 
     s.scenario_master_id,
     ssa.organization_id,
-    ARRAY_AGG(DISTINCT st.name ORDER BY st.name) as gm_list
+    st.name
   FROM staff_scenario_assignments ssa
   JOIN scenarios s ON s.id = ssa.scenario_id
   JOIN staff st ON st.id = ssa.staff_id
   WHERE (ssa.can_main_gm = true OR ssa.can_sub_gm = true)
     AND s.scenario_master_id IS NOT NULL
     AND st.name IS NOT NULL
-  GROUP BY s.scenario_master_id, ssa.organization_id
 ),
--- 3b. scenario_master_id 直接参照のマッピング
-gm_names_direct AS (
+gm_from_assignments_direct AS (
+  -- b) staff_scenario_assignments → scenario_master_id 直接参照
   SELECT 
     ssa.scenario_id as scenario_master_id,
     ssa.organization_id,
-    ARRAY_AGG(DISTINCT st.name ORDER BY st.name) as gm_list
+    st.name
   FROM staff_scenario_assignments ssa
   JOIN staff st ON st.id = ssa.staff_id
   WHERE (ssa.can_main_gm = true OR ssa.can_sub_gm = true)
     AND st.name IS NOT NULL
     AND ssa.scenario_id IN (SELECT id FROM scenario_masters)
-  GROUP BY ssa.scenario_id, ssa.organization_id
 ),
--- 統合（全レコードを1行ずつに展開してから再集約）
+gm_from_scenarios AS (
+  -- c) scenarios.available_gms (旧UIの text[] データ)
+  SELECT 
+    s.scenario_master_id,
+    s.organization_id,
+    unnest(s.available_gms) as name
+  FROM scenarios s
+  WHERE s.scenario_master_id IS NOT NULL
+    AND s.available_gms IS NOT NULL
+    AND array_length(s.available_gms, 1) > 0
+),
+gm_from_existing AS (
+  -- d) organization_scenarios.available_gms (既存データ保持)
+  SELECT 
+    os.scenario_master_id,
+    os.organization_id,
+    unnest(os.available_gms) as name
+  FROM organization_scenarios os
+  WHERE os.available_gms IS NOT NULL
+    AND array_length(os.available_gms, 1) > 0
+),
 all_gm_rows AS (
-  SELECT scenario_master_id, organization_id, unnest(gm_list) as name FROM gm_names
+  SELECT scenario_master_id, organization_id, name FROM gm_from_assignments
   UNION
-  SELECT scenario_master_id, organization_id, unnest(gm_list) as name FROM gm_names_direct
+  SELECT scenario_master_id, organization_id, name FROM gm_from_assignments_direct
+  UNION
+  SELECT scenario_master_id, organization_id, name FROM gm_from_scenarios
+  UNION
+  SELECT scenario_master_id, organization_id, name FROM gm_from_existing
 ),
 merged_gms AS (
   SELECT 
@@ -89,6 +115,7 @@ merged_gms AS (
     organization_id,
     ARRAY_AGG(DISTINCT name ORDER BY name) as merged_gm_list
   FROM all_gm_rows
+  WHERE name IS NOT NULL AND name != ''
   GROUP BY scenario_master_id, organization_id
 )
 UPDATE organization_scenarios os
@@ -104,38 +131,67 @@ FROM organization_scenarios WHERE available_gms IS NOT NULL AND available_gms !=
 
 -- ============================================================
 -- 4. experienced_staff (体験済み) を同期
---    staff_scenario_assignments → organization_scenarios.experienced_staff
+--    3つのソースを統合:
+--    a) staff_scenario_assignments.is_experienced (scenarios.id経由)
+--    b) staff_scenario_assignments.is_experienced (scenario_master_id直接)
+--    c) scenarios.experienced_staff (旧UIで保存されたtext配列)
+--    d) organization_scenarios.experienced_staff (既存データを保持)
 -- ============================================================
 
-WITH exp_names AS (
+WITH exp_from_assignments AS (
+  -- a) staff_scenario_assignments → scenarios.scenario_master_id 経由
   SELECT 
     s.scenario_master_id,
     ssa.organization_id,
-    ARRAY_AGG(DISTINCT st.name ORDER BY st.name) as exp_list
+    st.name
   FROM staff_scenario_assignments ssa
   JOIN scenarios s ON s.id = ssa.scenario_id
   JOIN staff st ON st.id = ssa.staff_id
   WHERE ssa.is_experienced = true
     AND s.scenario_master_id IS NOT NULL
     AND st.name IS NOT NULL
-  GROUP BY s.scenario_master_id, ssa.organization_id
 ),
-exp_names_direct AS (
+exp_from_assignments_direct AS (
+  -- b) staff_scenario_assignments → scenario_master_id 直接参照
   SELECT 
     ssa.scenario_id as scenario_master_id,
     ssa.organization_id,
-    ARRAY_AGG(DISTINCT st.name ORDER BY st.name) as exp_list
+    st.name
   FROM staff_scenario_assignments ssa
   JOIN staff st ON st.id = ssa.staff_id
   WHERE ssa.is_experienced = true
     AND st.name IS NOT NULL
     AND ssa.scenario_id IN (SELECT id FROM scenario_masters)
-  GROUP BY ssa.scenario_id, ssa.organization_id
+),
+exp_from_scenarios AS (
+  -- c) scenarios.experienced_staff (旧UIの text[] データ)
+  SELECT 
+    s.scenario_master_id,
+    s.organization_id,
+    unnest(s.experienced_staff) as name
+  FROM scenarios s
+  WHERE s.scenario_master_id IS NOT NULL
+    AND s.experienced_staff IS NOT NULL
+    AND array_length(s.experienced_staff, 1) > 0
+),
+exp_from_existing AS (
+  -- d) organization_scenarios.experienced_staff (既存データ保持)
+  SELECT 
+    os.scenario_master_id,
+    os.organization_id,
+    unnest(os.experienced_staff) as name
+  FROM organization_scenarios os
+  WHERE os.experienced_staff IS NOT NULL
+    AND array_length(os.experienced_staff, 1) > 0
 ),
 all_exp_rows AS (
-  SELECT scenario_master_id, organization_id, unnest(exp_list) as name FROM exp_names
+  SELECT scenario_master_id, organization_id, name FROM exp_from_assignments
   UNION
-  SELECT scenario_master_id, organization_id, unnest(exp_list) as name FROM exp_names_direct
+  SELECT scenario_master_id, organization_id, name FROM exp_from_assignments_direct
+  UNION
+  SELECT scenario_master_id, organization_id, name FROM exp_from_scenarios
+  UNION
+  SELECT scenario_master_id, organization_id, name FROM exp_from_existing
 ),
 merged_exp AS (
   SELECT 
@@ -143,6 +199,7 @@ merged_exp AS (
     organization_id,
     ARRAY_AGG(DISTINCT name ORDER BY name) as merged_exp_list
   FROM all_exp_rows
+  WHERE name IS NOT NULL AND name != ''
   GROUP BY scenario_master_id, organization_id
 )
 UPDATE organization_scenarios os
