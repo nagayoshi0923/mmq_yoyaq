@@ -790,33 +790,36 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         // organization_scenarios / scenario_masters から caution を取得
         // （scenariosテーブルにはcautionカラムがないため別途取得）
         if (scenario.scenario_master_id) {
-          try {
-            const loadOrgId = await getCurrentOrganizationId()
-            if (loadOrgId) {
-              const { data: osData } = await supabase
-                .from('organization_scenarios')
-                .select('custom_caution')
-                .eq('scenario_master_id', scenario.scenario_master_id)
-                .eq('organization_id', loadOrgId)
-                .maybeSingle()
-              
-              if (osData?.custom_caution) {
-                setFormData(prev => ({ ...prev, caution: osData.custom_caution || '' }))
-              } else {
-                // custom_caution がなければ scenario_masters.caution を取得
-                const { data: masterCaution } = await supabase
-                  .from('scenario_masters')
-                  .select('caution')
-                  .eq('id', scenario.scenario_master_id)
+          const masterId = scenario.scenario_master_id
+          ;(async () => {
+            try {
+              const loadOrgId = await getCurrentOrganizationId()
+              if (loadOrgId) {
+                const { data: osData } = await supabase
+                  .from('organization_scenarios')
+                  .select('custom_caution')
+                  .eq('scenario_master_id', masterId)
+                  .eq('organization_id', loadOrgId)
                   .maybeSingle()
-                if (masterCaution?.caution) {
-                  setFormData(prev => ({ ...prev, caution: masterCaution.caution || '' }))
+                
+                if (osData?.custom_caution) {
+                  setFormData(prev => ({ ...prev, caution: osData.custom_caution || '' }))
+                } else {
+                  // custom_caution がなければ scenario_masters.caution を取得
+                  const { data: masterCaution } = await supabase
+                    .from('scenario_masters')
+                    .select('caution')
+                    .eq('id', masterId)
+                    .maybeSingle()
+                  if (masterCaution?.caution) {
+                    setFormData(prev => ({ ...prev, caution: masterCaution.caution || '' }))
+                  }
                 }
               }
+            } catch (e) {
+              logger.error('caution取得エラー:', e)
             }
-          } catch (e) {
-            logger.error('caution取得エラー:', e)
-          }
+          })()
         }
       } else {
         setIsScenarioLoaded(false)
