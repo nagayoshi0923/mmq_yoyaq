@@ -211,9 +211,9 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           .eq('organization_id', organizationId)
           .in('scenario_master_id', scenarioMasterIds)
         
+        // 旧ID -> マスターID のマッピングを作成
+        const oldIdToMasterIdMap = new Map<string, string>()
         if (scenariosData && scenariosData.length > 0) {
-          // 旧ID -> マスターID のマッピングを作成
-          const oldIdToMasterIdMap = new Map<string, string>()
           scenariosData.forEach(s => {
             if (s.scenario_master_id) {
               oldIdToMasterIdMap.set(s.id, s.scenario_master_id)
@@ -224,28 +224,43 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
               }
             }
           })
-          
-          const oldScenarioIds = scenariosData.map(s => s.id)
-          
-          // 旧IDで staff_scenario_assignments を検索（組織でフィルタ）
-          // can_main_gm, can_sub_gm, is_experienced も取得
+        }
+        
+        // staff_scenario_assignments を検索するための全候補ID
+        // 旧 scenarios.id + scenario_master_id 自身の両方で検索
+        const allSearchIds = [
+          ...(scenariosData || []).map(s => s.id),
+          ...scenarioMasterIds
+        ]
+        // 重複を除去
+        const uniqueSearchIds = [...new Set(allSearchIds)]
+        
+        if (uniqueSearchIds.length > 0) {
+          // 全候補IDで staff_scenario_assignments を検索（組織でフィルタ）
           const { data: assignmentsData } = await supabase
             .from('staff_scenario_assignments')
             .select('scenario_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id, name, organization_id)')
             .eq('organization_id', organizationId)
-            .in('scenario_id', oldScenarioIds)
+            .in('scenario_id', uniqueSearchIds)
           
           if (assignmentsData) {
             assignmentsData.forEach((a: any) => {
-              // 旧IDをマスターIDに変換してマッピング
-              const masterId = oldIdToMasterIdMap.get(a.scenario_id)
+              // scenario_id をマスターIDに変換
+              // 1. 旧ID→マスターID マッピングがあればそちらを使用
+              // 2. scenario_id 自体がマスターIDならそのまま使用
+              const masterId = oldIdToMasterIdMap.get(a.scenario_id) 
+                || (scenarioMasterIds.includes(a.scenario_id) ? a.scenario_id : null)
+              
               if (masterId && a.staff?.name) {
                 // 担当GM（can_main_gm=true または can_sub_gm=true）
                 if (a.can_main_gm || a.can_sub_gm) {
                   if (!availableGmsMap.has(masterId)) {
                     availableGmsMap.set(masterId, [])
                   }
-                  availableGmsMap.get(masterId)!.push(a.staff.name)
+                  // 重複チェック
+                  if (!availableGmsMap.get(masterId)!.includes(a.staff.name)) {
+                    availableGmsMap.get(masterId)!.push(a.staff.name)
+                  }
                 }
                 
                 // 体験済み（is_experienced=true かつ GM不可）
@@ -253,7 +268,9 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
                   if (!experiencedStaffMap.has(masterId)) {
                     experiencedStaffMap.set(masterId, [])
                   }
-                  experiencedStaffMap.get(masterId)!.push(a.staff.name)
+                  if (!experiencedStaffMap.get(masterId)!.includes(a.staff.name)) {
+                    experiencedStaffMap.get(masterId)!.push(a.staff.name)
+                  }
                 }
               }
             })
