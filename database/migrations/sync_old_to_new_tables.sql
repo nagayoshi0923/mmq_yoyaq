@@ -19,7 +19,7 @@ SET
   player_count_max = COALESCE(s.player_count_max, sm.player_count_max),
   official_duration = COALESCE(s.duration, sm.official_duration),
   genre = COALESCE(s.genre, sm.genre),
-  difficulty = COALESCE(s.difficulty, sm.difficulty),
+  difficulty = COALESCE(s.difficulty::TEXT, sm.difficulty),
   updated_at = NOW()
 FROM scenarios s
 WHERE s.scenario_master_id = sm.id;
