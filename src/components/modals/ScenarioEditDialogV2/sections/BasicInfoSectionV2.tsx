@@ -301,17 +301,17 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
         </CardContent>
       </Card>
 
-      {/* 注意事項 */}
+      {/* 特記事項 */}
       <Card>
         <CardContent className="p-2">
-          <Label className={labelStyle}>注意事項</Label>
+          <Label className={labelStyle}>特記事項</Label>
           <p className={hintStyle}>予約サイトのシナリオ詳細ページに表示されます</p>
           <Textarea
             id="caution"
             value={formData.caution || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, caution: e.target.value }))}
             rows={2}
-            placeholder="例: このシナリオにはホラー表現が含まれます"
+            placeholder="例: ホラー表現あり / 暗い部屋での公演 / 激しい運動あり"
             className="text-[11px] mt-1"
           />
         </CardContent>

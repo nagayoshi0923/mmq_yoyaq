@@ -56,7 +56,7 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
         <div className="bg-white border border-gray-200 rounded">
           <div className="px-4 py-2.5 flex items-center gap-2 border-b border-gray-200">
             <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-            <h3 className="font-semibold text-gray-900 text-sm">注意事項</h3>
+            <h3 className="font-semibold text-gray-900 text-sm">特記事項</h3>
           </div>
           <div className="px-4 py-3">
             <p className="leading-relaxed whitespace-pre-wrap text-sm text-gray-700">
