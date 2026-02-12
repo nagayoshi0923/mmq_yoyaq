@@ -1,6 +1,6 @@
 // スクロール位置の保存と復元（汎用版）
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 
 interface UseScrollRestorationOptions {
   /** ページ識別用のキー（デフォルト: 'page'） */
@@ -13,8 +13,7 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
   const { pageKey = 'page', isLoading = false } = options
   
   const scrollYKey = `${pageKey}ScrollY`
-  const restoredRef = useRef(false)
-  const scrollListenerAttached = useRef(false)
+  const restoringRef = useRef(false)
 
   // ブラウザのデフォルトのスクロール復元を無効化
   useEffect(() => {
@@ -23,64 +22,77 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     }
   }, [])
 
-  // アンマウント時にスクロール位置を確実に保存
+  // スクロール位置を継続的に保存（復元中はスキップ）
   useEffect(() => {
-    return () => {
-      sessionStorage.setItem(scrollYKey, window.scrollY.toString())
-    }
-  }, [scrollYKey])
-
-  // スクロール位置を保存するリスナーを設定（復元完了後に開始）
-  useEffect(() => {
-    if (isLoading || !restoredRef.current) return
-
     let scrollTimer: NodeJS.Timeout
     const handleScroll = () => {
+      if (restoringRef.current) return
       clearTimeout(scrollTimer)
       scrollTimer = setTimeout(() => {
-        sessionStorage.setItem(scrollYKey, window.scrollY.toString())
-      }, 150)
+        if (!restoringRef.current) {
+          sessionStorage.setItem(scrollYKey, window.scrollY.toString())
+        }
+      }, 200)
     }
     
     window.addEventListener('scroll', handleScroll, { passive: true })
-    scrollListenerAttached.current = true
     
     return () => {
       window.removeEventListener('scroll', handleScroll)
       clearTimeout(scrollTimer)
-      scrollListenerAttached.current = false
+      // アンマウント時に現在位置を保存
+      if (!restoringRef.current) {
+        sessionStorage.setItem(scrollYKey, window.scrollY.toString())
+      }
     }
-  }, [scrollYKey, isLoading])
+  }, [scrollYKey])
 
-  // データ読み込み完了後にスクロール位置を復元
+  // データ読み込み完了後にスクロール位置を復元（リトライ付き）
   useEffect(() => {
     if (isLoading) return
 
     const savedY = sessionStorage.getItem(scrollYKey)
+    if (!savedY) return
     
-    if (savedY) {
-      const targetY = parseInt(savedY, 10)
-      if (targetY > 0) {
-        // DOMが描画されるのを待ってから復元（requestAnimationFrame + 少し遅延）
-        const rafId = requestAnimationFrame(() => {
-          setTimeout(() => {
-            window.scrollTo(0, targetY)
-            // 復元完了後にスクロール保存を開始するフラグを立てる
-            restoredRef.current = true
-          }, 50)
-        })
-        return () => cancelAnimationFrame(rafId)
+    const targetY = parseInt(savedY, 10)
+    if (targetY <= 0) return
+
+    restoringRef.current = true
+    let attempts = 0
+    const maxAttempts = 20
+    let timerId: NodeJS.Timeout
+
+    const tryRestore = () => {
+      attempts++
+      
+      // ドキュメントの高さがターゲット位置に達しているか確認
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight
+      
+      if (maxScroll >= targetY || attempts >= maxAttempts) {
+        window.scrollTo(0, Math.min(targetY, maxScroll))
+        // 少し待ってから復元完了フラグを解除（直後のscrollイベントをスキップ）
+        setTimeout(() => {
+          restoringRef.current = false
+        }, 300)
+      } else {
+        // まだページが短い → 50msごとにリトライ
+        timerId = setTimeout(tryRestore, 50)
       }
     }
-    
-    // 保存されたスクロール位置がない場合もフラグを立てる
-    restoredRef.current = true
+
+    // 最初の復元を少し遅らせる（DOM描画を待つ）
+    timerId = setTimeout(tryRestore, 100)
+
+    return () => {
+      clearTimeout(timerId)
+      restoringRef.current = false
+    }
   }, [isLoading, scrollYKey])
 
   // スクロール位置をクリアする関数を返す
-  const clearScrollPosition = () => {
+  const clearScrollPosition = useCallback(() => {
     sessionStorage.removeItem(scrollYKey)
-  }
+  }, [scrollYKey])
 
   return { clearScrollPosition }
 }
