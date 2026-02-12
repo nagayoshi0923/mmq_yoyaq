@@ -963,6 +963,72 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 .eq('scenario_id', targetScenarioId)
             }
           }
+          // GM保存後: organization_scenarios に available_gms / experienced_staff / gm_assignments を同期
+          // これにより、IDマッピングに関わらず一覧でGM・体験済みが表示される
+          if (formData.scenario_master_id) {
+            try {
+              const syncOrgId = await getCurrentOrganizationId()
+              if (syncOrgId) {
+                // 全割り当てデータを再取得して最新の状態で同期
+                const allSearchIds = [targetScenarioId]
+                if (scenarioId && scenarioId !== targetScenarioId) allSearchIds.push(scenarioId)
+                
+                const { data: allAssignments } = await supabase
+                  .from('staff_scenario_assignments')
+                  .select('staff_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id, name)')
+                  .eq('organization_id', syncOrgId)
+                  .in('scenario_id', allSearchIds)
+                
+                const gmNames: string[] = []
+                const expNames: string[] = []
+                const gmAssignmentsJson: any[] = []
+                
+                if (allAssignments) {
+                  allAssignments.forEach((a: any) => {
+                    const name = a.staff?.name
+                    if (!name) return
+                    
+                    if (a.can_main_gm || a.can_sub_gm) {
+                      if (!gmNames.includes(name)) gmNames.push(name)
+                      gmAssignmentsJson.push({ staff_name: name, staff_id: a.staff_id, can_main_gm: a.can_main_gm, can_sub_gm: a.can_sub_gm })
+                    }
+                    if (a.is_experienced) {
+                      if (!expNames.includes(name)) expNames.push(name)
+                    }
+                  })
+                }
+                
+                // 現在ダイアログで選択中のGMも追加（まだDBに反映されていない可能性があるため）
+                selectedStaffIds.forEach(sid => {
+                  const s = staff.find(st => st.id === sid)
+                  if (s && !gmNames.includes(s.name)) {
+                    gmNames.push(s.name)
+                    const assignment = currentAssignments.find(a => a.staff_id === sid)
+                    gmAssignmentsJson.push({ staff_name: s.name, staff_id: sid, can_main_gm: assignment?.can_main_gm ?? true, can_sub_gm: assignment?.can_sub_gm ?? true })
+                  }
+                })
+                
+                const { error: syncError2 } = await supabase
+                  .from('organization_scenarios')
+                  .update({
+                    available_gms: gmNames,
+                    experienced_staff: expNames,
+                    gm_assignments: gmAssignmentsJson,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('scenario_master_id', formData.scenario_master_id)
+                  .eq('organization_id', syncOrgId)
+                
+                if (syncError2) {
+                  logger.error('GM同期エラー（無視）:', syncError2)
+                } else {
+                  logger.log('organization_scenariosにGMデータを同期:', { gms: gmNames.length, exp: expNames.length })
+                }
+              }
+            } catch (e) {
+              logger.error('GM同期処理エラー:', e)
+            }
+          }
         } catch (syncError) {
           logger.error('Error updating GM assignments:', syncError)
           showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')
