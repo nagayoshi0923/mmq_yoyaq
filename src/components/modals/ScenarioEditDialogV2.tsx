@@ -329,6 +329,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
   // ローディング状態
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false)
+  // デバッグ情報（一時的）
+  const [debugGmInfo, setDebugGmInfo] = useState<string>('')
   
   // 保存成功メッセージ
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
@@ -479,7 +481,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         // 保存時にも使用する旧ID（scenarioId自身以外があればそれ、なければscenarioId）
         resolvedScenarioIdRef.current = idsArray.find(id => id !== scenarioId) || scenarioId
         
-        logger.log('🔍 担当GM検索: scenarioId =', scenarioId, '→ 検索ID候補 =', idsArray)
+        const debugLines: string[] = []
+        debugLines.push(`scenarioId: ${scenarioId}`)
+        debugLines.push(`orgId: ${orgId}`)
+        debugLines.push(`検索IDs: ${idsArray.join(', ')}`)
         
         // ====================================================
         // STEP 2: 全候補IDで staff_scenario_assignments を検索
@@ -504,15 +509,18 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         const { data: assignmentsData, error: assignError } = await assignQuery
         
         if (assignError) {
-          logger.error('🔍 assignments検索エラー:', assignError.message)
+          debugLines.push(`assignments検索エラー: ${assignError.message}`)
         }
+        
+        debugLines.push(`生データ件数: ${(assignmentsData || []).length}`)
         
         // GM可能なスタッフのみフィルタ
         const gmAssignments = (assignmentsData || []).filter(a => 
           a.can_main_gm === true || a.can_sub_gm === true
         )
         
-        logger.log('🔍 担当GM結果:', gmAssignments.length, '名', gmAssignments.map((a: any) => a.staff?.name))
+        debugLines.push(`GM該当: ${gmAssignments.length}名 [${gmAssignments.map((a: any) => a.staff?.name || a.staff_id).join(', ')}]`)
+        setDebugGmInfo(debugLines.join(' | '))
         setCurrentAssignments(gmAssignments)
         setSelectedStaffIds(gmAssignments.map(a => a.staff_id))
         
@@ -1020,16 +1028,24 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         return <PricingSectionV2 formData={formData} setFormData={setFormData} />
       case 'gm':
         return (
-          <GmSettingsSectionV2 
-            formData={formData} 
-            setFormData={setFormData} 
-            staff={staff}
-            loadingStaff={loadingStaff}
-            selectedStaffIds={selectedStaffIds}
-            onStaffSelectionChange={setSelectedStaffIds}
-            currentAssignments={currentAssignments}
-            onAssignmentUpdate={handleAssignmentUpdate}
-          />
+          <>
+            {/* デバッグ情報（問題解決後に削除） */}
+            {debugGmInfo && (
+              <div className="bg-yellow-50 border border-yellow-300 rounded p-2 mb-2 text-[10px] text-yellow-800 break-all">
+                {debugGmInfo}
+              </div>
+            )}
+            <GmSettingsSectionV2 
+              formData={formData} 
+              setFormData={setFormData} 
+              staff={staff}
+              loadingStaff={loadingStaff}
+              selectedStaffIds={selectedStaffIds}
+              onStaffSelectionChange={setSelectedStaffIds}
+              currentAssignments={currentAssignments}
+              onAssignmentUpdate={handleAssignmentUpdate}
+            />
+          </>
         )
       case 'costs':
         return <CostsPropsSectionV2 formData={formData} setFormData={setFormData} scenarioStats={scenarioStats} />
