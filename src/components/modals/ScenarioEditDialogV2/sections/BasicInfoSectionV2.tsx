@@ -20,6 +20,9 @@ import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/typ
 import { useOrgScenariosForOptions } from '@/pages/ScenarioManagement/hooks/useOrgScenariosForOptions'
 import { storeApi } from '@/lib/api'
 import type { Store } from '@/types'
+import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
+import { useQueryClient } from '@tanstack/react-query'
 
 // 統一スタイル（コンパクト）
 const labelStyle = "text-xs font-medium mb-0.5 block"
@@ -40,6 +43,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
   const [newAuthorName, setNewAuthorName] = useState('')
   const [editingOldAuthorName, setEditingOldAuthorName] = useState<string | null>(null)
   const [stores, setStores] = useState<Store[]>([])
+  const queryClient = useQueryClient()
   
   useEffect(() => {
     const loadStores = async () => {
@@ -57,9 +61,23 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
     return stores.map(store => ({ id: store.id, name: store.name }))
   }, [stores])
   
-  // organization_scenarios_with_master ビューから作者情報を取得
-  // （scenarios テーブルではなく、override 反映済みのビューを使用）
+  // organization_authors テーブルから作者情報を取得（sort_order 順）
   const { authors: orgAuthors } = useOrgScenariosForOptions()
+
+  // 作者を organization_authors テーブルに自動登録
+  const ensureAuthorInTable = async (name: string) => {
+    try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return
+      await supabase.from('organization_authors').upsert(
+        { organization_id: orgId, name, sort_order: 9999 },
+        { onConflict: 'organization_id,name' }
+      )
+      queryClient.invalidateQueries({ queryKey: ['org-authors'] })
+    } catch {
+      // テーブル登録失敗は致命的ではないので無視
+    }
+  }
   
   const authorEmailMap = useMemo(() => {
     // NOTE: author_email は scenarios テーブルにしかないため、ここでは空マップ
@@ -132,6 +150,9 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
 
     if (editingOldAuthorName !== null && editingOldAuthorName !== trimmedName) {
       showToast.success(`作者名を「${trimmedName}」に変更しました（保存ボタンで反映）`)
+    } else if (editingOldAuthorName === null) {
+      // 新規追加時: テーブルにも自動登録
+      await ensureAuthorInTable(trimmedName)
     }
 
     setNewAuthorName('')

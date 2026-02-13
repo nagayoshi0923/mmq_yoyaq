@@ -10,10 +10,13 @@ import { Trash2 } from 'lucide-react'
 
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
-import { statusOptions, genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
+import { statusOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
 import { useOrgScenariosForOptions } from '@/pages/ScenarioManagement/hooks/useOrgScenariosForOptions'
 import { showToast } from '@/utils/toast'
 import { parseIntSafe } from '@/utils/number'
+import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface GameInfoSectionV2Props {
   formData: ScenarioFormData
@@ -29,27 +32,45 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [editingOldCategoryName, setEditingOldCategoryName] = useState<string | null>(null) // nullなら新規追加モード
+  const queryClient = useQueryClient()
 
-  // organization_scenarios_with_master ビューからカテゴリ・作者情報を取得
-  // （scenarios テーブルではなく、override 反映済みのビューを使用）
+  // organization_categories テーブルからカテゴリ情報を取得（sort_order 順）
   const { genres: orgGenres } = useOrgScenariosForOptions()
   
-  const allUsedGenres = useMemo(() => {
-    const genres = new Set<string>(orgGenres)
-    if (formData.genre && Array.isArray(formData.genre)) {
-      formData.genre.forEach(genre => { if (genre) genres.add(genre) })
-    }
-    return Array.from(genres).sort()
-  }, [orgGenres, formData.genre])
-
+  // テーブルのカテゴリ + 現在のフォームデータ内のカテゴリをマージ
   const allGenreOptions = useMemo(() => {
     const genreMap = new Map<string, { id: string, name: string }>()
-    genreOptions.forEach(opt => genreMap.set(opt.name, opt))
-    allUsedGenres.forEach(genre => {
-      if (!genreMap.has(genre)) genreMap.set(genre, { id: genre, name: genre })
+    // テーブルから取得したカテゴリ（sort_order 順）
+    orgGenres.forEach(genre => {
+      genreMap.set(genre, { id: genre, name: genre })
     })
-    return Array.from(genreMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'ja'))
-  }, [allUsedGenres])
+    // フォームデータ内のカテゴリも追加（テーブルに未登録のものがあれば）
+    if (formData.genre && Array.isArray(formData.genre)) {
+      formData.genre.forEach(genre => {
+        if (genre && !genreMap.has(genre)) {
+          genreMap.set(genre, { id: genre, name: genre })
+        }
+      })
+    }
+    return Array.from(genreMap.values())
+  }, [orgGenres, formData.genre])
+
+  // カテゴリを organization_categories テーブルに自動登録
+  const ensureCategoryInTable = async (name: string) => {
+    try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return
+      // ON CONFLICT で重複は無視
+      await supabase.from('organization_categories').upsert(
+        { organization_id: orgId, name, sort_order: 9999 },
+        { onConflict: 'organization_id,name' }
+      )
+      // キャッシュ更新
+      queryClient.invalidateQueries({ queryKey: ['org-categories'] })
+    } catch {
+      // テーブル登録失敗は致命的ではないので無視
+    }
+  }
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) {
@@ -72,6 +93,8 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
       if (!currentGenres.includes(trimmedName)) {
         setFormData(prev => ({ ...prev, genre: [...currentGenres, trimmedName] }))
       }
+      // テーブルにも自動登録
+      await ensureCategoryInTable(trimmedName)
     }
     setNewCategoryName('')
     setEditingOldCategoryName(null)

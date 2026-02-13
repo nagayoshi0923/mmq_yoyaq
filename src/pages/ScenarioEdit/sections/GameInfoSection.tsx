@@ -8,8 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
-import { statusOptions, genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
-import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { statusOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
+import { useOrgScenariosForOptions } from '@/pages/ScenarioManagement/hooks/useOrgScenariosForOptions'
 import { parseIntSafe } from '@/utils/number'
 
 interface GameInfoSectionProps {
@@ -21,46 +21,24 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
 
-  // 既存のシナリオからカテゴリリストを取得
-  const { data: scenarios = [] } = useScenariosQuery()
-  
-  // 全シナリオから使用されているカテゴリを抽出
-  const allUsedGenres = useMemo(() => {
-    const genres = new Set<string>()
-    scenarios.forEach(scenario => {
-      if (scenario.genre && Array.isArray(scenario.genre)) {
-        scenario.genre.forEach(genre => {
-          if (genre) genres.add(genre)
-        })
-      }
-    })
-    // 現在選択されているカテゴリも含める
-    if (formData.genre && Array.isArray(formData.genre)) {
-      formData.genre.forEach(genre => {
-        if (genre) genres.add(genre)
-      })
-    }
-    return Array.from(genres).sort()
-  }, [scenarios, formData.genre])
+  // organization_categories テーブルからカテゴリを取得（sort_order 順）
+  const { genres: orgGenres } = useOrgScenariosForOptions()
 
-  // 固定のgenreOptionsと、実際に使用されているカテゴリをマージ
+  // テーブルのカテゴリ + フォームデータ内のカテゴリをマージ
   const allGenreOptions = useMemo(() => {
     const genreMap = new Map<string, { id: string, name: string }>()
-    
-    // 固定のgenreOptionsを追加
-    genreOptions.forEach(opt => {
-      genreMap.set(opt.name, opt)
+    orgGenres.forEach(genre => {
+      genreMap.set(genre, { id: genre, name: genre })
     })
-    
-    // 実際に使用されているカテゴリを追加（固定リストにないもの）
-    allUsedGenres.forEach(genre => {
-      if (!genreMap.has(genre)) {
-        genreMap.set(genre, { id: genre, name: genre })
-      }
-    })
-    
-    return Array.from(genreMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'ja'))
-  }, [allUsedGenres])
+    if (formData.genre && Array.isArray(formData.genre)) {
+      formData.genre.forEach(genre => {
+        if (genre && !genreMap.has(genre)) {
+          genreMap.set(genre, { id: genre, name: genre })
+        }
+      })
+    }
+    return Array.from(genreMap.values())
+  }, [orgGenres, formData.genre])
 
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) {

@@ -1,8 +1,9 @@
 /**
- * organization_scenarios_with_master ビューからカテゴリ・作者の選択肢を取得するフック
+ * organization_categories / organization_authors テーブルから
+ * カテゴリ・作者の選択肢を取得するフック
  * 
- * scenarios テーブルではなく、override 反映済みのビューを使用するため、
- * 組織が上書きした作者名・カテゴリ名が正しく反映される。
+ * 正規化テーブルから sort_order 順で取得するため、
+ * 設定画面で管理した並び順がプルダウンに反映される。
  */
 
 import { useQuery } from '@tanstack/react-query'
@@ -12,20 +13,23 @@ import { useMemo } from 'react'
 
 export const orgOptionsKeys = {
   all: ['org-scenarios-options'] as const,
+  categories: ['org-categories'] as const,
+  authors: ['org-authors'] as const,
 }
 
 export function useOrgScenariosForOptions() {
-  const { data = [] } = useQuery({
-    queryKey: orgOptionsKeys.all,
+  // カテゴリ取得（sort_order 順）
+  const { data: categoriesData = [] } = useQuery({
+    queryKey: orgOptionsKeys.categories,
     queryFn: async () => {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return []
 
-      // 必要最小限のフィールドのみ取得（author と genre だけ）
       const { data, error } = await supabase
-        .from('organization_scenarios_with_master')
-        .select('author, genre')
+        .from('organization_categories')
+        .select('id, name, sort_order')
         .eq('organization_id', orgId)
+        .order('sort_order', { ascending: true })
 
       if (error) throw error
       return data || []
@@ -33,23 +37,32 @@ export function useOrgScenariosForOptions() {
     staleTime: 5 * 60 * 1000, // 5分キャッシュ
   })
 
-  const authors = useMemo(() => {
-    const set = new Set<string>()
-    data.forEach((s: any) => {
-      if (s.author) set.add(s.author)
-    })
-    return Array.from(set)
-  }, [data])
+  // 作者取得（sort_order 順）
+  const { data: authorsData = [] } = useQuery({
+    queryKey: orgOptionsKeys.authors,
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return []
+
+      const { data, error } = await supabase
+        .from('organization_authors')
+        .select('id, name, sort_order')
+        .eq('organization_id', orgId)
+        .order('sort_order', { ascending: true })
+
+      if (error) throw error
+      return data || []
+    },
+    staleTime: 5 * 60 * 1000,
+  })
 
   const genres = useMemo(() => {
-    const set = new Set<string>()
-    data.forEach((s: any) => {
-      if (s.genre && Array.isArray(s.genre)) {
-        s.genre.forEach((g: string) => { if (g) set.add(g) })
-      }
-    })
-    return Array.from(set)
-  }, [data])
+    return categoriesData.map((c: any) => c.name as string)
+  }, [categoriesData])
+
+  const authors = useMemo(() => {
+    return authorsData.map((a: any) => a.name as string)
+  }, [authorsData])
 
   return { authors, genres }
 }
