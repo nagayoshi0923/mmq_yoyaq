@@ -223,25 +223,68 @@ export function StaffProfile() {
 
       await assignmentApi.updateStaffAssignments(staffId, assignmentData, organizationId)
 
-      // staffテーブルにも保存（special_scenarios / experienced_scenarios）
+      // staffテーブルにも保存（special_scenarios のみ。experienced_scenarios はDBカラムが存在しないため除外）
+      // 体験済みデータは staff_scenario_assignments テーブルが正規データ源
       const specialScenarios = assignments
         .filter(a => a.can_main_gm || a.can_sub_gm)
-        .map(a => a.scenario_id)
-
-      const experiencedScenarios = assignments
-        .filter(a => a.is_experienced && !a.can_main_gm && !a.can_sub_gm)
         .map(a => a.scenario_id)
 
       const { error: staffUpdateError } = await supabase
         .from('staff')
         .update({
-          special_scenarios: specialScenarios,
-          experienced_scenarios: experiencedScenarios
+          special_scenarios: specialScenarios
         })
         .eq('id', staffId)
         .eq('organization_id', organizationId)
 
       if (staffUpdateError) throw staffUpdateError
+
+      // organization_scenarios の available_gms / experienced_staff を同期
+      // 変更されたシナリオIDを特定して、それぞれの organization_scenarios を再構築
+      try {
+        const affectedScenarioIds = [...new Set(assignments.map(a => a.scenario_id))]
+        
+        for (const scenarioId of affectedScenarioIds) {
+          // このシナリオの全アサインメントを取得
+          const { data: scenarioAssignments } = await supabase
+            .from('staff_scenario_assignments')
+            .select('staff_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(name)')
+            .eq('scenario_id', scenarioId)
+            .or(`organization_id.eq.${organizationId},organization_id.is.null`)
+
+          if (scenarioAssignments) {
+            const gmNames: string[] = []
+            const expNames: string[] = []
+            const gmAssignmentsJson: any[] = []
+
+            scenarioAssignments.forEach((a: any) => {
+              const name = a.staff?.name
+              if (!name) return
+              if (a.can_main_gm || a.can_sub_gm) {
+                if (!gmNames.includes(name)) gmNames.push(name)
+                gmAssignmentsJson.push({ staff_name: name, staff_id: a.staff_id, can_main_gm: a.can_main_gm, can_sub_gm: a.can_sub_gm })
+              }
+              if (a.is_experienced && !a.can_main_gm && !a.can_sub_gm) {
+                if (!expNames.includes(name)) expNames.push(name)
+              }
+            })
+
+            // scenario_id が scenario_master_id として使われている organization_scenarios を更新
+            await supabase
+              .from('organization_scenarios')
+              .update({
+                available_gms: gmNames,
+                experienced_staff: expNames,
+                gm_assignments: gmAssignmentsJson,
+                updated_at: new Date().toISOString()
+              })
+              .eq('scenario_master_id', scenarioId)
+              .eq('organization_id', organizationId)
+          }
+        }
+      } catch (syncError) {
+        logger.error('organization_scenarios 同期エラー（無視）:', syncError)
+      }
 
       // スタッフ管理ページのキャッシュを無効化（即座に反映されるようにする）
       queryClient.invalidateQueries({ queryKey: staffKeys.all })

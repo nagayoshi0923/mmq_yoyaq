@@ -1017,6 +1017,39 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 .eq('scenario_id', targetScenarioId)
             }
           }
+          // GM保存後: staff.special_scenarios を同期更新
+          // スケジュール画面の担当バッジなどが staff.special_scenarios を参照するため必須
+          try {
+            // 削除されたGMの special_scenarios から targetScenarioId を除去
+            for (const staffId of toDelete) {
+              const { data: staffRow } = await supabase
+                .from('staff')
+                .select('special_scenarios')
+                .eq('id', staffId)
+                .maybeSingle()
+              if (staffRow?.special_scenarios) {
+                const updated = (staffRow.special_scenarios as string[]).filter(
+                  (sid: string) => sid !== targetScenarioId
+                )
+                await supabase.from('staff').update({ special_scenarios: updated }).eq('id', staffId)
+              }
+            }
+            // 追加されたGMの special_scenarios に targetScenarioId を追加
+            for (const staffId of toAdd) {
+              const { data: staffRow } = await supabase
+                .from('staff')
+                .select('special_scenarios')
+                .eq('id', staffId)
+                .maybeSingle()
+              const current = (staffRow?.special_scenarios as string[]) || []
+              if (!current.includes(targetScenarioId)) {
+                await supabase.from('staff').update({ special_scenarios: [...current, targetScenarioId] }).eq('id', staffId)
+              }
+            }
+          } catch (e) {
+            logger.error('staff.special_scenarios 同期エラー（無視）:', e)
+          }
+
           // GM保存後: organization_scenarios に available_gms / experienced_staff / gm_assignments を同期
           // これにより、IDマッピングに関わらず一覧でGM・体験済みが表示される
           if (formData.scenario_master_id) {
