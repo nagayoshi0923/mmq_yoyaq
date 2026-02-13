@@ -70,32 +70,44 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
       // 編集モード: 全シナリオのカテゴリ名を一括変更
       setIsSavingCategory(true)
       try {
+        let totalUpdated = 0
+
         // 1. scenarios テーブル: 旧名を含むレコードを取得して更新
-        const { data: scenariosWithGenre } = await supabase
+        const { data: scenariosWithGenre, error: sErr } = await supabase
           .from('scenarios')
           .select('id, genre')
           .contains('genre', [editingOldCategoryName])
         
-        if (scenariosWithGenre && scenariosWithGenre.length > 0) {
+        if (sErr) {
+          logger.error('scenarios カテゴリ検索エラー:', sErr)
+        } else if (scenariosWithGenre && scenariosWithGenre.length > 0) {
           for (const s of scenariosWithGenre) {
             const updatedGenre = (s.genre || []).map((g: string) => g === editingOldCategoryName ? trimmedName : g)
-            await supabase.from('scenarios').update({ genre: updatedGenre }).eq('id', s.id)
+            const { error } = await supabase.from('scenarios').update({ genre: updatedGenre }).eq('id', s.id)
+            if (error) logger.error(`scenarios[${s.id}] カテゴリ更新エラー:`, error)
+            else totalUpdated++
           }
-          logger.log(`scenarios: ${scenariosWithGenre.length}件のカテゴリ名を更新`)
+          logger.log(`scenarios: ${scenariosWithGenre.length}件中${totalUpdated}件のカテゴリ名を更新`)
         }
 
         // 2. scenario_masters テーブル: 同様に更新
-        const { data: mastersWithGenre } = await supabase
+        const { data: mastersWithGenre, error: mErr } = await supabase
           .from('scenario_masters')
           .select('id, genre')
           .contains('genre', [editingOldCategoryName])
         
-        if (mastersWithGenre && mastersWithGenre.length > 0) {
+        if (mErr) {
+          logger.error('scenario_masters カテゴリ検索エラー:', mErr)
+        } else if (mastersWithGenre && mastersWithGenre.length > 0) {
+          let masterUpdated = 0
           for (const m of mastersWithGenre) {
             const updatedGenre = (m.genre || []).map((g: string) => g === editingOldCategoryName ? trimmedName : g)
-            await supabase.from('scenario_masters').update({ genre: updatedGenre }).eq('id', m.id)
+            const { error } = await supabase.from('scenario_masters').update({ genre: updatedGenre }).eq('id', m.id)
+            if (error) logger.error(`scenario_masters[${m.id}] カテゴリ更新エラー:`, error)
+            else masterUpdated++
           }
-          logger.log(`scenario_masters: ${mastersWithGenre.length}件のカテゴリ名を更新`)
+          totalUpdated += masterUpdated
+          logger.log(`scenario_masters: ${mastersWithGenre.length}件中${masterUpdated}件のカテゴリ名を更新`)
         }
 
         // 3. 現在のフォームデータも更新
@@ -109,7 +121,7 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
         // OrganizationScenarioList も再取得
         window.dispatchEvent(new CustomEvent('scenario-data-updated'))
 
-        showToast.success(`カテゴリ名を「${editingOldCategoryName}」→「${trimmedName}」に変更しました`)
+        showToast.success(`カテゴリ名を「${editingOldCategoryName}」→「${trimmedName}」に変更しました（${totalUpdated}件更新）`)
       } catch (err) {
         logger.error('カテゴリ名の一括更新エラー:', err)
         showToast.error('カテゴリ名の更新に失敗しました')

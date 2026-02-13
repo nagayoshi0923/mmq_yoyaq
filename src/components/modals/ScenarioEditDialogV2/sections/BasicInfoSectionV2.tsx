@@ -139,46 +139,58 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       // 編集モード: 全シナリオの作者名を一括変更
       setIsSavingAuthor(true)
       try {
+        let totalUpdated = 0
+
         // 1. scenarios テーブル
-        const { data: scenariosWithAuthor, error: sErr } = await supabase
+        const { error: sErr, count: sCount } = await supabase
           .from('scenarios')
-          .select('id')
+          .update({ author: trimmedName })
           .eq('author', editingOldAuthorName)
+          .select('id', { count: 'exact', head: true })
         
-        if (!sErr && scenariosWithAuthor && scenariosWithAuthor.length > 0) {
-          await supabase
-            .from('scenarios')
-            .update({ author: trimmedName })
-            .eq('author', editingOldAuthorName)
-          logger.log(`scenarios: ${scenariosWithAuthor.length}件の作者名を更新`)
+        if (sErr) {
+          logger.error('scenarios 作者名更新エラー:', sErr)
+        } else {
+          logger.log(`scenarios: ${sCount ?? 0}件の作者名を更新`)
+          totalUpdated += sCount ?? 0
         }
 
         // 2. scenario_masters テーブル
-        const { data: mastersWithAuthor, error: mErr } = await supabase
+        const { error: mErr, count: mCount } = await supabase
           .from('scenario_masters')
-          .select('id')
+          .update({ author: trimmedName })
           .eq('author', editingOldAuthorName)
+          .select('id', { count: 'exact', head: true })
         
-        if (!mErr && mastersWithAuthor && mastersWithAuthor.length > 0) {
-          await supabase
-            .from('scenario_masters')
-            .update({ author: trimmedName })
-            .eq('author', editingOldAuthorName)
-          logger.log(`scenario_masters: ${mastersWithAuthor.length}件の作者名を更新`)
+        if (mErr) {
+          logger.error('scenario_masters 作者名更新エラー:', mErr)
+        } else {
+          logger.log(`scenario_masters: ${mCount ?? 0}件の作者名を更新`)
+          totalUpdated += mCount ?? 0
         }
 
-        // 3. 現在のフォームデータも更新
+        // 3. authors テーブル（マスタデータ）
+        const { error: aErr } = await supabase
+          .from('authors')
+          .update({ name: trimmedName })
+          .eq('name', editingOldAuthorName)
+        
+        if (aErr) {
+          logger.warn('authors テーブル更新エラー（無視）:', aErr)
+        }
+
+        // 4. 現在のフォームデータも更新
         setFormData(prev => ({
           ...prev,
           author: prev.author === editingOldAuthorName ? trimmedName : prev.author
         }))
 
-        // 4. キャッシュを無効化して一覧を最新に
+        // 5. キャッシュを無効化して一覧を最新に
         queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
         // OrganizationScenarioList も再取得
         window.dispatchEvent(new CustomEvent('scenario-data-updated'))
 
-        showToast.success(`作者名を「${editingOldAuthorName}」→「${trimmedName}」に変更しました`)
+        showToast.success(`作者名を「${editingOldAuthorName}」→「${trimmedName}」に変更しました（${totalUpdated}件更新）`)
       } catch (err) {
         logger.error('作者名の一括更新エラー:', err)
         showToast.error('作者名の更新に失敗しました')
