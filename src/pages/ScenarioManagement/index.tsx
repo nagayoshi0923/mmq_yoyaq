@@ -221,6 +221,8 @@ export function ScenarioManagement() {
   function handleCloseEditDialog() {
     setEditDialogOpen(false)
     setEditingScenarioId(null)
+    // ダイアログを閉じた時にも一覧を更新（保存後の反映漏れを防ぐ）
+    setOrgScenarioRefreshKey(prev => prev + 1)
   }
   
   // 画像アップロードハンドラー
