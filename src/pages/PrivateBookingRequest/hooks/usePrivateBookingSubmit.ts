@@ -154,8 +154,8 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         p_notes: notes || null,
         p_reservation_number: baseReservationNumber  // 冪等性キー
       }
-      logger.log('🔍 RPC params:', JSON.stringify(rpcParams, null, 2))
-      logger.log('🔍 p_participant_count type:', typeof props.maxParticipants, 'value:', props.maxParticipants)
+      console.error('🔍 RPC params:', JSON.stringify(rpcParams, null, 2))
+      console.error('🔍 p_participant_count type:', typeof props.maxParticipants, 'value:', props.maxParticipants)
       const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', rpcParams)
       
       if (rpcError) {
