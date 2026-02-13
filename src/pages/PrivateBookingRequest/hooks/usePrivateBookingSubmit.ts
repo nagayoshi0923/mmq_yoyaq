@@ -42,7 +42,8 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
     customerName: string,
     customerEmail: string,
     customerPhone: string,
-    notes: string
+    notes: string,
+    customerNickname?: string
   ) => {
     if (!props.userId) {
       throw new Error('ログインが必要です')
@@ -68,6 +69,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
             .from('customers')
             .update({
               name: customerName,
+              nickname: customerNickname || null,
               phone: customerPhone,
               email: customerEmail
             })
@@ -81,6 +83,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
             .insert({
               user_id: props.userId,
               name: customerName,
+              nickname: customerNickname || null,
               phone: customerPhone,
               email: customerEmail,
               organization_id: organizationId

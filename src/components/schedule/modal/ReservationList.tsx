@@ -1073,16 +1073,15 @@ ${content.organizationName || '店舗'}
                             />
                             <span className={`font-medium truncate flex-1 min-w-0 flex items-center gap-2 ${isCancelled ? 'line-through text-gray-500' : ''}`}>
                               {(() => {
-                                if (reservation.customer_name) {
-                                  return reservation.customer_name
+                                const customer = reservation.customers
+                                  ? (Array.isArray(reservation.customers) ? reservation.customers[0] : reservation.customers)
+                                  : null
+                                const name = reservation.customer_name || customer?.name || reservation.customer_notes || '顧客名なし'
+                                const nickname = customer?.nickname
+                                if (nickname && nickname !== name) {
+                                  return <>{name}<span className="text-xs text-muted-foreground ml-1">({nickname})</span></>
                                 }
-                                if (reservation.customers) {
-                                  const customer = Array.isArray(reservation.customers) ? reservation.customers[0] : reservation.customers
-                                  if (customer?.name) {
-                                    return customer.name
-                                  }
-                                }
-                                return reservation.customer_notes || '顧客名なし'
+                                return name
                               })()}
                               {/* キャンセル済みバッジ */}
                               {isCancelled && (

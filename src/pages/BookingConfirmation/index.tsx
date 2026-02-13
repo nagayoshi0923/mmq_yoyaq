@@ -83,6 +83,8 @@ export function BookingConfirmation({
   const {
     customerName,
     setCustomerName,
+    customerNickname,
+    setCustomerNickname,
     customerEmail,
     setCustomerEmail,
     customerPhone,
@@ -158,7 +160,7 @@ export function BookingConfirmation({
     }
 
     try {
-      await handleSubmit(customerName, customerEmail, customerPhone, participantCount, notes)
+      await handleSubmit(customerName, customerEmail, customerPhone, participantCount, notes, customerNickname)
       // 成功画面表示後にuseEffectで自動遷移を処理
     } catch (error: any) {
       setError(error.message || '予約処理中にエラーが発生しました')
@@ -230,6 +232,7 @@ export function BookingConfirmation({
           .insert({
             user_id: user.id,
             name: customerName,
+            nickname: customerNickname || null,
             phone: customerPhone || null,
             email: customerEmail,
             organization_id: eventData.organization_id
@@ -522,6 +525,17 @@ export function BookingConfirmation({
                       required
                       className="text-sm"
                     />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-muted-foreground mb-1 block">ニックネーム</Label>
+                    <Input
+                      value={customerNickname}
+                      onChange={(e) => setCustomerNickname(e.target.value)}
+                      placeholder="タロウ"
+                      className="text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">店舗で呼ばれる際のお名前（任意）</p>
                   </div>
 
                   <div>

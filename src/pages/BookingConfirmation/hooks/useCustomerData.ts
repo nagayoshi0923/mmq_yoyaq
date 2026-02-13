@@ -11,6 +11,7 @@ interface UseCustomerDataProps {
  */
 export function useCustomerData({ userId, userEmail }: UseCustomerDataProps) {
   const [customerName, setCustomerName] = useState('')
+  const [customerNickname, setCustomerNickname] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
 
@@ -28,7 +29,7 @@ export function useCustomerData({ userId, userEmail }: UseCustomerDataProps) {
       if (userId) {
         const { data: userIdData, error } = await supabase
           .from('customers')
-          .select('name, email, phone')
+          .select('name, nickname, email, phone')
           .eq('user_id', userId)
           .maybeSingle()
         
@@ -41,7 +42,7 @@ export function useCustomerData({ userId, userEmail }: UseCustomerDataProps) {
       if (!data && userEmail) {
         const { data: emailData, error } = await supabase
           .from('customers')
-          .select('name, email, phone')
+          .select('name, nickname, email, phone')
           .eq('email', userEmail)
           .maybeSingle()
         
@@ -52,6 +53,7 @@ export function useCustomerData({ userId, userEmail }: UseCustomerDataProps) {
       
       if (data) {
         setCustomerName(data.name || '')
+        setCustomerNickname(data.nickname || '')
         setCustomerEmail(data.email || userEmail || '')
         setCustomerPhone(data.phone || '')
       } else {
@@ -74,6 +76,8 @@ export function useCustomerData({ userId, userEmail }: UseCustomerDataProps) {
   return {
     customerName,
     setCustomerName,
+    customerNickname,
+    setCustomerNickname,
     customerEmail,
     setCustomerEmail,
     customerPhone,

@@ -81,6 +81,8 @@ export function PrivateBookingRequest({
   const {
     customerName,
     setCustomerName,
+    customerNickname,
+    setCustomerNickname,
     customerEmail,
     setCustomerEmail,
     customerPhone,
@@ -125,7 +127,7 @@ export function PrivateBookingRequest({
     }
 
     try {
-      await handleSubmit(customerName, customerEmail, customerPhone, notes)
+      await handleSubmit(customerName, customerEmail, customerPhone, notes, customerNickname)
       
       // 3秒後に自動的に戻る
       setTimeout(() => {
@@ -379,6 +381,17 @@ export function PrivateBookingRequest({
                       required
                       className="text-sm"
                     />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium mb-1.5 block">ニックネーム</Label>
+                    <Input
+                      value={customerNickname}
+                      onChange={(e) => setCustomerNickname(e.target.value)}
+                      placeholder="タロウ"
+                      className="text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">店舗で呼ばれる際のお名前（任意）</p>
                   </div>
 
                   <div>

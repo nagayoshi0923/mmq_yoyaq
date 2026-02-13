@@ -390,7 +390,8 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
     customerEmail: string,
     customerPhone: string,
     participantCount: number,
-    notes: string
+    notes: string,
+    customerNickname?: string
   ) => {
     if (!props.userId) {
       throw new Error('ログインが必要です')
@@ -452,6 +453,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             .from('customers')
             .update({
               name: customerName,
+              nickname: customerNickname || null,
               phone: customerPhone,
               email: customerEmail
             })
@@ -463,6 +465,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             .insert({
               user_id: props.userId,
               name: customerName,
+              nickname: customerNickname || null,
               phone: customerPhone,
               email: customerEmail,
               organization_id: organizationId
