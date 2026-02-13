@@ -18,7 +18,8 @@ import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
 import { generateSlugFromTitle } from '@/utils/toRomaji'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
-import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { useScenariosQuery, scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { useQueryClient } from '@tanstack/react-query'
 import { storeApi } from '@/lib/api'
 import type { Store } from '@/types'
 
@@ -35,6 +36,7 @@ interface BasicInfoSectionV2Props {
 }
 
 export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete }: BasicInfoSectionV2Props) {
+  const queryClient = useQueryClient()
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [isAddAuthorDialogOpen, setIsAddAuthorDialogOpen] = useState(false)
@@ -170,6 +172,11 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
           ...prev,
           author: prev.author === editingOldAuthorName ? trimmedName : prev.author
         }))
+
+        // 4. キャッシュを無効化して一覧を最新に
+        queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
+        // OrganizationScenarioList も再取得
+        window.dispatchEvent(new CustomEvent('scenario-data-updated'))
 
         showToast.success(`作者名を「${editingOldAuthorName}」→「${trimmedName}」に変更しました`)
       } catch (err) {

@@ -335,6 +335,13 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
     }
   }, [fetchScenarios, refreshKey])
 
+  // 作者名・カテゴリ名の一括編集後に一覧を再取得
+  useEffect(() => {
+    const handler = () => fetchScenarios(true)
+    window.addEventListener('scenario-data-updated', handler)
+    return () => window.removeEventListener('scenario-data-updated', handler)
+  }, [fetchScenarios])
+
   // フィルタリング
   const filteredScenarios = useMemo(() => {
     let result = scenarios.filter(s => {

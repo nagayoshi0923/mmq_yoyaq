@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { statusOptions, genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
-import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { useScenariosQuery, scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { useQueryClient } from '@tanstack/react-query'
 import { showToast } from '@/utils/toast'
 import { parseIntSafe } from '@/utils/number'
 import { supabase } from '@/lib/supabase'
@@ -27,6 +28,7 @@ const hintStyle = "text-[11px] text-muted-foreground mt-0.5"
 const inputStyle = "h-7 text-xs"
 
 export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Props) {
+  const queryClient = useQueryClient()
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [editingOldCategoryName, setEditingOldCategoryName] = useState<string | null>(null) // nullなら新規追加モード
@@ -101,6 +103,11 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
           ...prev,
           genre: (prev.genre || []).map(g => g === editingOldCategoryName ? trimmedName : g)
         }))
+
+        // キャッシュを無効化して一覧を最新に
+        queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
+        // OrganizationScenarioList も再取得
+        window.dispatchEvent(new CustomEvent('scenario-data-updated'))
 
         showToast.success(`カテゴリ名を「${editingOldCategoryName}」→「${trimmedName}」に変更しました`)
       } catch (err) {
