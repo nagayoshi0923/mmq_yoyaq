@@ -143,7 +143,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       }
       
       // RPC経由で貸切予約を作成（サーバー側でバリデーション・料金計算を強制）
-      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', {
+      const rpcParams = {
         p_scenario_id: props.scenarioId,
         p_customer_id: customerId,
         p_customer_name: customerName,
@@ -153,7 +153,10 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         p_candidate_datetimes: candidateDatetimes,
         p_notes: notes || null,
         p_reservation_number: baseReservationNumber  // 冪等性キー
-      })
+      }
+      logger.log('🔍 RPC params:', JSON.stringify(rpcParams, null, 2))
+      logger.log('🔍 p_participant_count type:', typeof props.maxParticipants, 'value:', props.maxParticipants)
+      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', rpcParams)
       
       if (rpcError) {
         logger.error('貸切リクエストエラー:', rpcError)
