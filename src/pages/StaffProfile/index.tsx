@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { assignmentApi } from '@/lib/assignmentApi'
-import { scenarioApi } from '@/lib/api'
+// scenarioApi は不要（organization_scenarios_with_master ビューを直接使用）
 import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
 import { Loader2, Search, BookOpen, Users, Check, UserCircle } from 'lucide-react'
 
@@ -97,22 +97,26 @@ export function StaffProfile() {
         setStaffId(staffData.id)
         setStaffName(staffData.name)
 
-        // シナリオ一覧を取得（scenario_master_id をキーとして使用）
-        const scenariosData = await scenarioApi.getAll()
-        // scenario_master_id ごとにユニーク化（同じマスターIDを持つシナリオは1つにまとめる）
-        const masterIdMap = new Map<string, Scenario>()
-        scenariosData.forEach((s: any) => {
-          const masterId = s.scenario_master_id || s.id
-          if (!masterIdMap.has(masterId)) {
-            masterIdMap.set(masterId, {
-              id: masterId, // scenario_master_id を id として使用
-              title: s.title,
-              author: s.author,
-              scenario_master_id: masterId
-            })
-          }
-        })
-        setScenarios(Array.from(masterIdMap.values()))
+        // シナリオ一覧を organization_scenarios_with_master から取得
+        // scenario_master_id が確実にキーになる
+        const organizationId = await getCurrentOrganizationId()
+        const { data: orgScenarios, error: orgError } = await supabase
+          .from('organization_scenarios_with_master')
+          .select('scenario_master_id, title, author')
+          .eq('organization_id', organizationId!)
+          .order('title', { ascending: true })
+        
+        if (orgError) throw orgError
+        
+        const scenariosList: Scenario[] = (orgScenarios || [])
+          .filter(s => s.scenario_master_id)
+          .map(s => ({
+            id: s.scenario_master_id,
+            title: s.title || '',
+            author: s.author || '',
+            scenario_master_id: s.scenario_master_id
+          }))
+        setScenarios(scenariosList)
 
         // 現在のアサインメントを取得（scenario_id = scenario_master_id）
         const assignmentsData = await assignmentApi.getAllStaffAssignments(staffData.id)
