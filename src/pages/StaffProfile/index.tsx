@@ -47,14 +47,15 @@ interface Scenario {
   id: string
   title: string
   author: string
+  scenario_master_id: string
 }
 
 interface Assignment {
-  scenario_id: string
+  scenario_id: string // scenario_master_id と統一済み
   can_main_gm: boolean
   can_sub_gm: boolean
   is_experienced: boolean
-  scenarios?: {
+  scenario_masters?: {
     id: string
     title: string
     author: string
@@ -96,11 +97,24 @@ export function StaffProfile() {
         setStaffId(staffData.id)
         setStaffName(staffData.name)
 
-        // シナリオ一覧を取得
+        // シナリオ一覧を取得（scenario_master_id をキーとして使用）
         const scenariosData = await scenarioApi.getAll()
-        setScenarios(scenariosData)
+        // scenario_master_id ごとにユニーク化（同じマスターIDを持つシナリオは1つにまとめる）
+        const masterIdMap = new Map<string, Scenario>()
+        scenariosData.forEach((s: any) => {
+          const masterId = s.scenario_master_id || s.id
+          if (!masterIdMap.has(masterId)) {
+            masterIdMap.set(masterId, {
+              id: masterId, // scenario_master_id を id として使用
+              title: s.title,
+              author: s.author,
+              scenario_master_id: masterId
+            })
+          }
+        })
+        setScenarios(Array.from(masterIdMap.values()))
 
-        // 現在のアサインメントを取得
+        // 現在のアサインメントを取得（scenario_id = scenario_master_id）
         const assignmentsData = await assignmentApi.getAllStaffAssignments(staffData.id)
         setAssignments(assignmentsData)
 

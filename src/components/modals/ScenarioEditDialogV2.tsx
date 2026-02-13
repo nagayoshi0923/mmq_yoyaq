@@ -141,9 +141,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     : null
   const currentMasterId = currentScenario?.scenario_master_id || formData.scenario_master_id
   
-  // scenarioId が scenario_master_id の場合、旧 scenarios.id に解決する
-  // staff_scenario_assignments は旧 scenarios.id を使用するため必須
-  const resolvedScenarioIdRef = useRef<string | null>(null)
+  // scenario_master_id を直接使用（旧ID解決は不要）
+  // staff_scenario_assignments.scenario_id は scenario_master_id と統一済み
   
   // 組織名を取得
   const [organizationName, setOrganizationName] = useState<string>('')
@@ -415,7 +414,6 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     const loadAssignments = async () => {
       if (!isOpen || !scenarioId) {
         // 新規作成時またはIDなし
-        resolvedScenarioIdRef.current = null
         setCurrentAssignments([])
         setSelectedStaffIds([])
         setIsLoadingAssignments(false)
@@ -438,50 +436,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         const orgId = await getCurrentOrganizationId()
         
         // ====================================================
-        // STEP 1: scenarioId から staff_scenario_assignments 用のIDを全て収集
-        // OrganizationScenarioList と完全に同じ方法
-        // scenarioId 自体 + scenario_master_id としてマッチする旧scenarios.id
-        // ====================================================
-        const allPossibleIds = new Set<string>([scenarioId])
-        
-        // scenario_master_id として scenarios テーブルから旧IDを検索
-        {
-          let q = supabase.from('scenarios').select('id').eq('scenario_master_id', scenarioId)
-          if (orgId) q = q.eq('organization_id', orgId)
-          const { data, error } = await q
-          if (error) {
-            logger.error('🔍 scenarios検索エラー(by master_id):', error.message)
-          }
-          if (data) {
-            data.forEach(s => allPossibleIds.add(s.id))
-          }
-        }
-        
-        // scenarioId が直接 scenarios.id の場合、そこから scenario_master_id も取得
-        {
-          const { data, error } = await supabase
-            .from('scenarios')
-            .select('id, scenario_master_id')
-            .eq('id', scenarioId)
-            .maybeSingle()
-          if (!error && data) {
-            allPossibleIds.add(data.id)
-            // 同じ master を持つ兄弟シナリオのIDも追加
-            if (data.scenario_master_id) {
-              let q2 = supabase.from('scenarios').select('id').eq('scenario_master_id', data.scenario_master_id)
-              if (orgId) q2 = q2.eq('organization_id', orgId)
-              const { data: siblings } = await q2
-              if (siblings) siblings.forEach(s => allPossibleIds.add(s.id))
-            }
-          }
-        }
-        
-        const idsArray = Array.from(allPossibleIds)
-        // 保存時にも使用する旧ID（scenarioId自身以外があればそれ、なければscenarioId）
-        resolvedScenarioIdRef.current = idsArray.find(id => id !== scenarioId) || scenarioId
-        
-        // ====================================================
-        // STEP 2: 全候補IDで staff_scenario_assignments を検索
+        // scenario_master_id で直接 staff_scenario_assignments を検索
+        // （scenario_id は scenario_master_id と統一済み）
         // ====================================================
         let assignQuery = supabase
           .from('staff_scenario_assignments')
@@ -493,7 +449,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               line_name
             )
           `)
-          .in('scenario_id', idsArray)
+          .eq('scenario_id', scenarioId)
           .order('assigned_at', { ascending: false })
         
         if (orgId) {
@@ -561,7 +517,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               setSelectedStaffIds(matchedStaffIds)
               setCurrentAssignments(matchedStaffIds.map(id => ({
                 staff_id: id,
-                scenario_id: resolvedScenarioIdRef.current || scenarioId,
+                scenario_id: scenarioId,
                 can_main_gm: true,
                 can_sub_gm: true,
                 is_experienced: false,
@@ -572,7 +528,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         }
         
         // 統計情報を取得
-        const statsId = resolvedScenarioIdRef.current
+        const statsId = scenarioId
         try {
           const stats = await scenarioApi.getScenarioStats(statsId)
           setScenarioStats(stats)
@@ -648,7 +604,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           setSelectedStaffIds(matchedStaffIds)
           setCurrentAssignments(matchedStaffIds.map(id => ({
             staff_id: id,
-            scenario_id: resolvedScenarioIdRef.current || scenarioId,
+            scenario_id: scenarioId,
             can_main_gm: true,
             can_sub_gm: true,
             is_experienced: false,
@@ -973,8 +929,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       })
 
       // 担当GMの更新処理
-      // staff_scenario_assignments は旧 scenarios.id を使用するため、resolvedScenarioIdRef を優先
-      const targetScenarioId = resolvedScenarioIdRef.current || scenarioId || (result && typeof result === 'object' && 'id' in result ? result.id : undefined)
+      // scenario_master_id を直接使用
+      const targetScenarioId = scenarioId || (result && typeof result === 'object' && 'scenario_master_id' in result ? (result as any).scenario_master_id : undefined)
 
       if (targetScenarioId) {
         try {
@@ -1051,20 +1007,16 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           }
 
           // GM保存後: organization_scenarios に available_gms / experienced_staff / gm_assignments を同期
-          // これにより、IDマッピングに関わらず一覧でGM・体験済みが表示される
           if (formData.scenario_master_id) {
             try {
               const syncOrgId = await getCurrentOrganizationId()
               if (syncOrgId) {
-                // 全割り当てデータを再取得して最新の状態で同期
-                const allSearchIds = [targetScenarioId]
-                if (scenarioId && scenarioId !== targetScenarioId) allSearchIds.push(scenarioId)
-                
+                // scenario_master_id で直接検索（旧IDマッピング不要）
                 const { data: allAssignments } = await supabase
                   .from('staff_scenario_assignments')
                   .select('staff_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id, name)')
                   .eq('organization_id', syncOrgId)
-                  .in('scenario_id', allSearchIds)
+                  .eq('scenario_id', targetScenarioId)
                 
                 const gmNames: string[] = []
                 const expNames: string[] = []

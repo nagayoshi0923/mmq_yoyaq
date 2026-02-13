@@ -782,11 +782,11 @@ export function PerformanceModal({
                   const options = staff
                     .filter(s => s.status === 'active')
                     .map(staffMember => {
-                      // このシナリオの担当GMかチェック
-                      const isAssignedGM = formData.scenario && 
-                        (staffMember.special_scenarios?.includes(formData.scenario) ||
-                         scenarios.find(sc => sc.title === formData.scenario)?.id &&
-                         staffMember.special_scenarios?.includes(scenarios.find(sc => sc.title === formData.scenario)!.id))
+                      // このシナリオの担当GMかチェック（special_scenarios は scenario_master_id を格納）
+                      const matchedScenario = formData.scenario ? scenarios.find(sc => sc.title === formData.scenario) : null
+                      const isAssignedGM = formData.scenario && matchedScenario && 
+                        (staffMember.special_scenarios?.includes(matchedScenario.scenario_master_id || matchedScenario.id) ||
+                         staffMember.special_scenarios?.includes(matchedScenario.id))
                       
                       // 出勤可能かチェック（シフト提出済み）
                       // シナリオが選択されている場合: そのシナリオで出勤可能か

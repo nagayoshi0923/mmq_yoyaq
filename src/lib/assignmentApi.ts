@@ -12,7 +12,7 @@ export const assignmentApi = {
       .from('staff_scenario_assignments')
       .select(`
         *,
-        scenarios:scenario_id (
+        scenario_masters:scenario_id (
           id,
           title,
           author
@@ -46,7 +46,7 @@ export const assignmentApi = {
       .from('staff_scenario_assignments')
       .select(`
         *,
-        scenarios:scenario_id (
+        scenario_masters:scenario_id (
           id,
           title,
           author
@@ -73,7 +73,7 @@ export const assignmentApi = {
       .from('staff_scenario_assignments')
       .select(`
         *,
-        scenarios:scenario_id (
+        scenario_masters:scenario_id (
           id,
           title,
           author

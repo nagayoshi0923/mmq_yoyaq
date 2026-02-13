@@ -200,86 +200,57 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       }
 
       // 担当GMと体験済みスタッフを取得（staff_scenario_assignmentsから）
-      // staff_scenario_assignments.scenario_id は旧 scenarios.id を指しているため、
-      // scenarios テーブル経由で scenario_master_id にマッピングする
+      // scenario_id は scenario_master_id と統一済み
       const scenarioMasterIds = (data || []).map(s => s.scenario_master_id).filter(Boolean)
-      const availableGmsMap = new Map<string, string[]>() // 担当GM（can_main_gm=true または can_sub_gm=true）
-      const experiencedStaffMap = new Map<string, string[]>() // 体験済み（is_experienced=true かつ GM不可）
-      const availableStoresMap = new Map<string, string[]>() // 対応店舗（scenariosテーブルから、旧UIと同じデータソース）
+      const availableGmsMap = new Map<string, string[]>()
+      const experiencedStaffMap = new Map<string, string[]>()
+      const availableStoresMap = new Map<string, string[]>()
       
       if (scenarioMasterIds.length > 0) {
-        // まず scenarios テーブルから scenario_master_id に対応する id を取得（組織でフィルタ）
+        // 対応店舗を scenarios テーブルから取得
         const { data: scenariosData } = await supabase
           .from('scenarios')
-          .select('id, scenario_master_id, available_stores')
+          .select('scenario_master_id, available_stores')
           .eq('organization_id', organizationId)
           .in('scenario_master_id', scenarioMasterIds)
         
-        // 旧ID -> マスターID のマッピングを作成
-        const oldIdToMasterIdMap = new Map<string, string>()
-        if (scenariosData && scenariosData.length > 0) {
+        if (scenariosData) {
           scenariosData.forEach(s => {
-            if (s.scenario_master_id) {
-              oldIdToMasterIdMap.set(s.id, s.scenario_master_id)
-              
-              // 対応店舗も同時に取得（scenariosテーブルから、旧UIと同じデータソース）
-              if (s.available_stores && s.available_stores.length > 0) {
-                availableStoresMap.set(s.scenario_master_id, s.available_stores)
-              }
+            if (s.scenario_master_id && s.available_stores && s.available_stores.length > 0) {
+              availableStoresMap.set(s.scenario_master_id, s.available_stores)
             }
           })
         }
+
+        // staff_scenario_assignments を scenario_master_id で直接検索
+        const { data: assignmentsData } = await supabase
+          .from('staff_scenario_assignments')
+          .select('scenario_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id, name)')
+          .or(`organization_id.eq.${organizationId},organization_id.is.null`)
+          .in('scenario_id', scenarioMasterIds)
         
-        // staff_scenario_assignments を検索するための全候補ID
-        // 旧 scenarios.id + scenario_master_id 自身の両方で検索
-        const allSearchIds = [
-          ...(scenariosData || []).map(s => s.id),
-          ...scenarioMasterIds
-        ]
-        // 重複を除去
-        const uniqueSearchIds = [...new Set(allSearchIds)]
-        
-        if (uniqueSearchIds.length > 0) {
-          // 全候補IDで staff_scenario_assignments を検索
-          // organization_id でフィルタ、またはNULL（旧インポートデータ）も含める
-          const { data: assignmentsData } = await supabase
-            .from('staff_scenario_assignments')
-            .select('scenario_id, can_main_gm, can_sub_gm, is_experienced, organization_id, staff:staff_id(id, name, organization_id)')
-            .or(`organization_id.eq.${organizationId},organization_id.is.null`)
-            .in('scenario_id', uniqueSearchIds)
-          
-          if (assignmentsData) {
-            assignmentsData.forEach((a: any) => {
-              // scenario_id をマスターIDに変換
-              // 1. 旧ID→マスターID マッピングがあればそちらを使用
-              // 2. scenario_id 自体がマスターIDならそのまま使用
-              const masterId = oldIdToMasterIdMap.get(a.scenario_id) 
-                || (scenarioMasterIds.includes(a.scenario_id) ? a.scenario_id : null)
-              
-              if (masterId && a.staff?.name) {
-                // 担当GM（can_main_gm=true または can_sub_gm=true）
-                if (a.can_main_gm || a.can_sub_gm) {
-                  if (!availableGmsMap.has(masterId)) {
-                    availableGmsMap.set(masterId, [])
-                  }
-                  // 重複チェック
-                  if (!availableGmsMap.get(masterId)!.includes(a.staff.name)) {
-                    availableGmsMap.get(masterId)!.push(a.staff.name)
-                  }
+        if (assignmentsData) {
+          assignmentsData.forEach((a: any) => {
+            const masterId = a.scenario_id
+            if (masterId && a.staff?.name) {
+              if (a.can_main_gm || a.can_sub_gm) {
+                if (!availableGmsMap.has(masterId)) {
+                  availableGmsMap.set(masterId, [])
                 }
-                
-                // 体験済み（is_experienced=true かつ GM不可）
-                if (a.is_experienced && !a.can_main_gm && !a.can_sub_gm) {
-                  if (!experiencedStaffMap.has(masterId)) {
-                    experiencedStaffMap.set(masterId, [])
-                  }
-                  if (!experiencedStaffMap.get(masterId)!.includes(a.staff.name)) {
-                    experiencedStaffMap.get(masterId)!.push(a.staff.name)
-                  }
+                if (!availableGmsMap.get(masterId)!.includes(a.staff.name)) {
+                  availableGmsMap.get(masterId)!.push(a.staff.name)
                 }
               }
-            })
-          }
+              if (a.is_experienced && !a.can_main_gm && !a.can_sub_gm) {
+                if (!experiencedStaffMap.has(masterId)) {
+                  experiencedStaffMap.set(masterId, [])
+                }
+                if (!experiencedStaffMap.get(masterId)!.includes(a.staff.name)) {
+                  experiencedStaffMap.get(masterId)!.push(a.staff.name)
+                }
+              }
+            }
+          })
         }
       }
 

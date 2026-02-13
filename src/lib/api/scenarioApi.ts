@@ -557,11 +557,20 @@ export const scenarioApi = {
     
     if (scheduleError) throw scheduleError
     
-    // 3. staff_scenario_assignmentsの削除（組織フィルタ付き）
+    // 3. staff_scenario_assignmentsの削除（scenario_master_id で検索、組織フィルタ付き）
+    // scenario_id は scenario_master_id と統一済みのため、
+    // scenarios テーブルから scenario_master_id を取得して検索
+    const { data: scenarioRow } = await supabase
+      .from('scenarios')
+      .select('scenario_master_id')
+      .eq('id', id)
+      .maybeSingle()
+    const assignmentScenarioId = scenarioRow?.scenario_master_id || id
+    
     let assignQuery = supabase
       .from('staff_scenario_assignments')
       .delete()
-      .eq('scenario_id', id)
+      .eq('scenario_id', assignmentScenarioId)
     
     if (orgId) {
       assignQuery = assignQuery.eq('organization_id', orgId)
