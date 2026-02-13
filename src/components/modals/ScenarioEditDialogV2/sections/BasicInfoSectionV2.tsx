@@ -17,7 +17,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { generateSlugFromTitle } from '@/utils/toRomaji'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
-import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { useOrgScenariosForOptions } from '@/pages/ScenarioManagement/hooks/useOrgScenariosForOptions'
 import { storeApi } from '@/lib/api'
 import type { Store } from '@/types'
 
@@ -57,28 +57,23 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
     return stores.map(store => ({ id: store.id, name: store.name }))
   }, [stores])
   
-  const { data: scenarios = [] } = useScenariosQuery()
+  // organization_scenarios_with_master ビューから作者情報を取得
+  // （scenarios テーブルではなく、override 反映済みのビューを使用）
+  const { authors: orgAuthors } = useOrgScenariosForOptions()
   
   const authorEmailMap = useMemo(() => {
-    const map = new Map<string, string>()
-    scenarios.forEach(scenario => {
-      if (scenario.author && scenario.author_email && !map.has(scenario.author)) {
-        map.set(scenario.author, scenario.author_email)
-      }
-    })
-    return map
-  }, [scenarios])
+    // NOTE: author_email は scenarios テーブルにしかないため、ここでは空マップ
+    // 将来 organization_scenarios に追加する場合はここを拡張
+    return new Map<string, string>()
+  }, [])
   
   const authorOptions = useMemo(() => {
-    const authors = new Set<string>()
-    scenarios.forEach(scenario => {
-      if (scenario.author) authors.add(scenario.author)
-    })
+    const authors = new Set<string>(orgAuthors)
     if (formData.author && !authors.has(formData.author)) {
       authors.add(formData.author)
     }
     return Array.from(authors).sort().map(author => ({ id: author, name: author }))
-  }, [scenarios, formData.author])
+  }, [orgAuthors, formData.author])
 
   const handleAuthorChange = (authorName: string) => {
     setFormData(prev => {

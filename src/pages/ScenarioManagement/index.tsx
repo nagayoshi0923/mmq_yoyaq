@@ -118,7 +118,8 @@ export function ScenarioManagement() {
   // React Query でデータ管理
   const queryClient = useQueryClient()
   
-  // 全件取得版（常に全データを取得してフィルタ・ソートに対応）
+  // 全件取得版（ダイアログ内の作者・カテゴリ選択やマスター比較で使用）
+  // レガシーUI無効時はダイアログが開かれるまで遅延ロード
   const {
     data: allScenarios = [],
     isLoading: loading,
@@ -126,7 +127,8 @@ export function ScenarioManagement() {
   } = useScenariosQuery()
   
   // 全シナリオの統計情報（公演回数、売上など）
-  const { data: scenarioStats = {} } = useAllScenarioStatsQuery()
+  // レガシーUI無効時はスキップ（新UIはビューの play_count を使用）
+  const { data: scenarioStats = {} } = useAllScenarioStatsQuery(ENABLE_LEGACY_SCENARIO_UI)
   
   const deleteScenarioMutation = useDeleteScenarioMutation()
   const importScenariosMutation = useImportScenariosMutation()

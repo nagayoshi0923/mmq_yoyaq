@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { statusOptions, genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
-import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { useOrgScenariosForOptions } from '@/pages/ScenarioManagement/hooks/useOrgScenariosForOptions'
 import { showToast } from '@/utils/toast'
 import { parseIntSafe } from '@/utils/number'
 
@@ -29,20 +29,17 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
   const [newCategoryName, setNewCategoryName] = useState('')
   const [editingOldCategoryName, setEditingOldCategoryName] = useState<string | null>(null) // nullなら新規追加モード
 
-  const { data: scenarios = [] } = useScenariosQuery()
+  // organization_scenarios_with_master ビューからカテゴリ・作者情報を取得
+  // （scenarios テーブルではなく、override 反映済みのビューを使用）
+  const { genres: orgGenres } = useOrgScenariosForOptions()
   
   const allUsedGenres = useMemo(() => {
-    const genres = new Set<string>()
-    scenarios.forEach(scenario => {
-      if (scenario.genre && Array.isArray(scenario.genre)) {
-        scenario.genre.forEach(genre => { if (genre) genres.add(genre) })
-      }
-    })
+    const genres = new Set<string>(orgGenres)
     if (formData.genre && Array.isArray(formData.genre)) {
       formData.genre.forEach(genre => { if (genre) genres.add(genre) })
     }
     return Array.from(genres).sort()
-  }, [scenarios, formData.genre])
+  }, [orgGenres, formData.genre])
 
   const allGenreOptions = useMemo(() => {
     const genreMap = new Map<string, { id: string, name: string }>()

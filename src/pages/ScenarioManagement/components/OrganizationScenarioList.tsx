@@ -118,26 +118,67 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         return
       }
 
-      // 組織名を取得
-      const { data: orgData } = await supabase
-        .from('organizations')
-        .select('name')
-        .eq('id', organizationId)
-        .single()
-      
-      if (orgData?.name) {
-        setOrganizationName(orgData.name)
+      // 組織名、店舗一覧、シナリオ一覧を並列取得（パフォーマンス改善）
+      const [orgResult, storesResult, scenariosResult] = await Promise.all([
+        // 組織名を取得
+        supabase
+          .from('organizations')
+          .select('name')
+          .eq('id', organizationId)
+          .single(),
+        // 店舗一覧を取得（IDから名前への変換用）
+        supabase
+          .from('stores')
+          .select('id, name, short_name, ownership_type, is_temporary')
+          .eq('organization_id', organizationId),
+        // シナリオ一覧を取得（組織設定項目を含める）
+        supabase
+          .from('organization_scenarios_with_master')
+          .select(`
+            id,
+            organization_id,
+            scenario_master_id,
+            slug,
+            org_status,
+            pricing_patterns,
+            gm_assignments,
+            created_at,
+            updated_at,
+            extra_preparation_time,
+            title,
+            author,
+            author_id,
+            key_visual_url,
+            description,
+            synopsis,
+            caution,
+            player_count_min,
+            player_count_max,
+            duration,
+            genre,
+            difficulty,
+            participation_fee,
+            master_status,
+            play_count,
+            available_gms,
+            available_stores,
+            gm_costs,
+            gm_count,
+            license_amount,
+            gm_test_license_amount,
+            experienced_staff
+          `)
+          .eq('organization_id', organizationId)
+          .order('title', { ascending: true }),
+      ])
+
+      if (orgResult.data?.name) {
+        setOrganizationName(orgResult.data.name)
       }
 
-      // 店舗一覧を取得（IDから名前への変換用）
-      const { data: storesData } = await supabase
-        .from('stores')
-        .select('id, name, short_name, ownership_type, is_temporary')
-        .eq('organization_id', organizationId)
-      
-      if (storesData) {
+      if (storesResult.data) {
         const map = new Map<string, StoreInfo>()
-        storesData.forEach(store => {
+        storesResult.data.forEach(store => {
           map.set(store.id, { 
             id: store.id, 
             name: store.name, 
@@ -149,45 +190,8 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         setStoreMap(map)
       }
 
-      // シナリオ一覧を取得（組織設定項目を含める）
-      const { data, error: fetchError } = await supabase
-        .from('organization_scenarios_with_master')
-        .select(`
-          id,
-          organization_id,
-          scenario_master_id,
-          slug,
-          org_status,
-          pricing_patterns,
-          gm_assignments,
-          created_at,
-          updated_at,
-          extra_preparation_time,
-          title,
-          author,
-          author_id,
-          key_visual_url,
-          description,
-          synopsis,
-          caution,
-          player_count_min,
-          player_count_max,
-          duration,
-          genre,
-          difficulty,
-          participation_fee,
-          master_status,
-          play_count,
-          available_gms,
-          available_stores,
-          gm_costs,
-          gm_count,
-          license_amount,
-          gm_test_license_amount,
-          experienced_staff
-        `)
-        .eq('organization_id', organizationId)
-        .order('title', { ascending: true })
+      const data = scenariosResult.data
+      const fetchError = scenariosResult.error
 
       if (fetchError) {
         logger.error('Failed to fetch organization scenarios:', fetchError)

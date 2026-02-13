@@ -54,9 +54,10 @@ export function useScenariosQuery() {
 }
 
 /**
- * 全シナリオの統計情報を一括取得（リスト表示用）
+ * 全シナリオの統計情報を一括取得（レガシーリスト表示用）
+ * @param enabled - false の場合クエリを実行しない（新UIではビューの play_count を使用するため不要）
  */
-export function useAllScenarioStatsQuery() {
+export function useAllScenarioStatsQuery(enabled: boolean = true) {
   return useQuery({
     queryKey: scenarioKeys.stats,
     queryFn: async () => {
@@ -71,6 +72,7 @@ export function useAllScenarioStatsQuery() {
       }
     },
     staleTime: 5 * 60 * 1000, // 5分間キャッシュ
+    enabled,
   })
 }
 
