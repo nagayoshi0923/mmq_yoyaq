@@ -10,11 +10,13 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { useMemo } from 'react'
 
-const ORG_OPTIONS_KEY = ['org-scenarios-options'] as const
+export const orgOptionsKeys = {
+  all: ['org-scenarios-options'] as const,
+}
 
 export function useOrgScenariosForOptions() {
   const { data = [] } = useQuery({
-    queryKey: ORG_OPTIONS_KEY,
+    queryKey: orgOptionsKeys.all,
     queryFn: async () => {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return []

@@ -225,6 +225,8 @@ export function ScenarioManagement() {
     setEditingScenarioId(null)
     // ダイアログを閉じた時にも一覧を更新（保存後の反映漏れを防ぐ）
     setOrgScenarioRefreshKey(prev => prev + 1)
+    // カテゴリ・作者の選択肢キャッシュも無効化
+    queryClient.invalidateQueries({ queryKey: ['org-scenarios-options'] })
   }
   
   // 画像アップロードハンドラー
@@ -698,6 +700,8 @@ export function ScenarioManagement() {
           onSaved={() => {
             // 新UIの一覧を更新
             setOrgScenarioRefreshKey(prev => prev + 1)
+            // カテゴリ・作者の選択肢キャッシュも無効化
+            queryClient.invalidateQueries({ queryKey: ['org-scenarios-options'] })
           }}
         />
       </AppLayout>
