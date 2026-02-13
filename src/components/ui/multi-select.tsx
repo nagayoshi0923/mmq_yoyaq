@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, ChevronDown, X } from 'lucide-react'
+import { Check, ChevronDown, X, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -34,6 +34,7 @@ interface MultiSelectProps {
   emptySearchText?: string  // 検索結果が空の時のテキスト
   emptyActionLabel?: string  // 空の時に表示するボタンラベル
   onEmptyAction?: () => void  // 空の時にボタンをクリックした時のアクション
+  onEditOption?: (value: string, index: number) => void  // 選択肢の編集ボタンクリック時
 }
 
 export function MultiSelect({
@@ -51,7 +52,8 @@ export function MultiSelect({
   emptyText = "項目がありません",
   emptySearchText = "見つかりません",
   emptyActionLabel,
-  onEmptyAction
+  onEmptyAction,
+  onEditOption
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -194,7 +196,7 @@ export function MultiSelect({
                 </p>
               </div>
             )}
-            {sortedOptions.length > 0 && sortedOptions.map(option => {
+            {sortedOptions.length > 0 && sortedOptions.map((option, idx) => {
               const valueToCompare = useIdAsValue ? option.id : option.name
               const isSelected = (selectedValues || []).includes(valueToCompare)
               return (
@@ -217,6 +219,21 @@ export function MultiSelect({
                     <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
                       {option.displayInfo}
                     </span>
+                  )}
+                  {onEditOption && isSelected && (
+                    <button
+                      type="button"
+                      className="ml-1 p-1 rounded hover:bg-gray-200 flex-shrink-0"
+                      title="名前を編集"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const selectedIndex = (selectedValues || []).indexOf(valueToCompare)
+                        onEditOption(valueToCompare, selectedIndex)
+                        setOpen(false)
+                      }}
+                    >
+                      <Pencil className="h-3 w-3 text-muted-foreground" />
+                    </button>
                   )}
                 </div>
               )

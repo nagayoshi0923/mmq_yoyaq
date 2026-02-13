@@ -6,6 +6,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { statusOptions, genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
@@ -26,6 +27,7 @@ const inputStyle = "h-7 text-xs"
 export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Props) {
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
+  const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null) // nullなら新規追加モード
 
   const { data: scenarios = [] } = useScenariosQuery()
   
@@ -57,10 +59,22 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
       return
     }
     const currentGenres = formData.genre || []
-    if (!currentGenres.includes(newCategoryName.trim())) {
-      setFormData(prev => ({ ...prev, genre: [...currentGenres, newCategoryName.trim()] }))
+    if (editingCategoryIndex !== null) {
+      // 編集モード: 既存カテゴリ名を置換
+      const oldName = currentGenres[editingCategoryIndex]
+      if (oldName !== newCategoryName.trim()) {
+        const updated = [...currentGenres]
+        updated[editingCategoryIndex] = newCategoryName.trim()
+        setFormData(prev => ({ ...prev, genre: updated }))
+      }
+    } else {
+      // 新規追加モード
+      if (!currentGenres.includes(newCategoryName.trim())) {
+        setFormData(prev => ({ ...prev, genre: [...currentGenres, newCategoryName.trim()] }))
+      }
     }
     setNewCategoryName('')
+    setEditingCategoryIndex(null)
     setIsAddCategoryDialogOpen(false)
   }
 
@@ -216,7 +230,12 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
                 showBadges={true}
                 emptyText="カテゴリが見つかりません"
                 emptyActionLabel="+ カテゴリを追加"
-                onEmptyAction={() => setIsAddCategoryDialogOpen(true)}
+                onEmptyAction={() => { setEditingCategoryIndex(null); setNewCategoryName(''); setIsAddCategoryDialogOpen(true) }}
+                onEditOption={(value, index) => {
+                  setEditingCategoryIndex(index)
+                  setNewCategoryName(value)
+                  setIsAddCategoryDialogOpen(true)
+                }}
                 className="mt-1.5"
               />
             </div>
@@ -260,12 +279,14 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
         </CardContent>
       </Card>
 
-      {/* カテゴリ追加ダイアログ */}
-      <Dialog open={isAddCategoryDialogOpen} onOpenChange={setIsAddCategoryDialogOpen}>
+      {/* カテゴリ追加・編集ダイアログ */}
+      <Dialog open={isAddCategoryDialogOpen} onOpenChange={(open) => { if (!open) { setNewCategoryName(''); setEditingCategoryIndex(null) }; setIsAddCategoryDialogOpen(open) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新しいカテゴリを追加</DialogTitle>
-            <DialogDescription>新しいカテゴリ名を入力してください</DialogDescription>
+            <DialogTitle>{editingCategoryIndex !== null ? 'カテゴリ名を編集' : '新しいカテゴリを追加'}</DialogTitle>
+            <DialogDescription>
+              {editingCategoryIndex !== null ? 'カテゴリ名を変更できます' : '新しいカテゴリ名を入力してください'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -281,10 +302,12 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setNewCategoryName(''); setIsAddCategoryDialogOpen(false) }}>
+            <Button variant="outline" onClick={() => { setNewCategoryName(''); setEditingCategoryIndex(null); setIsAddCategoryDialogOpen(false) }}>
               キャンセル
             </Button>
-            <Button onClick={handleAddCategory}>追加</Button>
+            <Button onClick={handleAddCategory}>
+              {editingCategoryIndex !== null ? '変更' : '追加'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
