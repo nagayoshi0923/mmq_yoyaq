@@ -202,7 +202,7 @@ export function MultiSelect({
               return (
                 <div
                   key={option.id}
-                  className="flex items-center w-full px-2.5 py-2 cursor-pointer hover:bg-muted/50 text-sm"
+                  className="group flex items-center w-full px-2.5 py-2 cursor-pointer hover:bg-muted/50 text-sm"
                   onClick={() => handleToggleSelection(valueToCompare)}
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -220,15 +220,14 @@ export function MultiSelect({
                       {option.displayInfo}
                     </span>
                   )}
-                  {onEditOption && isSelected && (
+                  {onEditOption && (
                     <button
                       type="button"
-                      className="ml-1 p-1 rounded hover:bg-gray-200 flex-shrink-0"
+                      className="ml-1 p-1 rounded hover:bg-gray-200 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                       title="名前を編集"
                       onClick={(e) => {
                         e.stopPropagation()
-                        const selectedIndex = (selectedValues || []).indexOf(valueToCompare)
-                        onEditOption(valueToCompare, selectedIndex)
+                        onEditOption(valueToCompare, idx)
                         setOpen(false)
                       }}
                     >

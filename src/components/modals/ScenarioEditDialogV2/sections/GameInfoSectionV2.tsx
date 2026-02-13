@@ -13,6 +13,8 @@ import { statusOptions, genreOptions } from '@/components/modals/ScenarioEditMod
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { showToast } from '@/utils/toast'
 import { parseIntSafe } from '@/utils/number'
+import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 
 interface GameInfoSectionV2Props {
   formData: ScenarioFormData
@@ -27,7 +29,8 @@ const inputStyle = "h-7 text-xs"
 export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Props) {
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
-  const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null) // nullなら新規追加モード
+  const [editingOldCategoryName, setEditingOldCategoryName] = useState<string | null>(null) // nullなら新規追加モード
+  const [isSavingCategory, setIsSavingCategory] = useState(false)
 
   const { data: scenarios = [] } = useScenariosQuery()
   
@@ -53,28 +56,67 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
     return Array.from(genreMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'ja'))
   }, [allUsedGenres])
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategoryName.trim()) {
       showToast.warning('カテゴリ名を入力してください')
       return
     }
+    const trimmedName = newCategoryName.trim()
     const currentGenres = formData.genre || []
-    if (editingCategoryIndex !== null) {
-      // 編集モード: 既存カテゴリ名を置換
-      const oldName = currentGenres[editingCategoryIndex]
-      if (oldName !== newCategoryName.trim()) {
-        const updated = [...currentGenres]
-        updated[editingCategoryIndex] = newCategoryName.trim()
-        setFormData(prev => ({ ...prev, genre: updated }))
+
+    if (editingOldCategoryName !== null && editingOldCategoryName !== trimmedName) {
+      // 編集モード: 全シナリオのカテゴリ名を一括変更
+      setIsSavingCategory(true)
+      try {
+        // 1. scenarios テーブル: 旧名を含むレコードを取得して更新
+        const { data: scenariosWithGenre } = await supabase
+          .from('scenarios')
+          .select('id, genre')
+          .contains('genre', [editingOldCategoryName])
+        
+        if (scenariosWithGenre && scenariosWithGenre.length > 0) {
+          for (const s of scenariosWithGenre) {
+            const updatedGenre = (s.genre || []).map((g: string) => g === editingOldCategoryName ? trimmedName : g)
+            await supabase.from('scenarios').update({ genre: updatedGenre }).eq('id', s.id)
+          }
+          logger.log(`scenarios: ${scenariosWithGenre.length}件のカテゴリ名を更新`)
+        }
+
+        // 2. scenario_masters テーブル: 同様に更新
+        const { data: mastersWithGenre } = await supabase
+          .from('scenario_masters')
+          .select('id, genre')
+          .contains('genre', [editingOldCategoryName])
+        
+        if (mastersWithGenre && mastersWithGenre.length > 0) {
+          for (const m of mastersWithGenre) {
+            const updatedGenre = (m.genre || []).map((g: string) => g === editingOldCategoryName ? trimmedName : g)
+            await supabase.from('scenario_masters').update({ genre: updatedGenre }).eq('id', m.id)
+          }
+          logger.log(`scenario_masters: ${mastersWithGenre.length}件のカテゴリ名を更新`)
+        }
+
+        // 3. 現在のフォームデータも更新
+        setFormData(prev => ({
+          ...prev,
+          genre: (prev.genre || []).map(g => g === editingOldCategoryName ? trimmedName : g)
+        }))
+
+        showToast.success(`カテゴリ名を「${editingOldCategoryName}」→「${trimmedName}」に変更しました`)
+      } catch (err) {
+        logger.error('カテゴリ名の一括更新エラー:', err)
+        showToast.error('カテゴリ名の更新に失敗しました')
+      } finally {
+        setIsSavingCategory(false)
       }
-    } else {
+    } else if (editingOldCategoryName === null) {
       // 新規追加モード
-      if (!currentGenres.includes(newCategoryName.trim())) {
-        setFormData(prev => ({ ...prev, genre: [...currentGenres, newCategoryName.trim()] }))
+      if (!currentGenres.includes(trimmedName)) {
+        setFormData(prev => ({ ...prev, genre: [...currentGenres, trimmedName] }))
       }
     }
     setNewCategoryName('')
-    setEditingCategoryIndex(null)
+    setEditingOldCategoryName(null)
     setIsAddCategoryDialogOpen(false)
   }
 
@@ -230,9 +272,9 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
                 showBadges={true}
                 emptyText="カテゴリが見つかりません"
                 emptyActionLabel="+ カテゴリを追加"
-                onEmptyAction={() => { setEditingCategoryIndex(null); setNewCategoryName(''); setIsAddCategoryDialogOpen(true) }}
-                onEditOption={(value, index) => {
-                  setEditingCategoryIndex(index)
+                onEmptyAction={() => { setEditingOldCategoryName(null); setNewCategoryName(''); setIsAddCategoryDialogOpen(true) }}
+                onEditOption={(value) => {
+                  setEditingOldCategoryName(value)
                   setNewCategoryName(value)
                   setIsAddCategoryDialogOpen(true)
                 }}
@@ -280,12 +322,14 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
       </Card>
 
       {/* カテゴリ追加・編集ダイアログ */}
-      <Dialog open={isAddCategoryDialogOpen} onOpenChange={(open) => { if (!open) { setNewCategoryName(''); setEditingCategoryIndex(null) }; setIsAddCategoryDialogOpen(open) }}>
+      <Dialog open={isAddCategoryDialogOpen} onOpenChange={(open) => { if (!open) { setNewCategoryName(''); setEditingOldCategoryName(null) }; setIsAddCategoryDialogOpen(open) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingCategoryIndex !== null ? 'カテゴリ名を編集' : '新しいカテゴリを追加'}</DialogTitle>
+            <DialogTitle>{editingOldCategoryName !== null ? 'カテゴリ名を編集' : '新しいカテゴリを追加'}</DialogTitle>
             <DialogDescription>
-              {editingCategoryIndex !== null ? 'カテゴリ名を変更できます' : '新しいカテゴリ名を入力してください'}
+              {editingOldCategoryName !== null 
+                ? '変更すると、このカテゴリを使用している全シナリオに反映されます' 
+                : '新しいカテゴリ名を入力してください'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -296,17 +340,17 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 placeholder="例: アドベンチャー"
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategory() }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !isSavingCategory) handleAddCategory() }}
                 autoFocus
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setNewCategoryName(''); setEditingCategoryIndex(null); setIsAddCategoryDialogOpen(false) }}>
+            <Button variant="outline" disabled={isSavingCategory} onClick={() => { setNewCategoryName(''); setEditingOldCategoryName(null); setIsAddCategoryDialogOpen(false) }}>
               キャンセル
             </Button>
-            <Button onClick={handleAddCategory}>
-              {editingCategoryIndex !== null ? '変更' : '追加'}
+            <Button onClick={handleAddCategory} disabled={isSavingCategory}>
+              {isSavingCategory ? '更新中...' : (editingOldCategoryName !== null ? '変更' : '追加')}
             </Button>
           </DialogFooter>
         </DialogContent>
