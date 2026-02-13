@@ -760,6 +760,9 @@ export function useScheduleData(currentDate: Date) {
             scenarios:scenario_id (
               title,
               player_count_max
+            ),
+            customers:customer_id (
+              nickname
             )
           `)
           .eq('reservation_source', 'web_private')
@@ -842,7 +845,7 @@ export function useScheduleData(currentDate: Date) {
                     is_private_request: true, // 貸切リクエストフラグ
                     reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
                     reservation_id: request.id, // 元のreservation IDを保持
-                    reservation_name: request.display_customer_name || request.customer_name || '', // 編集された名前を優先
+                    reservation_name: request.display_customer_name || (request as any).customers?.nickname || request.customer_name || '', // ニックネーム優先
                     original_customer_name: request.customer_name || '', // MMQからの元の予約者名
                     is_reservation_name_overwritten: !!request.display_customer_name // 手動上書きフラグ
                   }
@@ -1107,6 +1110,9 @@ export function useScheduleData(currentDate: Date) {
           scenarios:scenario_id (
             title,
             player_count_max
+          ),
+          customers:customer_id (
+            nickname
           )
         `)
         .eq('reservation_source', 'web_private')
@@ -1180,7 +1186,7 @@ export function useScheduleData(currentDate: Date) {
                   is_private_request: true,
                   reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
                   reservation_id: request.id,
-                  reservation_name: request.display_customer_name || request.customer_name || '', // 編集された名前を優先
+                  reservation_name: request.display_customer_name || (request as any).customers?.nickname || request.customer_name || '', // ニックネーム優先
                   original_customer_name: request.customer_name || '', // MMQからの元の予約者名
                   is_reservation_name_overwritten: !!request.display_customer_name // 手動上書きフラグ
                 }
