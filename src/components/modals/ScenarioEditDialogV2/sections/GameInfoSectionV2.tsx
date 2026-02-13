@@ -6,6 +6,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Trash2 } from 'lucide-react'
 
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
@@ -72,6 +73,20 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
         setFormData(prev => ({ ...prev, genre: [...currentGenres, trimmedName] }))
       }
     }
+    setNewCategoryName('')
+    setEditingOldCategoryName(null)
+    setIsAddCategoryDialogOpen(false)
+  }
+
+  const handleDeleteCategory = () => {
+    if (!editingOldCategoryName) return
+    if (!window.confirm(`カテゴリ「${editingOldCategoryName}」をこのシナリオから削除しますか？`)) return
+
+    setFormData(prev => ({
+      ...prev,
+      genre: (prev.genre || []).filter(g => g !== editingOldCategoryName)
+    }))
+    showToast.success(`カテゴリ「${editingOldCategoryName}」を削除しました（保存ボタンで反映）`)
     setNewCategoryName('')
     setEditingOldCategoryName(null)
     setIsAddCategoryDialogOpen(false)
@@ -302,13 +317,23 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setNewCategoryName(''); setEditingOldCategoryName(null); setIsAddCategoryDialogOpen(false) }}>
-              キャンセル
-            </Button>
-            <Button onClick={handleAddCategory}>
-              {editingOldCategoryName !== null ? '変更' : '追加'}
-            </Button>
+          <DialogFooter className="flex justify-between">
+            <div>
+              {editingOldCategoryName !== null && (
+                <Button variant="destructive" size="sm" onClick={handleDeleteCategory}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  削除
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => { setNewCategoryName(''); setEditingOldCategoryName(null); setIsAddCategoryDialogOpen(false) }}>
+                キャンセル
+              </Button>
+              <Button onClick={handleAddCategory}>
+                {editingOldCategoryName !== null ? '変更' : '追加'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
