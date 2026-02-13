@@ -15,11 +15,9 @@ import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { supabase } from '@/lib/supabase'
 import { generateSlugFromTitle } from '@/utils/toRomaji'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
-import { useScenariosQuery, scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
-import { useQueryClient } from '@tanstack/react-query'
+import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { storeApi } from '@/lib/api'
 import type { Store } from '@/types'
 
@@ -36,13 +34,11 @@ interface BasicInfoSectionV2Props {
 }
 
 export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete }: BasicInfoSectionV2Props) {
-  const queryClient = useQueryClient()
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [isAddAuthorDialogOpen, setIsAddAuthorDialogOpen] = useState(false)
   const [newAuthorName, setNewAuthorName] = useState('')
   const [editingOldAuthorName, setEditingOldAuthorName] = useState<string | null>(null)
-  const [isSavingAuthor, setIsSavingAuthor] = useState(false)
   const [stores, setStores] = useState<Store[]>([])
   
   useEffect(() => {
@@ -135,71 +131,12 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
     }
     const trimmedName = newAuthorName.trim()
 
+    // 編集・新規追加どちらも、現在のシナリオの作者名を変更するだけ
+    // 保存時に organization_scenarios.override_author に保存される
+    setFormData(prev => ({ ...prev, author: trimmedName }))
+
     if (editingOldAuthorName !== null && editingOldAuthorName !== trimmedName) {
-      // 編集モード: 全シナリオの作者名を一括変更
-      setIsSavingAuthor(true)
-      try {
-        let totalUpdated = 0
-
-        // 1. scenarios テーブル
-        const { error: sErr, count: sCount } = await supabase
-          .from('scenarios')
-          .update({ author: trimmedName })
-          .eq('author', editingOldAuthorName)
-          .select('id', { count: 'exact', head: true })
-        
-        if (sErr) {
-          logger.error('scenarios 作者名更新エラー:', sErr)
-        } else {
-          logger.log(`scenarios: ${sCount ?? 0}件の作者名を更新`)
-          totalUpdated += sCount ?? 0
-        }
-
-        // 2. scenario_masters テーブル
-        const { error: mErr, count: mCount } = await supabase
-          .from('scenario_masters')
-          .update({ author: trimmedName })
-          .eq('author', editingOldAuthorName)
-          .select('id', { count: 'exact', head: true })
-        
-        if (mErr) {
-          logger.error('scenario_masters 作者名更新エラー:', mErr)
-        } else {
-          logger.log(`scenario_masters: ${mCount ?? 0}件の作者名を更新`)
-          totalUpdated += mCount ?? 0
-        }
-
-        // 3. authors テーブル（マスタデータ）
-        const { error: aErr } = await supabase
-          .from('authors')
-          .update({ name: trimmedName })
-          .eq('name', editingOldAuthorName)
-        
-        if (aErr) {
-          logger.warn('authors テーブル更新エラー（無視）:', aErr)
-        }
-
-        // 4. 現在のフォームデータも更新
-        setFormData(prev => ({
-          ...prev,
-          author: prev.author === editingOldAuthorName ? trimmedName : prev.author
-        }))
-
-        // 5. キャッシュを無効化して一覧を最新に
-        queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
-        // OrganizationScenarioList も再取得
-        window.dispatchEvent(new CustomEvent('scenario-data-updated'))
-
-        showToast.success(`作者名を「${editingOldAuthorName}」→「${trimmedName}」に変更しました（${totalUpdated}件更新）`)
-      } catch (err) {
-        logger.error('作者名の一括更新エラー:', err)
-        showToast.error('作者名の更新に失敗しました')
-      } finally {
-        setIsSavingAuthor(false)
-      }
-    } else if (editingOldAuthorName === null) {
-      // 新規追加モード: 現在のシナリオの作者を設定
-      setFormData(prev => ({ ...prev, author: trimmedName }))
+      showToast.success(`作者名を「${trimmedName}」に変更しました（保存ボタンで反映）`)
     }
 
     setNewAuthorName('')
@@ -488,17 +425,17 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                 value={newAuthorName}
                 onChange={(e) => setNewAuthorName(e.target.value)}
                 placeholder="例: 山田太郎"
-                onKeyDown={(e) => { if (e.key === 'Enter' && !isSavingAuthor) handleAddAuthor() }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddAuthor() }}
                 autoFocus
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" disabled={isSavingAuthor} onClick={() => { setNewAuthorName(''); setEditingOldAuthorName(null); setIsAddAuthorDialogOpen(false) }}>
+            <Button variant="outline" onClick={() => { setNewAuthorName(''); setEditingOldAuthorName(null); setIsAddAuthorDialogOpen(false) }}>
               キャンセル
             </Button>
-            <Button onClick={handleAddAuthor} disabled={isSavingAuthor}>
-              {isSavingAuthor ? '更新中...' : (editingOldAuthorName !== null ? '変更' : '追加')}
+            <Button onClick={handleAddAuthor}>
+              {editingOldAuthorName !== null ? '変更' : '追加'}
             </Button>
           </DialogFooter>
         </DialogContent>

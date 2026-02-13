@@ -788,8 +788,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           caution: ''
         })
         
-        // organization_scenarios / scenario_masters から caution を取得
-        // （scenariosテーブルにはcautionカラムがないため別途取得）
+        // organization_scenarios から override/custom 値を取得して formData を上書き
+        // ビュー (organization_scenarios_with_master) の COALESCE と同じ優先順位で読み込む
         if (scenario.scenario_master_id) {
           const masterId = scenario.scenario_master_id
           ;(async () => {
@@ -798,15 +798,27 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               if (loadOrgId) {
                 const { data: osData } = await supabase
                   .from('organization_scenarios')
-                  .select('custom_caution')
+                  .select('override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution')
                   .eq('scenario_master_id', masterId)
                   .eq('organization_id', loadOrgId)
                   .maybeSingle()
                 
-                if (osData?.custom_caution) {
-                  setFormData(prev => ({ ...prev, caution: osData.custom_caution || '' }))
+                if (osData) {
+                  setFormData(prev => ({
+                    ...prev,
+                    // override 値があればそちらを優先（なければ scenarios テーブルから読んだ値をそのまま使用）
+                    title: osData.override_title || prev.title,
+                    author: osData.override_author || prev.author,
+                    genre: osData.override_genre || prev.genre,
+                    difficulty: osData.override_difficulty ? parseInt(osData.override_difficulty) : prev.difficulty,
+                    player_count_min: osData.override_player_count_min || prev.player_count_min,
+                    player_count_max: osData.override_player_count_max || prev.player_count_max,
+                    key_visual_url: osData.custom_key_visual_url || prev.key_visual_url,
+                    description: osData.custom_description || prev.description,
+                    caution: osData.custom_caution || prev.caution || '',
+                  }))
                 } else {
-                  // custom_caution がなければ scenario_masters.caution を取得
+                  // organization_scenarios がなければ scenario_masters.caution を取得
                   const { data: masterCaution } = await supabase
                     .from('scenario_masters')
                     .select('caution')
@@ -818,7 +830,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 }
               }
             } catch (e) {
-              logger.error('caution取得エラー:', e)
+              logger.error('override値取得エラー:', e)
             }
           })()
         }
@@ -1092,36 +1104,49 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               .eq('organization_id', organizationId)
               .maybeSingle()
             
+            // organization_scenarios に保存するデータ（override/custom フィールド含む）
+            const orgScenarioPayload = {
+              organization_id: organizationId,
+              scenario_master_id: formData.scenario_master_id,
+              slug: scenarioData.slug,
+              duration: scenarioData.duration,
+              participation_fee: scenarioData.participation_fee,
+              extra_preparation_time: scenarioData.extra_preparation_time ?? null,
+              org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
+              // override フィールド（マスター情報の組織固有上書き）
+              override_title: scenarioData.title || null,
+              override_author: scenarioData.author || null,
+              override_genre: scenarioData.genre || null,
+              override_difficulty: scenarioData.difficulty ? String(scenarioData.difficulty) : null,
+              override_player_count_min: scenarioData.player_count_min || null,
+              override_player_count_max: scenarioData.player_count_max || null,
+              // custom フィールド
+              custom_key_visual_url: scenarioData.key_visual_url || null,
+              custom_description: scenarioData.description || null,
+              custom_caution: formData.caution || null,
+              // 運用フィールド
+              available_stores: scenarioData.available_stores || [],
+              participation_costs: scenarioData.participation_costs || [],
+              gm_costs: scenarioData.gm_costs || [],
+              // ライセンス関連フィールド
+              license_amount: scenarioData.license_amount,
+              gm_test_license_amount: scenarioData.gm_test_license_amount,
+              franchise_license_amount: scenarioData.franchise_license_amount,
+              franchise_gm_test_license_amount: scenarioData.franchise_gm_test_license_amount,
+              external_license_amount: scenarioData.external_license_amount,
+              external_gm_test_license_amount: scenarioData.external_gm_test_license_amount,
+              // フランチャイズ公演時
+              fc_receive_license_amount: formData.fc_receive_license_amount,
+              fc_receive_gm_test_license_amount: formData.fc_receive_gm_test_license_amount,
+              fc_author_license_amount: formData.fc_author_license_amount,
+              fc_author_gm_test_license_amount: formData.fc_author_gm_test_license_amount,
+            }
+
             if (!existingOrgScenario) {
               // organization_scenariosに登録
               const { error: orgScenarioError } = await supabase
                 .from('organization_scenarios')
-                .insert({
-                  organization_id: organizationId,
-                  scenario_master_id: formData.scenario_master_id,
-                  slug: scenarioData.slug,
-                  duration: scenarioData.duration,
-                  participation_fee: scenarioData.participation_fee,
-                  extra_preparation_time: scenarioData.extra_preparation_time ?? null,
-                  org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
-                  custom_key_visual_url: scenarioData.key_visual_url || null,
-                  custom_caution: formData.caution || null,
-                  available_stores: scenarioData.available_stores || [],
-                  participation_costs: scenarioData.participation_costs || [],
-                  gm_costs: scenarioData.gm_costs || [],
-                  // ライセンス関連フィールド
-                  license_amount: scenarioData.license_amount,
-                  gm_test_license_amount: scenarioData.gm_test_license_amount,
-                  franchise_license_amount: scenarioData.franchise_license_amount,
-                  franchise_gm_test_license_amount: scenarioData.franchise_gm_test_license_amount,
-                  external_license_amount: scenarioData.external_license_amount,
-                  external_gm_test_license_amount: scenarioData.external_gm_test_license_amount,
-                  // フランチャイズ公演時
-                  fc_receive_license_amount: formData.fc_receive_license_amount,
-                  fc_receive_gm_test_license_amount: formData.fc_receive_gm_test_license_amount,
-                  fc_author_license_amount: formData.fc_author_license_amount,
-                  fc_author_gm_test_license_amount: formData.fc_author_gm_test_license_amount
-                })
+                .insert(orgScenarioPayload)
               
               if (orgScenarioError) {
                 logger.error('organization_scenarios登録エラー:', orgScenarioError)
@@ -1129,32 +1154,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 logger.log('organization_scenariosに登録しました')
               }
             } else {
-              // 既存レコードがある場合は更新
+              // 既存レコードがある場合は更新（organization_id, scenario_master_id は除く）
+              const { organization_id: _oid, scenario_master_id: _mid, ...updatePayload } = orgScenarioPayload
               const { error: updateError } = await supabase
                 .from('organization_scenarios')
                 .update({
-                  slug: scenarioData.slug,
-                  duration: scenarioData.duration,
-                  participation_fee: scenarioData.participation_fee,
-                  extra_preparation_time: scenarioData.extra_preparation_time ?? null,
-                  org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
-                  custom_key_visual_url: scenarioData.key_visual_url || null,
-                  custom_caution: formData.caution || null,
-                  available_stores: scenarioData.available_stores || [],
-                  participation_costs: scenarioData.participation_costs || [],
-                  gm_costs: scenarioData.gm_costs || [],
-                  // ライセンス関連フィールド
-                  license_amount: scenarioData.license_amount,
-                  gm_test_license_amount: scenarioData.gm_test_license_amount,
-                  franchise_license_amount: scenarioData.franchise_license_amount,
-                  franchise_gm_test_license_amount: scenarioData.franchise_gm_test_license_amount,
-                  external_license_amount: scenarioData.external_license_amount,
-                  external_gm_test_license_amount: scenarioData.external_gm_test_license_amount,
-                  // フランチャイズ公演時
-                  fc_receive_license_amount: formData.fc_receive_license_amount,
-                  fc_receive_gm_test_license_amount: formData.fc_receive_gm_test_license_amount,
-                  fc_author_license_amount: formData.fc_author_license_amount,
-                  fc_author_gm_test_license_amount: formData.fc_author_gm_test_license_amount,
+                  ...updatePayload,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', existingOrgScenario.id)
@@ -1162,7 +1167,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               if (updateError) {
                 logger.error('organization_scenarios更新エラー:', updateError)
               } else {
-                logger.log('organization_scenariosを更新しました', { gm_costs: scenarioData.gm_costs })
+                logger.log('organization_scenariosを更新しました（override含む）')
               }
             }
           }
@@ -1170,35 +1175,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           logger.error('organization_scenarios処理エラー:', orgErr)
         }
         
-        // scenario_masters のマスタフィールドも同期更新
-        try {
-          const masterUpdates: Record<string, unknown> = {}
-          if (scenarioData.title) masterUpdates.title = scenarioData.title
-          if (scenarioData.author !== undefined) masterUpdates.author = scenarioData.author
-          if (scenarioData.key_visual_url !== undefined) masterUpdates.key_visual_url = scenarioData.key_visual_url
-          if (scenarioData.description !== undefined) masterUpdates.description = scenarioData.description
-          if (scenarioData.player_count_min !== undefined) masterUpdates.player_count_min = scenarioData.player_count_min
-          if (scenarioData.player_count_max !== undefined) masterUpdates.player_count_max = scenarioData.player_count_max
-          if (scenarioData.duration !== undefined) masterUpdates.official_duration = scenarioData.duration
-          if (scenarioData.genre !== undefined) masterUpdates.genre = scenarioData.genre
-          if (scenarioData.difficulty !== undefined) masterUpdates.difficulty = scenarioData.difficulty
-          
-          if (Object.keys(masterUpdates).length > 0) {
-            masterUpdates.updated_at = new Date().toISOString()
-            const { error: masterError } = await supabase
-              .from('scenario_masters')
-              .update(masterUpdates)
-              .eq('id', formData.scenario_master_id)
-            
-            if (masterError) {
-              logger.error('scenario_masters同期更新エラー（無視）:', masterError)
-            } else {
-              logger.log('scenario_mastersを同期更新しました:', Object.keys(masterUpdates))
-            }
-          }
-        } catch (masterErr) {
-          logger.error('scenario_masters同期エラー:', masterErr)
-        }
+        // NOTE: scenario_masters への書き込みは行わない。
+        // マスター情報の更新はマスター編集画面（権利者用）の責務。
+        // 組織固有の上書きは override_* / custom_* カラムで organization_scenarios に保存済み。
       }
 
       // 新規作成の場合、シナリオIDを親に通知して編集モードに切り替え

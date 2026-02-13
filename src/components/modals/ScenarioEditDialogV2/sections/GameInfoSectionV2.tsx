@@ -10,12 +10,9 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { statusOptions, genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
-import { useScenariosQuery, scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
-import { useQueryClient } from '@tanstack/react-query'
+import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { showToast } from '@/utils/toast'
 import { parseIntSafe } from '@/utils/number'
-import { supabase } from '@/lib/supabase'
-import { logger } from '@/utils/logger'
 
 interface GameInfoSectionV2Props {
   formData: ScenarioFormData
@@ -28,11 +25,9 @@ const hintStyle = "text-[11px] text-muted-foreground mt-0.5"
 const inputStyle = "h-7 text-xs"
 
 export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Props) {
-  const queryClient = useQueryClient()
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [editingOldCategoryName, setEditingOldCategoryName] = useState<string | null>(null) // nullなら新規追加モード
-  const [isSavingCategory, setIsSavingCategory] = useState(false)
 
   const { data: scenarios = [] } = useScenariosQuery()
   
@@ -67,67 +62,13 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
     const currentGenres = formData.genre || []
 
     if (editingOldCategoryName !== null && editingOldCategoryName !== trimmedName) {
-      // 編集モード: 全シナリオのカテゴリ名を一括変更
-      setIsSavingCategory(true)
-      try {
-        let totalUpdated = 0
-
-        // 1. scenarios テーブル: 旧名を含むレコードを取得して更新
-        const { data: scenariosWithGenre, error: sErr } = await supabase
-          .from('scenarios')
-          .select('id, genre')
-          .contains('genre', [editingOldCategoryName])
-        
-        if (sErr) {
-          logger.error('scenarios カテゴリ検索エラー:', sErr)
-        } else if (scenariosWithGenre && scenariosWithGenre.length > 0) {
-          for (const s of scenariosWithGenre) {
-            const updatedGenre = (s.genre || []).map((g: string) => g === editingOldCategoryName ? trimmedName : g)
-            const { error } = await supabase.from('scenarios').update({ genre: updatedGenre }).eq('id', s.id)
-            if (error) logger.error(`scenarios[${s.id}] カテゴリ更新エラー:`, error)
-            else totalUpdated++
-          }
-          logger.log(`scenarios: ${scenariosWithGenre.length}件中${totalUpdated}件のカテゴリ名を更新`)
-        }
-
-        // 2. scenario_masters テーブル: 同様に更新
-        const { data: mastersWithGenre, error: mErr } = await supabase
-          .from('scenario_masters')
-          .select('id, genre')
-          .contains('genre', [editingOldCategoryName])
-        
-        if (mErr) {
-          logger.error('scenario_masters カテゴリ検索エラー:', mErr)
-        } else if (mastersWithGenre && mastersWithGenre.length > 0) {
-          let masterUpdated = 0
-          for (const m of mastersWithGenre) {
-            const updatedGenre = (m.genre || []).map((g: string) => g === editingOldCategoryName ? trimmedName : g)
-            const { error } = await supabase.from('scenario_masters').update({ genre: updatedGenre }).eq('id', m.id)
-            if (error) logger.error(`scenario_masters[${m.id}] カテゴリ更新エラー:`, error)
-            else masterUpdated++
-          }
-          totalUpdated += masterUpdated
-          logger.log(`scenario_masters: ${mastersWithGenre.length}件中${masterUpdated}件のカテゴリ名を更新`)
-        }
-
-        // 3. 現在のフォームデータも更新
-        setFormData(prev => ({
-          ...prev,
-          genre: (prev.genre || []).map(g => g === editingOldCategoryName ? trimmedName : g)
-        }))
-
-        // キャッシュを無効化して一覧を最新に
-        queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
-        // OrganizationScenarioList も再取得
-        window.dispatchEvent(new CustomEvent('scenario-data-updated'))
-
-        showToast.success(`カテゴリ名を「${editingOldCategoryName}」→「${trimmedName}」に変更しました（${totalUpdated}件更新）`)
-      } catch (err) {
-        logger.error('カテゴリ名の一括更新エラー:', err)
-        showToast.error('カテゴリ名の更新に失敗しました')
-      } finally {
-        setIsSavingCategory(false)
-      }
+      // 編集モード: 現在のシナリオのカテゴリ名を置換するだけ
+      // 保存時に organization_scenarios.override_genre に保存される
+      setFormData(prev => ({
+        ...prev,
+        genre: (prev.genre || []).map(g => g === editingOldCategoryName ? trimmedName : g)
+      }))
+      showToast.success(`カテゴリ名を「${trimmedName}」に変更しました（保存ボタンで反映）`)
     } else if (editingOldCategoryName === null) {
       // 新規追加モード
       if (!currentGenres.includes(trimmedName)) {
@@ -359,17 +300,17 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 placeholder="例: アドベンチャー"
-                onKeyDown={(e) => { if (e.key === 'Enter' && !isSavingCategory) handleAddCategory() }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategory() }}
                 autoFocus
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" disabled={isSavingCategory} onClick={() => { setNewCategoryName(''); setEditingOldCategoryName(null); setIsAddCategoryDialogOpen(false) }}>
+            <Button variant="outline" onClick={() => { setNewCategoryName(''); setEditingOldCategoryName(null); setIsAddCategoryDialogOpen(false) }}>
               キャンセル
             </Button>
-            <Button onClick={handleAddCategory} disabled={isSavingCategory}>
-              {isSavingCategory ? '更新中...' : (editingOldCategoryName !== null ? '変更' : '追加')}
+            <Button onClick={handleAddCategory}>
+              {editingOldCategoryName !== null ? '変更' : '追加'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -455,8 +455,9 @@ export const scenarioApi = {
         }
       }
       
-      // 組織固有カラムをマッピング
+      // 組織固有カラムをマッピング（organization_scenarios に保存）
       const orgColumnMapping: Record<string, string> = {
+        // 組織固有の運用フィールド
         'duration': 'duration',
         'participation_fee': 'participation_fee',
         'extra_preparation_time': 'extra_preparation_time',
@@ -468,6 +469,18 @@ export const scenarioApi = {
         'production_costs': 'production_costs',
         'play_count': 'play_count',
         'notes': 'notes',
+        // override フィールド（マスター情報の組織固有上書き）
+        'title': 'override_title',
+        'author': 'override_author',
+        'genre': 'override_genre',
+        'difficulty': 'override_difficulty',
+        'player_count_min': 'override_player_count_min',
+        'player_count_max': 'override_player_count_max',
+        // custom フィールド
+        'key_visual_url': 'custom_key_visual_url',
+        'description': 'custom_description',
+        'synopsis': 'custom_synopsis',
+        'caution': 'custom_caution',
       }
       
       for (const [scenarioCol, orgCol] of Object.entries(orgColumnMapping)) {
@@ -477,6 +490,7 @@ export const scenarioApi = {
       }
       
       if (Object.keys(orgScenarioData).length > 0) {
+        orgScenarioData.updated_at = new Date().toISOString()
         logger.log('📝 organization_scenarios同期更新:', Object.keys(orgScenarioData))
         const { error: orgError } = await supabase
           .from('organization_scenarios')
@@ -490,53 +504,9 @@ export const scenarioApi = {
         }
       }
       
-      // scenario_masters も同期更新（マスタ共通フィールド）
-      const masterColumnMapping: Record<string, string> = {
-        'title': 'title',
-        'author': 'author',
-        'key_visual_url': 'key_visual_url',
-        'description': 'description',
-        'synopsis': 'synopsis',
-        'caution': 'caution',
-        'player_count_min': 'player_count_min',
-        'player_count_max': 'player_count_max',
-        'duration': 'official_duration',
-        'genre': 'genre',
-        'difficulty': 'difficulty',
-      }
-      
-      const masterUpdates: Record<string, unknown> = {}
-      for (const [scenarioCol, masterCol] of Object.entries(masterColumnMapping)) {
-        if (dbData[scenarioCol] !== undefined) {
-          masterUpdates[masterCol] = dbData[scenarioCol]
-        }
-      }
-      
-      if (Object.keys(masterUpdates).length > 0) {
-        masterUpdates.updated_at = new Date().toISOString()
-        logger.log('📝 scenario_masters同期更新:', Object.keys(masterUpdates))
-        const { error: masterError } = await supabase
-          .from('scenario_masters')
-          .update(masterUpdates)
-          .eq('id', scenarioMasterId)
-        
-        if (masterError) {
-          logger.error('scenario_masters更新エラー（無視）:', masterError)
-        }
-      }
-      
-      // organization_scenarios にもカスタム画像を同期
-      if (dbData.key_visual_url !== undefined) {
-        const { error: kvError } = await supabase
-          .from('organization_scenarios')
-          .update({ custom_key_visual_url: dbData.key_visual_url, updated_at: new Date().toISOString() })
-          .eq('scenario_master_id', scenarioMasterId)
-          .eq('organization_id', orgId)
-        
-        if (kvError) {
-          logger.error('organization_scenarios画像更新エラー（無視）:', kvError)
-        }
-      }
+      // NOTE: scenario_masters への書き込みは行わない。
+      // マスター情報の更新はマスター編集画面（権利者用）の責務。
+      // 組織固有の上書きは override_* / custom_* カラムに保存済み。
       
       // 組織が「公開中」にした場合、マスターがdraftならpendingに昇格
       if (dbData.status === 'available') {
