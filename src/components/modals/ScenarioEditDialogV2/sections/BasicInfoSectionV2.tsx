@@ -10,11 +10,12 @@ import { Badge } from '@/components/ui/badge'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Upload, X, Trash2, Wand2, Pencil } from 'lucide-react'
+import { Upload, X, Trash2, Wand2 } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { supabase } from '@/lib/supabase'
 import { generateSlugFromTitle } from '@/utils/toRomaji'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
@@ -38,6 +39,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
   const [uploading, setUploading] = useState(false)
   const [isAddAuthorDialogOpen, setIsAddAuthorDialogOpen] = useState(false)
   const [newAuthorName, setNewAuthorName] = useState('')
+  const [editingOldAuthorName, setEditingOldAuthorName] = useState<string | null>(null)
+  const [isSavingAuthor, setIsSavingAuthor] = useState(false)
   const [stores, setStores] = useState<Store[]>([])
   
   useEffect(() => {
@@ -123,13 +126,65 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
     }
   }
 
-  const handleAddAuthor = () => {
+  const handleAddAuthor = async () => {
     if (!newAuthorName.trim()) {
       showToast.warning('作者名を入力してください')
       return
     }
-    setFormData(prev => ({ ...prev, author: newAuthorName.trim() }))
+    const trimmedName = newAuthorName.trim()
+
+    if (editingOldAuthorName !== null && editingOldAuthorName !== trimmedName) {
+      // 編集モード: 全シナリオの作者名を一括変更
+      setIsSavingAuthor(true)
+      try {
+        // 1. scenarios テーブル
+        const { data: scenariosWithAuthor, error: sErr } = await supabase
+          .from('scenarios')
+          .select('id')
+          .eq('author', editingOldAuthorName)
+        
+        if (!sErr && scenariosWithAuthor && scenariosWithAuthor.length > 0) {
+          await supabase
+            .from('scenarios')
+            .update({ author: trimmedName })
+            .eq('author', editingOldAuthorName)
+          logger.log(`scenarios: ${scenariosWithAuthor.length}件の作者名を更新`)
+        }
+
+        // 2. scenario_masters テーブル
+        const { data: mastersWithAuthor, error: mErr } = await supabase
+          .from('scenario_masters')
+          .select('id')
+          .eq('author', editingOldAuthorName)
+        
+        if (!mErr && mastersWithAuthor && mastersWithAuthor.length > 0) {
+          await supabase
+            .from('scenario_masters')
+            .update({ author: trimmedName })
+            .eq('author', editingOldAuthorName)
+          logger.log(`scenario_masters: ${mastersWithAuthor.length}件の作者名を更新`)
+        }
+
+        // 3. 現在のフォームデータも更新
+        setFormData(prev => ({
+          ...prev,
+          author: prev.author === editingOldAuthorName ? trimmedName : prev.author
+        }))
+
+        showToast.success(`作者名を「${editingOldAuthorName}」→「${trimmedName}」に変更しました`)
+      } catch (err) {
+        logger.error('作者名の一括更新エラー:', err)
+        showToast.error('作者名の更新に失敗しました')
+      } finally {
+        setIsSavingAuthor(false)
+      }
+    } else if (editingOldAuthorName === null) {
+      // 新規追加モード: 現在のシナリオの作者を設定
+      setFormData(prev => ({ ...prev, author: trimmedName }))
+    }
+
     setNewAuthorName('')
+    setEditingOldAuthorName(null)
     setIsAddAuthorDialogOpen(false)
   }
 
@@ -251,36 +306,22 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className={labelStyle}>作者 *</Label>
-                  <div className="flex items-center gap-1">
-                    <div className="flex-1">
-                      <MultiSelect
-                        options={authorOptions}
-                        selectedValues={formData.author ? [formData.author] : []}
-                        onSelectionChange={(values) => handleAuthorChange(values[0] || '')}
-                        placeholder="選択"
-                        showBadges={true}
-                        emptyText="見つかりません"
-                        emptyActionLabel="+ 追加"
-                        onEmptyAction={() => setIsAddAuthorDialogOpen(true)}
-                        closeOnSelect={true}
-                      />
-                    </div>
-                    {formData.author && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 flex-shrink-0"
-                        title="作者名を編集"
-                        onClick={() => {
-                          setNewAuthorName(formData.author || '')
-                          setIsAddAuthorDialogOpen(true)
-                        }}
-                      >
-                        <Pencil className="h-3 w-3 text-muted-foreground" />
-                      </Button>
-                    )}
-                  </div>
+                  <MultiSelect
+                    options={authorOptions}
+                    selectedValues={formData.author ? [formData.author] : []}
+                    onSelectionChange={(values) => handleAuthorChange(values[0] || '')}
+                    placeholder="選択"
+                    showBadges={true}
+                    emptyText="見つかりません"
+                    emptyActionLabel="+ 追加"
+                    onEmptyAction={() => { setEditingOldAuthorName(null); setNewAuthorName(''); setIsAddAuthorDialogOpen(true) }}
+                    onEditOption={(value) => {
+                      setEditingOldAuthorName(value)
+                      setNewAuthorName(value)
+                      setIsAddAuthorDialogOpen(true)
+                    }}
+                    closeOnSelect={true}
+                  />
                 </div>
                 <div>
                   <Label className={labelStyle}>
@@ -410,12 +451,14 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       </Card>
 
       {/* 作者追加・編集ダイアログ */}
-      <Dialog open={isAddAuthorDialogOpen} onOpenChange={(open) => { if (!open) setNewAuthorName(''); setIsAddAuthorDialogOpen(open) }}>
+      <Dialog open={isAddAuthorDialogOpen} onOpenChange={(open) => { if (!open) { setNewAuthorName(''); setEditingOldAuthorName(null) }; setIsAddAuthorDialogOpen(open) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{formData.author && newAuthorName ? '作者名を編集' : '新しい作者を追加'}</DialogTitle>
+            <DialogTitle>{editingOldAuthorName !== null ? '作者名を編集' : '新しい作者を追加'}</DialogTitle>
             <DialogDescription>
-              {formData.author && newAuthorName ? '作者名を変更できます' : '新しい作者名を入力してください'}
+              {editingOldAuthorName !== null 
+                ? '変更すると、この作者名を使用している全シナリオに反映されます' 
+                : '新しい作者名を入力してください'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -426,17 +469,17 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                 value={newAuthorName}
                 onChange={(e) => setNewAuthorName(e.target.value)}
                 placeholder="例: 山田太郎"
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAddAuthor() }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !isSavingAuthor) handleAddAuthor() }}
                 autoFocus
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setNewAuthorName(''); setIsAddAuthorDialogOpen(false) }}>
+            <Button variant="outline" disabled={isSavingAuthor} onClick={() => { setNewAuthorName(''); setEditingOldAuthorName(null); setIsAddAuthorDialogOpen(false) }}>
               キャンセル
             </Button>
-            <Button onClick={handleAddAuthor}>
-              {formData.author && newAuthorName ? '変更' : '追加'}
+            <Button onClick={handleAddAuthor} disabled={isSavingAuthor}>
+              {isSavingAuthor ? '更新中...' : (editingOldAuthorName !== null ? '変更' : '追加')}
             </Button>
           </DialogFooter>
         </DialogContent>
