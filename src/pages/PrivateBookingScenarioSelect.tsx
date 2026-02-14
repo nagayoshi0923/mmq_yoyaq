@@ -420,7 +420,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
               reservationDeadlineHours={0}
               hasPreReading={false}
               mode="private"
-              storeId={preselectedStore || null}
+              storeId={preselectedStoreIds[0] || null}
             />
 
             {/* 確認ボタン */}
