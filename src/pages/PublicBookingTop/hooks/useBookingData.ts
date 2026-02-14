@@ -179,13 +179,22 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       ])
       
       // 🔐 公開中の組織シナリオのキーセットを作成
+      const availableOrgKeysData = availableOrgResult.data || []
       const availableOrgKeys = new Set(
-        (availableOrgResult.data || []).map((os: any) => `${os.organization_id}_${os.scenario_master_id}`)
+        availableOrgKeysData.map((os: any) => `${os.organization_id}_${os.scenario_master_id}`)
       )
-      logger.log('✅ 公開中の組織シナリオ:', availableOrgKeys.size, '件')
       
-      // 🔐 組織で公開されているシナリオのみ表示（scenario_master_idがあるもの）
+      // RPCエラーまたはデータ0件の場合はフィルタをスキップ（全表示）
+      const shouldFilterByOrgStatus = !availableOrgResult.error && availableOrgKeysData.length > 0
+      if (shouldFilterByOrgStatus) {
+        logger.log('✅ 公開中の組織シナリオ:', availableOrgKeys.size, '件')
+      } else {
+        logger.warn('⚠️ 組織シナリオフィルタをスキップ:', availableOrgResult.error ? 'RPCエラー' : 'データなし')
+      }
+      
+      // 🔐 組織で公開されているシナリオのみ表示（フィルタ可能な場合のみ）
       const scenariosData = (scenariosResult.data || []).filter((s: any) => {
+        if (!shouldFilterByOrgStatus) return true
         // scenario_master_idがない場合はそのまま（レガシーデータ）
         if (!s.scenario_master_id) return true
         // 公開中の組織シナリオに含まれているもののみ表示

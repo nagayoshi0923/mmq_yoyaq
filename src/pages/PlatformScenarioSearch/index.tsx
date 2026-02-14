@@ -85,7 +85,14 @@ export function PlatformScenarioSearch() {
         const availableOrgKeys = new Set(
           (availableKeys || []).map((k: any) => `${k.organization_id}_${k.scenario_master_id}`)
         )
-        logger.log('✅ 公開中の組織シナリオ:', availableOrgKeys.size, '件')
+        
+        // RPCエラーまたはデータ0件の場合はフィルタをスキップ（全表示）
+        const shouldFilterByOrgStatus = !keysError && (availableKeys || []).length > 0
+        if (shouldFilterByOrgStatus) {
+          logger.log('✅ 公開中の組織シナリオ:', availableOrgKeys.size, '件')
+        } else {
+          logger.warn('⚠️ 組織シナリオフィルタをスキップ:', keysError ? 'RPCエラー' : 'データなし')
+        }
         
         // 全組織のシナリオを取得
         const { data, error } = await supabase
@@ -102,12 +109,11 @@ export function PlatformScenarioSearch() {
         
         if (error) throw error
         
-        // 🔐 マスタ未承認・組織で非公開のシナリオを除外
-        // RPC関数で承認済み＋公開中のキーを取得済み
+        // 🔐 フィルタ可能な場合のみ組織の公開ステータスで絞り込み
         const formattedScenarios = (data || [])
           .filter(s => {
+            if (!shouldFilterByOrgStatus) return true
             if (!s.scenario_master_id) return false
-            // 公開中の組織シナリオに含まれているもののみ表示
             return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
           })
           .map(s => {

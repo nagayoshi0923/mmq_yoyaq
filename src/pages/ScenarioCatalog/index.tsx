@@ -85,13 +85,18 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
         ])
         
         // 公開中の組織シナリオのキーセット
+        const keysData = availableKeysResult.data || []
         const availableOrgKeys = new Set(
-          (availableKeysResult.data || []).map((k: any) => `${k.organization_id}_${k.scenario_master_id}`)
+          keysData.map((k: any) => `${k.organization_id}_${k.scenario_master_id}`)
         )
+        
+        // RPCエラーまたはデータ0件の場合はフィルタをスキップ
+        const shouldFilter = !availableKeysResult.error && keysData.length > 0
         
         // status='available'かつ組織で公開されているシナリオのみ表示
         const availableScenarios = data.filter((s: any) => {
           if (s.status !== 'available') return false
+          if (!shouldFilter) return true
           // scenario_master_idがない場合はレガシーデータなのでそのまま
           if (!s.scenario_master_id) return true
           // 公開中の組織シナリオに含まれているもののみ表示
