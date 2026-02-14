@@ -36,6 +36,18 @@ export function CouponsPage() {
   const activeCoupons = sortedCoupons.filter(c => c.status === 'active')
   const usedCoupons = sortedCoupons.filter(c => c.status !== 'active')
 
+  // 利用可能枚数 = 全activeクーポンのuses_remainingの合計
+  const totalAvailableCount = activeCoupons.reduce((sum, c) => sum + c.uses_remaining, 0)
+
+  // activeクーポンをuses_remaining分だけ展開して1枚ずつ表示する
+  const expandedActiveCoupons = activeCoupons.flatMap(coupon => {
+    const cards: { coupon: CustomerCoupon; index: number; total: number }[] = []
+    for (let i = 0; i < coupon.uses_remaining; i++) {
+      cards.push({ coupon, index: i, total: coupon.uses_remaining })
+    }
+    return cards
+  })
+
   const getStatusBadge = (coupon: CustomerCoupon) => {
     const now = new Date()
     const isExpired = coupon.expires_at && new Date(coupon.expires_at) < now
@@ -74,7 +86,7 @@ export function CouponsPage() {
             クーポン
           </h2>
           <span className="text-2xl font-bold" style={{ color: THEME.primary }}>
-            {activeCoupons.length}枚
+            {totalAvailableCount}枚
           </span>
         </div>
         <p className="text-sm text-gray-500">
@@ -83,14 +95,14 @@ export function CouponsPage() {
       </div>
 
       {/* 利用可能クーポン */}
-      {activeCoupons.length > 0 && (
+      {expandedActiveCoupons.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
             <span className="w-1 h-5 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
             利用可能なクーポン
           </h3>
           <div className="space-y-3">
-            {activeCoupons.map(coupon => {
+            {expandedActiveCoupons.map(({ coupon, index }) => {
               const campaign = coupon.coupon_campaigns
               if (!campaign) return null
               const status = getStatusBadge(coupon)
@@ -102,7 +114,7 @@ export function CouponsPage() {
 
               return (
                 <div
-                  key={coupon.id}
+                  key={`${coupon.id}-${index}`}
                   className="bg-white border border-gray-200 overflow-hidden"
                   style={{ borderRadius: 0 }}
                 >
@@ -130,10 +142,6 @@ export function CouponsPage() {
                       <p className="text-xs text-gray-500 mt-1">{campaign.description}</p>
                     )}
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Ticket className="w-3 h-3" />
-                        残り{coupon.uses_remaining}/{campaign.max_uses_per_customer}回
-                      </span>
                       {coupon.expires_at && (
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />

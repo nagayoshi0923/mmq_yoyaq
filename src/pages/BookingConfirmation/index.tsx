@@ -700,7 +700,7 @@ export function BookingConfirmation({
                                   <div className="min-w-0">
                                     <div className="text-xs font-medium truncate">{campaign.name}</div>
                                     <div className="text-xs text-muted-foreground">
-                                      残り{coupon.uses_remaining}回
+                                      残り{coupon.uses_remaining}枚
                                       {coupon.expires_at && (
                                         <> / {new Date(coupon.expires_at).toLocaleDateString('ja-JP')}まで</>
                                       )}
