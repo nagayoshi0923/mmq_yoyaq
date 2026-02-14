@@ -25,7 +25,7 @@ import { PrivateBookingForm } from './components/PrivateBookingForm'
 import { BookingPanel } from './components/BookingPanel'
 import { PrivateBookingPanel } from './components/PrivateBookingPanel'
 import { BookingNotice } from './components/BookingNotice'
-import { VenueAccess } from './components/VenueAccess'
+// VenueAccess は公演日程タブの会場表示で使用可能（現在は未使用）
 import { RelatedScenarios } from './components/RelatedScenarios'
 import { StoreSelector } from './components/StoreSelector'
 import { ScenarioAbout } from './components/ScenarioAbout'
@@ -508,14 +508,15 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
                 {activeTab === 'private' && (
                   <div className="space-y-4">
-                    {/* 選択店舗（選択した店舗がある場合のみ表示） */}
-                    {selectedStoreIds.length > 0 && (
-                      <VenueAccess
-                        selectedStoreIds={selectedStoreIds}
-                        stores={availableStores}
-                        mode="private"
-                      />
-                    )}
+                    {/* 店舗選択（チェックボックス式） */}
+                    <StoreSelector
+                      stores={availableStores}
+                      selectedStoreIds={selectedStoreIds}
+                      onStoreIdsChange={setSelectedStoreIds}
+                      label="店舗を選択"
+                      placeholder="全店舗希望"
+                      emptyText="未選択の場合は全店舗が対象です"
+                    />
                     <PrivateBookingPanel
                       participationFee={scenario.participation_fee}
                       maxParticipants={scenario.player_count_max}
