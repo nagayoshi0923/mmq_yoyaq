@@ -31,6 +31,7 @@ export function CompleteProfile() {
   const [userEmail, setUserEmail] = useState('')
   const [userId, setUserId] = useState('')
   const [isOAuthUser, setIsOAuthUser] = useState(false)
+  const [acceptNewsletter, setAcceptNewsletter] = useState(true)
 
   useEffect(() => {
     // セッションを確認
@@ -173,6 +174,12 @@ export function CompleteProfile() {
         .eq('user_id', userId)
         .maybeSingle()
 
+      const notificationSettings = {
+        email_notifications: true,
+        reminder_notifications: true,
+        campaign_notifications: acceptNewsletter
+      }
+
       if (existingByUserId) {
         // 自分のレコードがある → UPDATE
         const { error: updateCustErr } = await supabase
@@ -182,6 +189,7 @@ export function CompleteProfile() {
             email: userEmail,
             phone: phone.trim(),
             organization_id: organizationId,
+            notification_settings: notificationSettings,
             updated_at: new Date().toISOString()
           })
           .eq('id', existingByUserId.id)
@@ -202,6 +210,7 @@ export function CompleteProfile() {
             visit_count: 0,
             total_spent: 0,
             organization_id: organizationId,
+            notification_settings: notificationSettings,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
@@ -497,6 +506,21 @@ export function CompleteProfile() {
                     </div>
                   </>
                 )}
+
+                {/* メールマガジン同意 */}
+                <div className="flex items-start gap-3 pt-2">
+                  <input
+                    id="newsletter"
+                    type="checkbox"
+                    checked={acceptNewsletter}
+                    onChange={(e) => setAcceptNewsletter(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 accent-[#E60012] cursor-pointer"
+                    disabled={isLoading}
+                  />
+                  <label htmlFor="newsletter" className="text-sm text-gray-600 cursor-pointer select-none">
+                    新作シナリオやキャンペーンなどのお知らせメールを受け取る
+                  </label>
+                </div>
 
                 {/* エラー表示 */}
                 {error && (
