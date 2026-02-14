@@ -513,7 +513,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       return h * 60 + (m || 0)
     }
     
-    // デフォルトの開始時間・終了時間
+    // デフォルトの開始時間・終了時間（営業時間設定で上書きされる）
     const defaultStartTimes: Record<string, number> = {
       morning: timeToMinutes('09:00'),
       afternoon: timeToMinutes('14:00'),
@@ -539,6 +539,19 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         // 店舗設定からは利用可能な公演枠のみを取得
         if (dayHours.available_slots && dayHours.available_slots.length > 0) {
           availableSlots = dayHours.available_slots
+        }
+        
+        // 営業時間設定の公演枠開始時間を適用（slot_start_times）
+        if (dayHours.slot_start_times) {
+          const st = dayHours.slot_start_times
+          if (st.morning) defaultStartTimes.morning = timeToMinutes(st.morning)
+          if (st.afternoon) defaultStartTimes.afternoon = timeToMinutes(st.afternoon)
+          if (st.evening) defaultStartTimes.evening = timeToMinutes(st.evening)
+        }
+        
+        // 営業終了時間を夜公演の上限に反映
+        if (dayHours.close_time) {
+          slotEndLimits.evening = timeToMinutes(dayHours.close_time)
         }
       }
     }

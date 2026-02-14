@@ -370,14 +370,27 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                   style={{ borderRadius: 0 }}
                 >
                   {/* キービジュアル */}
-                  <div className="relative w-32 md:w-full aspect-[3/4] overflow-hidden bg-gray-100 flex-shrink-0">
+                  <div className="relative w-32 md:w-full aspect-[3/4] overflow-hidden bg-gray-900 flex-shrink-0">
                     {scenario.key_visual_url ? (
-                      <img
-                        src={scenario.key_visual_url}
-                        alt={scenario.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
+                      <>
+                        {/* 背景：ぼかした画像で余白を埋める */}
+                        <div 
+                          className="absolute inset-0 scale-110"
+                          style={{
+                            backgroundImage: `url(${scenario.key_visual_url})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            filter: 'blur(20px) brightness(0.7)',
+                          }}
+                        />
+                        {/* メイン画像：全体を表示 */}
+                        <img
+                          src={scenario.key_visual_url}
+                          alt={scenario.title}
+                          className="relative w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      </>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Sparkles className="w-8 h-8 text-gray-300" />
