@@ -676,32 +676,58 @@ export function PerformanceModal({
                 }
               }}
               options={scenarios.map(scenario => {
-                // このシナリオで出勤可能なGMを取得
-                const scenarioAvailableGMs = allAvailableStaff.filter(gm => {
+                // このシナリオの担当GM全員を取得（special_scenarios は scenario_master_id を格納）
+                const isAssignedGM = (gm: StaffType) => {
                   const specialScenarios = gm.special_scenarios || []
-                  return specialScenarios.includes(scenario.id) || specialScenarios.includes(scenario.title)
-                })
+                  return specialScenarios.includes(scenario.scenario_master_id || scenario.id) || 
+                         specialScenarios.includes(scenario.id) ||
+                         specialScenarios.includes(scenario.title)
+                }
+                
+                // 出勤中かどうかをチェック
+                const isAvailableGM = (gm: StaffType) => allAvailableStaff.some(a => a.id === gm.id)
+                
+                // 担当GMを取得
+                const scenarioAssignedGMs = staff.filter(gm => gm.status === 'active' && isAssignedGM(gm))
+                
+                // 出勤中だが担当でないGM（シナリオ習得の可能性あり）
+                const availableNonAssignedGMs = allAvailableStaff.filter(gm => 
+                  gm.status === 'active' && !isAssignedGM(gm)
+                )
+                
+                // 表示用にマージ：担当GMを先に、次に出勤中の非担当GM
+                const displayGMs = [
+                  ...scenarioAssignedGMs.map(gm => ({ gm, isAssigned: true, isAvailable: isAvailableGM(gm) })),
+                  ...availableNonAssignedGMs.map(gm => ({ gm, isAssigned: false, isAvailable: true }))
+                ]
                 
                 return {
                   value: scenario.title,
                   label: scenario.title,
-                  displayInfo: scenarioAvailableGMs.length > 0 
+                  displayInfo: displayGMs.length > 0 
                     ? (
                         <span className="flex flex-wrap gap-x-1 items-center">
-                          {scenarioAvailableGMs.map((gm, index) => (
-                            <span key={gm.id}>
+                          {displayGMs.map(({ gm, isAssigned, isAvailable }, index) => (
+                            <span key={gm.id} className="inline-flex items-center">
                               <span 
-                                style={{ color: getStaffTextColor(gm), fontWeight: 500 }}
+                                style={{ 
+                                  color: isAssigned ? getStaffTextColor(gm) : '#9CA3AF',
+                                  fontWeight: isAssigned ? 500 : 400,
+                                  opacity: isAssigned ? 1 : 0.8
+                                }}
                               >
                                 {gm.name}
                               </span>
-                              {index < scenarioAvailableGMs.length - 1 && <span className="text-muted-foreground">,</span>}
+                              {isAvailable && (
+                                <span className="text-green-600 text-[10px] ml-0.5" title="シフト済">✓</span>
+                              )}
+                              {index < displayGMs.length - 1 && <span className="text-muted-foreground">,</span>}
                             </span>
                           ))}
                         </span>
                       )
                     : undefined,
-                  displayInfoSearchText: scenarioAvailableGMs.map(gm => gm.name).join(', ')
+                  displayInfoSearchText: displayGMs.map(({ gm }) => gm.name).join(', ')
                 }
               })}
               placeholder="シナリオ"
