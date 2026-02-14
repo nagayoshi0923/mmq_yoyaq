@@ -595,12 +595,28 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       return latest
     }
     
+    // 当日のスロット開始時間以降で最も早いイベントの開始時間を取得
+    const getEarliestEventStartAfter = (afterMinutes: number): number | null => {
+      let earliest: number | null = null
+      dayEvents.forEach((e: any) => {
+        if (!e.start_time) return
+        const eventStart = timeToMinutes(e.start_time)
+        if (eventStart > afterMinutes) {
+          if (earliest === null || eventStart < earliest) {
+            earliest = eventStart
+          }
+        }
+      })
+      return earliest
+    }
+    
     // 時間枠を生成（有効な公演枠のみ）
     const slotDefinitions: { key: 'morning' | 'afternoon' | 'evening'; label: string }[] = [
       { key: 'morning', label: '朝公演' },
       { key: 'afternoon', label: '昼公演' },
       { key: 'evening', label: '夜公演' }
     ]
+    const hardDayLimit = timeToMinutes('23:00')
     
     return slotDefinitions
       .filter(def => availableSlots.includes(def.key))
@@ -621,9 +637,36 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         
         const endMinutes = startMinutes + durationMinutes
         const slotEndLimit = slotEndLimits[def.key]
+        const extraPrepTime = scenario?.extra_preparation_time || 0
         
-        // 公演がスロット終了時間内に収まらない場合はスロットを無効にする
-        if (startMinutes >= slotEndLimit || endMinutes > slotEndLimit) {
+        // 開始時間がスロットの時間帯を超えている場合は無効
+        if (startMinutes >= slotEndLimit) {
+          return null
+        }
+        
+        // 営業終了時間を超える場合は無効
+        if (endMinutes > hardDayLimit) {
+          return null
+        }
+        
+        // スロット境界内に収まる場合は問題なし
+        if (endMinutes <= slotEndLimit) {
+          return {
+            label: def.label,
+            startTime: minutesToTime(startMinutes),
+            endTime: minutesToTime(endMinutes)
+          }
+        }
+        
+        // スロット境界を超える場合：後続イベントがなければ延長可能
+        // 次のイベントの1時間前（+ 準備時間）まで、またはイベントがなければ営業終了まで
+        const nextEventStart = getEarliestEventStartAfter(startMinutes)
+        const bufferNeeded = 60 + extraPrepTime // 1時間インターバル + 準備時間
+        const effectiveEndLimit = nextEventStart !== null
+          ? nextEventStart - bufferNeeded  // 次イベントのバッファー前まで
+          : hardDayLimit - extraPrepTime   // 営業終了から準備時間を引いた時間
+        
+        if (endMinutes > effectiveEndLimit) {
           return null
         }
         
