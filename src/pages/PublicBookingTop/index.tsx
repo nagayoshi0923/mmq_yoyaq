@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { logger } from '@/utils/logger'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -7,7 +7,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
 import { getColorFromName } from '@/lib/utils'
 import { BOOKING_THEME, MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, MapPin, Store, BookOpen } from 'lucide-react'
 import { useBookingData } from './hooks/useBookingData'
 import { useCalendarData } from './hooks/useCalendarData'
 import { useListViewData } from './hooks/useListViewData'
@@ -147,6 +147,30 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   
   // お気に入り機能
   const { isFavorite, toggleFavorite } = useFavorites()
+  
+  // 組織情報（店舗数・所在地）
+  const orgInfo = useMemo(() => {
+    const regularStores = stores.filter((s: any) => !s.is_temporary && s.status !== 'inactive')
+    const storeCount = regularStores.length
+    // 重複しない地域名を取得
+    const regions = Array.from(new Set(
+      regularStores
+        .map((s: any) => s.region)
+        .filter((r: string | null): r is string => !!r)
+    ))
+    // 住所から地域を抽出（regionがない場合のフォールバック）
+    const addresses = regions.length > 0 ? regions : Array.from(new Set(
+      regularStores
+        .map((s: any) => {
+          if (!s.address) return null
+          // 「東京都新宿区...」→「東京都新宿区」のように市区町村まで抽出
+          const match = s.address.match(/^(.+?[都道府県])(.+?[市区町村郡])/)
+          return match ? `${match[1]}${match[2]}` : s.address.slice(0, 10)
+        })
+        .filter((a: string | null): a is string => !!a)
+    ))
+    return { storeCount, regions: addresses, scenarioCount: scenarios.length }
+  }, [stores, scenarios])
   
   // フィルタリングフック
   const { newScenarios, upcomingScenarios, allScenarios } = useBookingFilters(scenarios, searchTerm)
@@ -317,9 +341,33 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             <h1 className="text-lg md:text-xl font-bold tracking-tight">
               {organizationName || 'MMQ'}
             </h1>
-            <p className="text-sm text-white/80">
+            <p className="text-sm text-white/80 mb-2">
               リアルな謎解き体験。あなたは事件の真相を暴けるか？
             </p>
+            
+            {/* 組織情報 */}
+            {!isLoading && (orgInfo.storeCount > 0 || orgInfo.scenarioCount > 0) && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
+                {orgInfo.storeCount > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <Store className="w-3 h-3" />
+                    {orgInfo.storeCount}店舗
+                  </span>
+                )}
+                {orgInfo.scenarioCount > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <BookOpen className="w-3 h-3" />
+                    {orgInfo.scenarioCount}タイトル
+                  </span>
+                )}
+                {orgInfo.regions.length > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    {orgInfo.regions.join(' / ')}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
