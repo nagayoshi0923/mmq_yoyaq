@@ -807,14 +807,22 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         scenarioData.id = scenarioId
       }
       
-      const result = await scenarioMutation.mutateAsync({
-        scenario: scenarioData,
-        isEdit: !!scenarioId
-      })
+      // scenarios テーブルへの保存（旧テーブル）
+      // 失敗してもorganization_scenariosへの保存は続行する
+      let scenarioSaveResult: any = null
+      try {
+        scenarioSaveResult = await scenarioMutation.mutateAsync({
+          scenario: scenarioData,
+          isEdit: !!scenarioId
+        })
+      } catch (scenarioErr) {
+        logger.warn('scenarios テーブル保存エラー（organization_scenariosへの保存は続行）:', scenarioErr)
+        console.warn('⚠️ scenarios保存エラー（続行）:', scenarioErr)
+      }
 
       // 担当GMの更新処理
       // scenario_master_id を直接使用
-      const targetScenarioId = scenarioId || (result && typeof result === 'object' && 'scenario_master_id' in result ? (result as any).scenario_master_id : undefined)
+      const targetScenarioId = scenarioId || (scenarioSaveResult && typeof scenarioSaveResult === 'object' && 'scenario_master_id' in scenarioSaveResult ? (scenarioSaveResult as any).scenario_master_id : undefined)
 
       if (targetScenarioId) {
         try {
@@ -897,7 +905,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       }
 
       // マスタから引用した場合、organization_scenariosにも登録
-      if (formData.scenario_master_id && targetScenarioId) {
+      // scenariosテーブルの保存に失敗してもここは必ず実行する
+      const masterIdForOrgSave = formData.scenario_master_id || targetScenarioId
+      if (masterIdForOrgSave) {
         try {
           const organizationId = await getCurrentOrganizationId()
           if (!organizationId) {
@@ -907,14 +917,14 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             const { data: existingOrgScenario } = await supabase
               .from('organization_scenarios')
               .select('id')
-              .eq('scenario_master_id', formData.scenario_master_id)
+              .eq('scenario_master_id', masterIdForOrgSave)
               .eq('organization_id', organizationId)
               .maybeSingle()
             
             // organization_scenarios に保存するデータ（override/custom フィールド含む）
             const orgScenarioPayload = {
               organization_id: organizationId,
-              scenario_master_id: formData.scenario_master_id,
+              scenario_master_id: masterIdForOrgSave,
               slug: scenarioData.slug,
               duration: scenarioData.duration,
               participation_fee: scenarioData.participation_fee,
