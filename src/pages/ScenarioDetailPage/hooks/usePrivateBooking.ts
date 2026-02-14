@@ -419,6 +419,26 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         }
       }
       
+      // デバッグ: 4/4昼公演
+      if (targetDate === '2026-04-04' && targetTimeSlot === 'afternoon') {
+        console.log('[DEBUG 4/4昼] checkStoreAvailability:', {
+          storeId,
+          requestStart,
+          scenarioDuration,
+          extraPrepTime,
+          slotEndLimit,
+          latestEventEnd,
+          adjustedStart,
+          canFit,
+          storeEventsCount: storeEvents.length,
+          storeEvents: storeEvents.map((e: any) => ({
+            title: e.title,
+            start: e.start_time,
+            end: e.end_time
+          }))
+        })
+      }
+      
       return canFit // 開始時間をずらしても収まれば空いている
     }
     
@@ -429,7 +449,21 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       )
       if (validStoreIds.length === 0) return false
       
-      return validStoreIds.some(storeId => checkStoreAvailability(storeId))
+      const results = validStoreIds.map(storeId => ({
+        storeId,
+        available: checkStoreAvailability(storeId)
+      }))
+      
+      // デバッグ: 4/4昼公演
+      const targetDate = date.split('T')[0]
+      if (targetDate === '2026-04-04' && slot.label === '昼公演') {
+        console.log('[DEBUG 4/4昼] checkTimeSlotAvailability結果:', {
+          results,
+          anyAvailable: results.some(r => r.available)
+        })
+      }
+      
+      return results.some(r => r.available)
     }
     
     // 店舗が選択されていない場合：営業時間設定があればそれを使用、なければデフォルト
