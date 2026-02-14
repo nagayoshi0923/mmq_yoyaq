@@ -3,15 +3,25 @@ import { lazy, ComponentType } from 'react'
 /**
  * デプロイ後のチャンク読み込みエラーに対応する lazy() ラッパー
  *
- * 問題：デプロイ後に古いハッシュ付きチャンクファイルが存在しなくなるため、
+ * 問題：
+ * デプロイ後に古いハッシュ付きチャンクファイルが存在しなくなるため、
  * 開きっぱなしのタブからの遷移で 404 になる。
+ * ESモジュールの import() は URL が静的にバンドルされるため、
+ * アプリ側だけで新URLに差し替えることは技術的に不可能。
  *
- * 解決策（リロード不要）：
- * 1. 通常の import を試行
- * 2. 失敗したら index.html を再取得し、新しいモジュールマップを取得
- * 3. 元のモジュールパスから新しいハッシュ付きURLを特定して再 import
- * 4. すべて失敗した場合のみ ErrorBoundary に委ねる（ユーザーに選択権）
+ * 対策（多層防御）：
+ * 1. 一時的なネットワーク障害 → リトライで解決
+ * 2. デプロイ後の古いチャンク → バージョンチェックで検知し「更新通知バナー」を表示
+ * 3. ErrorBoundary の最終フォールバック → ユーザーフレンドリーな「更新あり」画面
+ *
+ * リロードを強制せず、ユーザーに選択権を渡す。
  */
+
+/** アプリ起動時のビルドハッシュ（index.html のエントリポイントURLから取得） */
+let initialBuildHash: string | null = null
+
+/** バージョン変更を検知した際のコールバック */
+let onVersionChangeCallback: (() => void) | null = null
 
 /**
  * チャンク読み込みエラーかどうかを判定
@@ -34,47 +44,101 @@ export function isChunkLoadError(error: unknown): boolean {
 }
 
 /**
- * index.html を再取得して新しいエントリポイントのスクリプトURLを取得する。
- * Vite は index.html 内の <script type="module" src="/assets/index-XXXX.js"> を
- * エントリポイントとして使うため、新しいデプロイ後はこのURLが変わっている。
- *
- * 新しいエントリポイントを import() することで、Vite のモジュールグラフが
- * 新しいハッシュで再構築され、後続の lazy import が成功する。
+ * 現在の index.html からエントリポイントのハッシュを取得する
  */
-async function refreshModuleGraph(): Promise<boolean> {
+function getCurrentBuildHash(): string | null {
+  const scripts = document.querySelectorAll('script[type="module"][src]')
+  for (const script of scripts) {
+    const src = script.getAttribute('src')
+    if (src?.includes('/assets/index-')) {
+      // "index-BR0uUZur" の "BR0uUZur" 部分
+      const match = src.match(/index-([^.]+)\.js/)
+      return match?.[1] ?? null
+    }
+  }
+  return null
+}
+
+/**
+ * サーバーの最新 index.html からビルドハッシュを取得する
+ */
+async function fetchLatestBuildHash(): Promise<string | null> {
   try {
     const resp = await fetch(`${window.location.origin}/?_t=${Date.now()}`, {
       headers: { Accept: 'text/html' },
       cache: 'no-cache',
     })
-    if (!resp.ok) return false
+    if (!resp.ok) return null
 
     const html = await resp.text()
-    // Vite が生成する <script type="module" ... src="/assets/index-XXXX.js">
-    const match = html.match(/<script[^>]+type=["']module["'][^>]+src=["']([^"']+)["']/i)
-    if (!match?.[1]) return false
-
-    const newEntryUrl = match[1].startsWith('http')
-      ? match[1]
-      : `${window.location.origin}${match[1]}`
-
-    // 新しいエントリポイントを読み込むことでモジュールグラフを更新
-    await import(/* @vite-ignore */ newEntryUrl)
-    return true
+    const match = html.match(/index-([^.]+)\.js/)
+    return match?.[1] ?? null
   } catch {
-    return false
+    return null
   }
 }
 
 /**
- * リトライ付き lazy import（リロード不要）
+ * バージョンが変わっているかチェックし、変わっていたらコールバックを呼ぶ
+ */
+async function checkVersionChange(): Promise<boolean> {
+  if (!initialBuildHash) return false
+  const latestHash = await fetchLatestBuildHash()
+  if (latestHash && latestHash !== initialBuildHash) {
+    onVersionChangeCallback?.()
+    return true
+  }
+  return false
+}
+
+/**
+ * バージョン変更検知の初期化（main.tsx で呼び出す）
+ *
+ * チャンクエラー時の即時チェックに加え、定期ポーリングも行う。
+ * ポーリングで先にバージョン変更を検知できれば、
+ * ユーザーがページ遷移する前に更新バナーを表示でき、
+ * エラー画面を見せずに済む。
+ *
+ * @param onVersionChange - 新バージョン検知時のコールバック
+ */
+export function initVersionCheck(onVersionChange: () => void): void {
+  initialBuildHash = getCurrentBuildHash()
+  onVersionChangeCallback = onVersionChange
+
+  // 本番環境でのみ定期ポーリング（5分間隔）
+  if (import.meta.env.PROD && initialBuildHash) {
+    const POLL_INTERVAL = 5 * 60 * 1000 // 5分
+
+    const poll = async () => {
+      const changed = await checkVersionChange()
+      if (!changed) {
+        // まだ変わってなければ次回もチェック
+        setTimeout(poll, POLL_INTERVAL)
+      }
+      // 変わっていたらポーリング終了（バナーは1回だけ表示）
+    }
+
+    // 初回は3分後に開始（アプリ起動直後は不要）
+    setTimeout(poll, 3 * 60 * 1000)
+
+    // タブがフォアグラウンドに戻った時もチェック
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && initialBuildHash) {
+        checkVersionChange()
+      }
+    })
+  }
+}
+
+/**
+ * リトライ付き lazy import
  *
  * @param importFn - () => import('./SomeComponent') 形式の関数
- * @param retries - 単純リトライ回数（デフォルト: 1）
+ * @param retries - 単純リトライ回数（デフォルト: 2）
  */
 export function lazyWithRetry<T extends ComponentType<any>>(
   importFn: () => Promise<{ default: T }>,
-  retries = 1
+  retries = 2
 ): React.LazyExoticComponent<T> {
   return lazy(async () => {
     // 1. 通常の import を試行
@@ -95,13 +159,16 @@ export function lazyWithRetry<T extends ComponentType<any>>(
         }
       }
 
-      // 3. index.html を再取得してモジュールグラフを更新し、再度 import
-      const refreshed = await refreshModuleGraph()
-      if (refreshed) {
-        try {
-          return await importFn()
-        } catch {
-          // 最終手段へ
+      // 3. バージョンチェック → 新バージョンがあれば自動リロード
+      const versionChanged = await checkVersionChange()
+      if (versionChanged) {
+        // 無限リロードループ防止: セッション内で1回だけリロード
+        const reloadKey = 'chunk-auto-reload'
+        if (!sessionStorage.getItem(reloadKey)) {
+          sessionStorage.setItem(reloadKey, '1')
+          window.location.reload()
+          // リロード中にErrorBoundaryが表示されないよう、永遠にpendingのPromiseを返す
+          return new Promise(() => {})
         }
       }
 
@@ -113,10 +180,9 @@ export function lazyWithRetry<T extends ComponentType<any>>(
 
 /**
  * 後方互換: 以前のバージョンで使っていた関数（main.tsx から呼ばれる）
- * リロード方式をやめたので no-op にする
  */
 export function clearChunkReloadFlag(): void {
-  // no-op: リロード方式は廃止
   sessionStorage.removeItem('chunk-reload-attempted')
   sessionStorage.removeItem('chunk-error-reload')
+  sessionStorage.removeItem('chunk-auto-reload')
 }
