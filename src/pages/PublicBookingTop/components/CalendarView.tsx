@@ -181,10 +181,10 @@ export const CalendarView = memo(function CalendarView({
                       ? stores.find(s => s.id === selectedStoreIds[0]) 
                       : null
                     
-                    const timeSlots: { slot: 'morning' | 'afternoon' | 'evening', label: string }[] = [
-                      { slot: 'morning', label: '朝公演' },
-                      { slot: 'afternoon', label: '昼公演' },
-                      { slot: 'evening', label: '夜公演' }
+                    const timeSlots: { slot: 'morning' | 'afternoon' | 'evening', label: string, timeRange: string }[] = [
+                      { slot: 'morning', label: '朝公演', timeRange: '9:00-12:00' },
+                      { slot: 'afternoon', label: '昼公演', timeRange: '14:00-18:00' },
+                      { slot: 'evening', label: '夜公演', timeRange: '19:00-23:00' }
                     ]
                     
                     // 時間帯ごとにイベントをグループ化

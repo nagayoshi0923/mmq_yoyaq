@@ -295,14 +295,17 @@ export const ListView = memo(function ListView({
               <TableHead className="border-r text-xs sm:text-sm text-center">
                 <span className="sm:hidden">朝</span>
                 <span className="hidden sm:inline">朝公演</span>
+                <div className="text-[10px] text-gray-400 font-normal">9:00-12:00</div>
               </TableHead>
               <TableHead className="border-r text-xs sm:text-sm text-center">
                 <span className="sm:hidden">昼</span>
                 <span className="hidden sm:inline">昼公演</span>
+                <div className="text-[10px] text-gray-400 font-normal">14:00-18:00</div>
               </TableHead>
               <TableHead className="text-xs sm:text-sm text-center">
                 <span className="sm:hidden">夜</span>
                 <span className="hidden sm:inline">夜公演</span>
+                <div className="text-[10px] text-gray-400 font-normal">19:00-23:00</div>
               </TableHead>
           </TableRow>
         </TableHeader>
