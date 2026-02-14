@@ -132,9 +132,18 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           return true
         })
         
+        console.log('📅 allStoreEvents loaded:', validEvents.length, '件', {
+          orgId,
+          sampleDates: [...new Set(validEvents.slice(0, 20).map((e: any) => e.date?.split('T')[0]))],
+          april: validEvents.filter((e: any) => {
+            const d = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : ''
+            return d.startsWith('2026-04')
+          }).length
+        })
         setAllStoreEvents(validEvents)
       } catch (error) {
         logger.error('全店舗イベントの取得エラー:', error)
+        console.error('📅 allStoreEvents取得エラー:', error)
         setAllStoreEvents([])
       }
     }
@@ -560,6 +569,21 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         return true
       })
       .sort((a: any, b: any) => (a.end_time || '').localeCompare(b.end_time || ''))
+    
+    // デバッグ: 特定日のイベントデータ確認（最初の5日分のみ）
+    if (dayEvents.length > 0 || targetDate === '2026-04-04') {
+      console.log(`📅 [${targetDate}] dayEvents:`, dayEvents.length, '件', {
+        allStoreEventsTotal: allStoreEvents.length,
+        selectedStoreIds,
+        events: dayEvents.map((e: any) => ({
+          title: e.scenarios?.title?.substring(0, 10) || e.title?.substring(0, 10),
+          start: e.start_time,
+          end: e.end_time,
+          store: e.store_id?.substring(0, 8) || e.stores?.id?.substring(0, 8),
+          category: e.category
+        }))
+      })
+    }
     
     // 各スロットの前にあるイベントの最遅end_timeを計算
     const getLatestEndTimeBefore = (slotKey: string): number | null => {
