@@ -19,6 +19,8 @@ export interface ScenarioDetail {
   has_pre_reading: boolean
   official_site_url?: string
   participation_fee: number
+  available_stores?: string[]  // 公演可能店舗IDリスト
+  extra_preparation_time?: number  // 追加準備時間（分）
 }
 
 export interface EventSchedule {
