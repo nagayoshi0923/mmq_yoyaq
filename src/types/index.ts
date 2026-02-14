@@ -528,6 +528,7 @@ export interface Customer {
   line_id?: string | null
   notes?: string | null
   avatar_url?: string | null  // アバター画像URL（Supabase Storage）
+  birth_date?: string | null  // 生年月日（YYYY-MM-DD）
   visit_count: number
   total_spent: number
   last_visit?: string | null

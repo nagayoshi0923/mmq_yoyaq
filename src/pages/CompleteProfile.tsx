@@ -31,6 +31,7 @@ export function CompleteProfile() {
   const [userEmail, setUserEmail] = useState('')
   const [userId, setUserId] = useState('')
   const [isOAuthUser, setIsOAuthUser] = useState(false)
+  const [birthDate, setBirthDate] = useState('')
   const [acceptNewsletter, setAcceptNewsletter] = useState(true)
 
   useEffect(() => {
@@ -80,6 +81,16 @@ export function CompleteProfile() {
       setError('電話番号は10〜11桁で入力してください')
       return
     }
+    if (!birthDate) {
+      setError('生年月日を入力してください')
+      return
+    }
+    // 未来日チェック
+    if (new Date(birthDate) >= new Date()) {
+      setError('生年月日に未来の日付は設定できません')
+      return
+    }
+
     if (!userEmail.trim()) {
       setError('メールアドレスが取得できませんでした。別のログイン方法をお試しください。')
       return
@@ -188,6 +199,7 @@ export function CompleteProfile() {
             name: name.trim(),
             email: userEmail,
             phone: phone.trim(),
+            birth_date: birthDate,
             organization_id: organizationId,
             notification_settings: notificationSettings,
             updated_at: new Date().toISOString()
@@ -207,6 +219,7 @@ export function CompleteProfile() {
             name: name.trim(),
             email: userEmail,
             phone: phone.trim(),
+            birth_date: birthDate,
             visit_count: 0,
             total_spent: 0,
             organization_id: organizationId,
@@ -443,6 +456,23 @@ export function CompleteProfile() {
                     required
                     autoComplete="tel"
                     placeholder="090-1234-5678"
+                    className="h-12"
+                    disabled={isLoading}
+                  />
+                </div>
+
+                {/* 生年月日 */}
+                <div>
+                  <label htmlFor="birthDate" className="block text-sm font-medium text-gray-700 mb-1.5">
+                    生年月日 <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="birthDate"
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    required
+                    max={new Date().toISOString().split('T')[0]}
                     className="h-12"
                     disabled={isLoading}
                   />
