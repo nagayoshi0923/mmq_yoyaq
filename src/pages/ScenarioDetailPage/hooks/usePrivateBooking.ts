@@ -500,6 +500,17 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     const settings = targetStoreId ? businessHoursCache.get(targetStoreId) : null
     
+    // デバッグログ
+    logger.log('[getTimeSlotsForDate]', {
+      date,
+      dayOfWeek,
+      isWeekend,
+      targetStoreId,
+      hasSettings: !!settings,
+      hasOpeningHours: !!settings?.opening_hours,
+      cacheSize: businessHoursCache.size
+    })
+    
     // 分を時間に変換
     const minutesToTime = (minutes: number): string => {
       const h = Math.floor(minutes / 60)
@@ -541,6 +552,13 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       const dayName = dayNames[dayOfWeek]
       const dayHours = settings.opening_hours[dayName]
       
+      logger.log('[getTimeSlotsForDate] 営業時間設定', {
+        dayName,
+        dayHours,
+        slot_start_times: dayHours?.slot_start_times,
+        open_time: dayHours?.open_time
+      })
+      
       if (dayHours) {
         // 店舗設定からは利用可能な公演枠のみを取得
         if (dayHours.available_slots && dayHours.available_slots.length > 0) {
@@ -550,6 +568,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         // 営業時間設定の公演枠開始時間を適用（slot_start_times）
         if (dayHours.slot_start_times) {
           const st = dayHours.slot_start_times
+          logger.log('[getTimeSlotsForDate] slot_start_times適用:', st)
           if (st.morning) defaultStartTimes.morning = timeToMinutes(st.morning)
           if (st.afternoon) defaultStartTimes.afternoon = timeToMinutes(st.afternoon)
           if (st.evening) defaultStartTimes.evening = timeToMinutes(st.evening)
@@ -557,6 +576,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         // slot_start_timesがない場合はopen_timeを昼公演の開始時間として使用
         else if (dayHours.open_time) {
           const openMinutes = timeToMinutes(dayHours.open_time)
+          logger.log('[getTimeSlotsForDate] open_timeからafternoon開始時間を設定:', dayHours.open_time, '→', openMinutes)
           // 営業開始時間が昼公演のデフォルト開始時間と異なる場合、それを適用
           if (openMinutes > timeToMinutes('09:00') && openMinutes < timeToMinutes('16:00')) {
             defaultStartTimes.afternoon = openMinutes
@@ -569,6 +589,12 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         }
       }
     }
+    
+    logger.log('[getTimeSlotsForDate] 最終開始時間:', {
+      morning: minutesToTime(defaultStartTimes.morning),
+      afternoon: minutesToTime(defaultStartTimes.afternoon),
+      evening: minutesToTime(defaultStartTimes.evening)
+    })
     
     // === 既存イベントのスケジュールを参照して開始時間を計算 ===
     const targetDate = date.split('T')[0]
