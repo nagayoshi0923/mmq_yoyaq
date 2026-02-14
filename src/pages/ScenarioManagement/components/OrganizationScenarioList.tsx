@@ -383,6 +383,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
     ))
 
     try {
+      // 1. organization_scenarios の org_status を更新
       const { error } = await supabase
         .from('organization_scenarios')
         .update({ org_status: newStatus })
@@ -396,6 +397,23 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           s.id === scenario.id ? { ...s, org_status: previousStatus } : s
         ))
         return
+      }
+
+      // 2. scenarios テーブルの status も同期更新
+      //    org_status=available → status=available（公開）
+      //    org_status=coming_soon/unavailable → status=unavailable（非公開）
+      const scenarioStatus = newStatus === 'available' ? 'available' : 'unavailable'
+      const orgId = await getCurrentOrganizationId()
+      if (orgId && scenario.scenario_master_id) {
+        const { error: scenarioError } = await supabase
+          .from('scenarios')
+          .update({ status: scenarioStatus })
+          .eq('scenario_master_id', scenario.scenario_master_id)
+          .eq('organization_id', orgId)
+
+        if (scenarioError) {
+          logger.error('scenarios.status同期更新エラー（無視）:', scenarioError)
+        }
       }
 
       toast.success(`「${scenario.title}」を${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}に変更しました`)

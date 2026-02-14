@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Bell, Pencil, Ticket } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/contexts/AuthContext'
@@ -505,18 +505,7 @@ export default function MyPage() {
               </div>
             </div>
 
-            {/* 通知ボタン */}
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5 text-gray-600" />
-              {upcomingReservations.length > 0 && (
-                <span 
-                  className="absolute -top-1 -right-1 w-5 h-5 text-white text-xs rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: THEME.primary }}
-                >
-                  {upcomingReservations.length}
-                </span>
-              )}
-            </Button>
+            {/* 通知ボタン - 未実装のため非表示 */}
           </div>
         </div>
       </div>
