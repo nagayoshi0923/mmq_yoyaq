@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react-swc'
 import path from 'path'
 
 // https://vitejs.dev/config/
@@ -17,7 +17,6 @@ export default defineConfig({
   optimizeDeps: {
     // lucide-react の Tree-shaking を最適化
     include: ['lucide-react', 'react', 'react-dom', '@radix-ui/react-switch'],
-    force: true
   },
   build: {
     // チャンクサイズ警告のしきい値を上げる（KB単位）

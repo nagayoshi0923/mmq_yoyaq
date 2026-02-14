@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit & vite build & wait",
     "build:fast": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
@@ -86,7 +86,7 @@
     "@types/react-dom": "^18.2.17",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react-swc": "^4.2.3",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.57.1",
     "eslint-plugin-react-hooks": "^4.6.2",
