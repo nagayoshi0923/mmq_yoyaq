@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { 
   X, Search, Calendar, MousePointerClick, CheckCircle, 
-  HelpCircle, ChevronRight, Clock, Users, MapPin 
+  HelpCircle, ChevronRight, Clock, Users, MapPin, Store
 } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 
@@ -23,24 +23,6 @@ interface HowToUseGuideProps {
 export function HowToUseGuide({ organizationName, isOpen, onClose }: HowToUseGuideProps) {
   if (!isOpen) return null
 
-  const steps = [
-    {
-      icon: Search,
-      title: '1. シナリオを探す',
-      description: '気になるシナリオをラインナップから選ぶか、カレンダーから日程で探します。',
-    },
-    {
-      icon: MousePointerClick,
-      title: '2. 公演を選択',
-      description: 'シナリオ詳細ページで、参加したい日程と人数を選びます。',
-    },
-    {
-      icon: CheckCircle,
-      title: '3. 予約確定',
-      description: 'お名前・連絡先を入力して予約完了。確認メールが届きます。',
-    },
-  ]
-
   const handleClose = () => {
     // 閉じた時に「見た」フラグを設定
     localStorage.setItem(STORAGE_KEY, 'true')
@@ -56,14 +38,14 @@ export function HowToUseGuide({ organizationName, isOpen, onClose }: HowToUseGui
         className="w-full max-w-lg bg-white shadow-2xl border-0 overflow-hidden max-h-[90vh] flex flex-col"
         onClick={(event) => event.stopPropagation()}
       >
-        {/* ヘッダー（固定） */}
+        {/* ヘッダー */}
         <div 
           className="px-4 sm:px-6 py-3 sm:py-4 text-white flex items-center justify-between flex-shrink-0"
           style={{ backgroundColor: THEME.primary }}
         >
           <div className="flex items-center gap-2">
             <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-            <h2 className="text-base sm:text-lg font-bold">予約の仕方</h2>
+            <h2 className="text-base sm:text-lg font-bold">ご予約ガイド</h2>
           </div>
           <button 
             onClick={handleClose}
@@ -76,70 +58,114 @@ export function HowToUseGuide({ organizationName, isOpen, onClose }: HowToUseGui
 
         <CardContent className="p-4 sm:p-6 overflow-y-auto flex-1">
           {/* ウェルカムメッセージ */}
-          <div className="text-center mb-4 sm:mb-6">
-            <p className="text-sm sm:text-base text-gray-600">
+          <div className="text-center mb-5 sm:mb-6">
+            <p className="text-base sm:text-lg font-bold text-gray-900 mb-1">
               {organizationName || 'MMQ'}へようこそ！
-              <br />
-              <span className="font-medium text-gray-900">3ステップで簡単に予約できます。</span>
+            </p>
+            <p className="text-xs sm:text-sm text-gray-500">
+              かんたん3ステップで予約できます
             </p>
           </div>
 
           {/* ステップ説明 */}
-          <div className="space-y-2 sm:space-y-4">
-            {steps.map((step, index) => {
-              const Icon = step.icon
-              return (
+          <div className="space-y-0">
+            {/* Step 1 */}
+            <div className="flex gap-3 sm:gap-4">
+              <div className="flex flex-col items-center">
                 <div 
-                  key={index}
-                  className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 border border-gray-100"
+                  className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                  style={{ backgroundColor: THEME.primary }}
                 >
-                  <div 
-                    className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center"
-                    style={{ backgroundColor: THEME.accentLight, color: THEME.primary }}
-                  >
-                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-medium text-sm sm:text-base text-gray-900">{step.title}</h3>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">{step.description}</p>
-                  </div>
+                  1
                 </div>
-              )
-            })}
+                <div className="w-0.5 flex-1 bg-gray-200 my-1" />
+              </div>
+              <div className="pb-5">
+                <h3 className="font-bold text-sm sm:text-base text-gray-900">シナリオを探す</h3>
+                <p className="text-xs sm:text-sm text-gray-500 mt-1 leading-relaxed">
+                  「ラインナップ」タブでシナリオ一覧から選べます。
+                  <br />
+                  「カレンダー」タブでは日程から空き状況を確認できます。
+                </p>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="flex gap-3 sm:gap-4">
+              <div className="flex flex-col items-center">
+                <div 
+                  className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                  style={{ backgroundColor: THEME.primary }}
+                >
+                  2
+                </div>
+                <div className="w-0.5 flex-1 bg-gray-200 my-1" />
+              </div>
+              <div className="pb-5">
+                <h3 className="font-bold text-sm sm:text-base text-gray-900">公演を選んで予約</h3>
+                <p className="text-xs sm:text-sm text-gray-500 mt-1 leading-relaxed">
+                  シナリオ詳細ページから参加したい日程・人数を選択します。
+                </p>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="flex gap-3 sm:gap-4">
+              <div className="flex flex-col items-center">
+                <div 
+                  className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                  style={{ backgroundColor: THEME.primary }}
+                >
+                  3
+                </div>
+              </div>
+              <div className="pb-2">
+                <h3 className="font-bold text-sm sm:text-base text-gray-900">予約完了！</h3>
+                <p className="text-xs sm:text-sm text-gray-500 mt-1 leading-relaxed">
+                  お名前・連絡先を入力して送信。確認メールが届きます。
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* 追加情報（モバイルではコンパクト） */}
-          <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-amber-50 border border-amber-200">
-            <h4 className="font-medium text-amber-800 mb-1.5 sm:mb-2 text-sm sm:text-base">💡 知っておくと便利</h4>
-            <ul className="text-xs sm:text-sm text-amber-700 space-y-1">
-              <li className="flex items-center gap-2">
-                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-                <span>「カレンダー」タブで日程から探せます</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-                <span>満席時はキャンセル待ち登録可能</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-                <span>貸切予約も可能（要事前リクエスト）</span>
-              </li>
-            </ul>
+          {/* 便利機能 */}
+          <div className="mt-4 sm:mt-5 rounded-lg bg-gray-50 border border-gray-200 divide-y divide-gray-200">
+            <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex items-start gap-2.5">
+              <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs sm:text-sm font-medium text-gray-700">カレンダーで空き確認</p>
+                <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">店舗プルダウンで絞り込むと、その店舗の空き枠と貸切可能な日時が表示されます</p>
+              </div>
+            </div>
+            <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex items-start gap-2.5">
+              <Users className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs sm:text-sm font-medium text-gray-700">貸切予約</p>
+                <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">カレンダーの「貸切申込」ボタンからリクエストできます</p>
+              </div>
+            </div>
+            <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex items-start gap-2.5">
+              <Clock className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs sm:text-sm font-medium text-gray-700">キャンセル待ち</p>
+                <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">満席の公演でもキャンセル待ち登録ができます</p>
+              </div>
+            </div>
           </div>
 
           {/* 閉じるボタン */}
-          <div className="mt-4 sm:mt-6 flex justify-center">
+          <div className="mt-5 sm:mt-6 flex justify-center">
             <Button 
               onClick={handleClose}
-              className="px-6 sm:px-8 text-sm sm:text-base"
-              style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
+              className="w-full sm:w-auto px-8 py-2.5 text-sm sm:text-base font-medium rounded-lg"
+              style={{ backgroundColor: THEME.primary }}
             >
               予約を始める
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
 
-          <p className="text-center text-[10px] sm:text-xs text-gray-400 mt-3 sm:mt-4">
+          <p className="text-center text-[10px] sm:text-xs text-gray-400 mt-3">
             いつでも「?」ボタンから再表示できます
           </p>
         </CardContent>
