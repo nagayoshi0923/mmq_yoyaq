@@ -973,8 +973,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               
               if (updateError) {
                 logger.error('organization_scenarios更新エラー:', updateError)
+                console.error('🚨 organization_scenarios UPDATE失敗:', updateError.message, updateError.code)
               } else {
                 logger.log('organization_scenariosを更新しました（override含む）')
+                console.log('✅ organization_scenarios保存成功 available_stores:', updatePayload.available_stores)
               }
             }
           }

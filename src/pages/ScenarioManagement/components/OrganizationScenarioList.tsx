@@ -188,6 +188,10 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           })
         })
         setStoreMap(map)
+        const regularCount = storesResult.data.filter(s => s.ownership_type !== 'office' && !s.is_temporary).length
+        console.log('🏪 店舗一覧:', { total: storesResult.data.length, regular: regularCount, stores: storesResult.data.map(s => ({ id: s.id.substring(0, 8), name: s.name })) })
+      } else {
+        console.warn('⚠️ 店舗データの取得に失敗:', storesResult.error)
       }
 
       const data = scenariosResult.data
@@ -207,20 +211,47 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       const availableStoresMap = new Map<string, string[]>()
       
       if (scenarioMasterIds.length > 0) {
-        // 対応店舗を scenarios テーブルから取得
-        const { data: scenariosData } = await supabase
-          .from('scenarios')
+        // 対応店舗: organization_scenarios から直接取得（ビューのデータを補完）
+        const { data: orgScenariosStores } = await supabase
+          .from('organization_scenarios')
           .select('scenario_master_id, available_stores')
           .eq('organization_id', organizationId)
           .in('scenario_master_id', scenarioMasterIds)
         
-        if (scenariosData) {
-          scenariosData.forEach(s => {
-            if (s.scenario_master_id && s.available_stores && s.available_stores.length > 0) {
-              availableStoresMap.set(s.scenario_master_id, s.available_stores)
+        if (orgScenariosStores) {
+          orgScenariosStores.forEach(os => {
+            if (os.scenario_master_id && os.available_stores && os.available_stores.length > 0) {
+              availableStoresMap.set(os.scenario_master_id, os.available_stores)
             }
           })
         }
+
+        // organization_scenarios に無い場合、scenarios テーブルからフォールバック
+        const missingMasterIds = scenarioMasterIds.filter(id => !availableStoresMap.has(id))
+        if (missingMasterIds.length > 0) {
+          const { data: scenariosData } = await supabase
+            .from('scenarios')
+            .select('scenario_master_id, available_stores')
+            .eq('organization_id', organizationId)
+            .in('scenario_master_id', missingMasterIds)
+          
+          if (scenariosData) {
+            scenariosData.forEach(s => {
+              if (s.scenario_master_id && s.available_stores && s.available_stores.length > 0) {
+                availableStoresMap.set(s.scenario_master_id, s.available_stores)
+              }
+            })
+          }
+        }
+
+        // デバッグ: 対応店舗の取得状況
+        const withStores = Array.from(availableStoresMap.entries()).filter(([, v]) => v.length > 0)
+        console.log('🏪 対応店舗データ:', {
+          total: scenarioMasterIds.length,
+          withStores: withStores.length,
+          fromOrgScenarios: orgScenariosStores?.filter(os => os.available_stores && os.available_stores.length > 0).length || 0,
+          details: withStores.map(([id, stores]) => ({ id: id.substring(0, 8), stores }))
+        })
 
         // staff_scenario_assignments を scenario_master_id で直接検索
         const { data: assignmentsData } = await supabase
@@ -254,11 +285,25 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         }
       }
 
+      // ビューから返ってくるavailable_storesの状態をデバッグ
+      const viewWithStores = (data || []).filter(s => s.available_stores && s.available_stores.length > 0)
+      console.log('🔍 ビュー available_stores:', {
+        total: (data || []).length,
+        withStores: viewWithStores.length,
+        sample: (data || []).slice(0, 3).map(s => ({
+          title: s.title?.substring(0, 15),
+          available_stores: s.available_stores,
+          masterId: s.scenario_master_id?.substring(0, 8)
+        }))
+      })
+
       // シナリオに担当GM、体験済みスタッフ、対応店舗をマージ
       const scenariosWithAssignments = (data || []).map(scenario => {
         const assignedGms = availableGmsMap.get(scenario.scenario_master_id)
         const assignedExperienced = experiencedStaffMap.get(scenario.scenario_master_id)
-        const assignedStores = availableStoresMap.get(scenario.scenario_master_id)
+        // 対応店舗: ビュー → organization_scenarios直接 → scenarios のどれかから取得
+        const viewStores = scenario.available_stores && scenario.available_stores.length > 0 ? scenario.available_stores : null
+        const mapStores = availableStoresMap.get(scenario.scenario_master_id)
         
         return {
           ...scenario,
@@ -266,10 +311,8 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           available_gms: assignedGms || [],
           // 体験済み: staff_scenario_assignmentsから取得
           experienced_staff: assignedExperienced || [],
-          // 対応店舗: まず組織設定（organization_scenarios）を優先し、無ければscenariosを使用
-          available_stores: (scenario.available_stores && scenario.available_stores.length > 0)
-            ? scenario.available_stores
-            : (assignedStores || [])
+          // 対応店舗: ビュー > organization_scenarios直接 > scenarios > 空配列
+          available_stores: viewStores || mapStores || []
         }
       })
 
