@@ -169,9 +169,13 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
         className={cn("w-full justify-between font-normal bg-white", className)}
       >
         <span className="truncate">
-          {selectedStoreIds.length === 0 
-            ? placeholder 
-            : `${selectedStoreIds.length}/${stores.length}店舗`}
+          {(() => {
+            // 実際に存在する店舗IDのみカウント
+            const validCount = selectedStoreIds.filter(id => stores.some(s => s.id === id)).length
+            if (validCount === 0) return placeholder
+            if (validCount === stores.length) return `全${stores.length}店舗`
+            return `${validCount}店舗選択中`
+          })()}
         </span>
         <ChevronDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
       </Button>
