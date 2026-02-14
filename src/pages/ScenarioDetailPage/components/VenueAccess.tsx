@@ -1,6 +1,5 @@
 import { memo, useMemo } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { MapPin } from 'lucide-react'
+import { MapPin, Navigation } from 'lucide-react'
 import type { EventSchedule } from '../utils/types'
 import { getColorFromName } from '@/lib/utils'
 
@@ -25,7 +24,6 @@ export const VenueAccess = memo(function VenueAccess({
   stores = [],
   mode = 'schedule'
 }: VenueAccessProps) {
-  // 公演日程タブ: 選択した公演の会場情報を表示
   const displayVenues = useMemo(() => {
     if (mode === 'schedule') {
       if (!selectedEventId || events.length === 0) return []
@@ -38,12 +36,10 @@ export const VenueAccess = memo(function VenueAccess({
         address: selectedEvent.store_address || ''
       }]
     } else {
-      // 貸切リクエストタブ: 選択した店舗の会場情報を表示
       if (selectedStoreIds.length === 0) return []
       return selectedStoreIds.map(storeId => {
         const store = stores.find(s => s.id === storeId)
         if (!store) return null
-        
         return {
           name: store.name || '',
           short_name: store.short_name || '',
@@ -63,7 +59,7 @@ export const VenueAccess = memo(function VenueAccess({
 
   return (
     <div>
-      <h3 className="text-sm font-medium text-muted-foreground mb-1">
+      <h3 className="text-sm font-medium text-muted-foreground mb-2">
         {mode === 'schedule' ? '会場アクセス' : '選択店舗'}
       </h3>
       {mode === 'private' && displayVenues.length > 1 && (
@@ -71,34 +67,51 @@ export const VenueAccess = memo(function VenueAccess({
           ※ この中からいずれかの店舗で確定します
         </p>
       )}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          {displayVenues.map((venue, index) => {
-            // 色名（例: "blue", "green"）か色コード（例: "#3B82F6"）かを判定
-            const isHexColor = venue.color && venue.color.startsWith('#')
-            const storeColor = venue.color 
-              ? (isHexColor ? venue.color : getColorFromName(venue.color))
-              : '#6B7280'
-            
-            return (
-              <div key={`${venue.name}-${index}`} className="space-y-1">
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 flex-shrink-0" style={{ color: storeColor }} />
-                  <p className="text-sm font-medium" style={{ color: storeColor }}>
-                    {venue.name}
-                  </p>
+      <div className="space-y-2">
+        {displayVenues.map((venue, index) => {
+          const isHexColor = venue.color && venue.color.startsWith('#')
+          const storeColor = venue.color 
+            ? (isHexColor ? venue.color : getColorFromName(venue.color))
+            : '#6B7280'
+          
+          return (
+            <div 
+              key={`${venue.name}-${index}`} 
+              className="bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2 flex-1 min-w-0">
+                  <div
+                    className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5"
+                    style={{ backgroundColor: `${storeColor}15`, border: `1px solid ${storeColor}30` }}
+                  >
+                    <MapPin className="w-4 h-4" style={{ color: storeColor }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">{venue.name}</p>
+                    {venue.address && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                        {venue.address}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 {venue.address && (
-                  <p className="text-xs text-muted-foreground pl-5">
-                    {venue.address}
-                  </p>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors px-2 py-1 rounded-md hover:bg-blue-50"
+                  >
+                    <Navigation className="w-3 h-3" />
+                    地図
+                  </a>
                 )}
               </div>
-            )
-          })}
-        </CardContent>
-      </Card>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 })
-

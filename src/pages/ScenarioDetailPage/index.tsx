@@ -280,22 +280,14 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-x-clip">
+    <div className="min-h-screen bg-gray-50 overflow-x-clip">
       <Header />
       {shouldShowNavigation && (
         <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
       )}
 
-      {/* ヒーローセクション（トップページと統一） */}
+      {/* 戻るバー */}
       <div className="text-white relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
-        {/* アクセント装飾 */}
-        <div 
-          className="absolute top-0 right-0 w-24 h-24 opacity-20"
-          style={{ 
-            background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
-            transform: 'translate(30%, -30%)'
-          }}
-        />
         <div className="container mx-auto max-w-7xl px-4 py-2 relative">
           <div className="flex items-center gap-3">
             <Button
@@ -312,12 +304,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         </div>
       </div>
 
+      {/* ヒーローセクション - 全幅ダーク背景 */}
+      <ScenarioHero scenario={scenario} events={events} />
+
       {/* スティッキーヘッダー */}
-      <div className="bg-background border-b sticky top-0 z-10">
+      <div className="bg-white/95 backdrop-blur-md border-b sticky top-0 z-10 shadow-sm">
         <div className="container mx-auto max-w-7xl px-4">
-          
-          {/* 2行目: モバイル用シナリオ概要（スクロール時にアニメーション表示） */}
-          {/* md:hidden - 768px未満でのみ表示（グリッドレイアウトのmd:と統一） */}
           <div 
             className={`md:hidden overflow-hidden transition-all duration-300 ease-out ${
               showStickyInfo 
@@ -325,10 +317,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 : 'max-h-0 opacity-0'
             }`}
           >
-            <div className="flex items-center gap-3 pb-2 border-t pt-2">
-              {/* キービジュアル（縦80px） */}
+            <div className="flex items-center gap-3 py-2">
               {scenario.key_visual_url && (
-                <div className="flex-shrink-0 h-[80px] aspect-[1/1.4] bg-gray-200 overflow-hidden">
+                <div className="flex-shrink-0 h-[60px] aspect-[1/1.4] bg-gray-200 overflow-hidden rounded">
                   <img
                     src={scenario.key_visual_url}
                     alt={scenario.scenario_title}
@@ -336,21 +327,16 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   />
                 </div>
               )}
-              {/* タイトルと基本情報 */}
               <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-bold line-clamp-2">{scenario.scenario_title}</h2>
+                <h2 className="text-sm font-bold line-clamp-1">{scenario.scenario_title}</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {scenario.player_count_min === scenario.player_count_max
                     ? `${scenario.player_count_max}人`
                     : `${scenario.player_count_min}〜${scenario.player_count_max}人`}
                   {' / '}
                   {scenario.duration}分
+                  {scenario.participation_fee ? ` / ¥${scenario.participation_fee.toLocaleString()}〜` : ''}
                 </p>
-                {scenario.participation_fee && (
-                  <p className="text-xs font-medium mt-0.5">
-                    ¥{scenario.participation_fee.toLocaleString()}〜
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -358,16 +344,14 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       </div>
 
       {/* メインコンテンツ */}
-      <div className="container mx-auto max-w-7xl px-4 py-3">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+      <div className="container mx-auto max-w-7xl px-4 py-5">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
           {/* メインエリア - 詳細情報 */}
-          <div className="md:col-span-7 space-y-4">
-            <ScenarioHero scenario={scenario} events={events} />
-            
+          <div className="md:col-span-7 space-y-5">
             {/* あらすじ・シナリオ情報 */}
             <ScenarioAbout scenario={scenario} />
             
-            {/* PC版: 注意事項をここに表示（タブに応じて内容切り替え） */}
+            {/* PC版: 注意事項 */}
             <div className="hidden md:block">
               <BookingNotice 
                 reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
@@ -375,26 +359,40 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 mode={activeTab}
               />
             </div>
+
+            {/* 関連シナリオ（PC版: メインエリアに表示） */}
+            {relatedScenarios.length > 0 && (
+              <div className="hidden md:block">
+                <RelatedScenarios
+                  scenarios={relatedScenarios}
+                  authorName={scenario.author}
+                  onScenarioClick={(id) => {
+                    if (organizationSlug) {
+                      navigate(`/${organizationSlug}/scenario/${id}`)
+                    } else {
+                      navigate(`/scenario-detail/${id}`)
+                    }
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* 右サイドバー - チケット購入 */}
           <div className="md:col-span-5">
             <div className="md:sticky md:top-[50px] space-y-3">
-              {/* タブ: 公演日程 / 貸切リクエスト */}
               <Tabs 
                 value={activeTab}
                 className="w-full" 
                 onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}
               >
-                <TabsList className="grid w-full grid-cols-2 mb-2">
-                  <TabsTrigger value="schedule" className="text-sm py-1.5">公演日程</TabsTrigger>
-                  <TabsTrigger value="private" className="text-sm py-1.5">貸切リクエスト</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 mb-2 h-10">
+                  <TabsTrigger value="schedule" className="text-sm py-2 font-medium">公演日程</TabsTrigger>
+                  <TabsTrigger value="private" className="text-sm py-2 font-medium">貸切リクエスト</TabsTrigger>
                 </TabsList>
                 
-                {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    {/* 店舗フィルタ */}
                     <StoreSelector
                       stores={availableStores}
                       selectedStoreIds={scheduleStoreFilter}
@@ -403,10 +401,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       placeholder="全店舗"
                     />
                     
-                    {/* 日程未選択時のガイダンス（選択後と同じスタイル） */}
                     {!selectedEventId && (
                       <div 
-                        className="mb-3 px-3 py-2 border-l-4 text-sm"
+                        className="mb-3 px-3 py-2 border-l-4 text-sm rounded-r"
                         style={{ 
                           borderColor: THEME.primary,
                           backgroundColor: THEME.primaryLight,
@@ -429,7 +426,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   </div>
                 </TabsContent>
                 
-                {/* 貸切リクエストタブ */}
                 <TabsContent value="private">
                   <PrivateBookingForm
                     stores={availableStores}
@@ -447,10 +443,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     getTimeSlotsForDate={getTimeSlotsForDate}
                   />
                   
-                  {/* 選択された時間枠の表示 */}
                   {selectedTimeSlots.length > 0 && (
-                    <div className="mt-4 p-3 bg-red-50 border border-red-200">
-                      <div className="text-xs sm:text-sm text-red-900 mb-2">
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="text-xs sm:text-sm text-red-900 mb-2 font-medium">
                         選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
                       </div>
                       <div className="space-y-1">
@@ -483,7 +478,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 </TabsContent>
               </Tabs>
 
-              {/* モバイル版: 注意事項をタブの下に表示（タブに応じて内容切り替え） */}
               <div className="md:hidden">
                 <BookingNotice 
                   reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
@@ -492,7 +486,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 />
               </div>
 
-              {/* タブの内容に応じて表示を切り替え */}
               <div>
                 {activeTab === 'schedule' && (
                   <BookingPanel
@@ -509,7 +502,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
                 {activeTab === 'private' && (
                   <div className="space-y-4">
-                    {/* 選択店舗（選択した店舗がある場合のみ表示） */}
                     {selectedStoreIds.length > 0 && (
                       <VenueAccess
                         selectedStoreIds={selectedStoreIds}
@@ -531,14 +523,13 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
           </div>
         </div>
 
-        {/* 関連シナリオ（2カラムレイアウトの外、全幅で表示） */}
+        {/* モバイル版: 関連シナリオ */}
         {relatedScenarios.length > 0 && (
-          <div className="mt-8 pt-8 border-t">
+          <div className="md:hidden mt-8 pt-6 border-t">
             <RelatedScenarios
               scenarios={relatedScenarios}
               authorName={scenario.author}
               onScenarioClick={(id) => {
-                // 組織slugがあれば予約サイト形式、なければグローバル形式
                 if (organizationSlug) {
                   navigate(`/${organizationSlug}/scenario/${id}`)
                 } else {
