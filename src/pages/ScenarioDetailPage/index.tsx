@@ -92,7 +92,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug })
 
   useEffect(() => {
-    // URLパラメータを処理して貸切リクエストタブを開く
+    // URLパラメータを処理
     const urlParams = new URLSearchParams(window.location.search)
     const tabParam = urlParams.get('tab')
     const dateParam = urlParams.get('date')
@@ -123,8 +123,14 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
           setSelectedTimeSlots([{ date: dateParam, slot }])
         }
       }
+    } else if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && events.length > 0) {
+      // 公演日程タブ: 指定日付に一致する最初のイベントを自動選択
+      const matchingEvent = events.find(e => e.date === dateParam)
+      if (matchingEvent) {
+        setSelectedEventId(matchingEvent.event_id)
+      }
     }
-  }, [scenarioId, stores, setSelectedStoreIds, setSelectedTimeSlots])
+  }, [scenarioId, stores, events, setSelectedStoreIds, setSelectedTimeSlots, setSelectedEventId])
 
   // 貸切リクエスト完了時のハンドラ（選択状態をクリア）
   const handlePrivateBookingCompleteWithClear = useCallback(() => {

@@ -492,7 +492,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   }, [events])
 
   const handleEventClick = (event: EventWithOrg) => {
-    navigate(`/${event.organization_slug}/scenario/${scenarioSlug}`)
+    // 選択した日付を遷移先に引き継ぐ
+    navigate(`/${event.organization_slug}/scenario/${scenarioSlug}?date=${event.date}`)
   }
 
   const handleFavoriteClick = () => {
