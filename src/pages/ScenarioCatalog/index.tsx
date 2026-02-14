@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { scenarioApi } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import { useFavorites } from '@/hooks/useFavorites'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen } from 'lucide-react'
@@ -75,9 +76,30 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     const loadScenarios = async () => {
       try {
         setIsLoading(true)
-        const data = await scenarioApi.getAll()
-        // status='available'のシナリオのみ表示
-        const availableScenarios = data.filter((s: any) => s.status === 'available')
+        
+        // シナリオと公開リストを並列取得
+        const [data, availableOrgResult] = await Promise.all([
+          scenarioApi.getAll(),
+          // 🔐 公開中の組織シナリオのみ取得
+          supabase
+            .from('organization_scenarios')
+            .select('organization_id, scenario_master_id')
+            .eq('org_status', 'available')
+        ])
+        
+        // 公開中の組織シナリオのキーセット
+        const availableOrgKeys = new Set(
+          (availableOrgResult.data || []).map(os => `${os.organization_id}_${os.scenario_master_id}`)
+        )
+        
+        // status='available'かつ組織で公開されているシナリオのみ表示
+        const availableScenarios = data.filter((s: any) => {
+          if (s.status !== 'available') return false
+          // scenario_master_idがない場合はレガシーデータなのでそのまま
+          if (!s.scenario_master_id) return true
+          // 公開中の組織シナリオに含まれているもののみ表示
+          return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
+        })
         setScenarios(availableScenarios as unknown as ScenarioData[])
       } catch (error) {
         logger.error('シナリオ取得エラー:', error)

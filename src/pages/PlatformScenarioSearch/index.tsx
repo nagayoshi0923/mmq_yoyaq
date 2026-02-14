@@ -75,17 +75,30 @@ export function PlatformScenarioSearch() {
         
         // 🔐 承認済みマスタのIDセットを取得
         // MMQシナリオ検索には承認済みマスタに紐づくシナリオのみ表示
-        const { data: approvedMasters, error: masterError } = await supabase
-          .from('scenario_masters')
-          .select('id')
-          .eq('master_status', 'approved')
+        const [mastersResult, orgScenariosResult] = await Promise.all([
+          supabase
+            .from('scenario_masters')
+            .select('id')
+            .eq('master_status', 'approved'),
+          // 🔐 公開中（org_status='available'）の組織シナリオのみ取得
+          supabase
+            .from('organization_scenarios')
+            .select('organization_id, scenario_master_id')
+            .eq('org_status', 'available')
+        ])
         
-        if (masterError) {
-          logger.error('マスタ取得エラー:', masterError)
+        if (mastersResult.error) {
+          logger.error('マスタ取得エラー:', mastersResult.error)
         }
         
-        const approvedMasterIds = new Set(approvedMasters?.map(m => m.id) || [])
+        const approvedMasterIds = new Set(mastersResult.data?.map(m => m.id) || [])
         logger.log('✅ 承認済みマスタ:', approvedMasterIds.size, '件')
+        
+        // 公開中の組織シナリオのキーセット（organization_id + scenario_master_id）
+        const availableOrgKeys = new Set(
+          (orgScenariosResult.data || []).map(os => `${os.organization_id}_${os.scenario_master_id}`)
+        )
+        logger.log('✅ 公開中の組織シナリオ:', availableOrgKeys.size, '件')
         
         // 全組織のシナリオを取得
         const { data, error } = await supabase
@@ -102,9 +115,15 @@ export function PlatformScenarioSearch() {
         
         if (error) throw error
         
-        // 🔐 マスタ未登録または未承認のシナリオを除外
+        // 🔐 マスタ未登録・未承認・組織で非公開のシナリオを除外
         const formattedScenarios = (data || [])
-          .filter(s => s.scenario_master_id && approvedMasterIds.has(s.scenario_master_id))
+          .filter(s => {
+            // マスタ承認チェック
+            if (!s.scenario_master_id || !approvedMasterIds.has(s.scenario_master_id)) return false
+            // 組織で公開に設定されているもののみ表示
+            if (!availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)) return false
+            return true
+          })
           .map(s => {
             const org = s.organizations as { slug?: string; name?: string } | null
             return {
@@ -115,7 +134,7 @@ export function PlatformScenarioSearch() {
             }
           })
         
-        logger.log('🎭 シナリオ（マスタ承認済み）:', formattedScenarios.length, '件')
+        logger.log('🎭 シナリオ（マスタ承認済み＋組織公開）:', formattedScenarios.length, '件')
         setScenarios(formattedScenarios)
       } catch (error) {
         logger.error('シナリオ取得エラー:', error)

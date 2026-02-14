@@ -119,10 +119,19 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       // 1. まずシナリオと店舗データと設定を取得（軽量、即座に表示可能）
       const fetchStartTime = performance.now()
       
+      // 🔐 公開中の組織シナリオのみ取得（org_status = 'available'）
+      let availableOrgQuery = supabase
+        .from('organization_scenarios')
+        .select('organization_id, scenario_master_id')
+        .eq('org_status', 'available')
+      if (orgId) {
+        availableOrgQuery = availableOrgQuery.eq('organization_id', orgId)
+      }
+      
       // シナリオ取得（organization_idでフィルタリング）
       const scenarioQuery = supabase
         .from('scenarios')
-        .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id')
+        .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id')
         .eq('status', 'available')
         .neq('scenario_type', 'gm_test')
       
@@ -144,7 +153,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       // display_orderでソート
       storeQuery = storeQuery.order('display_order', { ascending: true, nullsFirst: false })
       
-      const [scenariosResult, storesResult, settingsResult] = await Promise.all([
+      const [scenariosResult, storesResult, settingsResult, availableOrgResult] = await Promise.all([
         scenarioQuery.order('title', { ascending: true }),
         (async () => {
           try {
@@ -171,10 +180,23 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
           } catch {
             return { data: null, error: null }
           }
-        })()
+        })(),
+        availableOrgQuery
       ])
       
-      const scenariosData = scenariosResult.data || []
+      // 🔐 公開中の組織シナリオのキーセットを作成
+      const availableOrgKeys = new Set(
+        (availableOrgResult.data || []).map((os: any) => `${os.organization_id}_${os.scenario_master_id}`)
+      )
+      logger.log('✅ 公開中の組織シナリオ:', availableOrgKeys.size, '件')
+      
+      // 🔐 組織で公開されているシナリオのみ表示（scenario_master_idがあるもの）
+      const scenariosData = (scenariosResult.data || []).filter((s: any) => {
+        // scenario_master_idがない場合はそのまま（レガシーデータ）
+        if (!s.scenario_master_id) return true
+        // 公開中の組織シナリオに含まれているもののみ表示
+        return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
+      })
       const storesData = storesResult?.data || []
       
       // 貸切申込締切日数を設定（デフォルト7日）
