@@ -169,6 +169,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         selectedTimeSlots={selectedTimeSlots}
         selectedStoreIds={selectedStoreIds}
         stores={stores}
+        scenarioAvailableStores={scenario.available_stores}
         organizationSlug={organizationSlug}
         onBack={handleBackFromPrivateBooking}
         onComplete={handlePrivateBookingCompleteWithClear}

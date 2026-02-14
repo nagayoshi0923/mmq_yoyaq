@@ -31,8 +31,9 @@ export function PrivateBookingRequest({
   participationFee,
   maxParticipants,
   selectedTimeSlots: initialTimeSlots,
-  selectedStoreIds,
+  selectedStoreIds: initialStoreIds,
   stores,
+  scenarioAvailableStores,
   organizationSlug,
   onBack,
   onComplete
@@ -44,6 +45,24 @@ export function PrivateBookingRequest({
   const [showAddForm, setShowAddForm] = useState(false)
   const [newDate, setNewDate] = useState('')
   const [newSlotLabel, setNewSlotLabel] = useState('')
+
+  // 選択可能な店舗（オフィス除外、シナリオ対応店舗で絞り込み）
+  const selectableStores = useMemo(() => {
+    const validStores = stores.filter((s: any) => 
+      s.ownership_type !== 'office' && s.status === 'active'
+    )
+    if (scenarioAvailableStores && scenarioAvailableStores.length > 0) {
+      return validStores.filter((s: any) => scenarioAvailableStores.includes(s.id))
+    }
+    return validStores
+  }, [stores, scenarioAvailableStores])
+
+  // 編集可能な希望店舗（初期値をシナリオ対応店舗でフィルタ）
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>(() => {
+    const validIds = selectableStores.map((s: any) => s.id)
+    const filtered = initialStoreIds.filter(id => validIds.includes(id))
+    return filtered.length > 0 ? filtered : []
+  })
 
   // 追加可能な日付の範囲（今日から60日後まで）
   const dateRange = useMemo(() => {
@@ -114,6 +133,11 @@ export function PrivateBookingRequest({
     
     if (editableTimeSlots.length === 0) {
       setError('候補日時を1件以上選択してください')
+      return
+    }
+
+    if (selectedStoreIds.length === 0) {
+      setError('希望店舗を1つ以上選択してください')
       return
     }
     
@@ -341,25 +365,54 @@ export function PrivateBookingRequest({
             <div>
               <h2 className="text-base font-semibold mb-3">希望店舗</h2>
               <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      {selectedStoreIds.map((storeId) => {
-                        const store = stores.find(s => s.id === storeId)
-                        return (
-                          <div key={storeId} className="mb-2 last:mb-0">
-                            <p className="text-sm">{store?.name || ''}</p>
-                            {store?.address && (
-                              <p className="text-muted-foreground text-xs">{store.address}</p>
+                <CardContent className="p-4 space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    希望する店舗を選択してください（複数選択可）
+                  </p>
+                  <div className="space-y-2">
+                    {selectableStores.map((store: any) => {
+                      const isSelected = selectedStoreIds.includes(store.id)
+                      return (
+                        <label
+                          key={store.id}
+                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'border-purple-300 bg-purple-50'
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              setSelectedStoreIds(prev =>
+                                isSelected
+                                  ? prev.filter(id => id !== store.id)
+                                  : [...prev, store.id]
+                              )
+                            }}
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm font-medium">{store.name}</span>
+                            </div>
+                            {store.address && (
+                              <p className="text-xs text-muted-foreground mt-0.5 ml-5.5">{store.address}</p>
                             )}
                           </div>
-                        )
-                      })}
-                    </div>
+                        </label>
+                      )
+                    })}
                   </div>
+                  {selectedStoreIds.length === 0 && (
+                    <p className="text-xs text-orange-600">
+                      ※ 店舗を1つ以上選択してください
+                    </p>
+                  )}
                   {selectedStoreIds.length > 1 && (
-                    <p className="text-xs text-muted-foreground mt-2">
+                    <p className="text-xs text-muted-foreground">
                       ※ 最終的な開催店舗は、候補日時と合わせて店舗側が決定します
                     </p>
                   )}

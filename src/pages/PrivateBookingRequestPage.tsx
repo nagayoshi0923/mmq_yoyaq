@@ -152,6 +152,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       selectedTimeSlots={selectedTimeSlots}
       selectedStoreIds={selectedStoreIds}
       stores={stores}
+      scenarioAvailableStores={scenario.available_stores || []}
       onBack={handleBack}
       onComplete={handleComplete}
     />

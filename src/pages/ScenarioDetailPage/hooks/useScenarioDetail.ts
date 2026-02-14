@@ -217,7 +217,8 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
         rating: scenarioData.rating,
         has_pre_reading: scenarioData.has_pre_reading,
         official_site_url: scenarioData.official_site_url,
-        participation_fee: scenarioData.participation_fee || 3000
+        participation_fee: scenarioData.participation_fee || 3000,
+        available_stores: scenarioData.available_stores || []
       })
       
       setEvents(scenarioEvents)
