@@ -333,10 +333,17 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     const checkStoreAvailability = (storeId: string): boolean => {
       // その店舗・日付・時間帯のイベントをフィルタリング
       const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+      const targetDate = date.split('T')[0]
       
       // 営業時間・公演枠設定をチェック
-      if (!isWithinBusinessHours(date, slot.startTime, storeId, targetTimeSlot)) return false
-      const targetDate = date.split('T')[0]
+      const withinBusinessHours = isWithinBusinessHours(date, slot.startTime, storeId, targetTimeSlot)
+      if (!withinBusinessHours) {
+        // 4/4の昼公演のみログ出力
+        if (targetDate === '2026-04-04' && slot.label === '昼公演') {
+          logger.log('[checkStoreAvailability] 営業時間外:', { storeId, date, slot, targetTimeSlot })
+        }
+        return false
+      }
       
       // 申込みたい公演の時間範囲（分）
       // 追加準備時間を終了時間に加算
@@ -349,6 +356,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       const requestEnd = parseTime(slot.endTime) + extraPrepTime
       
       // その店舗・日付のイベントで、時間が被るものがあるかチェック
+      const conflictingEvents: any[] = []
       const hasConflict = allStoreEvents.some((e: any) => {
         // store_idを直接使用（優先）、なければstores.idを使用
         const eventStoreId = e.store_id || e.stores?.id
@@ -381,8 +389,31 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         // かつ、申込み公演の終了時間（準備時間込み）が、既存イベントの実質開始時間より後
         const hasOverlap = requestStart < eventEndWithBuffer && requestEnd > eventActualStart
         
+        if (hasOverlap) {
+          conflictingEvents.push({
+            title: e.title,
+            start: eventStartTime,
+            end: eventEndTime,
+            eventActualStart,
+            eventEndWithBuffer,
+            requestStart,
+            requestEnd
+          })
+        }
+        
         return hasOverlap
       })
+      
+      // 4/4の昼公演のみログ出力
+      if (targetDate === '2026-04-04' && slot.label === '昼公演') {
+        logger.log('[checkStoreAvailability] コンフリクトチェック:', {
+          storeId,
+          requestStart,
+          requestEnd,
+          hasConflict,
+          conflictingEvents
+        })
+      }
       
       return !hasConflict // コンフリクトがなければ空いている
     }
@@ -394,11 +425,28 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       )
       if (validStoreIds.length === 0) return false
       
-      // デバッグログ（1/4のみ詳細表示）
+      // デバッグログ
       const targetDate = date.split('T')[0]
       const targetTimeSlot = getTimeSlotFromLabel(slot.label)
       
-      return validStoreIds.some(storeId => checkStoreAvailability(storeId))
+      const results = validStoreIds.map(storeId => {
+        const isAvailable = checkStoreAvailability(storeId)
+        return { storeId, isAvailable }
+      })
+      
+      const anyAvailable = results.some(r => r.isAvailable)
+      
+      // 4/4の昼公演のみログ出力
+      if (targetDate === '2026-04-04' && slot.label === '昼公演') {
+        logger.log('[checkTimeSlotAvailability] 4/4昼公演チェック:', {
+          slot,
+          validStoreIds,
+          results,
+          anyAvailable
+        })
+      }
+      
+      return anyAvailable
     }
     
     // 店舗が選択されていない場合：営業時間設定があればそれを使用、なければデフォルト
