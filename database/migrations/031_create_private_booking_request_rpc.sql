@@ -34,6 +34,7 @@ DECLARE
   v_max_participants INTEGER;
   v_duration INTEGER;
   v_scenario_org_id UUID;
+  v_scenario_master_id UUID;  -- staff_scenario_assignments用（統一済みID）
   v_customer_org_id UUID;
   v_customer_user_id UUID;
   v_caller_org_id UUID;
@@ -99,8 +100,9 @@ BEGIN
     participation_fee,
     COALESCE(player_count_max, 8),
     COALESCE(duration, 180),
-    organization_id
-  INTO v_scenario_title, v_participation_fee, v_max_participants, v_duration, v_scenario_org_id
+    organization_id,
+    COALESCE(scenario_master_id, id)  -- scenario_master_id（統一済みID）を取得
+  INTO v_scenario_title, v_participation_fee, v_max_participants, v_duration, v_scenario_org_id, v_scenario_master_id
   FROM scenarios
   WHERE id = p_scenario_id
     AND status IN ('available', 'maintenance', 'retired');
@@ -248,7 +250,7 @@ BEGIN
     COALESCE(v_customer_org_id, v_scenario_org_id)
   FROM staff_scenario_assignments ssa
   JOIN staff s ON s.id = ssa.staff_id
-  WHERE ssa.scenario_id = p_scenario_id
+  WHERE ssa.scenario_id = v_scenario_master_id  -- 統一済みIDで検索
     AND s.status = 'active'
   ON CONFLICT DO NOTHING;
 
