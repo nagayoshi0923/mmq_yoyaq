@@ -51,8 +51,14 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   // URLパラメータから日付、店舗、時間帯を取得（パスベース）
   const urlParams = new URLSearchParams(window.location.search)
   const preselectedDate = urlParams.get('date') || ''
-  const preselectedStore = urlParams.get('store') || ''
+  const preselectedStoreParam = urlParams.get('store') || ''
   const preselectedSlot = urlParams.get('slot') || ''
+  
+  // URLの店舗パラメータ（カンマ区切り対応）
+  const preselectedStoreIds = useMemo(() => 
+    preselectedStoreParam.split(',').filter(id => id.length > 0),
+    [preselectedStoreParam]
+  )
   
   const slotLabels: { [key: string]: string } = {
     morning: '午前',
@@ -60,18 +66,22 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     evening: '夜間'
   }
 
-  // シナリオ対応の選択可能店舗を計算
-  const selectableStores = useMemo(() => {
-    const validStores = allStores.filter((s: any) =>
+  // 表示する全有効店舗（オフィス除外）
+  const displayStores = useMemo(() => {
+    return allStores.filter((s: any) =>
       s.ownership_type !== 'office' && s.status === 'active'
     )
-    if (!selectedScenarioId) return validStores
+  }, [allStores])
+
+  // 選択中シナリオの対応店舗IDセット（空 = 全店舗対応）
+  const scenarioAvailableStoreIds = useMemo(() => {
+    if (!selectedScenarioId) return null
     const scenario = scenarios.find(s => s.id === selectedScenarioId)
     if (scenario?.available_stores && scenario.available_stores.length > 0) {
-      return validStores.filter(s => scenario.available_stores!.includes(s.id))
+      return new Set(scenario.available_stores)
     }
-    return validStores
-  }, [allStores, selectedScenarioId, scenarios])
+    return null // null = 全店舗対応
+  }, [selectedScenarioId, scenarios])
 
   useEffect(() => {
     loadScenarios()
@@ -94,6 +104,16 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     try {
       const data = await storeApi.getAll()
       setAllStores(data)
+      
+      // URLのフィルター店舗を初期選択
+      if (preselectedStoreIds.length > 0) {
+        const validIds = preselectedStoreIds.filter(id =>
+          data.some((s: any) => s.id === id && s.ownership_type !== 'office' && s.status === 'active')
+        )
+        if (validIds.length > 0) {
+          setSelectedStoreIds(validIds)
+        }
+      }
     } catch (error) {
       logger.error('店舗の読み込みエラー:', error)
     }
@@ -164,20 +184,13 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
               <Select value={selectedScenarioId} onValueChange={(id) => {
                 setSelectedScenarioId(id)
                 setSelectedParticipantCount(null)
-                // シナリオ変更時に店舗選択をリセット（URLの初期店舗があれば再設定）
+                // シナリオ変更時、非対応店舗を選択から除外
                 const newScenario = scenarios.find(s => s.id === id)
-                const availableIds = newScenario?.available_stores && newScenario.available_stores.length > 0
-                  ? newScenario.available_stores
-                  : null
-                if (preselectedStore) {
-                  // URL指定の店舗が対応店舗に含まれるか確認
-                  if (!availableIds || availableIds.includes(preselectedStore)) {
-                    setSelectedStoreIds([preselectedStore])
-                  } else {
-                    setSelectedStoreIds([])
-                  }
-                } else {
-                  setSelectedStoreIds([])
+                const hasLimit = newScenario?.available_stores && newScenario.available_stores.length > 0
+                if (hasLimit) {
+                  setSelectedStoreIds(prev =>
+                    prev.filter(storeId => newScenario!.available_stores!.includes(storeId))
+                  )
                 }
               }}>
                 <SelectTrigger>
@@ -342,36 +355,45 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                       希望する店舗を選択してください（複数選択可）
                     </p>
                     <div className="space-y-2">
-                      {selectableStores.map((store: any) => {
+                      {displayStores.map((store: any) => {
                         const isSelected = selectedStoreIds.includes(store.id)
+                        const isUnavailable = scenarioAvailableStoreIds !== null && !scenarioAvailableStoreIds.has(store.id)
+                        
                         return (
                           <label
                             key={store.id}
-                            className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                              isSelected
-                                ? 'border-purple-300 bg-purple-50'
-                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                              isUnavailable
+                                ? 'border-gray-200 bg-gray-100 opacity-60 cursor-not-allowed'
+                                : isSelected
+                                  ? 'border-purple-300 bg-purple-50 cursor-pointer'
+                                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
                             }`}
                           >
                             <input
                               type="checkbox"
                               checked={isSelected}
+                              disabled={isUnavailable}
                               onChange={() => {
+                                if (isUnavailable) return
                                 setSelectedStoreIds(prev =>
                                   isSelected
                                     ? prev.filter(id => id !== store.id)
                                     : [...prev, store.id]
                                 )
                               }}
-                              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:opacity-50"
                             />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <MapPin className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                                <span className="text-sm font-medium">{store.name}</span>
+                                <MapPin className={`w-3.5 h-3.5 flex-shrink-0 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`} />
+                                <span className={`text-sm font-medium ${isUnavailable ? 'text-gray-400' : ''}`}>{store.name}</span>
+                                {isUnavailable && (
+                                  <span className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded">対応不可</span>
+                                )}
                               </div>
                               {store.address && (
-                                <p className="text-xs text-muted-foreground mt-0.5 ml-5.5">{store.address}</p>
+                                <p className={`text-xs mt-0.5 ml-5.5 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`}>{store.address}</p>
                               )}
                             </div>
                           </label>

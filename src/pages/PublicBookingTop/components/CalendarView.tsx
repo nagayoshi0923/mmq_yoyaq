@@ -314,7 +314,8 @@ export const CalendarView = memo(function CalendarView({
                               className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
                               onClick={() => {
                                 const basePath = organizationSlug ? `/${organizationSlug}` : ''
-                                navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${selectedStore.id}&slot=${slot}`)
+                                const storeParam = selectedStoreIds.length > 0 ? selectedStoreIds.join(',') : selectedStore.id
+                                navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${storeParam}&slot=${slot}`)
                               }}
                             >
                               {label} 貸切申込

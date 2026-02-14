@@ -116,7 +116,8 @@ export const ListView = memo(function ListView({
             className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
             onClick={() => {
               const basePath = organizationSlug ? `/${organizationSlug}` : ''
-              navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${store.id}&slot=${timeSlot}`)
+              const storeParam = selectedStoreIds.length > 0 ? selectedStoreIds.join(',') : store.id
+              navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${storeParam}&slot=${timeSlot}`)
             }}
           >
             貸切申込

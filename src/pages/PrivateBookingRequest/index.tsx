@@ -46,21 +46,28 @@ export function PrivateBookingRequest({
   const [newDate, setNewDate] = useState('')
   const [newSlotLabel, setNewSlotLabel] = useState('')
 
-  // 選択可能な店舗（オフィス除外、シナリオ対応店舗で絞り込み）
-  const selectableStores = useMemo(() => {
-    const validStores = stores.filter((s: any) => 
+  // 表示する全有効店舗（オフィス除外）
+  const displayStores = useMemo(() => {
+    return stores.filter((s: any) => 
       s.ownership_type !== 'office' && s.status === 'active'
     )
+  }, [stores])
+
+  // シナリオ対応店舗IDセット（null = 全店舗対応）
+  const scenarioAvailableSet = useMemo(() => {
     if (scenarioAvailableStores && scenarioAvailableStores.length > 0) {
-      return validStores.filter((s: any) => scenarioAvailableStores.includes(s.id))
+      return new Set(scenarioAvailableStores)
     }
-    return validStores
-  }, [stores, scenarioAvailableStores])
+    return null
+  }, [scenarioAvailableStores])
 
   // 編集可能な希望店舗（初期値をシナリオ対応店舗でフィルタ）
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>(() => {
-    const validIds = selectableStores.map((s: any) => s.id)
-    const filtered = initialStoreIds.filter(id => validIds.includes(id))
+    const filtered = initialStoreIds.filter(id => {
+      const isValid = displayStores.some((s: any) => s.id === id)
+      const isAvailable = scenarioAvailableSet === null || scenarioAvailableSet.has(id)
+      return isValid && isAvailable
+    })
     return filtered.length > 0 ? filtered : []
   })
 
@@ -370,36 +377,45 @@ export function PrivateBookingRequest({
                     希望する店舗を選択してください（複数選択可）
                   </p>
                   <div className="space-y-2">
-                    {selectableStores.map((store: any) => {
+                    {displayStores.map((store: any) => {
                       const isSelected = selectedStoreIds.includes(store.id)
+                      const isUnavailable = scenarioAvailableSet !== null && !scenarioAvailableSet.has(store.id)
+                      
                       return (
                         <label
                           key={store.id}
-                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                            isSelected
-                              ? 'border-purple-300 bg-purple-50'
-                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                            isUnavailable
+                              ? 'border-gray-200 bg-gray-100 opacity-60 cursor-not-allowed'
+                              : isSelected
+                                ? 'border-purple-300 bg-purple-50 cursor-pointer'
+                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
                           }`}
                         >
                           <input
                             type="checkbox"
                             checked={isSelected}
+                            disabled={isUnavailable}
                             onChange={() => {
+                              if (isUnavailable) return
                               setSelectedStoreIds(prev =>
                                 isSelected
                                   ? prev.filter(id => id !== store.id)
                                   : [...prev, store.id]
                               )
                             }}
-                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:opacity-50"
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <MapPin className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                              <span className="text-sm font-medium">{store.name}</span>
+                              <MapPin className={`w-3.5 h-3.5 flex-shrink-0 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`} />
+                              <span className={`text-sm font-medium ${isUnavailable ? 'text-gray-400' : ''}`}>{store.name}</span>
+                              {isUnavailable && (
+                                <span className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded">対応不可</span>
+                              )}
                             </div>
                             {store.address && (
-                              <p className="text-xs text-muted-foreground mt-0.5 ml-5.5">{store.address}</p>
+                              <p className={`text-xs mt-0.5 ml-5.5 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`}>{store.address}</p>
                             )}
                           </div>
                         </label>
