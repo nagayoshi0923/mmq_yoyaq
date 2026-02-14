@@ -78,18 +78,15 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
         setIsLoading(true)
         
         // シナリオと公開リストを並列取得
-        const [data, availableOrgResult] = await Promise.all([
+        const [data, availableKeysResult] = await Promise.all([
           scenarioApi.getAll(),
-          // 🔐 公開中の組織シナリオのみ取得
-          supabase
-            .from('organization_scenarios')
-            .select('organization_id, scenario_master_id')
-            .eq('org_status', 'available')
+          // 🔐 公開中かつ承認済みのシナリオキーを取得（RPC: RLSバイパス、匿名OK）
+          supabase.rpc('get_public_available_scenario_keys')
         ])
         
         // 公開中の組織シナリオのキーセット
         const availableOrgKeys = new Set(
-          (availableOrgResult.data || []).map(os => `${os.organization_id}_${os.scenario_master_id}`)
+          (availableKeysResult.data || []).map((k: any) => `${k.organization_id}_${k.scenario_master_id}`)
         )
         
         // status='available'かつ組織で公開されているシナリオのみ表示

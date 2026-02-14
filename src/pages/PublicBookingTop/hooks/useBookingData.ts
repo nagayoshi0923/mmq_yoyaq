@@ -119,14 +119,8 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       // 1. まずシナリオと店舗データと設定を取得（軽量、即座に表示可能）
       const fetchStartTime = performance.now()
       
-      // 🔐 公開中の組織シナリオのみ取得（org_status = 'available'）
-      let availableOrgQuery = supabase
-        .from('organization_scenarios')
-        .select('organization_id, scenario_master_id')
-        .eq('org_status', 'available')
-      if (orgId) {
-        availableOrgQuery = availableOrgQuery.eq('organization_id', orgId)
-      }
+      // 🔐 公開中かつ承認済みのシナリオキーを取得（RPC: RLSバイパス、匿名OK）
+      const availableOrgQuery = supabase.rpc('get_public_available_scenario_keys')
       
       // シナリオ取得（organization_idでフィルタリング）
       const scenarioQuery = supabase
