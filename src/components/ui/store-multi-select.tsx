@@ -171,7 +171,7 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
         <span className="truncate">
           {selectedStoreIds.length === 0 
             ? placeholder 
-            : `${selectedStoreIds.length}店舗`}
+            : `${selectedStoreIds.length}/${stores.length}店舗`}
         </span>
         <ChevronDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
       </Button>
