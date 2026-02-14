@@ -141,7 +141,7 @@ export function HowToUseGuide({ organizationName, isOpen, onClose }: HowToUseGui
               <Users className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs sm:text-sm font-medium text-gray-700">貸切予約</p>
-                <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">カレンダーの「貸切申込」ボタンからリクエストできます</p>
+                <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">お好きなシナリオを、お仲間だけで楽しめるプランです。カレンダーの空き枠にある「貸切申込」ボタンから日時・店舗を選んでリクエストできます</p>
               </div>
             </div>
             <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex items-start gap-2.5">
