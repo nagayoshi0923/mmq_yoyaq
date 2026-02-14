@@ -866,17 +866,8 @@ export function PerformanceModal({
                         (staffMember.special_scenarios?.includes(matchedScenario.scenario_master_id || matchedScenario.id) ||
                          staffMember.special_scenarios?.includes(matchedScenario.id))
                       
-                      // 出勤可能かチェック（シフト提出済み）
-                      // シナリオが選択されている場合: そのシナリオで出勤可能か
-                      // シナリオ未選択の場合: その日時に出勤しているか
-                      let isAvailable = false
-                      if (formData.scenario) {
-                        const availableGMs = availableStaffByScenario?.[formData.scenario] || []
-                        isAvailable = availableGMs.some(gm => gm.id === staffMember.id)
-                      } else {
-                        // シナリオ未選択時は、その日時に出勤している全GMから判定
-                        isAvailable = allAvailableStaff.some(gm => gm.id === staffMember.id)
-                      }
+                      // 出勤可能かチェック（その日時に出勤している全GMから判定）
+                      const isAvailable = allAvailableStaff.some(gm => gm.id === staffMember.id)
                       
                       // バッジ形式で表示情報を構築
                       const badges: React.ReactNode[] = []
