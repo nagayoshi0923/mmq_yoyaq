@@ -477,7 +477,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     }
   }, [selectedTimeSlots])
 
-  // 日付に基づいて時間枠を取得（営業時間設定を反映、シナリオ公演時間から逆算）
+  // 日付に基づいて時間枠を取得（既存イベントのスケジュールを参照、前公演end_time + 1時間を開始時間に）
   const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => {
     const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
@@ -496,12 +496,29 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     const settings = targetStoreId ? businessHoursCache.get(targetStoreId) : null
     
-    // 朝公演: 開始時間固定
-    const morningStartTime = '09:00'
-    // 昼・夜公演: 終了時間固定
-    const slotEndTimes = {
-      afternoon: '18:00', // 昼公演終了
-      evening: '23:00'    // 夜公演終了
+    // 分を時間に変換
+    const minutesToTime = (minutes: number): string => {
+      const h = Math.floor(minutes / 60)
+      const m = minutes % 60
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+    }
+    
+    // 時間を分に変換
+    const timeToMinutes = (time: string): number => {
+      const [h, m] = time.split(':').map(Number)
+      return h * 60 + (m || 0)
+    }
+    
+    // デフォルトの開始時間・終了時間
+    const defaultStartTimes: Record<string, number> = {
+      morning: timeToMinutes('09:00'),
+      afternoon: timeToMinutes('14:00'),
+      evening: timeToMinutes('19:00')
+    }
+    const slotEndLimits: Record<string, number> = {
+      morning: timeToMinutes('13:00'),
+      afternoon: timeToMinutes('18:00'),
+      evening: timeToMinutes('23:00')
     }
     
     // 営業時間設定がある場合、曜日ごとの設定を取得
@@ -522,17 +539,55 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       }
     }
     
-    // 分を時間に変換
-    const minutesToTime = (minutes: number): string => {
-      const h = Math.floor(minutes / 60)
-      const m = minutes % 60
-      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
-    }
+    // === 既存イベントのスケジュールを参照して開始時間を計算 ===
+    const targetDate = date.split('T')[0]
     
-    // 時間を分に変換
-    const timeToMinutes = (time: string): number => {
-      const [h, m] = time.split(':').map(Number)
-      return h * 60 + m
+    // 対象店舗のイベントを取得（選択店舗 or 全店舗）
+    const targetStoreIds = selectedStoreIds.length > 0 
+      ? selectedStoreIds 
+      : stores.map(s => s.id)
+    
+    // 当日の全イベント（キャンセル除く）を時間順に取得
+    const dayEvents = allStoreEvents
+      .filter((e: any) => {
+        const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
+        if (eventDate !== targetDate) return false
+        const eventStoreId = e.store_id || e.stores?.id
+        // 選択店舗がある場合はその店舗のイベントのみ
+        if (selectedStoreIds.length > 0) {
+          return targetStoreIds.includes(eventStoreId)
+        }
+        return true
+      })
+      .sort((a: any, b: any) => (a.end_time || '').localeCompare(b.end_time || ''))
+    
+    // 各スロットの前にあるイベントの最遅end_timeを計算
+    const getLatestEndTimeBefore = (slotKey: string): number | null => {
+      const precedingSlots: Record<string, string[]> = {
+        morning: [],
+        afternoon: ['morning'],
+        evening: ['morning', 'afternoon']
+      }
+      const preceding = precedingSlots[slotKey] || []
+      
+      // 前スロットの時間範囲内にあるイベント + 現スロット開始前に終わるイベント
+      const slotDefaultStart = defaultStartTimes[slotKey]
+      const relevantEvents = dayEvents.filter((e: any) => {
+        if (!e.end_time) return false
+        const eventStart = timeToMinutes(e.start_time || '00:00')
+        // 前スロットに属するイベント（開始時間がこのスロットのデフォルト開始より前）
+        return eventStart < slotDefaultStart
+      })
+      
+      if (relevantEvents.length === 0) return null
+      
+      // 最遅のend_timeを取得
+      let latest = 0
+      relevantEvents.forEach((e: any) => {
+        const endMin = timeToMinutes(e.end_time)
+        if (endMin > latest) latest = endMin
+      })
+      return latest
     }
     
     // 時間枠を生成（有効な公演枠のみ）
@@ -545,28 +600,36 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     return slotDefinitions
       .filter(def => availableSlots.includes(def.key))
       .map(def => {
-        if (def.key === 'morning') {
-          // 朝公演: 開始時間固定、終了時間 = 開始 + 公演時間
-          const startMinutes = timeToMinutes(morningStartTime)
-          const endMinutes = startMinutes + durationMinutes
-          return {
-            label: def.label,
-            startTime: morningStartTime,
-            endTime: minutesToTime(endMinutes)
-          }
+        // 前公演のend_time + 1時間を開始時間として計算
+        const latestEndBefore = getLatestEndTimeBefore(def.key)
+        let startMinutes: number
+        
+        if (latestEndBefore !== null) {
+          // 前公演の終了 + 1時間
+          const suggestedStart = latestEndBefore + 60
+          // デフォルト開始時間より遅い方を採用
+          startMinutes = Math.max(suggestedStart, defaultStartTimes[def.key])
         } else {
-          // 昼・夜公演: 終了時間固定、開始時間 = 終了 - 公演時間
-          const endTime = slotEndTimes[def.key]
-          const endMinutes = timeToMinutes(endTime)
-          const startMinutes = endMinutes - durationMinutes
-          return {
-            label: def.label,
-            startTime: minutesToTime(startMinutes),
-            endTime: endTime
-          }
+          // 前公演がなければデフォルト開始時間
+          startMinutes = defaultStartTimes[def.key]
+        }
+        
+        const endMinutes = startMinutes + durationMinutes
+        const slotEndLimit = slotEndLimits[def.key]
+        
+        // 開始時間がスロット終了時間を超えている場合はスロットを無効にする
+        if (startMinutes >= slotEndLimit) {
+          return null
+        }
+        
+        return {
+          label: def.label,
+          startTime: minutesToTime(startMinutes),
+          endTime: minutesToTime(Math.min(endMinutes, slotEndLimit + durationMinutes))
         }
       })
-  }, [selectedStoreIds, businessHoursCache, scenario])
+      .filter((slot): slot is TimeSlot => slot !== null)
+  }, [selectedStoreIds, businessHoursCache, scenario, allStoreEvents, stores])
 
   // シナリオが対応している店舗のみにフィルタリングした店舗リスト
   const availableStores = useMemo(() => {
