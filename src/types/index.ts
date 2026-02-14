@@ -586,6 +586,8 @@ export interface Reservation {
   customer_name?: string | null
   customer_email?: string | null
   customer_phone?: string | null
+  // クーポン使用の紐付け
+  coupon_usage_id?: string | null
   // Supabaseのjoinクエリで取得される拡張フィールド
   customers?: Customer | Customer[] | null
   // 貸切予約の候補日時情報
@@ -773,4 +775,55 @@ export interface KitTransferCompletion {
   // JOIN時の拡張フィールド
   picked_up_by_staff?: { id: string; name: string | null }
   delivered_by_staff?: { id: string; name: string | null }
+}
+
+// ================================================
+// クーポン関連の型定義
+// ================================================
+
+// クーポンキャンペーン（組織単位のキャンペーン定義）
+export interface CouponCampaign {
+  id: string
+  organization_id: string
+  name: string
+  description?: string | null
+  discount_type: 'fixed' | 'percentage'
+  discount_amount: number
+  max_uses_per_customer: number
+  target_type: 'all' | 'specific_scenarios' | 'specific_organization'
+  target_ids?: string[] | null
+  trigger_type: 'registration' | 'manual'
+  valid_from?: string | null
+  valid_until?: string | null
+  coupon_expiry_days?: number | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+// 顧客のクーポン保有・使用状況
+export interface CustomerCoupon {
+  id: string
+  campaign_id: string
+  customer_id: string
+  organization_id: string
+  uses_remaining: number
+  expires_at?: string | null
+  status: 'active' | 'fully_used' | 'expired' | 'revoked'
+  created_at: string
+  updated_at: string
+  // JOIN時の拡張フィールド
+  coupon_campaigns?: CouponCampaign | null
+}
+
+// クーポン使用履歴
+export interface CouponUsage {
+  id: string
+  customer_coupon_id: string
+  reservation_id: string
+  discount_amount: number
+  used_at: string
+  // JOIN時の拡張フィールド
+  customer_coupons?: CustomerCoupon | null
+  reservations?: Reservation | null
 }

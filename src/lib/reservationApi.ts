@@ -263,7 +263,8 @@ export const reservationApi = {
       p_customer_phone: reservation.customer_phone ?? null,
       p_notes: reservation.customer_notes ?? null,
       p_how_found: (reservation as any).how_found ?? null,
-      p_reservation_number: reservationNumber
+      p_reservation_number: reservationNumber,
+      p_customer_coupon_id: (reservation as any).customer_coupon_id ?? null
     })
 
     if (!res.error) {

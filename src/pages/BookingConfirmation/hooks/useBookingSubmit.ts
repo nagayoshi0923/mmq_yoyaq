@@ -380,6 +380,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
     reservationNumber: string
     participantCount: number
     totalPrice: number
+    discountAmount?: number
   } | null>(null)
 
   /**
@@ -391,7 +392,8 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
     customerPhone: string,
     participantCount: number,
     notes: string,
-    customerNickname?: string
+    customerNickname?: string,
+    customerCouponId?: string | null
   ) => {
     if (!props.userId) {
       throw new Error('ログインが必要です')
@@ -517,8 +519,9 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         reservation_source: 'web',
         created_by: props.userId,
         organization_id: organizationId,
-        reservation_number: reservationNumberRef.current
-      })
+        reservation_number: reservationNumberRef.current,
+        customer_coupon_id: customerCouponId || null
+      } as any)
 
       // 予約確認メールを送信
       try {
@@ -549,11 +552,12 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         logger.error('メール送信処理エラー:', emailError)
       }
 
-      // 完了した予約情報を保存
+      // 完了した予約情報を保存（サーバー側で計算された最終金額を使用）
       setCompletedReservation({
         reservationNumber: reservationData.reservation_number,
         participantCount: participantCount,
-        totalPrice: props.participationFee * participantCount
+        totalPrice: reservationData.final_price ?? (props.participationFee * participantCount),
+        discountAmount: reservationData.discount_amount ?? 0
       })
       setSuccess(true)
       

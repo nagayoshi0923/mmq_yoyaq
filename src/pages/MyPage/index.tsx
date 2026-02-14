@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Bell, Pencil } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Bell, Pencil, Ticket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/contexts/AuthContext'
@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { SettingsPage } from './pages/SettingsPage'
 import { WantToPlayPage } from './pages/LikedScenariosPage'
+import { CouponsPage } from './pages/CouponsPage'
 import type { Reservation, Store } from '@/types'
 
 interface PlayedScenario {
@@ -24,6 +25,7 @@ interface PlayedScenario {
 
 const menuItems = [
   { id: 'reservations', label: '予約', icon: Calendar },
+  { id: 'coupons', label: 'クーポン', icon: Ticket },
   { id: 'album', label: 'アルバム', icon: Camera },
   { id: 'wishlist', label: '遊びたい', icon: Heart },
   { id: 'settings', label: '設定', icon: Settings },
@@ -741,6 +743,10 @@ export default function MyPage() {
                   </div>
                 )}
               </div>
+            )}
+
+            {activeTab === 'coupons' && (
+              <CouponsPage />
             )}
 
             {activeTab === 'album' && (
