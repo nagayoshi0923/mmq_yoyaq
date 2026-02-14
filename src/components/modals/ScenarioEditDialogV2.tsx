@@ -634,7 +634,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               if (loadOrgId) {
                 const { data: osData } = await supabase
                   .from('organization_scenarios')
-                  .select('override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution')
+                  .select('override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores')
                   .eq('scenario_master_id', masterId)
                   .eq('organization_id', loadOrgId)
                   .maybeSingle()
@@ -652,6 +652,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     key_visual_url: osData.custom_key_visual_url || prev.key_visual_url,
                     description: osData.custom_description || prev.description,
                     caution: osData.custom_caution || prev.caution || '',
+                    // 対応店舗: organization_scenarios側のデータを優先
+                    available_stores: (osData.available_stores && osData.available_stores.length > 0) 
+                      ? osData.available_stores 
+                      : prev.available_stores,
                   }))
                 } else {
                   // organization_scenarios がなければ scenario_masters.caution を取得
