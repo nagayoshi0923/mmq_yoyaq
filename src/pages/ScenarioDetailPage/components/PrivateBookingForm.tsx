@@ -109,10 +109,13 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         stores={stores}
         selectedStoreIds={selectedStoreIds}
         onStoreIdsChange={onStoreIdsChange}
-        label="店舗を選択"
+        label="希望店舗を選択"
         placeholder="全店舗希望"
       />
       
+      {/* 希望日程ラベル */}
+      <h3 className="text-sm font-medium text-muted-foreground mt-4 mb-1.5">希望日程を選択</h3>
+
       {/* 月切り替え + 選択状況 */}
       <div className="flex items-center justify-between mb-2">
         <button
