@@ -352,70 +352,103 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         return h * 60 + (m || 0)
       }
       const extraPrepTime = scenario?.extra_preparation_time || 0
+      const scenarioDuration = scenario?.duration || 180 // シナリオ公演時間（デフォルト3時間）
       const requestStart = parseTime(slot.startTime)
       const requestEnd = parseTime(slot.endTime) + extraPrepTime
       
-      // その店舗・日付のイベントで、時間が被るものがあるかチェック
-      const conflictingEvents: any[] = []
-      const hasConflict = allStoreEvents.some((e: any) => {
-        // store_idを直接使用（優先）、なければstores.idを使用
+      // スロットの終了時間上限（昼公演は18:00、夜公演は23:00）
+      const slotEndLimits: Record<string, number> = {
+        morning: 13 * 60,   // 13:00
+        afternoon: 18 * 60, // 18:00
+        evening: 23 * 60    // 23:00
+      }
+      const slotEndLimit = slotEndLimits[targetTimeSlot] || 18 * 60
+      
+      // その店舗・日付のイベントを取得
+      const storeEvents = allStoreEvents.filter((e: any) => {
         const eventStoreId = e.store_id || e.stores?.id
         if (!eventStoreId || eventStoreId !== storeId) return false
-        
         const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
-        if (eventDate !== targetDate) return false
-        
-        // イベントの開始・終了時間を取得
+        return eventDate === targetDate
+      })
+      
+      // コンフリクトチェック: 開始時間をずらしても入れるかを確認
+      const conflictingEvents: any[] = []
+      let canFit = true
+      let adjustedStart = requestStart
+      
+      // このスロットの時間帯と重なるイベントの最遅終了時間を計算
+      let latestEventEnd = 0
+      storeEvents.forEach((e: any) => {
         const eventStartTime = e.start_time || ''
         const eventEndTime = e.end_time || ''
+        if (!eventStartTime) return
         
-        if (!eventStartTime) return false
-        
-        // 既存イベントのシナリオの追加準備時間を取得
-        const eventExtraPrepTime = e.scenarios?.extra_preparation_time || 0
-        // デフォルト準備時間（60分）+ 追加準備時間
-        const eventPrepTime = 60 + eventExtraPrepTime
-        
-        // 既存イベントの「実質開始時間」= 開始時間 - 準備時間
         const eventStart = parseTime(eventStartTime)
-        const eventActualStart = eventStart - eventPrepTime
-        // 終了時間がない場合はデフォルト4時間と仮定
         const eventEnd = eventEndTime ? parseTime(eventEndTime) : eventStart + 240
-        // 終了後1時間のインターバル（片付け・準備バッファー）
-        const eventEndWithBuffer = eventEnd + 60
+        const eventEndWithBuffer = eventEnd + 60 // 1時間インターバル
         
-        // 時間が被っているかチェック
-        // 申込み公演の開始時間が、既存イベントの終了+1時間インターバルより前
-        // かつ、申込み公演の終了時間（準備時間込み）が、既存イベントの実質開始時間より後
-        const hasOverlap = requestStart < eventEndWithBuffer && requestEnd > eventActualStart
-        
-        if (hasOverlap) {
+        // このイベントがスロットの時間帯と重なるか
+        if (eventStart < slotEndLimit && eventEndWithBuffer > requestStart) {
+          if (eventEndWithBuffer > latestEventEnd) {
+            latestEventEnd = eventEndWithBuffer
+          }
           conflictingEvents.push({
             title: e.title,
             start: eventStartTime,
             end: eventEndTime,
-            eventActualStart,
-            eventEndWithBuffer,
-            requestStart,
-            requestEnd
+            eventEnd,
+            eventEndWithBuffer
           })
         }
-        
-        return hasOverlap
       })
+      
+      // イベントがある場合、その終了+1時間後に開始すれば収まるか
+      if (latestEventEnd > 0) {
+        adjustedStart = Math.max(requestStart, latestEventEnd)
+        const adjustedEnd = adjustedStart + scenarioDuration + extraPrepTime
+        
+        // 調整後の公演がスロット終了時間内に収まるか
+        canFit = adjustedEnd <= slotEndLimit
+      }
+      
+      // ずらしても収まらない場合、後続イベント（夜公演など）との兼ね合いも確認
+      if (canFit && latestEventEnd > 0) {
+        // 調整後の開始時間以降にイベントがあるか確認
+        const adjustedEnd = adjustedStart + scenarioDuration + extraPrepTime
+        const hasLaterConflict = storeEvents.some((e: any) => {
+          const eventStartTime = e.start_time || ''
+          if (!eventStartTime) return false
+          const eventStart = parseTime(eventStartTime)
+          const eventExtraPrepTime = e.scenarios?.extra_preparation_time || 0
+          const eventPrepTime = 60 + eventExtraPrepTime
+          const eventActualStart = eventStart - eventPrepTime
+          
+          // 調整後の公演が、後続イベントの準備時間と被る場合
+          return eventStart > adjustedStart && adjustedEnd > eventActualStart
+        })
+        
+        if (hasLaterConflict) {
+          canFit = false
+        }
+      }
       
       // 4/4の昼公演のみログ出力（本番でも表示）
       if (targetDate === '2026-04-04' && slot.label === '昼公演') {
         console.log('[checkStoreAvailability] コンフリクトチェック:', {
           storeId,
           requestStart,
-          requestEnd,
-          hasConflict,
+          requestStartTime: `${Math.floor(requestStart/60)}:${String(requestStart%60).padStart(2,'0')}`,
+          latestEventEnd,
+          adjustedStart,
+          adjustedStartTime: `${Math.floor(adjustedStart/60)}:${String(adjustedStart%60).padStart(2,'0')}`,
+          slotEndLimit,
+          canFit,
           conflictingEvents
         })
       }
       
-      return !hasConflict // コンフリクトがなければ空いている
+      return canFit // 開始時間をずらしても収まれば空いている
     }
     
     // 店舗が選択されている場合：選択された店舗のいずれかで空きがあればtrue
