@@ -617,15 +617,15 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         const endMinutes = startMinutes + durationMinutes
         const slotEndLimit = slotEndLimits[def.key]
         
-        // 開始時間がスロット終了時間を超えている場合はスロットを無効にする
-        if (startMinutes >= slotEndLimit) {
+        // 公演がスロット終了時間内に収まらない場合はスロットを無効にする
+        if (startMinutes >= slotEndLimit || endMinutes > slotEndLimit) {
           return null
         }
         
         return {
           label: def.label,
           startTime: minutesToTime(startMinutes),
-          endTime: minutesToTime(Math.min(endMinutes, slotEndLimit + durationMinutes))
+          endTime: minutesToTime(endMinutes)
         }
       })
       .filter((slot): slot is TimeSlot => slot !== null)
