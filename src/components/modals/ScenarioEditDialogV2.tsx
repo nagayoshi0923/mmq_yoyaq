@@ -467,64 +467,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           a.can_main_gm === true || a.can_sub_gm === true
         )
         
-        if (gmAssignments.length > 0) {
-          // staff_scenario_assignments にデータがある場合はそのまま使用
-          setCurrentAssignments(gmAssignments)
-          setSelectedStaffIds(gmAssignments.map(a => a.staff_id))
-        } else {
-          // staff_scenario_assignments が空の場合、organization_scenarios から直接GM名を取得
-          // （一覧表示と同じフォールバック順序: available_gms → gm_assignments → 旧scenarios）
-          let gmNames: string[] = []
-          
-          try {
-            const masterId = scenarioId
-            const { data: orgScenario } = await supabase
-              .from('organization_scenarios')
-              .select('available_gms, gm_assignments')
-              .eq('scenario_master_id', masterId)
-              .eq('organization_id', orgId!)
-              .maybeSingle()
-            
-            if (orgScenario) {
-              // 1. available_gms (text[]) を優先
-              if (orgScenario.available_gms && Array.isArray(orgScenario.available_gms) && orgScenario.available_gms.length > 0) {
-                gmNames = orgScenario.available_gms
-              }
-              // 2. gm_assignments (JSONB) からスタッフ名を抽出
-              else if (orgScenario.gm_assignments && Array.isArray(orgScenario.gm_assignments) && orgScenario.gm_assignments.length > 0) {
-                gmNames = orgScenario.gm_assignments
-                  .map((gm: any) => gm.staff_name || gm.name || '')
-                  .filter((name: string) => name.length > 0)
-              }
-            }
-          } catch {
-            // 取得失敗は無視
-          }
-          
-          // 旧 scenarios テーブルの available_gms もフォールバック
-          if (gmNames.length === 0) {
-            const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
-            gmNames = scenarioData?.available_gms || []
-          }
-          
-          if (gmNames.length > 0 && staff.length > 0) {
-            const matchedStaffIds = staff
-              .filter(s => gmNames.includes(s.name))
-              .map(s => s.id)
-            
-            if (matchedStaffIds.length > 0) {
-              setSelectedStaffIds(matchedStaffIds)
-              setCurrentAssignments(matchedStaffIds.map(id => ({
-                staff_id: id,
-                scenario_id: scenarioId,
-                can_main_gm: true,
-                can_sub_gm: true,
-                is_experienced: false,
-                staff: staff.find(s => s.id === id) || { id, name: '', line_name: '' }
-              })))
-            }
-          }
-        }
+        // staff_scenario_assignments のデータを使用
+        setCurrentAssignments(gmAssignments)
+        setSelectedStaffIds(gmAssignments.map(a => a.staff_id))
         
         // 統計情報を取得
         const statsId = scenarioId
@@ -550,72 +495,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, scenarioId])
 
-  // staff ロード後に available_gms / organization_scenarios.gm_assignments からフォールバックで担当GMを設定
-  useEffect(() => {
-    if (!isOpen || !scenarioId || staff.length === 0) return
-    // 既に selectedStaffIds が設定されている場合はスキップ
-    if (selectedStaffIds.length > 0) return
-    // ローディング中はスキップ
-    if (isLoadingAssignments) return
-    
-    const loadFallbackGms = async () => {
-      // organization_scenarios から直接 GM名を取得（一覧と同じフォールバック順序）
-      let gmNames: string[] = []
-      
-      try {
-        const orgId = await getCurrentOrganizationId()
-        const masterId = scenarioId // scenarioId は scenario_master_id
-        const { data: orgScenario } = await supabase
-          .from('organization_scenarios')
-          .select('available_gms, gm_assignments')
-          .eq('scenario_master_id', masterId)
-          .eq('organization_id', orgId!)
-          .maybeSingle()
-        
-        if (orgScenario) {
-          // 1. available_gms (text[]) を優先
-          if (orgScenario.available_gms && Array.isArray(orgScenario.available_gms) && orgScenario.available_gms.length > 0) {
-            gmNames = orgScenario.available_gms
-          }
-          // 2. gm_assignments (JSONB) からスタッフ名を抽出
-          else if (orgScenario.gm_assignments && Array.isArray(orgScenario.gm_assignments) && orgScenario.gm_assignments.length > 0) {
-            gmNames = orgScenario.gm_assignments
-              .map((gm: any) => gm.staff_name || gm.name || '')
-              .filter((name: string) => name.length > 0)
-          }
-        }
-      } catch {
-        // 取得失敗は無視
-      }
-      
-      // 旧 scenarios テーブルの available_gms もフォールバック
-      if (gmNames.length === 0) {
-        const scenarioData = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
-        gmNames = scenarioData?.available_gms || []
-      }
-      
-      if (gmNames.length > 0) {
-        const matchedStaffIds = staff
-          .filter(s => gmNames.includes(s.name))
-          .map(s => s.id)
-        
-        if (matchedStaffIds.length > 0) {
-          setSelectedStaffIds(matchedStaffIds)
-          setCurrentAssignments(matchedStaffIds.map(id => ({
-            staff_id: id,
-            scenario_id: scenarioId,
-            can_main_gm: true,
-            can_sub_gm: true,
-            is_experienced: false,
-            staff: staff.find(s => s.id === id) || { id, name: '', line_name: '' }
-          })))
-        }
-      }
-    }
-
-    loadFallbackGms()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, scenarioId, staff.length, selectedStaffIds.length, isLoadingAssignments])
+  // NOTE: フォールバック（organization_scenarios.available_gms / gm_assignments）は廃止
+  // staff_scenario_assignments に統合済み
 
   // フォームの初回ロード済みキーを追跡（保存後の不要なフォームリセットを防止）
   const formLoadedKeyRef = useRef<string>('')
@@ -1005,68 +886,6 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             logger.error('staff.special_scenarios 同期エラー（無視）:', e)
           }
 
-          // GM保存後: organization_scenarios に available_gms / experienced_staff / gm_assignments を同期
-          if (formData.scenario_master_id) {
-            try {
-              const syncOrgId = await getCurrentOrganizationId()
-              if (syncOrgId) {
-                // scenario_master_id で直接検索（旧IDマッピング不要）
-                const { data: allAssignments } = await supabase
-                  .from('staff_scenario_assignments')
-                  .select('staff_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id, name)')
-                  .eq('organization_id', syncOrgId)
-                  .eq('scenario_id', targetScenarioId)
-                
-                const gmNames: string[] = []
-                const expNames: string[] = []
-                const gmAssignmentsJson: any[] = []
-                
-                if (allAssignments) {
-                  allAssignments.forEach((a: any) => {
-                    const name = a.staff?.name
-                    if (!name) return
-                    
-                    if (a.can_main_gm || a.can_sub_gm) {
-                      if (!gmNames.includes(name)) gmNames.push(name)
-                      gmAssignmentsJson.push({ staff_name: name, staff_id: a.staff_id, can_main_gm: a.can_main_gm, can_sub_gm: a.can_sub_gm })
-                    }
-                    if (a.is_experienced) {
-                      if (!expNames.includes(name)) expNames.push(name)
-                    }
-                  })
-                }
-                
-                // 現在ダイアログで選択中のGMも追加（まだDBに反映されていない可能性があるため）
-                selectedStaffIds.forEach(sid => {
-                  const s = staff.find(st => st.id === sid)
-                  if (s && !gmNames.includes(s.name)) {
-                    gmNames.push(s.name)
-                    const assignment = currentAssignments.find(a => a.staff_id === sid)
-                    gmAssignmentsJson.push({ staff_name: s.name, staff_id: sid, can_main_gm: assignment?.can_main_gm ?? true, can_sub_gm: assignment?.can_sub_gm ?? true })
-                  }
-                })
-                
-                const { error: syncError2 } = await supabase
-                  .from('organization_scenarios')
-                  .update({
-                    available_gms: gmNames,
-                    experienced_staff: expNames,
-                    gm_assignments: gmAssignmentsJson,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('scenario_master_id', formData.scenario_master_id)
-                  .eq('organization_id', syncOrgId)
-                
-                if (syncError2) {
-                  logger.error('GM同期エラー（無視）:', syncError2)
-                } else {
-                  logger.log('organization_scenariosにGMデータを同期:', { gms: gmNames.length, exp: expNames.length })
-                }
-              }
-            } catch (e) {
-              logger.error('GM同期処理エラー:', e)
-            }
-          }
         } catch (syncError) {
           logger.error('Error updating GM assignments:', syncError)
           showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')

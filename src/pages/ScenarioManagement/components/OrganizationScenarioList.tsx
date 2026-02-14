@@ -262,12 +262,10 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         
         return {
           ...scenario,
-          // 担当GM: staff_scenario_assignmentsから取得したものがあれば優先、なければ既存の値
-          available_gms: assignedGms && assignedGms.length > 0
-            ? assignedGms
-            : (scenario.available_gms || scenario.gm_assignments?.map((gm: any) => gm.staff_name || gm.name || '?') || []),
-          // 体験済み: staff_scenario_assignmentsから取得したものがあれば優先、なければ既存の値
-          experienced_staff: assignedExperienced || scenario.experienced_staff || [],
+          // 担当GM: staff_scenario_assignmentsから取得
+          available_gms: assignedGms || [],
+          // 体験済み: staff_scenario_assignmentsから取得
+          experienced_staff: assignedExperienced || [],
           // 対応店舗: まず組織設定（organization_scenarios）を優先し、無ければscenariosを使用
           available_stores: (scenario.available_stores && scenario.available_stores.length > 0)
             ? scenario.available_stores
@@ -681,20 +679,8 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       headerClassName: ORG_HEADER_CLASS,
       cellClassName: ORG_CELL_CLASS + ' overflow-hidden',
       render: (scenario) => {
-        // available_gms (TEXT[]) を優先。staff_scenario_assignments からマージ済みの正確な値
-        // gm_assignments (JSONB) はフォールバック
-        const availableGms = scenario.available_gms || []
-        const gmAssignments = scenario.gm_assignments || []
-        
+        const gms: string[] = scenario.available_gms || []
         const maxDisplay = 4
-        let gms: string[] = []
-        
-        // available_gms を優先（staff_scenario_assignments からマージした最新データ）
-        if (availableGms.length > 0) {
-          gms = availableGms
-        } else if (gmAssignments.length > 0) {
-          gms = gmAssignments.map((gm: any) => gm.staff_name || gm.name || '?')
-        }
         
         if (gms.length === 0) {
           return <span className="text-[10px] text-muted-foreground">-</span>
@@ -1061,7 +1047,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           <div className="md:hidden space-y-2">
             {filteredScenarios.map((scenario) => {
               const statusConfig = STATUS_LABELS[scenario.org_status]
-              const gms = scenario.gm_assignments || []
+              const gms = scenario.available_gms || []
               return (
                 <div
                   key={scenario.id}

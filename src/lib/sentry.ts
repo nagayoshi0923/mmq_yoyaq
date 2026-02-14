@@ -35,12 +35,20 @@ export function initSentry(): void {
       // ブラウザ拡張機能由来のエラー
       'ResizeObserver loop',
       'Non-Error promise rejection',
-      // ネットワーク系（一時的）
-      'Failed to fetch',
+      // ネットワーク系（一時的） — チャンク読み込みエラーは除外して検知可能にする
       'Load failed',
       'NetworkError',
     ],
     beforeSend(event) {
+      // チャンク読み込みエラー以外の "Failed to fetch" はノイズなので除外
+      const errorMessage = event.exception?.values?.[0]?.value || ''
+      if (
+        errorMessage === 'Failed to fetch' &&
+        !errorMessage.includes('dynamically imported module')
+      ) {
+        return null
+      }
+
       // エラーメッセージから PII を除去
       if (event.exception?.values) {
         for (const exception of event.exception.values) {

@@ -227,7 +227,7 @@ export const CalendarView = memo(function CalendarView({
                             className="w-full text-xs py-1 px-1 border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed flex items-center justify-between"
                           >
                             <span>{event.start_time?.slice(0, 5)}</span>
-                            <span>予約済</span>
+                            <span>貸切満席</span>
                           </div>
                         )
                       }

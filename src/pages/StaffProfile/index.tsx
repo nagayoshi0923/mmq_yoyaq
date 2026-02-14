@@ -257,52 +257,8 @@ export function StaffProfile() {
 
       if (staffUpdateError) throw staffUpdateError
 
-      // organization_scenarios の available_gms / experienced_staff を同期
-      // 変更されたシナリオIDを特定して、それぞれの organization_scenarios を再構築
-      try {
-        const affectedScenarioIds = [...new Set(assignments.map(a => a.scenario_id))]
-        
-        for (const scenarioId of affectedScenarioIds) {
-          // このシナリオの全アサインメントを取得
-          const { data: scenarioAssignments } = await supabase
-            .from('staff_scenario_assignments')
-            .select('staff_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(name)')
-            .eq('scenario_id', scenarioId)
-            .eq('organization_id', organizationId)
-
-          if (scenarioAssignments) {
-            const gmNames: string[] = []
-            const expNames: string[] = []
-            const gmAssignmentsJson: any[] = []
-
-            scenarioAssignments.forEach((a: any) => {
-              const name = a.staff?.name
-              if (!name) return
-              if (a.can_main_gm || a.can_sub_gm) {
-                if (!gmNames.includes(name)) gmNames.push(name)
-                gmAssignmentsJson.push({ staff_name: name, staff_id: a.staff_id, can_main_gm: a.can_main_gm, can_sub_gm: a.can_sub_gm })
-              }
-              if (a.is_experienced && !a.can_main_gm && !a.can_sub_gm) {
-                if (!expNames.includes(name)) expNames.push(name)
-              }
-            })
-
-            // scenario_id が scenario_master_id として使われている organization_scenarios を更新
-            await supabase
-              .from('organization_scenarios')
-              .update({
-                available_gms: gmNames,
-                experienced_staff: expNames,
-                gm_assignments: gmAssignmentsJson,
-                updated_at: new Date().toISOString()
-              })
-              .eq('scenario_master_id', scenarioId)
-              .eq('organization_id', organizationId)
-          }
-        }
-      } catch (syncError) {
-        logger.error('organization_scenarios 同期エラー（無視）:', syncError)
-      }
+      // NOTE: organization_scenarios への available_gms / experienced_staff / gm_assignments 同期は廃止
+      // staff_scenario_assignments が唯一のデータソース
 
       // スタッフ管理ページのキャッシュを無効化（即座に反映されるようにする）
       queryClient.invalidateQueries({ queryKey: staffKeys.all })

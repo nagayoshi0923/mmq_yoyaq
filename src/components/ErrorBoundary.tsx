@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { logger } from '@/utils/logger'
 import { captureException } from '@/lib/sentry'
+import { isChunkLoadError } from '@/utils/lazyWithRetry'
 
 interface Props {
   children: ReactNode
@@ -11,6 +12,7 @@ interface State {
   hasError: boolean
   error: Error | null
   errorInfo: ErrorInfo | null
+  isChunkError: boolean
 }
 
 /**
@@ -18,6 +20,10 @@ interface State {
  * 
  * Reactコンポーネントツリー内で発生したエラーをキャッチし、
  * アプリケーション全体がクラッシュするのを防ぎます。
+ * 
+ * チャンク読み込みエラー（デプロイ後の古いチャンク参照）の場合は
+ * 「更新があります」UIを表示してユーザーに選択権を渡します。
+ * （lazyWithRetry でリトライ＋モジュールグラフ更新を試みた後の最終手段）
  */
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -25,16 +31,22 @@ export class ErrorBoundary extends Component<Props, State> {
     this.state = {
       hasError: false,
       error: null,
-      errorInfo: null
+      errorInfo: null,
+      isChunkError: false,
     }
   }
 
   static getDerivedStateFromError(error: Error): Partial<State> {
-    return { hasError: true, error }
+    const chunkError = isChunkLoadError(error)
+    return { hasError: true, error, isChunkError: chunkError }
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({ errorInfo })
+    
+    if (isChunkLoadError(error)) {
+      logger.error('チャンク読み込みエラー（リトライ後も解決できず）:', error.message)
+    }
     
     // エラーをログに記録
     logger.error('ErrorBoundary caught an error:', error)
@@ -43,6 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
     // Sentry にエラーを送信（DSN設定済みの場合のみ）
     captureException(error, {
       componentStack: errorInfo?.componentStack,
+      isChunkError: isChunkLoadError(error),
     })
   }
 
@@ -59,6 +72,40 @@ export class ErrorBoundary extends Component<Props, State> {
       // カスタムフォールバックが提供されている場合はそれを表示
       if (this.props.fallback) {
         return this.props.fallback
+      }
+
+      // チャンクエラー専用の画面（リトライ＋モジュールグラフ更新でも解決できなかった場合）
+      if (this.state.isChunkError) {
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-background px-4">
+            <div className="max-w-md w-full text-center space-y-6">
+              <div className="space-y-2">
+                <div className="text-6xl">✨</div>
+                <h1 className="text-2xl font-bold text-foreground">
+                  新しいバージョンがあります
+                </h1>
+                <p className="text-muted-foreground">
+                  アプリが更新されました。お手数ですが、ページを読み込み直してください。
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={this.handleReload}
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium h-10 px-6 py-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  最新版を読み込む
+                </button>
+                <button
+                  onClick={this.handleGoHome}
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium h-10 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  トップページへ
+                </button>
+              </div>
+            </div>
+          </div>
+        )
       }
 
       // デフォルトのエラー画面

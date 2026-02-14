@@ -1,4 +1,4 @@
-import React, { useState, useCallback, lazy, Suspense, useEffect } from 'react'
+import React, { useState, useCallback, Suspense, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -7,6 +7,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
+import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { 
   Store, 
   Calendar, 
@@ -18,51 +19,51 @@ import {
   UserCog
 } from 'lucide-react'
 
-// コード分割：各ページを動的インポート
-const StoreManagement = lazy(() => import('./StoreManagement').then(m => ({ default: m.StoreManagement })))
-const ScenarioManagement = lazy(() => import('./ScenarioManagement').then(m => ({ default: m.ScenarioManagement })))
-const StaffManagement = lazy(() => import('./StaffManagement').then(m => ({ default: m.StaffManagement })))
-const ScheduleManager = lazy(() => import('./ScheduleManager/index').then(m => ({ default: m.ScheduleManager })))
-const SalesManagement = lazy(() => import('./SalesManagement'))
-const ShiftSubmission = lazy(() => import('./ShiftSubmission/index').then(m => ({ default: m.ShiftSubmission })))
-const ReservationManagement = lazy(() => import('./ReservationManagement').then(m => ({ default: m.ReservationManagement })))
-const PublicBookingTop = lazy(() => import('./PublicBookingTop').then(m => ({ default: m.PublicBookingTop })))
-const ScenarioDetailPage = lazy(() => import('./ScenarioDetailPage').then(m => ({ default: m.ScenarioDetailPage })))
-const ScenarioDetailGlobal = lazy(() => import('./ScenarioDetailGlobal').then(m => ({ default: m.ScenarioDetailGlobal })))
-const ScenarioCatalog = lazy(() => import('./ScenarioCatalog').then(m => ({ default: m.ScenarioCatalog })))
-const GMAvailabilityCheck = lazy(() => import('./GMAvailabilityCheck').then(m => ({ default: m.GMAvailabilityCheck })))
-const PrivateBookingScenarioSelect = lazy(() => import('./PrivateBookingScenarioSelect').then(m => ({ default: m.PrivateBookingScenarioSelect })))
-const PrivateBookingRequestPage = lazy(() => import('./PrivateBookingRequestPage').then(m => ({ default: m.PrivateBookingRequestPage })))
-const PrivateBookingManagement = lazy(() => import('./PrivateBookingManagement').then(m => ({ default: m.PrivateBookingManagement })))
-const AccountManagement = lazy(() => import('./AccountManagement').then(m => ({ default: m.AccountManagement })))
-const CustomerManagement = lazy(() => import('./CustomerManagement'))
-const UserManagement = lazy(() => import('./UserManagement').then(m => ({ default: m.UserManagement })))
-const MyPage = lazy(() => import('./MyPage'))
-const ReservationDetailPage = lazy(() => import('./MyPage/pages/ReservationDetailPage').then(m => ({ default: m.ReservationDetailPage })))
-const SettingsPage = lazy(() => import('./Settings'))
-const AddDemoParticipants = lazy(() => import('./AddDemoParticipants').then(m => ({ default: m.AddDemoParticipants })))
-const ScenarioMatcher = lazy(() => import('./ScenarioMatcher').then(m => ({ default: m.ScenarioMatcher })))
-const ManualPage = lazy(() => import('./Manual/index').then(m => ({ default: m.ManualPage })))
-const DashboardHome = lazy(() => import('./DashboardHome').then(m => ({ default: m.DashboardHome })))
-const StaffProfile = lazy(() => import('./StaffProfile').then(m => ({ default: m.StaffProfile })))
-const OrganizationManagement = lazy(() => import('./OrganizationManagement'))
-const ExternalReports = lazy(() => import('./ExternalReports'))
-const LicenseReportManagement = lazy(() => import('./LicenseReportManagement'))
-const LicenseManagement = lazy(() => import('./LicenseManagement'))
-const AcceptInvitation = lazy(() => import('./AcceptInvitation'))
-const ScenarioMasterAdmin = lazy(() => import('./ScenarioMasterAdmin').then(m => ({ default: m.ScenarioMasterAdmin })))
-const ScenarioMasterEdit = lazy(() => import('./ScenarioMasterAdmin/ScenarioMasterEdit').then(m => ({ default: m.ScenarioMasterEdit })))
-const OrganizationSettings = lazy(() => import('./OrganizationSettings'))
-const OrganizationRegister = lazy(() => import('./OrganizationRegister'))
-const LandingPage = lazy(() => import('./LandingPage'))
-const AuthorDashboard = lazy(() => import('./AuthorDashboard'))
-const AuthorLogin = lazy(() => import('./AuthorLogin'))
-const ExternalReportForm = lazy(() => import('./ExternalReportForm'))
-const PlatformScenarioSearch = lazy(() => import('./PlatformScenarioSearch').then(m => ({ default: m.PlatformScenarioSearch })))
-const PlatformTop = lazy(() => import('./PlatformTop').then(m => ({ default: m.PlatformTop })))
-const DesignPreview = lazy(() => import('./dev/DesignPreview').then(m => ({ default: m.DesignPreview })))
-const ComponentGallery = lazy(() => import('./dev/ComponentGallery').then(m => ({ default: m.ComponentGallery })))
-const NotFoundPage = lazy(() => import('./NotFoundPage').then(m => ({ default: m.NotFoundPage })))
+// コード分割：各ページを動的インポート（リトライ付き）
+const StoreManagement = lazyWithRetry(() => import('./StoreManagement').then(m => ({ default: m.StoreManagement })))
+const ScenarioManagement = lazyWithRetry(() => import('./ScenarioManagement').then(m => ({ default: m.ScenarioManagement })))
+const StaffManagement = lazyWithRetry(() => import('./StaffManagement').then(m => ({ default: m.StaffManagement })))
+const ScheduleManager = lazyWithRetry(() => import('./ScheduleManager/index').then(m => ({ default: m.ScheduleManager })))
+const SalesManagement = lazyWithRetry(() => import('./SalesManagement'))
+const ShiftSubmission = lazyWithRetry(() => import('./ShiftSubmission/index').then(m => ({ default: m.ShiftSubmission })))
+const ReservationManagement = lazyWithRetry(() => import('./ReservationManagement').then(m => ({ default: m.ReservationManagement })))
+const PublicBookingTop = lazyWithRetry(() => import('./PublicBookingTop').then(m => ({ default: m.PublicBookingTop })))
+const ScenarioDetailPage = lazyWithRetry(() => import('./ScenarioDetailPage').then(m => ({ default: m.ScenarioDetailPage })))
+const ScenarioDetailGlobal = lazyWithRetry(() => import('./ScenarioDetailGlobal').then(m => ({ default: m.ScenarioDetailGlobal })))
+const ScenarioCatalog = lazyWithRetry(() => import('./ScenarioCatalog').then(m => ({ default: m.ScenarioCatalog })))
+const GMAvailabilityCheck = lazyWithRetry(() => import('./GMAvailabilityCheck').then(m => ({ default: m.GMAvailabilityCheck })))
+const PrivateBookingScenarioSelect = lazyWithRetry(() => import('./PrivateBookingScenarioSelect').then(m => ({ default: m.PrivateBookingScenarioSelect })))
+const PrivateBookingRequestPage = lazyWithRetry(() => import('./PrivateBookingRequestPage').then(m => ({ default: m.PrivateBookingRequestPage })))
+const PrivateBookingManagement = lazyWithRetry(() => import('./PrivateBookingManagement').then(m => ({ default: m.PrivateBookingManagement })))
+const AccountManagement = lazyWithRetry(() => import('./AccountManagement').then(m => ({ default: m.AccountManagement })))
+const CustomerManagement = lazyWithRetry(() => import('./CustomerManagement'))
+const UserManagement = lazyWithRetry(() => import('./UserManagement').then(m => ({ default: m.UserManagement })))
+const MyPage = lazyWithRetry(() => import('./MyPage'))
+const ReservationDetailPage = lazyWithRetry(() => import('./MyPage/pages/ReservationDetailPage').then(m => ({ default: m.ReservationDetailPage })))
+const SettingsPage = lazyWithRetry(() => import('./Settings'))
+const AddDemoParticipants = lazyWithRetry(() => import('./AddDemoParticipants').then(m => ({ default: m.AddDemoParticipants })))
+const ScenarioMatcher = lazyWithRetry(() => import('./ScenarioMatcher').then(m => ({ default: m.ScenarioMatcher })))
+const ManualPage = lazyWithRetry(() => import('./Manual/index').then(m => ({ default: m.ManualPage })))
+const DashboardHome = lazyWithRetry(() => import('./DashboardHome').then(m => ({ default: m.DashboardHome })))
+const StaffProfile = lazyWithRetry(() => import('./StaffProfile').then(m => ({ default: m.StaffProfile })))
+const OrganizationManagement = lazyWithRetry(() => import('./OrganizationManagement'))
+const ExternalReports = lazyWithRetry(() => import('./ExternalReports'))
+const LicenseReportManagement = lazyWithRetry(() => import('./LicenseReportManagement'))
+const LicenseManagement = lazyWithRetry(() => import('./LicenseManagement'))
+const AcceptInvitation = lazyWithRetry(() => import('./AcceptInvitation'))
+const ScenarioMasterAdmin = lazyWithRetry(() => import('./ScenarioMasterAdmin').then(m => ({ default: m.ScenarioMasterAdmin })))
+const ScenarioMasterEdit = lazyWithRetry(() => import('./ScenarioMasterAdmin/ScenarioMasterEdit').then(m => ({ default: m.ScenarioMasterEdit })))
+const OrganizationSettings = lazyWithRetry(() => import('./OrganizationSettings'))
+const OrganizationRegister = lazyWithRetry(() => import('./OrganizationRegister'))
+const LandingPage = lazyWithRetry(() => import('./LandingPage'))
+const AuthorDashboard = lazyWithRetry(() => import('./AuthorDashboard'))
+const AuthorLogin = lazyWithRetry(() => import('./AuthorLogin'))
+const ExternalReportForm = lazyWithRetry(() => import('./ExternalReportForm'))
+const PlatformScenarioSearch = lazyWithRetry(() => import('./PlatformScenarioSearch').then(m => ({ default: m.PlatformScenarioSearch })))
+const PlatformTop = lazyWithRetry(() => import('./PlatformTop').then(m => ({ default: m.PlatformTop })))
+const DesignPreview = lazyWithRetry(() => import('./dev/DesignPreview').then(m => ({ default: m.DesignPreview })))
+const ComponentGallery = lazyWithRetry(() => import('./dev/ComponentGallery').then(m => ({ default: m.ComponentGallery })))
+const NotFoundPage = lazyWithRetry(() => import('./NotFoundPage').then(m => ({ default: m.NotFoundPage })))
 
 function ScenarioEditRedirect({ organizationSlug, scenarioId }: { organizationSlug: string; scenarioId: string | null }) {
   const navigate = useNavigate()
@@ -77,18 +78,18 @@ function ScenarioEditRedirect({ organizationSlug, scenarioId }: { organizationSl
 }
 
 // 静的ページ（公開ページ）
-const TermsPage = lazy(() => import('./static').then(m => ({ default: m.TermsPage })))
-const PrivacyPage = lazy(() => import('./static').then(m => ({ default: m.PrivacyPage })))
-const LegalPage = lazy(() => import('./static').then(m => ({ default: m.LegalPage })))
-const ContactPage = lazy(() => import('./static').then(m => ({ default: m.ContactPage })))
-const OrganizationContactPage = lazy(() => import('./org/ContactPage').then(m => ({ default: m.OrganizationContactPage })))
-const FAQPage = lazy(() => import('./static').then(m => ({ default: m.FAQPage })))
-const GuidePage = lazy(() => import('./static').then(m => ({ default: m.GuidePage })))
-const CancelPolicyPage = lazy(() => import('./static').then(m => ({ default: m.CancelPolicyPage })))
-const StoreListPage = lazy(() => import('./static').then(m => ({ default: m.StoreListPage })))
-const AboutPage = lazy(() => import('./static').then(m => ({ default: m.AboutPage })))
-const PricingPage = lazy(() => import('./static').then(m => ({ default: m.PricingPage })))
-const GettingStartedPage = lazy(() => import('./static').then(m => ({ default: m.GettingStartedPage })))
+const TermsPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.TermsPage })))
+const PrivacyPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.PrivacyPage })))
+const LegalPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.LegalPage })))
+const ContactPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.ContactPage })))
+const OrganizationContactPage = lazyWithRetry(() => import('./org/ContactPage').then(m => ({ default: m.OrganizationContactPage })))
+const FAQPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.FAQPage })))
+const GuidePage = lazyWithRetry(() => import('./static').then(m => ({ default: m.GuidePage })))
+const CancelPolicyPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.CancelPolicyPage })))
+const StoreListPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.StoreListPage })))
+const AboutPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.AboutPage })))
+const PricingPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.PricingPage })))
+const GettingStartedPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.GettingStartedPage })))
 
 // 管理ページのパス一覧
 const ADMIN_PATHS = [

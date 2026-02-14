@@ -1,25 +1,26 @@
-import React, { lazy, Suspense } from 'react'
+import React, { Suspense } from 'react'
 import { BrowserRouter, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { supabase } from '@/lib/supabase'
+import { lazyWithRetry } from '@/utils/lazyWithRetry'
 
-// コード分割：初期ロードを軽くする
-const LoginForm = lazy(() =>
+// コード分割：初期ロードを軽くする（リトライ付き）
+const LoginForm = lazyWithRetry(() =>
   import('@/components/auth/LoginForm').then((m) => ({ default: m.LoginForm }))
 )
-const AdminDashboard = lazy(() =>
+const AdminDashboard = lazyWithRetry(() =>
   import('@/pages/AdminDashboard').then((m) => ({ default: m.AdminDashboard }))
 )
-const ResetPassword = lazy(() =>
+const ResetPassword = lazyWithRetry(() =>
   import('@/pages/ResetPassword').then((m) => ({ default: m.ResetPassword }))
 )
-const SetPassword = lazy(() =>
+const SetPassword = lazyWithRetry(() =>
   import('@/pages/SetPassword').then((m) => ({ default: m.SetPassword }))
 )
-const CompleteProfile = lazy(() =>
+const CompleteProfile = lazyWithRetry(() =>
   import('@/pages/CompleteProfile').then((m) => ({ default: m.CompleteProfile }))
 )
 
