@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, MapPin } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { BookingConfirmation } from '../BookingConfirmation/index'
 import { PrivateBookingRequest } from '../PrivateBookingRequest/index'
@@ -508,15 +508,60 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
                 {activeTab === 'private' && (
                   <div className="space-y-4">
-                    {/* 店舗選択（チェックボックス式） */}
-                    <StoreSelector
-                      stores={availableStores}
-                      selectedStoreIds={selectedStoreIds}
-                      onStoreIdsChange={setSelectedStoreIds}
-                      label="店舗を選択"
-                      placeholder="全店舗希望"
-                      emptyText="未選択の場合は全店舗が対象です"
-                    />
+                    {/* 店舗選択（カード+チェックボックス式） */}
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-1.5">
+                        希望店舗を選択
+                        <span className="text-xs font-normal ml-2 text-gray-500">（複数選択可）</span>
+                      </h3>
+                      <div className="space-y-2">
+                        {availableStores.map((store: any) => {
+                          const isSelected = selectedStoreIds.includes(store.id)
+                          return (
+                            <label
+                              key={store.id}
+                              className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                                isSelected
+                                  ? 'border-purple-300 bg-purple-50 cursor-pointer'
+                                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  setSelectedStoreIds(
+                                    isSelected
+                                      ? selectedStoreIds.filter((id: string) => id !== store.id)
+                                      : [...selectedStoreIds, store.id]
+                                  )
+                                }}
+                                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
+                                  <span className="text-sm font-medium">{store.name}</span>
+                                </div>
+                                {store.address && (
+                                  <p className="text-xs mt-0.5 ml-5 text-muted-foreground">{store.address}</p>
+                                )}
+                              </div>
+                            </label>
+                          )
+                        })}
+                      </div>
+                      {selectedStoreIds.length === 0 && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          ※ 未選択の場合は全店舗が対象です
+                        </p>
+                      )}
+                      {selectedStoreIds.length > 1 && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          ※ 最終的な開催店舗は、候補日時と合わせて店舗側が決定します
+                        </p>
+                      )}
+                    </div>
                     <PrivateBookingPanel
                       participationFee={scenario.participation_fee}
                       maxParticipants={scenario.player_count_max}
