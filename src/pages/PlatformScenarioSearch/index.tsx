@@ -94,7 +94,7 @@ export function PlatformScenarioSearch() {
           logger.warn('⚠️ 組織シナリオフィルタをスキップ:', keysError ? 'RPCエラー' : 'データなし')
         }
         
-        // 全組織のシナリオを取得
+        // 全組織のシナリオを取得（available + unavailable: coming_soonも含む）
         const { data, error } = await supabase
           .from('scenarios')
           .select(`
@@ -104,16 +104,19 @@ export function PlatformScenarioSearch() {
             organization_id, status, scenario_master_id,
             organizations:organization_id (slug, name)
           `)
-          .eq('status', 'available')
+          .in('status', ['available', 'unavailable'])
           .order('title')
         
         if (error) throw error
         
-        // 🔐 フィルタ可能な場合のみ組織の公開ステータスで絞り込み
+        // 🔐 組織の公開ステータスで絞り込み（available + coming_soon のみ表示）
         const formattedScenarios = (data || [])
           .filter(s => {
-            if (!shouldFilterByOrgStatus) return true
-            if (!s.scenario_master_id) return false
+            if (!shouldFilterByOrgStatus) {
+              // RPC失敗時のフォールバック: status='available' のみ
+              return s.status === 'available'
+            }
+            if (!s.scenario_master_id) return s.status === 'available'
             return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
           })
           .map(s => {

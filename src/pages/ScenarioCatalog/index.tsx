@@ -93,13 +93,15 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
         // RPCエラーまたはデータ0件の場合はフィルタをスキップ
         const shouldFilter = !availableKeysResult.error && keysData.length > 0
         
-        // status='available'かつ組織で公開されているシナリオのみ表示
+        // 組織で公開されているシナリオのみ表示（available + coming_soon）
         const availableScenarios = data.filter((s: any) => {
-          if (s.status !== 'available') return false
-          if (!shouldFilter) return true
-          // scenario_master_idがない場合はレガシーデータなのでそのまま
-          if (!s.scenario_master_id) return true
-          // 公開中の組織シナリオに含まれているもののみ表示
+          if (!shouldFilter) {
+            // RPC失敗時のフォールバック: status='available' のみ
+            return s.status === 'available'
+          }
+          // scenario_master_idがない場合はstatus='available'のみ通す
+          if (!s.scenario_master_id) return s.status === 'available'
+          // 公開中・近日公開の組織シナリオに含まれているもののみ表示
           return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
         })
         setScenarios(availableScenarios as unknown as ScenarioData[])

@@ -123,10 +123,11 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       const availableOrgQuery = supabase.rpc('get_public_available_scenario_keys')
       
       // シナリオ取得（organization_idでフィルタリング）
+      // available + unavailable（coming_soonも含む）を取得し、RPC結果でフィルタ
       const scenarioQuery = supabase
         .from('scenarios')
         .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id')
-        .eq('status', 'available')
+        .in('status', ['available', 'unavailable'])
         .neq('scenario_type', 'gm_test')
       
       // 組織が指定されている場合、その組織のシナリオ OR 共有シナリオを取得
@@ -178,11 +179,16 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         availableOrgQuery
       ])
       
-      // 🔐 公開中の組織シナリオのキーセットを作成
+      // 🔐 公開中の組織シナリオのキーセットを作成（org_status付き）
       const availableOrgKeysData = availableOrgResult.data || []
       const availableOrgKeys = new Set(
         availableOrgKeysData.map((os: any) => `${os.organization_id}_${os.scenario_master_id}`)
       )
+      // org_statusのMapを作成（available / coming_soon を区別するため）
+      const orgStatusMap = new Map<string, string>()
+      availableOrgKeysData.forEach((os: any) => {
+        orgStatusMap.set(`${os.organization_id}_${os.scenario_master_id}`, os.org_status || 'available')
+      })
       
       // RPCエラーまたはデータ0件の場合はフィルタをスキップ（全表示）
       const shouldFilterByOrgStatus = !availableOrgResult.error && availableOrgKeysData.length > 0
@@ -192,12 +198,16 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         logger.warn('⚠️ 組織シナリオフィルタをスキップ:', availableOrgResult.error ? 'RPCエラー' : 'データなし')
       }
       
-      // 🔐 組織で公開されているシナリオのみ表示（フィルタ可能な場合のみ）
+      // 🔐 組織で公開されているシナリオのみ表示
+      // available + coming_soon を通す、unavailable（中止）は除外
       const scenariosData = (scenariosResult.data || []).filter((s: any) => {
-        if (!shouldFilterByOrgStatus) return true
-        // scenario_master_idがない場合はそのまま（レガシーデータ）
-        if (!s.scenario_master_id) return true
-        // 公開中の組織シナリオに含まれているもののみ表示
+        if (!shouldFilterByOrgStatus) {
+          // RPC失敗時のフォールバック: scenarios.status = 'available' のみ
+          return s.status === 'available'
+        }
+        // scenario_master_idがない場合はstatus='available'のみ通す（レガシーデータ）
+        if (!s.scenario_master_id) return s.status === 'available'
+        // 公開中・近日公開の組織シナリオに含まれているもののみ表示
         return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
       })
       const storesData = storesResult?.data || []
@@ -277,11 +287,14 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         return isNotCancelled && isOpenAndEnabled
       })
       
-      // GMテスト等、貸切申込を受け付けない時間帯をフィルタリング
+      // GMテスト・貸切公演等、貸切申込を受け付けない時間帯をフィルタリング
       const blockedSlotsData = allEventsData.filter((event: any) => {
         const isNotCancelled = !event.is_cancelled
-        // GMテスト、テストプレイは貸切申込を受け付けない
-        const isBlocked = event.category === 'gmtest' || event.category === 'testplay'
+        // GMテスト、テストプレイ、既存の貸切公演は貸切申込を受け付けない
+        const isBlocked = event.category === 'gmtest' 
+          || event.category === 'testplay'
+          || event.category === 'private'
+          || event.is_private_booking === true
         return isNotCancelled && isBlocked
       })
       
@@ -356,7 +369,9 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       const scenarioMap = new Map<string, ScenarioCard>()
       
       scenariosData.forEach((scenario: any) => {
-        // getPublic()で既にstatus='available'のみ取得されているため、チェック不要
+        // org_statusを判定（coming_soon / available）
+        const scenarioKey = `${scenario.organization_id}_${scenario.scenario_master_id}`
+        const currentOrgStatus = orgStatusMap.get(scenarioKey) || 'available'
         
         // 最適化: Mapから直接取得（O(1)）
         const scenarioEvents = [
@@ -374,6 +389,27 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
           (new Date().getTime() - new Date(scenario.release_date).getTime()) / (1000 * 60 * 60 * 24) <= 30 : 
           false
         
+        // coming_soon（近日公開）のシナリオは常に「貸切受付中」として表示
+        // 通常の公演イベントは表示しない
+        if (currentOrgStatus === 'coming_soon') {
+          scenarioMap.set(scenario.id, {
+            scenario_id: scenario.id,
+            scenario_slug: scenario.slug || undefined,
+            scenario_title: scenario.title,
+            key_visual_url: scenario.key_visual_url,
+            author: scenario.author,
+            duration: scenario.duration,
+            player_count_min: scenario.player_count_min,
+            player_count_max: scenario.player_count_max,
+            genre: scenario.genre || [],
+            participation_fee: scenario.participation_fee || 3000,
+            status: 'private_booking', // 「貸切受付中」
+            is_new: isNew
+          })
+          return // 次のシナリオへ
+        }
+        
+        // 以下、available（公開）のシナリオの処理
         // 公演がある場合
         if (uniqueEvents.length > 0) {
           // 今日以降の公演のみをフィルタリング（満席も含む、過去の公演は除外、貸切・GMテストは除外）
