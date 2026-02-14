@@ -87,7 +87,27 @@ export const ListView = memo(function ListView({
     return blockedEventsByDateStoreSlot.get(key) || []
   }, [blockedEventsByDateStoreSlot, listViewMonth])
   
-  const renderEventCell = (events: any[], store: any, timeSlot: 'morning' | 'afternoon' | 'evening', date: number) => {
+  // 前公演のend_time + 1時間から開始時間を計算
+  const defaultStartTimes: Record<string, string> = { morning: '09:00', afternoon: '14:00', evening: '19:00' }
+  const slotEndTimes: Record<string, string> = { morning: '13:00', afternoon: '18:00', evening: '23:00' }
+  
+  const getSuggestedStartTime = (timeSlot: 'morning' | 'afternoon' | 'evening', precedingEvents: any[]) => {
+    if (precedingEvents.length === 0) return defaultStartTimes[timeSlot]
+    const latestEnd = precedingEvents.reduce((latest: string, e: any) => 
+      (e.end_time || '') > latest ? (e.end_time || '') : latest, '')
+    if (!latestEnd) return defaultStartTimes[timeSlot]
+    // +1時間
+    const [h, m] = latestEnd.split(':').map(Number)
+    const suggested = `${String(h + 1).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`
+    return suggested > defaultStartTimes[timeSlot] ? suggested : defaultStartTimes[timeSlot]
+  }
+  
+  const isSlotAvailable = (timeSlot: 'morning' | 'afternoon' | 'evening', precedingEvents: any[]) => {
+    const startTime = getSuggestedStartTime(timeSlot, precedingEvents)
+    return startTime < slotEndTimes[timeSlot]
+  }
+  
+  const renderEventCell = (events: any[], store: any, timeSlot: 'morning' | 'afternoon' | 'evening', date: number, precedingEvents: any[] = []) => {
     // GMテスト等のブロックイベントを取得してマージ
     const blockedEvents = getBlockedEvents(date, store.id, timeSlot)
     const allEvents = [...events, ...blockedEvents].sort((a, b) => {
@@ -110,6 +130,26 @@ export const ListView = memo(function ListView({
       if (!canApplyPrivateBooking) {
         return <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">-</div>
       }
+      // 前公演の終了時間 + 1時間後が開始時間
+      // 前のスロットのイベント + ブロックイベントを考慮
+      const allPrecedingEvents = [...precedingEvents]
+      // 前スロットのブロックイベントも含める
+      const precedingSlotNames: Record<string, string[]> = {
+        morning: [],
+        afternoon: ['morning'],
+        evening: ['morning', 'afternoon']
+      }
+      precedingSlotNames[timeSlot].forEach(pSlot => {
+        const pBlocked = getBlockedEvents(date, store.id, pSlot as 'morning' | 'afternoon' | 'evening')
+        allPrecedingEvents.push(...pBlocked)
+      })
+      
+      // スロットが利用可能かチェック
+      if (!isSlotAvailable(timeSlot, allPrecedingEvents)) {
+        return <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">-</div>
+      }
+      
+      const suggestedTime = getSuggestedStartTime(timeSlot, allPrecedingEvents)
       return (
         <div className="p-1 sm:p-2">
           <button
@@ -117,10 +157,10 @@ export const ListView = memo(function ListView({
             onClick={() => {
               const basePath = organizationSlug ? `/${organizationSlug}` : ''
               const storeParam = selectedStoreIds.length > 0 ? selectedStoreIds.join(',') : store.id
-              navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${storeParam}&slot=${timeSlot}`)
+              navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${storeParam}&slot=${timeSlot}&time=${suggestedTime}`)
             }}
           >
-            貸切申込
+            {suggestedTime}〜 貸切申込
           </button>
         </div>
       )
@@ -338,21 +378,21 @@ export const ListView = memo(function ListView({
                 {/* 朝公演セル */}
                 <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
-                    {renderEventCell(morningEvents, store, 'morning', date)}
+                    {renderEventCell(morningEvents, store, 'morning', date, [])}
                   </div>
                 </TableCell>
 
                 {/* 昼公演セル */}
                 <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
-                    {renderEventCell(afternoonEvents, store, 'afternoon', date)}
+                    {renderEventCell(afternoonEvents, store, 'afternoon', date, morningEvents)}
                   </div>
                 </TableCell>
 
                 {/* 夜公演セル */}
                 <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
-                    {renderEventCell(eveningEvents, store, 'evening', date)}
+                    {renderEventCell(eveningEvents, store, 'evening', date, [...morningEvents, ...afternoonEvents])}
                   </div>
                 </TableCell>
               </TableRow>

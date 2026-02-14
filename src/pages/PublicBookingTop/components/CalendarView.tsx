@@ -194,6 +194,37 @@ export const CalendarView = memo(function CalendarView({
                       evening: allDisplayEvents.filter((e: any) => getTimeSlot(e.start_time) === 'evening')
                     }
                     
+                    // 前公演のend_time + 1時間を開始時間として計算
+                    const defaultStartTimes: Record<string, string> = { morning: '09:00', afternoon: '14:00', evening: '19:00' }
+                    const slotEndTimes: Record<string, string> = { morning: '13:00', afternoon: '18:00', evening: '23:00' }
+                    const precedingSlotMap: Record<string, string[]> = {
+                      morning: [],
+                      afternoon: ['morning'],
+                      evening: ['morning', 'afternoon']
+                    }
+                    const getSuggestedStartTime = (slot: 'morning' | 'afternoon' | 'evening') => {
+                      const preceding = precedingSlotMap[slot]
+                      if (preceding.length === 0) return defaultStartTimes[slot]
+                      // 前のスロットにあるイベントの最遅end_timeを取得
+                      const relevantEvents = allDisplayEvents.filter((e: any) => {
+                        const eSlot = getTimeSlot(e.start_time)
+                        return preceding.includes(eSlot)
+                      })
+                      if (relevantEvents.length === 0) return defaultStartTimes[slot]
+                      const latestEnd = relevantEvents.reduce((latest: string, e: any) => 
+                        (e.end_time || '') > latest ? (e.end_time || '') : latest, '')
+                      if (!latestEnd) return defaultStartTimes[slot]
+                      // +1時間
+                      const [h, m] = latestEnd.split(':').map(Number)
+                      const suggested = `${String(h + 1).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`
+                      return suggested > defaultStartTimes[slot] ? suggested : defaultStartTimes[slot]
+                    }
+                    // スロットが利用可能かチェック（開始時間がスロット終了時間を超えたら非表示）
+                    const isSlotAvailable = (slot: 'morning' | 'afternoon' | 'evening') => {
+                      const startTime = getSuggestedStartTime(slot)
+                      return startTime < slotEndTimes[slot]
+                    }
+                    
                     // 全店舗表示で何もない場合
                     if (allDisplayEvents.length === 0 && !selectedStore) {
                       return (
@@ -306,8 +337,9 @@ export const CalendarView = memo(function CalendarView({
                         if (hasEvents) {
                           // イベントがある場合
                           return slotEvents.map((event: any, idx: number) => renderEvent(event, idx))
-                        } else if (selectedStore && canApplyPrivateBooking) {
-                          // イベントがなく、店舗が選択されている、かつ締切前の場合は貸切ボタン
+                        } else if (selectedStore && canApplyPrivateBooking && isSlotAvailable(slot)) {
+                          // イベントがなく、店舗が選択されている、かつ締切前、かつスロット利用可能な場合は貸切ボタン
+                          const suggestedTime = getSuggestedStartTime(slot)
                           return (
                             <button
                               key={slot}
@@ -315,10 +347,10 @@ export const CalendarView = memo(function CalendarView({
                               onClick={() => {
                                 const basePath = organizationSlug ? `/${organizationSlug}` : ''
                                 const storeParam = selectedStoreIds.length > 0 ? selectedStoreIds.join(',') : selectedStore.id
-                                navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${storeParam}&slot=${slot}`)
+                                navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${storeParam}&slot=${slot}&time=${suggestedTime}`)
                               }}
                             >
-                              {label} 貸切申込
+                              {suggestedTime}〜 貸切申込
                             </button>
                           )
                         }
