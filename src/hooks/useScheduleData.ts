@@ -740,6 +740,34 @@ export function useScheduleData(currentDate: Date) {
           }
         })
         
+        // schedule_events の予約者名をニックネームで上書き（手動上書きされていないもののみ）
+        const reservationIdsForNickname = formattedEvents
+          .filter(e => e.reservation_id && !e.is_reservation_name_overwritten)
+          .map(e => e.reservation_id!)
+        
+        if (reservationIdsForNickname.length > 0) {
+          const { data: nicknameData } = await supabase
+            .from('reservations')
+            .select('id, customer_name, display_customer_name, customers:customer_id(nickname)')
+            .in('id', reservationIdsForNickname)
+          
+          if (nicknameData) {
+            const nicknameMap = new Map<string, string>()
+            nicknameData.forEach((r: any) => {
+              const nickname = r.display_customer_name || r.customers?.nickname
+              if (nickname) {
+                nicknameMap.set(r.id, nickname)
+              }
+            })
+            
+            formattedEvents.forEach(e => {
+              if (e.reservation_id && nicknameMap.has(e.reservation_id)) {
+                e.reservation_name = nicknameMap.get(e.reservation_id)!
+              }
+            })
+          }
+        }
+        
         // 貸切リクエストを取得して追加（確定済みのみ）
         // organization_idを取得（マルチテナント対応）
         const orgIdForPrivate = await getCurrentOrganizationId()
@@ -1089,6 +1117,34 @@ export function useScheduleData(currentDate: Date) {
         reservation_id: event.reservation_id // 貸切リクエストID（重複防止用）
         }
       })
+      
+      // schedule_events の予約者名をニックネームで上書き（手動上書きされていないもののみ）
+      const reservationIdsForNickname2 = formattedEvents
+        .filter(e => e.reservation_id && !e.is_reservation_name_overwritten)
+        .map(e => e.reservation_id!)
+      
+      if (reservationIdsForNickname2.length > 0) {
+        const { data: nicknameData2 } = await supabase
+          .from('reservations')
+          .select('id, customer_name, display_customer_name, customers:customer_id(nickname)')
+          .in('id', reservationIdsForNickname2)
+        
+        if (nicknameData2) {
+          const nicknameMap2 = new Map<string, string>()
+          nicknameData2.forEach((r: any) => {
+            const nickname = r.display_customer_name || r.customers?.nickname
+            if (nickname) {
+              nicknameMap2.set(r.id, nickname)
+            }
+          })
+          
+          formattedEvents.forEach(e => {
+            if (e.reservation_id && nicknameMap2.has(e.reservation_id)) {
+              e.reservation_name = nicknameMap2.get(e.reservation_id)!
+            }
+          })
+        }
+      }
       
       // 貸切リクエストを取得して追加
       // organization_idを取得（マルチテナント対応）
