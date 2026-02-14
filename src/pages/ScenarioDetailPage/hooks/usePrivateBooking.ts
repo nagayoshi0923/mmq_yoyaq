@@ -605,18 +605,23 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       : stores.map(s => s.id)
     
     // 当日の全イベント（キャンセル除く）を時間順に取得
-    const dayEvents = allStoreEvents
-      .filter((e: any) => {
-        const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
-        if (eventDate !== targetDate) return false
-        const eventStoreId = e.store_id || e.stores?.id
-        // 選択店舗がある場合はその店舗のイベントのみ
-        if (selectedStoreIds.length > 0) {
-          return targetStoreIds.includes(eventStoreId)
-        }
-        return true
-      })
-      .sort((a: any, b: any) => (a.end_time || '').localeCompare(b.end_time || ''))
+    // 複数店舗選択時は、いずれかの店舗で空いていれば公演可能なので、
+    // ここでは最も制約が少ない状態（イベントなし）として扱う
+    // 実際の可用性判定はcheckTimeSlotAvailabilityで行う
+    const dayEvents = selectedStoreIds.length > 1
+      ? [] // 複数店舗選択時はイベントを考慮しない（checkTimeSlotAvailabilityで判定）
+      : allStoreEvents
+        .filter((e: any) => {
+          const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
+          if (eventDate !== targetDate) return false
+          const eventStoreId = e.store_id || e.stores?.id
+          // 単一店舗選択時のみ、その店舗のイベントをフィルタ
+          if (selectedStoreIds.length === 1) {
+            return eventStoreId === selectedStoreIds[0]
+          }
+          return true
+        })
+        .sort((a: any, b: any) => (a.end_time || '').localeCompare(b.end_time || ''))
     
     
     // 各スロットの前にあるイベントの最遅end_timeを計算
