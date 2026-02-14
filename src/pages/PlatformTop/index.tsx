@@ -47,6 +47,7 @@ interface StoreWithOrg {
   name: string
   short_name: string
   region?: string
+  address?: string
   organization_id: string
   organization_slug?: string
   organization_name?: string
@@ -117,7 +118,7 @@ export function PlatformTop() {
       // 店舗一覧を取得（全組織、臨時会場とオフィスを除く）
       const { data: storeData, error: storeError } = await supabase
         .from('stores')
-        .select('id, name, short_name, region, organization_id')
+        .select('id, name, short_name, region, address, organization_id')
         .eq('status', 'active')
         .or('is_temporary.is.null,is_temporary.eq.false')
         .neq('ownership_type', 'office')
@@ -589,26 +590,29 @@ export function PlatformTop() {
                     {storesByRegion.grouped[region].map(store => (
                       <div
                         key={store.id}
-                        className="bg-gray-50 p-3 hover:shadow-md transition-all cursor-pointer group border border-gray-100 hover:scale-[1.01]"
+                        className="bg-gray-50 p-3 border border-gray-100"
                         style={{ borderRadius: 0 }}
-                        onClick={() => store.organization_slug && navigate(`/${store.organization_slug}`)}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-start gap-3">
                           <div 
-                            className="w-10 h-10 flex items-center justify-center flex-shrink-0"
+                            className="w-10 h-10 flex items-center justify-center flex-shrink-0 mt-0.5"
                             style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
                           >
                             <Building2 className="w-5 h-5" style={{ color: THEME.primary }} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-gray-900 truncate text-sm group-hover:text-primary transition-colors">
+                            <h4 className="font-medium text-gray-900 text-sm">
                               {store.name}
                             </h4>
-                            <p className="text-xs text-gray-500 truncate">
+                            <p className="text-xs text-gray-500">
                               {store.organization_name}
                             </p>
+                            {store.address && (
+                              <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                                {store.address}
+                              </p>
+                            )}
                           </div>
-                          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors flex-shrink-0" />
                         </div>
                       </div>
                     ))}
