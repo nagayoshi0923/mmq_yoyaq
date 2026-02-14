@@ -71,10 +71,17 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
           const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
           
+          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日は14:00）
+          const dateObj = new Date(date)
+          const dayOfWeek = dateObj.getDay()
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+          const defaultAfternoonStart = isWeekend ? '14:00' : '13:00'
+          
           return timeSlots.map(async (slot) => {
-            // 日付ごとの開始時間と終了時間を適用
+            // 日付ごとの開始時間と終了時間を適用（曜日に応じたデフォルト）
             const slotTimes = slotTimesMap.get(slot.label)
-            const startTime = slotTimes?.startTime || slot.startTime
+            const defaultStart = slot.label === '昼公演' ? defaultAfternoonStart : slot.startTime
+            const startTime = slotTimes?.startTime || defaultStart
             const endTime = slotTimes?.endTime || slot.endTime
             const slotWithTime = { ...slot, startTime, endTime }
           const key = `${date}-${slot.label}`
@@ -168,6 +175,10 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
           const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
           
+          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日は14:00）
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+          const defaultAfternoonStart = isWeekend ? '14:00' : '13:00'
+          
           return (
             <div 
               key={date}
@@ -182,9 +193,11 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
               {/* 時間枠ボタン（常に3枠表示、幅固定） */}
               <div className="flex gap-1.5 flex-1">
                 {timeSlots.map((slot) => {
-                  // 日付ごとの開始時間と終了時間を取得（設定がなければデフォルト）
+                  // 日付ごとの開始時間と終了時間を取得（設定がなければ曜日に応じたデフォルト）
                   const slotTimes = slotTimesMap.get(slot.label)
-                  const startTime = slotTimes?.startTime || slot.startTime
+                  // 昼公演のデフォルト開始時間は曜日で変わる
+                  const defaultStart = slot.label === '昼公演' ? defaultAfternoonStart : slot.startTime
+                  const startTime = slotTimes?.startTime || defaultStart
                   const endTime = slotTimes?.endTime || slot.endTime
                   const slotWithTime = { ...slot, startTime, endTime }
                   const isAvailable = getAvailability(date, slotWithTime)
