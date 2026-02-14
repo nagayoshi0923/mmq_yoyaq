@@ -1,153 +1,154 @@
 import { memo } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
-import { Clock, Users, Star, Heart, Share2, ExternalLink, Sparkles } from 'lucide-react'
+import { Clock, Users, ExternalLink, Star, Share2, Heart } from 'lucide-react'
 import { useFavorites } from '@/hooks/useFavorites'
-import type { ScenarioDetail } from '../utils/types'
+import type { ScenarioDetail, EventSchedule } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
 
-const DIFFICULTY_LABELS: Record<number, string> = {
-  1: '★',
-  2: '★★',
-  3: '★★★',
-  4: '★★★★',
-  5: '★★★★★',
+// 難易度ラベル
+const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
+  1: { label: '初心者向け', color: 'bg-green-500' },
+  2: { label: 'やや易しい', color: 'bg-lime-500' },
+  3: { label: '普通', color: 'bg-yellow-500' },
+  4: { label: 'やや難しい', color: 'bg-orange-500' },
+  5: { label: '上級者向け', color: 'bg-red-500' },
 }
 
 interface ScenarioHeroProps {
   scenario: ScenarioDetail
+  events?: EventSchedule[]
 }
 
 /**
- * シナリオヒーローセクション
- * コンパクトに KV + タイトル + スペックを横並び表示
- * 公演日程の邪魔にならないよう最小限の高さに抑える
+ * シナリオヒーローセクション（キービジュアル + タイトル + 基本情報）
  */
-export const ScenarioHero = memo(function ScenarioHero({ scenario }: ScenarioHeroProps) {
+export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }: ScenarioHeroProps) {
   const { isFavorite, toggleFavorite } = useFavorites()
   const scenarioIsFavorite = isFavorite(scenario.scenario_id)
-  const difficultyLabel = scenario.difficulty ? DIFFICULTY_LABELS[scenario.difficulty] : null
+  
+  const handleFavoriteClick = () => {
+    toggleFavorite(scenario.scenario_id)
+  }
 
   return (
-    <div className="bg-gray-900 text-white">
-      <div className="container mx-auto max-w-7xl px-4 py-4">
-        {/* KV + 情報を横並び */}
-        <div className="flex gap-4">
-          {/* キービジュアル（コンパクト） */}
-          <div className="flex-shrink-0 w-[120px] sm:w-[160px] md:w-[180px]">
-            <div className="relative aspect-[3/4] bg-black/30 overflow-hidden rounded-lg shadow-lg">
+    <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden">
+      <div className="p-3 md:p-4">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4">
+          {/* キービジュアル */}
+          <div className="md:col-span-4">
+            <div className="relative aspect-[3/4] bg-gray-900 overflow-hidden">
+              {/* 背景：ぼかした画像で余白を埋める */}
+              {scenario.key_visual_url && (
+                <div 
+                  className="absolute inset-0 scale-110"
+                  style={{
+                    backgroundImage: `url(${scenario.key_visual_url})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    filter: 'blur(20px) brightness(0.5)',
+                  }}
+                />
+              )}
+              {/* メイン画像：全体を表示 */}
               <OptimizedImage
                 src={scenario.key_visual_url}
                 alt={scenario.scenario_title}
-                className="w-full h-full object-cover"
+                className="relative w-full h-full object-contain"
                 responsive={true}
-                srcSetSizes={[200, 400]}
-                breakpoints={{ mobile: 200, tablet: 300, desktop: 400 }}
+                srcSetSizes={[400, 800, 1200]}
+                breakpoints={{ mobile: 400, tablet: 600, desktop: 800 }}
                 useWebP={true}
-                quality={85}
+                quality={90}
                 fallback={
-                  <div className="w-full h-full flex items-center justify-center text-gray-500">
-                    <Sparkles className="w-8 h-8 opacity-50" />
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    <div className="text-center p-8">
+                      <p className="text-lg">{scenario.scenario_title}</p>
+                    </div>
                   </div>
                 }
               />
-              {/* ジャンルバッジ */}
-              {scenario.genre.length > 0 && (
-                <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/70 to-transparent">
-                  <div className="flex flex-wrap gap-1">
-                    {scenario.genre.slice(0, 3).map((g, i) => (
-                      <span key={i} className="text-[9px] font-bold px-1.5 py-0.5 bg-white/20 backdrop-blur-sm text-white rounded-sm">
-                        {g}
-                      </span>
-                    ))}
-                    {scenario.genre.length > 3 && (
-                      <span className="text-[9px] text-white/60">+{scenario.genre.length - 3}</span>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* 右側：タイトル + スペック + アクション */}
-          <div className="flex-1 min-w-0 flex flex-col justify-between">
-            {/* タイトルエリア */}
+          {/* タイトル・基本情報 */}
+          <div className="md:col-span-8 space-y-2">
             <div>
-              <p className="text-xs text-white/50 mb-0.5">作者　{scenario.author}</p>
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold leading-tight mb-2 line-clamp-2">
-                {scenario.scenario_title}
-              </h1>
-
-              {/* タグ行 */}
-              <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                {scenario.has_pre_reading && (
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                    事前読解あり
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs opacity-80">{scenario.author}</p>
+                {/* お気に入りボタン */}
+                <button
+                  onClick={handleFavoriteClick}
+                  className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-white/10 rounded"
+                  title={scenarioIsFavorite ? 'お気に入りから削除' : 'お気に入りに追加'}
+                >
+                  <Heart className={`w-4 h-4 fill-current text-red-400 ${scenarioIsFavorite ? 'opacity-100' : 'opacity-40 hover:opacity-60'}`} />
+                  <span className="text-xs text-white/70">
+                    {scenarioIsFavorite ? '登録済み' : '遊びたい'}
+                  </span>
+                </button>
+              </div>
+              <h1 className="text-lg md:text-xl font-bold mb-2">{scenario.scenario_title}</h1>
+              
+              {/* 基本情報（テキストベース） */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/80">
+                <span className="flex items-center gap-1">
+                  <Users className="w-4 h-4" />
+                  {formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {formatDuration(scenario.duration, 'minutes')}
+                </span>
+                <span className="font-medium text-white">
+                  {scenario.participation_fee ? `¥${scenario.participation_fee.toLocaleString()}〜` : '¥3,000〜'}
+                </span>
+                {scenario.difficulty && DIFFICULTY_LABELS[scenario.difficulty] && (
+                  <span className="flex items-center gap-1">
+                    <Star className="w-4 h-4" />
+                    {DIFFICULTY_LABELS[scenario.difficulty].label}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* スペック（横並び、コンパクト） */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm mb-3">
-              <div className="flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-white/50" />
-                <span className="text-white/70 text-xs">人数</span>
-                <span className="font-semibold">{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-white/50" />
-                <span className="text-white/70 text-xs">時間</span>
-                <span className="font-semibold">{formatDuration(scenario.duration, 'hours')}</span>
-              </div>
-              {difficultyLabel && (
-                <div className="flex items-center gap-1.5">
-                  <Star className="w-3.5 h-3.5 text-white/50" />
-                  <span className="text-white/70 text-xs">難易度</span>
-                  <span className="font-semibold text-amber-300">{difficultyLabel}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1.5">
-                <span className="text-white/50 text-xs font-bold">¥</span>
-                <span className="text-white/70 text-xs">参加費</span>
-                <span className="font-semibold">
-                  {scenario.participation_fee ? `¥${scenario.participation_fee.toLocaleString()}〜` : '要確認'}
+            {/* ジャンルタグ + シェアを1行に */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {scenario.genre.map((g, i) => (
+                <span key={i} className="text-xs text-white/70 border border-white/20 px-1.5 py-0.5">
+                  {g}
                 </span>
-              </div>
+              ))}
+              {scenario.has_pre_reading && (
+                <span className="text-xs text-blue-300 border border-blue-400/30 px-1.5 py-0.5">
+                  事前読解あり
+                </span>
+              )}
             </div>
 
             {/* アクションボタン */}
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {scenario.official_site_url && (
+                <button
+                  className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors"
+                  onClick={() => window.open(scenario.official_site_url, '_blank')}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  公式サイト
+                </button>
+              )}
               <button
-                onClick={() => toggleFavorite(scenario.scenario_id)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-all text-xs ${
-                  scenarioIsFavorite
-                    ? 'bg-red-500/20 text-red-300 border border-red-400/30'
-                    : 'bg-white/10 text-white/60 border border-white/15 hover:bg-white/15'
-                }`}
-              >
-                <Heart className={`w-3 h-3 ${scenarioIsFavorite ? 'fill-current' : ''}`} />
-                遊びたい
-              </button>
-              <button
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-white/10 text-white/60 border border-white/15 hover:bg-white/15 transition-all"
+                className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors"
                 onClick={() => {
                   const url = window.location.href
                   const text = `${scenario.scenario_title} - マーダーミステリークエスト`
                   window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'width=550,height=420')
                 }}
               >
-                <Share2 className="w-3 h-3" />
+                <Share2 className="w-3.5 h-3.5" />
                 シェア
               </button>
-              {scenario.official_site_url && (
-                <button
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-white/10 text-white/60 border border-white/15 hover:bg-white/15 transition-all"
-                  onClick={() => window.open(scenario.official_site_url, '_blank')}
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  公式
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -155,3 +156,4 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario }: ScenarioHer
     </div>
   )
 })
+

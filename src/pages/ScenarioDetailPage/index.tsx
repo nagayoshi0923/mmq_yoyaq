@@ -169,7 +169,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         selectedTimeSlots={selectedTimeSlots}
         selectedStoreIds={selectedStoreIds}
         stores={stores}
-        scenarioAvailableStores={scenario.available_stores}
         organizationSlug={organizationSlug}
         onBack={handleBackFromPrivateBooking}
         onComplete={handlePrivateBookingCompleteWithClear}
@@ -280,15 +279,23 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-clip">
+    <div className="min-h-screen bg-background overflow-x-clip">
       <Header />
       {shouldShowNavigation && (
         <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
       )}
 
-      {/* 戻るバー（ヒーローと一体化） */}
-      <div className="bg-gray-900">
-        <div className="container mx-auto max-w-7xl px-4 py-2">
+      {/* ヒーローセクション（トップページと統一） */}
+      <div className="text-white relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
+        {/* アクセント装飾 */}
+        <div 
+          className="absolute top-0 right-0 w-24 h-24 opacity-20"
+          style={{ 
+            background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+            transform: 'translate(30%, -30%)'
+          }}
+        />
+        <div className="container mx-auto max-w-7xl px-4 py-2 relative">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -298,197 +305,239 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               <ArrowLeft className="w-4 h-4 flex-shrink-0" />
               <span>戻る</span>
             </Button>
-            <div className="h-4 w-px bg-white/20" />
-            <span className="text-sm text-white/50">シナリオ詳細</span>
+            <div className="h-4 w-px bg-white/30" />
+            <span className="text-sm text-white/80">シナリオ詳細</span>
           </div>
         </div>
       </div>
 
-      {/* ヒーローセクション（コンパクト） */}
-      <ScenarioHero scenario={scenario} />
-
       {/* スティッキーヘッダー */}
-      <div className="bg-white/95 backdrop-blur-md border-b sticky top-0 z-10 shadow-sm">
+      <div className="bg-background border-b sticky top-0 z-10">
         <div className="container mx-auto max-w-7xl px-4">
+          
+          {/* 2行目: モバイル用シナリオ概要（スクロール時にアニメーション表示） */}
+          {/* md:hidden - 768px未満でのみ表示（グリッドレイアウトのmd:と統一） */}
           <div 
-            className={`overflow-hidden transition-all duration-300 ease-out ${
+            className={`md:hidden overflow-hidden transition-all duration-300 ease-out ${
               showStickyInfo 
-                ? 'max-h-[80px] opacity-100' 
+                ? 'max-h-[120px] opacity-100' 
                 : 'max-h-0 opacity-0'
             }`}
           >
-            <div className="flex items-center gap-3 py-1.5">
+            <div className="flex items-center gap-3 pb-2 border-t pt-2">
+              {/* キービジュアル（縦80px） */}
               {scenario.key_visual_url && (
-                <div className="flex-shrink-0 h-[40px] aspect-[1/1.4] bg-gray-200 overflow-hidden rounded">
-                  <img src={scenario.key_visual_url} alt="" className="w-full h-full object-cover" />
+                <div className="flex-shrink-0 h-[80px] aspect-[1/1.4] bg-gray-200 overflow-hidden">
+                  <img
+                    src={scenario.key_visual_url}
+                    alt={scenario.scenario_title}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               )}
+              {/* タイトルと基本情報 */}
               <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-bold line-clamp-1">{scenario.scenario_title}</h2>
+                <h2 className="text-sm font-bold line-clamp-2">{scenario.scenario_title}</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {scenario.player_count_min === scenario.player_count_max
+                    ? `${scenario.player_count_max}人`
+                    : `${scenario.player_count_min}〜${scenario.player_count_max}人`}
+                  {' / '}
+                  {scenario.duration}分
+                </p>
+                {scenario.participation_fee && (
+                  <p className="text-xs font-medium mt-0.5">
+                    ¥{scenario.participation_fee.toLocaleString()}〜
+                  </p>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* メインコンテンツ: 1カラムで上から順に流す */}
-      <div className="container mx-auto max-w-7xl px-4 py-4">
-
-        {/* セクション1: 公演日程 / 貸切リクエスト（最重要） */}
-        <div className="max-w-2xl mx-auto">
-          <Tabs 
-            value={activeTab}
-            className="w-full" 
-            onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}
-          >
-            <TabsList className="grid w-full grid-cols-2 mb-3 h-10">
-              <TabsTrigger value="schedule" className="text-sm py-2 font-medium">公演日程</TabsTrigger>
-              <TabsTrigger value="private" className="text-sm py-2 font-medium">貸切リクエスト</TabsTrigger>
-            </TabsList>
+      {/* メインコンテンツ */}
+      <div className="container mx-auto max-w-7xl px-4 py-3">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+          {/* メインエリア - 詳細情報 */}
+          <div className="md:col-span-7 space-y-4">
+            <ScenarioHero scenario={scenario} events={events} />
             
-            <TabsContent value="schedule">
-              <div>
-                <StoreSelector
-                  stores={availableStores}
-                  selectedStoreIds={scheduleStoreFilter}
-                  onStoreIdsChange={setScheduleStoreFilter}
-                  label="店舗で絞り込み"
-                  placeholder="全店舗"
-                />
-                
-                {!selectedEventId && (
-                  <div 
-                    className="mb-3 px-3 py-2 border-l-4 text-sm rounded-r"
-                    style={{ 
-                      borderColor: THEME.primary,
-                      backgroundColor: THEME.primaryLight,
-                      color: THEME.primary
-                    }}
-                  >
-                    参加したい日程を選択してください
-                  </div>
-                )}
-                
-                <EventList
-                  events={scheduleStoreFilter.length > 0 
-                    ? events.filter(e => scheduleStoreFilter.includes(e.store_id))
-                    : events}
-                  selectedEventId={selectedEventId}
-                  scenarioTitle={scenario.scenario_title}
-                  onEventSelect={setSelectedEventId}
-                />
-              </div>
-            </TabsContent>
+            {/* あらすじ・シナリオ情報 */}
+            <ScenarioAbout scenario={scenario} />
             
-            <TabsContent value="private">
-              <PrivateBookingForm
-                stores={availableStores}
-                selectedStoreIds={selectedStoreIds}
-                onStoreIdsChange={setSelectedStoreIds}
-                currentMonth={currentMonth}
-                onMonthChange={changeMonth}
-                availableDates={generatePrivateDates()}
-                timeSlots={TIME_SLOTS}
-                selectedSlots={selectedTimeSlots}
-                onTimeSlotToggle={toggleTimeSlot}
-                checkTimeSlotAvailability={checkTimeSlotAvailability}
-                maxSelections={MAX_SELECTIONS}
-                scenarioDuration={scenario.duration}
-                getTimeSlotsForDate={getTimeSlotsForDate}
+            {/* PC版: 注意事項をここに表示（タブに応じて内容切り替え） */}
+            <div className="hidden md:block">
+              <BookingNotice 
+                reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
+                hasPreReading={scenario.has_pre_reading}
+                mode={activeTab}
               />
-              
-              {selectedTimeSlots.length > 0 && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="text-xs sm:text-sm text-red-900 mb-2 font-medium">
-                    選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
-                  </div>
-                  <div className="space-y-1">
-                    {selectedTimeSlots.map((item, index) => {
-                      const dateObj = new Date(item.date)
-                      const month = dateObj.getMonth() + 1
-                      const day = dateObj.getDate()
-                      const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-                      const weekday = weekdays[dateObj.getDay()]
-                      
-                      return (
-                        <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs sm:text-sm">
-                          <span className="text-red-900 flex-1 min-w-0 pr-2">
-                            {index + 1}. {month}/{day}({weekday}) {item.slot.label} {item.slot.startTime}〜
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 sm:h-7 sm:w-7 p-0 hover:bg-red-100 flex-shrink-0 touch-manipulation"
-                            onClick={() => toggleTimeSlot(item.date, item.slot)}
-                          >
-                            ×
-                          </Button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-
-          {/* 注意事項 */}
-          <div className="mt-3">
-            <BookingNotice 
-              reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
-              hasPreReading={scenario.has_pre_reading}
-              mode={activeTab}
-            />
+            </div>
           </div>
 
-          {/* 予約 / 貸切リクエストパネル */}
-          <div className="mt-3">
-            {activeTab === 'schedule' && (
-              <BookingPanel
-                participantCount={participantCount}
-                maxParticipants={scenario.player_count_max}
-                participationFee={scenario.participation_fee}
-                selectedEventId={selectedEventId}
-                isLoggedIn={!!user}
-                events={events}
-                onParticipantCountChange={setParticipantCount}
-                onBooking={handleBooking}
-              />
-            )}
-
-            {activeTab === 'private' && (
-              <div className="space-y-4">
-                {selectedStoreIds.length > 0 && (
-                  <VenueAccess
-                    selectedStoreIds={selectedStoreIds}
+          {/* 右サイドバー - チケット購入 */}
+          <div className="md:col-span-5">
+            <div className="md:sticky md:top-[50px] space-y-3">
+              {/* タブ: 公演日程 / 貸切リクエスト */}
+              <Tabs 
+                value={activeTab}
+                className="w-full" 
+                onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}
+              >
+                <TabsList className="grid w-full grid-cols-2 mb-2">
+                  <TabsTrigger value="schedule" className="text-sm py-1.5">公演日程</TabsTrigger>
+                  <TabsTrigger value="private" className="text-sm py-1.5">貸切リクエスト</TabsTrigger>
+                </TabsList>
+                
+                {/* 公演日程タブ */}
+                <TabsContent value="schedule">
+                  <div>
+                    {/* 店舗フィルタ */}
+                    <StoreSelector
+                      stores={availableStores}
+                      selectedStoreIds={scheduleStoreFilter}
+                      onStoreIdsChange={setScheduleStoreFilter}
+                      label="店舗で絞り込み"
+                      placeholder="全店舗"
+                    />
+                    
+                    {/* 日程未選択時のガイダンス（選択後と同じスタイル） */}
+                    {!selectedEventId && (
+                      <div 
+                        className="mb-3 px-3 py-2 border-l-4 text-sm"
+                        style={{ 
+                          borderColor: THEME.primary,
+                          backgroundColor: THEME.primaryLight,
+                          color: THEME.primary
+                        }}
+                      >
+                        参加したい日程を選択してください
+                      </div>
+                    )}
+                    
+                    <h3 className="mb-2 text-sm font-medium text-muted-foreground">日付を選択</h3>
+                    <EventList
+                      events={scheduleStoreFilter.length > 0 
+                        ? events.filter(e => scheduleStoreFilter.includes(e.store_id))
+                        : events}
+                      selectedEventId={selectedEventId}
+                      scenarioTitle={scenario.scenario_title}
+                      onEventSelect={setSelectedEventId}
+                    />
+                  </div>
+                </TabsContent>
+                
+                {/* 貸切リクエストタブ */}
+                <TabsContent value="private">
+                  <PrivateBookingForm
                     stores={availableStores}
-                    mode="private"
+                    selectedStoreIds={selectedStoreIds}
+                    onStoreIdsChange={setSelectedStoreIds}
+                    currentMonth={currentMonth}
+                    onMonthChange={changeMonth}
+                    availableDates={generatePrivateDates()}
+                    timeSlots={TIME_SLOTS}
+                    selectedSlots={selectedTimeSlots}
+                    onTimeSlotToggle={toggleTimeSlot}
+                    checkTimeSlotAvailability={checkTimeSlotAvailability}
+                    maxSelections={MAX_SELECTIONS}
+                    scenarioDuration={scenario.duration}
+                    getTimeSlotsForDate={getTimeSlotsForDate}
+                  />
+                  
+                  {/* 選択された時間枠の表示 */}
+                  {selectedTimeSlots.length > 0 && (
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200">
+                      <div className="text-xs sm:text-sm text-red-900 mb-2">
+                        選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
+                      </div>
+                      <div className="space-y-1">
+                        {selectedTimeSlots.map((item, index) => {
+                          const dateObj = new Date(item.date)
+                          const month = dateObj.getMonth() + 1
+                          const day = dateObj.getDate()
+                          const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+                          const weekday = weekdays[dateObj.getDay()]
+                          
+                          return (
+                            <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs sm:text-sm">
+                              <span className="text-red-900 flex-1 min-w-0 pr-2">
+                                {index + 1}. {month}/{day}({weekday}) {item.slot.label} {item.slot.startTime}〜
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 sm:h-7 sm:w-7 p-0 hover:bg-red-100 flex-shrink-0 touch-manipulation"
+                                onClick={() => toggleTimeSlot(item.date, item.slot)}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+
+              {/* モバイル版: 注意事項をタブの下に表示（タブに応じて内容切り替え） */}
+              <div className="md:hidden">
+                <BookingNotice 
+                  reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
+                  hasPreReading={scenario.has_pre_reading}
+                  mode={activeTab}
+                />
+              </div>
+
+              {/* タブの内容に応じて表示を切り替え */}
+              <div>
+                {activeTab === 'schedule' && (
+                  <BookingPanel
+                    participantCount={participantCount}
+                    maxParticipants={scenario.player_count_max}
+                    participationFee={scenario.participation_fee}
+                    selectedEventId={selectedEventId}
+                    isLoggedIn={!!user}
+                    events={events}
+                    onParticipantCountChange={setParticipantCount}
+                    onBooking={handleBooking}
                   />
                 )}
-                <PrivateBookingPanel
-                  participationFee={scenario.participation_fee}
-                  maxParticipants={scenario.player_count_max}
-                  selectedTimeSlotsCount={selectedTimeSlots.length}
-                  isLoggedIn={!!user}
-                  onRequestBooking={() => handlePrivateBookingRequest(!!user)}
-                />
+
+                {activeTab === 'private' && (
+                  <div className="space-y-4">
+                    {/* 選択店舗（選択した店舗がある場合のみ表示） */}
+                    {selectedStoreIds.length > 0 && (
+                      <VenueAccess
+                        selectedStoreIds={selectedStoreIds}
+                        stores={availableStores}
+                        mode="private"
+                      />
+                    )}
+                    <PrivateBookingPanel
+                      participationFee={scenario.participation_fee}
+                      maxParticipants={scenario.player_count_max}
+                      selectedTimeSlotsCount={selectedTimeSlots.length}
+                      isLoggedIn={!!user}
+                      onRequestBooking={() => handlePrivateBookingRequest(!!user)}
+                    />
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* セクション2: あらすじ・詳細情報（公演日程の下） */}
-        <div className="max-w-2xl mx-auto mt-6 pt-6 border-t">
-          <ScenarioAbout scenario={scenario} />
-        </div>
-
-        {/* セクション3: 関連シナリオ */}
+        {/* 関連シナリオ（2カラムレイアウトの外、全幅で表示） */}
         {relatedScenarios.length > 0 && (
-          <div className="max-w-2xl mx-auto mt-6 pt-6 border-t">
+          <div className="mt-8 pt-8 border-t">
             <RelatedScenarios
               scenarios={relatedScenarios}
               authorName={scenario.author}
               onScenarioClick={(id) => {
+                // 組織slugがあれば予約サイト形式、なければグローバル形式
                 if (organizationSlug) {
                   navigate(`/${organizationSlug}/scenario/${id}`)
                 } else {

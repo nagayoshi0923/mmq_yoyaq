@@ -19,7 +19,6 @@ export interface ScenarioDetail {
   has_pre_reading: boolean
   official_site_url?: string
   participation_fee: number
-  available_stores?: string[] // シナリオ対応店舗ID
 }
 
 export interface EventSchedule {
