@@ -242,16 +242,16 @@ export const ScenarioCard = memo(function ScenarioCard({
                           : (event.store_short_name || event.store_name)}
                       </span>
                     </div>
-                    {event.available_seats !== undefined && event.available_seats > 0 && (
+                    {event.available_seats !== undefined && (
                       <span 
                         className="text-[10px] font-bold px-1.5 py-0.5 flex-shrink-0 ml-2"
                         style={{
-                          backgroundColor: event.available_seats <= 2 ? '#FEE2E2' : THEME.accentLight,
-                          color: event.available_seats <= 2 ? '#DC2626' : THEME.accent,
+                          backgroundColor: event.available_seats === 0 ? '#E5E7EB' : event.available_seats <= 2 ? '#FEE2E2' : THEME.accentLight,
+                          color: event.available_seats === 0 ? '#6B7280' : event.available_seats <= 2 ? '#DC2626' : THEME.accent,
                           borderRadius: 0,
                         }}
                       >
-                        残{event.available_seats}
+                        {event.available_seats === 0 ? '満席' : `残${event.available_seats}`}
                       </span>
                     )}
                   </div>
