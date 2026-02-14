@@ -226,7 +226,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         const { data: assignmentsData } = await supabase
           .from('staff_scenario_assignments')
           .select('scenario_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id, name)')
-          .or(`organization_id.eq.${organizationId},organization_id.is.null`)
+          .eq('organization_id', organizationId)
           .in('scenario_id', scenarioMasterIds)
         
         if (assignmentsData) {

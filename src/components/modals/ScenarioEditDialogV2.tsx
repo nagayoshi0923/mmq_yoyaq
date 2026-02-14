@@ -453,8 +453,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           .order('assigned_at', { ascending: false })
         
         if (orgId) {
-          // organization_id でフィルタ、またはNULL（旧インポートデータ）も含める
-          assignQuery = assignQuery.or(`organization_id.eq.${orgId},organization_id.is.null`)
+          assignQuery = assignQuery.eq('organization_id', orgId)
         }
         
         const { data: assignmentsData, error: assignError } = await assignQuery

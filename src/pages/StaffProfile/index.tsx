@@ -268,7 +268,7 @@ export function StaffProfile() {
             .from('staff_scenario_assignments')
             .select('staff_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(name)')
             .eq('scenario_id', scenarioId)
-            .or(`organization_id.eq.${organizationId},organization_id.is.null`)
+            .eq('organization_id', organizationId)
 
           if (scenarioAssignments) {
             const gmNames: string[] = []

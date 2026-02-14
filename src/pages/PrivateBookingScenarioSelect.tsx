@@ -184,13 +184,25 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
               <Select value={selectedScenarioId} onValueChange={(id) => {
                 setSelectedScenarioId(id)
                 setSelectedParticipantCount(null)
-                // シナリオ変更時、非対応店舗を選択から除外
+                // シナリオ変更時、店舗選択をリセット
                 const newScenario = scenarios.find(s => s.id === id)
                 const hasLimit = newScenario?.available_stores && newScenario.available_stores.length > 0
                 if (hasLimit) {
-                  setSelectedStoreIds(prev =>
-                    prev.filter(storeId => newScenario!.available_stores!.includes(storeId))
+                  // 制限ありシナリオ：URLフィルター店舗のうち対応店舗のみ選択
+                  const validStoreIds = allStores
+                    .filter((s: any) => s.ownership_type !== 'office' && s.status === 'active')
+                    .map((s: any) => s.id)
+                  const restored = preselectedStoreIds.filter(id => validStoreIds.includes(id))
+                  setSelectedStoreIds(
+                    restored.filter(storeId => newScenario!.available_stores!.includes(storeId))
                   )
+                } else {
+                  // 制限なしシナリオ：URLフィルター店舗を全て復元
+                  const validStoreIds = allStores
+                    .filter((s: any) => s.ownership_type !== 'office' && s.status === 'active')
+                    .map((s: any) => s.id)
+                  const restored = preselectedStoreIds.filter(id => validStoreIds.includes(id))
+                  setSelectedStoreIds(restored.length > 0 ? restored : [])
                 }
               }}>
                 <SelectTrigger>
