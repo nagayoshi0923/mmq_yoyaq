@@ -345,26 +345,37 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
               リアルな謎解き体験。あなたは事件の真相を暴けるか？
             </p>
             
-            {/* 組織情報 */}
+            {/* 組織情報 + アクセスボタン */}
             {!isLoading && (orgInfo.storeCount > 0 || orgInfo.scenarioCount > 0) && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
+                  {orgInfo.storeCount > 0 && (
+                    <span className="inline-flex items-center gap-1">
+                      <Store className="w-3 h-3" />
+                      {orgInfo.storeCount}店舗
+                    </span>
+                  )}
+                  {orgInfo.scenarioCount > 0 && (
+                    <span className="inline-flex items-center gap-1">
+                      <BookOpen className="w-3 h-3" />
+                      {orgInfo.scenarioCount}タイトル
+                    </span>
+                  )}
+                  {orgInfo.regions.length > 0 && (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {orgInfo.regions.join(' / ')}
+                    </span>
+                  )}
+                </div>
                 {orgInfo.storeCount > 0 && (
-                  <span className="inline-flex items-center gap-1">
-                    <Store className="w-3 h-3" />
-                    {orgInfo.storeCount}店舗
-                  </span>
-                )}
-                {orgInfo.scenarioCount > 0 && (
-                  <span className="inline-flex items-center gap-1">
-                    <BookOpen className="w-3 h-3" />
-                    {orgInfo.scenarioCount}タイトル
-                  </span>
-                )}
-                {orgInfo.regions.length > 0 && (
-                  <span className="inline-flex items-center gap-1">
+                  <button
+                    onClick={() => document.getElementById('store-access')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white/15 hover:bg-white/25 text-white transition-colors"
+                  >
                     <MapPin className="w-3 h-3" />
-                    {orgInfo.regions.join(' / ')}
-                  </span>
+                    アクセス
+                  </button>
                 )}
               </div>
             )}
@@ -460,7 +471,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
       </div>
 
       {/* フッター */}
-      <Footer organizationSlug={organizationSlug} organizationName={organizationName ?? undefined} />
+      <Footer organizationSlug={organizationSlug} organizationName={organizationName ?? undefined} stores={stores} />
     </div>
   )
 }

@@ -3,18 +3,31 @@
  * 全ての公開ページで使用する統一フッター
  */
 import { Link } from 'react-router-dom'
+import { MapPin } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+
+interface StoreInfo {
+  id: string
+  name: string
+  short_name?: string
+  address?: string
+  region?: string
+  is_temporary?: boolean
+  status?: string
+}
 
 interface FooterProps {
   /** 組織スラッグ（組織固有ページで使用） */
   organizationSlug?: string
   /** 組織名（表示用） */
   organizationName?: string
+  /** 店舗データ（住所表示用） */
+  stores?: StoreInfo[]
   /** シンプル表示（最小限の情報のみ） */
   minimal?: boolean
 }
 
-export function Footer({ organizationSlug, organizationName, minimal = false }: FooterProps) {
+export function Footer({ organizationSlug, organizationName, stores = [], minimal = false }: FooterProps) {
   const currentYear = new Date().getFullYear()
   
   // リンクのベースパス
@@ -38,8 +51,42 @@ export function Footer({ organizationSlug, organizationName, minimal = false }: 
 
   // 組織ページ用フッター
   if (organizationSlug) {
+    // 常設店舗のみ表示（臨時会場・非アクティブ除外）
+    const regularStores = stores.filter(s => !s.is_temporary && s.status !== 'inactive' && s.address)
+    
     return (
       <footer className="bg-gray-900 text-gray-300">
+        {/* 店舗アクセス情報 */}
+        {regularStores.length > 0 && (
+          <div id="store-access" className="border-b border-gray-800">
+            <div className="max-w-7xl mx-auto px-4 py-10">
+              <h3 className="text-white font-semibold mb-6 text-sm uppercase tracking-wider flex items-center gap-2">
+                <MapPin className="w-4 h-4" style={{ color: THEME.accent }} />
+                アクセス
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {regularStores.map(store => (
+                  <a
+                    key={store.id}
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address!)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group p-4 bg-gray-800/50 hover:bg-gray-800 transition-colors"
+                  >
+                    <div className="text-white font-medium text-sm mb-1 group-hover:underline">
+                      {store.name}
+                    </div>
+                    <div className="text-gray-400 text-xs leading-relaxed flex items-start gap-1.5">
+                      <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                      <span>{store.address}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* 組織情報 */}
