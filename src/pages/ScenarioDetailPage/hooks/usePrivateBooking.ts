@@ -663,18 +663,42 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       return earliest
     }
     
-    // 当該スロットの時間帯内にすでにイベントが存在するかチェック
-    // （スロットの開始〜終了の間にイベントの開始時間があるか）
-    const hasEventInSlotRange = (slotKey: string): boolean => {
+    // このスロットの時間帯内で、公演を入れる余地があるかチェック
+    // 開始可能時間を計算し、スロット終了時間までに公演が収まるかを判定
+    const getSlotStartTimeConsideringEvents = (slotKey: string): number | null => {
       const slotStart = defaultStartTimes[slotKey]
       const slotEnd = slotEndLimits[slotKey]
+      const extraPrepTime = scenario?.extra_preparation_time || 0
       
-      return dayEvents.some((e: any) => {
+      // このスロットの時間帯内にあるイベントを取得
+      const eventsInSlot = dayEvents.filter((e: any) => {
         if (!e.start_time) return false
         const eventStart = timeToMinutes(e.start_time)
-        // イベントの開始時間がスロットの時間帯内にある場合、そのスロットは埋まっている
-        return eventStart >= slotStart && eventStart < slotEnd
+        const eventEnd = e.end_time ? timeToMinutes(e.end_time) : eventStart + 240
+        // イベントがスロットの時間帯と重なっている場合
+        return eventStart < slotEnd && eventEnd > slotStart
       })
+      
+      if (eventsInSlot.length === 0) {
+        // スロット内にイベントがない場合は、前スロットのイベント終了+1時間と比較
+        return null // 後で getLatestEndTimeBefore で計算
+      }
+      
+      // スロット内のイベントの中で最も遅い終了時間を取得
+      let latestEnd = 0
+      eventsInSlot.forEach((e: any) => {
+        const eventEnd = e.end_time ? timeToMinutes(e.end_time) : timeToMinutes(e.start_time) + 240
+        const eventExtraPrepTime = e.scenarios?.extra_preparation_time || 0
+        const effectiveEnd = eventEnd + 60 + eventExtraPrepTime // 1時間インターバル + 準備時間
+        if (effectiveEnd > latestEnd) latestEnd = effectiveEnd
+      })
+      
+      // 開始可能時間がスロット終了を超えていたら、このスロットは使えない
+      if (latestEnd >= slotEnd) {
+        return -1 // 使用不可
+      }
+      
+      return Math.max(latestEnd, slotStart)
     }
     
     // 時間枠を生成（有効な公演枠のみ）
@@ -688,8 +712,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     return slotDefinitions
       .filter(def => availableSlots.includes(def.key))
       .map(def => {
-        // このスロットの時間帯にすでにイベントがある場合は無効
-        if (hasEventInSlotRange(def.key)) {
+        // スロット内のイベントを考慮した開始時間を計算
+        const slotStartConsideringEvents = getSlotStartTimeConsideringEvents(def.key)
+        
+        // -1 は使用不可を意味する
+        if (slotStartConsideringEvents === -1) {
           return null
         }
         
@@ -697,13 +724,16 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         const latestEndBefore = getLatestEndTimeBefore(def.key)
         let startMinutes: number
         
-        if (latestEndBefore !== null) {
-          // 前公演の終了 + 1時間
+        // スロット内イベントの考慮 or 前スロットのイベント考慮
+        if (slotStartConsideringEvents !== null && slotStartConsideringEvents > 0) {
+          // スロット内にイベントがある場合、その終了+インターバル後
+          startMinutes = Math.max(slotStartConsideringEvents, defaultStartTimes[def.key])
+        } else if (latestEndBefore !== null) {
+          // 前スロットにイベントがある場合、その終了+1時間後
           const suggestedStart = latestEndBefore + 60
-          // デフォルト開始時間より遅い方を採用
           startMinutes = Math.max(suggestedStart, defaultStartTimes[def.key])
         } else {
-          // 前公演がなければデフォルト開始時間
+          // イベントがなければデフォルト開始時間
           startMinutes = defaultStartTimes[def.key]
         }
         
