@@ -132,14 +132,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           return true
         })
         
-        console.log('📅 allStoreEvents loaded:', validEvents.length, '件', {
-          orgId,
-          sampleDates: [...new Set(validEvents.slice(0, 20).map((e: any) => e.date?.split('T')[0]))],
-          april: validEvents.filter((e: any) => {
-            const d = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : ''
-            return d.startsWith('2026-04')
-          }).length
-        })
+        logger.log('📅 allStoreEvents loaded:', validEvents.length, '件')
         setAllStoreEvents(validEvents)
       } catch (error) {
         logger.error('全店舗イベントの取得エラー:', error)
@@ -380,11 +373,13 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         const eventActualStart = eventStart - eventPrepTime
         // 終了時間がない場合はデフォルト4時間と仮定
         const eventEnd = eventEndTime ? parseTime(eventEndTime) : eventStart + 240
+        // 終了後1時間のインターバル（片付け・準備バッファー）
+        const eventEndWithBuffer = eventEnd + 60
         
         // 時間が被っているかチェック
-        // 申込み公演の終了時間（準備時間込み）が、既存イベントの実質開始時間より後
-        // かつ、申込み公演の開始時間が、既存イベントの終了時間より前
-        const hasOverlap = requestStart < eventEnd && requestEnd > eventActualStart
+        // 申込み公演の開始時間が、既存イベントの終了+1時間インターバルより前
+        // かつ、申込み公演の終了時間（準備時間込み）が、既存イベントの実質開始時間より後
+        const hasOverlap = requestStart < eventEndWithBuffer && requestEnd > eventActualStart
         
         return hasOverlap
       })
@@ -570,20 +565,6 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       })
       .sort((a: any, b: any) => (a.end_time || '').localeCompare(b.end_time || ''))
     
-    // デバッグ: 特定日のイベントデータ確認（最初の5日分のみ）
-    if (dayEvents.length > 0 || targetDate === '2026-04-04') {
-      console.log(`📅 [${targetDate}] dayEvents:`, dayEvents.length, '件', {
-        allStoreEventsTotal: allStoreEvents.length,
-        selectedStoreIds,
-        events: dayEvents.map((e: any) => ({
-          title: e.scenarios?.title?.substring(0, 10) || e.title?.substring(0, 10),
-          start: e.start_time,
-          end: e.end_time,
-          store: e.store_id?.substring(0, 8) || e.stores?.id?.substring(0, 8),
-          category: e.category
-        }))
-      })
-    }
     
     // 各スロットの前にあるイベントの最遅end_timeを計算
     const getLatestEndTimeBefore = (slotKey: string): number | null => {
