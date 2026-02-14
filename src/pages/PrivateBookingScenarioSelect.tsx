@@ -5,8 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Header } from '@/components/layout/Header'
-import { ArrowLeft, Search } from 'lucide-react'
-import { scenarioApi } from '@/lib/api'
+import { ArrowLeft, Search, MapPin } from 'lucide-react'
+import { scenarioApi, storeApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { BookingNotice } from './ScenarioDetailPage/components/BookingNotice'
@@ -22,6 +22,7 @@ interface Scenario {
   synopsis?: string
   genre?: string[]
   participation_fee?: number
+  available_stores?: string[]
 }
 
 interface PrivateBookingScenarioSelectProps {
@@ -34,6 +35,8 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedParticipantCount, setSelectedParticipantCount] = useState<number | null>(null)
+  const [allStores, setAllStores] = useState<any[]>([])
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
 
   // シナリオをフィルタリング（タイトル・作者で検索）
   const filteredScenarios = useMemo(() => {
@@ -57,8 +60,22 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     evening: '夜間'
   }
 
+  // シナリオ対応の選択可能店舗を計算
+  const selectableStores = useMemo(() => {
+    const validStores = allStores.filter((s: any) =>
+      s.ownership_type !== 'office' && s.status === 'active'
+    )
+    if (!selectedScenarioId) return validStores
+    const scenario = scenarios.find(s => s.id === selectedScenarioId)
+    if (scenario?.available_stores && scenario.available_stores.length > 0) {
+      return validStores.filter(s => scenario.available_stores!.includes(s.id))
+    }
+    return validStores
+  }, [allStores, selectedScenarioId, scenarios])
+
   useEffect(() => {
     loadScenarios()
+    loadStores()
   }, [])
 
   const loadScenarios = async () => {
@@ -73,15 +90,30 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     }
   }
 
+  const loadStores = async () => {
+    try {
+      const data = await storeApi.getAll()
+      setAllStores(data)
+    } catch (error) {
+      logger.error('店舗の読み込みエラー:', error)
+    }
+  }
+
   const handleProceed = () => {
     if (!selectedScenarioId) {
       showToast.warning('シナリオを選択してください')
       return
     }
+    if (selectedStoreIds.length === 0) {
+      showToast.warning('希望店舗を1つ以上選択してください')
+      return
+    }
     
     // 貸切リクエスト確認ページへ遷移（組織slugがあれば予約サイト形式）
+    // 複数店舗はカンマ区切りで渡す
     const basePath = organizationSlug ? `/${organizationSlug}` : ''
-    window.location.href = `${basePath}/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${preselectedStore}&slot=${preselectedSlot}`
+    const storeParam = selectedStoreIds.join(',')
+    window.location.href = `${basePath}/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${storeParam}&slot=${preselectedSlot}`
   }
 
   return (
@@ -131,8 +163,22 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
               {/* シナリオ選択 */}
               <Select value={selectedScenarioId} onValueChange={(id) => {
                 setSelectedScenarioId(id)
-                // 選択時に人数をリセット
                 setSelectedParticipantCount(null)
+                // シナリオ変更時に店舗選択をリセット（URLの初期店舗があれば再設定）
+                const newScenario = scenarios.find(s => s.id === id)
+                const availableIds = newScenario?.available_stores && newScenario.available_stores.length > 0
+                  ? newScenario.available_stores
+                  : null
+                if (preselectedStore) {
+                  // URL指定の店舗が対応店舗に含まれるか確認
+                  if (!availableIds || availableIds.includes(preselectedStore)) {
+                    setSelectedStoreIds([preselectedStore])
+                  } else {
+                    setSelectedStoreIds([])
+                  }
+                } else {
+                  setSelectedStoreIds([])
+                }
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder="シナリオを選択..." />
@@ -289,6 +335,60 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                       ※ 実際の料金は店舗との調整により変動する場合があります
                     </p>
                   </div>
+                  {/* 希望店舗選択 */}
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <h3 className="text-sm font-medium">希望店舗を選択</h3>
+                    <p className="text-xs text-muted-foreground">
+                      希望する店舗を選択してください（複数選択可）
+                    </p>
+                    <div className="space-y-2">
+                      {selectableStores.map((store: any) => {
+                        const isSelected = selectedStoreIds.includes(store.id)
+                        return (
+                          <label
+                            key={store.id}
+                            className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'border-purple-300 bg-purple-50'
+                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                setSelectedStoreIds(prev =>
+                                  isSelected
+                                    ? prev.filter(id => id !== store.id)
+                                    : [...prev, store.id]
+                                )
+                              }}
+                              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <MapPin className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                                <span className="text-sm font-medium">{store.name}</span>
+                              </div>
+                              {store.address && (
+                                <p className="text-xs text-muted-foreground mt-0.5 ml-5.5">{store.address}</p>
+                              )}
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    {selectedStoreIds.length === 0 && (
+                      <p className="text-xs text-orange-600">
+                        ※ 店舗を1つ以上選択してください
+                      </p>
+                    )}
+                    {selectedStoreIds.length > 1 && (
+                      <p className="text-xs text-muted-foreground">
+                        ※ 最終的な開催店舗は、候補日時と合わせて店舗側が決定します
+                      </p>
+                    )}
+                  </div>
                 </>
               )
             })()}
@@ -305,7 +405,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
             <Button
               className="w-full bg-purple-600 hover:bg-purple-700 text-white"
               onClick={handleProceed}
-              disabled={!selectedScenarioId || loading}
+              disabled={!selectedScenarioId || selectedStoreIds.length === 0 || loading}
             >
               貸切リクエスト確認へ
             </Button>

@@ -88,9 +88,12 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       const storesData = await storeApi.getAll()
       setStores(storesData)
       
-      // URLパラメータから選択済み店舗と時間帯を設定
-      if (isUuidLike(storeId) && storesData.some((s: any) => s.id === storeId)) {
-        setSelectedStoreIds([storeId])
+      // URLパラメータから選択済み店舗を設定（カンマ区切り対応）
+      const storeIds = storeId.split(',').filter(id => 
+        isUuidLike(id) && storesData.some((s: any) => s.id === id)
+      )
+      if (storeIds.length > 0) {
+        setSelectedStoreIds(storeIds)
       }
       
       // 日付が有効な場合のみ時間帯を設定
