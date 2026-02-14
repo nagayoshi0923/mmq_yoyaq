@@ -701,15 +701,17 @@ export function PerformanceModal({
                   ...availableNonAssignedGMs.map(gm => ({ gm, isAssigned: false, isAvailable: true }))
                 ]
                 
-                // 全スタッフをバッジ表示用にリスト化
-                const allDisplayGMs = staff
+                // 担当または出勤のスタッフのみ表示（その他は除外）
+                const filteredDisplayGMs = staff
                   .filter(gm => gm.status === 'active')
                   .map(gm => ({
                     gm,
                     isAssigned: isAssignedGM(gm),
                     isAvailable: isAvailableGM(gm)
                   }))
-                  // ソート: 担当+出勤 > 担当のみ > 出勤のみ > その他
+                  // 担当または出勤のみ表示
+                  .filter(({ isAssigned, isAvailable }) => isAssigned || isAvailable)
+                  // ソート: 担当+出勤 > 担当のみ > 出勤のみ
                   .sort((a, b) => {
                     const scoreA = (a.isAssigned ? 2 : 0) + (a.isAvailable ? 1 : 0)
                     const scoreB = (b.isAssigned ? 2 : 0) + (b.isAvailable ? 1 : 0)
@@ -719,19 +721,18 @@ export function PerformanceModal({
                 return {
                   value: scenario.title,
                   label: scenario.title,
-                  displayInfo: allDisplayGMs.length > 0 
+                  displayInfo: filteredDisplayGMs.length > 0 
                     ? (
                         <span className="flex flex-col gap-0.5">
                           {/* 凡例 */}
                           <span className="flex gap-1 text-[9px] text-muted-foreground mb-0.5">
                             <span className="inline-flex items-center px-1 rounded bg-green-100 text-green-700 border border-green-300">担当+出勤</span>
                             <span className="inline-flex items-center px-1 rounded bg-blue-100 text-blue-700 border border-blue-300">担当</span>
-                            <span className="inline-flex items-center px-1 rounded bg-amber-50 text-amber-600 border border-amber-200">出勤</span>
-                            <span className="inline-flex items-center px-1 rounded bg-white text-gray-400 border border-gray-200">その他</span>
+                            <span className="inline-flex items-center px-1 rounded bg-white text-gray-400 border border-gray-200">出勤</span>
                           </span>
                           {/* GMバッジ一覧 */}
                           <span className="flex flex-wrap gap-0.5 items-center">
-                            {allDisplayGMs.map(({ gm, isAssigned, isAvailable }) => {
+                            {filteredDisplayGMs.map(({ gm, isAssigned, isAvailable }) => {
                               // 担当かつ出勤 → 緑背景
                               if (isAssigned && isAvailable) {
                                 return (
@@ -754,18 +755,7 @@ export function PerformanceModal({
                                   </span>
                                 )
                               }
-                              // 担当でないが出勤中 → オレンジ背景
-                              if (!isAssigned && isAvailable) {
-                                return (
-                                  <span 
-                                    key={gm.id}
-                                    className="inline-flex items-center px-1 py-0 rounded text-[11px] bg-amber-50 text-amber-600 border border-amber-200"
-                                  >
-                                    {gm.name}
-                                  </span>
-                                )
-                              }
-                              // 担当でもなく出勤もなし → 白背景・薄グレー
+                              // 担当でないが出勤中 → 白背景・灰色文字
                               return (
                                 <span 
                                   key={gm.id}
@@ -779,7 +769,7 @@ export function PerformanceModal({
                         </span>
                       )
                     : undefined,
-                  displayInfoSearchText: allDisplayGMs.map(({ gm }) => gm.name).join(', ')
+                  displayInfoSearchText: filteredDisplayGMs.map(({ gm }) => gm.name).join(', ')
                 }
               })}
               placeholder="シナリオ"
