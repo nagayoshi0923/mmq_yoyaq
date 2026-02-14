@@ -317,7 +317,7 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
       </Card>
 
       {/* カテゴリ追加・編集ダイアログ */}
-      <Dialog open={isAddCategoryDialogOpen} onOpenChange={(open) => { if (!open) { setNewCategoryName(''); setEditingOldCategoryName(null) }; setIsAddCategoryDialogOpen(open) }}>
+      <Dialog open={isAddCategoryDialogOpen} onOpenChange={(open) => { if (!open) { setNewCategoryName(''); setEditingOldCategoryName(null) } setIsAddCategoryDialogOpen(open) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingOldCategoryName !== null ? 'カテゴリ名を編集' : '新しいカテゴリを追加'}</DialogTitle>

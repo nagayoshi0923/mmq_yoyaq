@@ -492,7 +492,6 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     }
 
     loadAssignments()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, scenarioId])
 
   // NOTE: フォールバック（organization_scenarios.available_gms / gm_assignments）は廃止
