@@ -701,33 +701,85 @@ export function PerformanceModal({
                   ...availableNonAssignedGMs.map(gm => ({ gm, isAssigned: false, isAvailable: true }))
                 ]
                 
+                // 全スタッフをバッジ表示用にリスト化
+                const allDisplayGMs = staff
+                  .filter(gm => gm.status === 'active')
+                  .map(gm => ({
+                    gm,
+                    isAssigned: isAssignedGM(gm),
+                    isAvailable: isAvailableGM(gm)
+                  }))
+                  // ソート: 担当+出勤 > 担当のみ > 出勤のみ > その他
+                  .sort((a, b) => {
+                    const scoreA = (a.isAssigned ? 2 : 0) + (a.isAvailable ? 1 : 0)
+                    const scoreB = (b.isAssigned ? 2 : 0) + (b.isAvailable ? 1 : 0)
+                    return scoreB - scoreA
+                  })
+                
                 return {
                   value: scenario.title,
                   label: scenario.title,
-                  displayInfo: displayGMs.length > 0 
+                  displayInfo: allDisplayGMs.length > 0 
                     ? (
-                        <span className="flex flex-wrap gap-x-1 items-center">
-                          {displayGMs.map(({ gm, isAssigned, isAvailable }, index) => (
-                            <span key={gm.id} className="inline-flex items-center">
-                              <span 
-                                style={{ 
-                                  color: isAssigned ? getStaffTextColor(gm) : '#9CA3AF',
-                                  fontWeight: isAssigned ? 500 : 400,
-                                  opacity: isAssigned ? 1 : 0.8
-                                }}
-                              >
-                                {gm.name}
-                              </span>
-                              {isAvailable && (
-                                <span className="text-green-600 text-[10px] ml-0.5" title="シフト済">✓</span>
-                              )}
-                              {index < displayGMs.length - 1 && <span className="text-muted-foreground">,</span>}
-                            </span>
-                          ))}
+                        <span className="flex flex-col gap-0.5">
+                          {/* 凡例 */}
+                          <span className="flex gap-1 text-[9px] text-muted-foreground mb-0.5">
+                            <span className="inline-flex items-center px-1 rounded bg-green-100 text-green-700 border border-green-300">担当+出勤</span>
+                            <span className="inline-flex items-center px-1 rounded bg-blue-100 text-blue-700 border border-blue-300">担当</span>
+                            <span className="inline-flex items-center px-1 rounded bg-amber-50 text-amber-600 border border-amber-200">出勤</span>
+                            <span className="inline-flex items-center px-1 rounded bg-white text-gray-400 border border-gray-200">その他</span>
+                          </span>
+                          {/* GMバッジ一覧 */}
+                          <span className="flex flex-wrap gap-0.5 items-center">
+                            {allDisplayGMs.map(({ gm, isAssigned, isAvailable }) => {
+                              // 担当かつ出勤 → 緑背景
+                              if (isAssigned && isAvailable) {
+                                return (
+                                  <span 
+                                    key={gm.id}
+                                    className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-green-100 text-green-800 border border-green-300"
+                                  >
+                                    {gm.name}
+                                  </span>
+                                )
+                              }
+                              // 担当だが出勤なし → 青背景
+                              if (isAssigned && !isAvailable) {
+                                return (
+                                  <span 
+                                    key={gm.id}
+                                    className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-blue-100 text-blue-700 border border-blue-300"
+                                  >
+                                    {gm.name}
+                                  </span>
+                                )
+                              }
+                              // 担当でないが出勤中 → オレンジ背景
+                              if (!isAssigned && isAvailable) {
+                                return (
+                                  <span 
+                                    key={gm.id}
+                                    className="inline-flex items-center px-1 py-0 rounded text-[11px] bg-amber-50 text-amber-600 border border-amber-200"
+                                  >
+                                    {gm.name}
+                                  </span>
+                                )
+                              }
+                              // 担当でもなく出勤もなし → 白背景・薄グレー
+                              return (
+                                <span 
+                                  key={gm.id}
+                                  className="inline-flex items-center px-1 py-0 rounded text-[11px] bg-white text-gray-400 border border-gray-200"
+                                >
+                                  {gm.name}
+                                </span>
+                              )
+                            })}
+                          </span>
                         </span>
                       )
                     : undefined,
-                  displayInfoSearchText: displayGMs.map(({ gm }) => gm.name).join(', ')
+                  displayInfoSearchText: allDisplayGMs.map(({ gm }) => gm.name).join(', ')
                 }
               })}
               placeholder="シナリオ"
