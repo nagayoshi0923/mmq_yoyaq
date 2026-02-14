@@ -623,6 +623,20 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       return earliest
     }
     
+    // 当該スロットの時間帯内にすでにイベントが存在するかチェック
+    // （スロットの開始〜終了の間にイベントの開始時間があるか）
+    const hasEventInSlotRange = (slotKey: string): boolean => {
+      const slotStart = defaultStartTimes[slotKey]
+      const slotEnd = slotEndLimits[slotKey]
+      
+      return dayEvents.some((e: any) => {
+        if (!e.start_time) return false
+        const eventStart = timeToMinutes(e.start_time)
+        // イベントの開始時間がスロットの時間帯内にある場合、そのスロットは埋まっている
+        return eventStart >= slotStart && eventStart < slotEnd
+      })
+    }
+    
     // 時間枠を生成（有効な公演枠のみ）
     const slotDefinitions: { key: 'morning' | 'afternoon' | 'evening'; label: string }[] = [
       { key: 'morning', label: '朝公演' },
@@ -634,6 +648,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     return slotDefinitions
       .filter(def => availableSlots.includes(def.key))
       .map(def => {
+        // このスロットの時間帯にすでにイベントがある場合は無効
+        if (hasEventInSlotRange(def.key)) {
+          return null
+        }
+        
         // 前公演のend_time + 1時間を開始時間として計算
         const latestEndBefore = getLatestEndTimeBefore(def.key)
         let startMinutes: number
