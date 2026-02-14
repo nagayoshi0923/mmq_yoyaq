@@ -516,7 +516,7 @@ function MasterListManager({
       </CardContent>
 
       {/* 追加/編集ダイアログ */}
-      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) { setInputName(''); setEditingItem(null) }; setDialogOpen(open) }}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) { setInputName(''); setEditingItem(null) } setDialogOpen(open) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
