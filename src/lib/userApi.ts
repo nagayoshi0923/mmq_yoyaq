@@ -94,7 +94,7 @@ export async function upsertUser(authUserId: string, email: string, role: 'admin
 }
 
 /**
- * 現在のユーザー自身のアカウントを削除
+ * 現在のユーザー自身のアカウントを削除（退会）
  * Edge Functionを使用して auth.users から削除します
  * 外部キー制約により、public.users も自動的に削除されます（CASCADE）
  */
@@ -105,14 +105,13 @@ export async function deleteMyAccount(): Promise<void> {
     throw new Error('認証が必要です')
   }
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/delete-user`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/delete-my-account`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session.access_token}`,
       'apikey': SUPABASE_ANON_KEY
-    },
-    body: JSON.stringify({ userId: session.user.id })
+    }
   })
 
   const result = await response.json()
