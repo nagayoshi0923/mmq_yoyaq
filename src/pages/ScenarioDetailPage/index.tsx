@@ -76,6 +76,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     handleBackFromPrivateBooking
   } = useBookingActions({ events, onReload: loadScenarioDetail })
   
+  // カスタム休日フック（usePrivateBookingより先に呼ぶ必要がある）
+  const { isCustomHoliday } = useCustomHolidays()
+  
   // 貸切リクエストロジックフック
   const {
     currentMonth,
@@ -90,10 +93,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     changeMonth,
     toggleTimeSlot,
     getTimeSlotsForDate
-  } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug })
-  
-  // カスタム休日フック
-  const { isCustomHoliday } = useCustomHolidays()
+  } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug, isCustomHoliday })
 
   useEffect(() => {
     // URLパラメータを処理

@@ -5,6 +5,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { getTimeSlot } from '@/utils/scheduleUtils' // 時間帯判定用
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
+import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import type { TimeSlot, EventSchedule } from '../utils/types'
 
 // 開始時間から終了時間を計算する関数
@@ -22,12 +23,13 @@ interface UsePrivateBookingProps {
   scenarioId: string
   scenario?: any // シナリオデータ（available_storesを含む）
   organizationSlug?: string // 組織slug（マルチテナント対応）
+  isCustomHoliday?: (date: string) => boolean // カスタム休日判定（GW、年末年始など）
 }
 
 /**
  * 貸切リクエスト関連のロジックを管理するフック
  */
-export function usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug }: UsePrivateBookingProps) {
+export function usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug, isCustomHoliday }: UsePrivateBookingProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   // 店舗選択をアカウントごとに記憶
   const [savedStoreIds, setSavedStoreIds] = usePrivateBookingStorePreference()
@@ -231,14 +233,18 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
   }, [stores])
 
   // デフォルトの公演枠設定（設定がない場合に使用）
-  // 平日（月〜金）：昼・夜のみ、土日：全公演
-  const getDefaultAvailableSlots = useCallback((dayOfWeek: number): ('morning' | 'afternoon' | 'evening')[] => {
+  // 平日（月〜金）：昼・夜のみ、土日祝・カスタム休日：全公演（朝公演あり）
+  const getDefaultAvailableSlots = useCallback((dayOfWeek: number, date?: string): ('morning' | 'afternoon' | 'evening')[] => {
     // 0=日曜日, 6=土曜日
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      return ['morning', 'afternoon', 'evening'] // 土日は全公演
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+    // 祝日・カスタム休日も土日と同じ扱い
+    const isHoliday = date ? (isJapaneseHoliday(date) || isCustomHoliday?.(date)) : false
+    
+    if (isWeekend || isHoliday) {
+      return ['morning', 'afternoon', 'evening'] // 土日祝・カスタム休日は全公演（朝公演あり）
     }
     return ['afternoon', 'evening'] // 平日は昼・夜のみ
-  }, [])
+  }, [isCustomHoliday])
 
   // 営業時間内かどうかをチェックする関数（キャッシュを使用）
   // timeSlot: 'morning' | 'afternoon' | 'evening' - 公演枠
@@ -252,7 +258,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     // 設定がない場合はデフォルトの公演枠設定を適用
     if (!data) {
       if (timeSlot) {
-        const defaultSlots = getDefaultAvailableSlots(dayOfWeek)
+        const defaultSlots = getDefaultAvailableSlots(dayOfWeek, targetDate)
         return defaultSlots.includes(timeSlot)
       }
       return true
@@ -296,14 +302,14 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         }
       } else if (timeSlot) {
         // available_slotsが設定されていない場合はデフォルトを適用
-        const defaultSlots = getDefaultAvailableSlots(dayOfWeek)
+        const defaultSlots = getDefaultAvailableSlots(dayOfWeek, targetDate)
         if (!defaultSlots.includes(timeSlot)) {
           return false
         }
       }
     } else if (timeSlot) {
       // opening_hoursがない場合もデフォルトを適用
-      const defaultSlots = getDefaultAvailableSlots(dayOfWeek)
+      const defaultSlots = getDefaultAvailableSlots(dayOfWeek, targetDate)
       if (!defaultSlots.includes(timeSlot)) {
         return false
       }
@@ -434,10 +440,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     // 店舗が選択されていない場合：営業時間設定があればそれを使用、なければデフォルト
     const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+    const targetDate = date.split('T')[0]
     const dayOfWeek = new Date(date).getDay()
     
     // キャッシュに設定があれば最初の設定を使用（全店舗共通設定として）
-    let allowedSlots: ('morning' | 'afternoon' | 'evening')[] = getDefaultAvailableSlots(dayOfWeek)
+    let allowedSlots: ('morning' | 'afternoon' | 'evening')[] = getDefaultAvailableSlots(dayOfWeek, targetDate)
     
     if (businessHoursCache.size > 0) {
       const firstStoreId = businessHoursCache.keys().next().value as string | undefined
@@ -514,8 +521,10 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
 
   // 日付に基づいて時間枠を取得（既存イベントのスケジュールを参照、前公演end_time + 1時間を開始時間に）
   const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => {
+    const targetDate = date.split('T')[0] // YYYY-MM-DD形式に統一
     const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+    // 土日、祝日、カスタム休日は「休日」として扱う（朝公演あり、昼公演14:00開始）
+    const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(targetDate) || isCustomHoliday?.(targetDate)
     
     // シナリオの公演時間（分）- デフォルト180分（3時間）
     const durationMinutes = scenario?.duration || 180
@@ -535,7 +544,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     logger.log('[getTimeSlotsForDate]', {
       date,
       dayOfWeek,
-      isWeekend,
+      isWeekendOrHoliday,
       targetStoreId,
       hasSettings: !!settings,
       hasOpeningHours: !!settings?.opening_hours,
@@ -555,8 +564,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       return h * 60 + (m || 0)
     }
     
-    // デフォルトの開始時間・終了時間（曜日で分ける: 平日は昼13:00開始、土日は14:00）
-    const defaultStartTimes: Record<string, number> = isWeekend
+    // デフォルトの開始時間・終了時間（平日は昼13:00開始、土日祝・カスタム休日は14:00）
+    const defaultStartTimes: Record<string, number> = isWeekendOrHoliday
       ? {
           morning: timeToMinutes('10:00'),
           afternoon: timeToMinutes('14:00'),
@@ -574,7 +583,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     }
     
     // 営業時間設定がある場合、曜日ごとの設定を取得
-    let availableSlots: ('morning' | 'afternoon' | 'evening')[] = isWeekend 
+    // 土日祝・カスタム休日は全公演（朝公演あり）、平日は昼・夜のみ
+    let availableSlots: ('morning' | 'afternoon' | 'evening')[] = isWeekendOrHoliday 
       ? ['morning', 'afternoon', 'evening'] 
       : ['afternoon', 'evening']
     
@@ -628,7 +638,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     })
     
     // === 既存イベントのスケジュールを参照して開始時間を計算 ===
-    const targetDate = date.split('T')[0]
+    // targetDateは関数冒頭で定義済み
     
     // 対象店舗のイベントを取得（選択店舗 or 全店舗）
     const targetStoreIds = selectedStoreIds.length > 0 
@@ -877,7 +887,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         }
       })
       .filter((slot): slot is TimeSlot => slot !== null)
-  }, [selectedStoreIds, businessHoursCache, scenario, allStoreEvents, stores])
+  }, [selectedStoreIds, businessHoursCache, scenario, allStoreEvents, stores, isCustomHoliday])
 
   // シナリオが対応している店舗のみにフィルタリングした店舗リスト
   const availableStores = useMemo(() => {
