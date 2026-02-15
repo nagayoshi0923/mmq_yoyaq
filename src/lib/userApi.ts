@@ -105,10 +105,7 @@ export async function deleteMyAccount(): Promise<void> {
     throw new Error('認証が必要です')
   }
 
-  // URLの末尾スラッシュを除去して正規化
-  const baseUrl = SUPABASE_URL.replace(/\/+$/, '')
-  
-  const response = await fetch(`${baseUrl}/functions/v1/delete-my-account`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/delete-my-account`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

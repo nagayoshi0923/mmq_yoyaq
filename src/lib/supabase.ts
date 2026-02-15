@@ -19,7 +19,8 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 // 環境変数をエクスポート（他のモジュールでAPI呼び出しに使用）
-export const SUPABASE_URL = supabaseUrl
+// URLの末尾スラッシュを除去して正規化
+export const SUPABASE_URL = supabaseUrl.replace(/\/+$/, '')
 export const SUPABASE_ANON_KEY = supabaseKey
 
 // デバッグしやすいように「キー種別」だけ出す（値は出さない）

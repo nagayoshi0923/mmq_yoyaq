@@ -26,6 +26,8 @@ serve(async (req) => {
     // 認証チェック: 呼び出し元ユーザーを確認
     // ============================================
     const authHeader = req.headers.get('Authorization')
+    console.log('🔑 Auth header present:', !!authHeader)
+    
     if (!authHeader) {
       console.warn('⚠️ 認証ヘッダーがありません')
       return new Response(
@@ -33,11 +35,12 @@ serve(async (req) => {
           success: false,
           error: '認証が必要です'
         }),
-        { status: 401, headers: corsHeaders }
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     // 呼び出し元ユーザーの認証を検証
+    console.log('🔍 Verifying user with anon key...')
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } }
     })
@@ -45,15 +48,17 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await userClient.auth.getUser()
     
     if (authError || !user) {
-      console.warn('⚠️ 認証エラー:', authError?.message)
+      console.warn('⚠️ 認証エラー:', authError?.message, authError?.status)
       return new Response(
         JSON.stringify({
           success: false,
           error: '認証に失敗しました'
         }),
-        { status: 401, headers: corsHeaders }
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    
+    console.log('✅ User verified:', user.id)
 
     const userId = user.id
     const userEmail = user.email || 'unknown'
