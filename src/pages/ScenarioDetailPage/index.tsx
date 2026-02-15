@@ -77,7 +77,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   } = useBookingActions({ events, onReload: loadScenarioDetail })
   
   // カスタム休日フック（usePrivateBookingより先に呼ぶ必要がある）
-  const { isCustomHoliday } = useCustomHolidays()
+  // 公開ページではorganizationSlugから組織IDを取得して休日を取得
+  const { isCustomHoliday } = useCustomHolidays({ organizationSlug })
   
   // 貸切リクエストロジックフック
   const {
