@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, ChevronsUpDown, Plus } from "lucide-react"
+import { Check, ChevronsUpDown, Plus, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,7 @@ interface SearchableSelectProps {
   onEmptyAction?: () => void
   emptyActionLabel?: string
   allowCustomValue?: boolean  // カスタム値を許可するかどうか
+  allowClear?: boolean  // 選択解除を許可するかどうか
 }
 
 export function SearchableSelect({
@@ -45,7 +46,8 @@ export function SearchableSelect({
   emptyText = "見つかりません",
   onEmptyAction,
   emptyActionLabel = "作成",
-  allowCustomValue = false
+  allowCustomValue = false,
+  allowClear = false
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -89,7 +91,18 @@ export function SearchableSelect({
           <span className="truncate">
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+          <div className="flex items-center ml-1 shrink-0">
+            {allowClear && value && (
+              <X 
+                className="h-3 w-3 opacity-50 hover:opacity-100 mr-1" 
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onValueChange("")
+                }}
+              />
+            )}
+            <ChevronsUpDown className="h-3 w-3 opacity-50" />
+          </div>
         </Button>
       </PopoverTrigger>
       <PopoverContent 

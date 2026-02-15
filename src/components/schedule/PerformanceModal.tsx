@@ -778,6 +778,7 @@ export function PerformanceModal({
               emptyActionLabel="シナリオを作成"
               onEmptyAction={() => setIsScenarioDialogOpen(true)}
               className="h-7 text-xs"
+              allowClear={!formData.is_private_request}
             />
             {formData.is_private_request && (
               <p className="text-[11px] text-purple-600 mt-0.5">
