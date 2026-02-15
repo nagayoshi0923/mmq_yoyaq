@@ -198,6 +198,38 @@ export function CompleteProfile() {
         .eq('user_id', userId)
         .maybeSingle()
 
+      // メールアドレスで既存顧客を検索（別のuser_idに紐付いている可能性）
+      // クーポン不正取得防止：同じメールで登録済みならクーポン付与しない
+      const { data: existingByEmail } = await supabase
+        .from('customers')
+        .select('id, user_id')
+        .eq('email', userEmail)
+        .maybeSingle()
+
+      // 電話番号で既存顧客を検索（クーポン不正取得防止）
+      const phoneDigitsNormalized = phone.replace(/[-\s]/g, '')
+      const { data: existingByPhone } = await supabase
+        .from('customers')
+        .select('id, user_id')
+        .neq('user_id', userId) // 自分以外
+        .maybeSingle()
+      
+      // 電話番号一致をさらにフィルタ（DB側でregexp_replaceができないため）
+      let hasExistingCustomerByPhone = false
+      if (existingByPhone) {
+        // 実際には複数件ありうるので、全件取得してチェック
+        const { data: allCustomers } = await supabase
+          .from('customers')
+          .select('id, phone')
+          .neq('user_id', userId)
+        
+        if (allCustomers) {
+          hasExistingCustomerByPhone = allCustomers.some(c => 
+            c.phone && c.phone.replace(/[-\s]/g, '') === phoneDigitsNormalized
+          )
+        }
+      }
+
       const notificationSettings = {
         email_notifications: true,
         reminder_notifications: true,
@@ -205,7 +237,9 @@ export function CompleteProfile() {
       }
 
       // 新規登録かどうかを判定（クーポンページ遷移の判断に使用）
+      // メールアドレスまたは電話番号で既存顧客が見つかった場合も新規扱いしない
       let isNewCustomer = false
+      const hasExistingCustomer = !!existingByEmail || hasExistingCustomerByPhone
 
       if (existingByUserId) {
         // 自分のレコードがある → UPDATE（既存ユーザー）
@@ -295,14 +329,16 @@ export function CompleteProfile() {
                 throw insertNoEmail
               }
               logger.log('✅ 新規顧客レコードを作成しました（email除外）')
-              isNewCustomer = true // 新規INSERT
+              // メールまたは電話で既存顧客が見つかっている場合はクーポン付与対象外
+              isNewCustomer = !hasExistingCustomer
             }
           } else {
             throw insertCustErr
           }
         } else {
           logger.log('✅ 新規顧客レコードを作成しました')
-          isNewCustomer = true // 新規INSERT成功
+          // メールまたは電話で既存顧客が見つかっている場合はクーポン付与対象外
+          isNewCustomer = !hasExistingCustomer
         }
       }
       
