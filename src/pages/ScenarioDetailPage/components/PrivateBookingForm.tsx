@@ -1,6 +1,7 @@
 import { memo, useState, useEffect } from 'react'
 import type { TimeSlot } from '../utils/types'
 import { StoreSelector } from './StoreSelector'
+import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 
 interface Store {
   id: string
@@ -71,11 +72,11 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
           const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
           
-          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日は14:00）
+          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日祝は14:00）
           const dateObj = new Date(date)
           const dayOfWeek = dateObj.getDay()
-          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-          const defaultAfternoonStart = isWeekend ? '14:00' : '13:00'
+          const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(date)
+          const defaultAfternoonStart = isWeekendOrHoliday ? '14:00' : '13:00'
           
           return timeSlots.map(async (slot) => {
             // 日付ごとの開始時間と終了時間を適用（曜日に応じたデフォルト）
@@ -166,18 +167,19 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const weekdays = ['日', '月', '火', '水', '木', '金', '土']
           const weekday = weekdays[dateObj.getDay()]
           
-          // 曜日の色分け
+          // 曜日の色分け（祝日は赤）
           const dayOfWeek = dateObj.getDay()
-          const weekdayColor = dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
+          const isHoliday = isJapaneseHoliday(date)
+          const weekdayColor = isHoliday || dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
           
           // 日付ごとの時間枠を取得（営業時間設定反映）
           // 開始時間と終了時間を取得（表示は常に3枠固定）
           const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
           const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
           
-          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日は14:00）
-          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-          const defaultAfternoonStart = isWeekend ? '14:00' : '13:00'
+          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日祝は14:00）
+          const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(date)
+          const defaultAfternoonStart = isWeekendOrHoliday ? '14:00' : '13:00'
           
           return (
             <div 
