@@ -39,6 +39,31 @@ const calculateEndTime = (startTime: string, durationMinutes: number): string =>
   return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`
 }
 
+// 営業終了時間から逆算して開始時間を計算する関数（夜公演用）
+const calculateReverseStartTime = (endTimeLimit: string, durationMinutes: number): string => {
+  const [hours, minutes] = endTimeLimit.split(':').map(Number)
+  const totalMinutes = hours * 60 + minutes - durationMinutes
+  const startHours = Math.floor(totalMinutes / 60)
+  const startMinutes = totalMinutes % 60
+  return `${startHours.toString().padStart(2, '0')}:${startMinutes.toString().padStart(2, '0')}`
+}
+
+// デフォルトの開始時間を取得（スロット種別と公演時間に応じて調整）
+const getDefaultStartTime = (slotLabel: string, isWeekendOrHoliday: boolean, durationMinutes: number): string => {
+  if (slotLabel === '朝公演') {
+    return '09:00'
+  } else if (slotLabel === '昼公演') {
+    return isWeekendOrHoliday ? '14:00' : '13:00'
+  } else if (slotLabel === '夜公演') {
+    // 夜公演は23:00終了から逆算
+    const reverseStart = calculateReverseStartTime('23:00', durationMinutes)
+    const defaultStart = '18:00'
+    // 逆算した開始時間がデフォルト（18:00）より早い場合は逆算値を使用
+    return reverseStart < defaultStart ? reverseStart : defaultStart
+  }
+  return '09:00'
+}
+
 export const PrivateBookingForm = memo(function PrivateBookingForm({
   stores,
   selectedStoreIds,
@@ -74,16 +99,16 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
           const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
           
-          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日祝・カスタム休日は14:00）
+          // 曜日に応じたデフォルト開始時間（公演時間から計算、夜公演は営業終了から逆算）
           const dateObj = new Date(date)
           const dayOfWeek = dateObj.getDay()
           const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(date) || isCustomHoliday?.(date)
-          const defaultAfternoonStart = isWeekendOrHoliday ? '14:00' : '13:00'
           
           return timeSlots.map(async (slot) => {
-            // 日付ごとの開始時間と終了時間を適用（曜日に応じたデフォルト）
+            // 日付ごとの開始時間と終了時間を適用（公演時間に応じたデフォルト）
             const slotTimes = slotTimesMap.get(slot.label)
-            const defaultStart = slot.label === '昼公演' ? defaultAfternoonStart : slot.startTime
+            // デフォルト開始時間は公演時間と曜日から計算（夜公演は営業終了から逆算）
+            const defaultStart = getDefaultStartTime(slot.label, isWeekendOrHoliday ?? false, scenarioDuration)
             const startTime = slotTimes?.startTime || defaultStart
             // 終了時間はシナリオの公演時間から計算（固定値のフォールバックを避ける）
             const endTime = slotTimes?.endTime || calculateEndTime(startTime, scenarioDuration)
@@ -180,9 +205,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
           const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
           
-          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日祝・カスタム休日は14:00）
+          // 曜日に応じたデフォルト開始時間（公演時間から計算、夜公演は営業終了から逆算）
           const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(date) || isCustomHoliday?.(date)
-          const defaultAfternoonStart = isWeekendOrHoliday ? '14:00' : '13:00'
           
           return (
             <div 
@@ -198,10 +222,10 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
               {/* 時間枠ボタン（常に3枠表示、幅固定） */}
               <div className="flex gap-1.5 flex-1">
                 {timeSlots.map((slot) => {
-                  // 日付ごとの開始時間と終了時間を取得（設定がなければ曜日に応じたデフォルト）
+                  // 日付ごとの開始時間と終了時間を取得（設定がなければ公演時間に応じたデフォルト）
                   const slotTimes = slotTimesMap.get(slot.label)
-                  // 昼公演のデフォルト開始時間は曜日で変わる
-                  const defaultStart = slot.label === '昼公演' ? defaultAfternoonStart : slot.startTime
+                  // デフォルト開始時間は公演時間と曜日から計算（夜公演は営業終了から逆算）
+                  const defaultStart = getDefaultStartTime(slot.label, isWeekendOrHoliday ?? false, scenarioDuration)
                   const startTime = slotTimes?.startTime || defaultStart
                   // 終了時間はシナリオの公演時間から計算（固定値のフォールバックを避ける）
                   const endTime = slotTimes?.endTime || calculateEndTime(startTime, scenarioDuration)
