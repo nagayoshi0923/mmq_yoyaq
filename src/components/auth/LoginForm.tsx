@@ -92,6 +92,13 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     if (urlParams.get('signup') === 'true' || signup) {
       setMode('signup')
     }
+    
+    // sessionStorageからエラーメッセージを取得（OAuthログイン失敗時など）
+    const authError = sessionStorage.getItem('auth_error')
+    if (authError) {
+      setError(authError)
+      sessionStorage.removeItem('auth_error')
+    }
   }, [signup])
 
   // モード切替時にフォームをリセット
@@ -110,6 +117,9 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
       setError('')
       // 戻り先URLをsessionStorageから取得（予約フローなどからのリダイレクト対応）
       const safeReturnUrl = validateRedirectUrl(sessionStorage.getItem('returnUrl'))
+      
+      // ログインモードか新規登録モードかを保存（OAuth認証後にチェックするため）
+      sessionStorage.setItem('oauth_mode', mode)
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
