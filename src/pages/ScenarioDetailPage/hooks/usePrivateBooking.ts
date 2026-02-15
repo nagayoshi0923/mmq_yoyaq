@@ -564,11 +564,16 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     if (settings?.opening_hours) {
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-      const dayName = dayNames[dayOfWeek]
-      const dayHours = settings.opening_hours[dayName]
+      // カスタム休日・祝日の場合は日曜日の設定を参照（休日扱い）
+      // 通常は実際の曜日の設定を使用
+      const effectiveDayName = isWeekendOrHoliday && dayOfWeek !== 0 && dayOfWeek !== 6
+        ? 'sunday'  // 祝日・カスタム休日は日曜日の設定を使用
+        : dayNames[dayOfWeek]
+      const dayHours = settings.opening_hours[effectiveDayName]
       
       logger.log('[getTimeSlotsForDate] 営業時間設定', {
-        dayName,
+        dayName: effectiveDayName,
+        isWeekendOrHoliday,
         dayHours,
         slot_start_times: dayHours?.slot_start_times,
         open_time: dayHours?.open_time
@@ -576,8 +581,13 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       
       if (dayHours) {
         // 店舗設定からは利用可能な公演枠のみを取得
+        // ただし、カスタム休日・祝日の場合は朝公演を強制的に有効にする
         if (dayHours.available_slots && dayHours.available_slots.length > 0) {
           availableSlots = dayHours.available_slots
+          // カスタム休日・祝日で朝公演がない場合は追加
+          if (isWeekendOrHoliday && !availableSlots.includes('morning')) {
+            availableSlots = ['morning', ...availableSlots]
+          }
         }
         
         // 営業時間設定の公演枠開始時間を適用（slot_start_times）
