@@ -372,60 +372,34 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         return eventDate === targetDate
       })
       
-      // コンフリクトチェック: 開始時間をずらしても入れるかを確認
-      let canFit = true
-      let adjustedStart = requestStart
-      
-      // このスロットの時間帯と重なるイベントの最遅終了時間を計算
-      let latestEventEnd = 0
-      storeEvents.forEach((e: any) => {
+      // このスロットの時間帯内に既にイベントがあるかチェック
+      // 同じ時間枠（朝/昼/夜）に既にイベントがある場合は、その枠は使用不可
+      const hasEventInSlot = storeEvents.some((e: any) => {
         const eventStartTime = e.start_time || ''
         const eventEndTime = e.end_time || ''
-        if (!eventStartTime) return
+        if (!eventStartTime) return false
         
         const eventStart = parseTime(eventStartTime)
         const eventEnd = eventEndTime ? parseTime(eventEndTime) : eventStart + 240
-        const eventEndWithBuffer = eventEnd + 60 // 1時間インターバル
         
-        // このイベントがスロットの時間帯と重なるか
-        if (eventStart < slotEndLimit && eventEndWithBuffer > requestStart) {
-          if (eventEndWithBuffer > latestEventEnd) {
-            latestEventEnd = eventEndWithBuffer
-          }
+        // スロットの開始時間（デフォルト）
+        const slotDefaultStarts: Record<string, number> = {
+          morning: 10 * 60,   // 10:00
+          afternoon: 13 * 60, // 13:00
+          evening: 18 * 60    // 18:00
         }
+        const slotStart = slotDefaultStarts[targetTimeSlot] || 0
+        
+        // イベントがスロットの時間帯と重なっている場合
+        return eventStart < slotEndLimit && eventEnd > slotStart
       })
       
-      // イベントがある場合、その終了+1時間後に開始すれば収まるか
-      if (latestEventEnd > 0) {
-        adjustedStart = Math.max(requestStart, latestEventEnd)
-        const adjustedEnd = adjustedStart + scenarioDuration + extraPrepTime
-        
-        // 調整後の公演がスロット終了時間内に収まるか
-        canFit = adjustedEnd <= slotEndLimit
+      // スロット内に既にイベントがある場合は使用不可
+      if (hasEventInSlot) {
+        return false
       }
       
-      // ずらしても収まらない場合、後続イベント（夜公演など）との兼ね合いも確認
-      if (canFit && latestEventEnd > 0) {
-        // 調整後の開始時間以降にイベントがあるか確認
-        const adjustedEnd = adjustedStart + scenarioDuration + extraPrepTime
-        const hasLaterConflict = storeEvents.some((e: any) => {
-          const eventStartTime = e.start_time || ''
-          if (!eventStartTime) return false
-          const eventStart = parseTime(eventStartTime)
-          const eventExtraPrepTime = e.scenarios?.extra_preparation_time || 0
-          const eventPrepTime = 60 + eventExtraPrepTime
-          const eventActualStart = eventStart - eventPrepTime
-          
-          // 調整後の公演が、後続イベントの準備時間と被る場合
-          return eventStart > adjustedStart && adjustedEnd > eventActualStart
-        })
-        
-        if (hasLaterConflict) {
-          canFit = false
-        }
-      }
-      
-      return canFit // 開始時間をずらしても収まれば空いている
+      return true // スロット内にイベントがなければ空いている
     }
     
     // 店舗が選択されている場合：選択された店舗のいずれかで空きがあればtrue
@@ -763,10 +737,10 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     // このスロットの時間帯内で、公演を入れる余地があるかチェック
     // 開始可能時間を計算し、スロット終了時間までに公演が収まるかを判定
+    // 重要: 同じスロット内に既にイベントがある場合は、その枠は使用不可とする
     const getSlotStartTimeConsideringEvents = (slotKey: string): number | null => {
       const slotStart = defaultStartTimes[slotKey]
       const slotEnd = slotEndLimits[slotKey]
-      const extraPrepTime = scenario?.extra_preparation_time || 0
       
       // このスロットの時間帯内にあるイベントを取得
       const eventsInSlot = dayEvents.filter((e: any) => {
@@ -782,21 +756,9 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         return null // 後で getLatestEndTimeBefore で計算
       }
       
-      // スロット内のイベントの中で最も遅い終了時間を取得
-      let latestEnd = 0
-      eventsInSlot.forEach((e: any) => {
-        const eventEnd = e.end_time ? timeToMinutes(e.end_time) : timeToMinutes(e.start_time) + 240
-        const eventExtraPrepTime = e.scenarios?.extra_preparation_time || 0
-        const effectiveEnd = eventEnd + 60 + eventExtraPrepTime // 1時間インターバル + 準備時間
-        if (effectiveEnd > latestEnd) latestEnd = effectiveEnd
-      })
-      
-      // 開始可能時間がスロット終了を超えていたら、このスロットは使えない
-      if (latestEnd >= slotEnd) {
-        return -1 // 使用不可
-      }
-      
-      return Math.max(latestEnd, slotStart)
+      // スロット内に既にイベントがある場合は、その枠は使用不可
+      // （同じ時間帯に複数の貸切リクエストを受け付けない）
+      return -1 // 使用不可
     }
     
     // 時間枠を生成（有効な公演枠のみ）
