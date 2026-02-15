@@ -813,6 +813,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         const slotEndLimit = slotEndLimits[def.key]
         const extraPrepTime = scenario?.extra_preparation_time || 0
         let startMinutes: number
+        let earliestPossibleStart: number = defaultStartTimes[def.key] // 前公演考慮後の最早開始時間
         
         // 複数店舗選択時は専用ロジックを使用
         if (selectedStoreIds.length > 1) {
@@ -820,7 +821,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           if (earliestStart === null) {
             return null // いずれの店舗でも入れない
           }
-          startMinutes = earliestStart
+          earliestPossibleStart = earliestStart
         } else {
           // 単一店舗または未選択時の従来ロジック
           const slotStartConsideringEvents = getSlotStartTimeConsideringEvents(def.key)
@@ -836,15 +837,35 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           // スロット内イベントの考慮 or 前スロットのイベント考慮
           if (slotStartConsideringEvents !== null && slotStartConsideringEvents > 0) {
             // スロット内にイベントがある場合、その終了+インターバル後
-            startMinutes = Math.max(slotStartConsideringEvents, defaultStartTimes[def.key])
+            earliestPossibleStart = Math.max(slotStartConsideringEvents, defaultStartTimes[def.key])
           } else if (latestEndBefore !== null) {
             // 前スロットにイベントがある場合、その終了+1時間後
             const suggestedStart = latestEndBefore + 60
-            startMinutes = Math.max(suggestedStart, defaultStartTimes[def.key])
+            earliestPossibleStart = Math.max(suggestedStart, defaultStartTimes[def.key])
           } else {
             // イベントがなければデフォルト開始時間
-            startMinutes = defaultStartTimes[def.key]
+            earliestPossibleStart = defaultStartTimes[def.key]
           }
+        }
+        
+        // === 夜公演の場合は営業終了時間から逆算 ===
+        // 朝・昼公演は開始時間準拠、夜公演は終了時間準拠
+        if (def.key === 'evening') {
+          // 営業終了時間から逆算した開始時間
+          const reverseCalculatedStart = hardDayLimit - durationMinutes
+          
+          // 前公演がある場合は、その終了+1時間後が最早開始時間
+          // 逆算した開始時間と比較して、遅い方を採用
+          startMinutes = Math.max(earliestPossibleStart, reverseCalculatedStart)
+          
+          // ただし、逆算した開始時間が前公演の制約より早い場合は、
+          // 前公演の制約を優先（営業時間を超えてしまう場合は無効）
+          if (startMinutes + durationMinutes > hardDayLimit) {
+            return null // 営業終了時間を超えるので無効
+          }
+        } else {
+          // 朝・昼公演は従来通り開始時間準拠
+          startMinutes = earliestPossibleStart
         }
         
         const endMinutes = startMinutes + durationMinutes
