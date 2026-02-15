@@ -204,8 +204,11 @@ export function CompleteProfile() {
         campaign_notifications: acceptNewsletter
       }
 
+      // 新規登録かどうかを判定（クーポンページ遷移の判断に使用）
+      let isNewCustomer = false
+
       if (existingByUserId) {
-        // 自分のレコードがある → UPDATE
+        // 自分のレコードがある → UPDATE（既存ユーザー）
         const { error: updateCustErr } = await supabase
           .from('customers')
           .update({
@@ -224,6 +227,7 @@ export function CompleteProfile() {
           throw updateCustErr
         }
         logger.log('✅ 既存の顧客レコードを更新しました')
+        isNewCustomer = false
       } else {
         // 新規 → INSERT
         const { error: insertCustErr } = await supabase
@@ -255,7 +259,7 @@ export function CompleteProfile() {
               .maybeSingle()
 
             if (byEmail && !byEmail.user_id) {
-              // user_idが未設定なら紐付けて更新
+              // user_idが未設定なら紐付けて更新（既存顧客扱い）
               const { error: linkErr } = await supabase
                 .from('customers')
                 .update({
@@ -271,6 +275,7 @@ export function CompleteProfile() {
                 throw linkErr
               }
               logger.log('✅ 既存メール顧客にuser_idを紐付けました')
+              isNewCustomer = false // 既存顧客への紐付け
             } else {
               // 別のuser_idに紐付いている場合は新規で作成（emailなし）
               logger.warn('⚠️ 既存メール顧客は別ユーザーに紐付け済み、email除外で新規作成')
@@ -290,12 +295,14 @@ export function CompleteProfile() {
                 throw insertNoEmail
               }
               logger.log('✅ 新規顧客レコードを作成しました（email除外）')
+              isNewCustomer = true // 新規INSERT
             }
           } else {
             throw insertCustErr
           }
         } else {
           logger.log('✅ 新規顧客レコードを作成しました')
+          isNewCustomer = true // 新規INSERT成功
         }
       }
       
@@ -324,9 +331,16 @@ export function CompleteProfile() {
       
       setSuccess(true)
       
-      // 2秒後にトップページへリダイレクト
+      // 2秒後にリダイレクト
       setTimeout(() => {
-        window.location.href = nextUrl
+        if (isNewCustomer) {
+          // 新規登録者はクーポンプレゼントページへ
+          const couponUrl = `/coupon-present?next=${encodeURIComponent(nextUrl)}`
+          window.location.href = couponUrl
+        } else {
+          // 既存ユーザーは直接遷移先へ
+          window.location.href = nextUrl
+        }
       }, 2000)
       
     } catch (err: unknown) {

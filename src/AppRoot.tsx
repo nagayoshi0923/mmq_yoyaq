@@ -23,6 +23,9 @@ const SetPassword = lazyWithRetry(() =>
 const CompleteProfile = lazyWithRetry(() =>
   import('@/pages/CompleteProfile').then((m) => ({ default: m.CompleteProfile }))
 )
+const CouponPresent = lazyWithRetry(() =>
+  import('@/pages/CouponPresent').then((m) => ({ default: m.CouponPresent }))
+)
 
 // QueryClient の設定
 const queryClient = new QueryClient({
@@ -69,6 +72,7 @@ export function getOrganizationSlugFromPath(): string {
       'reset-password',
       'set-password',
       'complete-profile',
+      'coupon-present',
       'license-management',
       'staff-profile',
       'mypage',
@@ -236,6 +240,22 @@ function AppRoutes() {
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <CompleteProfile />
+      </Suspense>
+    )
+  }
+
+  // クーポンプレゼントページ（新規登録完了後）
+  if (location.pathname === '/coupon-present') {
+    if (!loading && !user) {
+      return (
+        <Suspense fallback={<FullPageSpinner />}>
+          <LoginForm />
+        </Suspense>
+      )
+    }
+    return (
+      <Suspense fallback={<FullPageSpinner />}>
+        <CouponPresent />
       </Suspense>
     )
   }
