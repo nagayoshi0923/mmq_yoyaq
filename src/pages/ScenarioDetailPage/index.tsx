@@ -17,6 +17,7 @@ import { TIME_SLOTS } from './utils/types'
 import { useScenarioDetail } from './hooks/useScenarioDetail'
 import { usePrivateBooking } from './hooks/usePrivateBooking'
 import { useBookingActions } from './hooks/useBookingActions'
+import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 
 // 分離されたコンポーネント
 import { ScenarioHero } from './components/ScenarioHero'
@@ -90,6 +91,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     toggleTimeSlot,
     getTimeSlotsForDate
   } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug })
+  
+  // カスタム休日フック
+  const { isCustomHoliday } = useCustomHolidays()
 
   useEffect(() => {
     // URLパラメータを処理
@@ -450,6 +454,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     maxSelections={MAX_SELECTIONS}
                     scenarioDuration={scenario.duration}
                     getTimeSlotsForDate={getTimeSlotsForDate}
+                    isCustomHoliday={isCustomHoliday}
                   />
                   
                   {/* 選択された時間枠の表示 */}

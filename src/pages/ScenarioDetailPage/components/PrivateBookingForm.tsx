@@ -24,6 +24,7 @@ interface PrivateBookingFormProps {
   maxSelections: number
   scenarioDuration: number // シナリオの所要時間（分）
   getTimeSlotsForDate?: (date: string) => TimeSlot[] // 日付ごとの時間枠取得（営業時間設定反映）
+  isCustomHoliday?: (date: string) => boolean // カスタム休日判定（GW、年末年始など）
 }
 
 /**
@@ -51,7 +52,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   checkTimeSlotAvailability,
   maxSelections,
   scenarioDuration,
-  getTimeSlotsForDate
+  getTimeSlotsForDate,
+  isCustomHoliday
 }: PrivateBookingFormProps) {
   const remainingSelections = maxSelections - selectedSlots.length
   // 各時間枠の可用性を管理する状態
@@ -72,10 +74,10 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
           const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
           
-          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日祝は14:00）
+          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日祝・カスタム休日は14:00）
           const dateObj = new Date(date)
           const dayOfWeek = dateObj.getDay()
-          const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(date)
+          const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(date) || isCustomHoliday?.(date)
           const defaultAfternoonStart = isWeekendOrHoliday ? '14:00' : '13:00'
           
           return timeSlots.map(async (slot) => {
@@ -100,7 +102,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
     }
     
     updateAvailability()
-  }, [availableDates, timeSlots, selectedStoreIds, checkTimeSlotAvailability, getTimeSlotsForDate])
+  }, [availableDates, timeSlots, selectedStoreIds, checkTimeSlotAvailability, getTimeSlotsForDate, isCustomHoliday])
   
   // 時間枠の可用性を取得
   const getAvailability = (date: string, slot: TimeSlot): boolean => {
@@ -167,9 +169,9 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const weekdays = ['日', '月', '火', '水', '木', '金', '土']
           const weekday = weekdays[dateObj.getDay()]
           
-          // 曜日の色分け（祝日は赤）
+          // 曜日の色分け（祝日・カスタム休日は赤）
           const dayOfWeek = dateObj.getDay()
-          const isHoliday = isJapaneseHoliday(date)
+          const isHoliday = isJapaneseHoliday(date) || isCustomHoliday?.(date)
           const weekdayColor = isHoliday || dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
           
           // 日付ごとの時間枠を取得（営業時間設定反映）
@@ -177,8 +179,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
           const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
           
-          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日祝は14:00）
-          const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(date)
+          // 曜日に応じたデフォルト開始時間（平日昼公演は13:00、土日祝・カスタム休日は14:00）
+          const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(date) || isCustomHoliday?.(date)
           const defaultAfternoonStart = isWeekendOrHoliday ? '14:00' : '13:00'
           
           return (

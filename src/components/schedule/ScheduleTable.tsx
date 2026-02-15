@@ -42,6 +42,7 @@ export interface ScheduleTableEventHandlers {
   onDrop: (event: ScheduleEvent, date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => void
   onContextMenuCell: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', x: number, y: number) => void
   onContextMenuEvent: (event: ScheduleEvent, x: number, y: number) => void
+  onContextMenuDate?: (date: string, x: number, y: number) => void
 }
 
 export interface ScheduleTableDisplayConfig {
@@ -115,6 +116,8 @@ export interface ScheduleTableProps {
   hideHeader?: boolean  // テーブルヘッダーを非表示（外部でヘッダーを表示する場合）
   // 募集中止状態チェック関数
   isSlotBlocked?: (date: string, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening') => boolean
+  // カスタム休日判定関数
+  isCustomHoliday?: (date: string) => boolean
 }
 
 export function ScheduleTable({
@@ -123,7 +126,8 @@ export function ScheduleTable({
   eventHandlers,
   displayConfig,
   hideHeader = false,
-  isSlotBlocked
+  isSlotBlocked,
+  isCustomHoliday
 }: ScheduleTableProps) {
   const { monthDays, stores, temporaryVenues = [], getVenueNameForDate } = viewConfig
   const { getEventsForSlot, shiftData, getMemo, onSaveMemo } = dataProvider
@@ -136,7 +140,8 @@ export function ScheduleTable({
     onToggleReservation,
     onDrop,
     onContextMenuCell,
-    onContextMenuEvent
+    onContextMenuEvent,
+    onContextMenuDate
   } = eventHandlers
   const { categoryConfig, getReservationBadgeClass } = displayConfig
 
@@ -194,13 +199,20 @@ export function ScheduleTable({
                   {/* 日付・曜日セル - 最初の会場行のみ表示、rowSpanで結合 */}
                   {isFirstVenueOfDay && (() => {
                     const holiday = getJapaneseHoliday(day.date)
-                    const isHolidayOrSunday = holiday || day.dayOfWeek === '日'
+                    const customHoliday = isCustomHoliday?.(day.date)
+                    const isHolidayOrSunday = holiday || customHoliday || day.dayOfWeek === '日'
                     const textColor = isHolidayOrSunday ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''
                     
                     return (
                       <TableCell 
                         rowSpan={venueCount}
-                        className={`sticky left-0 z-10 bg-background group-hover:bg-muted/5 border-r text-sm !p-0 leading-none text-center align-top ${textColor}`}
+                        className={`sticky left-0 z-10 bg-background group-hover:bg-muted/5 border-r text-sm !p-0 leading-none text-center align-top ${textColor} cursor-context-menu`}
+                        onContextMenu={(e) => {
+                          if (onContextMenuDate) {
+                            e.preventDefault()
+                            onContextMenuDate(day.date, e.clientX, e.clientY)
+                          }
+                        }}
                       >
                         <div className="flex flex-col items-center justify-start py-2 gap-0.5 sm:gap-1 bg-background">
                           <span className="font-bold text-xs sm:text-base">{day.displayDate.replace(/月/g,'')}</span>
@@ -210,6 +222,11 @@ export function ScheduleTable({
                           {holiday && (
                             <span className="text-[8px] sm:text-[10px] text-red-500 leading-tight break-all text-center px-0.5">
                               {holiday}
+                            </span>
+                          )}
+                          {!holiday && customHoliday && (
+                            <span className="text-[8px] sm:text-[10px] text-orange-500 leading-tight break-all text-center px-0.5">
+                              休日
                             </span>
                           )}
                         </div>

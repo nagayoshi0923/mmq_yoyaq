@@ -17,6 +17,7 @@ import { useScheduleTable } from '@/hooks/useScheduleTable'
 import { useTemporaryVenues } from '@/hooks/useTemporaryVenues'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useBlockedSlots } from '@/hooks/useBlockedSlots'
+import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 
 // Custom Hooks (ScheduleManager専用)
 import { useCategoryFilter } from './hooks/useCategoryFilter'
@@ -50,7 +51,7 @@ import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 import { KitManagementDialog } from './components/KitManagementDialog'
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
@@ -71,6 +72,9 @@ export function ScheduleManager() {
   
   // 募集中止スロット管理
   const { isSlotBlocked, blockSlot, unblockSlot } = useBlockedSlots()
+  
+  // カスタム休日管理
+  const { isCustomHoliday, toggleHoliday } = useCustomHolidays()
 
   // GMリスト
   const [gmList, setGmList] = useState<Staff[]>([])
@@ -682,8 +686,9 @@ export function ScheduleManager() {
       getEventsForSlot: filteredGetEventsForSlot,
       shiftData: filteredShiftData
     },
-    isSlotBlocked // 募集中止状態チェック関数
-  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores, filteredShiftData, getVenueNameForDate, isSlotBlocked])
+    isSlotBlocked, // 募集中止状態チェック関数
+    isCustomHoliday // カスタム休日判定関数
+  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores, filteredShiftData, getVenueNameForDate, isSlotBlocked, isCustomHoliday])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -1375,6 +1380,21 @@ export function ScheduleManager() {
                     modals.contextMenu.setContextMenu(null)
                   },
                   disabled: venue === ''
+                }
+              ]
+            })() : modals.contextMenu.contextMenu.type === 'date' && modals.contextMenu.contextMenu.dateInfo ? (() => {
+              // 日付セルの右クリックメニュー
+              const { date } = modals.contextMenu.contextMenu!.dateInfo!
+              const isHoliday = isCustomHoliday(date)
+              
+              return [
+                {
+                  label: isHoliday ? '休日設定を解除' : '休日に設定',
+                  icon: <Calendar className="w-4 h-4" />,
+                  onClick: async () => {
+                    await toggleHoliday(date)
+                    modals.contextMenu.setContextMenu(null)
+                  }
                 }
               ]
             })() : []}

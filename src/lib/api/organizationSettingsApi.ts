@@ -8,11 +8,11 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 // ⚠️ P1-17: 通常の取得では機密トークンを含めない（XSS 時の漏洩防止）
 const ORG_SETTINGS_SELECT_FIELDS =
-  'id, organization_id, discord_webhook_url, discord_channel_id, discord_private_booking_channel_id, discord_shift_channel_id, discord_public_key, sender_email, sender_name, reply_to_email, google_sheets_id, notification_settings, time_slot_settings, created_at, updated_at' as const
+  'id, organization_id, discord_webhook_url, discord_channel_id, discord_private_booking_channel_id, discord_shift_channel_id, discord_public_key, sender_email, sender_name, reply_to_email, google_sheets_id, notification_settings, time_slot_settings, custom_holidays, created_at, updated_at' as const
 
 // 機密トークンを含む全フィールド（設定保存画面専用）
 const ORG_SETTINGS_ALL_FIELDS =
-  'id, organization_id, discord_bot_token, discord_webhook_url, discord_channel_id, discord_private_booking_channel_id, discord_shift_channel_id, discord_public_key, resend_api_key, sender_email, sender_name, reply_to_email, line_channel_access_token, line_channel_secret, google_sheets_id, google_service_account_key, notification_settings, time_slot_settings, created_at, updated_at' as const
+  'id, organization_id, discord_bot_token, discord_webhook_url, discord_channel_id, discord_private_booking_channel_id, discord_shift_channel_id, discord_public_key, resend_api_key, sender_email, sender_name, reply_to_email, line_channel_access_token, line_channel_secret, google_sheets_id, google_service_account_key, notification_settings, time_slot_settings, custom_holidays, created_at, updated_at' as const
 
 // 時間帯設定の型
 export interface TimeSlotSetting {
@@ -69,6 +69,9 @@ export interface OrganizationSettings {
   
   // 公演時間帯設定
   time_slot_settings?: TimeSlotSettings
+  
+  // カスタム休日（GW、年末年始など）
+  custom_holidays?: string[]
   
   created_at: string
   updated_at: string
@@ -196,6 +199,38 @@ export const organizationSettingsApi = {
       }
     }
     return settings?.time_slot_settings || defaultSettings
+  },
+  
+  // カスタム休日を取得
+  async getCustomHolidays(): Promise<string[]> {
+    const settings = await this.get()
+    return settings?.custom_holidays || []
+  },
+  
+  // カスタム休日を更新
+  async updateCustomHolidays(holidays: string[]): Promise<OrganizationSettings> {
+    // 日付をソートして重複を除去
+    const uniqueHolidays = [...new Set(holidays)].sort()
+    return this.upsert({ custom_holidays: uniqueHolidays })
+  },
+  
+  // 特定の日付を休日として追加
+  async addCustomHoliday(date: string): Promise<OrganizationSettings> {
+    const current = await this.getCustomHolidays()
+    if (current.includes(date)) return this.get() as Promise<OrganizationSettings>
+    return this.updateCustomHolidays([...current, date])
+  },
+  
+  // 特定の日付を休日から削除
+  async removeCustomHoliday(date: string): Promise<OrganizationSettings> {
+    const current = await this.getCustomHolidays()
+    return this.updateCustomHolidays(current.filter(d => d !== date))
+  },
+  
+  // 日付がカスタム休日かどうか判定
+  async isCustomHoliday(date: string): Promise<boolean> {
+    const holidays = await this.getCustomHolidays()
+    return holidays.includes(date)
   }
 }
 

@@ -54,9 +54,10 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
   const [contextMenu, setContextMenu] = useState<{
     x: number
     y: number
-    type: 'event' | 'cell'
+    type: 'event' | 'cell' | 'date'
     event?: ScheduleEvent
     cellInfo?: { date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening' }
+    dateInfo?: { date: string }
   } | null>(null)
   
   // クリップボード状態
@@ -70,6 +71,11 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
   // セルの右クリックメニューを表示
   const handleCellContextMenu = useCallback((date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', x: number, y: number) => {
     setContextMenu({ x, y, type: 'cell', cellInfo: { date, venue, timeSlot } })
+  }, [])
+
+  // 日付セルの右クリックメニューを表示
+  const handleDateContextMenu = useCallback((date: string, x: number, y: number) => {
+    setContextMenu({ x, y, type: 'date', dateInfo: { date } })
   }, [])
 
   // 公演をコピー（クリップボードに保存）
@@ -196,6 +202,7 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
     setContextMenu,
     handleEventContextMenu,
     handleCellContextMenu,
+    handleDateContextMenu,
     handleCopyToClipboard,
     handlePasteFromClipboard,
     checkConflict,

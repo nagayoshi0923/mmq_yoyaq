@@ -110,7 +110,8 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     onConvertToMemo: eventOperations.handleConvertToMemo,
     onDrop: eventOperations.handleDrop,
     onContextMenuCell: contextMenuActions.handleCellContextMenu,
-    onContextMenuEvent: contextMenuActions.handleEventContextMenu
+    onContextMenuEvent: contextMenuActions.handleEventContextMenu,
+    onContextMenuDate: contextMenuActions.handleDateContextMenu
   }), [eventOperations, contextMenuActions])
 
   // DisplayConfig
