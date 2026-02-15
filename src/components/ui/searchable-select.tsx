@@ -33,6 +33,7 @@ interface SearchableSelectProps {
   emptyActionLabel?: string
   allowCustomValue?: boolean  // カスタム値を許可するかどうか
   allowClear?: boolean  // 選択解除を許可するかどうか
+  headerContent?: React.ReactNode  // プルダウン上部に表示する固定コンテンツ（凡例など）
 }
 
 export function SearchableSelect({
@@ -47,7 +48,8 @@ export function SearchableSelect({
   onEmptyAction,
   emptyActionLabel = "作成",
   allowCustomValue = false,
-  allowClear = false
+  allowClear = false,
+  headerContent
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -124,6 +126,11 @@ export function SearchableSelect({
             className="h-8"
           />
         </div>
+        {headerContent && (
+          <div className="px-2 py-1.5 border-b bg-muted/30 flex-shrink-0">
+            {headerContent}
+          </div>
+        )}
         <div 
           className="scrollable-list" 
           style={{ 

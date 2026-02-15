@@ -723,49 +723,40 @@ export function PerformanceModal({
                   label: scenario.title,
                   displayInfo: filteredDisplayGMs.length > 0 
                     ? (
-                        <span className="flex flex-col gap-0.5">
-                          {/* 凡例 */}
-                          <span className="flex gap-1 text-[9px] text-muted-foreground mb-0.5">
-                            <span className="inline-flex items-center px-1 rounded bg-green-100 text-green-700 border border-green-300">担当+出勤</span>
-                            <span className="inline-flex items-center px-1 rounded bg-blue-100 text-blue-700 border border-blue-300">担当</span>
-                            <span className="inline-flex items-center px-1 rounded bg-white text-gray-400 border border-gray-200">出勤</span>
-                          </span>
-                          {/* GMバッジ一覧 */}
-                          <span className="flex flex-wrap gap-0.5 items-center">
-                            {filteredDisplayGMs.map(({ gm, isAssigned, isAvailable }) => {
-                              // 担当かつ出勤 → 緑背景
-                              if (isAssigned && isAvailable) {
-                                return (
-                                  <span 
-                                    key={gm.id}
-                                    className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-green-100 text-green-800 border border-green-300"
-                                  >
-                                    {gm.name}
-                                  </span>
-                                )
-                              }
-                              // 担当だが出勤なし → 青背景
-                              if (isAssigned && !isAvailable) {
-                                return (
-                                  <span 
-                                    key={gm.id}
-                                    className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-blue-100 text-blue-700 border border-blue-300"
-                                  >
-                                    {gm.name}
-                                  </span>
-                                )
-                              }
-                              // 担当でないが出勤中 → 白背景・灰色文字
+                        <span className="flex flex-wrap gap-0.5 items-center">
+                          {filteredDisplayGMs.map(({ gm, isAssigned, isAvailable }) => {
+                            // 担当かつ出勤 → 緑背景
+                            if (isAssigned && isAvailable) {
                               return (
                                 <span 
                                   key={gm.id}
-                                  className="inline-flex items-center px-1 py-0 rounded text-[11px] bg-white text-gray-400 border border-gray-200"
+                                  className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-green-100 text-green-800 border border-green-300"
                                 >
                                   {gm.name}
                                 </span>
                               )
-                            })}
-                          </span>
+                            }
+                            // 担当だが出勤なし → 青背景
+                            if (isAssigned && !isAvailable) {
+                              return (
+                                <span 
+                                  key={gm.id}
+                                  className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-blue-100 text-blue-700 border border-blue-300"
+                                >
+                                  {gm.name}
+                                </span>
+                              )
+                            }
+                            // 担当でないが出勤中 → 白背景・灰色文字
+                            return (
+                              <span 
+                                key={gm.id}
+                                className="inline-flex items-center px-1 py-0 rounded text-[11px] bg-white text-gray-400 border border-gray-200"
+                              >
+                                {gm.name}
+                              </span>
+                            )
+                          })}
                         </span>
                       )
                     : undefined,
@@ -779,6 +770,13 @@ export function PerformanceModal({
               onEmptyAction={() => setIsScenarioDialogOpen(true)}
               className="h-7 text-xs"
               allowClear={!formData.is_private_request}
+              headerContent={
+                <span className="flex gap-1 text-[9px] text-muted-foreground">
+                  <span className="inline-flex items-center px-1 rounded bg-green-100 text-green-700 border border-green-300">担当+出勤</span>
+                  <span className="inline-flex items-center px-1 rounded bg-blue-100 text-blue-700 border border-blue-300">担当</span>
+                  <span className="inline-flex items-center px-1 rounded bg-white text-gray-400 border border-gray-200">出勤</span>
+                </span>
+              }
             />
             {formData.is_private_request && (
               <p className="text-[11px] text-purple-600 mt-0.5">
@@ -883,6 +881,12 @@ export function PerformanceModal({
                         isAssignedGM ? '担当GM' : ''
                       ].filter(Boolean).join(' ')
                       
+                      // sortOrder: 担当+出勤(0) > 担当のみ(1) > 出勤のみ(2) > その他(3)
+                      let sortOrder = 3
+                      if (isAvailable && isAssignedGM) sortOrder = 0
+                      else if (isAssignedGM) sortOrder = 1
+                      else if (isAvailable) sortOrder = 2
+                      
                       return {
                         id: staffMember.id,
                         name: staffMember.name,
@@ -890,11 +894,11 @@ export function PerformanceModal({
                           <span className="flex gap-1">{badges}</span>
                         ) : undefined,
                         displayInfoSearchText: searchText || undefined,
-                        sortOrder: isAvailable ? 0 : isAssignedGM ? 1 : 2
+                        sortOrder
                       }
                     })
                     .sort((a, b) => {
-                      // sortOrderで優先順位を決定（シフト提出済みを上に）
+                      // sortOrderで優先順位を決定（担当+出勤を最上位に）
                       if (a.sortOrder !== b.sortOrder) {
                         return a.sortOrder - b.sortOrder
                       }
