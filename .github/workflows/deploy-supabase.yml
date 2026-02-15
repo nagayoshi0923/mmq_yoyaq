@@ -53,7 +53,47 @@ jobs:
       - name: Deploy Edge Functions
         run: |
           echo "⚡ Deploying Edge Functions to staging..."
+          # JWT検証をゲートウェイでスキップする関数（関数内で検証を行う）
+          NO_VERIFY_JWT_FUNCTIONS=(
+            "delete-my-account"
+            "send-cancellation-confirmation"
+            "send-private-booking-confirmation"
+            "send-private-booking-rejection"
+            "send-booking-change-confirmation"
+            "auto-send-reminder-emails"
+            "send-email"
+            "send-booking-confirmation"
+            "send-reminder-emails"
+            "notify-private-booking-discord"
+            "discord-interactions"
+            "discord-shift-interactions"
+            "notify-shift-request-discord"
+            "notify-shift-submitted-discord"
+            "notify-shift-reminder-discord"
+            "process-waitlist-queue"
+            "process-booking-email-queue"
+            "notify-waitlist"
+            "check-performance-cancellation"
+            "check-inventory-consistency"
+            "schedule-reminder-emails"
+            "retry-discord-notifications"
+            "quick-processor"
+            "tweet-available-seats"
+            "sync-shifts-to-google-sheet"
+            "send-contact-inquiry"
+            "send-author-report"
+          )
+          
+          # すべての関数をデプロイ（まずJWT検証ありでデプロイ）
           supabase functions deploy --all
+          
+          # JWT検証をスキップする関数を再デプロイ
+          for func in "${NO_VERIFY_JWT_FUNCTIONS[@]}"; do
+            if [ -d "supabase/functions/$func" ]; then
+              echo "🔓 Re-deploying $func with --no-verify-jwt..."
+              supabase functions deploy "$func" --no-verify-jwt
+            fi
+          done
 
       - name: Notify Success
         if: success()
@@ -92,7 +132,47 @@ jobs:
       - name: Deploy Edge Functions
         run: |
           echo "⚡ Deploying Edge Functions to production..."
+          # JWT検証をゲートウェイでスキップする関数（関数内で検証を行う）
+          NO_VERIFY_JWT_FUNCTIONS=(
+            "delete-my-account"
+            "send-cancellation-confirmation"
+            "send-private-booking-confirmation"
+            "send-private-booking-rejection"
+            "send-booking-change-confirmation"
+            "auto-send-reminder-emails"
+            "send-email"
+            "send-booking-confirmation"
+            "send-reminder-emails"
+            "notify-private-booking-discord"
+            "discord-interactions"
+            "discord-shift-interactions"
+            "notify-shift-request-discord"
+            "notify-shift-submitted-discord"
+            "notify-shift-reminder-discord"
+            "process-waitlist-queue"
+            "process-booking-email-queue"
+            "notify-waitlist"
+            "check-performance-cancellation"
+            "check-inventory-consistency"
+            "schedule-reminder-emails"
+            "retry-discord-notifications"
+            "quick-processor"
+            "tweet-available-seats"
+            "sync-shifts-to-google-sheet"
+            "send-contact-inquiry"
+            "send-author-report"
+          )
+          
+          # すべての関数をデプロイ（まずJWT検証ありでデプロイ）
           supabase functions deploy --all
+          
+          # JWT検証をスキップする関数を再デプロイ
+          for func in "${NO_VERIFY_JWT_FUNCTIONS[@]}"; do
+            if [ -d "supabase/functions/$func" ]; then
+              echo "🔓 Re-deploying $func with --no-verify-jwt..."
+              supabase functions deploy "$func" --no-verify-jwt
+            fi
+          done
 
       - name: Notify Success
         if: success()
