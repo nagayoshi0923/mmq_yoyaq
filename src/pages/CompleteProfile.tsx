@@ -198,36 +198,39 @@ export function CompleteProfile() {
         .eq('user_id', userId)
         .maybeSingle()
 
-      // メールアドレスで既存顧客を検索（別のuser_idに紐付いている可能性）
+      // メールアドレスで既存顧客を検索（自分以外で同じメールアドレスの顧客）
       // クーポン不正取得防止：同じメールで登録済みならクーポン付与しない
       const { data: existingByEmail } = await supabase
         .from('customers')
         .select('id, user_id')
         .eq('email', userEmail)
+        .neq('user_id', userId) // 自分以外
         .maybeSingle()
 
       // 電話番号で既存顧客を検索（クーポン不正取得防止）
+      // DB側でregexp_replaceができないため、全件取得してクライアント側でフィルタ
       const phoneDigitsNormalized = phone.replace(/[-\s]/g, '')
-      const { data: existingByPhone } = await supabase
-        .from('customers')
-        .select('id, user_id')
-        .neq('user_id', userId) // 自分以外
-        .maybeSingle()
-      
-      // 電話番号一致をさらにフィルタ（DB側でregexp_replaceができないため）
       let hasExistingCustomerByPhone = false
-      if (existingByPhone) {
-        // 実際には複数件ありうるので、全件取得してチェック
+      
+      if (phoneDigitsNormalized) {
         const { data: allCustomers } = await supabase
           .from('customers')
-          .select('id, phone')
-          .neq('user_id', userId)
+          .select('id, phone, user_id')
+          .neq('user_id', userId) // 自分以外
         
         if (allCustomers) {
           hasExistingCustomerByPhone = allCustomers.some(c => 
             c.phone && c.phone.replace(/[-\s]/g, '') === phoneDigitsNormalized
           )
+          if (hasExistingCustomerByPhone) {
+            logger.log('⚠️ 同じ電話番号の既存顧客が見つかりました:', phoneDigitsNormalized)
+          }
         }
+      }
+
+      // 同じメールの既存顧客をログ
+      if (existingByEmail) {
+        logger.log('⚠️ 同じメールの既存顧客が見つかりました:', userEmail)
       }
 
       const notificationSettings = {
