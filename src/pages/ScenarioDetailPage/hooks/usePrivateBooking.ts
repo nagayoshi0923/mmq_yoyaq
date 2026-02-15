@@ -817,14 +817,19 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           const reverseCalculatedStart = hardDayLimit - durationMinutes
           
           // 前公演がある場合は、その終了+1時間後が最早開始時間
-          // 逆算した開始時間と比較して、遅い方を採用
-          startMinutes = Math.max(earliestPossibleStart, reverseCalculatedStart)
+          // 逆算した開始時間と最早開始時間を比較して、遅い方を採用
+          // （前公演がある場合は、前公演終了+1時間後にしか開始できない）
+          const constrainedStart = Math.max(earliestPossibleStart, reverseCalculatedStart)
           
-          // ただし、逆算した開始時間が前公演の制約より早い場合は、
-          // 前公演の制約を優先（営業時間を超えてしまう場合は無効）
-          if (startMinutes + durationMinutes > hardDayLimit) {
+          // 前公演の制約で開始が遅れる場合、営業終了を超えるなら無効
+          if (constrainedStart + durationMinutes > hardDayLimit) {
             return null // 営業終了時間を超えるので無効
           }
+          
+          // 前公演がない場合（earliestPossibleStart がデフォルト値の場合）は逆算した開始時間を使用
+          // 前公演がある場合は、前公演終了+1時間後を使用
+          const hasEarlierEvent = earliestPossibleStart > defaultStartTimes[def.key]
+          startMinutes = hasEarlierEvent ? constrainedStart : reverseCalculatedStart
         } else {
           // 朝・昼公演は従来通り開始時間準拠
           startMinutes = earliestPossibleStart
