@@ -3,12 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 // 環境変数のバリデーション
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 // Supabaseの新API Keys対応:
-// - legacy anon key (JWT): eyJ... ← Edge Functions呼び出しに必要なためこちらを優先
-// - publishable key: sb_publishable_...
-// Edge Functionsを使用する場合はLegacy Anon Key (JWT) が必須
+// - publishable key: sb_publishable_... ← Legacy API Keysが無効な環境ではこちらを使用
+// - legacy anon key (JWT): eyJ...
 const supabaseKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(
