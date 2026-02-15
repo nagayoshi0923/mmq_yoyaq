@@ -292,7 +292,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (session?.user) {
           // ⚠️ 重要: setUserFromSessionの完了を待ってからisInitializedを設定
           // これにより、user情報が設定される前にリダイレクトが発生することを防ぐ
-          setUserFromSession(session.user).then(() => {
+          setUserFromSession(session.user).then(async () => {
+            // OAuthログインモードで未登録ユーザーの場合はログアウトしてエラー表示
+            if (event === 'SIGNED_IN') {
+              const oauthMode = sessionStorage.getItem('oauth_mode')
+              logger.log('🔑 OAuth mode:', oauthMode)
+              
+              if (oauthMode === 'login') {
+                // ログインモードの場合、顧客レコードの存在をチェック
+                const { data: customer } = await supabase
+                  .from('customers')
+                  .select('id')
+                  .eq('user_id', session.user.id)
+                  .maybeSingle()
+                
+                if (!customer) {
+                  // 未登録ユーザー → ログアウトしてエラー表示
+                  logger.log('⚠️ ログインモードで未登録ユーザーを検出、ログアウト')
+                  sessionStorage.removeItem('oauth_mode')
+                  sessionStorage.setItem('auth_error', 'このアカウントは登録されていません。新規登録からお進みください。')
+                  await supabase.auth.signOut()
+                  setLoading(false)
+                  setIsInitialized(true)
+                  window.location.href = '/login'
+                  return
+                }
+              }
+              // 使用済みのoauth_modeをクリア
+              sessionStorage.removeItem('oauth_mode')
+            }
+            
             setLoading(false)
             setIsInitialized(true)  // ユーザー情報設定完了後に認証完了をマーク
             

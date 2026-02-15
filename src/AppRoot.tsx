@@ -193,20 +193,6 @@ function AppRoutes() {
           return
         }
 
-        // OAuthログインモードで未登録ユーザーの場合はログアウトしてエラー表示
-        const oauthMode = sessionStorage.getItem('oauth_mode')
-        if (oauthMode === 'login' && !customer) {
-          // ログインモードで顧客レコードがない = 未登録ユーザー
-          sessionStorage.removeItem('oauth_mode')
-          await supabase.auth.signOut()
-          // エラーメッセージを保存してログインページへ
-          sessionStorage.setItem('auth_error', 'このアカウントは登録されていません。新規登録からお進みください。')
-          navigate('/login', { replace: true })
-          return
-        }
-        // 使用済みのoauth_modeをクリア
-        sessionStorage.removeItem('oauth_mode')
-
         const nameOk = Boolean(customer?.name && String(customer.name).trim().length > 0)
         const phoneOk = Boolean(customer?.phone && String(customer.phone).trim().length > 0)
         // OAuth ユーザーは auth session にメールがあるので、customer レコードに無くても OK
