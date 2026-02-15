@@ -12,6 +12,9 @@
 --   unavailable（中止）  → 非表示
 -- ============================================================
 
+-- 戻り値の型が変わるため、既存の関数を削除してから再作成
+DROP FUNCTION IF EXISTS public.get_public_available_scenario_keys();
+
 CREATE OR REPLACE FUNCTION public.get_public_available_scenario_keys()
 RETURNS TABLE(organization_id UUID, scenario_master_id UUID, org_status TEXT)
 LANGUAGE sql

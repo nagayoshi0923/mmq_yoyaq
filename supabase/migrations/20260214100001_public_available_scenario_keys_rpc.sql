@@ -14,6 +14,9 @@
 --   機密データ（gm_costs, license_fee等）は一切返さない。
 -- ============================================================
 
+-- 戻り値の型が変わる可能性があるため、既存の関数を削除
+DROP FUNCTION IF EXISTS public.get_public_available_scenario_keys();
+
 CREATE OR REPLACE FUNCTION public.get_public_available_scenario_keys()
 RETURNS TABLE(organization_id UUID, scenario_master_id UUID)
 LANGUAGE sql
