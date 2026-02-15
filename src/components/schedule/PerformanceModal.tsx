@@ -760,7 +760,10 @@ export function PerformanceModal({
                         </span>
                       )
                     : undefined,
-                  displayInfoSearchText: filteredDisplayGMs.map(({ gm }) => gm.name).join(', ')
+                  // 検索用テキストは「出勤かつ担当」のGMのみ
+                  displayInfoSearchText: filteredDisplayGMs
+                    .filter(({ isAssigned, isAvailable }) => isAssigned && isAvailable)
+                    .map(({ gm }) => gm.name).join(', ')
                 }
               })}
               placeholder="シナリオ"
@@ -875,11 +878,8 @@ export function PerformanceModal({
                         )
                       }
                       
-                      // 検索用テキスト
-                      const searchText = [
-                        isAvailable ? 'シフト提出済' : '',
-                        isAssignedGM ? '担当GM' : ''
-                      ].filter(Boolean).join(' ')
+                      // 検索用テキスト（出勤かつ担当の人だけ検索でヒット）
+                      const searchText = (isAvailable && isAssignedGM) ? 'シフト提出済 担当GM' : ''
                       
                       // sortOrder: 担当+出勤(0) > 担当のみ(1) > 出勤のみ(2) > その他(3)
                       let sortOrder = 3
