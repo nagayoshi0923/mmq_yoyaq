@@ -22,6 +22,7 @@ export function CompleteProfile() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [name, setName] = useState('')
+  const [nickname, setNickname] = useState('')
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -209,6 +210,7 @@ export function CompleteProfile() {
           .from('customers')
           .update({
             name: name.trim(),
+            nickname: nickname.trim() || null,
             email: userEmail,
             phone: phone.trim(),
             birth_date: birthDate,
@@ -229,6 +231,7 @@ export function CompleteProfile() {
           .insert({
             user_id: userId,
             name: name.trim(),
+            nickname: nickname.trim() || null,
             email: userEmail,
             phone: phone.trim(),
             birth_date: birthDate,
@@ -449,6 +452,24 @@ export function CompleteProfile() {
                     required
                     autoComplete="name"
                     placeholder="山田 太郎"
+                    className="h-12"
+                    disabled={isLoading}
+                  />
+                </div>
+
+                {/* ニックネーム */}
+                <div>
+                  <label htmlFor="nickname" className="block text-sm font-medium text-gray-700 mb-1.5">
+                    ニックネーム
+                    <span className="text-xs text-gray-500 ml-2">（公演中に呼ばれる名前）</span>
+                  </label>
+                  <Input
+                    id="nickname"
+                    type="text"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    autoComplete="nickname"
+                    placeholder="タロウ"
                     className="h-12"
                     disabled={isLoading}
                   />
