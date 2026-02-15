@@ -105,23 +105,22 @@ export async function deleteMyAccount(): Promise<void> {
     throw new Error('認証が必要です')
   }
 
-  // supabase.functions.invoke を使用（セッションが自動的に渡される）
-  const { data, error } = await supabase.functions.invoke('delete-my-account', {
-    method: 'POST'
+  // Edge Functionを直接呼び出し（verify_jwt=falseのため、アクセストークンを明示的に渡す）
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/delete-my-account`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`
+    }
   })
 
-  if (error) {
-    const err = new Error(error.message || 'アカウントの削除に失敗しました')
-    // @ts-ignore
-    err.code = error.status
-    throw err
-  }
+  const result = await response.json()
 
-  if (!data?.success) {
-    const err = new Error(data?.error || 'アカウントの削除に失敗しました')
+  if (!response.ok || !result.success) {
+    const error = new Error(result.error || 'アカウントの削除に失敗しました')
     // @ts-ignore
-    err.code = data?.code
-    throw err
+    error.code = result.code || response.status
+    throw error
   }
 }
 
