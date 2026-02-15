@@ -285,18 +285,40 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       return false
     }
     
+    // カスタム休日・祝日かどうか判定
+    const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(targetDate) || isCustomHoliday?.(targetDate)
+    
     // 曜日ごとの営業時間・公演枠チェック
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-    const dayName = dayNames[dayOfWeek]
+    // カスタム休日・祝日の場合は日曜日の設定を参照（休日扱い）
+    const effectiveDayName = isWeekendOrHoliday && dayOfWeek !== 0 && dayOfWeek !== 6
+      ? 'sunday'
+      : dayNames[dayOfWeek]
     
     if (data.opening_hours) {
-      const dayHours = data.opening_hours[dayName]
+      const dayHours = data.opening_hours[effectiveDayName]
       if (!dayHours || !dayHours.is_open) {
-        return false // その曜日は休業
+        // カスタム休日・祝日の場合で日曜日が休業でも、元の曜日が営業なら営業とする
+        if (isWeekendOrHoliday && effectiveDayName === 'sunday') {
+          const originalDayHours = data.opening_hours[dayNames[dayOfWeek]]
+          if (!originalDayHours || !originalDayHours.is_open) {
+            return false // 元の曜日も休業
+          }
+          // 元の曜日は営業中、カスタム休日として朝公演を含めて許可
+          if (timeSlot === 'morning') {
+            return true // カスタム休日なので朝公演OK
+          }
+        } else {
+          return false // その曜日は休業
+        }
       }
       
       // 公演枠チェック（available_slotsが設定されている場合）
-      if (timeSlot && dayHours.available_slots && Array.isArray(dayHours.available_slots)) {
+      if (timeSlot && dayHours?.available_slots && Array.isArray(dayHours.available_slots)) {
+        // カスタム休日・祝日で朝公演の場合は強制的に許可
+        if (isWeekendOrHoliday && timeSlot === 'morning') {
+          return true
+        }
         if (!dayHours.available_slots.includes(timeSlot)) {
           return false // この公演枠は受付不可
         }
@@ -316,7 +338,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     }
     
     return true
-  }, [businessHoursCache, getDefaultAvailableSlots])
+  }, [businessHoursCache, getDefaultAvailableSlots, isCustomHoliday])
 
   // 特定の日付と時間枠が空いているかチェック（店舗フィルター対応）
   // 全店舗のイベントを使用して判定（特定シナリオのイベントのみではない）
@@ -417,6 +439,9 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     const targetDate = date.split('T')[0]
     const dayOfWeek = new Date(date).getDay()
     
+    // カスタム休日・祝日かどうか判定
+    const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(targetDate) || isCustomHoliday?.(targetDate)
+    
     // キャッシュに設定があれば最初の設定を使用（全店舗共通設定として）
     let allowedSlots: ('morning' | 'afternoon' | 'evening')[] = getDefaultAvailableSlots(dayOfWeek, targetDate)
     
@@ -425,10 +450,17 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       const settings = firstStoreId ? businessHoursCache.get(firstStoreId) : undefined
       if (settings?.opening_hours) {
         const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-        const dayName = dayNames[dayOfWeek]
-        const dayHours = settings.opening_hours[dayName]
+        // カスタム休日・祝日の場合は日曜日の設定を参照（休日扱い）
+        const effectiveDayName = isWeekendOrHoliday && dayOfWeek !== 0 && dayOfWeek !== 6
+          ? 'sunday'
+          : dayNames[dayOfWeek]
+        const dayHours = settings.opening_hours[effectiveDayName]
         if (dayHours?.available_slots && dayHours.available_slots.length > 0) {
           allowedSlots = dayHours.available_slots
+          // カスタム休日・祝日で朝公演がない場合は追加
+          if (isWeekendOrHoliday && !allowedSlots.includes('morning')) {
+            allowedSlots = ['morning', ...allowedSlots]
+          }
         }
       }
     }
@@ -444,7 +476,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     return availableStoreIdsArray.some(storeId => checkStoreAvailability(storeId))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, getTimeSlotFromLabel, stores, isWithinBusinessHours])
+  }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, getTimeSlotFromLabel, stores, isWithinBusinessHours, isCustomHoliday, businessHoursCache, getDefaultAvailableSlots])
 
   // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分）
   const generatePrivateDates = useCallback(() => {
