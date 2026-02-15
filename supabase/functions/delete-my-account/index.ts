@@ -3,11 +3,10 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getCorsHeaders, maskEmail, sanitizeErrorMessage, getAnonKey, getServiceRoleKey } from '../_shared/security.ts'
+import { getCorsHeaders, maskEmail, sanitizeErrorMessage, getServiceRoleKey } from '../_shared/security.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
-const SUPABASE_ANON_KEY = getAnonKey()
 
 // サービスロールクライアント（管理操作用）
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -23,12 +22,12 @@ serve(async (req) => {
     }
 
     // ============================================
-    // 認証チェック: 呼び出し元ユーザーを確認
+    // 認証チェック: JWTからユーザーを取得
     // ============================================
     const authHeader = req.headers.get('Authorization')
     console.log('🔑 Auth header present:', !!authHeader)
     
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.warn('⚠️ 認証ヘッダーがありません')
       return new Response(
         JSON.stringify({
@@ -39,13 +38,12 @@ serve(async (req) => {
       )
     }
 
-    // 呼び出し元ユーザーの認証を検証
-    console.log('🔍 Verifying user with anon key...')
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } }
-    })
+    // JWTトークンを抽出
+    const token = authHeader.replace('Bearer ', '')
+    console.log('🔍 Verifying JWT token...')
     
-    const { data: { user }, error: authError } = await userClient.auth.getUser()
+    // Service Role クライアントでJWTを検証してユーザー情報を取得
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     
     if (authError || !user) {
       console.warn('⚠️ 認証エラー:', authError?.message, authError?.status)
