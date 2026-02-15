@@ -515,8 +515,8 @@ export function SettingsPage() {
             <Trash2 className="w-5 h-5 text-red-500" />
           </div>
           <div>
-            <h3 className="font-medium text-red-600">アカウント削除</h3>
-            <p className="text-sm text-gray-500">すべてのデータが削除されます</p>
+            <h3 className="font-medium text-red-600">退会・アカウント削除</h3>
+            <p className="text-sm text-gray-500">退会するとすべてのデータが削除されます</p>
           </div>
         </div>
         <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -760,16 +760,16 @@ export function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* アカウント削除ダイアログ */}
+      {/* 退会・アカウント削除ダイアログ */}
       <Dialog open={activeDialog === 'delete'} onOpenChange={(open) => !open && setActiveDialog(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
-              アカウント削除
+              退会・アカウント削除
             </DialogTitle>
             <DialogDescription>
-              この操作は取り消せません。すべてのデータが完全に削除されます。
+              この操作は取り消せません。退会するとすべてのデータが完全に削除されます。
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -807,7 +807,7 @@ export function SettingsPage() {
               onClick={handleDeleteAccount} 
               disabled={deleting || confirmEmail !== user?.email}
             >
-              {deleting ? '削除中...' : '削除する'}
+              {deleting ? '退会処理中...' : '退会する'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -33,6 +33,7 @@ export function CompleteProfile() {
   const [isOAuthUser, setIsOAuthUser] = useState(false)
   const [birthDate, setBirthDate] = useState('')
   const [acceptNewsletter, setAcceptNewsletter] = useState(true)
+  const [acceptTerms, setAcceptTerms] = useState(false)
 
   useEffect(() => {
     // セッションを確認
@@ -95,6 +96,11 @@ export function CompleteProfile() {
       setError('メールアドレスが取得できませんでした。別のログイン方法をお試しください。')
       return
     }
+    
+    if (!acceptTerms) {
+      setError('利用規約とプライバシーポリシーに同意してください')
+      return
+    }
 
     // メールサインアップ（確認メール）ではパスワード設定が必要
     if (!isOAuthUser) {
@@ -117,16 +123,22 @@ export function CompleteProfile() {
       const nextUrl = validateRedirectUrl(nextParam, '/')
 
       // 1. パスワードを設定（メールサインアップのみ）
-      if (!isOAuthUser) {
+      if (!isOAuthUser && password) {
         const { error: updateError } = await supabase.auth.updateUser({
           password: password
         })
         
         if (updateError) {
-          throw updateError
+          // 「新しいパスワードは古いパスワードと異なる必要があります」エラーは無視
+          // （既存ユーザーが同じパスワードを設定した場合）
+          if (updateError.message?.includes('different from the old password')) {
+            logger.log('✅ パスワードは既に設定済み（スキップ）')
+          } else {
+            throw updateError
+          }
+        } else {
+          logger.log('✅ パスワード設定完了')
         }
-        
-        logger.log('✅ パスワード設定完了')
       }
       
       // 2. usersテーブルにレコードを作成/更新
@@ -537,8 +549,27 @@ export function CompleteProfile() {
                   </>
                 )}
 
-                {/* メールマガジン同意 */}
+                {/* 利用規約同意（必須） */}
                 <div className="flex items-start gap-3 pt-2">
+                  <input
+                    id="terms"
+                    type="checkbox"
+                    checked={acceptTerms}
+                    onChange={(e) => setAcceptTerms(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 accent-[#E60012] cursor-pointer"
+                    disabled={isLoading}
+                    required
+                  />
+                  <label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer select-none">
+                    <Link to="/terms" className="underline text-blue-600 hover:text-blue-800" target="_blank">利用規約</Link>
+                    および
+                    <Link to="/privacy" className="underline text-blue-600 hover:text-blue-800" target="_blank">プライバシーポリシー</Link>
+                    に同意する <span className="text-red-500">*</span>
+                  </label>
+                </div>
+
+                {/* メールマガジン同意 */}
+                <div className="flex items-start gap-3">
                   <input
                     id="newsletter"
                     type="checkbox"
@@ -571,14 +602,6 @@ export function CompleteProfile() {
                 </Button>
               </form>
 
-              {/* 利用規約リンク */}
-              <p className="mt-6 text-xs text-gray-500 text-center">
-                登録することで、
-                <Link to="/terms" className="underline hover:text-gray-700">利用規約</Link>
-                および
-                <Link to="/privacy" className="underline hover:text-gray-700">プライバシーポリシー</Link>
-                に同意したものとみなされます。
-              </p>
 
               {/* ログアウトリンク */}
               <div className="mt-4 text-center">
