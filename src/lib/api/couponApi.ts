@@ -154,6 +154,103 @@ export async function getAllCoupons(): Promise<CustomerCoupon[]> {
 }
 
 /**
+ * 新規登録クーポンを付与（電話番号で重複チェック）
+ * @param customerId 顧客ID
+ * @param phone 電話番号
+ * @param organizationId 組織ID
+ * @returns 付与されたクーポン数
+ */
+export async function grantRegistrationCoupon(
+  customerId: string,
+  phone: string,
+  organizationId: string
+): Promise<{ granted: number; skipped: boolean; reason?: string }> {
+  // 電話番号を正規化（数字のみ）
+  const normalizedPhone = phone.replace(/[^0-9]/g, '')
+  
+  if (!normalizedPhone) {
+    logger.log('クーポン付与スキップ: 電話番号が空')
+    return { granted: 0, skipped: true, reason: '電話番号が空' }
+  }
+
+  // 対象キャンペーンを取得
+  const { data: campaigns, error: campaignError } = await supabase
+    .from('coupon_campaigns')
+    .select('*')
+    .eq('trigger_type', 'registration')
+    .eq('is_active', true)
+    .eq('organization_id', organizationId)
+    .or('valid_from.is.null,valid_from.lte.now()')
+    .or('valid_until.is.null,valid_until.gte.now()')
+
+  if (campaignError || !campaigns || campaigns.length === 0) {
+    logger.log('クーポン付与スキップ: 対象キャンペーンなし')
+    return { granted: 0, skipped: true, reason: '対象キャンペーンなし' }
+  }
+
+  let grantedCount = 0
+
+  for (const campaign of campaigns) {
+    // 同じ電話番号で既にクーポンが付与されていないかチェック
+    const { data: existingCoupons } = await supabase
+      .from('customer_coupons')
+      .select(`
+        id,
+        customers!inner (
+          phone
+        )
+      `)
+      .eq('campaign_id', campaign.id)
+
+    // 電話番号でフィルタ（正規化して比較）
+    const hasExisting = existingCoupons?.some((coupon: any) => {
+      const existingPhone = coupon.customers?.phone || ''
+      const existingNormalized = existingPhone.replace(/[^0-9]/g, '')
+      return existingNormalized === normalizedPhone
+    })
+
+    if (hasExisting) {
+      logger.log(`クーポン付与スキップ: 電話番号 ${normalizedPhone} は既にキャンペーン ${campaign.name} のクーポン所持`)
+      continue
+    }
+
+    // 有効期限を計算
+    let expiresAt: string | null = null
+    if (campaign.coupon_expiry_days) {
+      const expiry = new Date()
+      expiry.setDate(expiry.getDate() + campaign.coupon_expiry_days)
+      expiresAt = expiry.toISOString()
+    }
+
+    // クーポンを付与
+    const { error: insertError } = await supabase
+      .from('customer_coupons')
+      .insert({
+        campaign_id: campaign.id,
+        customer_id: customerId,
+        organization_id: campaign.organization_id,
+        uses_remaining: campaign.max_uses_per_customer,
+        expires_at: expiresAt,
+        status: 'active'
+      })
+
+    if (insertError) {
+      // 重複エラーは無視
+      if (insertError.code === '23505') {
+        logger.log(`クーポン付与スキップ: 既に付与済み (campaign=${campaign.id}, customer=${customerId})`)
+      } else {
+        logger.error('クーポン付与エラー:', insertError)
+      }
+    } else {
+      grantedCount++
+      logger.log(`✅ クーポン付与成功: campaign=${campaign.name}, customer=${customerId}`)
+    }
+  }
+
+  return { granted: grantedCount, skipped: grantedCount === 0 }
+}
+
+/**
  * クーポン使用履歴を取得
  */
 export async function getCouponUsageHistory(): Promise<CouponUsage[]> {

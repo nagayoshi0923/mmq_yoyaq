@@ -85,7 +85,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
             const slotTimes = slotTimesMap.get(slot.label)
             const defaultStart = slot.label === '昼公演' ? defaultAfternoonStart : slot.startTime
             const startTime = slotTimes?.startTime || defaultStart
-            const endTime = slotTimes?.endTime || slot.endTime
+            // 終了時間はシナリオの公演時間から計算（固定値のフォールバックを避ける）
+            const endTime = slotTimes?.endTime || calculateEndTime(startTime, scenarioDuration)
             const slotWithTime = { ...slot, startTime, endTime }
           const key = `${date}-${slot.label}`
           const isAvailable = await checkTimeSlotAvailability(
@@ -102,7 +103,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
     }
     
     updateAvailability()
-  }, [availableDates, timeSlots, selectedStoreIds, checkTimeSlotAvailability, getTimeSlotsForDate, isCustomHoliday])
+  }, [availableDates, timeSlots, selectedStoreIds, checkTimeSlotAvailability, getTimeSlotsForDate, isCustomHoliday, scenarioDuration])
   
   // 時間枠の可用性を取得
   const getAvailability = (date: string, slot: TimeSlot): boolean => {
@@ -202,7 +203,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                   // 昼公演のデフォルト開始時間は曜日で変わる
                   const defaultStart = slot.label === '昼公演' ? defaultAfternoonStart : slot.startTime
                   const startTime = slotTimes?.startTime || defaultStart
-                  const endTime = slotTimes?.endTime || slot.endTime
+                  // 終了時間はシナリオの公演時間から計算（固定値のフォールバックを避ける）
+                  const endTime = slotTimes?.endTime || calculateEndTime(startTime, scenarioDuration)
                   const slotWithTime = { ...slot, startTime, endTime }
                   const isAvailable = getAvailability(date, slotWithTime)
                   const isSelected = isTimeSlotSelected(date, slotWithTime)

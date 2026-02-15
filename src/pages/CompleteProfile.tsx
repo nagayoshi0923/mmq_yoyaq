@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertCircle, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { validateRedirectUrl } from '@/lib/utils'
+import { grantRegistrationCoupon } from '@/lib/api/couponApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link } from 'react-router-dom'
 
@@ -366,6 +367,27 @@ export function CompleteProfile() {
           throw new Error('プロフィールの保存が不完全です。もう一度お試しください。')
         }
         logger.log('✅ 保存検証OK:', { name: verify.name, phone: verify.phone, email: verify.email })
+        
+        // 新規顧客の場合、クーポンを付与（電話番号で重複チェック）
+        if (isNewCustomer && verify.id) {
+          try {
+            const couponResult = await grantRegistrationCoupon(
+              verify.id,
+              phone.trim(),
+              organizationId
+            )
+            if (couponResult.granted > 0) {
+              logger.log(`✅ クーポン ${couponResult.granted} 枚付与`)
+            } else if (couponResult.skipped) {
+              logger.log(`⚠️ クーポン付与スキップ: ${couponResult.reason || '既存電話番号'}`)
+              // 既存電話番号の場合はクーポンページに遷移しない
+              isNewCustomer = false
+            }
+          } catch (couponErr) {
+            logger.error('クーポン付与エラー:', couponErr)
+            // クーポン付与失敗でも登録は成功として続行
+          }
+        }
       }
       
       setSuccess(true)
