@@ -36,9 +36,15 @@ export function useStoresAndScenarios() {
 
   /**
    * シナリオIDから名前を取得
+   * scenarioIdはscenarios.idまたはscenario_master_id（scenario_mastersテーブルのID）のどちらでも対応
    */
   const getScenarioName = useCallback((scenarioId: string) => {
-    const scenario = scenarios.find(s => s.id === scenarioId)
+    // まずscenarios.idで検索
+    let scenario = scenarios.find(s => s.id === scenarioId)
+    // 見つからない場合はscenario_master_idで検索
+    if (!scenario) {
+      scenario = scenarios.find(s => s.scenario_master_id === scenarioId)
+    }
     return scenario?.title || '不明なシナリオ'
   }, [scenarios])
 

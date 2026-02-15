@@ -47,3 +47,7 @@ otp_expiry = 3600
 # Edge Functions configuration
 # Note: Cron Jobs are configured in Supabase Dashboard, not here
 
+# delete-my-account は関数内でJWT検証を行うため、ゲートウェイでの検証をスキップ
+[functions.delete-my-account]
+verify_jwt = false
+
