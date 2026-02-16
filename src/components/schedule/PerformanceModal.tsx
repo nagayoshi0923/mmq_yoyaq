@@ -734,16 +734,15 @@ export function PerformanceModal({
                 
                 return {
                   value: scenario.title,
-                  label: (
+                  label: scenario.title + (!isAvailableAtCurrentVenue ? ' [公演不可]' : ''),
+                  renderContent: !isAvailableAtCurrentVenue ? () => (
                     <span className="flex items-center gap-1">
                       {scenario.title}
-                      {!isAvailableAtCurrentVenue && (
-                        <span className="inline-flex items-center px-1 py-0 rounded text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300">
-                          公演不可
-                        </span>
-                      )}
+                      <span className="inline-flex items-center px-1 py-0 rounded text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300">
+                        公演不可
+                      </span>
                     </span>
-                  ),
+                  ) : undefined,
                   displayInfo: filteredDisplayGMs.length > 0 
                     ? (
                         <span className="flex flex-wrap gap-0.5 items-center">

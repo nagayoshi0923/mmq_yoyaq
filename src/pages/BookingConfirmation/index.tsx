@@ -256,10 +256,10 @@ export function BookingConfirmation({
         throw new Error('ログイン中のメールアドレスと一致しません')
       }
 
-      // 組織IDを取得
+      // 組織ID・店舗情報を取得
       const { data: eventData, error: eventError } = await supabase
         .from('schedule_events')
-        .select('organization_id')
+        .select('organization_id, store_id, venue')
         .eq('id', eventId)
         .single()
 
