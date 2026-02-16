@@ -196,8 +196,14 @@ export function BookingConfirmation({
       return
     }
 
-    // 重複予約がある場合は確認ダイアログを表示
-    if (duplicateWarning.show && !pendingSubmit) {
+    // 同じ公演への重複予約の場合はブロック（人数変更を促す）
+    if (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict) {
+      setError('この公演には既に予約があります。人数を変更したい場合はマイページから既存の予約を編集してください。')
+      return
+    }
+    
+    // 時間帯重複の場合は確認ダイアログを表示（別公演への予約なのでブロックしない）
+    if (duplicateWarning.show && duplicateWarning.existingReservation?.isTimeConflict && !pendingSubmit) {
       setConfirmDialogOpen(true)
       return
     }
@@ -487,8 +493,11 @@ export function BookingConfirmation({
                       予約者: {duplicateWarning.existingReservation.customer_name}<br />
                       参加人数: {duplicateWarning.existingReservation.participant_count}名
                     </p>
-                    <p className="text-xs mt-2">
-                      人数を変更したい場合は、<Link to="/mypage" className="underline font-medium">マイページ</Link>から既存の予約を編集してください。
+                    <p className="text-xs mt-2 font-medium">
+                      参加人数を増やしたい場合は、<Link to="/mypage" className="underline text-primary">マイページ</Link>から既存の予約を編集してください。
+                    </p>
+                    <p className="text-xs mt-1 text-amber-700">
+                      ※同じ公演への重複予約はできません
                     </p>
                   </>
                 )}
