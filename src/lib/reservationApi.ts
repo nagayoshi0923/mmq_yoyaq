@@ -432,16 +432,11 @@ export const reservationApi = {
       throw new Error('この予約を変更する権限がありません')
     }
 
-    // 🚨 SECURITY FIX (SEC-P0-05): 直接UPDATEを削除
-    // 人数変更は updateParticipantsWithLock RPC で完結（料金計算もRPC内で実施すべき）
-    // 
-    // 問題:
-    //   - 元の実装は RPC で人数変更後、料金を直接UPDATEしていた
-    //   - これにより、在庫ロックなしで料金を変更できる脆弱性があった
-    // 
-    // 修正:
-    //   - RPC内で料金も更新するよう変更（027マイグレーションで対応）
-    //   - 当面は RPC のみで人数変更、料金は手動更新不可とする
+    // RPC を呼び出して人数を変更（在庫ロック + 料金再計算含む）
+    const result = await this.updateParticipantsWithLock(reservationId, newCount, customerId)
+    if (!result) {
+      throw new Error('人数変更に失敗しました')
+    }
     
     logger.log('人数変更成功（RPC内で完了）')
 
