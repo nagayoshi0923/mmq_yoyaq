@@ -395,7 +395,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
             <ScenarioHero scenario={scenario} events={events} />
             
             {/* あらすじ・シナリオ情報 */}
-            <ScenarioAbout scenario={scenario} />
+            <ScenarioAbout scenario={scenario} stores={stores} />
             
             {/* PC版: 注意事項をここに表示（タブに応じて内容切り替え） */}
             <div className="hidden md:block">

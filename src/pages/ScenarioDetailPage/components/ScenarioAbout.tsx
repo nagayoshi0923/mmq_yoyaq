@@ -1,13 +1,20 @@
-import { memo, useState } from 'react'
+import { memo, useState, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Clock, Users, ChevronDown, BookOpen, AlertTriangle, UserCircle } from 'lucide-react'
+import { Clock, Users, ChevronDown, BookOpen, AlertTriangle, UserCircle, Building2 } from 'lucide-react'
 import type { ScenarioDetail } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 
+interface Store {
+  id: string
+  name: string
+  short_name?: string
+}
+
 interface ScenarioAboutProps {
   scenario: ScenarioDetail
+  stores?: Store[]
 }
 
 // 男女比の表示文字列を生成
@@ -19,7 +26,7 @@ function formatGenderRatio(male?: number | null, female?: number | null, other?:
   return parts.length > 0 ? parts.join(' / ') : null
 }
 
-export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioAboutProps) {
+export const ScenarioAbout = memo(function ScenarioAbout({ scenario, stores = [] }: ScenarioAboutProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const synopsisLength = scenario.synopsis?.length || 0
   const shouldTruncate = synopsisLength > 200
@@ -27,6 +34,15 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
   // 男女比が設定されているかどうか
   const hasGenderRatio = scenario.male_count != null || scenario.female_count != null || scenario.other_count != null
   const genderRatioText = formatGenderRatio(scenario.male_count, scenario.female_count, scenario.other_count)
+  
+  // 公演可能店舗名を取得
+  const availableStoreNames = useMemo(() => {
+    if (!scenario.available_stores || scenario.available_stores.length === 0) return []
+    const storeMap = new Map(stores.map(s => [s.id, s.short_name || s.name]))
+    return scenario.available_stores
+      .map(id => storeMap.get(id))
+      .filter((name): name is string => !!name)
+  }, [scenario.available_stores, stores])
 
   return (
     <div className="space-y-4">
@@ -103,6 +119,15 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
               <div>
                 <span className="text-gray-500 text-xs">男女比</span>
                 <p className="font-medium text-gray-900">{genderRatioText}</p>
+              </div>
+            </div>
+          )}
+          {availableStoreNames.length > 0 && (
+            <div className="flex items-start gap-2 col-span-2">
+              <Building2 className="w-4 h-4 text-gray-400 mt-0.5" />
+              <div>
+                <span className="text-gray-500 text-xs">公演可能店舗</span>
+                <p className="font-medium text-gray-900">{availableStoreNames.join('・')}</p>
               </div>
             </div>
           )}
