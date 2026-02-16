@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Images, Calendar, MapPin, Star, EyeOff, Users, Clock, User } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Images, Calendar, MapPin, Star, EyeOff, Users, Clock, User, Plus, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -18,6 +21,8 @@ interface PlayedScenario {
   scenario_id?: string
   key_visual_url?: string
   author?: string
+  is_manual?: boolean  // 手動登録かどうか
+  manual_id?: string   // manual_play_historyのID
 }
 
 interface LikedScenario {
@@ -49,6 +54,13 @@ export function AlbumPage() {
   const [likedScenarios, setLikedScenarios] = useState<Set<string>>(new Set())
   const [customerId, setCustomerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  
+  // 手動登録用ステート
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [newScenarioTitle, setNewScenarioTitle] = useState('')
+  const [newPlayedAt, setNewPlayedAt] = useState('')
+  const [newVenue, setNewVenue] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (user?.email) {
@@ -199,11 +211,91 @@ export function AlbumPage() {
         }
       }
 
+      // 手動登録履歴を取得
+      const { data: manualHistory } = await supabase
+        .from('manual_play_history')
+        .select('id, scenario_title, played_at, venue, scenario_id, scenarios(key_visual_url, author)')
+        .eq('customer_id', customer.id)
+        .order('played_at', { ascending: false })
+      
+      if (manualHistory) {
+        manualHistory.forEach((item: any) => {
+          scenarios.push({
+            scenario: item.scenario_title,
+            date: item.played_at,
+            venue: item.venue || '',
+            gms: [],
+            scenario_id: item.scenario_id || undefined,
+            key_visual_url: item.scenarios?.key_visual_url || undefined,
+            author: item.scenarios?.author || undefined,
+            is_manual: true,
+            manual_id: item.id,
+          })
+        })
+      }
+      
+      // 日付でソート（新しい順）
+      scenarios.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
       setPlayedScenarios(scenarios)
     } catch (error) {
       logger.error('プレイ済みシナリオ取得エラー:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 手動登録を追加
+  const handleAddManualHistory = async () => {
+    if (!customerId || !newScenarioTitle.trim() || !newPlayedAt) {
+      showToast.error('シナリオ名と日付は必須です')
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const { error } = await supabase
+        .from('manual_play_history')
+        .insert({
+          customer_id: customerId,
+          scenario_title: newScenarioTitle.trim(),
+          played_at: newPlayedAt,
+          venue: newVenue.trim() || null,
+        })
+
+      if (error) throw error
+
+      showToast.success('プレイ履歴を追加しました')
+      setIsAddDialogOpen(false)
+      setNewScenarioTitle('')
+      setNewPlayedAt('')
+      setNewVenue('')
+      fetchPlayedScenarios()
+    } catch (error) {
+      logger.error('手動履歴追加エラー:', error)
+      showToast.error('追加に失敗しました')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // 手動登録を削除
+  const handleDeleteManualHistory = async (manualId: string) => {
+    if (!confirm('この履歴を削除しますか？')) return
+
+    try {
+      const { error } = await supabase
+        .from('manual_play_history')
+        .delete()
+        .eq('id', manualId)
+
+      if (error) throw error
+
+      showToast.success('削除しました')
+      fetchPlayedScenarios()
+    } catch (error) {
+      logger.error('手動履歴削除エラー:', error)
+      showToast.error('削除に失敗しました')
     }
   }
 
@@ -363,16 +455,67 @@ export function AlbumPage() {
 
       {/* シナリオリスト */}
       <Card className="shadow-none border">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
             <Images className="h-4 w-4 sm:h-5 sm:w-5" />
             アルバム
           </CardTitle>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-1">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">過去の体験を追加</span>
+                <span className="sm:hidden">追加</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>過去の体験を追加</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="scenario-title">シナリオ名 *</Label>
+                  <Input
+                    id="scenario-title"
+                    value={newScenarioTitle}
+                    onChange={(e) => setNewScenarioTitle(e.target.value)}
+                    placeholder="例: 六人の嘘つきな大学生"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="played-at">プレイした日付 *</Label>
+                  <Input
+                    id="played-at"
+                    type="date"
+                    value={newPlayedAt}
+                    onChange={(e) => setNewPlayedAt(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="venue">店舗名（任意）</Label>
+                  <Input
+                    id="venue"
+                    value={newVenue}
+                    onChange={(e) => setNewVenue(e.target.value)}
+                    placeholder="例: MMQ渋谷店"
+                  />
+                </div>
+                <Button 
+                  onClick={handleAddManualHistory} 
+                  disabled={isSubmitting || !newScenarioTitle.trim() || !newPlayedAt}
+                  className="w-full"
+                >
+                  {isSubmitting ? '追加中...' : '追加'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent>
           {scenarioGroups.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
-              プレイ履歴がありません
+              <p>プレイ履歴がありません</p>
+              <p className="mt-2 text-xs">「過去の体験を追加」から手動で登録できます</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -452,10 +595,12 @@ export function AlbumPage() {
                                 </div>
                                 
                                 {/* 店舗 */}
-                                <div className="flex items-center gap-1 min-w-0">
-                                  <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                  <span className="text-foreground truncate">{play.venue}</span>
-                                </div>
+                                {play.venue && (
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                    <span className="text-foreground truncate">{play.venue}</span>
+                                  </div>
+                                )}
                                 
                                 {/* 作者 */}
                                 {play.author && (
@@ -474,6 +619,24 @@ export function AlbumPage() {
                                         {gm}
                                       </Badge>
                                     ))}
+                                  </div>
+                                )}
+                                
+                                {/* 手動登録バッジと削除ボタン */}
+                                {play.is_manual && (
+                                  <div className="flex items-center gap-1 ml-auto">
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 text-muted-foreground">
+                                      手動登録
+                                    </Badge>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-5 w-5 hover:bg-red-50"
+                                      onClick={() => play.manual_id && handleDeleteManualHistory(play.manual_id)}
+                                      title="削除"
+                                    >
+                                      <Trash2 className="h-3 w-3 text-red-400" />
+                                    </Button>
                                   </div>
                                 )}
                               </div>
