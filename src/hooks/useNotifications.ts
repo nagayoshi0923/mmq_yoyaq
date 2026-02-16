@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -192,6 +192,75 @@ export function useNotifications() {
     refetchOnMount: false,
     retry: 1,
   })
+
+  // リアルタイムサブスクリプション: 新しい通知が追加されたら自動的に再取得
+  useEffect(() => {
+    if (!user?.id) return
+
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let cleanedUp = false
+
+    const setupSubscription = async () => {
+      // 顧客情報を取得してcustomer_idを取得
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (cleanedUp) return
+
+      // user_idまたはcustomer_idで通知を購読
+      // Supabaseのリアルタイムはフィルタを2つ同時に適用できないため、
+      // フィルタなしで購読し、コールバック内でフィルタリングする
+      channel = supabase
+        .channel(`user_notifications_${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'user_notifications',
+          },
+          (payload) => {
+            const newRecord = payload.new as { user_id?: string; customer_id?: string }
+            // このユーザーに関連する通知のみ処理
+            if (newRecord.user_id === user.id || (customer && newRecord.customer_id === customer.id)) {
+              logger.log('🔔 新しい通知を受信:', payload)
+              queryClient.invalidateQueries({ queryKey })
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'user_notifications',
+          },
+          (payload) => {
+            const updatedRecord = payload.new as { user_id?: string; customer_id?: string }
+            if (updatedRecord.user_id === user.id || (customer && updatedRecord.customer_id === customer.id)) {
+              queryClient.invalidateQueries({ queryKey })
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            logger.log('🔔 通知リアルタイムサブスクリプション開始')
+          }
+        })
+    }
+
+    setupSubscription()
+
+    return () => {
+      cleanedUp = true
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
+    }
+  }, [user?.id, queryClient, queryKey])
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,

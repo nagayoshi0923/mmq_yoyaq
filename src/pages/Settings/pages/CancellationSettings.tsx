@@ -126,15 +126,73 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
   const handleSave = async () => {
     setSaving(true)
     try {
-      // 全店舗選択時は保存しない
-      if (!storeId) {
-        showToast.warning('全店舗選択時は個別の設定を保存できません', '特定の店舗を選択してください')
-        return
-      }
-
       // cancellation_feesを時間順（降順）にソート
       const sortedFees = [...formData.cancellation_fees].sort((a, b) => b.hours_before - a.hours_before)
 
+      // 全店舗選択時は全店舗に一括適用
+      if (!storeId) {
+        // 全店舗を取得
+        const allStores = await storeApi.getAll()
+        
+        if (allStores.length === 0) {
+          showToast.warning('店舗が登録されていません')
+          return
+        }
+
+        let successCount = 0
+        let errorCount = 0
+
+        for (const store of allStores) {
+          try {
+            // 既存設定があるか確認
+            const { data: existing } = await supabase
+              .from('reservation_settings')
+              .select('id')
+              .eq('store_id', store.id)
+              .maybeSingle()
+
+            if (existing) {
+              // 更新
+              const { error } = await supabase
+                .from('reservation_settings')
+                .update({
+                  cancellation_policy: formData.cancellation_policy,
+                  cancellation_deadline_hours: formData.cancellation_deadline_hours,
+                  cancellation_fees: sortedFees
+                })
+                .eq('id', existing.id)
+
+              if (error) throw error
+            } else {
+              // 新規作成
+              const { error } = await supabase
+                .from('reservation_settings')
+                .insert({
+                  store_id: store.id,
+                  organization_id: store.organization_id,
+                  cancellation_policy: formData.cancellation_policy,
+                  cancellation_deadline_hours: formData.cancellation_deadline_hours,
+                  cancellation_fees: sortedFees
+                })
+
+              if (error) throw error
+            }
+            successCount++
+          } catch (err) {
+            logger.error(`店舗 ${store.name} の設定保存エラー:`, err)
+            errorCount++
+          }
+        }
+
+        if (errorCount === 0) {
+          showToast.success(`全${successCount}店舗に設定を適用しました`)
+        } else {
+          showToast.warning(`${successCount}店舗に適用、${errorCount}店舗でエラー`)
+        }
+        return
+      }
+
+      // 特定店舗選択時
       if (formData.id) {
         const { error } = await supabase
           .from('reservation_settings')
@@ -242,9 +300,9 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
       </PageHeader>
 
       {!storeId && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-sm text-yellow-800">
-            <strong>全店舗選択中:</strong> 設定を保存するには、特定の店舗を選択してください。
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            <strong>全店舗選択中:</strong> 保存すると、全店舗にこの設定が一括適用されます。
           </p>
         </div>
       )}
