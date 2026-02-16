@@ -96,6 +96,13 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     getTimeSlotsForDate
   } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug, isCustomHoliday })
 
+  // 公演日程タブの店舗フィルタ: 1店舗の場合は自動選択
+  useEffect(() => {
+    if (availableStores.length === 1 && scheduleStoreFilter.length === 0) {
+      setScheduleStoreFilter([availableStores[0].id])
+    }
+  }, [availableStores, scheduleStoreFilter.length])
+
   useEffect(() => {
     // URLパラメータを処理
     const urlParams = new URLSearchParams(window.location.search)
@@ -410,7 +417,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       selectedStoreIds={scheduleStoreFilter}
                       onStoreIdsChange={setScheduleStoreFilter}
                       label="店舗で絞り込み"
-                      placeholder="全店舗"
+                      placeholder="店舗を選択"
+                      emptyText=""
                     />
                     
                     {/* 日程未選択時のガイダンス（選択後と同じスタイル） */}
