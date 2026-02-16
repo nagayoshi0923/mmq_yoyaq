@@ -147,12 +147,14 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   // scenario_master_id を直接使用（旧ID解決は不要）
   // staff_scenario_assignments.scenario_id は scenario_master_id と統一済み
   
-  // 組織名を取得
+  // 組織名とslugを取得
   const [organizationName, setOrganizationName] = useState<string>('')
+  const [organizationSlug, setOrganizationSlug] = useState<string>('')
   useEffect(() => {
     const fetchOrg = async () => {
       const org = await getCurrentOrganization()
       setOrganizationName(org?.name || '')
+      setOrganizationSlug(org?.slug || '')
     }
     fetchOrg()
   }, [])
@@ -1162,13 +1164,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 </Button>
               )}
               {/* シナリオ詳細ページへのリンク（編集時のみ） */}
-              {scenarioId && (
+              {scenarioId && organizationSlug && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-5 text-[11px] gap-0.5 text-gray-600 hover:text-gray-900 px-1.5"
-                  onClick={() => window.open(`/scenarios/${formData.slug || scenarioId}`, '_blank')}
-                  title="シナリオ詳細ページを開く"
+                  onClick={() => window.open(`/${organizationSlug}/scenarios/${formData.slug || scenarioId}`, '_blank')}
+                  title="予約サイトのシナリオ詳細ページを開く"
                 >
                   <ExternalLink className="w-2.5 h-2.5" />
                   詳細
