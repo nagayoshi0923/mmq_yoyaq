@@ -64,6 +64,20 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       const scenarioAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
       const hasScenarioStoreLimit = Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0
       
+      // 利用可能な店舗を計算（オフィス除く、営業中のみ、シナリオ対応のみ）
+      const validStores = stores.filter(s => 
+        s.ownership_type !== 'office' && 
+        s.status === 'active' &&
+        (!hasScenarioStoreLimit || scenarioAvailableStores.includes(s.id))
+      )
+      
+      // 1店舗しかない場合は自動選択
+      if (validStores.length === 1) {
+        setSelectedStoreIdsInternal([validStores[0].id])
+        setSavedStoreIds([validStores[0].id])
+        return
+      }
+      
       // 貸切用に保存された店舗がある場合はそれを使用
       if (savedStoreIds.length > 0) {
         const validStoreIds = savedStoreIds.filter(id => {
