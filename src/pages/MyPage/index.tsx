@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
+import { showToast } from '@/utils/toast'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { SettingsPage } from './pages/SettingsPage'
 import { WantToPlayPage } from './pages/LikedScenariosPage'
@@ -54,6 +58,14 @@ export default function MyPage() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ participationCount: 0, points: 0 })
   const [customerInfo, setCustomerInfo] = useState<{ name?: string; nickname?: string } | null>(null)
+  const [customerId, setCustomerId] = useState<string | null>(null)
+  
+  // 手動登録用ステート
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [newScenarioTitle, setNewScenarioTitle] = useState('')
+  const [newPlayedAt, setNewPlayedAt] = useState('')
+  const [newVenue, setNewVenue] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   
   // アバター画像
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -165,6 +177,7 @@ export default function MyPage() {
       
       // 顧客情報をセット
       setCustomerInfo({ name: customer.name, nickname: customer.nickname })
+      setCustomerId(customer.id)
       // アバター画像をセット
       if (customer.avatar_url) {
         setAvatarUrl(customer.avatar_url)
@@ -319,7 +332,7 @@ export default function MyPage() {
           }
         }
         
-        const played: PlayedScenario[] = pastReservations.slice(0, 12).map(reservation => {
+        const played: PlayedScenario[] = pastReservations.map(reservation => {
           const scenarioInfo = reservation.scenario_id ? additionalScenarioData[reservation.scenario_id] : null
           return {
             scenario: reservation.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim() || '',
@@ -331,13 +344,81 @@ export default function MyPage() {
             key_visual_url: scenarioInfo?.key_visual_url || undefined,
           }
         })
-        setPlayedScenarios(played)
+        
+        // 手動登録履歴を取得
+        const { data: manualHistory } = await supabase
+          .from('manual_play_history')
+          .select('id, scenario_title, played_at, venue, scenario_id, scenarios(key_visual_url, slug, organization_id)')
+          .eq('customer_id', customer.id)
+          .order('played_at', { ascending: false })
+        
+        if (manualHistory) {
+          manualHistory.forEach((item: any) => {
+            played.push({
+              scenario: item.scenario_title,
+              date: item.played_at,
+              venue: item.venue || '',
+              scenario_id: item.scenario_id || undefined,
+              scenario_slug: item.scenarios?.slug || undefined,
+              organization_slug: item.scenarios?.organization_id ? orgSlugMap[item.scenarios.organization_id] : undefined,
+              key_visual_url: item.scenarios?.key_visual_url || undefined,
+            })
+          })
+        }
+        
+        // 日付でソート（新しい順）、重複を除去（同じscenario_idは1つだけ）
+        const uniqueScenarioIds = new Set<string>()
+        const uniquePlayed = played
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .filter(p => {
+            if (!p.scenario_id) return true // scenario_idがない場合は重複チェックしない
+            if (uniqueScenarioIds.has(p.scenario_id)) return false
+            uniqueScenarioIds.add(p.scenario_id)
+            return true
+          })
+          .slice(0, 12)
+        
+        setPlayedScenarios(uniquePlayed)
       }
 
     } catch (error) {
       logger.error('データ取得エラー:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 手動登録を追加
+  const handleAddManualHistory = async () => {
+    if (!customerId || !newScenarioTitle.trim() || !newPlayedAt) {
+      showToast.error('シナリオ名と日付は必須です')
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const { error } = await supabase
+        .from('manual_play_history')
+        .insert({
+          customer_id: customerId,
+          scenario_title: newScenarioTitle.trim(),
+          played_at: newPlayedAt,
+          venue: newVenue.trim() || null,
+        })
+
+      if (error) throw error
+
+      showToast.success('プレイ履歴を追加しました')
+      setIsAddDialogOpen(false)
+      setNewScenarioTitle('')
+      setNewPlayedAt('')
+      setNewVenue('')
+      fetchData()
+    } catch (error) {
+      logger.error('手動履歴追加エラー:', error)
+      showToast.error('追加に失敗しました')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -746,9 +827,61 @@ export default function MyPage() {
                     <h2 className="font-bold text-gray-900">プレイ済みシナリオ</h2>
                     <span className="text-2xl font-bold" style={{ color: THEME.primary }}>{playedScenarios.length}作品</span>
                   </div>
-                  <p className="text-sm text-gray-500">
-                    これまでに参加したマーダーミステリーの記録です
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-500">
+                      これまでに参加したマーダーミステリーの記録です
+                    </p>
+                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="outline" className="gap-1">
+                          <Plus className="h-4 w-4" />
+                          <span className="hidden sm:inline">過去の体験を追加</span>
+                          <span className="sm:hidden">追加</span>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>過去の体験を追加</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 pt-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="scenario-title">シナリオ名 *</Label>
+                            <Input
+                              id="scenario-title"
+                              value={newScenarioTitle}
+                              onChange={(e) => setNewScenarioTitle(e.target.value)}
+                              placeholder="例: 六人の嘘つきな大学生"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="played-at">プレイした日付 *</Label>
+                            <Input
+                              id="played-at"
+                              type="date"
+                              value={newPlayedAt}
+                              onChange={(e) => setNewPlayedAt(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="venue">店舗名（任意）</Label>
+                            <Input
+                              id="venue"
+                              value={newVenue}
+                              onChange={(e) => setNewVenue(e.target.value)}
+                              placeholder="例: MMQ渋谷店"
+                            />
+                          </div>
+                          <Button 
+                            onClick={handleAddManualHistory} 
+                            disabled={isSubmitting || !newScenarioTitle.trim() || !newPlayedAt}
+                            className="w-full"
+                          >
+                            {isSubmitting ? '追加中...' : '追加'}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
 
                 {/* シナリオグリッド */}

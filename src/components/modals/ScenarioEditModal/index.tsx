@@ -43,6 +43,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     duration: 120,
     player_count_min: 8,
     player_count_max: 8,
+    male_count: null,
+    female_count: null,
     difficulty: 3,
     rating: undefined,
     status: 'available',
@@ -611,6 +613,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         duration: scenario.duration || 120,
         player_count_min: scenario.player_count_min || 4,
         player_count_max: scenario.player_count_max || 8,
+        male_count: scenario.male_count ?? null,
+        female_count: scenario.female_count ?? null,
         difficulty: scenario.difficulty || 3,
         rating: scenario.rating,
         status: (scenario.status as 'available' | 'maintenance' | 'retired') || 'available',
@@ -696,6 +700,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         duration: 120,
         player_count_min: 8,
         player_count_max: 8,
+        male_count: null,
+        female_count: null,
         difficulty: 3,
         rating: undefined,
         status: 'available' as const,
@@ -830,6 +836,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         duration: formData.duration,
         player_count_min: formData.player_count_min,
         player_count_max: formData.player_count_max,
+        male_count: formData.male_count,
+        female_count: formData.female_count,
         difficulty: formData.difficulty,
         rating: formData.rating,
         status: formData.status as 'available' | 'maintenance' | 'retired',
@@ -1004,6 +1012,51 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     max="20"
                   />
                 </div>
+              </div>
+
+              {/* 男女比 */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label>男女比</Label>
+                  <span className="text-xs text-muted-foreground">（未設定の場合は男女問わず）</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="male_count" className="text-sm text-muted-foreground">男性</Label>
+                    <Input
+                      id="male_count"
+                      type="number"
+                      value={formData.male_count ?? ''}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        male_count: e.target.value === '' ? null : parseIntSafe(e.target.value, 0) 
+                      }))}
+                      placeholder="未設定"
+                      min="0"
+                      max="20"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="female_count" className="text-sm text-muted-foreground">女性</Label>
+                    <Input
+                      id="female_count"
+                      type="number"
+                      value={formData.female_count ?? ''}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        female_count: e.target.value === '' ? null : parseIntSafe(e.target.value, 0) 
+                      }))}
+                      placeholder="未設定"
+                      min="0"
+                      max="20"
+                    />
+                  </div>
+                </div>
+                {formData.male_count != null && formData.female_count != null && (
+                  <p className="text-sm text-muted-foreground">
+                    男{formData.male_count}:女{formData.female_count}（合計{(formData.male_count ?? 0) + (formData.female_count ?? 0)}人）
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
