@@ -10,7 +10,7 @@ import { logger } from '@/utils/logger'
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const SCENARIO_SELECT_FIELDS =
   // NOTE: scenarios テーブルに存在するカラムのみ（存在しないカラムを含めると PostgREST が 400 を返す）
-  'id, title, slug, description, author, author_email, report_display_name, duration, weekend_duration, player_count_min, player_count_max, difficulty, rating, status, scenario_type, participation_fee, participation_costs, gm_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, external_license_amount, external_gm_test_license_amount, license_rewards, production_cost, genre, has_pre_reading, key_visual_url, notes, required_props, production_costs, kit_count, gm_count, available_stores, scenario_master_id, organization_id, is_shared, extra_preparation_time, available_gms, play_count, created_at, updated_at' as const
+  'id, title, slug, description, author, author_email, report_display_name, duration, weekend_duration, player_count_min, player_count_max, male_count, female_count, difficulty, rating, status, scenario_type, participation_fee, participation_costs, gm_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, external_license_amount, external_gm_test_license_amount, license_rewards, production_cost, genre, has_pre_reading, key_visual_url, notes, required_props, production_costs, kit_count, gm_count, available_stores, scenario_master_id, organization_id, is_shared, extra_preparation_time, available_gms, play_count, created_at, updated_at' as const
 
 /**
  * 渡されたIDから対応するシナリオID（scenarios.id）のリストを取得
@@ -67,6 +67,8 @@ const DB_SCENARIO_COLUMNS = [
   'weekend_duration',
   'player_count_min',
   'player_count_max',
+  'male_count',
+  'female_count',
   'difficulty',
   'rating',
   'status',
