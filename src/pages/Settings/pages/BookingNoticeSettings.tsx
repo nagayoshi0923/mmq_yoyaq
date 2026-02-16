@@ -47,6 +47,7 @@ interface BookingNotice {
   is_active: boolean
   store_id: string | null // 後方互換用（非推奨）
   store_ids: string[] // 複数店舗対応
+  requires_pre_reading: boolean // 事前読み込みありのシナリオのみに表示
   created_at: string
   updated_at: string
 }
@@ -71,6 +72,7 @@ export function BookingNoticeSettings() {
     content: '',
     applicable_types: [] as string[],
     store_ids: [] as string[], // 複数店舗対応
+    requires_pre_reading: false, // 事前読み込み条件
     is_active: true
   })
 
@@ -82,7 +84,7 @@ export function BookingNoticeSettings() {
       const [noticesRes, storesData] = await Promise.all([
         supabase
           .from('booking_notices')
-          .select('id, organization_id, content, applicable_types, store_id, store_ids, is_active, sort_order, created_at, updated_at')
+          .select('id, organization_id, content, applicable_types, store_id, store_ids, requires_pre_reading, is_active, sort_order, created_at, updated_at')
           .order('sort_order', { ascending: true }),
         storeApi.getAll()
       ])
@@ -110,6 +112,7 @@ export function BookingNoticeSettings() {
       content: '',
       applicable_types: ['open', 'private'], // デフォルトでオープンと貸切を選択
       store_ids: [], // 空 = 全店舗共通
+      requires_pre_reading: false,
       is_active: true
     })
     setEditDialogOpen(true)
@@ -126,6 +129,7 @@ export function BookingNoticeSettings() {
       content: notice.content,
       applicable_types: notice.applicable_types || [],
       store_ids: storeIds,
+      requires_pre_reading: notice.requires_pre_reading || false,
       is_active: notice.is_active
     })
     setEditDialogOpen(true)
@@ -153,6 +157,7 @@ export function BookingNoticeSettings() {
             applicable_types: editForm.applicable_types,
             store_ids: editForm.store_ids,
             store_id: editForm.store_ids.length === 1 ? editForm.store_ids[0] : null, // 後方互換
+            requires_pre_reading: editForm.requires_pre_reading,
             is_active: editForm.is_active,
             updated_at: new Date().toISOString()
           })
@@ -178,6 +183,7 @@ export function BookingNoticeSettings() {
             applicable_types: editForm.applicable_types,
             store_ids: editForm.store_ids,
             store_id: editForm.store_ids.length === 1 ? editForm.store_ids[0] : null, // 後方互換
+            requires_pre_reading: editForm.requires_pre_reading,
             organization_id: store?.organization_id,
             is_active: editForm.is_active,
             sort_order: maxSortOrder + 1
@@ -392,6 +398,11 @@ export function BookingNoticeSettings() {
                           ))}
                         </>
                       )}
+                      {notice.requires_pre_reading && (
+                        <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
+                          📖 事前読込あり
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
@@ -523,6 +534,27 @@ export function BookingNoticeSettings() {
               </div>
               <p className="text-xs text-muted-foreground">
                 チェックなし = 全店舗共通。特定の店舗のみに表示する場合は選択してください。
+              </p>
+            </div>
+
+            {/* 事前読み込み条件 */}
+            <div className="space-y-2">
+              <Label>表示条件</Label>
+              <div className="flex items-center space-x-2 p-3 border rounded-lg bg-purple-50">
+                <Checkbox
+                  id="requires-pre-reading"
+                  checked={editForm.requires_pre_reading}
+                  onCheckedChange={(checked) => setEditForm(prev => ({ 
+                    ...prev, 
+                    requires_pre_reading: checked === true 
+                  }))}
+                />
+                <label htmlFor="requires-pre-reading" className="text-sm cursor-pointer">
+                  📖 事前読み込みありのシナリオのみに表示
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                チェックすると、「事前読み込みあり」のシナリオの予約時のみ表示されます。
               </p>
             </div>
 

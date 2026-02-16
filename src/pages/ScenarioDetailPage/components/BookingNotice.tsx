@@ -16,6 +16,8 @@ interface Notice {
   content: string
   applicable_types: string[]
   store_id: string | null
+  store_ids: string[] | null
+  requires_pre_reading: boolean
 }
 
 export const BookingNotice = memo(function BookingNotice({
@@ -36,17 +38,24 @@ export const BookingNotice = memo(function BookingNotice({
 
         const { data, error } = await supabase
           .from('booking_notices')
-          .select('id, content, applicable_types, store_id')
+          .select('id, content, applicable_types, store_id, store_ids, requires_pre_reading')
           .eq('is_active', true)
           .contains('applicable_types', [categoryType])
           .order('sort_order', { ascending: true })
 
         if (error) throw error
 
-        // 店舗フィルタリング（全店舗共通 OR 指定店舗）
-        const filtered = (data || []).filter(notice => 
-          notice.store_id === null || notice.store_id === storeId
-        )
+        // フィルタリング
+        const filtered = (data || []).filter(notice => {
+          // 店舗フィルタ（store_ids優先、後方互換でstore_idも対応）
+          const storeIds = notice.store_ids?.length > 0 ? notice.store_ids : (notice.store_id ? [notice.store_id] : [])
+          const storeMatch = storeIds.length === 0 || (storeId && storeIds.includes(storeId))
+          
+          // 事前読み込み条件（requires_pre_readingがtrueの場合、hasPreReadingがtrueでないと表示しない）
+          const preReadingMatch = !notice.requires_pre_reading || hasPreReading === true
+          
+          return storeMatch && preReadingMatch
+        })
 
         setNotices(filtered)
       } catch (error) {
@@ -58,7 +67,7 @@ export const BookingNotice = memo(function BookingNotice({
     }
 
     fetchNotices()
-  }, [mode, storeId])
+  }, [mode, storeId, hasPreReading])
 
   if (isLoading) {
     return (
@@ -77,7 +86,7 @@ export const BookingNotice = memo(function BookingNotice({
   }
 
   // 注意事項がない場合は表示しない
-  if (notices.length === 0 && !hasPreReading) {
+  if (notices.length === 0) {
     return null
   }
 
@@ -93,9 +102,6 @@ export const BookingNotice = memo(function BookingNotice({
             {notices.map((notice) => (
               <li key={notice.id}>• {notice.content}</li>
             ))}
-            {hasPreReading && mode === 'schedule' && (
-              <li>• 事前読解が必要なシナリオです。予約確定後に資料をお送りします</li>
-            )}
           </ul>
         </CardContent>
       </Card>
