@@ -1169,7 +1169,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   variant="ghost"
                   size="sm"
                   className="h-5 text-[11px] gap-0.5 text-gray-600 hover:text-gray-900 px-1.5"
-                  onClick={() => window.open(`/${organizationSlug}/scenarios/${formData.slug || scenarioId}`, '_blank')}
+                  onClick={() => window.open(`/${organizationSlug}/scenario/${formData.slug || scenarioId}`, '_blank')}
                   title="予約サイトのシナリオ詳細ページを開く"
                 >
                   <ExternalLink className="w-2.5 h-2.5" />
