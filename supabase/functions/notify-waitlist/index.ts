@@ -9,7 +9,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getEmailSettings, getEmailTemplates } from '../_shared/organization-settings.ts'
+import { getEmailSettings, getEmailTemplates, getStoreEmailSettings } from '../_shared/organization-settings.ts'
 import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse } from '../_shared/security.ts'
 
 interface NotifyWaitlistRequest {
@@ -210,6 +210,19 @@ serve(async (req) => {
 
     // 🎨 組織別メールテンプレートを取得
     const emailTemplates = await getEmailTemplates(serviceClient, data.organizationId)
+    
+    // 店舗のメール設定（テンプレート・会社情報）を取得
+    const storeEmailSettings = await getStoreEmailSettings(serviceClient, {
+      organizationId: data.organizationId
+    })
+    
+    // 会社情報（デフォルト値付き）
+    const companyName = storeEmailSettings?.company_name || senderName
+    const companyEmail = storeEmailSettings?.company_email || ''
+    const companyPhone = storeEmailSettings?.company_phone || ''
+    
+    // カスタムテンプレートの取得
+    const customTemplate = storeEmailSettings?.waitlist_notify_template
 
     // 各エントリーにメール送信
     const emailPromises = notifiedEntries.map(async (entry) => {
@@ -323,6 +336,53 @@ ${emailTemplates.signature}
 ${emailTemplates.footer}
       `
 
+      // テンプレートの変数置換用関数
+      const applyTemplate = (template: string) => {
+        return template
+          .replace(/{customer_name}/g, entry.customer_name || 'お客様')
+          .replace(/{scenario_title}/g, data.scenarioTitle || '')
+          .replace(/{date}/g, formatDate(data.eventDate))
+          .replace(/{time}/g, `${formatTime(data.startTime)} - ${formatTime(data.endTime)}`)
+          .replace(/{venue}/g, data.storeName || '')
+          .replace(/{participants}/g, String(entry.participant_count || ''))
+          .replace(/{booking_url}/g, bookingUrl)
+      }
+
+      // カスタムテンプレートをHTMLに変換
+      const templateToHtml = (template: string) => {
+        const htmlContent = template
+          .split('\n')
+          .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
+          .join('\n')
+        
+        return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  ${htmlContent}
+</body>
+</html>`
+      }
+
+      // 最終的なHTMLとテキストを決定
+      let finalHtml: string
+      let finalText: string
+
+      if (customTemplate && customTemplate.trim()) {
+        // email_settingsにテンプレートが設定されている場合
+        const appliedTemplate = applyTemplate(customTemplate)
+        finalHtml = templateToHtml(appliedTemplate)
+        finalText = appliedTemplate
+        console.log('📧 Using custom waitlist_notify_template from email_settings')
+      } else {
+        // デフォルトのハードコードテンプレートを使用
+        finalHtml = emailHtml
+        finalText = emailText
+      }
+
       try {
         const resendResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -331,11 +391,12 @@ ${emailTemplates.footer}
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: `${senderName} <${senderEmail}>`,
+            from: `${companyName} <${senderEmail}>`,
             to: [entry.customer_email],
             subject: `【空席のお知らせ】${data.scenarioTitle} - ${formatDate(data.eventDate)}`,
-            html: emailHtml,
-            text: emailText,
+            html: finalHtml,
+            text: finalText,
+            reply_to: companyEmail || undefined,
           }),
         })
 

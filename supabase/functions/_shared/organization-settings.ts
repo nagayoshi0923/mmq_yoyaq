@@ -217,6 +217,7 @@ export interface StoreEmailSettings {
   private_cancellation_template: string | null
   private_rejection_template: string | null
   waitlist_notify_template: string | null
+  waitlist_registration_template: string | null
 }
 
 export async function getStoreEmailSettings(
@@ -239,6 +240,7 @@ export async function getStoreEmailSettings(
       'private_cancellation_template',
       'private_rejection_template',
       'waitlist_notify_template',
+      'waitlist_registration_template',
     ].join(','))
 
   // store_id が指定されている場合はそれを優先

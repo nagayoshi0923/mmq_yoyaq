@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -96,12 +96,25 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     getTimeSlotsForDate
   } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug, isCustomHoliday })
 
+  // 公演日程タブ用の店舗リスト（実際にスケジュールに存在する店舗から抽出）
+  // scenario.available_storesではなく、eventsに実際に存在する店舗を使用
+  const scheduleStores = useMemo(() => {
+    // eventsに存在する店舗IDを収集
+    const eventStoreIds = new Set(events.map(e => e.store_id).filter(Boolean))
+    // 店舗リストからフィルタリング（オフィス除外、営業中のみ）
+    return stores.filter(s => 
+      eventStoreIds.has(s.id) &&
+      s.ownership_type !== 'office' &&
+      s.status === 'active'
+    )
+  }, [events, stores])
+
   // 公演日程タブの店舗フィルタ: 1店舗の場合は自動選択
   useEffect(() => {
-    if (availableStores.length === 1 && scheduleStoreFilter.length === 0) {
-      setScheduleStoreFilter([availableStores[0].id])
+    if (scheduleStores.length === 1 && scheduleStoreFilter.length === 0) {
+      setScheduleStoreFilter([scheduleStores[0].id])
     }
-  }, [availableStores, scheduleStoreFilter.length])
+  }, [scheduleStores, scheduleStoreFilter.length])
 
   useEffect(() => {
     // URLパラメータを処理
@@ -411,9 +424,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    {/* 店舗フィルタ */}
+                    {/* 店舗フィルタ（実際にスケジュールに存在する店舗のみ表示） */}
                     <StoreSelector
-                      stores={availableStores}
+                      stores={scheduleStores}
                       selectedStoreIds={scheduleStoreFilter}
                       onStoreIdsChange={setScheduleStoreFilter}
                       label="店舗で絞り込み"

@@ -73,6 +73,9 @@ serve(async (req) => {
 
     // メールテンプレート取得
     const emailTemplates = await getEmailTemplates(serviceClient, data.organizationId)
+    
+    // カスタムテンプレートの取得
+    const customTemplate = storeEmailSettings?.waitlist_registration_template
 
     // 日付フォーマット関数
     const formatDate = (dateStr: string): string => {
@@ -197,6 +200,52 @@ ${emailTemplates.signature}
 ${emailTemplates.footer}
     `
 
+    // テンプレートの変数置換用関数
+    const applyTemplate = (template: string) => {
+      return template
+        .replace(/{customer_name}/g, data.customerName || 'お客様')
+        .replace(/{scenario_title}/g, data.scenarioTitle || '')
+        .replace(/{date}/g, formatDate(data.eventDate))
+        .replace(/{time}/g, `${formatTime(data.startTime)} - ${formatTime(data.endTime)}`)
+        .replace(/{venue}/g, data.storeName || '')
+        .replace(/{participants}/g, String(data.participantCount || ''))
+    }
+
+    // カスタムテンプレートをHTMLに変換
+    const templateToHtml = (template: string) => {
+      const htmlContent = template
+        .split('\n')
+        .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
+        .join('\n')
+      
+      return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  ${htmlContent}
+</body>
+</html>`
+    }
+
+    // 最終的なHTMLとテキストを決定
+    let finalHtml: string
+    let finalText: string
+
+    if (customTemplate && customTemplate.trim()) {
+      // email_settingsにテンプレートが設定されている場合
+      const appliedTemplate = applyTemplate(customTemplate)
+      finalHtml = templateToHtml(appliedTemplate)
+      finalText = appliedTemplate
+      console.log('📧 Using custom waitlist_registration_template from email_settings')
+    } else {
+      // デフォルトのハードコードテンプレートを使用
+      finalHtml = emailHtml
+      finalText = emailText
+    }
+
     // Resend APIでメール送信
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -208,8 +257,8 @@ ${emailTemplates.footer}
         from: `${companyName} <${senderEmail}>`,
         to: [data.customerEmail],
         subject: `【キャンセル待ち登録完了】${data.scenarioTitle} - ${formatDate(data.eventDate)}`,
-        html: emailHtml,
-        text: emailText,
+        html: finalHtml,
+        text: finalText,
         reply_to: companyEmail || replyToEmail || undefined,
       }),
     })
