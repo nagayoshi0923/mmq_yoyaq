@@ -421,7 +421,8 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         props.startTime,
         props.eventDate
       )
-      const eventDateTime = `${props.eventDate}T${props.startTime}`
+      // JSTとして明示的に指定して保存（タイムゾーン不整合を防ぐ）
+      const eventDateTime = `${props.eventDate}T${props.startTime}+09:00`
       
       // 組織IDを取得
       const { data: eventOrg, error: eventOrgError } = await supabase
