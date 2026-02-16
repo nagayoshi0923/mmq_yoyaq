@@ -18,30 +18,66 @@ CREATE INDEX IF NOT EXISTS idx_manual_play_history_scenario_id ON public.manual_
 -- RLS有効化
 ALTER TABLE public.manual_play_history ENABLE ROW LEVEL SECURITY;
 
--- ポリシー: 自分の履歴のみ操作可能
-CREATE POLICY "Customers can view own manual play history"
-  ON public.manual_play_history FOR SELECT
-  USING (customer_id IN (
-    SELECT id FROM public.customers WHERE user_id = auth.uid()
-  ));
+-- ポリシー: 自分の履歴のみ操作可能（既存の場合はスキップ）
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'manual_play_history' 
+    AND policyname = 'Customers can view own manual play history'
+  ) THEN
+    CREATE POLICY "Customers can view own manual play history"
+      ON public.manual_play_history FOR SELECT
+      USING (customer_id IN (
+        SELECT id FROM public.customers WHERE user_id = auth.uid()
+      ));
+  END IF;
+END $$;
 
-CREATE POLICY "Customers can insert own manual play history"
-  ON public.manual_play_history FOR INSERT
-  WITH CHECK (customer_id IN (
-    SELECT id FROM public.customers WHERE user_id = auth.uid()
-  ));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'manual_play_history' 
+    AND policyname = 'Customers can insert own manual play history'
+  ) THEN
+    CREATE POLICY "Customers can insert own manual play history"
+      ON public.manual_play_history FOR INSERT
+      WITH CHECK (customer_id IN (
+        SELECT id FROM public.customers WHERE user_id = auth.uid()
+      ));
+  END IF;
+END $$;
 
-CREATE POLICY "Customers can update own manual play history"
-  ON public.manual_play_history FOR UPDATE
-  USING (customer_id IN (
-    SELECT id FROM public.customers WHERE user_id = auth.uid()
-  ));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'manual_play_history' 
+    AND policyname = 'Customers can update own manual play history'
+  ) THEN
+    CREATE POLICY "Customers can update own manual play history"
+      ON public.manual_play_history FOR UPDATE
+      USING (customer_id IN (
+        SELECT id FROM public.customers WHERE user_id = auth.uid()
+      ));
+  END IF;
+END $$;
 
-CREATE POLICY "Customers can delete own manual play history"
-  ON public.manual_play_history FOR DELETE
-  USING (customer_id IN (
-    SELECT id FROM public.customers WHERE user_id = auth.uid()
-  ));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'manual_play_history' 
+    AND policyname = 'Customers can delete own manual play history'
+  ) THEN
+    CREATE POLICY "Customers can delete own manual play history"
+      ON public.manual_play_history FOR DELETE
+      USING (customer_id IN (
+        SELECT id FROM public.customers WHERE user_id = auth.uid()
+      ));
+  END IF;
+END $$;
 
 -- コメント
 COMMENT ON TABLE public.manual_play_history IS '顧客が手動で登録した過去のプレイ履歴';
