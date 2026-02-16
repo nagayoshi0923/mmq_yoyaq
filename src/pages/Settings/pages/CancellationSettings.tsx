@@ -275,9 +275,11 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
       // 全店舗選択時は全店舗に一括適用
       if (!storeId) {
         const allStores = await storeApi.getAll()
+        logger.log('全店舗一括適用開始:', allStores.length, '店舗')
         
         if (allStores.length === 0) {
           showToast.warning('店舗が登録されていません')
+          setSaving(false)
           return
         }
 
@@ -286,19 +288,28 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
 
         for (const store of allStores) {
           try {
-            const { data: existing } = await supabase
+            const { data: existing, error: selectError } = await supabase
               .from('reservation_settings')
               .select('id')
               .eq('store_id', store.id)
               .maybeSingle()
 
+            if (selectError) {
+              logger.error(`店舗 ${store.name} の設定取得エラー:`, selectError)
+            }
+
             if (existing) {
+              logger.log(`店舗 ${store.name}: 既存設定を更新`, existing.id)
               const { error } = await supabase
                 .from('reservation_settings')
                 .update(savePayload)
                 .eq('id', existing.id)
-              if (error) throw error
+              if (error) {
+                logger.error(`店舗 ${store.name} の更新エラー:`, error)
+                throw error
+              }
             } else {
+              logger.log(`店舗 ${store.name}: 新規設定を作成`)
               const { error } = await supabase
                 .from('reservation_settings')
                 .insert({
@@ -306,7 +317,10 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                   organization_id: store.organization_id,
                   ...savePayload
                 })
-              if (error) throw error
+              if (error) {
+                logger.error(`店舗 ${store.name} の作成エラー:`, error)
+                throw error
+              }
             }
             successCount++
           } catch (err) {
@@ -315,11 +329,13 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           }
         }
 
+        logger.log('全店舗適用完了:', successCount, '成功,', errorCount, 'エラー')
         if (errorCount === 0) {
           showToast.success(`全${successCount}店舗に設定を適用しました`)
         } else {
           showToast.warning(`${successCount}店舗に適用、${errorCount}店舗でエラー`)
         }
+        setSaving(false)
         return
       }
 
