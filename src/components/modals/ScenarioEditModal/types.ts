@@ -24,6 +24,7 @@ export interface ScenarioFormData {
   player_count_max: number
   male_count?: number | null  // 男性プレイヤー数（NULLの場合は男女比指定なし）
   female_count?: number | null  // 女性プレイヤー数（NULLの場合は男女比指定なし）
+  other_count?: number | null  // その他/性別不問プレイヤー数（NULLの場合は設定なし）
   difficulty: number
   rating?: number
   status: string

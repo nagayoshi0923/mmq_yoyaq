@@ -57,6 +57,7 @@ interface ReservationDetail {
   store_id: string | null
   organization_id: string | null
   created_at: string
+  schedule_event_id?: string | null
   schedule_events?: {
     date: string
     start_time: string
@@ -310,12 +311,26 @@ export function ReservationDetailPage() {
   }
 
   // 人数変更ダイアログを開く
-  const handleEditClick = () => {
+  const handleEditClick = async () => {
     if (!reservation) return
     
-    // 残席を計算
-    const currentParticipants = reservation.schedule_events?.current_participants || 0
+    // 残席をリアルタイムで計算（DBから最新の参加者数を取得）
+    let currentParticipants = reservation.schedule_events?.current_participants || 0
     const maxParticipants = reservation.schedule_events?.max_participants || scenario?.player_count_max || 4
+    
+    // schedule_event_idがある場合、確定予約の合計を直接計算
+    if (reservation.schedule_event_id) {
+      const { data: sumData } = await supabase
+        .from('reservations')
+        .select('participant_count')
+        .eq('schedule_event_id', reservation.schedule_event_id)
+        .eq('status', 'confirmed')
+      
+      if (sumData) {
+        currentParticipants = sumData.reduce((sum, r) => sum + (r.participant_count || 0), 0)
+      }
+    }
+    
     const otherParticipants = currentParticipants - reservation.participant_count
     const available = maxParticipants - otherParticipants
     

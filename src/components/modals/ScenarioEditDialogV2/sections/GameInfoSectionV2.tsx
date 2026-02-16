@@ -245,10 +245,30 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
                   placeholder="未設定"
                   className={inputStyle}
                 />
+                <span className="text-muted-foreground shrink-0">:</span>
+                <span className="text-sm text-muted-foreground shrink-0">他</span>
+                <Input
+                  id="other_count"
+                  type="number"
+                  min="0"
+                  max="20"
+                  value={formData.other_count ?? ''}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    other_count: e.target.value === '' ? null : parseIntSafe(e.target.value, 0) 
+                  }))}
+                  placeholder="未設定"
+                  className={inputStyle}
+                />
               </div>
-              {formData.male_count != null && formData.female_count != null && (
+              {(formData.male_count != null || formData.female_count != null || formData.other_count != null) && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  男{formData.male_count}:女{formData.female_count}（合計{(formData.male_count ?? 0) + (formData.female_count ?? 0)}人）
+                  {formData.male_count != null && `男${formData.male_count}`}
+                  {formData.male_count != null && (formData.female_count != null || formData.other_count != null) && ':'}
+                  {formData.female_count != null && `女${formData.female_count}`}
+                  {formData.female_count != null && formData.other_count != null && ':'}
+                  {formData.other_count != null && `他${formData.other_count}`}
+                  （合計{(formData.male_count ?? 0) + (formData.female_count ?? 0) + (formData.other_count ?? 0)}人）
                 </p>
               )}
             </div>

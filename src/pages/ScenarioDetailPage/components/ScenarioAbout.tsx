@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Clock, Users, ChevronDown, BookOpen, AlertTriangle } from 'lucide-react'
+import { Clock, Users, ChevronDown, BookOpen, AlertTriangle, UserCircle } from 'lucide-react'
 import type { ScenarioDetail } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -10,10 +10,23 @@ interface ScenarioAboutProps {
   scenario: ScenarioDetail
 }
 
+// 男女比の表示文字列を生成
+function formatGenderRatio(male?: number | null, female?: number | null, other?: number | null): string | null {
+  const parts: string[] = []
+  if (male != null) parts.push(`男性${male}人`)
+  if (female != null) parts.push(`女性${female}人`)
+  if (other != null) parts.push(`その他${other}人`)
+  return parts.length > 0 ? parts.join(' / ') : null
+}
+
 export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioAboutProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const synopsisLength = scenario.synopsis?.length || 0
   const shouldTruncate = synopsisLength > 200
+  
+  // 男女比が設定されているかどうか
+  const hasGenderRatio = scenario.male_count != null || scenario.female_count != null || scenario.other_count != null
+  const genderRatioText = formatGenderRatio(scenario.male_count, scenario.female_count, scenario.other_count)
 
   return (
     <div className="space-y-4">
@@ -84,6 +97,15 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
               <p className="font-medium text-gray-900">{formatDuration(scenario.duration, 'minutes')}</p>
             </div>
           </div>
+          {hasGenderRatio && (
+            <div className="flex items-center gap-2 col-span-2">
+              <UserCircle className="w-4 h-4 text-gray-400" />
+              <div>
+                <span className="text-gray-500 text-xs">男女比</span>
+                <p className="font-medium text-gray-900">{genderRatioText}</p>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-gray-100">
           {scenario.genre.map((g, i) => (

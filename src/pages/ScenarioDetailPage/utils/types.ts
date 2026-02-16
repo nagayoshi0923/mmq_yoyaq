@@ -14,6 +14,9 @@ export interface ScenarioDetail {
   duration: number
   player_count_min: number
   player_count_max: number
+  male_count?: number | null
+  female_count?: number | null
+  other_count?: number | null
   difficulty: number
   rating?: number
   has_pre_reading: boolean

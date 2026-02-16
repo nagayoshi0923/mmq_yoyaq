@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp } from 'lucide-react'
+import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { ScenarioMasterEditDialog } from './ScenarioMasterEditDialog'
 import { MasterSelectDialog } from './MasterSelectDialog'
@@ -82,6 +82,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     player_count_max: 8,
     male_count: null,
     female_count: null,
+    other_count: null,
     difficulty: 3,
     rating: undefined,
     status: 'available',
@@ -567,6 +568,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           player_count_max: scenario.player_count_max || 8,
           male_count: scenario.male_count ?? null,
           female_count: scenario.female_count ?? null,
+          other_count: scenario.other_count ?? null,
           difficulty: scenario.difficulty || 3,
           rating: scenario.rating,
           status: scenario.status || 'available',
@@ -791,6 +793,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         // 男女比: nullは「男女問わず」を意味する
         male_count: formData.male_count ?? null,
         female_count: formData.female_count ?? null,
+        other_count: formData.other_count ?? null,
         participation_fee: normalParticipationCost?.amount || formData.participation_fee || 3000,
         // 参加費設定（時間帯別料金）を保存
         participation_costs: formData.participation_costs || [],
@@ -1156,6 +1159,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   <span className="bg-blue-100 text-blue-700 px-1 py-0 rounded-full text-[11px] font-medium">
                     {masterDiffs.count}
                   </span>
+                </Button>
+              )}
+              {/* シナリオ詳細ページへのリンク（編集時のみ） */}
+              {scenarioId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 text-[11px] gap-0.5 text-gray-600 hover:text-gray-900 px-1.5"
+                  onClick={() => window.open(`/scenarios/${formData.slug || scenarioId}`, '_blank')}
+                  title="シナリオ詳細ページを開く"
+                >
+                  <ExternalLink className="w-2.5 h-2.5" />
+                  詳細
                 </Button>
               )}
             </DialogTitle>
