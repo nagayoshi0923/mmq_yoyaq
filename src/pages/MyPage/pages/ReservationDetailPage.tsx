@@ -458,7 +458,10 @@ export function ReservationDetailPage() {
                 {scenario.player_count_min && scenario.player_count_max && (
                   <span className="flex items-center gap-1">
                     <Users className="w-4 h-4" />
-                    {scenario.player_count_min}〜{scenario.player_count_max}名
+                    {scenario.player_count_min === scenario.player_count_max 
+                      ? `${scenario.player_count_max}名`
+                      : `${scenario.player_count_min}〜${scenario.player_count_max}名`
+                    }
                   </span>
                 )}
               </div>
