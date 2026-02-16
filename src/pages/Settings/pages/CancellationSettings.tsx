@@ -333,11 +333,42 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           if (error && error.code !== 'PGRST116') throw error
 
           if (data) {
+            // 既存のcancellation_policyテキストをpolicy_itemsに変換（マイグレーション対応）
+            let policyItems = data.cancellation_policy_items
+            if ((!policyItems || policyItems.length === 0) && data.cancellation_policy) {
+              const lines = data.cancellation_policy.split('\n').filter((line: string) => line.trim())
+              if (lines.length > 0) {
+                policyItems = lines.map((line: string) => ({
+                  id: generateId(),
+                  content: line.replace(/^[・•\-\*]\s*/, '').trim()
+                }))
+              } else {
+                policyItems = DEFAULT_POLICY_ITEMS
+              }
+            } else if (!policyItems || policyItems.length === 0) {
+              policyItems = DEFAULT_POLICY_ITEMS
+            }
+
+            let privatePolicyItems = data.private_cancellation_policy_items
+            if ((!privatePolicyItems || privatePolicyItems.length === 0) && data.private_cancellation_policy) {
+              const lines = data.private_cancellation_policy.split('\n').filter((line: string) => line.trim())
+              if (lines.length > 0) {
+                privatePolicyItems = lines.map((line: string) => ({
+                  id: generateId(),
+                  content: line.replace(/^[・•\-\*]\s*/, '').trim()
+                }))
+              } else {
+                privatePolicyItems = DEFAULT_PRIVATE_POLICY_ITEMS
+              }
+            } else if (!privatePolicyItems || privatePolicyItems.length === 0) {
+              privatePolicyItems = DEFAULT_PRIVATE_POLICY_ITEMS
+            }
+
             setFormData({
               id: '', // 全店舗モードなのでidは空
               store_id: '',
               cancellation_policy: data.cancellation_policy || '',
-              cancellation_policy_items: data.cancellation_policy_items || DEFAULT_POLICY_ITEMS,
+              cancellation_policy_items: policyItems,
               cancellation_deadline_hours: data.cancellation_deadline_hours || 24,
               cancellation_fees: data.cancellation_fees || [
                 { hours_before: 168, fee_percentage: 0, description: '1週間前まで無料' },
@@ -346,7 +377,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                 { hours_before: 0, fee_percentage: 100, description: '当日100%' }
               ],
               private_cancellation_policy: data.private_cancellation_policy || '',
-              private_cancellation_policy_items: data.private_cancellation_policy_items || DEFAULT_PRIVATE_POLICY_ITEMS,
+              private_cancellation_policy_items: privatePolicyItems,
               private_cancellation_deadline_hours: data.private_cancellation_deadline_hours || 48,
               private_cancellation_fees: data.private_cancellation_fees || [
                 { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
@@ -378,11 +409,43 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
       if (error && error.code !== 'PGRST116') throw error
 
       if (data) {
+        // 既存のcancellation_policyテキストをpolicy_itemsに変換（マイグレーション対応）
+        let policyItems = data.cancellation_policy_items
+        if ((!policyItems || policyItems.length === 0) && data.cancellation_policy) {
+          // 既存のテキストを行ごとに分割してpolicy_itemsに変換
+          const lines = data.cancellation_policy.split('\n').filter((line: string) => line.trim())
+          if (lines.length > 0) {
+            policyItems = lines.map((line: string, index: number) => ({
+              id: generateId(),
+              content: line.replace(/^[・•\-\*]\s*/, '').trim() // 先頭の箇条書き記号を除去
+            }))
+          } else {
+            policyItems = DEFAULT_POLICY_ITEMS
+          }
+        } else if (!policyItems || policyItems.length === 0) {
+          policyItems = DEFAULT_POLICY_ITEMS
+        }
+
+        let privatePolicyItems = data.private_cancellation_policy_items
+        if ((!privatePolicyItems || privatePolicyItems.length === 0) && data.private_cancellation_policy) {
+          const lines = data.private_cancellation_policy.split('\n').filter((line: string) => line.trim())
+          if (lines.length > 0) {
+            privatePolicyItems = lines.map((line: string, index: number) => ({
+              id: generateId(),
+              content: line.replace(/^[・•\-\*]\s*/, '').trim()
+            }))
+          } else {
+            privatePolicyItems = DEFAULT_PRIVATE_POLICY_ITEMS
+          }
+        } else if (!privatePolicyItems || privatePolicyItems.length === 0) {
+          privatePolicyItems = DEFAULT_PRIVATE_POLICY_ITEMS
+        }
+
         setFormData({
           id: data.id,
           store_id: data.store_id,
           cancellation_policy: data.cancellation_policy || '',
-          cancellation_policy_items: data.cancellation_policy_items || DEFAULT_POLICY_ITEMS,
+          cancellation_policy_items: policyItems,
           cancellation_deadline_hours: data.cancellation_deadline_hours || 24,
           cancellation_fees: data.cancellation_fees || [
             { hours_before: 168, fee_percentage: 0, description: '1週間前まで無料' },
@@ -391,7 +454,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
             { hours_before: 0, fee_percentage: 100, description: '当日100%' }
           ],
           private_cancellation_policy: data.private_cancellation_policy || '',
-          private_cancellation_policy_items: data.private_cancellation_policy_items || DEFAULT_PRIVATE_POLICY_ITEMS,
+          private_cancellation_policy_items: privatePolicyItems,
           private_cancellation_deadline_hours: data.private_cancellation_deadline_hours || 48,
           private_cancellation_fees: data.private_cancellation_fees || [
             { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
