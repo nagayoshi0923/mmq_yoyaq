@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -146,6 +146,20 @@ export function PerformanceModal({
   const filteredTimeOptions = businessHours
     ? timeOptions.filter(time => time >= businessHours.openTime && time <= businessHours.closeTime)
     : timeOptions
+
+  // 選択中の店舗で公演可能なシナリオのみにフィルタリング
+  const filteredScenarios = useMemo(() => {
+    if (!formData.venue) return scenarios
+    
+    return scenarios.filter(scenario => {
+      // available_storesが未設定または空の場合は全店舗対応
+      if (!scenario.available_stores || scenario.available_stores.length === 0) {
+        return true
+      }
+      // 選択中の店舗がavailable_storesに含まれているかチェック
+      return scenario.available_stores.includes(formData.venue)
+    })
+  }, [scenarios, formData.venue])
 
   // 閉店時刻選択肢（開始時刻より後の時間のみ）
   const getEndTimeOptions = (startTime: string) => {
@@ -584,7 +598,21 @@ export function PerformanceModal({
               <Label htmlFor="venue" className="text-xs">店舗</Label>
               <Select 
                 value={formData.venue} 
-                onValueChange={(value) => setFormData((prev: any) => ({ ...prev, venue: value }))}
+                onValueChange={(value) => {
+                  // 店舗変更時、現在選択中のシナリオが新しい店舗で公演不可の場合はクリア
+                  const currentScenario = scenarios.find(s => s.title === formData.scenario)
+                  const isScenarioAvailable = !currentScenario || 
+                    !currentScenario.available_stores || 
+                    currentScenario.available_stores.length === 0 || 
+                    currentScenario.available_stores.includes(value)
+                  
+                  if (isScenarioAvailable) {
+                    setFormData((prev: any) => ({ ...prev, venue: value }))
+                  } else {
+                    // シナリオが新しい店舗で公演不可の場合、シナリオもクリア
+                    setFormData((prev: any) => ({ ...prev, venue: value, scenario: '', scenario_id: undefined }))
+                  }
+                }}
               >
                 <SelectTrigger className="h-7 text-xs">
                   <SelectValue placeholder="店舗を選択">
@@ -675,7 +703,7 @@ export function PerformanceModal({
                   }))
                 }
               }}
-              options={scenarios.map(scenario => {
+              options={filteredScenarios.map(scenario => {
                 // このシナリオの担当GM全員を取得（special_scenarios は scenario_master_id を格納）
                 const isAssignedGM = (gm: StaffType) => {
                   const specialScenarios = gm.special_scenarios || []

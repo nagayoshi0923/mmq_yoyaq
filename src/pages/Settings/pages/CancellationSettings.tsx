@@ -22,7 +22,7 @@ interface PolicyItem {
   content: string
 }
 
-// 主催者都合キャンセル理由
+// 店舗都合キャンセル理由
 interface OrganizerCancelReason {
   id: string
   content: string
@@ -49,7 +49,7 @@ interface CancellationSettings {
   private_cancellation_policy_items: PolicyItem[]
   private_cancellation_deadline_hours: number
   private_cancellation_fees: CancellationFee[]
-  // 主催者都合キャンセル
+  // 店舗都合キャンセル
   organizer_cancel_reasons: OrganizerCancelReason[]
   organizer_cancel_refund_note: string  // "参加料金は全額返金いたします"
   // 中止判定タイミング
@@ -294,7 +294,7 @@ const DEFAULT_PRIVATE_POLICY_ITEMS: PolicyItem[] = [
   { id: '3', content: '日程変更は空き状況により可能な場合があります' }
 ]
 
-// 主催者都合キャンセル理由のデフォルト
+// 店舗都合キャンセル理由のデフォルト
 const DEFAULT_ORGANIZER_CANCEL_REASONS: OrganizerCancelReason[] = [
   { id: '1', content: '最少催行人数に満たない場合' },
   { id: '2', content: '自然災害、感染症の流行など不可抗力の場合' },
@@ -335,7 +335,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
       { hours_before: 72, fee_percentage: 50, description: '3日前まで50%' },
       { hours_before: 0, fee_percentage: 100, description: '当日100%' }
     ],
-    // 主催者都合キャンセル
+    // 店舗都合キャンセル
     organizer_cancel_reasons: DEFAULT_ORGANIZER_CANCEL_REASONS,
     organizer_cancel_refund_note: '参加料金は全額返金いたします。',
     // 中止判定タイミング
@@ -875,7 +875,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           }`}
         >
           <Building2 className="h-4 w-4" />
-          主催者都合
+          店舗都合
         </button>
         <button
           onClick={() => setActiveTab('other')}
@@ -1034,7 +1034,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
         </div>
       )}
 
-      {/* 主催者都合キャンセル設定 */}
+      {/* 店舗都合キャンセル設定 */}
       {activeTab === 'organizer' && (
         <div className="space-y-6">
           <Card>
@@ -1042,8 +1042,8 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-amber-600" />
                 <div>
-                  <CardTitle>主催者都合によるキャンセル</CardTitle>
-                  <CardDescription>主催者側の都合で公演が中止となる場合の説明</CardDescription>
+                  <CardTitle>店舗都合によるキャンセル</CardTitle>
+                  <CardDescription>店舗側の都合で公演が中止となる場合の説明</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -1108,7 +1108,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                   id="organizer_cancel_refund_note"
                   value={formData.organizer_cancel_refund_note}
                   onChange={(e) => setFormData(prev => ({ ...prev, organizer_cancel_refund_note: e.target.value }))}
-                  placeholder="主催者都合の場合の返金について"
+                  placeholder="店舗都合の場合の返金について"
                   rows={2}
                   className="mt-1"
                 />

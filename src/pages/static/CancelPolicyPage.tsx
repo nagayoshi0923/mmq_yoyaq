@@ -286,14 +286,14 @@ export function CancelPolicyPage() {
                 </div>
               </article>
 
-              {/* 主催者都合のキャンセル */}
+              {/* 店舗都合のキャンセル */}
               <article>
                 <h2 className="text-xl font-bold text-gray-900 mb-4 pb-2 border-b">
-                  主催者側の都合によるキャンセル
+                  店舗都合によるキャンセル
                 </h2>
                 <div className="text-gray-700 space-y-3">
                   <p>
-                    以下の場合、主催者側の判断により公演がキャンセルとなることがあります：
+                    以下の場合、店舗側の判断により公演がキャンセルとなることがあります：
                   </p>
                   <ul className="list-disc pl-6 space-y-2">
                     {policy.organizer_cancel_reasons.map((reason) => (
