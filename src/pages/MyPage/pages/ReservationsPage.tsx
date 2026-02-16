@@ -171,6 +171,8 @@ export function ReservationsPage() {
           payment_status,
           schedule_events!schedule_event_id(
             id, 
+            date,
+            start_time,
             current_participants, 
             max_participants,
             category
@@ -390,7 +392,31 @@ export function ReservationsPage() {
 
   // キャンセル可能かどうかをチェック
   const canCancel = (reservation: Reservation) => {
-    const eventDateTime = new Date(reservation.requested_datetime)
+    // schedule_eventsの型定義
+    const reservationWithEvent = reservation as Reservation & { 
+      schedule_events?: { 
+        date?: string
+        start_time?: string
+        current_participants?: number
+        max_participants?: number
+        category?: string 
+      } | null 
+    }
+    const scheduleEvent = reservationWithEvent.schedule_events
+    
+    // schedule_eventsがある場合はdate + start_timeを使用（より正確）
+    let eventDateTime: Date
+    if (scheduleEvent?.date && scheduleEvent?.start_time) {
+      // schedule_eventsのdate（YYYY-MM-DD）とstart_time（HH:MM:SS）を組み合わせてJST日時を作成
+      const dateStr = scheduleEvent.date
+      const timeStr = scheduleEvent.start_time
+      // JSTとして解釈するため、+09:00を付与
+      eventDateTime = new Date(`${dateStr}T${timeStr}+09:00`)
+    } else {
+      // フォールバック: requested_datetimeを使用
+      eventDateTime = new Date(reservation.requested_datetime)
+    }
+    
     const now = new Date()
     const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
     // 店舗ごとの設定があればそれを使用、なければデフォルト
@@ -401,6 +427,8 @@ export function ReservationsPage() {
     // デバッグログ
     logger.log('キャンセル判定:', {
       reservationNumber: reservation.reservation_number,
+      scheduleDate: scheduleEvent?.date,
+      scheduleTime: scheduleEvent?.start_time,
       eventDateTime: eventDateTime.toISOString(),
       now: now.toISOString(),
       hoursUntilEvent: hoursUntilEvent.toFixed(2),

@@ -290,8 +290,34 @@ export function ReservationDetailPage() {
   const paymentDisplay = getPaymentStatusDisplay(reservation.payment_status)
   const canCancel = (() => {
     if (!user || reservation.status !== 'confirmed') return false
-    const eventDateTime = new Date(reservation.requested_datetime)
-    const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+    
+    // schedule_eventsがある場合はdate + start_timeを使用（より正確）
+    let eventDateTime: Date
+    if (reservation.schedule_events?.date && reservation.schedule_events?.start_time) {
+      // schedule_eventsのdate（YYYY-MM-DD）とstart_time（HH:MM:SS）を組み合わせてJST日時を作成
+      const dateStr = reservation.schedule_events.date
+      const timeStr = reservation.schedule_events.start_time
+      // JSTとして解釈するため、+09:00を付与
+      eventDateTime = new Date(`${dateStr}T${timeStr}+09:00`)
+    } else {
+      // フォールバック: requested_datetimeを使用
+      eventDateTime = new Date(reservation.requested_datetime)
+    }
+    
+    const now = new Date()
+    const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
+    
+    // デバッグログ
+    logger.log('キャンセル判定（詳細）:', {
+      scheduleDate: reservation.schedule_events?.date,
+      scheduleTime: reservation.schedule_events?.start_time,
+      eventDateTime: eventDateTime.toISOString(),
+      now: now.toISOString(),
+      hoursUntilEvent: hoursUntilEvent.toFixed(2),
+      cancelDeadlineHours,
+      canCancel: hoursUntilEvent >= cancelDeadlineHours
+    })
+    
     return hoursUntilEvent >= cancelDeadlineHours
   })()
 
