@@ -211,6 +211,48 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
               </div>
             </div>
 
+            {/* 男女比 */}
+            <div>
+              <Label className={labelStyle}>男女比</Label>
+              <p className={hintStyle}>未設定の場合は男女問わず。設定する場合は男女それぞれの人数を入力</p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-sm text-muted-foreground shrink-0">男</span>
+                <Input
+                  id="male_count"
+                  type="number"
+                  min="0"
+                  max="20"
+                  value={formData.male_count ?? ''}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    male_count: e.target.value === '' ? null : parseIntSafe(e.target.value, 0) 
+                  }))}
+                  placeholder="未設定"
+                  className={inputStyle}
+                />
+                <span className="text-muted-foreground shrink-0">:</span>
+                <span className="text-sm text-muted-foreground shrink-0">女</span>
+                <Input
+                  id="female_count"
+                  type="number"
+                  min="0"
+                  max="20"
+                  value={formData.female_count ?? ''}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    female_count: e.target.value === '' ? null : parseIntSafe(e.target.value, 0) 
+                  }))}
+                  placeholder="未設定"
+                  className={inputStyle}
+                />
+              </div>
+              {formData.male_count != null && formData.female_count != null && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  男{formData.male_count}:女{formData.female_count}（合計{(formData.male_count ?? 0) + (formData.female_count ?? 0)}人）
+                </p>
+              )}
+            </div>
+
             {/* 難易度 */}
             <div>
               <Label className={labelStyle}>難易度</Label>

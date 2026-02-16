@@ -80,6 +80,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     duration: 120,
     player_count_min: 8,
     player_count_max: 8,
+    male_count: null,
+    female_count: null,
     difficulty: 3,
     rating: undefined,
     status: 'available',
@@ -563,6 +565,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           duration: scenario.duration || 120,
           player_count_min: scenario.player_count_min || 4,
           player_count_max: scenario.player_count_max || 8,
+          male_count: scenario.male_count ?? null,
+          female_count: scenario.female_count ?? null,
           difficulty: scenario.difficulty || 3,
           rating: scenario.rating,
           status: scenario.status || 'available',
@@ -689,6 +693,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         duration: 120,
         player_count_min: 8,
         player_count_max: 8,
+        male_count: null,
+        female_count: null,
         difficulty: 3,
         rating: undefined,
         status: 'available',
@@ -782,6 +788,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         slug: dbFields.slug?.trim() || null,
         // 追加準備時間: undefinedやfalsyはnullとして保存（意図しないデフォルト値を防ぐ）
         extra_preparation_time: formData.extra_preparation_time || null,
+        // 男女比: nullは「男女問わず」を意味する
+        male_count: formData.male_count ?? null,
+        female_count: formData.female_count ?? null,
         participation_fee: normalParticipationCost?.amount || formData.participation_fee || 3000,
         // 参加費設定（時間帯別料金）を保存
         participation_costs: formData.participation_costs || [],
