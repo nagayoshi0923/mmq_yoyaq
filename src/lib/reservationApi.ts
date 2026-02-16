@@ -620,7 +620,7 @@ export const reservationApi = {
       .select(`
         *,
         customers(*),
-        schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario)
+        schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, organization_id)
       `)
       .eq('id', id)
       .single()
@@ -654,9 +654,10 @@ export const reservationApi = {
 
         // ⚠️ P1-8: べき等性キー（同じキャンセルに対する重複通知を防止）
         const idempotencyKey = `cancel-confirm-${reservation.id}-${Date.now()}`
+        const orgIdForEmail = reservation.organization_id || scheduleEvent?.organization_id
         await supabase.functions.invoke('send-cancellation-confirmation', {
           body: {
-            organizationId: reservation.organization_id,
+            organizationId: orgIdForEmail,
             storeId: scheduleEvent?.venue,
             reservationId: reservation.id,
             customerEmail: reservation.customers.email,
@@ -678,14 +679,15 @@ export const reservationApi = {
         logger.log('キャンセル確認メール送信成功')
 
         // キャンセル待ち通知を送信
-        if (reservation.schedule_event_id && reservation.organization_id) {
+        const orgIdForWaitlist = reservation.organization_id || scheduleEvent?.organization_id
+        if (reservation.schedule_event_id && orgIdForWaitlist) {
           // 組織のslugを取得（tryの外で定義してcatchでも使えるようにする）
           let orgSlug = 'queens-waltz'
           try {
             const { data: org } = await supabase
               .from('organizations')
               .select('slug')
-              .eq('id', reservation.organization_id)
+              .eq('id', orgIdForWaitlist)
               .single()
             
             orgSlug = org?.slug || 'queens-waltz'
@@ -699,7 +701,7 @@ export const reservationApi = {
             // ⚠️ P1-8: べき等性キー（同じキャンセルに対する重複待ちリスト通知を防止）
             const waitlistIdempotencyKey = `waitlist-notify-${reservation.id}-${reservation.schedule_event_id}`
             const notificationData = {
-              organizationId: reservation.organization_id,
+              organizationId: orgIdForWaitlist,
               scheduleEventId: reservation.schedule_event_id,
               freedSeats: reservation.participant_count,
               scenarioTitle: reservation.scenario_title || scheduleEvent?.scenario,
@@ -722,7 +724,7 @@ export const reservationApi = {
             try {
               await supabase.from('waitlist_notification_queue').insert({
                 schedule_event_id: reservation.schedule_event_id,
-                organization_id: reservation.organization_id,
+                organization_id: orgIdForWaitlist,
                 freed_seats: reservation.participant_count,
                 scenario_title: reservation.scenario_title || scheduleEvent?.scenario,
                 event_date: scheduleEvent?.date,
