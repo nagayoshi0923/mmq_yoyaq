@@ -396,7 +396,7 @@ export const reservationApi = {
   },
 
   // 参加人数を変更（顧客向けシンプルAPI）
-  async updateParticipantCount(reservationId: string, newCount: number): Promise<boolean> {
+  async updateParticipantCount(reservationId: string, newCount: number, sendEmail: boolean = true): Promise<boolean> {
     // 現在のユーザーのcustomer_idを取得
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
@@ -416,7 +416,11 @@ export const reservationApi = {
     // 予約情報を取得して料金を再計算
     const { data: reservation, error: fetchError } = await supabase
       .from('reservations')
-      .select('unit_price, schedule_event_id, participant_count, customer_id')
+      .select(`
+        id, reservation_number, unit_price, schedule_event_id, participant_count, customer_id,
+        customer_email, customer_name, title, organization_id, final_price,
+        schedule_events!schedule_event_id(date, start_time, end_time, scenario)
+      `)
       .eq('id', reservationId)
       .single()
 
@@ -431,6 +435,9 @@ export const reservationApi = {
     if (reservation.customer_id && reservation.customer_id !== customerId) {
       throw new Error('この予約を変更する権限がありません')
     }
+
+    const oldCount = reservation.participant_count
+    const oldPrice = reservation.final_price || (reservation.unit_price * oldCount)
 
     // RPC を呼び出して人数を変更（在庫ロック + 料金再計算含む）
     const result = await this.updateParticipantsWithLock(reservationId, newCount, customerId)
@@ -448,6 +455,52 @@ export const reservationApi = {
         logger.log('参加者数再計算完了')
       } catch (recalcError) {
         logger.warn('current_participants再計算エラー:', recalcError)
+      }
+    }
+
+    // 人数変更確認メールを送信
+    if (sendEmail && reservation.customer_email) {
+      try {
+        const newPrice = reservation.unit_price * newCount
+        const priceDifference = newPrice - oldPrice
+        const scheduleEvent = reservation.schedule_events as any
+        
+        const { error: emailError } = await supabase.functions.invoke('send-booking-change-confirmation', {
+          body: {
+            organizationId: reservation.organization_id,
+            reservationId: reservation.id,
+            customerEmail: reservation.customer_email,
+            customerName: reservation.customer_name || 'お客様',
+            scenarioTitle: reservation.title || scheduleEvent?.scenario || 'シナリオ',
+            reservationNumber: reservation.reservation_number,
+            changes: [
+              {
+                field: 'participant_count',
+                label: '参加人数',
+                oldValue: `${oldCount}名`,
+                newValue: `${newCount}名`
+              },
+              {
+                field: 'total_price',
+                label: 'お支払い金額',
+                oldValue: `¥${oldPrice.toLocaleString()}`,
+                newValue: `¥${newPrice.toLocaleString()}`
+              }
+            ],
+            newParticipantCount: newCount,
+            newTotalPrice: newPrice,
+            priceDifference: priceDifference
+          }
+        })
+
+        if (emailError) {
+          logger.error('人数変更確認メール送信エラー:', emailError)
+        } else {
+          logger.log('人数変更確認メール送信成功')
+        }
+      } catch (emailError) {
+        logger.error('人数変更確認メール送信エラー:', emailError)
+        // メール送信失敗しても人数変更処理は成功として扱う
       }
     }
 
