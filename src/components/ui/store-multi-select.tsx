@@ -170,10 +170,15 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
       >
         <span className="truncate">
           {(() => {
-            // 実際に存在する店舗IDのみカウント
-            const validCount = selectedStoreIds.filter(id => stores.some(s => s.id === id)).length
+            // 実際に存在する店舗のみフィルタ
+            const selectedStores = stores.filter(s => selectedStoreIds.includes(s.id))
+            const validCount = selectedStores.length
             if (validCount === 0) return placeholder
-            if (validCount === stores.length) return `全${stores.length}店舗`
+            if (validCount === stores.length && stores.length > 1) return `全${stores.length}店舗`
+            // 3店舗以下なら店舗名を表示
+            if (validCount <= 3) {
+              return selectedStores.map(s => s.short_name || s.name).join(', ')
+            }
             return `${validCount}店舗選択中`
           })()}
         </span>

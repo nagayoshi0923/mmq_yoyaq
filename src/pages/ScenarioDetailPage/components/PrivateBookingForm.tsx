@@ -138,6 +138,13 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   }
 
 
+  // 店舗が1つしかない場合は自動選択
+  useEffect(() => {
+    if (stores.length === 1 && selectedStoreIds.length === 0) {
+      onStoreIdsChange([stores[0].id])
+    }
+  }, [stores, selectedStoreIds.length, onStoreIdsChange])
+
   return (
     <div>
       {/* 店舗選択 */}
@@ -146,7 +153,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         selectedStoreIds={selectedStoreIds}
         onStoreIdsChange={onStoreIdsChange}
         label="希望店舗を選択"
-        placeholder="全店舗希望"
+        placeholder="店舗を選択してください"
+        emptyText=""
       />
       
       {/* 希望日程ラベル */}
