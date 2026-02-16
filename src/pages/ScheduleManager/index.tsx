@@ -836,7 +836,6 @@ export function ScheduleManager() {
                   onStoreIdsChange={setSelectedStores}
                   hideLabel={true}
                   placeholder="店舗"
-                  emptyText=""
                   className="h-9 w-full border-0 rounded-none shadow-none"
                 />
               </div>

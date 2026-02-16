@@ -490,8 +490,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 setFormData(prev => ({ ...prev, stores: storeIds }))
               }}
               hideLabel={true}
-              placeholder="店舗"
-              emptyText="未選択=全店舗"
+              placeholder="全店舗担当"
             />
           </div>
 

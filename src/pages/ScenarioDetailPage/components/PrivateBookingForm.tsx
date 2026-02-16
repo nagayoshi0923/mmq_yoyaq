@@ -154,7 +154,6 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         onStoreIdsChange={onStoreIdsChange}
         label="希望店舗を選択"
         placeholder="店舗を選択してください"
-        emptyText=""
       />
       
       {/* 希望日程ラベル */}

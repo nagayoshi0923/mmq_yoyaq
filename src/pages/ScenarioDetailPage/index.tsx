@@ -418,7 +418,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       onStoreIdsChange={setScheduleStoreFilter}
                       label="店舗で絞り込み"
                       placeholder="店舗を選択"
-                      emptyText=""
                     />
                     
                     {/* 日程未選択時のガイダンス（選択後と同じスタイル） */}

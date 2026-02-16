@@ -226,8 +226,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                 selectedStoreIds={formData.stores || []}
                 onStoreIdsChange={(storeIds) => setFormData({ ...formData, stores: storeIds })}
                 hideLabel={true}
-                placeholder="担当店舗を選択"
-                emptyText="未選択=全店舗担当"
+                placeholder="全店舗担当"
               />
             </div>
 

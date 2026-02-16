@@ -39,7 +39,6 @@ interface StoreMultiSelectProps {
   label?: string
   placeholder?: string
   hideLabel?: boolean
-  emptyText?: string
   className?: string
 }
 
@@ -62,9 +61,8 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
   selectedStoreIds,
   onStoreIdsChange,
   label = '店舗を選択',
-  placeholder = '全店舗',
+  placeholder = '店舗を選択してください',
   hideLabel = false,
-  emptyText = '未選択の場合は全店舗が対象です',
   className = ''
 }: StoreMultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -153,11 +151,6 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
       {!hideLabel && (
         <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
           {label}
-          {emptyText && (
-            <span className="text-xs font-normal ml-2 text-gray-500">
-              （{emptyText}）
-            </span>
-          )}
         </label>
       )}
       
@@ -174,9 +167,8 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
             const selectedStores = stores.filter(s => selectedStoreIds.includes(s.id))
             const validCount = selectedStores.length
             if (validCount === 0) return placeholder
-            if (validCount === stores.length && stores.length > 1) return `全${stores.length}店舗`
-            // 3店舗以下なら店舗名を表示
-            if (validCount <= 3) {
+            // 5店舗以下なら店舗名を表示
+            if (validCount <= 5) {
               return selectedStores.map(s => s.short_name || s.name).join(', ')
             }
             return `${validCount}店舗選択中`

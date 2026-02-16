@@ -416,7 +416,6 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
               }}
               hideLabel={true}
               placeholder="全店舗で公演可能"
-              emptyText="未選択=全店舗で公演可能"
             />
           </div>
         </CardContent>

@@ -283,7 +283,6 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
                   label=""
                   hideLabel={true}
                   placeholder="全店舗で公演可能"
-                  emptyText="未選択=全店舗で公演可能"
                   className="mt-1.5"
                 />
                 <p className="text-xs text-muted-foreground mt-1">

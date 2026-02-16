@@ -45,7 +45,6 @@ export function BookingFilters({
             onStoreIdsChange={onStoreIdsChange}
             hideLabel={true}
             placeholder="すべて"
-            emptyText=""
           />
         </div>
       </div>

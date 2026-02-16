@@ -220,7 +220,6 @@ export const LineupView = memo(function LineupView({
                     onStoreIdsChange={onStoreIdsChange}
                     hideLabel={true}
                     placeholder="すべて"
-                    emptyText=""
                   />
                 </div>
               </div>
