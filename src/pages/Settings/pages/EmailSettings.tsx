@@ -270,7 +270,11 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       if (error && error.code !== 'PGRST116') throw error
 
       if (data) {
-        setFormData(data as EmailSettings)
+        // reminder_scheduleがnullの場合は空配列にする
+        setFormData({
+          ...data,
+          reminder_schedule: data.reminder_schedule || []
+        } as EmailSettings)
       } else {
         setFormData({
           id: '',
