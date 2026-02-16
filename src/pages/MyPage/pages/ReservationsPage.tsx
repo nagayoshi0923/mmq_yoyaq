@@ -600,6 +600,37 @@ export function ReservationsPage() {
         }
       }
 
+      // 人数が減少した場合、キャンセル待ち通知を送信
+      if (countDiff < 0 && editTarget.schedule_event_id && editTarget.organization_id) {
+        try {
+          // 公演情報を取得
+          const { data: eventData } = await supabase
+            .from('schedule_events')
+            .select('date, start_time, end_time, scenario, venue')
+            .eq('id', editTarget.schedule_event_id)
+            .single()
+          
+          if (eventData) {
+            await supabase.functions.invoke('notify-waitlist', {
+              body: {
+                organizationId: editTarget.organization_id,
+                scheduleEventId: editTarget.schedule_event_id,
+                freedSeats: Math.abs(countDiff), // 減少した人数分が空席
+                scenarioTitle: editTarget.title || eventData.scenario || '',
+                eventDate: eventData.date,
+                startTime: eventData.start_time,
+                endTime: eventData.end_time,
+                storeName: eventData.venue || ''
+              }
+            })
+            logger.log('キャンセル待ち通知送信成功')
+          }
+        } catch (waitlistError) {
+          logger.error('キャンセル待ち通知エラー:', waitlistError)
+          // 通知失敗しても処理は続行
+        }
+      }
+
       toast.success('参加人数を変更しました')
       fetchReservations()
     } catch (error) {

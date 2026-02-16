@@ -372,10 +372,45 @@ export function ReservationDetailPage() {
       return
     }
 
+    const oldCount = reservation.participant_count
+    const countDiff = editParticipantCount - oldCount
+
     setEditing(true)
     try {
       logger.log('人数変更開始:', { reservationId: reservation.id, newCount: editParticipantCount })
       await reservationApi.updateParticipantCount(reservation.id, editParticipantCount)
+      
+      // 人数が減少した場合、キャンセル待ち通知を送信
+      if (countDiff < 0 && reservation.schedule_event_id && reservation.organization_id) {
+        try {
+          // 公演情報を取得
+          const { data: eventData } = await supabase
+            .from('schedule_events')
+            .select('date, start_time, end_time, scenario, venue')
+            .eq('id', reservation.schedule_event_id)
+            .single()
+          
+          if (eventData) {
+            await supabase.functions.invoke('notify-waitlist', {
+              body: {
+                organizationId: reservation.organization_id,
+                scheduleEventId: reservation.schedule_event_id,
+                freedSeats: Math.abs(countDiff), // 減少した人数分が空席
+                scenarioTitle: reservation.title || eventData.scenario || '',
+                eventDate: eventData.date,
+                startTime: eventData.start_time,
+                endTime: eventData.end_time,
+                storeName: eventData.venue || ''
+              }
+            })
+            logger.log('キャンセル待ち通知送信成功')
+          }
+        } catch (waitlistError) {
+          logger.error('キャンセル待ち通知エラー:', waitlistError)
+          // 通知失敗しても処理は続行
+        }
+      }
+      
       toast.success('参加人数を変更しました')
       setEditDialogOpen(false)
       // 予約データを再取得
