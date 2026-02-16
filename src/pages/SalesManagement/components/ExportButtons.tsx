@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { logger } from '@/utils/logger'
 import { Button } from '@/components/ui/button'
 import { Download, Image, Loader2, Copy, Check } from 'lucide-react'
-import html2canvas from 'html2canvas'
 import { showToast } from '@/utils/toast'
 import {
   Dialog,
@@ -149,6 +148,9 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
       
       // 少し待ってからキャプチャ（レンダリング待ち）
       await new Promise(resolve => setTimeout(resolve, 300))
+      
+      // 動的インポート（初期バンドルサイズ削減）
+      const html2canvas = (await import('html2canvas')).default
       
       const canvas = await html2canvas(element, {
         scale: 2, // 高解像度

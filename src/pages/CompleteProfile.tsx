@@ -14,7 +14,7 @@ import { logger } from '@/utils/logger'
 import { validateRedirectUrl } from '@/lib/utils'
 import { grantRegistrationCoupon } from '@/lib/api/couponApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 // デフォルト組織ID（クインズワルツ）
 const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
@@ -36,6 +36,7 @@ export function CompleteProfile() {
   const [birthDate, setBirthDate] = useState('')
   const [acceptNewsletter, setAcceptNewsletter] = useState(true)
   const [acceptTerms, setAcceptTerms] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
     // セッションを確認
@@ -397,10 +398,10 @@ export function CompleteProfile() {
         if (isNewCustomer) {
           // 新規登録者はクーポンプレゼントページへ
           const couponUrl = `/coupon-present?next=${encodeURIComponent(nextUrl)}`
-          window.location.href = couponUrl
+          navigate(couponUrl, { replace: true })
         } else {
           // 既存ユーザーは直接遷移先へ
-          window.location.href = nextUrl
+          navigate(nextUrl, { replace: true })
         }
       }, 2000)
       
@@ -427,7 +428,7 @@ export function CompleteProfile() {
               3秒後にトップページに移動します...
             </p>
             <Button 
-              onClick={() => window.location.href = '/'}
+              onClick={() => navigate('/', { replace: true })}
               className="w-full"
               style={{ backgroundColor: THEME.primary }}
             >
@@ -461,7 +462,7 @@ export function CompleteProfile() {
               セッションが無効または期限切れです。
             </p>
             <Button 
-              onClick={() => window.location.href = '/login?signup=true'}
+              onClick={() => navigate('/login?signup=true', { replace: true })}
               className="w-full"
               variant="outline"
             >

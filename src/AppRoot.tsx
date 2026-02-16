@@ -34,8 +34,8 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000, // 5分間キャッシュ
       gcTime: 10 * 60 * 1000, // 10分間メモリ保持（旧cacheTime）
       retry: 1, // 失敗時1回リトライ
-      refetchOnWindowFocus: true, // タブに戻ったら再取得
-      refetchOnMount: 'always', // マウント時に必ず再取得（ハードリフレッシュ対応）
+      refetchOnWindowFocus: false, // タブ復帰時の自動再取得を無効化（UX改善）
+      refetchOnMount: false, // キャッシュがあれば再利用（リロード削減）
       refetchOnReconnect: true, // ネットワーク再接続時に再取得
     },
     mutations: {

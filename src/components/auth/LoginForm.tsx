@@ -16,6 +16,7 @@ import {
   ArrowRight, Eye, EyeOff, 
   Sparkles, AlertCircle, CheckCircle, Loader2
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 // デフォルト組織ID（クインズワルツ）
 const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
@@ -63,6 +64,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { signIn, loading } = useAuth()
+  const navigate = useNavigate()
   
   // フィールド別のインラインエラー
   const [emailError, setEmailError] = useState('')
@@ -215,42 +217,42 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                   const slug = orgData?.slug || 'queens-waltz'
                   // 既存の returnUrl（例: /dashboard）より優先してスケジュールへ
                   sessionStorage.removeItem('returnUrl')
-                  window.location.href = `/${slug}/schedule`
+                  navigate(`/${slug}/schedule`, { replace: true })
                 } else {
                   // 戻り先URLがある場合はそこへ、なければ通常のリダイレクト
                   const rawReturnUrl1 = sessionStorage.getItem('returnUrl')
                   if (rawReturnUrl1) {
                     sessionStorage.removeItem('returnUrl') // クリア
-                    window.location.href = validateRedirectUrl(rawReturnUrl1)
+                    navigate(validateRedirectUrl(rawReturnUrl1), { replace: true })
                     return
                   }
 
-                  window.location.href = `/${orgData?.slug || 'queens-waltz'}`
+                  navigate(`/${orgData?.slug || 'queens-waltz'}`, { replace: true })
                 }
               } else {
                 // 戻り先URLがある場合はそこへ、なければトップへ
                 const rawReturnUrl2 = sessionStorage.getItem('returnUrl')
                 if (rawReturnUrl2) {
                   sessionStorage.removeItem('returnUrl')
-                  window.location.href = validateRedirectUrl(rawReturnUrl2)
+                  navigate(validateRedirectUrl(rawReturnUrl2), { replace: true })
                   return
                 }
-                window.location.href = '/'
+                navigate('/', { replace: true })
               }
             } else {
               // 戻り先URLがある場合はそこへ、なければトップへ
               const rawReturnUrl3 = sessionStorage.getItem('returnUrl')
               if (rawReturnUrl3) {
                 sessionStorage.removeItem('returnUrl')
-                window.location.href = validateRedirectUrl(rawReturnUrl3)
+                navigate(validateRedirectUrl(rawReturnUrl3), { replace: true })
                 return
               }
-              window.location.href = '/'
+              navigate('/', { replace: true })
             }
           } catch (err) {
             // リダイレクト処理でエラーが発生しても、とりあえずトップに遷移
             logger.error('Redirect error:', err)
-            window.location.href = '/'
+            navigate('/', { replace: true })
           }
         }, 500)
       }
