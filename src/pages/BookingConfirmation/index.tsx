@@ -848,10 +848,10 @@ export function BookingConfirmation({
             ) : (
               <Button
                 onClick={onSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict)}
                 className="w-full h-9 text-sm"
               >
-                {isSubmitting ? '予約処理中...' : '予約を確定する'}
+                {isSubmitting ? '予約処理中...' : (duplicateWarning.show && duplicateWarning.existingReservation && !duplicateWarning.existingReservation.isTimeConflict) ? '重複のため予約不可' : '予約を確定する'}
               </Button>
             )}
           </div>
