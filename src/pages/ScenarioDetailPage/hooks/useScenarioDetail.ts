@@ -16,16 +16,20 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   }
   
   const startTime = performance.now()
+  logger.log('🚀 シナリオ詳細取得開始:', scenarioId, organizationSlug)
   
   // Step 1: organizationSlugからorganization_idを取得（必須、他のクエリに必要）
   let orgId: string | undefined = undefined
   if (organizationSlug) {
+    const orgStartTime = performance.now()
     const { data: orgData } = await supabase
       .from('organizations')
       .select('id')
       .eq('slug', organizationSlug)
       .eq('is_active', true)
       .single()
+    
+    logger.log(`⏱️ 組織ID取得: ${((performance.now() - orgStartTime) / 1000).toFixed(2)}秒`)
     
     if (orgData?.id) {
       orgId = orgData.id
@@ -45,6 +49,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   }
   
   // 🚀 並列取得: シナリオ、3ヶ月分のスケジュール、店舗を同時に取得
+  const parallelStartTime = performance.now()
   const [scenarioDataResult, monthResults, storesData] = await Promise.all([
     scenarioApi.getByIdOrSlug(scenarioId, orgId).catch((error) => {
       logger.error('シナリオデータの取得エラー:', error)
@@ -59,6 +64,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
       return []
     })
   ])
+  
+  logger.log(`⏱️ 並列取得（シナリオ+スケジュール+店舗）: ${((performance.now() - parallelStartTime) / 1000).toFixed(2)}秒`)
   
   if (!scenarioDataResult) {
     logger.error('シナリオが見つかりません')
@@ -136,6 +143,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     })
   
   // Step 3: 注意事項と関連シナリオを並列取得（シナリオデータが必要なため、Step 2の後）
+  const step3StartTime = performance.now()
   const [cautionResult, relatedScenariosResult] = await Promise.all([
     // 注意事項を取得
     (async () => {
@@ -188,6 +196,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
       }
     })()
   ])
+  
+  logger.log(`⏱️ 並列取得（注意事項+関連シナリオ）: ${((performance.now() - step3StartTime) / 1000).toFixed(2)}秒`)
   
   const scenario: ScenarioDetail = {
     scenario_id: scenarioData.id,
