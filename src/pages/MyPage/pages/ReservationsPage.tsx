@@ -601,19 +601,28 @@ export function ReservationsPage() {
       }
 
       // 人数が減少した場合、キャンセル待ち通知を送信
-      if (countDiff < 0 && editTarget.schedule_event_id && editTarget.organization_id) {
+      logger.log('人数変更チェック:', { 
+        countDiff, 
+        schedule_event_id: editTarget.schedule_event_id, 
+        organization_id: editTarget.organization_id 
+      })
+      
+      if (countDiff < 0 && editTarget.schedule_event_id) {
         try {
-          // 公演情報を取得
+          // 公演情報を取得（organization_idも含めて取得）
           const { data: eventData } = await supabase
             .from('schedule_events')
-            .select('date, start_time, end_time, scenario, venue')
+            .select('date, start_time, end_time, scenario, venue, organization_id')
             .eq('id', editTarget.schedule_event_id)
             .single()
           
-          if (eventData) {
-            await supabase.functions.invoke('notify-waitlist', {
+          const orgId = editTarget.organization_id || eventData?.organization_id
+          logger.log('キャンセル待ち通知準備:', { eventData, orgId })
+          
+          if (eventData && orgId) {
+            const result = await supabase.functions.invoke('notify-waitlist', {
               body: {
-                organizationId: editTarget.organization_id,
+                organizationId: orgId,
                 scheduleEventId: editTarget.schedule_event_id,
                 freedSeats: Math.abs(countDiff), // 減少した人数分が空席
                 scenarioTitle: editTarget.title || eventData.scenario || '',
@@ -623,7 +632,7 @@ export function ReservationsPage() {
                 storeName: eventData.venue || ''
               }
             })
-            logger.log('キャンセル待ち通知送信成功')
+            logger.log('キャンセル待ち通知送信結果:', result)
           }
         } catch (waitlistError) {
           logger.error('キャンセル待ち通知エラー:', waitlistError)
