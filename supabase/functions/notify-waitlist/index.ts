@@ -153,12 +153,11 @@ serve(async (req) => {
       throw new Error('メール送信サービスが設定されていません')
     }
 
-    // 🔒 SEC-P0-03対策: アトミックにキャンセル待ちを取得・ロック・更新
-    // RPCを使用することで、複数のキャンセルが同時発生しても競合しない
+    // キャンセル待ち全員に一斉通知
+    // 先着順ではなく、登録者全員に同時にメールを送信
     const { data: waitlistEntries, error: waitlistError } = await serviceClient
-      .rpc('fetch_and_lock_waitlist_entries', {
-        p_schedule_event_id: data.scheduleEventId,
-        p_freed_seats: data.freedSeats
+      .rpc('notify_all_waitlist_entries', {
+        p_schedule_event_id: data.scheduleEventId
       })
 
     if (waitlistError) {
@@ -266,8 +265,7 @@ serve(async (req) => {
   <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
     <h3 style="color: #92400e; margin-top: 0; font-size: 16px;">⏰ お早めにご予約ください</h3>
     <p style="margin: 0; color: #92400e;">
-      先着順となっております。<br>
-      <strong>24時間以内</strong>にご予約いただけない場合、次の方に通知されます。
+      先着順となっております。空席には限りがありますので、お早めにご予約ください。
     </p>
   </div>
 
@@ -311,8 +309,7 @@ ${entry.customer_name} 様
 ⏰ お早めにご予約ください
 ━━━━━━━━━━━━━━━━━━━━
 
-先着順となっております。
-24時間以内にご予約いただけない場合、次の方に通知されます。
+先着順となっております。空席には限りがありますので、お早めにご予約ください。
 
 ▼ 今すぐ予約する
 ${bookingUrl}
