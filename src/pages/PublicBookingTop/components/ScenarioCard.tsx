@@ -155,13 +155,15 @@ export const ScenarioCard = memo(function ScenarioCard({
           />
           {/* バッジ表示: 成立間近 > おすすめ > ロングセラー > 人気 */}
           {(() => {
-            // 成立間近（最小人数まであと1-2人）- 最優先
+            // 成立間近 - 最優先
+            // 4人以下のシナリオ: 残り2人以下、5人以上のシナリオ: 残り3人以下
             const nextEvent = scenario.next_events?.[0]
             if (nextEvent) {
               const currentParticipants = nextEvent.current_participants ?? 0
               const minRequired = scenario.player_count_min
               const remaining = minRequired - currentParticipants
-              if (remaining >= 1 && remaining <= 2) {
+              const threshold = minRequired <= 4 ? 2 : 3
+              if (remaining >= 1 && remaining <= threshold) {
                 return (
                   <div 
                     className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white"
