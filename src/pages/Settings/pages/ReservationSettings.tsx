@@ -1,22 +1,15 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-
-interface CancellationFee {
-  hours_before: number
-  fee_percentage: number
-  description: string
-}
 
 interface ReservationSettings {
   id: string
@@ -25,11 +18,8 @@ interface ReservationSettings {
   advance_booking_days: number
   same_day_booking_cutoff: number
   private_booking_deadline_days: number
-  cancellation_policy: string
-  cancellation_deadline_hours: number
   max_bookings_per_customer: number | null
   require_phone_verification: boolean
-  cancellation_fees: CancellationFee[]
 }
 
 interface ReservationSettingsProps {
@@ -46,16 +36,8 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     advance_booking_days: 90,
     same_day_booking_cutoff: 0,
     private_booking_deadline_days: 7,
-    cancellation_policy: '',
-    cancellation_deadline_hours: 24,
     max_bookings_per_customer: null,
-    require_phone_verification: false,
-    cancellation_fees: [
-      { hours_before: 168, fee_percentage: 0, description: '1週間前まで無料' },
-      { hours_before: 72, fee_percentage: 30, description: '3日前まで30%' },
-      { hours_before: 24, fee_percentage: 50, description: '前日まで50%' },
-      { hours_before: 0, fee_percentage: 100, description: '当日100%' }
-    ]
+    require_phone_verification: false
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -88,7 +70,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('reservation_settings')
-        .select('id, store_id, organization_id, max_participants_per_booking, advance_booking_days, same_day_booking_cutoff, private_booking_deadline_days, cancellation_policy, cancellation_deadline_hours, max_bookings_per_customer, require_phone_verification, cancellation_fees, updated_at')
+        .select('id, store_id, organization_id, max_participants_per_booking, advance_booking_days, same_day_booking_cutoff, private_booking_deadline_days, max_bookings_per_customer, require_phone_verification, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 
@@ -96,8 +78,14 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
 
       if (data) {
         setFormData({
-          ...data,
-          private_booking_deadline_days: data.private_booking_deadline_days ?? 7
+          id: data.id,
+          store_id: data.store_id,
+          max_participants_per_booking: data.max_participants_per_booking ?? 8,
+          advance_booking_days: data.advance_booking_days ?? 90,
+          same_day_booking_cutoff: data.same_day_booking_cutoff ?? 0,
+          private_booking_deadline_days: data.private_booking_deadline_days ?? 7,
+          max_bookings_per_customer: data.max_bookings_per_customer,
+          require_phone_verification: data.require_phone_verification ?? false
         })
       } else {
         setFormData({
@@ -107,16 +95,8 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
           advance_booking_days: 90,
           same_day_booking_cutoff: 0,
           private_booking_deadline_days: 7,
-          cancellation_policy: '',
-          cancellation_deadline_hours: 24,
           max_bookings_per_customer: null,
-          require_phone_verification: false,
-          cancellation_fees: [
-            { hours_before: 168, fee_percentage: 0, description: '1週間前まで無料' },
-            { hours_before: 72, fee_percentage: 30, description: '3日前まで30%' },
-            { hours_before: 24, fee_percentage: 50, description: '前日まで50%' },
-            { hours_before: 0, fee_percentage: 100, description: '当日100%' }
-          ]
+          require_phone_verification: false
         })
       }
     } catch (error) {
@@ -140,11 +120,8 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
             advance_booking_days: formData.advance_booking_days,
             same_day_booking_cutoff: formData.same_day_booking_cutoff,
             private_booking_deadline_days: formData.private_booking_deadline_days,
-            cancellation_policy: formData.cancellation_policy,
-            cancellation_deadline_hours: formData.cancellation_deadline_hours,
             max_bookings_per_customer: formData.max_bookings_per_customer,
-            require_phone_verification: formData.require_phone_verification,
-            cancellation_fees: formData.cancellation_fees
+            require_phone_verification: formData.require_phone_verification
           })
           .eq('id', formData.id)
 
@@ -160,11 +137,8 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
             advance_booking_days: formData.advance_booking_days,
             same_day_booking_cutoff: formData.same_day_booking_cutoff,
             private_booking_deadline_days: formData.private_booking_deadline_days,
-            cancellation_policy: formData.cancellation_policy,
-            cancellation_deadline_hours: formData.cancellation_deadline_hours,
             max_bookings_per_customer: formData.max_bookings_per_customer,
-            require_phone_verification: formData.require_phone_verification,
-            cancellation_fees: formData.cancellation_fees
+            require_phone_verification: formData.require_phone_verification
           })
           .select()
           .single()
@@ -172,8 +146,14 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
         if (error) throw error
         if (data) {
           setFormData({
-            ...data,
-            private_booking_deadline_days: data.private_booking_deadline_days ?? 7
+            id: data.id,
+            store_id: data.store_id,
+            max_participants_per_booking: data.max_participants_per_booking ?? 8,
+            advance_booking_days: data.advance_booking_days ?? 90,
+            same_day_booking_cutoff: data.same_day_booking_cutoff ?? 0,
+            private_booking_deadline_days: data.private_booking_deadline_days ?? 7,
+            max_bookings_per_customer: data.max_bookings_per_customer,
+            require_phone_verification: data.require_phone_verification ?? false
           })
         }
       }
@@ -195,7 +175,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     <div className="space-y-6">
       <PageHeader
         title="予約設定"
-        description="予約の受付期間、キャンセル、通知などの設定"
+        description="予約の受付期間、人数制限、認証設定"
       >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
@@ -299,128 +279,6 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
                 0 = 制限なし
               </p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* キャンセルポリシー */}
-      <Card>
-        <CardHeader>
-          <CardTitle>キャンセルポリシー</CardTitle>
-          <CardDescription>キャンセルの締切と規約を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="cancellation_policy">キャンセルポリシー文章</Label>
-            <Textarea
-              id="cancellation_policy"
-              value={formData.cancellation_policy}
-              onChange={(e) => setFormData(prev => ({ ...prev, cancellation_policy: e.target.value }))}
-              placeholder="キャンセルに関する規約を入力"
-              rows={3}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* キャンセル料金設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>キャンセル料金</CardTitle>
-          <CardDescription>キャンセルするタイミングに応じて料金を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            {formData.cancellation_fees.map((fee, index) => (
-              <div key={index} className="grid grid-cols-12 gap-3 items-center p-3 border rounded-lg">
-                <div className="col-span-3">
-                  <Label className="text-xs">何時間前</Label>
-                  <Input
-                    type="number"
-                    value={fee.hours_before}
-                    onChange={(e) => {
-                      const newFees = [...formData.cancellation_fees]
-                      newFees[index].hours_before = parseInt(e.target.value) || 0
-                      setFormData(prev => ({ ...prev, cancellation_fees: newFees }))
-                    }}
-                    min="0"
-                    className="text-sm"
-                  />
-                </div>
-                <div className="col-span-3">
-                  <Label className="text-xs">キャンセル料（%）</Label>
-                  <Input
-                    type="number"
-                    value={fee.fee_percentage}
-                    onChange={(e) => {
-                      const newFees = [...formData.cancellation_fees]
-                      newFees[index].fee_percentage = parseInt(e.target.value) || 0
-                      setFormData(prev => ({ ...prev, cancellation_fees: newFees }))
-                    }}
-                    min="0"
-                    max="100"
-                    className="text-sm"
-                  />
-                </div>
-                <div className="col-span-5">
-                  <Label className="text-xs">説明</Label>
-                  <Input
-                    type="text"
-                    value={fee.description}
-                    onChange={(e) => {
-                      const newFees = [...formData.cancellation_fees]
-                      newFees[index].description = e.target.value
-                      setFormData(prev => ({ ...prev, cancellation_fees: newFees }))
-                    }}
-                    placeholder="例: 1週間前まで無料"
-                    className="text-sm"
-                  />
-                </div>
-                <div className="col-span-1 flex justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const newFees = formData.cancellation_fees.filter((_, i) => i !== index)
-                      setFormData(prev => ({ ...prev, cancellation_fees: newFees }))
-                    }}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    disabled={formData.cancellation_fees.length <= 1}
-                  >
-                    ×
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setFormData(prev => ({
-                ...prev,
-                cancellation_fees: [
-                  ...prev.cancellation_fees,
-                  { hours_before: 0, fee_percentage: 100, description: '' }
-                ]
-              }))
-            }}
-            className="w-full text-blue-600 border-blue-600 hover:bg-blue-50"
-          >
-            + キャンセル料金を追加
-          </Button>
-          
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
-            <p className="text-sm text-blue-800 mb-2">💡 設定例</p>
-            <ul className="text-xs text-blue-700 space-y-1">
-              <li>• 168時間前（1週間前）まで: 0% → 無料キャンセル</li>
-              <li>• 72時間前（3日前）まで: 30% → 料金の30%を請求</li>
-              <li>• 24時間前（前日）まで: 50% → 料金の50%を請求</li>
-              <li>• 0時間前（当日）: 100% → 全額請求</li>
-            </ul>
           </div>
         </CardContent>
       </Card>
