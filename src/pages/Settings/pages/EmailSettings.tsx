@@ -305,9 +305,12 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
   }
 
   const handleSave = async () => {
-    if (!formData.from_email || !formData.from_name) {
-      showToast.warning('送信元メールアドレスと送信元名は必須です')
-      return
+    // Resendを使用するため送信元のバリデーションは不要
+    // デフォルト値を設定
+    const saveData = {
+      ...formData,
+      from_email: formData.from_email || 'noreply@mmq.game',
+      from_name: formData.from_name || '予約システム'
     }
 
     setSaving(true)
@@ -423,32 +426,38 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
         </CardContent>
       </Card>
 
-      {/* 送信元情報 */}
+      {/* 返信先情報 */}
       <Card>
         <CardHeader>
-          <CardTitle>送信元情報</CardTitle>
-          <CardDescription>メールの送信元アドレスと名前を設定します</CardDescription>
+          <CardTitle>返信先設定</CardTitle>
+          <CardDescription>お客様がメールに返信した際の宛先を設定します（送信元はシステム固定: noreply@mmq.game）</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="from_email">送信元メールアドレス *</Label>
+              <Label htmlFor="from_email">返信先メールアドレス</Label>
               <Input
                 id="from_email"
                 type="email"
                 value={formData.from_email}
                 onChange={(e) => setFormData(prev => ({ ...prev, from_email: e.target.value }))}
-                placeholder="noreply@example.com"
+                placeholder="info@queens-waltz.jp"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                お客様からの返信を受け取るアドレス
+              </p>
             </div>
             <div>
-              <Label htmlFor="from_name">送信元名 *</Label>
+              <Label htmlFor="from_name">返信先名</Label>
               <Input
                 id="from_name"
                 value={formData.from_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, from_name: e.target.value }))}
                 placeholder="クイーンズワルツ"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                返信先として表示される名前
+              </p>
             </div>
           </div>
         </CardContent>
