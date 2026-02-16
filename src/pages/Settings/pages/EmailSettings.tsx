@@ -242,6 +242,37 @@ ${emailLine}
 ─────────────────────────`
 }
 
+function getDefaultPrivateCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  
+  return `{customer_name} 様
+
+貸切予約のキャンセルを承りました。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ キャンセル内容
+━━━━━━━━━━━━━━━━━━━━━━
+
+予約番号: {reservation_number}
+シナリオ: {scenario_title}
+開催日時: {date} {time}
+会場: {venue}
+参加人数: {participants}名
+キャンセル料: ¥{cancellation_fee}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+またのご利用を心よりお待ちしております。
+貸切予約のご検討も引き続きお待ちしております。
+
+─────────────────────────
+${companyName}
+${phoneLine}
+${emailLine}
+─────────────────────────`
+}
+
 function getDefaultPrivateRejectionTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
@@ -329,6 +360,7 @@ interface EmailTemplates {
   booking_change_template: string
   private_request_template: string
   private_confirm_template: string
+  private_cancellation_template: string
   private_rejection_template: string
   waitlist_notify_template: string
 }
@@ -415,6 +447,14 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     category: 'private',
     variables: ['customer_name', 'reservation_number', 'scenario_title', 'date', 'time', 'venue', 'participants', 'total_price'],
     getDefault: getDefaultPrivateConfirmTemplate
+  },
+  {
+    key: 'private_cancellation_template',
+    title: '貸切キャンセル確認メール',
+    description: '貸切予約のキャンセル時に自動送信',
+    category: 'private',
+    variables: ['customer_name', 'reservation_number', 'scenario_title', 'date', 'time', 'venue', 'participants', 'cancellation_fee'],
+    getDefault: getDefaultPrivateCancellationTemplate
   },
   {
     key: 'private_rejection_template',
@@ -522,6 +562,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     booking_change_template: '',
     private_request_template: '',
     private_confirm_template: '',
+    private_cancellation_template: '',
     private_rejection_template: '',
     waitlist_notify_template: '',
     reminder_enabled: true,
@@ -589,6 +630,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           booking_change_template: data.booking_change_template || '',
           private_request_template: data.private_request_template || '',
           private_confirm_template: data.private_confirm_template || '',
+          private_cancellation_template: data.private_cancellation_template || '',
           private_rejection_template: data.private_rejection_template || '',
           waitlist_notify_template: data.waitlist_notify_template || ''
         } as EmailSettings)
@@ -609,6 +651,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           booking_change_template: getDefaultBookingChangeTemplate(),
           private_request_template: getDefaultPrivateRequestTemplate(),
           private_confirm_template: getDefaultPrivateConfirmTemplate(),
+          private_cancellation_template: getDefaultPrivateCancellationTemplate(),
           private_rejection_template: getDefaultPrivateRejectionTemplate(),
           waitlist_notify_template: getDefaultWaitlistNotifyTemplate(),
           reminder_enabled: false,
@@ -643,6 +686,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       booking_change_template: formData.booking_change_template,
       private_request_template: formData.private_request_template,
       private_confirm_template: formData.private_confirm_template,
+      private_cancellation_template: formData.private_cancellation_template,
       private_rejection_template: formData.private_rejection_template,
       waitlist_notify_template: formData.waitlist_notify_template,
       reminder_enabled: formData.reminder_enabled,

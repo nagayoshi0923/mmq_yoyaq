@@ -10,6 +10,7 @@ ALTER TABLE public.email_settings
 ADD COLUMN IF NOT EXISTS booking_change_template TEXT,
 ADD COLUMN IF NOT EXISTS private_request_template TEXT,
 ADD COLUMN IF NOT EXISTS private_confirm_template TEXT,
+ADD COLUMN IF NOT EXISTS private_cancellation_template TEXT,
 ADD COLUMN IF NOT EXISTS private_rejection_template TEXT,
 ADD COLUMN IF NOT EXISTS waitlist_notify_template TEXT;
 
@@ -47,5 +48,6 @@ COMMENT ON COLUMN public.email_settings.company_address IS '会社住所';
 COMMENT ON COLUMN public.email_settings.booking_change_template IS '予約変更確認メールテンプレート';
 COMMENT ON COLUMN public.email_settings.private_request_template IS '貸切リクエスト受付メールテンプレート';
 COMMENT ON COLUMN public.email_settings.private_confirm_template IS '貸切予約確定メールテンプレート';
+COMMENT ON COLUMN public.email_settings.private_cancellation_template IS '貸切キャンセル確認メールテンプレート';
 COMMENT ON COLUMN public.email_settings.private_rejection_template IS '貸切リクエスト却下メールテンプレート';
 COMMENT ON COLUMN public.email_settings.waitlist_notify_template IS 'キャンセル待ち通知メールテンプレート';
