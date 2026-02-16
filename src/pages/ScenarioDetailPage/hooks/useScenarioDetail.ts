@@ -8,13 +8,16 @@ import type { ScenarioDetail, EventSchedule } from '../utils/types'
 
 /**
  * シナリオ詳細データを取得する関数
+ * パフォーマンス最適化：可能な限り並列取得
  */
 async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string) {
   if (!scenarioId) {
     return null
   }
   
-  // organizationSlugからorganization_idを取得
+  const startTime = performance.now()
+  
+  // Step 1: organizationSlugからorganization_idを取得（必須、他のクエリに必要）
   let orgId: string | undefined = undefined
   if (organizationSlug) {
     const { data: orgData } = await supabase
@@ -29,11 +32,33 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     }
   }
   
-  // シナリオを取得（IDまたはslugで、organization_idでフィルタリング）
-  const scenarioDataResult = await scenarioApi.getByIdOrSlug(scenarioId, orgId).catch((error) => {
-    logger.error('シナリオデータの取得エラー:', error)
-    return null
-  })
+  // Step 2: シナリオ、スケジュール、店舗を並列取得（orgIdが必要なため、Step 1の後）
+  const currentDate = new Date()
+  const monthPromises = []
+  
+  for (let i = 0; i < 3; i++) {
+    const targetDate = new Date(currentDate)
+    targetDate.setMonth(currentDate.getMonth() + i)
+    const year = targetDate.getFullYear()
+    const month = targetDate.getMonth() + 1
+    monthPromises.push(scheduleApi.getByMonth(year, month, orgId))
+  }
+  
+  // 🚀 並列取得: シナリオ、3ヶ月分のスケジュール、店舗を同時に取得
+  const [scenarioDataResult, monthResults, storesData] = await Promise.all([
+    scenarioApi.getByIdOrSlug(scenarioId, orgId).catch((error) => {
+      logger.error('シナリオデータの取得エラー:', error)
+      return null
+    }),
+    Promise.all(monthPromises).catch((error) => {
+      logger.error('イベントデータの取得エラー:', error)
+      return []
+    }),
+    storeApi.getAll(false, orgId).catch((error) => {
+      logger.error('店舗データの取得エラー:', error)
+      return []
+    })
+  ])
   
   if (!scenarioDataResult) {
     logger.error('シナリオが見つかりません')
@@ -41,38 +66,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   }
   
   const scenarioData = scenarioDataResult
-  
-  // 現在の日付から3ヶ月先までの期間を計算
-  const currentDate = new Date()
-  const monthPromises = []
-  
-  // 現在の月から3ヶ月先までの公演を並列取得（パフォーマンス最適化）
-  for (let i = 0; i < 3; i++) {
-    const targetDate = new Date(currentDate)
-    targetDate.setMonth(currentDate.getMonth() + i)
-    
-    const year = targetDate.getFullYear()
-    const month = targetDate.getMonth() + 1
-    
-    monthPromises.push(scheduleApi.getByMonth(year, month, orgId))
-  }
-  
-  // 3ヶ月分のデータを並列取得
-  const monthResults = await Promise.all(monthPromises).catch((error) => {
-    logger.error('イベントデータの取得エラー:', error)
-    return []
-  })
-  
   const allEvents = monthResults.flat()
-  
-  // 店舗データを取得（貸切リクエストタブでも使用するため、全店舗を取得）
-  let storesData: any[] = []
-  try {
-    storesData = await storeApi.getAll(false, orgId)
-  } catch (error) {
-    logger.error('店舗データの取得エラー:', error)
-    storesData = []
-  }
   
   // このシナリオの公演をフィルタリング
   const todayJST = formatDateJST(new Date())
@@ -141,36 +135,59 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
       return a.start_time.localeCompare(b.start_time)
     })
   
-  // 注意事項を取得
-  let caution: string | undefined = undefined
-  if (scenarioData.scenario_master_id) {
-    try {
-      if (orgId) {
-        const { data: orgScenarioData } = await supabase
-          .from('organization_scenarios')
-          .select('custom_caution')
-          .eq('scenario_master_id', scenarioData.scenario_master_id)
-          .eq('organization_id', orgId)
-          .maybeSingle()
-        if (orgScenarioData?.custom_caution) {
-          caution = orgScenarioData.custom_caution
-        }
-      }
+  // Step 3: 注意事項と関連シナリオを並列取得（シナリオデータが必要なため、Step 2の後）
+  const [cautionResult, relatedScenariosResult] = await Promise.all([
+    // 注意事項を取得
+    (async () => {
+      if (!scenarioData.scenario_master_id) return undefined
       
-      if (!caution) {
+      try {
+        // まず organization_scenarios のカスタム注意事項を取得
+        if (orgId) {
+          const { data: orgScenarioData } = await supabase
+            .from('organization_scenarios')
+            .select('custom_caution')
+            .eq('scenario_master_id', scenarioData.scenario_master_id)
+            .eq('organization_id', orgId)
+            .maybeSingle()
+          if (orgScenarioData?.custom_caution) {
+            return orgScenarioData.custom_caution
+          }
+        }
+        
+        // カスタム注意事項がない場合、scenario_masters からデフォルトを取得
         const { data: masterData } = await supabase
           .from('scenario_masters')
           .select('caution')
           .eq('id', scenarioData.scenario_master_id)
           .maybeSingle()
-        if (masterData?.caution) {
-          caution = masterData.caution
-        }
+        
+        return masterData?.caution
+      } catch (e) {
+        logger.error('注意事項の取得エラー:', e)
+        return undefined
       }
-    } catch (e) {
-      logger.error('注意事項の取得エラー:', e)
-    }
-  }
+    })(),
+    
+    // 関連シナリオを取得
+    (async () => {
+      if (!scenarioData.author) return []
+      
+      try {
+        const { data: relatedData } = await supabase
+          .from('scenarios')
+          .select('id, slug, title, key_visual_url, author, player_count_min, player_count_max, duration')
+          .eq('author', scenarioData.author)
+          .neq('id', scenarioData.id)
+          .limit(6)
+        
+        return relatedData || []
+      } catch (error) {
+        logger.error('関連シナリオの取得エラー:', error)
+        return []
+      }
+    })()
+  ])
   
   const scenario: ScenarioDetail = {
     scenario_id: scenarioData.id,
@@ -178,7 +195,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     key_visual_url: scenarioData.key_visual_url,
     synopsis: scenarioData.synopsis || scenarioData.description,
     description: scenarioData.description,
-    caution,
+    caution: cautionResult,
     author: scenarioData.author,
     genre: scenarioData.genre || [],
     duration: scenarioData.duration,
@@ -193,28 +210,14 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     extra_preparation_time: scenarioData.extra_preparation_time || 0
   }
   
-  // 同じ著者の他作品を取得
-  let relatedScenarios: any[] = []
-  if (scenarioData.author) {
-    try {
-      const { data: relatedData } = await supabase
-        .from('scenarios')
-        .select('id, slug, title, key_visual_url, author, player_count_min, player_count_max, duration')
-        .eq('author', scenarioData.author)
-        .neq('id', scenarioData.id)
-        .limit(6)
-      
-      relatedScenarios = relatedData || []
-    } catch (error) {
-      logger.error('関連シナリオの取得エラー:', error)
-    }
-  }
+  const endTime = performance.now()
+  logger.log(`⏱️ シナリオ詳細取得完了: ${((endTime - startTime) / 1000).toFixed(2)}秒`)
   
   return {
     scenario,
     events: scenarioEvents as EventSchedule[],
     stores: storesData,
-    relatedScenarios,
+    relatedScenarios: relatedScenariosResult,
     organizationId: orgId
   }
 }
