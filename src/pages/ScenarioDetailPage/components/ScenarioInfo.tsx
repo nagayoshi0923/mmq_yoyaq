@@ -58,6 +58,7 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario, organizati
               </div>
             </div>
 
+            {/* 難易度は一旦非表示
             <div>
               <div className="text-xs text-muted-foreground mb-1">難易度</div>
               <div className="flex items-center gap-1">
@@ -69,6 +70,7 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario, organizati
                 ))}
               </div>
             </div>
+            */}
 
             <div>
               <div className="text-xs text-muted-foreground">参加費</div>
