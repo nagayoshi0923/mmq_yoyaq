@@ -84,17 +84,21 @@ serve(async (req) => {
     )
     
     let resendApiKey = Deno.env.get('RESEND_API_KEY')
-    let senderEmail = 'noreply@example.com'
-    let senderName = 'MMQ予約システム'
+    let senderEmail = Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
+    let senderName = Deno.env.get('SENDER_NAME') || 'MMQ予約システム'
+    let replyToEmail: string | null = null
     
     const resolvedOrganizationId = bookingData.organizationId || reservation.organization_id
     if (resolvedOrganizationId) {
       const emailSettings = await getEmailSettings(serviceClient, resolvedOrganizationId)
       if (emailSettings.resendApiKey) {
         resendApiKey = emailSettings.resendApiKey
-        senderEmail = emailSettings.senderEmail
-        senderName = emailSettings.senderName
-        console.log('✅ Using organization-specific email settings')
+      }
+      // senderEmail/senderNameは環境変数固定（Resend検証済みドメインが必要）
+      // replyToEmailは組織設定を使用
+      if (emailSettings.replyToEmail) {
+        replyToEmail = emailSettings.replyToEmail
+        console.log('✅ Using organization-specific reply-to email')
       }
     }
     
@@ -297,19 +301,25 @@ Murder Mystery Queue (MMQ)
     `
 
     // Resend APIを使ってメール送信
+    const emailPayload: Record<string, unknown> = {
+      from: `${senderName} <${senderEmail}>`,
+      to: [bookingData.customerEmail],
+      subject: `【予約完了】${bookingData.scenarioTitle} - ${formatDate(bookingData.eventDate)}`,
+      html: emailHtml,
+      text: emailText,
+    }
+    // reply_toが設定されていれば追加
+    if (replyToEmail) {
+      emailPayload.reply_to = replyToEmail
+    }
+    
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: `${senderName} <${senderEmail}>`,
-        to: [bookingData.customerEmail],
-        subject: `【予約完了】${bookingData.scenarioTitle} - ${formatDate(bookingData.eventDate)}`,
-        html: emailHtml,
-        text: emailText,
-      }),
+      body: JSON.stringify(emailPayload),
     })
 
     if (!resendResponse.ok) {

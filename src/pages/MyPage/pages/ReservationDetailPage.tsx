@@ -390,7 +390,10 @@ export function ReservationDetailPage() {
   }
 
   // 人数変更可能かどうか
-  const canEdit = reservation?.status === 'confirmed' && canCancel
+  // キャンセル期限後でも人数の「追加」は許可（減少は不可）
+  const canEdit = reservation?.status === 'confirmed'
+  // 人数を減らせるかどうか（キャンセル期限内のみ）
+  const canDecrease = reservation?.status === 'confirmed' && canCancel
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -762,6 +765,11 @@ export function ReservationDetailPage() {
             <DialogTitle>参加人数を変更</DialogTitle>
             <DialogDescription>
               変更後の参加人数を選択してください。（残席: {remainingSeats}名）
+              {!canDecrease && reservation && (
+                <span className="block text-amber-600 mt-1">
+                  ※キャンセル期限を過ぎているため、人数の追加のみ可能です
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -773,11 +781,14 @@ export function ReservationDetailPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: remainingSeats }, (_, i) => i + 1).map((num) => (
-                  <SelectItem key={num} value={String(num)}>
-                    {num}名
-                  </SelectItem>
-                ))}
+                {/* キャンセル期限後は現在の人数以上のみ選択可能 */}
+                {Array.from({ length: remainingSeats }, (_, i) => i + 1)
+                  .filter((num) => canDecrease || num >= (reservation?.participant_count || 1))
+                  .map((num) => (
+                    <SelectItem key={num} value={String(num)}>
+                      {num}名
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>

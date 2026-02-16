@@ -448,6 +448,11 @@ export function ReservationsPage() {
       : DEFAULT_CANCEL_DEADLINE_HOURS
   }
 
+  // 人数を減らせるかどうか（キャンセル期限内のみ減少可能）
+  const canDecrease = (reservation: Reservation) => {
+    return canCancel(reservation)
+  }
+
   // キャンセルポリシーを取得
   const fetchCancellationPolicy = async (storeId: string | null | undefined): Promise<CancellationPolicy | null> => {
     if (!storeId) return null
@@ -1365,6 +1370,11 @@ export function ReservationsPage() {
             <DialogTitle>参加人数を変更</DialogTitle>
             <DialogDescription>
               {editTarget && formatTitle(editTarget.title)}
+              {editTarget && !canDecrease(editTarget) && (
+                <span className="block text-amber-600 mt-1">
+                  ※キャンセル期限を過ぎているため、人数の追加のみ可能です
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1375,18 +1385,28 @@ export function ReservationsPage() {
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={() => setNewParticipantCount(Math.max(1, newParticipantCount - 1))}
-                  disabled={newParticipantCount <= 1}
+                  onClick={() => setNewParticipantCount(Math.max(
+                    editTarget && !canDecrease(editTarget) ? editTarget.participant_count : 1,
+                    newParticipantCount - 1
+                  ))}
+                  disabled={editTarget ? (
+                    canDecrease(editTarget) 
+                      ? newParticipantCount <= 1 
+                      : newParticipantCount <= editTarget.participant_count
+                  ) : true}
                 >
                   -
                 </Button>
                 <Input
                   id="participantCount"
                   type="number"
-                  min={1}
+                  min={editTarget && !canDecrease(editTarget) ? editTarget.participant_count : 1}
                   max={getMaxAllowedParticipants()}
                   value={newParticipantCount}
-                  onChange={(e) => setNewParticipantCount(Math.min(getMaxAllowedParticipants(), Math.max(1, parseInt(e.target.value) || 1)))}
+                  onChange={(e) => {
+                    const minValue = editTarget && !canDecrease(editTarget) ? editTarget.participant_count : 1
+                    setNewParticipantCount(Math.min(getMaxAllowedParticipants(), Math.max(minValue, parseInt(e.target.value) || minValue)))
+                  }}
                   className="w-20 text-center"
                 />
                 <Button

@@ -119,6 +119,10 @@ export async function getDiscordSettings(
 
 /**
  * メール設定を取得（フォールバック: 環境変数）
+ * 
+ * 注意: sender_email はResendで検証済みのドメインが必要なため、
+ * organization_settings の設定は使用せず、環境変数のみを使用する。
+ * 組織ごとのメールアドレス設定は reply_to_email で対応する。
  */
 export async function getEmailSettings(
   supabase: SupabaseClient,
@@ -131,10 +135,16 @@ export async function getEmailSettings(
 }> {
   const settings = await getOrganizationSettings(supabase, organizationId)
   
+  // sender_email は環境変数固定（Resend検証済みドメインが必要）
+  // 組織ごとの設定は reply_to_email で対応
+  const senderEmail = Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
+  const senderName = Deno.env.get('SENDER_NAME') || 'MMQ予約システム'
+  
   return {
     resendApiKey: settings?.resend_api_key || Deno.env.get('RESEND_API_KEY') || null,
-    senderEmail: settings?.sender_email || Deno.env.get('SENDER_EMAIL') || 'noreply@example.com',
-    senderName: settings?.sender_name || Deno.env.get('SENDER_NAME') || 'MMQ予約システム',
+    senderEmail,
+    senderName,
+    // reply_to_email は組織設定を優先（お客様の返信先として使用）
     replyToEmail: settings?.reply_to_email || Deno.env.get('REPLY_TO_EMAIL') || null,
   }
 }
