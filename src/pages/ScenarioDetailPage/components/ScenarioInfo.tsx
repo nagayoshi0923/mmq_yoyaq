@@ -112,12 +112,6 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario, organizati
             </div>
           )}
 
-          {/* 事前読み込み */}
-          {scenario.has_pre_reading && (
-            <div className="flex items-center gap-2 text-sm text-amber-600">
-              <span className="">📖 このシナリオには事前読み込みがあります</span>
-            </div>
-          )}
 
           {/* 公式サイト */}
           {scenario.official_site_url && (

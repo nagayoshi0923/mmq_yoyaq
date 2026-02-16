@@ -113,11 +113,6 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
               {g}
             </Badge>
           ))}
-          {scenario.has_pre_reading && (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
-              事前読み込みあり
-            </Badge>
-          )}
         </div>
       </div>
     </div>
