@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Save, Plus, Trash2, Users, Lock, Building2, Settings2, Clock, Info } from 'lucide-react'
+import { Save, Plus, Trash2, Users, Lock, Building2, Settings2, Clock, Info, ExternalLink } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -828,10 +828,21 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
         title="キャンセル設定"
         description="通常公演・貸切公演それぞれのキャンセルポリシー"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? '保存中...' : '保存'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/cancel-policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+          >
+            <ExternalLink className="h-4 w-4" />
+            ポリシーページを確認
+          </a>
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? '保存中...' : '保存'}
+          </Button>
+        </div>
       </PageHeader>
 
       {!storeId && (
