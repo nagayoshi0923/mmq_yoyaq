@@ -17,15 +17,22 @@ interface CancellationFee {
   description: string
 }
 
+interface PolicyItem {
+  id: string
+  content: string
+}
+
 interface CancellationSettings {
   id: string
   store_id: string
   // 通常公演用
   cancellation_policy: string
+  cancellation_policy_items: PolicyItem[]
   cancellation_deadline_hours: number
   cancellation_fees: CancellationFee[]
   // 貸切公演用
   private_cancellation_policy: string
+  private_cancellation_policy_items: PolicyItem[]
   private_cancellation_deadline_hours: number
   private_cancellation_fees: CancellationFee[]
   // 共通
@@ -157,6 +164,111 @@ function CancellationFeesEditor({ fees, onAdd, onRemove, onUpdate }: Cancellatio
   )
 }
 
+// ポリシー項目エディタ
+interface PolicyItemsEditorProps {
+  items: PolicyItem[]
+  onAdd: () => void
+  onRemove: (id: string) => void
+  onUpdate: (id: string, content: string) => void
+  onMoveUp: (index: number) => void
+  onMoveDown: (index: number) => void
+}
+
+function PolicyItemsEditor({ items, onAdd, onRemove, onUpdate, onMoveUp, onMoveDown }: PolicyItemsEditorProps) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="font-medium text-sm">ポリシー項目</h4>
+          <p className="text-xs text-muted-foreground">予約確認やサイトに表示される注意事項</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onAdd}
+          className="text-blue-600 border-blue-600 hover:bg-blue-50"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          項目追加
+        </Button>
+      </div>
+
+      <div className="space-y-2">
+        {items.map((item, index) => (
+          <div key={item.id} className="flex items-start gap-2 p-2 border rounded-lg bg-white">
+            <div className="flex flex-col gap-0.5 pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0 text-gray-400 hover:text-gray-600"
+                onClick={() => onMoveUp(index)}
+                disabled={index === 0}
+              >
+                ▲
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0 text-gray-400 hover:text-gray-600"
+                onClick={() => onMoveDown(index)}
+                disabled={index === items.length - 1}
+              >
+                ▼
+              </Button>
+            </div>
+            <div className="flex-1">
+              <Input
+                value={item.content}
+                onChange={(e) => onUpdate(item.id, e.target.value)}
+                placeholder="ポリシー内容を入力"
+                className="text-sm"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemove(item.id)}
+              className="text-red-500 hover:text-red-600 hover:bg-red-50 h-9 w-9 p-0"
+              disabled={items.length <= 1}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      {/* プレビュー */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+        <h5 className="text-xs font-medium mb-2">表示プレビュー</h5>
+        <ul className="text-xs text-gray-700 space-y-1">
+          {items.map((item) => (
+            <li key={item.id}>• {item.content || '（未入力）'}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+// デフォルトのポリシー項目
+const DEFAULT_POLICY_ITEMS: PolicyItem[] = [
+  { id: '1', content: 'キャンセルの際は必ず事前にご連絡ください' },
+  { id: '2', content: 'キャンセル料は予約時の参加費を基準に算出されます' },
+  { id: '3', content: '無断キャンセルの場合は100%のキャンセル料が発生します' }
+]
+
+const DEFAULT_PRIVATE_POLICY_ITEMS: PolicyItem[] = [
+  { id: '1', content: '貸切予約のキャンセルは通常公演より早い期限が適用されます' },
+  { id: '2', content: 'キャンセル料は貸切料金を基準に算出されます' },
+  { id: '3', content: '日程変更は空き状況により可能な場合があります' }
+]
+
+const generateId = () => Math.random().toString(36).substring(2, 9)
+
 export function CancellationSettings({ storeId }: CancellationSettingsProps) {
   const [activeTab, setActiveTab] = useState<SettingType>('regular')
   const [formData, setFormData] = useState<CancellationSettings>({
@@ -164,6 +276,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
     store_id: storeId,
     // 通常公演
     cancellation_policy: '',
+    cancellation_policy_items: DEFAULT_POLICY_ITEMS,
     cancellation_deadline_hours: 24,
     cancellation_fees: [
       { hours_before: 168, fee_percentage: 0, description: '1週間前まで無料' },
@@ -173,6 +286,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
     ],
     // 貸切公演
     private_cancellation_policy: '',
+    private_cancellation_policy_items: DEFAULT_PRIVATE_POLICY_ITEMS,
     private_cancellation_deadline_hours: 48,
     private_cancellation_fees: [
       { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
@@ -223,6 +337,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
               id: '', // 全店舗モードなのでidは空
               store_id: '',
               cancellation_policy: data.cancellation_policy || '',
+              cancellation_policy_items: data.cancellation_policy_items || DEFAULT_POLICY_ITEMS,
               cancellation_deadline_hours: data.cancellation_deadline_hours || 24,
               cancellation_fees: data.cancellation_fees || [
                 { hours_before: 168, fee_percentage: 0, description: '1週間前まで無料' },
@@ -231,6 +346,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                 { hours_before: 0, fee_percentage: 100, description: '当日100%' }
               ],
               private_cancellation_policy: data.private_cancellation_policy || '',
+              private_cancellation_policy_items: data.private_cancellation_policy_items || DEFAULT_PRIVATE_POLICY_ITEMS,
               private_cancellation_deadline_hours: data.private_cancellation_deadline_hours || 48,
               private_cancellation_fees: data.private_cancellation_fees || [
                 { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
@@ -266,6 +382,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           id: data.id,
           store_id: data.store_id,
           cancellation_policy: data.cancellation_policy || '',
+          cancellation_policy_items: data.cancellation_policy_items || DEFAULT_POLICY_ITEMS,
           cancellation_deadline_hours: data.cancellation_deadline_hours || 24,
           cancellation_fees: data.cancellation_fees || [
             { hours_before: 168, fee_percentage: 0, description: '1週間前まで無料' },
@@ -274,6 +391,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
             { hours_before: 0, fee_percentage: 100, description: '当日100%' }
           ],
           private_cancellation_policy: data.private_cancellation_policy || '',
+          private_cancellation_policy_items: data.private_cancellation_policy_items || DEFAULT_PRIVATE_POLICY_ITEMS,
           private_cancellation_deadline_hours: data.private_cancellation_deadline_hours || 48,
           private_cancellation_fees: data.private_cancellation_fees || [
             { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
@@ -304,9 +422,11 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
 
       const savePayload = {
         cancellation_policy: formData.cancellation_policy,
+        cancellation_policy_items: formData.cancellation_policy_items,
         cancellation_deadline_hours: formData.cancellation_deadline_hours,
         cancellation_fees: sortedFees,
         private_cancellation_policy: formData.private_cancellation_policy,
+        private_cancellation_policy_items: formData.private_cancellation_policy_items,
         private_cancellation_deadline_hours: formData.private_cancellation_deadline_hours,
         private_cancellation_fees: sortedPrivateFees
       }
@@ -466,6 +586,96 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
     setFormData(prev => ({ ...prev, private_cancellation_fees: newFees }))
   }
 
+  // 通常公演ポリシー項目の操作
+  const addPolicyItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      cancellation_policy_items: [
+        ...prev.cancellation_policy_items,
+        { id: generateId(), content: '' }
+      ]
+    }))
+  }
+
+  const removePolicyItem = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      cancellation_policy_items: prev.cancellation_policy_items.filter(item => item.id !== id)
+    }))
+  }
+
+  const updatePolicyItem = (id: string, content: string) => {
+    setFormData(prev => ({
+      ...prev,
+      cancellation_policy_items: prev.cancellation_policy_items.map(item =>
+        item.id === id ? { ...item, content } : item
+      )
+    }))
+  }
+
+  const movePolicyItemUp = (index: number) => {
+    if (index === 0) return
+    setFormData(prev => {
+      const items = [...prev.cancellation_policy_items]
+      ;[items[index - 1], items[index]] = [items[index], items[index - 1]]
+      return { ...prev, cancellation_policy_items: items }
+    })
+  }
+
+  const movePolicyItemDown = (index: number) => {
+    if (index === formData.cancellation_policy_items.length - 1) return
+    setFormData(prev => {
+      const items = [...prev.cancellation_policy_items]
+      ;[items[index], items[index + 1]] = [items[index + 1], items[index]]
+      return { ...prev, cancellation_policy_items: items }
+    })
+  }
+
+  // 貸切公演ポリシー項目の操作
+  const addPrivatePolicyItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      private_cancellation_policy_items: [
+        ...prev.private_cancellation_policy_items,
+        { id: generateId(), content: '' }
+      ]
+    }))
+  }
+
+  const removePrivatePolicyItem = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      private_cancellation_policy_items: prev.private_cancellation_policy_items.filter(item => item.id !== id)
+    }))
+  }
+
+  const updatePrivatePolicyItem = (id: string, content: string) => {
+    setFormData(prev => ({
+      ...prev,
+      private_cancellation_policy_items: prev.private_cancellation_policy_items.map(item =>
+        item.id === id ? { ...item, content } : item
+      )
+    }))
+  }
+
+  const movePrivatePolicyItemUp = (index: number) => {
+    if (index === 0) return
+    setFormData(prev => {
+      const items = [...prev.private_cancellation_policy_items]
+      ;[items[index - 1], items[index]] = [items[index], items[index - 1]]
+      return { ...prev, private_cancellation_policy_items: items }
+    })
+  }
+
+  const movePrivatePolicyItemDown = (index: number) => {
+    if (index === formData.private_cancellation_policy_items.length - 1) return
+    setFormData(prev => {
+      const items = [...prev.private_cancellation_policy_items]
+      ;[items[index], items[index + 1]] = [items[index + 1], items[index]]
+      return { ...prev, private_cancellation_policy_items: items }
+    })
+  }
+
   if (loading) {
     return <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
   }
@@ -530,22 +740,30 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* ポリシー項目 */}
+              <PolicyItemsEditor
+                items={formData.cancellation_policy_items}
+                onAdd={addPolicyItem}
+                onRemove={removePolicyItem}
+                onUpdate={updatePolicyItem}
+                onMoveUp={movePolicyItemUp}
+                onMoveDown={movePolicyItemDown}
+              />
+
+              {/* 補足文章（任意） */}
               <div>
-                <Label htmlFor="cancellation_policy">キャンセルポリシー文章</Label>
+                <Label htmlFor="cancellation_policy">補足説明（任意）</Label>
                 <Textarea
                   id="cancellation_policy"
                   value={formData.cancellation_policy}
                   onChange={(e) => setFormData(prev => ({ ...prev, cancellation_policy: e.target.value }))}
-                  placeholder="例: ご予約のキャンセルはお早めにご連絡ください。キャンセル料はキャンセル時期により異なります。"
-                  rows={3}
+                  placeholder="上記項目以外の補足説明があれば入力"
+                  rows={2}
                   className="mt-1"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  予約確認メールやサイトに表示されます
-                </p>
               </div>
 
-              <div>
+              <div className="border-t pt-4">
                 <Label htmlFor="cancellation_deadline_hours">キャンセル受付期限</Label>
                 <div className="flex items-center gap-2 mt-1">
                   <Input
@@ -589,22 +807,30 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* ポリシー項目 */}
+              <PolicyItemsEditor
+                items={formData.private_cancellation_policy_items}
+                onAdd={addPrivatePolicyItem}
+                onRemove={removePrivatePolicyItem}
+                onUpdate={updatePrivatePolicyItem}
+                onMoveUp={movePrivatePolicyItemUp}
+                onMoveDown={movePrivatePolicyItemDown}
+              />
+
+              {/* 補足文章（任意） */}
               <div>
-                <Label htmlFor="private_cancellation_policy">キャンセルポリシー文章</Label>
+                <Label htmlFor="private_cancellation_policy">補足説明（任意）</Label>
                 <Textarea
                   id="private_cancellation_policy"
                   value={formData.private_cancellation_policy}
                   onChange={(e) => setFormData(prev => ({ ...prev, private_cancellation_policy: e.target.value }))}
-                  placeholder="例: 貸切公演のキャンセルは、通常公演より早い期限が適用されます。キャンセル料は以下の通りです。"
-                  rows={3}
+                  placeholder="上記項目以外の補足説明があれば入力"
+                  rows={2}
                   className="mt-1"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  貸切予約確認メールに表示されます
-                </p>
               </div>
 
-              <div>
+              <div className="border-t pt-4">
                 <Label htmlFor="private_cancellation_deadline_hours">キャンセル受付期限</Label>
                 <div className="flex items-center gap-2 mt-1">
                   <Input
