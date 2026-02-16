@@ -710,6 +710,15 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       if (staff) {
         setCurrentStaffId(staff.id)
         setCurrentStaffName(staff.display_name || staff.name || '')
+      } else {
+        // user_idが紐付いていないスタッフの場合、ログインユーザーIDをフォールバックとして使用
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          // ユーザーIDを仮のスタッフIDとして設定（操作履歴の記録用）
+          setCurrentStaffId(user.id)
+          setCurrentStaffName(user.email?.split('@')[0] || 'ユーザー')
+          console.warn('⚠️ スタッフ情報が取得できないため、ログインユーザー情報を使用:', user.id)
+        }
       }
       
       const [locationsData, storesData, scenariosData] = await Promise.all([

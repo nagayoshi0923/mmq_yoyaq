@@ -125,7 +125,7 @@ serve(async (req) => {
     // 🔒 SEC-P0-03対策: bookingUrl をサーバー側で生成（入力値を無視）
     const { data: org, error: orgError } = await serviceClient
       .from('organizations')
-      .select('slug, domain')
+      .select('slug')
       .eq('id', data.organizationId)
       .single()
     
@@ -134,26 +134,19 @@ serve(async (req) => {
       throw new Error('組織情報の取得に失敗しました')
     }
     
-    // 組織のドメインがあればそれを使用、なければデフォルトドメイン + slug
-    const bookingUrl = org.domain 
-      ? `https://${org.domain}`
-      : `https://mmq.game/${org.slug || 'queens-waltz'}`
+    // デフォルトドメイン + slug で予約URLを生成
+    const bookingUrl = `https://mmq.game/${org.slug || 'queens-waltz'}`
     
     console.log('✅ bookingUrl generated server-side:', bookingUrl)
 
     // メール設定を取得
-    let resendApiKey = Deno.env.get('RESEND_API_KEY')
-    let senderEmail = 'noreply@mmq.game'
-    let senderName = 'MMQ予約システム'
-
-    if (data.organizationId) {
-      const emailSettings = await getEmailSettings(serviceClient, data.organizationId)
-      if (emailSettings.resendApiKey) {
-        resendApiKey = emailSettings.resendApiKey
-        senderEmail = emailSettings.senderEmail
-        senderName = emailSettings.senderName
-      }
-    }
+    const emailSettings = data.organizationId 
+      ? await getEmailSettings(serviceClient, data.organizationId)
+      : null
+    
+    const resendApiKey = emailSettings?.resendApiKey || Deno.env.get('RESEND_API_KEY')
+    const senderEmail = emailSettings?.senderEmail || Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
+    const senderName = emailSettings?.senderName || Deno.env.get('SENDER_NAME') || 'MMQ予約システム'
 
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set')

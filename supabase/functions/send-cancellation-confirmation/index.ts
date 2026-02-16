@@ -1,11 +1,12 @@
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getEmailSettings } from '../_shared/organization-settings.ts'
+import { getEmailSettings, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 
 interface CancellationRequest {
   organizationId?: string  // マルチテナント対応
+  storeId?: string  // 店舗ID（メール設定取得用）
   reservationId: string
   customerEmail: string
   customerName: string
@@ -77,24 +78,34 @@ serve(async (req) => {
       getServiceRoleKey()
     )
     
-    let resendApiKey = Deno.env.get('RESEND_API_KEY')
-    let senderEmail = 'noreply@example.com'
-    let senderName = 'MMQ予約システム'
-    
     const resolvedOrganizationId = cancellationData.organizationId || reservation.organization_id
-    if (resolvedOrganizationId) {
-      const emailSettings = await getEmailSettings(serviceClient, resolvedOrganizationId)
-      if (emailSettings.resendApiKey) {
-        resendApiKey = emailSettings.resendApiKey
-        senderEmail = emailSettings.senderEmail
-        senderName = emailSettings.senderName
-      }
-    }
+    const emailSettings = resolvedOrganizationId 
+      ? await getEmailSettings(serviceClient, resolvedOrganizationId)
+      : null
+    
+    const resendApiKey = emailSettings?.resendApiKey || Deno.env.get('RESEND_API_KEY')
+    const senderEmail = emailSettings?.senderEmail || Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
+    const senderName = emailSettings?.senderName || Deno.env.get('SENDER_NAME') || 'MMQ予約システム'
+    const replyToEmail = emailSettings?.replyToEmail || null
     
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set')
       throw new Error('メール送信サービスが設定されていません')
     }
+
+    // 店舗のメール設定（テンプレート・会社情報）を取得
+    const storeEmailSettings = await getStoreEmailSettings(serviceClient, {
+      storeId: cancellationData.storeId,
+      organizationId: resolvedOrganizationId
+    })
+    
+    // 会社情報（デフォルト値付き）
+    const companyName = storeEmailSettings?.company_name || cancellationData.organizationName || senderName
+    const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
+    const companyPhone = storeEmailSettings?.company_phone || ''
+    
+    // カスタムテンプレートの取得
+    const customTemplate = storeEmailSettings?.cancellation_template
 
     // 日付フォーマット関数
     const formatDate = (dateStr: string): string => {
@@ -221,9 +232,11 @@ serve(async (req) => {
   </div>
 
   <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px;">
-    <p style="margin: 5px 0;">Murder Mystery Queue (MMQ)</p>
-    <p style="margin: 5px 0;">このメールは自動送信されています</p>
-    <p style="margin: 5px 0;">ご不明な点がございましたら、お気軽にお問い合わせください</p>
+    <p style="margin: 5px 0; font-weight: bold;">${companyName}</p>
+    ${companyPhone ? `<p style="margin: 5px 0;">TEL: ${companyPhone}</p>` : ''}
+    ${companyEmail ? `<p style="margin: 5px 0;">Email: ${companyEmail}</p>` : ''}
+    <p style="margin: 10px 0 5px 0; font-size: 11px;">このメールは自動送信されています</p>
+    <p style="margin: 5px 0; font-size: 11px;">ご不明な点がございましたら、お気軽にお問い合わせください</p>
   </div>
 </body>
 </html>
@@ -281,41 +294,90 @@ ${isStoreCancellation
   ? 'この度は大変ご迷惑をおかけし、誠に申し訳ございませんでした。\nまたのご利用を心よりお待ちしております。'
   : '別の日程でのご予約も承っております。\nまたのご利用をお待ちしております。'}
 
-Murder Mystery Queue (MMQ)
+${companyName}
+${companyPhone ? `TEL: ${companyPhone}` : ''}
+${companyEmail ? `Email: ${companyEmail}` : ''}
 このメールは自動送信されています
 ご不明な点がございましたら、お気軽にお問い合わせください
     `
 
-    // カスタム本文がある場合はシンプルなHTMLに変換
-    const finalHtml = cancellationData.customEmailBody 
-      ? `<!DOCTYPE html>
+    // テンプレートの変数置換用関数
+    const applyTemplate = (template: string) => {
+      return template
+        .replace(/{customer_name}/g, cancellationData.customerName || 'お客様')
+        .replace(/{scenario_title}/g, cancellationData.scenarioTitle || '')
+        .replace(/{date}/g, formatDate(cancellationData.eventDate))
+        .replace(/{time}/g, formatTime(cancellationData.startTime))
+        .replace(/{venue}/g, cancellationData.storeName || '')
+        .replace(/{reservation_number}/g, cancellationData.reservationNumber || '')
+        .replace(/{participants}/g, String(cancellationData.participantCount || ''))
+        .replace(/{total_price}/g, (cancellationData.totalPrice || 0).toLocaleString())
+        .replace(/{cancellation_fee}/g, (cancellationData.cancellationFee || 0).toLocaleString())
+        .replace(/{cancellation_reason}/g, cancellationData.cancellationReason || '')
+    }
+
+    // カスタムテンプレートをHTMLに変換
+    const templateToHtml = (template: string) => {
+      const htmlContent = template
+        .split('\n')
+        .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
+        .join('\n')
+      
+      return `<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${cancellationData.customEmailBody}</pre>
+  ${htmlContent}
 </body>
 </html>`
-      : emailHtml
+    }
+
+    // 最終的なHTMLとテキストを決定
+    let finalHtml: string
+    let finalText: string
+
+    if (cancellationData.customEmailBody) {
+      // API呼び出し時にカスタム本文が指定されている場合（最優先）
+      finalHtml = templateToHtml(cancellationData.customEmailBody)
+      finalText = cancellationData.customEmailBody
+    } else if (customTemplate && customTemplate.trim()) {
+      // email_settingsにテンプレートが設定されている場合
+      const appliedTemplate = applyTemplate(customTemplate)
+      finalHtml = templateToHtml(appliedTemplate)
+      finalText = appliedTemplate
+      console.log('📧 Using custom cancellation template from email_settings')
+    } else {
+      // デフォルトのハードコードテンプレートを使用
+      finalHtml = emailHtml
+      finalText = emailText
+    }
 
     // Resend APIを使ってメール送信
+    const emailPayload: Record<string, unknown> = {
+      from: `${companyName} <${senderEmail}>`,
+      to: [cancellationData.customerEmail],
+      subject: isStoreCancellation 
+        ? `【公演中止】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}${companyName ? ` | ${companyName}` : ''}`
+        : `【予約キャンセル】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}${companyName ? ` | ${companyName}` : ''}`,
+      html: finalHtml,
+      text: finalText,
+    }
+    
+    // 返信先メールアドレスが設定されている場合は追加
+    if (companyEmail || replyToEmail) {
+      emailPayload.reply_to = companyEmail || replyToEmail
+    }
+
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: 'MMQ予約システム <noreply@mmq.game>',
-        to: [cancellationData.customerEmail],
-        subject: isStoreCancellation 
-          ? `【公演中止】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}${cancellationData.organizationName ? ` | ${cancellationData.organizationName}` : ''}`
-          : `【予約キャンセル】${cancellationData.scenarioTitle} - ${formatDate(cancellationData.eventDate)}${cancellationData.organizationName ? ` | ${cancellationData.organizationName}` : ''}`,
-        html: finalHtml,
-        text: emailText,
-      }),
+      body: JSON.stringify(emailPayload),
     })
 
     if (!resendResponse.ok) {

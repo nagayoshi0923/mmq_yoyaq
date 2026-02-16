@@ -656,6 +656,8 @@ export const reservationApi = {
         const idempotencyKey = `cancel-confirm-${reservation.id}-${Date.now()}`
         await supabase.functions.invoke('send-cancellation-confirmation', {
           body: {
+            organizationId: reservation.organization_id,
+            storeId: scheduleEvent?.venue,
             reservationId: reservation.id,
             customerEmail: reservation.customers.email,
             customerName: reservation.customers.name,

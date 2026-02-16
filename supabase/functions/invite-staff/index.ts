@@ -398,18 +398,13 @@ serve(async (req) => {
     console.log('🔗 Invitation link generated (type=%s)', linkType)
 
     // 組織設定からメール設定を取得
-    let resendApiKey = Deno.env.get('RESEND_API_KEY')
-    let senderEmail = 'noreply@example.com'
-    let senderName = 'MMQ'
+    const emailSettings = organizationId 
+      ? await getEmailSettings(supabase, organizationId)
+      : null
     
-    if (organizationId) {
-      const emailSettings = await getEmailSettings(supabase, organizationId)
-      if (emailSettings.resendApiKey) {
-        resendApiKey = emailSettings.resendApiKey
-        senderEmail = emailSettings.senderEmail
-        senderName = emailSettings.senderName
-      }
-    }
+    const resendApiKey = emailSettings?.resendApiKey || Deno.env.get('RESEND_API_KEY')
+    const senderEmail = emailSettings?.senderEmail || Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
+    const senderName = emailSettings?.senderName || Deno.env.get('SENDER_NAME') || 'MMQ'
     
     const fromEmail = `${senderName} <${senderEmail}>`
     let emailSent = false

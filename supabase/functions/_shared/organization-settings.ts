@@ -200,6 +200,83 @@ export async function getNotificationSettings(
 }
 
 /**
+ * 店舗のメール設定（テンプレート・会社情報）を取得
+ * email_settings テーブルから取得
+ */
+export interface StoreEmailSettings {
+  company_name: string | null
+  company_email: string | null
+  company_phone: string | null
+  company_address: string | null
+  reservation_confirmation_template: string | null
+  cancellation_template: string | null
+  reminder_template: string | null
+  booking_change_template: string | null
+  private_request_template: string | null
+  private_confirm_template: string | null
+  private_cancellation_template: string | null
+  private_rejection_template: string | null
+  waitlist_notify_template: string | null
+}
+
+export async function getStoreEmailSettings(
+  supabase: SupabaseClient,
+  options: { storeId?: string; organizationId?: string }
+): Promise<StoreEmailSettings | null> {
+  let query = supabase
+    .from('email_settings')
+    .select([
+      'company_name',
+      'company_email',
+      'company_phone',
+      'company_address',
+      'reservation_confirmation_template',
+      'cancellation_template',
+      'reminder_template',
+      'booking_change_template',
+      'private_request_template',
+      'private_confirm_template',
+      'private_cancellation_template',
+      'private_rejection_template',
+      'waitlist_notify_template',
+    ].join(','))
+
+  // store_id が指定されている場合はそれを優先
+  if (options.storeId) {
+    query = query.eq('store_id', options.storeId)
+  } else if (options.organizationId) {
+    // organization_id のみ指定されている場合は組織の最初の設定を取得
+    query = query.eq('organization_id', options.organizationId)
+  } else {
+    return null
+  }
+
+  const { data, error } = await query.maybeSingle()
+
+  if (error) {
+    console.error('店舗メール設定取得エラー:', error)
+    return null
+  }
+
+  return data
+}
+
+/**
+ * メールテンプレートの変数を置換
+ */
+export function replaceTemplateVariables(
+  template: string,
+  variables: Record<string, string | number | undefined>
+): string {
+  let result = template
+  for (const [key, value] of Object.entries(variables)) {
+    const placeholder = `{${key}}`
+    result = result.split(placeholder).join(String(value ?? ''))
+  }
+  return result
+}
+
+/**
  * Discord通知を送信し、失敗時はキューに保存
  * @param supabase Supabaseクライアント
  * @param webhookUrl Discord Webhook URL

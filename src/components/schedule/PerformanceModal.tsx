@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -147,19 +147,16 @@ export function PerformanceModal({
     ? timeOptions.filter(time => time >= businessHours.openTime && time <= businessHours.closeTime)
     : timeOptions
 
-  // 選択中の店舗で公演可能なシナリオのみにフィルタリング
-  const filteredScenarios = useMemo(() => {
-    if (!formData.venue) return scenarios
-    
-    return scenarios.filter(scenario => {
-      // available_storesが未設定または空の場合は全店舗対応
-      if (!scenario.available_stores || scenario.available_stores.length === 0) {
-        return true
-      }
-      // 選択中の店舗がavailable_storesに含まれているかチェック
-      return scenario.available_stores.includes(formData.venue)
-    })
-  }, [scenarios, formData.venue])
+  // シナリオが選択中の店舗で公演可能かどうかをチェック
+  const isScenarioAvailableAtVenue = (scenario: Scenario) => {
+    if (!formData.venue) return true
+    // available_storesが未設定または空の場合は全店舗対応
+    if (!scenario.available_stores || scenario.available_stores.length === 0) {
+      return true
+    }
+    // 選択中の店舗がavailable_storesに含まれているかチェック
+    return scenario.available_stores.includes(formData.venue)
+  }
 
   // 閉店時刻選択肢（開始時刻より後の時間のみ）
   const getEndTimeOptions = (startTime: string) => {
@@ -598,21 +595,7 @@ export function PerformanceModal({
               <Label htmlFor="venue" className="text-xs">店舗</Label>
               <Select 
                 value={formData.venue} 
-                onValueChange={(value) => {
-                  // 店舗変更時、現在選択中のシナリオが新しい店舗で公演不可の場合はクリア
-                  const currentScenario = scenarios.find(s => s.title === formData.scenario)
-                  const isScenarioAvailable = !currentScenario || 
-                    !currentScenario.available_stores || 
-                    currentScenario.available_stores.length === 0 || 
-                    currentScenario.available_stores.includes(value)
-                  
-                  if (isScenarioAvailable) {
-                    setFormData((prev: any) => ({ ...prev, venue: value }))
-                  } else {
-                    // シナリオが新しい店舗で公演不可の場合、シナリオもクリア
-                    setFormData((prev: any) => ({ ...prev, venue: value, scenario: '', scenario_id: undefined }))
-                  }
-                }}
+                onValueChange={(value) => setFormData((prev: any) => ({ ...prev, venue: value }))}
               >
                 <SelectTrigger className="h-7 text-xs">
                   <SelectValue placeholder="店舗を選択">
@@ -703,7 +686,10 @@ export function PerformanceModal({
                   }))
                 }
               }}
-              options={filteredScenarios.map(scenario => {
+              options={scenarios.map(scenario => {
+                // この店舗で公演可能かチェック
+                const isAvailableAtCurrentVenue = isScenarioAvailableAtVenue(scenario)
+                
                 // このシナリオの担当GM全員を取得（special_scenarios は scenario_master_id を格納）
                 const isAssignedGM = (gm: StaffType) => {
                   const specialScenarios = gm.special_scenarios || []
@@ -748,7 +734,16 @@ export function PerformanceModal({
                 
                 return {
                   value: scenario.title,
-                  label: scenario.title,
+                  label: (
+                    <span className="flex items-center gap-1">
+                      {scenario.title}
+                      {!isAvailableAtCurrentVenue && (
+                        <span className="inline-flex items-center px-1 py-0 rounded text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300">
+                          公演不可
+                        </span>
+                      )}
+                    </span>
+                  ),
                   displayInfo: filteredDisplayGMs.length > 0 
                     ? (
                         <span className="flex flex-wrap gap-0.5 items-center">
@@ -826,6 +821,25 @@ export function PerformanceModal({
                 </p>
               </div>
             )}
+            {/* 公演不可店舗の警告表示 */}
+            {formData.scenario && formData.venue && (() => {
+              const selectedScenario = scenarios.find(s => s.title === formData.scenario)
+              if (selectedScenario && !isScenarioAvailableAtVenue(selectedScenario)) {
+                const storeName = stores.find(s => s.id === formData.venue)?.name || formData.venue
+                return (
+                  <div className="mt-0.5 p-1.5 bg-orange-50 border border-orange-200 rounded text-[11px]">
+                    <div className="flex items-center gap-1 text-orange-700">
+                      <span className="font-semibold">⚠️ 公演不可店舗:</span>
+                      <span>{storeName}</span>
+                    </div>
+                    <p className="mt-0.5 text-orange-500">
+                      このシナリオは選択中の店舗では公演できません
+                    </p>
+                  </div>
+                )
+              }
+              return null
+            })()}
             {/* シナリオ編集へのリンク */}
             {formData.scenario && (() => {
               const selectedScenario = scenarios.find(s => s.title === formData.scenario)

@@ -36,6 +36,8 @@ interface PolicyData {
   cancellation_notice_note: string
   reservation_change_deadline_hours: number
   reservation_change_note: string
+  private_reservation_change_deadline_hours: number
+  private_reservation_change_note: string
   refund_method_note: string
   policy_updated_at: string
 }
@@ -67,7 +69,9 @@ const DEFAULT_POLICY: PolicyData = {
   ],
   cancellation_notice_note: '中止が決定した場合、ご登録のメールアドレスに自動でお知らせします。中止の場合、参加料金は一切発生しません。',
   reservation_change_deadline_hours: 24,
-  reservation_change_note: '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。',
+  reservation_change_note: '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
+  private_reservation_change_deadline_hours: 168,
+  private_reservation_change_note: '貸切予約の変更は、公演開始1週間前まで可能です。日程変更は空き状況によります。',
   refund_method_note: '当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。',
   policy_updated_at: new Date().toISOString().split('T')[0]
 }
@@ -187,6 +191,8 @@ export function CancelPolicyPage() {
             cancellation_notice_note,
             reservation_change_deadline_hours,
             reservation_change_note,
+            private_reservation_change_deadline_hours,
+            private_reservation_change_note,
             refund_method_note,
             policy_updated_at
           `)
@@ -203,6 +209,8 @@ export function CancelPolicyPage() {
             cancellation_notice_note: data.cancellation_notice_note || DEFAULT_POLICY.cancellation_notice_note,
             reservation_change_deadline_hours: data.reservation_change_deadline_hours || DEFAULT_POLICY.reservation_change_deadline_hours,
             reservation_change_note: data.reservation_change_note || DEFAULT_POLICY.reservation_change_note,
+            private_reservation_change_deadline_hours: data.private_reservation_change_deadline_hours || DEFAULT_POLICY.private_reservation_change_deadline_hours,
+            private_reservation_change_note: data.private_reservation_change_note || DEFAULT_POLICY.private_reservation_change_note,
             refund_method_note: data.refund_method_note || DEFAULT_POLICY.refund_method_note,
             policy_updated_at: data.policy_updated_at || DEFAULT_POLICY.policy_updated_at
           })
@@ -369,10 +377,25 @@ export function CancelPolicyPage() {
                 <h2 className="text-xl font-bold text-gray-900 mb-4 pb-2 border-b">
                   予約内容の変更
                 </h2>
-                <div className="text-gray-700 space-y-3">
-                  {policy.reservation_change_note.split('\n').map((line, i) => (
-                    <p key={i}>{line}</p>
-                  ))}
+                
+                {/* 通常公演 */}
+                <div className="mb-6">
+                  <h3 className="font-bold text-gray-800 mb-2">通常公演</h3>
+                  <div className="text-gray-700 space-y-2 pl-4">
+                    {policy.reservation_change_note.split('\n').map((line, i) => (
+                      <p key={i}>{line}</p>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 貸切公演 */}
+                <div>
+                  <h3 className="font-bold text-gray-800 mb-2">貸切公演</h3>
+                  <div className="text-gray-700 space-y-2 pl-4">
+                    {policy.private_reservation_change_note.split('\n').map((line, i) => (
+                      <p key={i}>{line}</p>
+                    ))}
+                  </div>
                 </div>
               </article>
 

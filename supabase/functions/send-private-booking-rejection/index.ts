@@ -57,18 +57,13 @@ serve(async (req) => {
       getServiceRoleKey()
     )
     
-    let resendApiKey = Deno.env.get('RESEND_API_KEY')
-    let senderEmail = 'noreply@example.com'
-    let senderName = 'MMQ予約システム'
+    const emailSettings = rejectionData.organizationId 
+      ? await getEmailSettings(serviceClient, rejectionData.organizationId)
+      : null
     
-    if (rejectionData.organizationId) {
-      const emailSettings = await getEmailSettings(serviceClient, rejectionData.organizationId)
-      if (emailSettings.resendApiKey) {
-        resendApiKey = emailSettings.resendApiKey
-        senderEmail = emailSettings.senderEmail
-        senderName = emailSettings.senderName
-      }
-    }
+    const resendApiKey = emailSettings?.resendApiKey || Deno.env.get('RESEND_API_KEY')
+    const senderEmail = emailSettings?.senderEmail || Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
+    const senderName = emailSettings?.senderName || Deno.env.get('SENDER_NAME') || 'MMQ予約システム'
     
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set')

@@ -657,6 +657,8 @@ ${content.organizationName || '店舗'}
           try {
             const { error: emailError } = await supabase.functions.invoke('send-cancellation-confirmation', {
               body: {
+                organizationId: event?.organization_id,
+                storeId: event?.venue,
                 reservationId,
                 customerEmail: emailContent.customerEmail,
                 customerName: emailContent.customerName,

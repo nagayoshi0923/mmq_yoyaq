@@ -167,18 +167,13 @@ async function processQueueEntry(
 
   try {
     // メール設定を取得
-    let resendApiKey = Deno.env.get('RESEND_API_KEY')
-    let senderEmail = 'noreply@mmq.game'
-    let senderName = 'MMQ予約システム'
-
-    if (entry.organization_id) {
-      const emailSettings = await getEmailSettings(serviceClient, entry.organization_id)
-      if (emailSettings.resendApiKey) {
-        resendApiKey = emailSettings.resendApiKey
-        senderEmail = emailSettings.senderEmail
-        senderName = emailSettings.senderName
-      }
-    }
+    const emailSettings = entry.organization_id 
+      ? await getEmailSettings(serviceClient, entry.organization_id)
+      : null
+    
+    const resendApiKey = emailSettings?.resendApiKey || Deno.env.get('RESEND_API_KEY')
+    const senderEmail = emailSettings?.senderEmail || Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
+    const senderName = emailSettings?.senderName || Deno.env.get('SENDER_NAME') || 'MMQ予約システム'
 
     if (!resendApiKey) {
       throw new Error('RESEND_API_KEY is not set')

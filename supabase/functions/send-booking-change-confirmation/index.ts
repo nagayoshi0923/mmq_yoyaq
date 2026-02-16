@@ -1,11 +1,12 @@
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getEmailSettings } from '../_shared/organization-settings.ts'
+import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 
 interface BookingChangeRequest {
   organizationId?: string  // マルチテナント対応
+  storeId?: string  // 店舗ID（メール設定取得用）
   reservationId: string
   customerEmail: string
   customerName: string
@@ -79,24 +80,34 @@ serve(async (req) => {
       getServiceRoleKey()
     )
     
-    let resendApiKey = Deno.env.get('RESEND_API_KEY')
-    let senderEmail = 'noreply@example.com'
-    let senderName = 'MMQ予約システム'
-    
     const resolvedOrganizationId = changeData.organizationId || reservation.organization_id
-    if (resolvedOrganizationId) {
-      const emailSettings = await getEmailSettings(serviceClient, resolvedOrganizationId)
-      if (emailSettings.resendApiKey) {
-        resendApiKey = emailSettings.resendApiKey
-        senderEmail = emailSettings.senderEmail
-        senderName = emailSettings.senderName
-      }
-    }
+    const emailSettings = resolvedOrganizationId 
+      ? await getEmailSettings(serviceClient, resolvedOrganizationId)
+      : null
+    
+    const resendApiKey = emailSettings?.resendApiKey || Deno.env.get('RESEND_API_KEY')
+    const senderEmail = emailSettings?.senderEmail || Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
+    const senderName = emailSettings?.senderName || Deno.env.get('SENDER_NAME') || 'MMQ予約システム'
+    const replyToEmail = emailSettings?.replyToEmail || null
     
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set')
       throw new Error('メール送信サービスが設定されていません')
     }
+
+    // 店舗のメール設定（テンプレート・会社情報）を取得
+    const storeEmailSettings = await getStoreEmailSettings(serviceClient, {
+      storeId: changeData.storeId,
+      organizationId: resolvedOrganizationId
+    })
+    
+    // 会社情報（デフォルト値付き）
+    const companyName = storeEmailSettings?.company_name || senderName
+    const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
+    const companyPhone = storeEmailSettings?.company_phone || ''
+    
+    // カスタムテンプレートの取得
+    const customTemplate = storeEmailSettings?.booking_change_template
 
     // 日付フォーマット関数
     const formatDate = (dateStr: string): string => {
@@ -219,8 +230,10 @@ serve(async (req) => {
   </div>
 
   <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px;">
-    <p style="margin: 5px 0;">Murder Mystery Queue (MMQ)</p>
-    <p style="margin: 5px 0;">このメールは予約変更時に自動送信されています</p>
+    <p style="margin: 5px 0; font-weight: bold;">${companyName}</p>
+    ${companyPhone ? `<p style="margin: 5px 0;">TEL: ${companyPhone}</p>` : ''}
+    ${companyEmail ? `<p style="margin: 5px 0;">Email: ${companyEmail}</p>` : ''}
+    <p style="margin: 10px 0 5px 0; font-size: 11px;">このメールは予約変更時に自動送信されています</p>
   </div>
 </body>
 </html>
@@ -267,24 +280,83 @@ ${changeData.priceDifference! > 0
 ご不明な点がございましたら、お気軽にお問い合わせください。
 当日のご来店を心よりお待ちしております。
 
-Murder Mystery Queue (MMQ)
+${companyName}
+${companyPhone ? `TEL: ${companyPhone}` : ''}
+${companyEmail ? `Email: ${companyEmail}` : ''}
 このメールは予約変更時に自動送信されています
     `
 
+    // テンプレートの変数置換用関数
+    const applyTemplate = (template: string) => {
+      return template
+        .replace(/{customer_name}/g, changeData.customerName || 'お客様')
+        .replace(/{scenario_title}/g, changeData.scenarioTitle || '')
+        .replace(/{date}/g, changeData.newEventDate ? formatDate(changeData.newEventDate) : '')
+        .replace(/{time}/g, changeData.newStartTime ? formatTime(changeData.newStartTime) : '')
+        .replace(/{venue}/g, changeData.newStoreName || '')
+        .replace(/{reservation_number}/g, changeData.reservationNumber || '')
+        .replace(/{participants}/g, String(changeData.newParticipantCount || ''))
+        .replace(/{total_price}/g, (changeData.newTotalPrice || 0).toLocaleString())
+        .replace(/{price_difference}/g, (changeData.priceDifference || 0).toLocaleString())
+        .replace(/{changes}/g, changesText)
+    }
+
+    // カスタムテンプレートをHTMLに変換
+    const templateToHtml = (template: string) => {
+      const htmlContent = template
+        .split('\n')
+        .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
+        .join('\n')
+      
+      return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  ${htmlContent}
+</body>
+</html>`
+    }
+
+    // 最終的なHTMLとテキストを決定
+    let finalHtml: string
+    let finalText: string
+
+    if (customTemplate && customTemplate.trim()) {
+      // email_settingsにテンプレートが設定されている場合
+      const appliedTemplate = applyTemplate(customTemplate)
+      finalHtml = templateToHtml(appliedTemplate)
+      finalText = appliedTemplate
+      console.log('📧 Using custom booking change template from email_settings')
+    } else {
+      // デフォルトのハードコードテンプレートを使用
+      finalHtml = emailHtml
+      finalText = emailText
+    }
+
     // Resend APIを使ってメール送信
+    const emailPayload: Record<string, unknown> = {
+      from: `${companyName} <${senderEmail}>`,
+      to: [changeData.customerEmail],
+      subject: `【予約内容変更】${changeData.scenarioTitle} - ${changeData.reservationNumber}${companyName ? ` | ${companyName}` : ''}`,
+      html: finalHtml,
+      text: finalText,
+    }
+    
+    // 返信先メールアドレスが設定されている場合は追加
+    if (companyEmail || replyToEmail) {
+      emailPayload.reply_to = companyEmail || replyToEmail
+    }
+
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: 'MMQ予約システム <noreply@mmq.game>',
-        to: [changeData.customerEmail],
-        subject: `【予約内容変更】${changeData.scenarioTitle} - ${changeData.reservationNumber}`,
-        html: emailHtml,
-        text: emailText,
-      }),
+      body: JSON.stringify(emailPayload),
     })
 
     if (!resendResponse.ok) {

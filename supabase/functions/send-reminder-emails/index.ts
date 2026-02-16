@@ -1,10 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getEmailSettings } from '../_shared/organization-settings.ts'
+import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage, isCronOrServiceRoleCall } from '../_shared/security.ts'
 
 interface ReminderEmailRequest {
   organizationId?: string  // マルチテナント対応
+  storeId?: string  // 店舗ID（メール設定取得用）
   reservationId: string
   customerEmail: string
   customerName: string
@@ -87,23 +88,34 @@ serve(async (req) => {
       getServiceRoleKey()
     )
     
-    let resendApiKey = Deno.env.get('RESEND_API_KEY')
-    let senderEmail = 'noreply@example.com'
-    let senderName = 'MMQ予約システム'
+    const resolvedOrganizationId = reminderData.organizationId || reservation.organization_id
+    const emailSettings = resolvedOrganizationId 
+      ? await getEmailSettings(serviceClient, resolvedOrganizationId)
+      : null
     
-    if (reminderData.organizationId) {
-      const emailSettings = await getEmailSettings(serviceClient, reminderData.organizationId)
-      if (emailSettings.resendApiKey) {
-        resendApiKey = emailSettings.resendApiKey
-        senderEmail = emailSettings.senderEmail
-        senderName = emailSettings.senderName
-      }
-    }
+    const resendApiKey = emailSettings?.resendApiKey || Deno.env.get('RESEND_API_KEY')
+    const senderEmail = emailSettings?.senderEmail || Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
+    const senderName = emailSettings?.senderName || Deno.env.get('SENDER_NAME') || 'MMQ予約システム'
+    const replyToEmail = emailSettings?.replyToEmail || null
     
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set')
       throw new Error('メール送信サービスが設定されていません')
     }
+
+    // 店舗のメール設定（テンプレート・会社情報）を取得
+    const storeEmailSettings = await getStoreEmailSettings(serviceClient, {
+      storeId: reminderData.storeId,
+      organizationId: resolvedOrganizationId
+    })
+    
+    // 会社情報（デフォルト値付き）
+    const companyName = storeEmailSettings?.company_name || senderName
+    const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
+    const companyPhone = storeEmailSettings?.company_phone || ''
+    
+    // カスタムテンプレートの取得（email_settingsを優先）
+    const customTemplate = storeEmailSettings?.reminder_template
 
     // 日付フォーマット関数
     const formatDate = (dateStr: string): string => {
@@ -116,39 +128,73 @@ serve(async (req) => {
       return timeStr.slice(0, 5)
     }
 
-    // メールテンプレートを取得またはデフォルトを使用
-    let emailTemplate = reminderData.template
-    if (!emailTemplate) {
+    // メールテンプレートを取得（優先順位: email_settings > API引数 > デフォルト）
+    let emailTemplate: string
+    if (customTemplate && customTemplate.trim()) {
+      emailTemplate = customTemplate
+      console.log('📧 Using custom reminder template from email_settings')
+    } else if (reminderData.template) {
+      emailTemplate = reminderData.template
+    } else {
       // デフォルトテンプレートを生成
       const dayMessage = getDayMessage(reminderData.daysBefore)
       emailTemplate = getDefaultReminderTemplate(dayMessage)
     }
 
     // テンプレートの変数を置換
-    const emailHtml = emailTemplate
+    const appliedTemplate = emailTemplate
       .replace(/{customer_name}/g, reminderData.customerName || 'お客様')
       .replace(/{scenario_title}/g, reminderData.scenarioTitle || '')
       .replace(/{date}/g, formatDate(reminderData.eventDate))
       .replace(/{time}/g, formatTime(reminderData.startTime))
       .replace(/{venue}/g, reminderData.storeName || '')
       .replace(/{reservation_number}/g, reminderData.reservationNumber || '')
+      .replace(/{participants}/g, String(reminderData.participantCount || ''))
+      .replace(/{total_price}/g, (reminderData.totalPrice || 0).toLocaleString())
 
-    const emailText = emailHtml.replace(/<[^>]*>/g, '').replace(/\n\s*\n/g, '\n\n')
+    // カスタムテンプレートをHTMLに変換
+    const templateToHtml = (template: string) => {
+      const htmlContent = template
+        .split('\n')
+        .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
+        .join('\n')
+      
+      return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  ${htmlContent}
+</body>
+</html>`
+    }
+
+    const emailHtml = templateToHtml(appliedTemplate)
+    const emailText = appliedTemplate
 
     // Resend APIを使ってメール送信
+    const emailPayload: Record<string, unknown> = {
+      from: `${companyName} <${senderEmail}>`,
+      to: [reminderData.customerEmail],
+      subject: `【リマインド】${reminderData.scenarioTitle} - ${formatDate(reminderData.eventDate)}${companyName ? ` | ${companyName}` : ''}`,
+      html: emailHtml,
+      text: emailText,
+    }
+    
+    // 返信先メールアドレスが設定されている場合は追加
+    if (companyEmail || replyToEmail) {
+      emailPayload.reply_to = companyEmail || replyToEmail
+    }
+
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: 'MMQ予約システム <noreply@mmq.game>',
-        to: [reminderData.customerEmail],
-        subject: `【リマインド】${reminderData.scenarioTitle} - ${formatDate(reminderData.eventDate)}`,
-        html: emailHtml,
-        text: emailText,
-      }),
+      body: JSON.stringify(emailPayload),
     })
 
     if (!resendResponse.ok) {

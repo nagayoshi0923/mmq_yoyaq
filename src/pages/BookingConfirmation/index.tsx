@@ -313,6 +313,27 @@ export function BookingConfirmation({
 
       if (insertError) throw insertError
 
+      // キャンセル待ち登録完了メールを送信
+      try {
+        await supabase.functions.invoke('send-waitlist-registration-confirmation', {
+          body: {
+            organizationId: eventData.organization_id,
+            storeId: eventData.store_id || eventData.venue,
+            customerName,
+            customerEmail,
+            scenarioTitle,
+            eventDate,
+            startTime,
+            endTime,
+            storeName,
+            participantCount: waitlistParticipantCount
+          }
+        })
+      } catch (emailError) {
+        // メール送信失敗しても登録自体は成功扱い
+        logger.error('キャンセル待ち登録完了メール送信エラー:', emailError)
+      }
+
       setWaitlistSuccess(true)
       toast.success('キャンセル待ちに登録しました')
     } catch (error: any) {

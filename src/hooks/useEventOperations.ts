@@ -1366,6 +1366,8 @@ export function useEventOperations({
               
               return supabase.functions.invoke('send-cancellation-confirmation', {
                 body: {
+                  organizationId: organizationId,
+                  storeId: cancellingEvent.venue,
                   reservationId: reservation.id,
                   customerEmail: reservation.customers.email,
                   customerName: reservation.customers.name,

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Save, Plus, Trash2, Users, Lock, Building2, Settings2, Clock, Info, ExternalLink } from 'lucide-react'
+import { Save, Plus, Trash2, Users, Lock, Building2, Settings2, ChevronDown, ChevronRight, Sparkles, ExternalLink } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -55,9 +55,12 @@ interface CancellationSettings {
   // 中止判定タイミング
   cancellation_judgment_rules: CancellationJudgmentRule[]
   cancellation_notice_note: string  // 中止時の連絡方法
-  // 予約変更
+  // 予約変更（通常公演）
   reservation_change_deadline_hours: number  // 変更可能期限（時間前）
   reservation_change_note: string  // 予約変更に関する補足
+  // 予約変更（貸切公演）
+  private_reservation_change_deadline_hours: number  // 貸切の変更可能期限（時間前）
+  private_reservation_change_note: string  // 貸切の予約変更に関する補足
   // 返金方法
   refund_method_note: string  // 返金方法の説明
   // 共通
@@ -71,7 +74,13 @@ interface CancellationSettingsProps {
   storeId: string
 }
 
-type SettingType = 'regular' | 'private' | 'organizer' | 'other'
+// アコーディオンの開閉状態
+interface AccordionState {
+  regular: boolean
+  private: boolean
+  organizer: boolean
+  other: boolean
+}
 
 // キャンセル料金コンポーネント
 interface CancellationFeesEditorProps {
@@ -312,7 +321,16 @@ const DEFAULT_JUDGMENT_RULES: CancellationJudgmentRule[] = [
 const generateId = () => Math.random().toString(36).substring(2, 9)
 
 export function CancellationSettings({ storeId }: CancellationSettingsProps) {
-  const [activeTab, setActiveTab] = useState<SettingType>('regular')
+  const [openSections, setOpenSections] = useState<AccordionState>({
+    regular: true,
+    private: false,
+    organizer: false,
+    other: false
+  })
+  
+  const toggleSection = (section: keyof AccordionState) => {
+    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }))
+  }
   const [formData, setFormData] = useState<CancellationSettings>({
     id: '',
     store_id: storeId,
@@ -341,9 +359,12 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
     // 中止判定タイミング
     cancellation_judgment_rules: DEFAULT_JUDGMENT_RULES,
     cancellation_notice_note: '中止が決定した場合、ご登録のメールアドレスに自動でお知らせします。中止の場合、参加料金は一切発生しません。',
-    // 予約変更
+    // 予約変更（通常公演）
     reservation_change_deadline_hours: 24,
-    reservation_change_note: '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。',
+    reservation_change_note: '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
+    // 予約変更（貸切公演）
+    private_reservation_change_deadline_hours: 168,
+    private_reservation_change_note: '貸切予約の変更は、公演開始1週間前まで可能です。日程変更は空き状況によります。',
     // 返金方法
     refund_method_note: '当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。',
     // 共通
@@ -444,7 +465,9 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
               cancellation_judgment_rules: data.cancellation_judgment_rules || DEFAULT_JUDGMENT_RULES,
               cancellation_notice_note: data.cancellation_notice_note || '中止が決定した場合、ご登録のメールアドレスに自動でお知らせします。中止の場合、参加料金は一切発生しません。',
               reservation_change_deadline_hours: data.reservation_change_deadline_hours || 24,
-              reservation_change_note: data.reservation_change_note || '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。',
+              reservation_change_note: data.reservation_change_note || '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
+              private_reservation_change_deadline_hours: data.private_reservation_change_deadline_hours || 168,
+              private_reservation_change_note: data.private_reservation_change_note || '貸切予約の変更は、公演開始1週間前まで可能です。日程変更は空き状況によります。',
               refund_method_note: data.refund_method_note || '当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。',
               auto_refund_enabled: data.auto_refund_enabled || false,
               refund_processing_days: data.refund_processing_days || 7,
@@ -529,7 +552,9 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           cancellation_judgment_rules: data.cancellation_judgment_rules || DEFAULT_JUDGMENT_RULES,
           cancellation_notice_note: data.cancellation_notice_note || '中止が決定した場合、ご登録のメールアドレスに自動でお知らせします。中止の場合、参加料金は一切発生しません。',
           reservation_change_deadline_hours: data.reservation_change_deadline_hours || 24,
-          reservation_change_note: data.reservation_change_note || '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。',
+          reservation_change_note: data.reservation_change_note || '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
+          private_reservation_change_deadline_hours: data.private_reservation_change_deadline_hours || 168,
+          private_reservation_change_note: data.private_reservation_change_note || '貸切予約の変更は、公演開始1週間前まで可能です。日程変更は空き状況によります。',
           refund_method_note: data.refund_method_note || '当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。',
           auto_refund_enabled: data.auto_refund_enabled || false,
           refund_processing_days: data.refund_processing_days || 7,
@@ -569,6 +594,8 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
         cancellation_notice_note: formData.cancellation_notice_note,
         reservation_change_deadline_hours: formData.reservation_change_deadline_hours,
         reservation_change_note: formData.reservation_change_note,
+        private_reservation_change_deadline_hours: formData.private_reservation_change_deadline_hours,
+        private_reservation_change_note: formData.private_reservation_change_note,
         refund_method_note: formData.refund_method_note,
         policy_updated_at: new Date().toISOString().split('T')[0]
       }
@@ -678,6 +705,44 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
     } finally {
       setSaving(false)
     }
+  }
+
+  // 標準テンプレートを適用
+  const applyStandardTemplate = () => {
+    setFormData(prev => ({
+      ...prev,
+      // 通常公演
+      cancellation_policy_items: DEFAULT_POLICY_ITEMS,
+      cancellation_deadline_hours: 24,
+      cancellation_fees: [
+        { hours_before: 24, fee_percentage: 0, description: '24時間前まで無料' },
+        { hours_before: 0, fee_percentage: 50, description: '24時間前〜当日50%' },
+        { hours_before: -1, fee_percentage: 100, description: '公演開始後・無断キャンセル100%' }
+      ],
+      // 貸切公演
+      private_cancellation_policy_items: DEFAULT_PRIVATE_POLICY_ITEMS,
+      private_cancellation_deadline_hours: 168,
+      private_cancellation_fees: [
+        { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
+        { hours_before: 168, fee_percentage: 30, description: '1週間前まで30%' },
+        { hours_before: 72, fee_percentage: 50, description: '3日前まで50%' },
+        { hours_before: 0, fee_percentage: 100, description: '当日100%' }
+      ],
+      // 店舗都合キャンセル
+      organizer_cancel_reasons: DEFAULT_ORGANIZER_CANCEL_REASONS,
+      organizer_cancel_refund_note: '参加料金は全額返金いたします。',
+      // 中止判定
+      cancellation_judgment_rules: DEFAULT_JUDGMENT_RULES,
+      cancellation_notice_note: '中止が決定した場合、ご登録のメールアドレスに自動でお知らせします。中止の場合、参加料金は一切発生しません。',
+      // 予約変更
+      reservation_change_deadline_hours: 24,
+      reservation_change_note: '参加人数の変更は、マイページから公演開始24時間前まで無料で行えます。日程の変更をご希望の場合は、一度キャンセルの上、再度ご予約をお願いいたします。この場合、キャンセル時期によってキャンセル料が発生する場合があります。',
+      private_reservation_change_deadline_hours: 168,
+      private_reservation_change_note: '貸切予約の変更は、公演開始1週間前まで可能です。日程変更は空き状況によります。',
+      // 返金
+      refund_method_note: '当日現地決済のため、事前にお支払いいただく金額はありません。キャンセル料が発生した場合は、次回ご来店時にお支払いいただくか、別途ご連絡させていただきます。'
+    }))
+    showToast.success('標準テンプレートを適用しました')
   }
 
   // 通常公演用のキャンセル料操作
@@ -845,6 +910,31 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
         </div>
       </PageHeader>
 
+      {/* テンプレート適用バナー */}
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-purple-100 p-2 rounded-lg">
+              <Sparkles className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900">標準テンプレートを使う</h3>
+              <p className="text-sm text-gray-600">
+                一般的なキャンセルポリシーを一括で設定できます。後から編集も可能です。
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={applyStandardTemplate}
+            variant="outline"
+            className="border-purple-300 text-purple-700 hover:bg-purple-100"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            テンプレートを適用
+          </Button>
+        </div>
+      </div>
+
       {!storeId && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800">
@@ -853,69 +943,24 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
         </div>
       )}
 
-      {/* タブ切り替え */}
-      <div className="flex border-b border-gray-200 overflow-x-auto">
+      {/* 通常公演設定（アコーディオン） */}
+      <div className="border rounded-lg overflow-hidden">
         <button
-          onClick={() => setActiveTab('regular')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'regular'
-              ? 'border-green-600 text-green-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
+          onClick={() => toggleSection('regular')}
+          className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 transition-colors text-left"
         >
-          <Users className="h-4 w-4" />
-          通常公演
+          <div className="flex items-center gap-3">
+            <Users className="h-5 w-5 text-green-600" />
+            <div>
+              <span className="font-medium text-gray-900">通常公演のキャンセルポリシー</span>
+              <p className="text-xs text-gray-500">一般参加者向けのキャンセル規約</p>
+            </div>
+          </div>
+          {openSections.regular ? <ChevronDown className="h-5 w-5 text-gray-500" /> : <ChevronRight className="h-5 w-5 text-gray-500" />}
         </button>
-        <button
-          onClick={() => setActiveTab('private')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'private'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
-        >
-          <Lock className="h-4 w-4" />
-          貸切公演
-        </button>
-        <button
-          onClick={() => setActiveTab('organizer')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'organizer'
-              ? 'border-amber-600 text-amber-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
-        >
-          <Building2 className="h-4 w-4" />
-          店舗都合
-        </button>
-        <button
-          onClick={() => setActiveTab('other')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === 'other'
-              ? 'border-purple-600 text-purple-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
-        >
-          <Settings2 className="h-4 w-4" />
-          その他
-        </button>
-      </div>
-
-      {/* 通常公演設定 */}
-      {activeTab === 'regular' && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-green-600" />
-                <div>
-                  <CardTitle>通常公演のキャンセルポリシー</CardTitle>
-                  <CardDescription>一般参加者向けのキャンセル規約</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* ポリシー項目 */}
+        {openSections.regular && (
+          <div className="p-4 bg-white border-t space-y-6">
+            {/* ポリシー項目 */}
               <PolicyItemsEditor
                 items={formData.cancellation_policy_items}
                 onAdd={addPolicyItem}
@@ -957,109 +1002,112 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                 </p>
               </div>
 
-              <CancellationFeesEditor
-                fees={formData.cancellation_fees}
-                onAdd={addCancellationFee}
-                onRemove={removeCancellationFee}
-                onUpdate={updateCancellationFee}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* 貸切公演設定 */}
-      {activeTab === 'private' && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Lock className="h-5 w-5 text-blue-600" />
-                <div>
-                  <CardTitle>貸切公演のキャンセルポリシー</CardTitle>
-                  <CardDescription>貸切予約者向けのキャンセル規約（通常より厳しめの設定が一般的）</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* ポリシー項目 */}
-              <PolicyItemsEditor
-                items={formData.private_cancellation_policy_items}
-                onAdd={addPrivatePolicyItem}
-                onRemove={removePrivatePolicyItem}
-                onUpdate={updatePrivatePolicyItem}
-                onMoveUp={movePrivatePolicyItemUp}
-                onMoveDown={movePrivatePolicyItemDown}
-              />
-
-              {/* 補足文章（任意） */}
-              <div>
-                <Label htmlFor="private_cancellation_policy">補足説明（任意）</Label>
-                <Textarea
-                  id="private_cancellation_policy"
-                  value={formData.private_cancellation_policy}
-                  onChange={(e) => setFormData(prev => ({ ...prev, private_cancellation_policy: e.target.value }))}
-                  placeholder="上記項目以外の補足説明があれば入力"
-                  rows={2}
-                  className="mt-1"
-                />
-              </div>
-
-              <div className="border-t pt-4">
-                <Label htmlFor="private_cancellation_deadline_hours">キャンセル受付期限</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    id="private_cancellation_deadline_hours"
-                    type="number"
-                    value={formData.private_cancellation_deadline_hours}
-                    onChange={(e) => setFormData(prev => ({ ...prev, private_cancellation_deadline_hours: parseInt(e.target.value) || 0 }))}
-                    min="0"
-                    max="720"
-                    className="w-32"
-                  />
-                  <span className="text-sm text-muted-foreground">時間前まで受付</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  公演開始の{formData.private_cancellation_deadline_hours}時間前（{Math.floor(formData.private_cancellation_deadline_hours / 24)}日{formData.private_cancellation_deadline_hours % 24}時間前）までキャンセル可能
-                </p>
-              </div>
-
-              <CancellationFeesEditor
-                fees={formData.private_cancellation_fees}
-                onAdd={addPrivateCancellationFee}
-                onRemove={removePrivateCancellationFee}
-                onUpdate={updatePrivateCancellationFee}
-              />
-            </CardContent>
-          </Card>
-
-          {/* 貸切用の注意事項 */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <p className="text-sm text-amber-800 mb-2">💡 貸切公演のポイント</p>
-            <ul className="text-xs text-amber-700 space-y-1">
-              <li>• 貸切は会場を専有するため、通常より早い期限・高いキャンセル料が一般的です</li>
-              <li>• GMや会場の手配があるため、2週間〜1ヶ月前からキャンセル料が発生することが多いです</li>
-              <li>• 貸切キャンセル時は「貸切キャンセル確認メール」が送信されます</li>
-            </ul>
+            <CancellationFeesEditor
+              fees={formData.cancellation_fees}
+              onAdd={addCancellationFee}
+              onRemove={removeCancellationFee}
+              onUpdate={updateCancellationFee}
+            />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* 店舗都合キャンセル設定 */}
-      {activeTab === 'organizer' && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-amber-600" />
-                <div>
-                  <CardTitle>店舗都合によるキャンセル</CardTitle>
-                  <CardDescription>店舗側の都合で公演が中止となる場合の説明</CardDescription>
-                </div>
+      {/* 貸切公演設定（アコーディオン） */}
+      <div className="border rounded-lg overflow-hidden">
+        <button
+          onClick={() => toggleSection('private')}
+          className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3">
+            <Lock className="h-5 w-5 text-blue-600" />
+            <div>
+              <span className="font-medium text-gray-900">貸切公演のキャンセルポリシー</span>
+              <p className="text-xs text-gray-500">貸切予約者向けのキャンセル規約（通常より厳しめ）</p>
+            </div>
+          </div>
+          {openSections.private ? <ChevronDown className="h-5 w-5 text-gray-500" /> : <ChevronRight className="h-5 w-5 text-gray-500" />}
+        </button>
+        {openSections.private && (
+          <div className="p-4 bg-white border-t space-y-6">
+            {/* ポリシー項目 */}
+            <PolicyItemsEditor
+              items={formData.private_cancellation_policy_items}
+              onAdd={addPrivatePolicyItem}
+              onRemove={removePrivatePolicyItem}
+              onUpdate={updatePrivatePolicyItem}
+              onMoveUp={movePrivatePolicyItemUp}
+              onMoveDown={movePrivatePolicyItemDown}
+            />
+
+            {/* 補足文章（任意） */}
+            <div>
+              <Label htmlFor="private_cancellation_policy">補足説明（任意）</Label>
+              <Textarea
+                id="private_cancellation_policy"
+                value={formData.private_cancellation_policy}
+                onChange={(e) => setFormData(prev => ({ ...prev, private_cancellation_policy: e.target.value }))}
+                placeholder="上記項目以外の補足説明があれば入力"
+                rows={2}
+                className="mt-1"
+              />
+            </div>
+
+            <div className="border-t pt-4">
+              <Label htmlFor="private_cancellation_deadline_hours">キャンセル受付期限</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Input
+                  id="private_cancellation_deadline_hours"
+                  type="number"
+                  value={formData.private_cancellation_deadline_hours}
+                  onChange={(e) => setFormData(prev => ({ ...prev, private_cancellation_deadline_hours: parseInt(e.target.value) || 0 }))}
+                  min="0"
+                  max="720"
+                  className="w-32"
+                />
+                <span className="text-sm text-muted-foreground">時間前まで受付</span>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* キャンセル理由 */}
+              <p className="text-xs text-muted-foreground mt-1">
+                公演開始の{formData.private_cancellation_deadline_hours}時間前（{Math.floor(formData.private_cancellation_deadline_hours / 24)}日{formData.private_cancellation_deadline_hours % 24}時間前）までキャンセル可能
+              </p>
+            </div>
+
+            <CancellationFeesEditor
+              fees={formData.private_cancellation_fees}
+              onAdd={addPrivateCancellationFee}
+              onRemove={removePrivateCancellationFee}
+              onUpdate={updatePrivateCancellationFee}
+            />
+
+            {/* 貸切用の注意事項 */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm text-amber-800 mb-1">💡 貸切公演のポイント</p>
+              <ul className="text-xs text-amber-700 space-y-0.5">
+                <li>• 貸切は会場を専有するため、通常より早い期限・高いキャンセル料が一般的です</li>
+                <li>• 2週間〜1ヶ月前からキャンセル料が発生することが多いです</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 店舗都合キャンセル設定（アコーディオン） */}
+      <div className="border rounded-lg overflow-hidden">
+        <button
+          onClick={() => toggleSection('organizer')}
+          className="w-full flex items-center justify-between p-4 bg-amber-50 hover:bg-amber-100 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3">
+            <Building2 className="h-5 w-5 text-amber-600" />
+            <div>
+              <span className="font-medium text-gray-900">店舗都合によるキャンセル</span>
+              <p className="text-xs text-gray-500">中止判定のルール、連絡方法など</p>
+            </div>
+          </div>
+          {openSections.organizer ? <ChevronDown className="h-5 w-5 text-gray-500" /> : <ChevronRight className="h-5 w-5 text-gray-500" />}
+        </button>
+        {openSections.organizer && (
+          <div className="p-4 bg-white border-t space-y-6">
+            {/* キャンセル理由 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label>キャンセルとなる理由</Label>
@@ -1123,24 +1171,12 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                   rows={2}
                   className="mt-1"
                 />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* 中止判定タイミング */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-amber-600" />
-                <div>
-                  <CardTitle>中止判定のタイミング</CardTitle>
-                  <CardDescription>公演中止を判定するルール</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            {/* 中止判定タイミング */}
+            <div className="border-t pt-4">
               <div className="flex items-center justify-between mb-2">
-                <Label>判定ルール</Label>
+                <Label>中止判定のルール</Label>
                 <Button
                   type="button"
                   variant="outline"
@@ -1223,117 +1259,155 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* 中止時の連絡 */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Info className="h-5 w-5 text-blue-600" />
-                <div>
-                  <CardTitle>中止時のご連絡</CardTitle>
-                  <CardDescription>中止が決定した場合の連絡方法</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
+            </div>
+            {/* 中止時の連絡 */}
+            <div className="border-t pt-4">
+              <Label htmlFor="cancellation_notice_note">中止時のご連絡</Label>
+              <p className="text-xs text-muted-foreground mb-2">中止が決定した場合の連絡方法</p>
               <Textarea
                 id="cancellation_notice_note"
                 value={formData.cancellation_notice_note}
                 onChange={(e) => setFormData(prev => ({ ...prev, cancellation_notice_note: e.target.value }))}
                 placeholder="中止時の連絡方法について"
-                rows={3}
+                rows={2}
               />
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+          </div>
+        )}
+      </div>
 
-      {/* その他の設定 */}
-      {activeTab === 'other' && (
-        <div className="space-y-6">
-          {/* 予約変更 */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Settings2 className="h-5 w-5 text-purple-600" />
-                <div>
-                  <CardTitle>予約内容の変更</CardTitle>
-                  <CardDescription>予約変更に関する規定</CardDescription>
+      {/* その他の設定（アコーディオン） */}
+      <div className="border rounded-lg overflow-hidden">
+        <button
+          onClick={() => toggleSection('other')}
+          className="w-full flex items-center justify-between p-4 bg-purple-50 hover:bg-purple-100 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3">
+            <Settings2 className="h-5 w-5 text-purple-600" />
+            <div>
+              <span className="font-medium text-gray-900">その他の設定</span>
+              <p className="text-xs text-gray-500">予約変更、返金方法など</p>
+            </div>
+          </div>
+          {openSections.other ? <ChevronDown className="h-5 w-5 text-gray-500" /> : <ChevronRight className="h-5 w-5 text-gray-500" />}
+        </button>
+        {openSections.other && (
+          <div className="p-4 bg-white border-t space-y-6">
+            {/* 予約変更（通常・貸切を並べて表示） */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 通常公演 */}
+              <div className="border rounded-lg p-4 bg-green-50/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="h-4 w-4 text-green-600" />
+                  <span className="font-medium text-sm">予約変更（通常公演）</span>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="reservation_change_deadline_hours" className="text-xs">変更可能期限</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Input
+                        id="reservation_change_deadline_hours"
+                        type="number"
+                        value={formData.reservation_change_deadline_hours}
+                        onChange={(e) => setFormData(prev => ({ ...prev, reservation_change_deadline_hours: parseInt(e.target.value) || 0 }))}
+                        min="0"
+                        max="720"
+                        className="w-20"
+                      />
+                      <span className="text-xs text-muted-foreground">時間前</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      = {Math.floor(formData.reservation_change_deadline_hours / 24)}日{formData.reservation_change_deadline_hours % 24}時間前
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="reservation_change_note" className="text-xs">説明</Label>
+                    <Textarea
+                      id="reservation_change_note"
+                      value={formData.reservation_change_note}
+                      onChange={(e) => setFormData(prev => ({ ...prev, reservation_change_note: e.target.value }))}
+                      placeholder="予約変更に関する説明"
+                      rows={2}
+                      className="mt-1 text-sm"
+                    />
+                  </div>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="reservation_change_deadline_hours">変更可能期限</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    id="reservation_change_deadline_hours"
-                    type="number"
-                    value={formData.reservation_change_deadline_hours}
-                    onChange={(e) => setFormData(prev => ({ ...prev, reservation_change_deadline_hours: parseInt(e.target.value) || 0 }))}
-                    min="0"
-                    max="720"
-                    className="w-32"
-                  />
-                  <span className="text-sm text-muted-foreground">時間前まで変更可能</span>
+
+              {/* 貸切公演 */}
+              <div className="border rounded-lg p-4 bg-blue-50/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lock className="h-4 w-4 text-blue-600" />
+                  <span className="font-medium text-sm">予約変更（貸切公演）</span>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="private_reservation_change_deadline_hours" className="text-xs">変更可能期限</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Input
+                        id="private_reservation_change_deadline_hours"
+                        type="number"
+                        value={formData.private_reservation_change_deadline_hours}
+                        onChange={(e) => setFormData(prev => ({ ...prev, private_reservation_change_deadline_hours: parseInt(e.target.value) || 0 }))}
+                        min="0"
+                        max="720"
+                        className="w-20"
+                      />
+                      <span className="text-xs text-muted-foreground">時間前</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      = {Math.floor(formData.private_reservation_change_deadline_hours / 24)}日{formData.private_reservation_change_deadline_hours % 24}時間前
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="private_reservation_change_note" className="text-xs">説明</Label>
+                    <Textarea
+                      id="private_reservation_change_note"
+                      value={formData.private_reservation_change_note}
+                      onChange={(e) => setFormData(prev => ({ ...prev, private_reservation_change_note: e.target.value }))}
+                      placeholder="貸切予約変更に関する説明"
+                      rows={2}
+                      className="mt-1 text-sm"
+                    />
+                  </div>
                 </div>
               </div>
-              <div>
-                <Label htmlFor="reservation_change_note">変更に関する説明</Label>
-                <Textarea
-                  id="reservation_change_note"
-                  value={formData.reservation_change_note}
-                  onChange={(e) => setFormData(prev => ({ ...prev, reservation_change_note: e.target.value }))}
-                  placeholder="予約変更に関する説明"
-                  rows={3}
-                  className="mt-1"
-                />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* 返金方法 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>返金について</CardTitle>
-              <CardDescription>返金方法の説明</CardDescription>
-            </CardHeader>
-            <CardContent>
+            {/* 返金方法 */}
+            <div className="border-t pt-4">
+              <Label htmlFor="refund_method_note">返金について</Label>
+              <p className="text-xs text-muted-foreground mb-2">返金方法の説明</p>
               <Textarea
                 id="refund_method_note"
                 value={formData.refund_method_note}
                 onChange={(e) => setFormData(prev => ({ ...prev, refund_method_note: e.target.value }))}
                 placeholder="返金方法について"
-                rows={3}
+                rows={2}
               />
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* 最終更新日 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>ポリシー情報</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div>
-                <Label htmlFor="policy_updated_at">最終更新日</Label>
-                <Input
-                  id="policy_updated_at"
-                  type="date"
-                  value={formData.policy_updated_at}
-                  onChange={(e) => setFormData(prev => ({ ...prev, policy_updated_at: e.target.value }))}
-                  className="w-48 mt-1"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  キャンセルポリシーページに表示される更新日です
+            {/* 最終更新日 */}
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-4">
+                <div>
+                  <Label htmlFor="policy_updated_at">ポリシー最終更新日</Label>
+                  <Input
+                    id="policy_updated_at"
+                    type="date"
+                    value={formData.policy_updated_at}
+                    onChange={(e) => setFormData(prev => ({ ...prev, policy_updated_at: e.target.value }))}
+                    className="w-48 mt-1"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground pt-6">
+                  キャンセルポリシーページに表示されます
                 </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
