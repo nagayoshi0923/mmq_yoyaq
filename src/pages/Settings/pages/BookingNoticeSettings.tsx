@@ -16,13 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Plus, Pencil, Trash2, Save, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
@@ -52,7 +45,8 @@ interface BookingNotice {
   applicable_types: string[]
   sort_order: number
   is_active: boolean
-  store_id: string | null
+  store_id: string | null // 後方互換用（非推奨）
+  store_ids: string[] // 複数店舗対応
   created_at: string
   updated_at: string
 }
@@ -76,7 +70,7 @@ export function BookingNoticeSettings() {
   const [editForm, setEditForm] = useState({
     content: '',
     applicable_types: [] as string[],
-    store_id: '' as string | null,
+    store_ids: [] as string[], // 複数店舗対応
     is_active: true
   })
 
@@ -88,7 +82,7 @@ export function BookingNoticeSettings() {
       const [noticesRes, storesData] = await Promise.all([
         supabase
           .from('booking_notices')
-          .select('id, organization_id, content, applicable_types, store_id, is_active, sort_order, created_at, updated_at')
+          .select('id, organization_id, content, applicable_types, store_id, store_ids, is_active, sort_order, created_at, updated_at')
           .order('sort_order', { ascending: true }),
         storeApi.getAll()
       ])
@@ -115,7 +109,7 @@ export function BookingNoticeSettings() {
     setEditForm({
       content: '',
       applicable_types: ['open', 'private'], // デフォルトでオープンと貸切を選択
-      store_id: null,
+      store_ids: [], // 空 = 全店舗共通
       is_active: true
     })
     setEditDialogOpen(true)
@@ -124,10 +118,14 @@ export function BookingNoticeSettings() {
   // 編集
   const handleEdit = (notice: BookingNotice) => {
     setEditingNotice(notice)
+    // 後方互換: store_id があれば store_ids に変換
+    const storeIds = notice.store_ids?.length > 0 
+      ? notice.store_ids 
+      : (notice.store_id ? [notice.store_id] : [])
     setEditForm({
       content: notice.content,
       applicable_types: notice.applicable_types || [],
-      store_id: notice.store_id,
+      store_ids: storeIds,
       is_active: notice.is_active
     })
     setEditDialogOpen(true)
@@ -153,7 +151,8 @@ export function BookingNoticeSettings() {
           .update({
             content: editForm.content.trim(),
             applicable_types: editForm.applicable_types,
-            store_id: editForm.store_id || null,
+            store_ids: editForm.store_ids,
+            store_id: editForm.store_ids.length === 1 ? editForm.store_ids[0] : null, // 後方互換
             is_active: editForm.is_active,
             updated_at: new Date().toISOString()
           })
@@ -167,9 +166,9 @@ export function BookingNoticeSettings() {
           ? Math.max(...notices.map(n => n.sort_order)) 
           : 0
         
-        // store_idが指定されている場合はそのstore、なければ最初のstoreからorganization_idを取得
-        const store = editForm.store_id 
-          ? stores.find(s => s.id === editForm.store_id)
+        // store_idsが指定されている場合は最初のstore、なければ最初のstoreからorganization_idを取得
+        const store = editForm.store_ids.length > 0 
+          ? stores.find(s => s.id === editForm.store_ids[0])
           : stores[0]
 
         const { error } = await supabase
@@ -177,7 +176,8 @@ export function BookingNoticeSettings() {
           .insert({
             content: editForm.content.trim(),
             applicable_types: editForm.applicable_types,
-            store_id: editForm.store_id || null,
+            store_ids: editForm.store_ids,
+            store_id: editForm.store_ids.length === 1 ? editForm.store_ids[0] : null, // 後方互換
             organization_id: store?.organization_id,
             is_active: editForm.is_active,
             sort_order: maxSortOrder + 1
@@ -383,10 +383,14 @@ export function BookingNoticeSettings() {
                           </Badge>
                         )
                       })}
-                      {notice.store_id && (
-                        <Badge variant="outline" className="text-xs">
-                          {stores.find(s => s.id === notice.store_id)?.short_name || '特定店舗'}
-                        </Badge>
+                      {(notice.store_ids?.length > 0 || notice.store_id) && (
+                        <>
+                          {(notice.store_ids?.length > 0 ? notice.store_ids : [notice.store_id]).map(storeId => (
+                            <Badge key={storeId} variant="outline" className="text-xs">
+                              {stores.find(s => s.id === storeId)?.short_name || '店舗'}
+                            </Badge>
+                          ))}
+                        </>
                       )}
                     </div>
                   </div>
@@ -476,28 +480,49 @@ export function BookingNoticeSettings() {
 
             {/* 店舗指定 */}
             <div className="space-y-2">
-              <Label>店舗指定（任意）</Label>
-              <Select
-                value={editForm.store_id || 'all'}
-                onValueChange={(value) => setEditForm(prev => ({ 
-                  ...prev, 
-                  store_id: value === 'all' ? null : value 
-                }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="全店舗共通" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全店舗共通</SelectItem>
+              <Label>有効店舗（任意）</Label>
+              <div className="border rounded-lg p-3 space-y-2">
+                <div className="flex items-center space-x-2 pb-2 border-b">
+                  <Checkbox
+                    id="store-all"
+                    checked={editForm.store_ids.length === 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setEditForm(prev => ({ ...prev, store_ids: [] }))
+                      }
+                    }}
+                  />
+                  <label htmlFor="store-all" className="text-sm font-medium cursor-pointer">
+                    全店舗共通
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
                   {stores.map(store => (
-                    <SelectItem key={store.id} value={store.id}>
-                      {store.name}
-                    </SelectItem>
+                    <div key={store.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`store-${store.id}`}
+                        checked={editForm.store_ids.includes(store.id)}
+                        onCheckedChange={(checked) => {
+                          setEditForm(prev => ({
+                            ...prev,
+                            store_ids: checked
+                              ? [...prev.store_ids, store.id]
+                              : prev.store_ids.filter(id => id !== store.id)
+                          }))
+                        }}
+                      />
+                      <label
+                        htmlFor={`store-${store.id}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        {store.name}
+                      </label>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground">
-                特定の店舗のみに表示する場合は選択してください
+                チェックなし = 全店舗共通。特定の店舗のみに表示する場合は選択してください。
               </p>
             </div>
 
