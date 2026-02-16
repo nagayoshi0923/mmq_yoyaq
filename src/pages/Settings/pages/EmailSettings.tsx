@@ -630,8 +630,9 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
 
   const handleSave = async () => {
     const savePayload = {
-      from_email: formData.from_email || 'noreply@mmq.game',
-      from_name: formData.from_name || '予約システム',
+      // 返信先は会社メールアドレスを使用（未設定の場合はデフォルト）
+      from_email: formData.company_email || formData.from_email || 'noreply@mmq.game',
+      from_name: formData.company_name || formData.from_name || '予約システム',
       company_name: formData.company_name,
       company_phone: formData.company_phone,
       company_email: formData.company_email,
@@ -746,14 +747,14 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
         </Button>
       </PageHeader>
 
-      {/* 会社情報 */}
+      {/* 基本設定 */}
       <Card>
         <CardHeader>
-          <CardTitle>会社情報</CardTitle>
-          <CardDescription>メールテンプレートに表示される会社情報を設定します</CardDescription>
+          <CardTitle>基本設定</CardTitle>
+          <CardDescription>メールの署名・返信先に使用される情報</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label htmlFor="company_name">会社名 *</Label>
               <Input
@@ -762,6 +763,17 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                 onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
                 placeholder="クイーンズワルツ"
               />
+            </div>
+            <div>
+              <Label htmlFor="company_email">メールアドレス *</Label>
+              <Input
+                id="company_email"
+                type="email"
+                value={formData.company_email}
+                onChange={(e) => setFormData(prev => ({ ...prev, company_email: e.target.value }))}
+                placeholder="info@queens-waltz.jp"
+              />
+              <p className="text-xs text-muted-foreground mt-1">署名表示 / 返信先</p>
             </div>
             <div>
               <Label htmlFor="company_phone">電話番号</Label>
@@ -773,64 +785,9 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="company_email">会社メールアドレス *</Label>
-              <Input
-                id="company_email"
-                type="email"
-                value={formData.company_email}
-                onChange={(e) => setFormData(prev => ({ ...prev, company_email: e.target.value }))}
-                placeholder="info@queens-waltz.jp"
-              />
-            </div>
-            <div>
-              <Label htmlFor="company_address">住所</Label>
-              <Input
-                id="company_address"
-                value={formData.company_address}
-                onChange={(e) => setFormData(prev => ({ ...prev, company_address: e.target.value }))}
-                placeholder="東京都渋谷区..."
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 返信先情報 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>返信先設定</CardTitle>
-          <CardDescription>お客様がメールに返信した際の宛先を設定します（送信元はシステム固定: noreply@mmq.game）</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="from_email">返信先メールアドレス</Label>
-              <Input
-                id="from_email"
-                type="email"
-                value={formData.from_email}
-                onChange={(e) => setFormData(prev => ({ ...prev, from_email: e.target.value }))}
-                placeholder="info@queens-waltz.jp"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                お客様からの返信を受け取るアドレス
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="from_name">返信先名</Label>
-              <Input
-                id="from_name"
-                value={formData.from_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, from_name: e.target.value }))}
-                placeholder="クイーンズワルツ"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                返信先として表示される名前
-              </p>
-            </div>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            送信元: noreply@mmq.game（システム固定）/ 返信先: 上記メールアドレス
+          </p>
         </CardContent>
       </Card>
 
