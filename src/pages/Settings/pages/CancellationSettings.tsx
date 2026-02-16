@@ -205,7 +205,46 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
 
   const fetchSettings = async (storeId: string) => {
     try {
+      // 全店舗選択時は最初の店舗の設定を代表として表示
       if (!storeId) {
+        const allStores = await storeApi.getAll()
+        if (allStores.length > 0) {
+          const firstStoreId = allStores[0].id
+          const { data, error } = await supabase
+            .from('reservation_settings')
+            .select('*')
+            .eq('store_id', firstStoreId)
+            .maybeSingle()
+
+          if (error && error.code !== 'PGRST116') throw error
+
+          if (data) {
+            setFormData({
+              id: '', // 全店舗モードなのでidは空
+              store_id: '',
+              cancellation_policy: data.cancellation_policy || '',
+              cancellation_deadline_hours: data.cancellation_deadline_hours || 24,
+              cancellation_fees: data.cancellation_fees || [
+                { hours_before: 168, fee_percentage: 0, description: '1週間前まで無料' },
+                { hours_before: 72, fee_percentage: 30, description: '3日前まで30%' },
+                { hours_before: 24, fee_percentage: 50, description: '前日まで50%' },
+                { hours_before: 0, fee_percentage: 100, description: '当日100%' }
+              ],
+              private_cancellation_policy: data.private_cancellation_policy || '',
+              private_cancellation_deadline_hours: data.private_cancellation_deadline_hours || 48,
+              private_cancellation_fees: data.private_cancellation_fees || [
+                { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
+                { hours_before: 168, fee_percentage: 30, description: '1週間前まで30%' },
+                { hours_before: 72, fee_percentage: 50, description: '3日前まで50%' },
+                { hours_before: 0, fee_percentage: 100, description: '当日100%' }
+              ],
+              auto_refund_enabled: data.auto_refund_enabled || false,
+              refund_processing_days: data.refund_processing_days || 7
+            })
+            return
+          }
+        }
+        // 店舗がないか設定がない場合はデフォルト
         setFormData(prev => ({
           ...prev,
           id: '',
