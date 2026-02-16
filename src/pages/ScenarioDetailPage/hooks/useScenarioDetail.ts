@@ -30,33 +30,11 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     }
   }
   
-  // Step 2: シナリオ、スケジュール、店舗を並列取得（orgIdが必要なため、Step 1の後）
-  const currentDate = new Date()
-  const monthPromises = []
-  
-  for (let i = 0; i < 3; i++) {
-    const targetDate = new Date(currentDate)
-    targetDate.setMonth(currentDate.getMonth() + i)
-    const year = targetDate.getFullYear()
-    const month = targetDate.getMonth() + 1
-    monthPromises.push(scheduleApi.getByMonth(year, month, orgId))
-  }
-  
-  // 🚀 並列取得: シナリオ、3ヶ月分のスケジュール、店舗を同時に取得
-  const [scenarioDataResult, monthResults, storesData] = await Promise.all([
-    scenarioApi.getByIdOrSlug(scenarioId, orgId).catch((error) => {
-      logger.error('シナリオデータの取得エラー:', error)
-      return null
-    }),
-    Promise.all(monthPromises).catch((error) => {
-      logger.error('イベントデータの取得エラー:', error)
-      return []
-    }),
-    storeApi.getAll(false, orgId).catch((error) => {
-      logger.error('店舗データの取得エラー:', error)
-      return []
-    })
-  ])
+  // Step 2: まずシナリオを取得（IDが必要なため）
+  const scenarioDataResult = await scenarioApi.getByIdOrSlug(scenarioId, orgId).catch((error) => {
+    logger.error('シナリオデータの取得エラー:', error)
+    return null
+  })
   
   if (!scenarioDataResult) {
     logger.error('シナリオが見つかりません')
@@ -64,50 +42,69 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   }
   
   const scenarioData = scenarioDataResult
-  const allEvents = monthResults.flat()
   
-  // このシナリオの公演をフィルタリング
+  // Step 3: シナリオIDを使ってスケジュールと店舗を並列取得（効率化：シナリオIDでフィルタ）
   const todayJST = formatDateJST(new Date())
+  const endDate = new Date()
+  endDate.setMonth(endDate.getMonth() + 3)
+  const endDateStr = formatDateJST(endDate)
   
-  const scenarioEvents = allEvents
+  // 🚀 シナリオIDで直接フィルタしてスケジュール取得（全イベント取得を回避）
+  const [eventsData, storesData] = await Promise.all([
+    (async () => {
+      let query = supabase
+        .from('schedule_events')
+        .select(`
+          *,
+          stores:store_id (
+            id,
+            name,
+            short_name,
+            color,
+            address
+          )
+        `)
+        .eq('scenario_id', scenarioData.id)
+        .gte('date', todayJST)
+        .lte('date', endDateStr)
+        .eq('is_cancelled', false)
+        .order('date', { ascending: true })
+        .order('start_time', { ascending: true })
+      
+      // 組織フィルタ（指定がある場合のみ）
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+      
+      const { data, error } = await query
+      if (error) {
+        logger.error('スケジュール取得エラー:', error)
+        return []
+      }
+      return data || []
+    })(),
+    storeApi.getAll(false, orgId).catch((error) => {
+      logger.error('店舗データの取得エラー:', error)
+      return []
+    })
+  ])
+  
+  // イベントデータを整形
+  const scenarioEvents = eventsData
     .filter((event: any) => {
-      if (event.date < todayJST) return false
-      
-      const isMatchingScenario = 
-        event.scenario_id === scenarioData.id ||
-        event.scenarios?.id === scenarioData.id ||
-        event.scenario === scenarioData.title
-      
-      if (!isMatchingScenario) return false
-      if (event.is_cancelled) return false
-      
-      if (event.category === 'open') {
-        return event.is_reservation_enabled !== false
-      }
-      
-      if (event.category === 'private') {
-        return false
-      }
-      
+      // open公演のみ（private除外）
+      if (event.category === 'private') return false
+      // 予約可能な公演のみ
       return event.is_reservation_enabled !== false
     })
     .map((event: any) => {
-      let store = event.stores
-      
-      if (!store) {
-        store = storesData.find((s: any) => 
-          s.id === event.store_id || 
-          s.id === event.venue || 
-          s.short_name === event.venue ||
-          s.name === event.venue
-        )
-      }
+      const store = event.stores
       
       const maxParticipants = scenarioData.player_count_max || 8
       const currentParticipants = event.current_participants || 0
       const available = maxParticipants - currentParticipants
       
-      const storeColorName = store?.color || (event.stores?.color)
+      const storeColorName = store?.color
       const storeColor = storeColorName ? getColorFromName(storeColorName) : '#6B7280'
       
       return {
@@ -127,13 +124,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
         is_available: available > 0
       }
     })
-    .sort((a: any, b: any) => {
-      const dateCompare = a.date.localeCompare(b.date)
-      if (dateCompare !== 0) return dateCompare
-      return a.start_time.localeCompare(b.start_time)
-    })
   
-  // Step 3: 注意事項と関連シナリオを並列取得（シナリオデータが必要なため、Step 2の後）
+  // Step 4: 注意事項と関連シナリオを並列取得（シナリオデータが必要なため）
   const [cautionResult, relatedScenariosResult] = await Promise.all([
     // 注意事項を取得
     (async () => {
