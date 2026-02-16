@@ -397,6 +397,19 @@ export function ReservationsPage() {
     const deadlineHours = reservation.store_id && storeDeadlines[reservation.store_id] 
       ? storeDeadlines[reservation.store_id] 
       : DEFAULT_CANCEL_DEADLINE_HOURS
+    
+    // デバッグログ
+    logger.log('キャンセル判定:', {
+      reservationNumber: reservation.reservation_number,
+      eventDateTime: eventDateTime.toISOString(),
+      now: now.toISOString(),
+      hoursUntilEvent: hoursUntilEvent.toFixed(2),
+      deadlineHours,
+      storeId: reservation.store_id,
+      storeDeadlinesLoaded: Object.keys(storeDeadlines).length,
+      canCancel: hoursUntilEvent >= deadlineHours && reservation.status === 'confirmed'
+    })
+    
     return hoursUntilEvent >= deadlineHours && reservation.status === 'confirmed'
   }
 
