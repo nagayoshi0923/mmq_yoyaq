@@ -5,6 +5,14 @@ ADD COLUMN IF NOT EXISTS company_phone TEXT,
 ADD COLUMN IF NOT EXISTS company_email TEXT,
 ADD COLUMN IF NOT EXISTS company_address TEXT;
 
+-- 新しいメールテンプレートカラムを追加
+ALTER TABLE public.email_settings
+ADD COLUMN IF NOT EXISTS booking_change_template TEXT,
+ADD COLUMN IF NOT EXISTS private_request_template TEXT,
+ADD COLUMN IF NOT EXISTS private_confirm_template TEXT,
+ADD COLUMN IF NOT EXISTS private_rejection_template TEXT,
+ADD COLUMN IF NOT EXISTS waitlist_notify_template TEXT;
+
 -- reminder_schedule の型を JSONB に変更（TEXT の場合）
 -- 注意: ALTER COLUMN TYPE は IF NOT EXISTS をサポートしないため、DO ブロックで確認
 DO $$
@@ -36,3 +44,8 @@ COMMENT ON COLUMN public.email_settings.company_name IS '会社名';
 COMMENT ON COLUMN public.email_settings.company_phone IS '会社電話番号';
 COMMENT ON COLUMN public.email_settings.company_email IS '会社メールアドレス';
 COMMENT ON COLUMN public.email_settings.company_address IS '会社住所';
+COMMENT ON COLUMN public.email_settings.booking_change_template IS '予約変更確認メールテンプレート';
+COMMENT ON COLUMN public.email_settings.private_request_template IS '貸切リクエスト受付メールテンプレート';
+COMMENT ON COLUMN public.email_settings.private_confirm_template IS '貸切予約確定メールテンプレート';
+COMMENT ON COLUMN public.email_settings.private_rejection_template IS '貸切リクエスト却下メールテンプレート';
+COMMENT ON COLUMN public.email_settings.waitlist_notify_template IS 'キャンセル待ち通知メールテンプレート';

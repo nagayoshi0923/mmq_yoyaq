@@ -5,14 +5,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Save } from 'lucide-react'
+import { Save, ChevronDown, ChevronRight, Mail } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
-// デフォルトテンプレート
-function getDefaultReservationTemplate(companyName = 'クイーンズワルツ', companyPhone = '03-XXXX-XXXX', companyEmail = 'info@queens-waltz.jp') {
+// ========== デフォルトテンプレート ==========
+
+function getDefaultReservationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
   
@@ -50,7 +51,7 @@ ${emailLine}
 ─────────────────────────`
 }
 
-function getDefaultCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '03-XXXX-XXXX', companyEmail = 'info@queens-waltz.jp') {
+function getDefaultCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
   
@@ -77,23 +78,18 @@ ${emailLine}
 ─────────────────────────`
 }
 
-function getDefaultReminderTemplate(companyName = 'クイーンズワルツ', companyPhone = '03-XXXX-XXXX', companyEmail = 'info@queens-waltz.jp', daysBefore = 1) {
+function getDefaultReminderTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '', daysBefore = 1) {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
   const contactInfo = companyPhone ? `・当日連絡先: ${companyPhone}` : ''
   
-  // 日数に応じたメッセージを生成
   let dayMessage = ''
   if (daysBefore === 1) {
     dayMessage = '明日の公演についてリマインドいたします。'
   } else if (daysBefore === 2) {
     dayMessage = '明後日の公演についてリマインドいたします。'
-  } else if (daysBefore === 3) {
-    dayMessage = '3日後の公演についてリマインドいたします。'
   } else if (daysBefore === 7) {
     dayMessage = '1週間後の公演についてリマインドいたします。'
-  } else if (daysBefore === 14) {
-    dayMessage = '2週間後の公演についてリマインドいたします。'
   } else {
     dayMessage = `${daysBefore}日後の公演についてリマインドいたします。`
   }
@@ -130,7 +126,214 @@ ${emailLine}
 ─────────────────────────`
 }
 
-interface EmailSettings {
+function getDefaultBookingChangeTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  
+  return `{customer_name} 様
+
+ご予約内容に変更がございましたので、ご確認ください。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 予約番号
+━━━━━━━━━━━━━━━━━━━━━━
+
+{reservation_number}
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 変更内容
+━━━━━━━━━━━━━━━━━━━━━━
+
+{changes}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+この変更に心当たりがない場合は、お手数ですがすぐにご連絡ください。
+
+ご不明な点がございましたら、お気軽にお問い合わせください。
+当日のご来店を心よりお待ちしております。
+
+─────────────────────────
+${companyName}
+${phoneLine}
+${emailLine}
+─────────────────────────`
+}
+
+function getDefaultPrivateRequestTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  
+  return `{customer_name} 様
+
+この度は、貸切予約のリクエストをお申し込みいただき、誠にありがとうございます。
+リクエストを受け付けましたので、ご確認ください。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ リクエスト内容
+━━━━━━━━━━━━━━━━━━━━━━
+
+予約番号: {reservation_number}
+シナリオ: {scenario_title}
+参加人数: {participants}名
+希望店舗: {stores}
+料金目安: ¥{estimated_price}
+
+候補日時:
+{candidate_dates}
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 今後の流れ
+━━━━━━━━━━━━━━━━━━━━━━
+
+1. このリクエストを確認し、店舗とGMの調整を行います
+2. 調整が完了次第、承認メールをお送りします
+3. 承認後、確定日時・店舗・料金をご連絡いたします
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+担当者より折り返しご連絡させていただきます。
+少々お時間をいただく場合がございますが、何卒よろしくお願いいたします。
+
+─────────────────────────
+${companyName}
+${phoneLine}
+${emailLine}
+─────────────────────────`
+}
+
+function getDefaultPrivateConfirmTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  
+  return `{customer_name} 様
+
+貸切リクエストを承りました。
+以下の日程で予約が確定いたしましたので、ご確認ください。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 確定内容
+━━━━━━━━━━━━━━━━━━━━━━
+
+予約番号: {reservation_number}
+シナリオ: {scenario_title}
+日時: {date} {time}
+会場: {venue}
+参加人数: {participants}名
+お支払い金額: ¥{total_price}
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 重要事項
+━━━━━━━━━━━━━━━━━━━━━━
+
+・当日は開始時刻の15分前までにご来場ください
+・お支払いは現地決済となります（現金・カード可）
+・キャンセルは公演開始の48時間前まで無料です
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+貸切予約を承り、誠にありがとうございます。
+当日のご来店を心よりお待ちしております。
+
+─────────────────────────
+${companyName}
+${phoneLine}
+${emailLine}
+─────────────────────────`
+}
+
+function getDefaultPrivateRejectionTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  
+  return `{customer_name} 様
+
+この度は、貸切予約のリクエストをいただき、誠にありがとうございます。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ リクエスト内容
+━━━━━━━━━━━━━━━━━━━━━━
+
+シナリオ: {scenario_title}
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ ご連絡
+━━━━━━━━━━━━━━━━━━━━━━
+
+{rejection_reason}
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 今後のご検討について
+━━━━━━━━━━━━━━━━━━━━━━
+
+・別の日程でのご検討も可能です
+・通常公演へのご参加も歓迎しております
+・ご不明点等ございましたら、お気軽にお問い合わせください
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+この度はご希望に沿えず、大変申し訳ございません。
+引き続き、よろしくお願いいたします。
+
+─────────────────────────
+${companyName}
+${phoneLine}
+${emailLine}
+─────────────────────────`
+}
+
+function getDefaultWaitlistNotifyTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  
+  return `{customer_name} 様
+
+キャンセル待ちにご登録いただいていた公演に空きが出ました！
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 空きが出た公演
+━━━━━━━━━━━━━━━━━━━━━━
+
+シナリオ: {scenario_title}
+日時: {date} {time}
+会場: {venue}
+ご希望人数: {participants}名
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ お早めにご予約ください
+━━━━━━━━━━━━━━━━━━━━━━
+
+先着順となっております。
+24時間以内にご予約いただけない場合、次の方に通知されます。
+
+▼ 今すぐ予約する
+{booking_url}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+予約が完了しましたら、キャンセル待ちは自動的に解除されます。
+
+─────────────────────────
+${companyName}
+${phoneLine}
+${emailLine}
+─────────────────────────`
+}
+
+// ========== 型定義 ==========
+
+interface EmailTemplates {
+  reservation_confirmation_template: string
+  cancellation_template: string
+  reminder_template: string
+  booking_change_template: string
+  private_request_template: string
+  private_confirm_template: string
+  private_rejection_template: string
+  waitlist_notify_template: string
+}
+
+interface EmailSettings extends EmailTemplates {
   id: string
   store_id: string
   from_email: string
@@ -139,9 +342,6 @@ interface EmailSettings {
   company_phone: string
   company_email: string
   company_address: string
-  reservation_confirmation_template: string
-  cancellation_template: string
-  reminder_template: string
   reminder_enabled: boolean
   reminder_schedule: Array<{
     days_before: number
@@ -156,6 +356,153 @@ interface EmailSettings {
 interface EmailSettingsProps {
   storeId?: string
 }
+
+// テンプレート定義
+interface TemplateConfig {
+  key: keyof EmailTemplates
+  title: string
+  description: string
+  category: 'reservation' | 'private' | 'other'
+  variables: string[]
+  getDefault: (companyName: string, companyPhone: string, companyEmail: string) => string
+}
+
+const TEMPLATE_CONFIGS: TemplateConfig[] = [
+  {
+    key: 'reservation_confirmation_template',
+    title: '予約確認メール',
+    description: '予約完了時に自動送信',
+    category: 'reservation',
+    variables: ['customer_name', 'scenario_title', 'date', 'time', 'participants', 'total_price'],
+    getDefault: getDefaultReservationTemplate
+  },
+  {
+    key: 'booking_change_template',
+    title: '予約変更確認メール',
+    description: '参加人数や日時の変更時に自動送信',
+    category: 'reservation',
+    variables: ['customer_name', 'reservation_number', 'changes'],
+    getDefault: getDefaultBookingChangeTemplate
+  },
+  {
+    key: 'cancellation_template',
+    title: 'キャンセル確認メール',
+    description: '予約キャンセル時に自動送信',
+    category: 'reservation',
+    variables: ['customer_name', 'scenario_title', 'date', 'cancellation_fee'],
+    getDefault: getDefaultCancellationTemplate
+  },
+  {
+    key: 'reminder_template',
+    title: 'リマインドメール',
+    description: '設定したタイミングで自動送信',
+    category: 'reservation',
+    variables: ['customer_name', 'scenario_title', 'date', 'time', 'venue'],
+    getDefault: (cn, cp, ce) => getDefaultReminderTemplate(cn, cp, ce, 1)
+  },
+  {
+    key: 'private_request_template',
+    title: '貸切リクエスト受付メール',
+    description: '貸切予約の申込み時に自動送信',
+    category: 'private',
+    variables: ['customer_name', 'reservation_number', 'scenario_title', 'participants', 'stores', 'estimated_price', 'candidate_dates'],
+    getDefault: getDefaultPrivateRequestTemplate
+  },
+  {
+    key: 'private_confirm_template',
+    title: '貸切予約確定メール',
+    description: '貸切予約の承認時に自動送信',
+    category: 'private',
+    variables: ['customer_name', 'reservation_number', 'scenario_title', 'date', 'time', 'venue', 'participants', 'total_price'],
+    getDefault: getDefaultPrivateConfirmTemplate
+  },
+  {
+    key: 'private_rejection_template',
+    title: '貸切リクエスト却下メール',
+    description: '貸切予約を受け付けられない場合に送信',
+    category: 'private',
+    variables: ['customer_name', 'scenario_title', 'rejection_reason'],
+    getDefault: getDefaultPrivateRejectionTemplate
+  },
+  {
+    key: 'waitlist_notify_template',
+    title: 'キャンセル待ち通知メール',
+    description: 'キャンセル発生時に空席をお知らせ',
+    category: 'other',
+    variables: ['customer_name', 'scenario_title', 'date', 'time', 'venue', 'participants', 'booking_url'],
+    getDefault: getDefaultWaitlistNotifyTemplate
+  }
+]
+
+// ========== アコーディオンアイテム ==========
+
+interface AccordionItemProps {
+  config: TemplateConfig
+  value: string
+  onChange: (value: string) => void
+  onReset: () => void
+  isOpen: boolean
+  onToggle: () => void
+}
+
+function AccordionItem({ config, value, onChange, onReset, isOpen, onToggle }: AccordionItemProps) {
+  const categoryColors = {
+    reservation: 'bg-green-500',
+    private: 'bg-blue-500',
+    other: 'bg-yellow-500'
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3">
+          <span className={`w-2 h-2 ${categoryColors[config.category]} rounded-full`}></span>
+          <div>
+            <div className="font-medium text-sm">{config.title}</div>
+            <div className="text-xs text-muted-foreground">{config.description}</div>
+          </div>
+        </div>
+        {isOpen ? (
+          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        )}
+      </button>
+      
+      {isOpen && (
+        <div className="p-4 border-t border-gray-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              使用可能な変数: {config.variables.map(v => `{${v}}`).join(', ')}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onReset}
+              className="text-xs"
+            >
+              デフォルトに戻す
+            </Button>
+          </div>
+          <Textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            rows={12}
+            className="font-mono text-sm"
+            placeholder="メールテンプレートを編集"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ========== メインコンポーネント ==========
 
 export function EmailSettings({ storeId }: EmailSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
@@ -172,6 +519,11 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     reservation_confirmation_template: '',
     cancellation_template: '',
     reminder_template: '',
+    booking_change_template: '',
+    private_request_template: '',
+    private_confirm_template: '',
+    private_rejection_template: '',
+    waitlist_notify_template: '',
     reminder_enabled: true,
     reminder_schedule: [
       { days_before: 7, time: '10:00', enabled: true },
@@ -182,66 +534,28 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ実行
   }, [])
 
-  // テンプレートをデフォルトに戻す関数
-  const resetReservationTemplate = useCallback(() => {
-    setFormData(prev => ({
-      ...prev,
-      reservation_confirmation_template: getDefaultReservationTemplate(
-        prev.company_name,
-        prev.company_phone,
-        prev.company_email
-      )
-    }))
+  const toggleAccordion = useCallback((key: string) => {
+    setOpenAccordions(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
   }, [])
-
-  const resetCancellationTemplate = useCallback(() => {
-    setFormData(prev => ({
-      ...prev,
-      cancellation_template: getDefaultCancellationTemplate(
-        prev.company_name,
-        prev.company_phone,
-        prev.company_email
-      )
-    }))
-  }, [])
-
-  // リマインドスケジュール管理関数
-  const addReminderSchedule = () => {
-    setFormData(prev => ({
-      ...prev,
-      reminder_schedule: [
-        ...prev.reminder_schedule,
-        { days_before: 1, time: '10:00', enabled: true }
-      ]
-    }))
-  }
-
-  const removeReminderSchedule = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      reminder_schedule: prev.reminder_schedule.filter((_, i) => i !== index)
-    }))
-  }
-
-  const updateReminderSchedule = (index: number, field: 'days_before' | 'time' | 'enabled' | 'template', value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      reminder_schedule: prev.reminder_schedule.map((item, i) => 
-        i === index ? { ...item, [field]: value } : item
-      )
-    }))
-  }
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      // 組織対応済みの店舗取得
       const storesData = await storeApi.getAll()
 
       if (storesData && storesData.length > 0) {
@@ -261,20 +575,26 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('email_settings')
-        .select('id, store_id, organization_id, from_email, from_name, company_name, company_phone, company_email, company_address, reservation_confirmation_template, cancellation_template, reminder_template, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, updated_at')
+        .select('*')
         .eq('store_id', storeId)
         .maybeSingle()
 
       if (error && error.code !== 'PGRST116') throw error
 
       if (data) {
-        // reminder_scheduleがnullの場合は空配列にする
         setFormData({
           ...data,
-          reminder_schedule: data.reminder_schedule || []
+          reminder_schedule: data.reminder_schedule || [],
+          // 新しいテンプレートがなければデフォルト値を設定
+          booking_change_template: data.booking_change_template || '',
+          private_request_template: data.private_request_template || '',
+          private_confirm_template: data.private_confirm_template || '',
+          private_rejection_template: data.private_rejection_template || '',
+          waitlist_notify_template: data.waitlist_notify_template || ''
         } as EmailSettings)
       } else {
-        setFormData({
+        // 新規作成時はデフォルト値を設定
+        const defaults = {
           id: '',
           store_id: storeId,
           from_email: '',
@@ -286,11 +606,17 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           reservation_confirmation_template: getDefaultReservationTemplate(),
           cancellation_template: getDefaultCancellationTemplate(),
           reminder_template: getDefaultReminderTemplate(),
+          booking_change_template: getDefaultBookingChangeTemplate(),
+          private_request_template: getDefaultPrivateRequestTemplate(),
+          private_confirm_template: getDefaultPrivateConfirmTemplate(),
+          private_rejection_template: getDefaultPrivateRejectionTemplate(),
+          waitlist_notify_template: getDefaultWaitlistNotifyTemplate(),
           reminder_enabled: false,
           reminder_schedule: [],
           reminder_time: '10:00',
-          reminder_send_time: 'morning'
-        })
+          reminder_send_time: 'morning' as const
+        }
+        setFormData(defaults)
       }
     } catch (error) {
       logger.error('設定取得エラー:', error)
@@ -303,8 +629,6 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
   }
 
   const handleSave = async () => {
-    // Resendを使用するため送信元のバリデーションは不要
-    // 保存データを構築
     const savePayload = {
       from_email: formData.from_email || 'noreply@mmq.game',
       from_name: formData.from_name || '予約システム',
@@ -315,6 +639,11 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       reservation_confirmation_template: formData.reservation_confirmation_template,
       cancellation_template: formData.cancellation_template,
       reminder_template: formData.reminder_template,
+      booking_change_template: formData.booking_change_template,
+      private_request_template: formData.private_request_template,
+      private_confirm_template: formData.private_confirm_template,
+      private_rejection_template: formData.private_rejection_template,
+      waitlist_notify_template: formData.waitlist_notify_template,
       reminder_enabled: formData.reminder_enabled,
       reminder_schedule: formData.reminder_schedule,
       reminder_time: formData.reminder_time,
@@ -357,9 +686,53 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     }
   }
 
+  const updateTemplate = useCallback((key: keyof EmailTemplates, value: string) => {
+    setFormData(prev => ({ ...prev, [key]: value }))
+  }, [])
+
+  const resetTemplate = useCallback((config: TemplateConfig) => {
+    const defaultValue = config.getDefault(
+      formData.company_name,
+      formData.company_phone,
+      formData.company_email
+    )
+    setFormData(prev => ({ ...prev, [config.key]: defaultValue }))
+  }, [formData.company_name, formData.company_phone, formData.company_email])
+
+  // リマインドスケジュール管理関数
+  const addReminderSchedule = () => {
+    setFormData(prev => ({
+      ...prev,
+      reminder_schedule: [
+        ...prev.reminder_schedule,
+        { days_before: 1, time: '10:00', enabled: true }
+      ]
+    }))
+  }
+
+  const removeReminderSchedule = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      reminder_schedule: prev.reminder_schedule.filter((_, i) => i !== index)
+    }))
+  }
+
+  const updateReminderSchedule = (index: number, field: 'days_before' | 'time' | 'enabled' | 'template', value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      reminder_schedule: prev.reminder_schedule.map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      )
+    }))
+  }
+
   if (loading) {
     return <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
   }
+
+  const reservationTemplates = TEMPLATE_CONFIGS.filter(c => c.category === 'reservation')
+  const privateTemplates = TEMPLATE_CONFIGS.filter(c => c.category === 'private')
+  const otherTemplates = TEMPLATE_CONFIGS.filter(c => c.category === 'other')
 
   return (
     <div className="space-y-6">
@@ -461,139 +834,81 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
         </CardContent>
       </Card>
 
-      {/* 予約確認メールテンプレート */}
+      {/* 予約関連メールテンプレート */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-green-600" />
             <div>
-              <CardTitle>予約確認メールテンプレート</CardTitle>
-              <CardDescription>予約確定時に送信されるメールの内容</CardDescription>
+              <CardTitle>予約関連メール</CardTitle>
+              <CardDescription>予約・キャンセル・リマインドに関するメールテンプレート</CardDescription>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={resetReservationTemplate}
-            >
-              デフォルトに戻す
-            </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <Textarea
-            value={formData.reservation_confirmation_template}
-            onChange={(e) => setFormData(prev => ({ ...prev, reservation_confirmation_template: e.target.value }))}
-            rows={8}
-            placeholder="予約確認メールのテンプレート"
-          />
-          <p className="text-xs text-muted-foreground mt-2">
-            使用可能な変数: {'{customer_name}'}, {'{scenario_title}'}, {'{date}'}, {'{time}'}, {'{participants}'}, {'{total_price}'}
-          </p>
+        <CardContent className="space-y-3">
+          {reservationTemplates.map(config => (
+            <AccordionItem
+              key={config.key}
+              config={config}
+              value={formData[config.key]}
+              onChange={(value) => updateTemplate(config.key, value)}
+              onReset={() => resetTemplate(config)}
+              isOpen={openAccordions.has(config.key)}
+              onToggle={() => toggleAccordion(config.key)}
+            />
+          ))}
         </CardContent>
       </Card>
 
-      {/* キャンセルメールテンプレート */}
+      {/* 貸切予約関連メールテンプレート */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-blue-600" />
             <div>
-              <CardTitle>キャンセルメールテンプレート</CardTitle>
-              <CardDescription>予約キャンセル時に送信されるメールの内容</CardDescription>
+              <CardTitle>貸切予約関連メール</CardTitle>
+              <CardDescription>貸切予約のリクエスト・承認・却下に関するメールテンプレート</CardDescription>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={resetCancellationTemplate}
-            >
-              デフォルトに戻す
-            </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <Textarea
-            value={formData.cancellation_template}
-            onChange={(e) => setFormData(prev => ({ ...prev, cancellation_template: e.target.value }))}
-            rows={6}
-            placeholder="キャンセルメールのテンプレート"
-          />
-          <p className="text-xs text-muted-foreground mt-2">
-            使用可能な変数: {'{customer_name}'}, {'{scenario_title}'}, {'{date}'}, {'{cancellation_fee}'}
-          </p>
+        <CardContent className="space-y-3">
+          {privateTemplates.map(config => (
+            <AccordionItem
+              key={config.key}
+              config={config}
+              value={formData[config.key]}
+              onChange={(value) => updateTemplate(config.key, value)}
+              onReset={() => resetTemplate(config)}
+              isOpen={openAccordions.has(config.key)}
+              onToggle={() => toggleAccordion(config.key)}
+            />
+          ))}
         </CardContent>
       </Card>
 
-      {/* 送信メール一覧 */}
+      {/* その他のメールテンプレート */}
       <Card>
         <CardHeader>
-          <CardTitle>送信メール一覧</CardTitle>
-          <CardDescription>システムが自動送信するメールの種類</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h4 className="font-medium text-sm mb-2">予約関連メール</h4>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  <span className="font-medium text-foreground">予約確認メール</span>
-                  <span>- 予約完了時に自動送信</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  <span className="font-medium text-foreground">予約変更確認メール</span>
-                  <span>- 参加人数や日時の変更時に自動送信</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  <span className="font-medium text-foreground">キャンセル確認メール</span>
-                  <span>- 予約キャンセル時に自動送信</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  <span className="font-medium text-foreground">リマインドメール</span>
-                  <span>- 設定したタイミングで自動送信</span>
-                </div>
-              </div>
+          <div className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-yellow-600" />
+            <div>
+              <CardTitle>その他のメール</CardTitle>
+              <CardDescription>キャンセル待ち通知などのメールテンプレート</CardDescription>
             </div>
-
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h4 className="font-medium text-sm mb-2">貸切予約関連メール</h4>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  <span className="font-medium text-foreground">貸切リクエスト受付メール</span>
-                  <span>- 貸切予約の申込み時に自動送信</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  <span className="font-medium text-foreground">貸切予約確定メール</span>
-                  <span>- 貸切予約の承認時に自動送信</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  <span className="font-medium text-foreground">貸切リクエスト却下メール</span>
-                  <span>- 貸切予約を受け付けられない場合に送信</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h4 className="font-medium text-sm mb-2">その他のメール</h4>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-                  <span className="font-medium text-foreground">キャンセル待ち通知メール</span>
-                  <span>- キャンセル発生時に空席をお知らせ</span>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-xs text-muted-foreground mt-2">
-              ※ 上記のメールテンプレートは会社情報を元に自動生成されます。
-              予約確認・キャンセル・リマインドメールは上記フォームでカスタマイズ可能です。
-            </p>
           </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {otherTemplates.map(config => (
+            <AccordionItem
+              key={config.key}
+              config={config}
+              value={formData[config.key]}
+              onChange={(value) => updateTemplate(config.key, value)}
+              onReset={() => resetTemplate(config)}
+              isOpen={openAccordions.has(config.key)}
+              onToggle={() => toggleAccordion(config.key)}
+            />
+          ))}
         </CardContent>
       </Card>
 
@@ -787,4 +1102,3 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     </div>
   )
 }
-
