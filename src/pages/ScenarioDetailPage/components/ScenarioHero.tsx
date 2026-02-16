@@ -124,7 +124,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
               ))}
               {scenario.has_pre_reading && (
                 <span className="text-xs text-blue-300 border border-blue-400/30 px-1.5 py-0.5">
-                  事前読解あり
+                  事前読み込みあり
                 </span>
               )}
             </div>
