@@ -188,30 +188,28 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ実行
   }, [])
 
-  // 会社情報が変更されたときにテンプレートを更新
-  useEffect(() => {
-    if (formData.company_name || formData.company_phone || formData.company_email) {
-      setFormData(prev => ({
-        ...prev,
-        reservation_confirmation_template: getDefaultReservationTemplate(
-          prev.company_name,
-          prev.company_phone,
-          prev.company_email
-        ),
-        cancellation_template: getDefaultCancellationTemplate(
-          prev.company_name,
-          prev.company_phone,
-          prev.company_email
-        ),
-        reminder_template: getDefaultReminderTemplate(
-          prev.company_name,
-          prev.company_phone,
-          prev.company_email,
-          1 // デフォルトは1日前
-        )
-      }))
-    }
-  }, [formData.company_name, formData.company_phone, formData.company_email])
+  // テンプレートをデフォルトに戻す関数
+  const resetReservationTemplate = useCallback(() => {
+    setFormData(prev => ({
+      ...prev,
+      reservation_confirmation_template: getDefaultReservationTemplate(
+        prev.company_name,
+        prev.company_phone,
+        prev.company_email
+      )
+    }))
+  }, [])
+
+  const resetCancellationTemplate = useCallback(() => {
+    setFormData(prev => ({
+      ...prev,
+      cancellation_template: getDefaultCancellationTemplate(
+        prev.company_name,
+        prev.company_phone,
+        prev.company_email
+      )
+    }))
+  }, [])
 
   // リマインドスケジュール管理関数
   const addReminderSchedule = () => {
@@ -306,11 +304,21 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
 
   const handleSave = async () => {
     // Resendを使用するため送信元のバリデーションは不要
-    // デフォルト値を設定
-    const saveData = {
-      ...formData,
+    // 保存データを構築
+    const savePayload = {
       from_email: formData.from_email || 'noreply@mmq.game',
-      from_name: formData.from_name || '予約システム'
+      from_name: formData.from_name || '予約システム',
+      company_name: formData.company_name,
+      company_phone: formData.company_phone,
+      company_email: formData.company_email,
+      company_address: formData.company_address,
+      reservation_confirmation_template: formData.reservation_confirmation_template,
+      cancellation_template: formData.cancellation_template,
+      reminder_template: formData.reminder_template,
+      reminder_enabled: formData.reminder_enabled,
+      reminder_schedule: formData.reminder_schedule,
+      reminder_time: formData.reminder_time,
+      reminder_send_time: formData.reminder_send_time
     }
 
     setSaving(true)
@@ -318,13 +326,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       if (formData.id) {
         const { error } = await supabase
           .from('email_settings')
-          .update({
-            from_email: formData.from_email,
-            from_name: formData.from_name,
-            reservation_confirmation_template: formData.reservation_confirmation_template,
-            cancellation_template: formData.cancellation_template,
-            reminder_template: formData.reminder_template
-          })
+          .update(savePayload)
           .eq('id', formData.id)
 
         if (error) throw error
@@ -335,11 +337,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           .insert({
             store_id: formData.store_id,
             organization_id: store?.organization_id,
-            from_email: formData.from_email,
-            from_name: formData.from_name,
-            reservation_confirmation_template: formData.reservation_confirmation_template,
-            cancellation_template: formData.cancellation_template,
-            reminder_template: formData.reminder_template
+            ...savePayload
           })
           .select()
           .single()
@@ -466,8 +464,20 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       {/* 予約確認メールテンプレート */}
       <Card>
         <CardHeader>
-          <CardTitle>予約確認メールテンプレート</CardTitle>
-          <CardDescription>予約確定時に送信されるメールの内容</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>予約確認メールテンプレート</CardTitle>
+              <CardDescription>予約確定時に送信されるメールの内容</CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={resetReservationTemplate}
+            >
+              デフォルトに戻す
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Textarea
@@ -485,8 +495,20 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       {/* キャンセルメールテンプレート */}
       <Card>
         <CardHeader>
-          <CardTitle>キャンセルメールテンプレート</CardTitle>
-          <CardDescription>予約キャンセル時に送信されるメールの内容</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>キャンセルメールテンプレート</CardTitle>
+              <CardDescription>予約キャンセル時に送信されるメールの内容</CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={resetCancellationTemplate}
+            >
+              デフォルトに戻す
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Textarea
@@ -498,6 +520,80 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           <p className="text-xs text-muted-foreground mt-2">
             使用可能な変数: {'{customer_name}'}, {'{scenario_title}'}, {'{date}'}, {'{cancellation_fee}'}
           </p>
+        </CardContent>
+      </Card>
+
+      {/* 送信メール一覧 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>送信メール一覧</CardTitle>
+          <CardDescription>システムが自動送信するメールの種類</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h4 className="font-medium text-sm mb-2">予約関連メール</h4>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  <span className="font-medium text-foreground">予約確認メール</span>
+                  <span>- 予約完了時に自動送信</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  <span className="font-medium text-foreground">予約変更確認メール</span>
+                  <span>- 参加人数や日時の変更時に自動送信</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  <span className="font-medium text-foreground">キャンセル確認メール</span>
+                  <span>- 予約キャンセル時に自動送信</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  <span className="font-medium text-foreground">リマインドメール</span>
+                  <span>- 設定したタイミングで自動送信</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h4 className="font-medium text-sm mb-2">貸切予約関連メール</h4>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                  <span className="font-medium text-foreground">貸切リクエスト受付メール</span>
+                  <span>- 貸切予約の申込み時に自動送信</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                  <span className="font-medium text-foreground">貸切予約確定メール</span>
+                  <span>- 貸切予約の承認時に自動送信</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                  <span className="font-medium text-foreground">貸切リクエスト却下メール</span>
+                  <span>- 貸切予約を受け付けられない場合に送信</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h4 className="font-medium text-sm mb-2">その他のメール</h4>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                  <span className="font-medium text-foreground">キャンセル待ち通知メール</span>
+                  <span>- キャンセル発生時に空席をお知らせ</span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-2">
+              ※ 上記のメールテンプレートは会社情報を元に自動生成されます。
+              予約確認・キャンセル・リマインドメールは上記フォームでカスタマイズ可能です。
+            </p>
+          </div>
         </CardContent>
       </Card>
 
