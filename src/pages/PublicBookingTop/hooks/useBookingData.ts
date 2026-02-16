@@ -21,10 +21,15 @@ export interface ScenarioCard {
     store_short_name?: string
     store_color?: string
     available_seats?: number
+    current_participants?: number
   }>
   total_events_count?: number // 次回公演の総数（表示用）
   status: 'available' | 'few_seats' | 'sold_out' | 'private_booking'
   is_new?: boolean
+  // バッジ用フィールド
+  is_recommended?: boolean  // おすすめ（管理者設定）
+  favorite_count?: number   // 遊びたいリスト登録数（100以上で人気バッジ）
+  release_date?: string     // リリース日（1年以上でロングセラー）
 }
 
 /**
@@ -126,7 +131,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       // available + unavailable（coming_soonも含む）を取得し、RPC結果でフィルタ
       const scenarioQuery = supabase
         .from('scenarios')
-        .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id')
+        .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended')
         .in('status', ['available', 'unavailable'])
         .neq('scenario_type', 'gm_test')
       
@@ -148,7 +153,12 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       // display_orderでソート
       storeQuery = storeQuery.order('display_order', { ascending: true, nullsFirst: false })
       
-      const [scenariosResult, storesResult, settingsResult, availableOrgResult] = await Promise.all([
+      // 遊びたいリスト（scenario_likes）の件数をシナリオごとに集計
+      const likesCountQuery = supabase
+        .from('scenario_likes')
+        .select('scenario_id')
+      
+      const [scenariosResult, storesResult, settingsResult, availableOrgResult, likesResult] = await Promise.all([
         scenarioQuery.order('title', { ascending: true }),
         (async () => {
           try {
@@ -176,7 +186,8 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
             return { data: null, error: null }
           }
         })(),
-        availableOrgQuery
+        availableOrgQuery,
+        likesCountQuery
       ])
       
       // 🔐 公開中の組織シナリオのキーセットを作成（org_status付き）
@@ -196,6 +207,15 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         logger.log('✅ 公開中の組織シナリオ:', availableOrgKeys.size, '件')
       } else {
         logger.warn('⚠️ 組織シナリオフィルタをスキップ:', availableOrgResult.error ? 'RPCエラー' : 'データなし')
+      }
+      
+      // 遊びたいリスト数をシナリオIDごとに集計
+      const favoriteCountMap = new Map<string, number>()
+      if (likesResult.data) {
+        likesResult.data.forEach((like: { scenario_id: string }) => {
+          const count = favoriteCountMap.get(like.scenario_id) || 0
+          favoriteCountMap.set(like.scenario_id, count + 1)
+        })
       }
       
       // 🔐 組織で公開されているシナリオのみ表示
@@ -404,7 +424,10 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
             genre: scenario.genre || [],
             participation_fee: scenario.participation_fee || 3000,
             status: 'private_booking', // 「貸切受付中」
-            is_new: isNew
+            is_new: isNew,
+            is_recommended: scenario.is_recommended || false,
+            favorite_count: favoriteCountMap.get(scenario.id) || 0,
+            release_date: scenario.release_date
           })
           return // 次のシナリオへ
         }
@@ -490,7 +513,10 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
               next_events: nextEvents,
               total_events_count: targetEvents.length, // 次回公演の総数（満席も含む）
               status: status,
-              is_new: isNew
+              is_new: isNew,
+              is_recommended: scenario.is_recommended || false,
+              favorite_count: favoriteCountMap.get(scenario.id) || 0,
+              release_date: scenario.release_date
             })
           } else {
             // 未来の公演がない場合でも、全タイトル用にシナリオ情報を追加
@@ -506,7 +532,10 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
               genre: scenario.genre || [],
               participation_fee: scenario.participation_fee || 3000,
               status: 'private_booking', // 公演予定なしは「貸切受付中」
-              is_new: isNew
+              is_new: isNew,
+              is_recommended: scenario.is_recommended || false,
+              favorite_count: favoriteCountMap.get(scenario.id) || 0,
+              release_date: scenario.release_date
             })
           }
         } else {
@@ -523,7 +552,10 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
             genre: scenario.genre || [],
             participation_fee: scenario.participation_fee || 3000,
             status: 'private_booking', // 公演予定なしは「貸切受付中」
-            is_new: isNew
+            is_new: isNew,
+            is_recommended: scenario.is_recommended || false,
+            favorite_count: favoriteCountMap.get(scenario.id) || 0,
+            release_date: scenario.release_date
           })
         }
       })

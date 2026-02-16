@@ -310,6 +310,7 @@ export interface Scenario {
   key_visual_url?: string // キービジュアル画像URL
   synopsis?: string // あらすじ（description より詳細）
   official_site_url?: string // 公式サイトURL
+  is_recommended?: boolean // おすすめフラグ（管理者設定）
   created_at: string
   updated_at: string
   // 拡張フィールド（UIで使用）

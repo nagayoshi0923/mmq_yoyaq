@@ -29,6 +29,10 @@ export interface ScenarioCardData {
     current_participants?: number
   }>
   total_events_count?: number
+  // バッジ用フィールド
+  is_recommended?: boolean  // おすすめ（管理者設定）
+  favorite_count?: number   // 遊びたいリスト登録数（100以上で人気バッジ）
+  release_date?: string     // リリース日（1年以上でロングセラー）
 }
 
 // 画像コンポーネントをインライン化して最適化
@@ -149,21 +153,43 @@ export const ScenarioCard = memo(function ScenarioCard({
             alt={scenario.scenario_title}
             className="w-full h-full"
           />
-          {/* 成立間近バッジ: 最小人数まであと1-2人の場合 */}
+          {/* バッジ表示: おすすめ > ロングセラー > 人気（遊びたいリスト100以上） */}
           {(() => {
-            const nextEvent = scenario.next_events?.[0]
-            if (!nextEvent) return null
-            const currentParticipants = nextEvent.current_participants ?? 0
-            const minRequired = scenario.player_count_min
-            const remaining = minRequired - currentParticipants
-            // 成立間近 = あと1〜2人で最小人数に達する（かつまだ成立していない）
-            if (remaining >= 1 && remaining <= 2) {
+            // おすすめ（管理者設定）
+            if (scenario.is_recommended) {
+              return (
+                <div 
+                  className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white"
+                  style={{ backgroundColor: THEME.primary }}
+                >
+                  おすすめ
+                </div>
+              )
+            }
+            // ロングセラー（リリースから1年以上）
+            if (scenario.release_date) {
+              const releaseDate = new Date(scenario.release_date)
+              const oneYearAgo = new Date()
+              oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+              if (releaseDate <= oneYearAgo) {
+                return (
+                  <div 
+                    className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-black"
+                    style={{ backgroundColor: THEME.accent }}
+                  >
+                    ロングセラー
+                  </div>
+                )
+              }
+            }
+            // 人気（遊びたいリスト100以上）
+            if (scenario.favorite_count && scenario.favorite_count >= 100) {
               return (
                 <div 
                   className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white"
                   style={{ backgroundColor: '#DC2626' }}
                 >
-                  成立間近！
+                  人気
                 </div>
               )
             }
