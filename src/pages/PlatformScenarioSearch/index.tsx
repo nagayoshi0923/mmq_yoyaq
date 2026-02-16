@@ -35,6 +35,7 @@ interface ScenarioData {
   organization_slug?: string
   organization_name?: string
   scenario_master_id?: string | null
+  available_stores?: string[] // 公演可能店舗名リスト
 }
 
 /**
@@ -42,8 +43,8 @@ interface ScenarioData {
  * React Queryでキャッシュされる
  */
 async function fetchScenarioSearchData(): Promise<ScenarioData[]> {
-  // 🚀 並列取得: RPCとシナリオデータを同時に取得
-  const [keysResult, scenariosResult] = await Promise.all([
+  // 🚀 並列取得: RPC、シナリオ、店舗データを同時に取得
+  const [keysResult, scenariosResult, storesResult] = await Promise.all([
     supabase.rpc('get_public_available_scenario_keys'),
     supabase
       .from('scenarios')
@@ -51,11 +52,15 @@ async function fetchScenarioSearchData(): Promise<ScenarioData[]> {
         id, slug, title, author, key_visual_url,
         duration, player_count_min, player_count_max,
         genre, participation_fee, difficulty, release_date,
-        organization_id, status, scenario_master_id,
+        organization_id, status, scenario_master_id, available_stores,
         organizations:organization_id (slug, name)
       `)
       .in('status', ['available', 'unavailable'])
-      .order('title')
+      .order('title'),
+    // 店舗データを取得（available_storesのIDを名前に変換するため）
+    supabase
+      .from('stores')
+      .select('id, name, short_name')
   ])
 
   const availableKeys = keysResult.data || []
@@ -69,6 +74,12 @@ async function fetchScenarioSearchData(): Promise<ScenarioData[]> {
   const shouldFilterByOrgStatus = !keysError && availableKeys.length > 0
 
   if (scenariosResult.error) throw scenariosResult.error
+  
+  // 店舗IDから名前へのマップを作成
+  const storeMap = new Map<string, string>()
+  ;(storesResult.data || []).forEach((store: any) => {
+    storeMap.set(store.id, store.short_name || store.name)
+  })
 
   // 組織の公開ステータスで絞り込み
   return (scenariosResult.data || [])
@@ -81,11 +92,16 @@ async function fetchScenarioSearchData(): Promise<ScenarioData[]> {
     })
     .map(s => {
       const org = s.organizations as { slug?: string; name?: string } | null
+      // available_storesのIDを店舗名に変換
+      const storeNames = (s.available_stores || [])
+        .map((storeId: string) => storeMap.get(storeId))
+        .filter((name: string | undefined): name is string => !!name)
       return {
         ...s,
         genre: s.genre || [],
         organization_slug: org?.slug || '',
         organization_name: org?.name || '',
+        available_stores: storeNames,
       }
     })
 }
@@ -530,6 +546,17 @@ export function PlatformScenarioSearch() {
                             +{scenario.genre.length - 3}
                           </Badge>
                         )}
+                      </div>
+                    )}
+
+                    {/* 公演可能店舗 */}
+                    {scenario.available_stores && scenario.available_stores.length > 0 && (
+                      <div className="flex items-center gap-1 mt-2 text-xs text-gray-500">
+                        <Building2 className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">
+                          {scenario.available_stores.slice(0, 3).join('・')}
+                          {scenario.available_stores.length > 3 && ` 他${scenario.available_stores.length - 3}店舗`}
+                        </span>
                       </div>
                     )}
                   </div>
