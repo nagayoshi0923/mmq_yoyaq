@@ -3,8 +3,9 @@
  * @path /scenario
  * @purpose 全組織のシナリオを検索・フィルター
  */
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { Input } from '@/components/ui/input'
@@ -16,7 +17,6 @@ import { useFavorites } from '@/hooks/useFavorites'
 import { supabase } from '@/lib/supabase'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, Building2 } from 'lucide-react'
-import { logger } from '@/utils/logger'
 
 interface ScenarioData {
   id: string
@@ -37,108 +37,102 @@ interface ScenarioData {
   scenario_master_id?: string | null
 }
 
+/**
+ * シナリオ検索データを取得する関数
+ * React Queryでキャッシュされる
+ */
+async function fetchScenarioSearchData(): Promise<ScenarioData[]> {
+  // 🚀 並列取得: RPCとシナリオデータを同時に取得
+  const [keysResult, scenariosResult] = await Promise.all([
+    supabase.rpc('get_public_available_scenario_keys'),
+    supabase
+      .from('scenarios')
+      .select(`
+        id, slug, title, author, key_visual_url,
+        duration, player_count_min, player_count_max,
+        genre, participation_fee, difficulty, release_date,
+        organization_id, status, scenario_master_id,
+        organizations:organization_id (slug, name)
+      `)
+      .in('status', ['available', 'unavailable'])
+      .order('title')
+  ])
+
+  const availableKeys = keysResult.data || []
+  const keysError = keysResult.error
+  
+  // 公開中の組織シナリオのキーセット
+  const availableOrgKeys = new Set(
+    availableKeys.map((k: any) => `${k.organization_id}_${k.scenario_master_id}`)
+  )
+  
+  const shouldFilterByOrgStatus = !keysError && availableKeys.length > 0
+
+  if (scenariosResult.error) throw scenariosResult.error
+
+  // 組織の公開ステータスで絞り込み
+  return (scenariosResult.data || [])
+    .filter(s => {
+      if (!shouldFilterByOrgStatus) {
+        return s.status === 'available'
+      }
+      if (!s.scenario_master_id) return s.status === 'available'
+      return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
+    })
+    .map(s => {
+      const org = s.organizations as { slug?: string; name?: string } | null
+      return {
+        ...s,
+        genre: s.genre || [],
+        organization_slug: org?.slug || '',
+        organization_name: org?.name || '',
+      }
+    })
+}
+
 export function PlatformScenarioSearch() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   
-  const [scenarios, setScenarios] = useState<ScenarioData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedGenre, setSelectedGenre] = useState<string>(() => {
-    return searchParams.get('genre') || 'all'
+  // React Queryでデータ取得（キャッシュ活用）
+  const { data: scenarios = [], isLoading } = useQuery({
+    queryKey: ['scenario-search'],
+    queryFn: fetchScenarioSearchData,
+    staleTime: 5 * 60 * 1000, // 5分間キャッシュ
+    gcTime: 10 * 60 * 1000, // 10分間メモリ保持
   })
-  const [selectedDuration, setSelectedDuration] = useState<string>('all')
-  const [selectedPlayerCount, setSelectedPlayerCount] = useState<string>('all')
-  const [selectedOrganization, setSelectedOrganization] = useState<string>('all')
+
+  // フィルター状態（URLパラメータと同期）
+  const searchTerm = searchParams.get('q') || ''
+  const selectedGenre = searchParams.get('genre') || 'all'
+  const selectedDuration = searchParams.get('duration') || 'all'
+  const selectedPlayerCount = searchParams.get('players') || 'all'
+  const selectedOrganization = searchParams.get('org') || 'all'
+  
+  // フィルターパネルの表示状態（URLパラメータがあれば初期表示）
   const [showFilters, setShowFilters] = useState(() => {
-    return !!searchParams.get('genre')
+    return searchParams.has('genre') || searchParams.has('duration') || searchParams.has('players') || searchParams.has('org')
   })
   
   const { isFavorite, toggleFavorite } = useFavorites()
 
-  // ジャンル変更時にURLを更新
-  useEffect(() => {
-    if (selectedGenre === 'all') {
-      searchParams.delete('genre')
+  // フィルター更新関数
+  const updateFilter = useCallback((key: string, value: string) => {
+    const newParams = new URLSearchParams(searchParams)
+    if (value === 'all' || value === '') {
+      newParams.delete(key)
     } else {
-      searchParams.set('genre', selectedGenre)
+      newParams.set(key, value)
     }
-    setSearchParams(searchParams, { replace: true })
-  }, [selectedGenre, searchParams, setSearchParams])
+    setSearchParams(newParams, { replace: true })
+  }, [searchParams, setSearchParams])
 
-  // データ取得
-  useEffect(() => {
-    const loadScenarios = async () => {
-      try {
-        setIsLoading(true)
-        
-        // 🔐 公開中かつ承認済みのシナリオキーを取得（RPC: RLSバイパス、匿名OK）
-        const { data: availableKeys, error: keysError } = await supabase
-          .rpc('get_public_available_scenario_keys')
-        
-        if (keysError) {
-          logger.error('公開シナリオキー取得エラー:', keysError)
-        }
-        
-        // 公開中の組織シナリオのキーセット（organization_id + scenario_master_id）
-        const availableOrgKeys = new Set(
-          (availableKeys || []).map((k: any) => `${k.organization_id}_${k.scenario_master_id}`)
-        )
-        
-        // RPCエラーまたはデータ0件の場合はフィルタをスキップ（全表示）
-        const shouldFilterByOrgStatus = !keysError && (availableKeys || []).length > 0
-        if (shouldFilterByOrgStatus) {
-          logger.log('✅ 公開中の組織シナリオ:', availableOrgKeys.size, '件')
-        } else {
-          logger.warn('⚠️ 組織シナリオフィルタをスキップ:', keysError ? 'RPCエラー' : 'データなし')
-        }
-        
-        // 全組織のシナリオを取得（available + unavailable: coming_soonも含む）
-        const { data, error } = await supabase
-          .from('scenarios')
-          .select(`
-            id, slug, title, author, key_visual_url,
-            duration, player_count_min, player_count_max,
-            genre, participation_fee, difficulty, release_date,
-            organization_id, status, scenario_master_id,
-            organizations:organization_id (slug, name)
-          `)
-          .in('status', ['available', 'unavailable'])
-          .order('title')
-        
-        if (error) throw error
-        
-        // 🔐 組織の公開ステータスで絞り込み（available + coming_soon のみ表示）
-        const formattedScenarios = (data || [])
-          .filter(s => {
-            if (!shouldFilterByOrgStatus) {
-              // RPC失敗時のフォールバック: status='available' のみ
-              return s.status === 'available'
-            }
-            if (!s.scenario_master_id) return s.status === 'available'
-            return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
-          })
-          .map(s => {
-            const org = s.organizations as { slug?: string; name?: string } | null
-            return {
-              ...s,
-              genre: s.genre || [],
-              organization_slug: org?.slug || '',
-              organization_name: org?.name || '',
-            }
-          })
-        
-        logger.log('🎭 シナリオ（公開中）:', formattedScenarios.length, '件')
-        setScenarios(formattedScenarios)
-      } catch (error) {
-        logger.error('シナリオ取得エラー:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadScenarios()
-  }, [])
+  const setSearchTerm = useCallback((value: string) => updateFilter('q', value), [updateFilter])
+  const setSelectedGenre = useCallback((value: string) => updateFilter('genre', value), [updateFilter])
+  const setSelectedDuration = useCallback((value: string) => updateFilter('duration', value), [updateFilter])
+  const setSelectedPlayerCount = useCallback((value: string) => updateFilter('players', value), [updateFilter])
+  const setSelectedOrganization = useCallback((value: string) => updateFilter('org', value), [updateFilter])
 
   // ジャンル一覧を取得
   const genres = useMemo(() => {
