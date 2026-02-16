@@ -140,8 +140,43 @@ export function CancelPolicyPage() {
           }
         }
 
-        // 組織の最初の店舗の設定を取得
-        let query = supabase
+        // 店舗IDを取得
+        let storeId: string | null = null
+        
+        if (orgId) {
+          // 組織に属する店舗の設定を取得
+          const { data: storeData } = await supabase
+            .from('stores')
+            .select('id')
+            .eq('organization_id', orgId)
+            .eq('status', 'active')
+            .limit(1)
+            .single()
+
+          if (storeData) {
+            storeId = storeData.id
+          }
+        } else {
+          // organizationSlugがない場合は最初のアクティブな店舗を取得
+          const { data: storeData } = await supabase
+            .from('stores')
+            .select('id')
+            .eq('status', 'active')
+            .limit(1)
+            .single()
+
+          if (storeData) {
+            storeId = storeData.id
+          }
+        }
+
+        // 店舗の設定を取得
+        if (!storeId) {
+          setLoading(false)
+          return
+        }
+
+        const { data, error } = await supabase
           .from('reservation_settings')
           .select(`
             cancellation_fees,
@@ -155,24 +190,8 @@ export function CancelPolicyPage() {
             refund_method_note,
             policy_updated_at
           `)
-          .limit(1)
-
-        if (orgId) {
-          // 組織に属する店舗の設定を取得
-          const { data: storeData } = await supabase
-            .from('stores')
-            .select('id')
-            .eq('organization_id', orgId)
-            .eq('status', 'active')
-            .limit(1)
-            .single()
-
-          if (storeData) {
-            query = query.eq('store_id', storeData.id)
-          }
-        }
-
-        const { data, error } = await query.maybeSingle()
+          .eq('store_id', storeId)
+          .maybeSingle()
 
         if (!error && data) {
           setPolicy({
