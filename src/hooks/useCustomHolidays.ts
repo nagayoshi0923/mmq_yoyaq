@@ -25,19 +25,15 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
       try {
         // 組織スラッグが指定されている場合は、スラッグから組織IDを取得して休日を取得
         if (organizationSlug) {
-          console.log('[useCustomHolidays] 組織スラッグから取得:', organizationSlug)
-          const { data: orgData, error: orgError } = await supabase
+          const { data: orgData } = await supabase
             .from('organizations')
             .select('id')
             .eq('slug', organizationSlug)
             .eq('is_active', true)
             .single()
           
-          console.log('[useCustomHolidays] 組織データ:', { orgData, orgError })
-          
           if (orgData) {
             const settings = await organizationSettingsApi.getByOrganizationId(orgData.id)
-            console.log('[useCustomHolidays] 休日設定:', settings?.custom_holidays)
             setCustomHolidays(settings?.custom_holidays || [])
             setIsLoading(false)
             return
@@ -46,7 +42,6 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
         
         // 通常の取得（ログインユーザーの組織）
         const holidays = await organizationSettingsApi.getCustomHolidays()
-        console.log('[useCustomHolidays] 通常取得の休日:', holidays)
         setCustomHolidays(holidays)
       } catch (error) {
         console.error('カスタム休日の取得に失敗:', error)
@@ -95,9 +90,7 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
 
   // カスタム休日かどうか判定
   const isCustomHoliday = useCallback((date: string): boolean => {
-    const result = customHolidays.includes(date)
-    console.log('[isCustomHoliday]', { date, customHolidays, result })
-    return result
+    return customHolidays.includes(date)
   }, [customHolidays])
 
   // 休日かどうか判定（祝日 + カスタム休日）
