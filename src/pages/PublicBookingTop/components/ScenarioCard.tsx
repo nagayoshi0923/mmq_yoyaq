@@ -153,8 +153,25 @@ export const ScenarioCard = memo(function ScenarioCard({
             alt={scenario.scenario_title}
             className="w-full h-full"
           />
-          {/* バッジ表示: おすすめ > ロングセラー > 人気（遊びたいリスト100以上） */}
+          {/* バッジ表示: 成立間近 > おすすめ > ロングセラー > 人気 */}
           {(() => {
+            // 成立間近（最小人数まであと1-2人）- 最優先
+            const nextEvent = scenario.next_events?.[0]
+            if (nextEvent) {
+              const currentParticipants = nextEvent.current_participants ?? 0
+              const minRequired = scenario.player_count_min
+              const remaining = minRequired - currentParticipants
+              if (remaining >= 1 && remaining <= 2) {
+                return (
+                  <div 
+                    className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white"
+                    style={{ backgroundColor: '#DC2626' }}
+                  >
+                    成立間近！
+                  </div>
+                )
+              }
+            }
             // おすすめ（管理者設定）
             if (scenario.is_recommended) {
               return (
@@ -187,7 +204,7 @@ export const ScenarioCard = memo(function ScenarioCard({
               return (
                 <div 
                   className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white"
-                  style={{ backgroundColor: '#DC2626' }}
+                  style={{ backgroundColor: '#F97316' }}
                 >
                   人気
                 </div>
