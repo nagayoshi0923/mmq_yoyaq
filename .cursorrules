@@ -256,3 +256,78 @@ SELECT tablename, policyname FROM pg_policies WHERE schemaname = 'public';
 - 信頼性の低下
 
 **ステージング環境は「本番前の最終確認」のために存在します。必ず活用してください。**
+
+---
+
+## 日時・タイムゾーンルール（必須）🚨
+
+### 基本原則：「すべての日時はJST（日本標準時）を基準とする」
+
+このプロジェクトは日本国内向けサービスです。
+**タイムゾーン指定の漏れは、キャンセル期限や予約時間の誤判定につながる重大なバグの原因になります。**
+
+### データベース保存時のルール
+
+#### 1. timestamptz カラムへの保存時
+```typescript
+// ✅ 正しい例：JSTを明示的に指定
+const eventDateTime = `${date}T${time}+09:00`
+await supabase.from('reservations').insert({
+  requested_datetime: eventDateTime  // "2026-02-17T13:30:00+09:00"
+})
+
+// ❌ 間違った例：タイムゾーン指定なし（サーバー設定依存で不整合が発生）
+const eventDateTime = `${date}T${time}`  // "2026-02-17T13:30:00" ← NG！
+```
+
+#### 2. schedule_events の date + start_time を使う場合
+```typescript
+// schedule_eventsのdate（YYYY-MM-DD）とstart_time（HH:MM:SS）はJSTとして保存されている
+// 組み合わせる際は +09:00 を付与してJSTとして解釈する
+const eventDateTime = new Date(`${scheduleEvent.date}T${scheduleEvent.start_time}+09:00`)
+```
+
+### フロントエンドでの日時計算
+
+```typescript
+// ✅ 正しい例：UTC比較（Date.now()とgetTime()は両方UTCミリ秒）
+const eventDateTime = new Date(`${date}T${time}+09:00`)
+const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+
+// ✅ 正しい例：JST表示用の変換
+const jstFormatter = new Intl.DateTimeFormat('ja-JP', { 
+  timeZone: 'Asia/Tokyo',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit'
+})
+```
+
+### チェックリスト
+
+```
+□ timestamptz カラムに保存する文字列に +09:00 が付いているか？
+□ Date オブジェクトを作成する際、タイムゾーンを明示しているか？
+□ 日時比較は UTC ベースで行っているか？
+□ ユーザー表示は JST で行っているか？
+```
+
+### 禁止事項
+
+❌ タイムゾーン指定なしの日時文字列をDBに保存しない
+```typescript
+// NG
+`${date}T${time}`        // タイムゾーンなし
+new Date(date + 'T' + time)  // ローカル時間依存
+
+// OK
+`${date}T${time}+09:00`  // JST明示
+```
+
+❌ `toISOString()` をそのまま保存しない（UTCになる）
+```typescript
+// NG: UTCとして保存される
+new Date().toISOString()  // "2026-02-17T04:30:00.000Z"
+
+// OK: JSTとして保存
+`${date}T${time}+09:00`
+```
