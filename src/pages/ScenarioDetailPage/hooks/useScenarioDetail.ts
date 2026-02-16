@@ -182,19 +182,33 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
           return a.start_time.localeCompare(b.start_time)
         })
       
-      // 注意事項を organization_scenarios_with_master から取得
-      // （scenariosテーブルにはcautionカラムがないため）
+      // 注意事項を organization_scenarios または scenario_masters から取得
       let caution: string | undefined = undefined
-      if (scenarioData.scenario_master_id && orgId) {
+      if (scenarioData.scenario_master_id) {
         try {
-          const { data: orgScenarioData } = await supabase
-            .from('organization_scenarios_with_master')
-            .select('caution')
-            .eq('scenario_master_id', scenarioData.scenario_master_id)
-            .eq('organization_id', orgId)
-            .maybeSingle()
-          if (orgScenarioData?.caution) {
-            caution = orgScenarioData.caution
+          // まず organization_scenarios のカスタム注意事項を取得
+          if (orgId) {
+            const { data: orgScenarioData } = await supabase
+              .from('organization_scenarios')
+              .select('custom_caution')
+              .eq('scenario_master_id', scenarioData.scenario_master_id)
+              .eq('organization_id', orgId)
+              .maybeSingle()
+            if (orgScenarioData?.custom_caution) {
+              caution = orgScenarioData.custom_caution
+            }
+          }
+          
+          // カスタム注意事項がない場合、scenario_masters からデフォルトを取得
+          if (!caution) {
+            const { data: masterData } = await supabase
+              .from('scenario_masters')
+              .select('caution')
+              .eq('id', scenarioData.scenario_master_id)
+              .maybeSingle()
+            if (masterData?.caution) {
+              caution = masterData.caution
+            }
           }
         } catch (e) {
           logger.error('注意事項の取得エラー:', e)
