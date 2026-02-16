@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
@@ -32,6 +32,17 @@ export interface ScenarioCard {
   release_date?: string     // リリース日（1年以上でロングセラー）
 }
 
+interface BookingDataResult {
+  scenarios: ScenarioCard[]
+  allEvents: any[]
+  blockedSlots: any[]
+  stores: any[]
+  privateBookingDeadlineDays: number
+  organizationId: string | null
+  organizationName: string | null
+  organizationNotFound: boolean
+}
+
 /**
  * 空席状況を判定（最大人数に対する割合で判定）
  */
@@ -45,582 +56,444 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
   return 'available'
 }
 
-  /**
-   * 公演データの取得と管理を行うフック
-   *
-   * @param organizationSlug - 組織slug（パス方式用）指定がない場合は全組織のデータを取得
-   *
-   * パフォーマンス最適化:
-   * - React Queryの導入検討（キャッシュ有効活用）
-   * - メモリ使用量の最適化（不要なデータは破棄）
-   * - 初期表示データの制限（最初の1ヶ月のみ取得）
-   */
-  export function useBookingData(organizationSlug?: string) {
-    const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
-    const [allEvents, setAllEvents] = useState<any[]>([])
-    const [blockedSlots, setBlockedSlots] = useState<any[]>([]) // GMテスト等、貸切申込を受け付けない時間帯
-    const [stores, setStores] = useState<any[]>([])
-    const [privateBookingDeadlineDays, setPrivateBookingDeadlineDays] = useState<number>(7) // 貸切申込締切日数
-    const [isLoading, setIsLoading] = useState(true)
-    const [organizationId, setOrganizationId] = useState<string | null>(null)
-    const [organizationNotFound, setOrganizationNotFound] = useState(false)
-    const [organizationName, setOrganizationName] = useState<string | null>(null)
-
-  /**
-   * シナリオ・公演・店舗データを読み込む
-   *
-   * パフォーマンス最適化:
-   * - 3ヶ月分のデータを並列取得（Promise.all）
-   * - scenarioApi.getPublic() で必要なフィールドのみ取得
-   * - Mapを使用したO(1)アクセス
-   * - イベントの事前インデックス化
-   */
-  const loadData = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const startTime = performance.now()
-      
-      // 組織slugからorganization_idを取得
-      let orgId: string | null = null
-      setOrganizationNotFound(false)
-      if (organizationSlug) {
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('id, name')
-          .eq('slug', organizationSlug)
-          .eq('is_active', true)
-          .single()
-        
-        if (orgData) {
-          orgId = orgData.id
-          setOrganizationId(orgId)
-          setOrganizationName(orgData.name)
-          logger.log(`📍 組織検出: ${organizationSlug} (ID: ${orgId}, 名前: ${orgData.name})`)
-        } else {
-          logger.warn(`⚠️ 組織が見つかりません: ${organizationSlug}`)
-          setOrganizationNotFound(true)
-          setIsLoading(false)
-          return // 組織が見つからない場合は早期リターン
-        }
+/**
+ * 公開トップページ用のデータを取得する関数
+ * React Queryでキャッシュされる
+ */
+async function fetchBookingData(organizationSlug?: string): Promise<BookingDataResult> {
+  // 組織slugからorganization_idを取得
+  let orgId: string | null = null
+  let orgName: string | null = null
+  let organizationNotFound = false
+  
+  if (organizationSlug) {
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .eq('slug', organizationSlug)
+      .eq('is_active', true)
+      .single()
+    
+    if (orgData) {
+      orgId = orgData.id
+      orgName = orgData.name
+    } else {
+      return {
+        scenarios: [],
+        allEvents: [],
+        blockedSlots: [],
+        stores: [],
+        privateBookingDeadlineDays: 7,
+        organizationId: null,
+        organizationName: null,
+        organizationNotFound: true
       }
-      
-      // 今日から3ヶ月分のデータを取得（パフォーマンス最適化）
-      // カレンダーで月切り替えができるように、先の月も含める
-      // 注意: 3ヶ月を超える予約は稀なため、初期ロードは3ヶ月に最適化
-      const currentDate = new Date()
-      const todayJST = formatDateJST(currentDate)
+    }
+  }
+  
+  // 今日から3ヶ月分のデータを取得
+  const currentDate = new Date()
+  const todayJST = formatDateJST(currentDate)
+  const year = currentDate.getFullYear()
+  const month = currentDate.getMonth() + 1
+  const startDate = todayJST
+  const endMonthDate = new Date(year, month + 2, 0) // 3ヶ月後の月末
+  const endDate = formatDateJST(endMonthDate)
 
-      // 今日から3ヶ月後までを取得（6ヶ月→3ヶ月に削減でロード時間短縮）
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth() + 1
-      const startDate = todayJST // 今日以降のみ取得（過去は不要）
-      const endMonthDate = new Date(year, month + 2, 0) // 3ヶ月後の月末
-      const endDate = formatDateJST(endMonthDate)
-
-      const apiStartTime = performance.now()
-      logger.log(`⏱️ API呼び出し開始: ${((performance.now() - apiStartTime).toFixed(2))}ms`)
-
-      // パフォーマンス最適化: 段階的データ取得
-      // 1. まずシナリオと店舗データと設定を取得（軽量、即座に表示可能）
-      const fetchStartTime = performance.now()
-      
-      // 🔐 公開中かつ承認済みのシナリオキーを取得（RPC: RLSバイパス、匿名OK）
-      const availableOrgQuery = supabase.rpc('get_public_available_scenario_keys')
-      
-      // シナリオ取得（organization_idでフィルタリング）
-      // available + unavailable（coming_soonも含む）を取得し、RPC結果でフィルタ
-      const scenarioQuery = supabase
+  // 🚀 パフォーマンス最適化: 全クエリを並列実行
+  const [
+    scenariosResult,
+    storesResult,
+    settingsResult,
+    availableOrgResult,
+    likesCountResult,
+    eventsResult
+  ] = await Promise.all([
+    // 1. シナリオ取得
+    (async () => {
+      let query = supabase
         .from('scenarios')
         .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended')
         .in('status', ['available', 'unavailable'])
         .neq('scenario_type', 'gm_test')
       
-      // 組織が指定されている場合、その組織のシナリオ OR 共有シナリオを取得
       if (orgId) {
-        scenarioQuery.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+        query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
       }
       
-      // 店舗取得（organization_idでフィルタリング）
-      // オフィスのみ除外（臨時会場はオープン公演がある日のみ表示するため、取得は行う）
-      // 注意: neq()はnull値も除外するため、or()で明示的にnullを含める
-      let storeQuery = supabase
+      return query.order('title', { ascending: true })
+    })(),
+    
+    // 2. 店舗取得
+    (async () => {
+      let query = supabase
         .from('stores')
         .select('id, organization_id, name, short_name, address, color, capacity, rooms, ownership_type, status, is_temporary, temporary_dates, temporary_venue_names, display_order, region, transport_allowance')
         .or('ownership_type.is.null,ownership_type.neq.office')
+      
       if (orgId) {
-        storeQuery = storeQuery.eq('organization_id', orgId)
-      }
-      // display_orderでソート
-      storeQuery = storeQuery.order('display_order', { ascending: true, nullsFirst: false })
-      
-      // 遊びたいリスト（scenario_likes）の件数をシナリオごとに集計
-      const likesCountQuery = supabase
-        .from('scenario_likes')
-        .select('scenario_id')
-      
-      const [scenariosResult, storesResult, settingsResult, availableOrgResult, likesResult] = await Promise.all([
-        scenarioQuery.order('title', { ascending: true }),
-        (async () => {
-          try {
-            const result = await storeQuery
-            logger.log('📍 店舗取得結果 詳細:', {
-              count: result.data?.length,
-              error: result.error,
-              temporary: result.data?.filter((s: any) => s.is_temporary).length,
-              stores: result.data?.map((s: any) => ({ id: s.id, name: s.name, is_temporary: s.is_temporary }))
-            })
-            return result
-          } catch (error) {
-            logger.error('店舗データの取得エラー:', error)
-            return { data: [], error: null }
-          }
-        })(),
-        (async () => {
-          try {
-            return await supabase
-              .from('reservation_settings')
-              .select('private_booking_deadline_days')
-              .limit(1)
-              .maybeSingle()
-          } catch {
-            return { data: null, error: null }
-          }
-        })(),
-        availableOrgQuery,
-        likesCountQuery
-      ])
-      
-      // 🔐 公開中の組織シナリオのキーセットを作成（org_status付き）
-      const availableOrgKeysData = availableOrgResult.data || []
-      const availableOrgKeys = new Set(
-        availableOrgKeysData.map((os: any) => `${os.organization_id}_${os.scenario_master_id}`)
-      )
-      // org_statusのMapを作成（available / coming_soon を区別するため）
-      const orgStatusMap = new Map<string, string>()
-      availableOrgKeysData.forEach((os: any) => {
-        orgStatusMap.set(`${os.organization_id}_${os.scenario_master_id}`, os.org_status || 'available')
-      })
-      
-      // RPCエラーまたはデータ0件の場合はフィルタをスキップ（全表示）
-      const shouldFilterByOrgStatus = !availableOrgResult.error && availableOrgKeysData.length > 0
-      if (shouldFilterByOrgStatus) {
-        logger.log('✅ 公開中の組織シナリオ:', availableOrgKeys.size, '件')
-      } else {
-        logger.warn('⚠️ 組織シナリオフィルタをスキップ:', availableOrgResult.error ? 'RPCエラー' : 'データなし')
+        query = query.eq('organization_id', orgId)
       }
       
-      // 遊びたいリスト数をシナリオIDごとに集計
-      const favoriteCountMap = new Map<string, number>()
-      if (likesResult.data) {
-        likesResult.data.forEach((like: { scenario_id: string }) => {
-          const count = favoriteCountMap.get(like.scenario_id) || 0
-          favoriteCountMap.set(like.scenario_id, count + 1)
-        })
-      }
-      
-      // 🔐 組織で公開されているシナリオのみ表示
-      // available + coming_soon を通す、unavailable（中止）は除外
-      const scenariosData = (scenariosResult.data || []).filter((s: any) => {
-        if (!shouldFilterByOrgStatus) {
-          // RPC失敗時のフォールバック: scenarios.status = 'available' のみ
-          return s.status === 'available'
-        }
-        // scenario_master_idがない場合はstatus='available'のみ通す（レガシーデータ）
-        if (!s.scenario_master_id) return s.status === 'available'
-        // 公開中・近日公開の組織シナリオに含まれているもののみ表示
-        return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
-      })
-      const storesData = storesResult?.data || []
-      
-      // 貸切申込締切日数を設定（デフォルト7日）
-      if (settingsResult?.data?.private_booking_deadline_days) {
-        setPrivateBookingDeadlineDays(settingsResult.data.private_booking_deadline_days)
-      }
-      
-      const firstFetchEndTime = performance.now()
-      logger.log(`⏱️ シナリオ・店舗データ取得完了: ${((firstFetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
-      
-      // 2. 店舗データを即座に設定（シナリオデータは公演データと一緒に処理）
-      setStores(storesData)
-      
-      // 3. 公演データを取得（organization_idでフィルタリング）
-      const eventsQuery = supabase
+      return query.order('display_order', { ascending: true, nullsFirst: false })
+    })(),
+    
+    // 3. 設定取得
+    supabase
+      .from('reservation_settings')
+      .select('private_booking_deadline_days')
+      .limit(1)
+      .maybeSingle(),
+    
+    // 4. 公開中の組織シナリオキー取得
+    supabase.rpc('get_public_available_scenario_keys'),
+    
+    // 5. 🚀 最適化: RPCで遊びたいリスト数を集計（全件取得を回避）
+    supabase.rpc('get_scenario_likes_count'),
+    
+    // 6. 公演データ取得
+    (async () => {
+      let query = supabase
         .from('schedule_events')
         .select(`
-          *,
-          stores:store_id (
-            id,
-            name,
-            short_name,
-            color,
-            address
-          ),
-          scenarios:scenario_id (
-            id,
-            title,
-            player_count_max
-          )
+          id,
+          date,
+          start_time,
+          end_time,
+          scenario_id,
+          scenario,
+          store_id,
+          venue,
+          current_participants,
+          is_cancelled,
+          is_reservation_enabled,
+          category,
+          is_private_booking,
+          reservation_deadline_hours,
+          organization_id
         `)
         .gte('date', startDate)
         .lte('date', endDate)
+        .eq('is_cancelled', false)
         .order('date', { ascending: true })
         .order('start_time', { ascending: true })
       
-      // 組織が指定されている場合、その組織の公演のみ取得
       if (orgId) {
-        eventsQuery.eq('organization_id', orgId)
+        query = query.eq('organization_id', orgId)
       }
       
-      const { data: eventsData, error: eventsError } = await eventsQuery
-      if (eventsError) throw eventsError
-      const allEventsData = eventsData || []
-      const fetchEndTime = performance.now()
-      logger.log(`⏱️ 公演データ取得完了: ${((fetchEndTime - firstFetchEndTime) / 1000).toFixed(2)}秒`)
-      logger.log(`⏱️ データ取得完了: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
-      logger.log(`📊 取得データ: シナリオ${scenariosData.length}件, 店舗${storesData.length}件, 公演${allEventsData.length}件`)
-      
-      // 予約可能な通常公演のみフィルタリング（貸切公演・過去時間の公演は除外）
-      const now = new Date()
-      const nowJST = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }))
-      const todayStr = formatDateJST(now)
-      const nowHour = nowJST.getHours()
-      const nowMinute = nowJST.getMinutes()
+      return query
+    })()
+  ])
+  
+  // 公開中の組織シナリオのキーセットを作成
+  const availableOrgKeysData = availableOrgResult.data || []
+  const availableOrgKeys = new Set(
+    availableOrgKeysData.map((os: any) => `${os.organization_id}_${os.scenario_master_id}`)
+  )
+  const orgStatusMap = new Map<string, string>()
+  availableOrgKeysData.forEach((os: any) => {
+    orgStatusMap.set(`${os.organization_id}_${os.scenario_master_id}`, os.org_status || 'available')
+  })
+  
+  const shouldFilterByOrgStatus = !availableOrgResult.error && availableOrgKeysData.length > 0
+  
+  // 遊びたいリスト数をMapに変換（🚀 RPC結果を使用）
+  const favoriteCountMap = new Map<string, number>()
+  if (likesCountResult.data) {
+    likesCountResult.data.forEach((item: { scenario_id: string; likes_count: number }) => {
+      favoriteCountMap.set(item.scenario_id, item.likes_count)
+    })
+  }
+  
+  // シナリオをフィルタリング
+  const scenariosData = (scenariosResult.data || []).filter((s: any) => {
+    if (!shouldFilterByOrgStatus) {
+      return s.status === 'available'
+    }
+    if (!s.scenario_master_id) return s.status === 'available'
+    return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
+  })
+  
+  const storesData = storesResult?.data || []
+  const privateBookingDeadlineDays = settingsResult?.data?.private_booking_deadline_days || 7
+  const allEventsData = eventsResult?.data || []
+  
+  // 予約可能な通常公演のみフィルタリング
+  const now = new Date()
+  const nowJST = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }))
+  const todayStr = formatDateJST(now)
+  const nowHour = nowJST.getHours()
+  const nowMinute = nowJST.getMinutes()
 
-      const publicEvents = allEventsData.filter((event: any) => {
-        const isNotCancelled = !event.is_cancelled
-        
-        // 貸切公演は予約サイトには表示しない
-        const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
-        if (isPrivateBooking) return false
-        
-        // 通常公演: category='open' かつ is_reservation_enabled=true
-        const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open')
+  const publicEvents = allEventsData.filter((event: any) => {
+    // 貸切公演は予約サイトには表示しない
+    const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
+    if (isPrivateBooking) return false
+    
+    // 通常公演: category='open' かつ is_reservation_enabled=true
+    const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open')
 
-        // 今日の公演で開始時間を過ぎたものは非表示
-        if (event.date === todayStr && event.start_time) {
-          const [h, m] = event.start_time.split(':').map(Number)
-          if (h < nowHour || (h === nowHour && m <= nowMinute)) {
-            return false
-          }
-        }
+    // 今日の公演で開始時間を過ぎたものは非表示
+    if (event.date === todayStr && event.start_time) {
+      const [h, m] = event.start_time.split(':').map(Number)
+      if (h < nowHour || (h === nowHour && m <= nowMinute)) {
+        return false
+      }
+    }
+    
+    return isOpenAndEnabled
+  })
+  
+  // GMテスト・貸切公演等
+  const blockedSlotsData = allEventsData.filter((event: any) => {
+    const isBlocked = event.category === 'gmtest' 
+      || event.category === 'testplay'
+      || event.category === 'private'
+      || event.is_private_booking === true
+    return isBlocked
+  })
+  
+  // 最適化: 店舗データをMapに変換
+  const storeMap = new Map<string, any>()
+  storesData.forEach((store: any) => {
+    storeMap.set(store.id, store)
+    if (store.short_name) storeMap.set(store.short_name, store)
+    if (store.name) storeMap.set(store.name, store)
+  })
+  
+  // 最適化: シナリオデータをMapに変換
+  const scenarioDataMap = new Map<string, any>()
+  scenariosData.forEach((scenario: any) => {
+    scenarioDataMap.set(scenario.id, scenario)
+    if (scenario.title) scenarioDataMap.set(scenario.title, scenario)
+  })
+  
+  // イベントを加工
+  const enrichedEvents = publicEvents.map((event: any) => {
+    const scenarioFromMap = scenarioDataMap.get(event.scenario_id) || 
+                            scenarioDataMap.get(event.scenario)
+    
+    const player_count_max = scenarioFromMap?.player_count_max || 8
+    const key_visual_url = scenarioFromMap?.key_visual_url
+    
+    return {
+      ...event,
+      player_count_max,
+      key_visual_url,
+      scenario_data: scenarioFromMap
+    }
+  })
+  
+  // イベントをシナリオIDでインデックス化
+  const eventsByScenarioId = new Map<string, any[]>()
+  const eventsByScenarioTitle = new Map<string, any[]>()
+  
+  enrichedEvents.forEach((event: any) => {
+    const scenarioId = event.scenario_id
+    if (scenarioId) {
+      if (!eventsByScenarioId.has(scenarioId)) {
+        eventsByScenarioId.set(scenarioId, [])
+      }
+      eventsByScenarioId.get(scenarioId)!.push(event)
+    }
+    
+    const scenarioTitle = event.scenario
+    if (scenarioTitle) {
+      if (!eventsByScenarioTitle.has(scenarioTitle)) {
+        eventsByScenarioTitle.set(scenarioTitle, [])
+      }
+      eventsByScenarioTitle.get(scenarioTitle)!.push(event)
+    }
+  })
+  
+  // シナリオカードを構築
+  const scenarioMap = new Map<string, ScenarioCard>()
+  
+  scenariosData.forEach((scenario: any) => {
+    const scenarioKey = `${scenario.organization_id}_${scenario.scenario_master_id}`
+    const currentOrgStatus = orgStatusMap.get(scenarioKey) || 'available'
+    
+    const scenarioEvents = [
+      ...(eventsByScenarioId.get(scenario.id) || []),
+      ...(eventsByScenarioTitle.get(scenario.title) || [])
+    ]
+    
+    const uniqueEvents = Array.from(
+      new Map(scenarioEvents.map(e => [e.id, e])).values()
+    )
+    
+    const isNew = scenario.release_date ? 
+      (new Date().getTime() - new Date(scenario.release_date).getTime()) / (1000 * 60 * 60 * 24) <= 30 : 
+      false
+    
+    // coming_soonシナリオ
+    if (currentOrgStatus === 'coming_soon') {
+      scenarioMap.set(scenario.id, {
+        scenario_id: scenario.id,
+        scenario_slug: scenario.slug || undefined,
+        scenario_title: scenario.title,
+        key_visual_url: scenario.key_visual_url,
+        author: scenario.author,
+        duration: scenario.duration,
+        player_count_min: scenario.player_count_min,
+        player_count_max: scenario.player_count_max,
+        genre: scenario.genre || [],
+        participation_fee: scenario.participation_fee || 3000,
+        status: 'private_booking',
+        is_new: isNew,
+        is_recommended: scenario.is_recommended || false,
+        favorite_count: favoriteCountMap.get(scenario.id) || 0,
+        release_date: scenario.release_date
+      })
+      return
+    }
+    
+    // 公演がある場合
+    if (uniqueEvents.length > 0) {
+      const futureEvents = uniqueEvents.filter((event: any) => {
+        const isFuture = event.date >= todayJST
+        const isNotPrivate = !(event.is_private_booking === true || event.category === 'private')
+        const isNotGmTest = event.category !== 'gmtest'
+        return isFuture && isNotPrivate && isNotGmTest
+      })
+      
+      const sortedEvents = [...futureEvents].sort((a: any, b: any) => {
+        const dateCompare = a.date.localeCompare(b.date)
+        if (dateCompare !== 0) return dateCompare
+        return (a.start_time || '').localeCompare(b.start_time || '')
+      })
+      
+      const nextEvents = sortedEvents.slice(0, 3).map((event: any) => {
+        const store = storeMap.get(event.venue) || 
+                     storeMap.get(event.store_id) ||
+                     null
         
-        return isNotCancelled && isOpenAndEnabled
-      })
-      
-      // GMテスト・貸切公演等、貸切申込を受け付けない時間帯をフィルタリング
-      const blockedSlotsData = allEventsData.filter((event: any) => {
-        const isNotCancelled = !event.is_cancelled
-        // GMテスト、テストプレイ、既存の貸切公演は貸切申込を受け付けない
-        const isBlocked = event.category === 'gmtest' 
-          || event.category === 'testplay'
-          || event.category === 'private'
-          || event.is_private_booking === true
-        return isNotCancelled && isBlocked
-      })
-      
-      // 最適化: 店舗データをMapに変換（O(1)アクセス）
-      const storeMap = new Map<string, any>()
-      storesData.forEach((store: any) => {
-        storeMap.set(store.id, store)
-        if (store.short_name) storeMap.set(store.short_name, store)
-        if (store.name) storeMap.set(store.name, store)
-      })
-      
-      // 最適化: シナリオデータをMapに変換（O(1)アクセス）
-      const scenarioDataMap = new Map<string, any>()
-      scenariosData.forEach((scenario: any) => {
-        scenarioDataMap.set(scenario.id, scenario)
-        if (scenario.title) scenarioDataMap.set(scenario.title, scenario)
-      })
-      
-      // イベントを加工: player_count_max を事前計算してセット
-      const enrichedEvents = publicEvents.map((event: any) => {
-        // シナリオ情報を検索（ID → タイトル の順で検索）
-        const scenarioFromMap = scenarioDataMap.get(event.scenario_id) || 
-                                scenarioDataMap.get(event.scenario) ||
-                                scenarioDataMap.get(event.scenarios?.id) ||
-                                scenarioDataMap.get(event.scenarios?.title)
-        
-        // player_count_max: scenarioMapからの値を最優先
-        const player_count_max = scenarioFromMap?.player_count_max || 
-                                 event.scenarios?.player_count_max || 
-                                 event.max_participants || 
-                                 8
-        
-        // key_visual_url: scenarioMapからの値を最優先
-        const key_visual_url = scenarioFromMap?.key_visual_url || 
-                               event.scenarios?.key_visual_url || 
-                               event.scenarios?.image_url
+        const maxParticipants = scenario.player_count_max || 8
+        const currentParticipants = event.current_participants || 0
+        const availableSeats = event.is_private_booking === true 
+          ? 0 
+          : maxParticipants - currentParticipants
         
         return {
-          ...event,
-          player_count_max,
-          key_visual_url,
-          scenario_data: scenarioFromMap // シナリオマスタの情報を保持
+          date: event.date,
+          time: event.start_time,
+          store_name: store?.name || event.venue,
+          store_short_name: store?.short_name,
+          store_color: store?.color,
+          available_seats: availableSeats,
+          current_participants: currentParticipants
         }
       })
       
-      // 最適化: イベントをシナリオIDでインデックス化（O(1)アクセス）
-      const eventsByScenarioId = new Map<string, any[]>()
-      const eventsByScenarioTitle = new Map<string, any[]>()
-      
-      enrichedEvents.forEach((event: any) => {
-        // scenario_idでインデックス化
-        const scenarioId = event.scenario_id || event.scenarios?.id
-        if (scenarioId) {
-          if (!eventsByScenarioId.has(scenarioId)) {
-            eventsByScenarioId.set(scenarioId, [])
-          }
-          eventsByScenarioId.get(scenarioId)!.push(event)
-        }
-        
-        // タイトルでインデックス化（フォールバック用）
-        const scenarioTitle = event.scenario || event.scenarios?.title
-        if (scenarioTitle) {
-          if (!eventsByScenarioTitle.has(scenarioTitle)) {
-            eventsByScenarioTitle.set(scenarioTitle, [])
-          }
-          eventsByScenarioTitle.get(scenarioTitle)!.push(event)
-        }
-      })
-      
-      // シナリオごとにグループ化
-      // 注意: todayJST は上部（106行目）で定義済み
-      const scenarioMap = new Map<string, ScenarioCard>()
-      
-      scenariosData.forEach((scenario: any) => {
-        // org_statusを判定（coming_soon / available）
-        const scenarioKey = `${scenario.organization_id}_${scenario.scenario_master_id}`
-        const currentOrgStatus = orgStatusMap.get(scenarioKey) || 'available'
-        
-        // 最適化: Mapから直接取得（O(1)）
-        const scenarioEvents = [
-          ...(eventsByScenarioId.get(scenario.id) || []),
-          ...(eventsByScenarioTitle.get(scenario.title) || [])
-        ]
-        
-        // 重複を除去（同じイベントが両方のMapに存在する可能性がある）
-        const uniqueEvents = Array.from(
-          new Map(scenarioEvents.map(e => [e.id, e])).values()
-        )
-        
-        // 新着判定（リリース日から30日以内）
-        const isNew = scenario.release_date ? 
-          (new Date().getTime() - new Date(scenario.release_date).getTime()) / (1000 * 60 * 60 * 24) <= 30 : 
-          false
-        
-        // coming_soon（近日公開）のシナリオは常に「貸切受付中」として表示
-        // 通常の公演イベントは表示しない
-        if (currentOrgStatus === 'coming_soon') {
-          scenarioMap.set(scenario.id, {
-            scenario_id: scenario.id,
-            scenario_slug: scenario.slug || undefined,
-            scenario_title: scenario.title,
-            key_visual_url: scenario.key_visual_url,
-            author: scenario.author,
-            duration: scenario.duration,
-            player_count_min: scenario.player_count_min,
-            player_count_max: scenario.player_count_max,
-            genre: scenario.genre || [],
-            participation_fee: scenario.participation_fee || 3000,
-            status: 'private_booking', // 「貸切受付中」
-            is_new: isNew,
-            is_recommended: scenario.is_recommended || false,
-            favorite_count: favoriteCountMap.get(scenario.id) || 0,
-            release_date: scenario.release_date
-          })
-          return // 次のシナリオへ
-        }
-        
-        // 以下、available（公開）のシナリオの処理
-        // 公演がある場合
-        if (uniqueEvents.length > 0) {
-          // 今日以降の公演のみをフィルタリング（満席も含む、過去の公演は除外、貸切・GMテストは除外）
-          const futureEvents = uniqueEvents.filter((event: any) => {
-            // event.dateはYYYY-MM-DD形式の文字列なので、そのまま比較
-            // 今日を含む（>=）で判定
-            const isFuture = event.date >= todayJST
-            // 貸切予約とGMテストは除外
-            const isNotPrivate = !(event.is_private_booking === true || event.category === 'private')
-            const isNotGmTest = event.category !== 'gmtest'
-            return isFuture && isNotPrivate && isNotGmTest
-          })
-          
-          // 未来の公演がない場合は空配列にする（過去の公演は表示しない）
-          const targetEvents = futureEvents
-          
-          // 最も近い公演を最大3つまで取得（日付・時刻順にソート）
-          // 満席の公演も含めてソート
-          const sortedEvents = [...targetEvents].sort((a: any, b: any) => {
-            // 日付で比較
-            const dateCompare = a.date.localeCompare(b.date)
-            if (dateCompare !== 0) return dateCompare
-            // 同じ日付の場合、時刻で比較
-            return (a.start_time || '').localeCompare(b.start_time || '')
-          })
-          
-          // 最大3つまで選択（満席も含む）
-          const nextEvents = sortedEvents.slice(0, 3).map((event: any) => {
-            // 最適化: Mapから直接取得（O(1)）- find()を完全に排除
-            const store = storeMap.get(event.venue) || 
-                         storeMap.get(event.store_id) ||
-                         storeMap.get(event.store_short_name) ||
-                         null
-            
-            // シナリオマスタのplayer_count_maxを使用（公演データは古い値の可能性があるため）
-            const maxParticipants = scenario.player_count_max || 8
-            const currentParticipants = event.current_participants || 0
-            const availableSeats = event.is_private_booking === true 
-              ? 0 
-              : maxParticipants - currentParticipants
-            
-            return {
-              date: event.date,
-              time: event.start_time,
-              store_name: store?.name || event.venue,
-              store_short_name: store?.short_name,
-              store_color: store?.color,
-              available_seats: availableSeats,
-              current_participants: currentParticipants
-            }
-          })
-          
-          // ステータスは最も近い公演で判定（未来の公演がある場合のみ）
-          let status: 'available' | 'few_seats' | 'sold_out' | 'private_booking' = 'private_booking'
-          if (sortedEvents.length > 0) {
-            const nextEvent = sortedEvents[0]
-            const isPrivateBooking = nextEvent.is_private_booking === true
-            // シナリオマスタのplayer_count_maxを使用
-            const maxParticipants = scenario.player_count_max || 8
-            const currentParticipants = nextEvent.current_participants || 0
-            status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(maxParticipants, currentParticipants)
-          }
-          
-          // 未来の公演がある場合のみシナリオを追加
-          // 満席の公演も含めて全ての公演をカウント
-          if (nextEvents.length > 0 || targetEvents.length > 0) {
-            scenarioMap.set(scenario.id, {
-              scenario_id: scenario.id,
-              scenario_slug: scenario.slug || undefined,
-              scenario_title: scenario.title,
-              key_visual_url: scenario.key_visual_url,
-              author: scenario.author,
-              duration: scenario.duration,
-              player_count_min: scenario.player_count_min,
-              player_count_max: scenario.player_count_max,
-              genre: scenario.genre || [],
-              participation_fee: scenario.participation_fee || 3000,
-              next_events: nextEvents,
-              total_events_count: targetEvents.length, // 次回公演の総数（満席も含む）
-              status: status,
-              is_new: isNew,
-              is_recommended: scenario.is_recommended || false,
-              favorite_count: favoriteCountMap.get(scenario.id) || 0,
-              release_date: scenario.release_date
-            })
-          } else {
-            // 未来の公演がない場合でも、全タイトル用にシナリオ情報を追加
-            scenarioMap.set(scenario.id, {
-              scenario_id: scenario.id,
-              scenario_slug: scenario.slug || undefined,
-              scenario_title: scenario.title,
-              key_visual_url: scenario.key_visual_url,
-              author: scenario.author,
-              duration: scenario.duration,
-              player_count_min: scenario.player_count_min,
-              player_count_max: scenario.player_count_max,
-              genre: scenario.genre || [],
-              participation_fee: scenario.participation_fee || 3000,
-              status: 'private_booking', // 公演予定なしは「貸切受付中」
-              is_new: isNew,
-              is_recommended: scenario.is_recommended || false,
-              favorite_count: favoriteCountMap.get(scenario.id) || 0,
-              release_date: scenario.release_date
-            })
-          }
-        } else {
-          // 公演がない場合でも、全タイトル用にシナリオ情報を追加
-          scenarioMap.set(scenario.id, {
-            scenario_id: scenario.id,
-            scenario_slug: scenario.slug || undefined,
-            scenario_title: scenario.title,
-            key_visual_url: scenario.key_visual_url,
-            author: scenario.author,
-            duration: scenario.duration,
-            player_count_min: scenario.player_count_min,
-            player_count_max: scenario.player_count_max,
-            genre: scenario.genre || [],
-            participation_fee: scenario.participation_fee || 3000,
-            status: 'private_booking', // 公演予定なしは「貸切受付中」
-            is_new: isNew,
-            is_recommended: scenario.is_recommended || false,
-            favorite_count: favoriteCountMap.get(scenario.id) || 0,
-            release_date: scenario.release_date
-          })
-        }
-      })
-      
-      const processEndTime = performance.now()
-      logger.log(`⏱️ データ処理完了: ${((processEndTime - fetchEndTime) / 1000).toFixed(2)}秒`)
-      
-      const scenarioList = Array.from(scenarioMap.values())
-      
-      const totalTime = performance.now() - startTime
-      // パフォーマンスログ
-      logger.log(`📊 予約サイトデータ取得完了: ${scenarioList.length}件のシナリオ, ${enrichedEvents.length}件の公演`)
-      logger.log(`⏱️ 総処理時間: ${(totalTime / 1000).toFixed(2)}秒`)
-      
-      // データを即座に設定（非同期化は不要、むしろ遅延の原因になる）
-      setScenarios(scenarioList)
-      setAllEvents(enrichedEvents) // 加工済みイベントを使用
-      setBlockedSlots(blockedSlotsData) // GMテスト等の時間帯
-      setStores(storesData)
-      setIsLoading(false)
-      
-      // パフォーマンス最適化: よく使われる画像をプリロード（バックグラウンド）
-      // 新着・直近公演の画像を優先的にプリロード
-      const imagesToPreload = scenarioList
-        .filter(s => s.is_new || (s.next_events && s.next_events.length > 0))
-        .slice(0, 10) // 最大10枚まで
-        .map(s => s.key_visual_url)
-        .filter((url): url is string => !!url)
-      
-      // バックグラウンドで画像をプリロード
-      imagesToPreload.forEach(url => {
-        const img = new Image()
-        img.src = url
-      })
-      logger.log(`🖼️ 画像プリロード開始: ${imagesToPreload.length}枚`)
-      
-      if (totalTime > 3000) {
-        logger.warn(`⚠️ 処理時間が3秒を超えています: ${(totalTime / 1000).toFixed(2)}秒`)
+      let status: 'available' | 'few_seats' | 'sold_out' | 'private_booking' = 'private_booking'
+      if (sortedEvents.length > 0) {
+        const nextEvent = sortedEvents[0]
+        const isPrivateBooking = nextEvent.is_private_booking === true
+        const maxParticipants = scenario.player_count_max || 8
+        const currentParticipants = nextEvent.current_participants || 0
+        status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(maxParticipants, currentParticipants)
       }
-
-      // デバッグ: データがない場合の警告
-      if (scenarioList.length === 0) {
-        logger.warn('⚠️ 表示可能なシナリオがありません')
-        logger.warn('原因の可能性:')
-        logger.warn('1. シナリオデータが登録されていない')
-        logger.warn('2. 予約可能な公演（category=open）が登録されていない')
-        logger.warn('3. is_reservation_enabledがfalseになっている')
-        logger.warn('4. シナリオと公演の紐付けが正しくない')
+      
+      if (nextEvents.length > 0 || futureEvents.length > 0) {
+        scenarioMap.set(scenario.id, {
+          scenario_id: scenario.id,
+          scenario_slug: scenario.slug || undefined,
+          scenario_title: scenario.title,
+          key_visual_url: scenario.key_visual_url,
+          author: scenario.author,
+          duration: scenario.duration,
+          player_count_min: scenario.player_count_min,
+          player_count_max: scenario.player_count_max,
+          genre: scenario.genre || [],
+          participation_fee: scenario.participation_fee || 3000,
+          next_events: nextEvents,
+          total_events_count: futureEvents.length,
+          status: status,
+          is_new: isNew,
+          is_recommended: scenario.is_recommended || false,
+          favorite_count: favoriteCountMap.get(scenario.id) || 0,
+          release_date: scenario.release_date
+        })
+      } else {
+        scenarioMap.set(scenario.id, {
+          scenario_id: scenario.id,
+          scenario_slug: scenario.slug || undefined,
+          scenario_title: scenario.title,
+          key_visual_url: scenario.key_visual_url,
+          author: scenario.author,
+          duration: scenario.duration,
+          player_count_min: scenario.player_count_min,
+          player_count_max: scenario.player_count_max,
+          genre: scenario.genre || [],
+          participation_fee: scenario.participation_fee || 3000,
+          status: 'private_booking',
+          is_new: isNew,
+          is_recommended: scenario.is_recommended || false,
+          favorite_count: favoriteCountMap.get(scenario.id) || 0,
+          release_date: scenario.release_date
+        })
       }
-    } catch (error) {
-      logger.error('データの読み込みエラー:', error)
-      setIsLoading(false)
+    } else {
+      scenarioMap.set(scenario.id, {
+        scenario_id: scenario.id,
+        scenario_slug: scenario.slug || undefined,
+        scenario_title: scenario.title,
+        key_visual_url: scenario.key_visual_url,
+        author: scenario.author,
+        duration: scenario.duration,
+        player_count_min: scenario.player_count_min,
+        player_count_max: scenario.player_count_max,
+        genre: scenario.genre || [],
+        participation_fee: scenario.participation_fee || 3000,
+        status: 'private_booking',
+        is_new: isNew,
+        is_recommended: scenario.is_recommended || false,
+        favorite_count: favoriteCountMap.get(scenario.id) || 0,
+        release_date: scenario.release_date
+      })
     }
-  }, [organizationSlug])
-
+  })
+  
+  const scenarioList = Array.from(scenarioMap.values())
+  
   return {
-    scenarios,
-    allEvents,
-    blockedSlots, // GMテスト等、貸切申込を受け付けない時間帯
-    stores,
-    privateBookingDeadlineDays, // 貸切申込締切日数
-    isLoading,
-    loadData,
-    organizationNotFound, // 組織が見つからない場合のフラグ
-    organizationName // 組織名
+    scenarios: scenarioList,
+    allEvents: enrichedEvents,
+    blockedSlots: blockedSlotsData,
+    stores: storesData,
+    privateBookingDeadlineDays,
+    organizationId: orgId,
+    organizationName: orgName,
+    organizationNotFound
   }
 }
 
+/**
+ * 公演データの取得と管理を行うフック
+ * React Queryでキャッシュを活用
+ *
+ * @param organizationSlug - 組織slug（パス方式用）指定がない場合は全組織のデータを取得
+ */
+export function useBookingData(organizationSlug?: string) {
+  const queryClient = useQueryClient()
+  
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['booking-data', organizationSlug],
+    queryFn: () => fetchBookingData(organizationSlug),
+    staleTime: 2 * 60 * 1000, // 2分間キャッシュ（再訪問時は即座に表示）
+    gcTime: 10 * 60 * 1000, // 10分間メモリ保持
+  })
+
+  return {
+    scenarios: data?.scenarios ?? [],
+    allEvents: data?.allEvents ?? [],
+    blockedSlots: data?.blockedSlots ?? [],
+    stores: data?.stores ?? [],
+    privateBookingDeadlineDays: data?.privateBookingDeadlineDays ?? 7,
+    isLoading,
+    loadData: refetch,
+    organizationNotFound: data?.organizationNotFound ?? false,
+    organizationName: data?.organizationName ?? null
+  }
+}
