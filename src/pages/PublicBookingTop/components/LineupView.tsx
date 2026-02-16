@@ -187,7 +187,6 @@ export const LineupView = memo(function LineupView({
                 isFavorite={isFavorite(scenario.scenario_id)}
                 onToggleFavorite={onToggleFavorite}
                 organizationName={organizationName}
-                isFirst={index === 0}
               />
             ))}
           </div>
@@ -239,7 +238,6 @@ export const LineupView = memo(function LineupView({
                   isFavorite={isFavorite(scenario.scenario_id)}
                   onToggleFavorite={onToggleFavorite}
                   organizationName={organizationName}
-                  isFirst={displayedNewScenarios.length === 0 && index === 0}
                 />
               ))}
             </div>

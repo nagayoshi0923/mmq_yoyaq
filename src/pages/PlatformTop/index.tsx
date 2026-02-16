@@ -483,7 +483,6 @@ export function PlatformTop() {
                       isFavorite={favorites.has(scenario.scenario_id)}
                       onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
                       organizationName={scenario.organization_name}
-                      isFirst={idx === 0}
                     />
                   ))}
                 </div>

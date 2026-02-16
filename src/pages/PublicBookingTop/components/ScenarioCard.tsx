@@ -26,6 +26,7 @@ export interface ScenarioCardData {
     store_short_name?: string
     store_color?: string
     available_seats?: number
+    current_participants?: number
   }>
   total_events_count?: number
 }
@@ -98,7 +99,6 @@ interface ScenarioCardProps {
   isFavorite?: boolean
   onToggleFavorite?: (scenarioId: string, e: React.MouseEvent) => void
   organizationName?: string | null
-  isFirst?: boolean
 }
 
 /**
@@ -109,8 +109,7 @@ export const ScenarioCard = memo(function ScenarioCard({
   onClick, 
   isFavorite = false, 
   onToggleFavorite, 
-  organizationName,
-  isFirst = false
+  organizationName
 }: ScenarioCardProps) {
   const { prefetchScenario } = usePrefetch()
   
@@ -150,15 +149,26 @@ export const ScenarioCard = memo(function ScenarioCard({
             alt={scenario.scenario_title}
             className="w-full h-full"
           />
-          {/* 人気タグ */}
-          {isFirst && (
-            <div 
-              className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-black"
-              style={{ backgroundColor: THEME.accent }}
-            >
-              人気
-            </div>
-          )}
+          {/* 成立間近バッジ: 最小人数まであと1-2人の場合 */}
+          {(() => {
+            const nextEvent = scenario.next_events?.[0]
+            if (!nextEvent) return null
+            const currentParticipants = nextEvent.current_participants ?? 0
+            const minRequired = scenario.player_count_min
+            const remaining = minRequired - currentParticipants
+            // 成立間近 = あと1〜2人で最小人数に達する（かつまだ成立していない）
+            if (remaining >= 1 && remaining <= 2) {
+              return (
+                <div 
+                  className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white"
+                  style={{ backgroundColor: '#DC2626' }}
+                >
+                  成立間近！
+                </div>
+              )
+            }
+            return null
+          })()}
         </div>
 
         {/* コンテンツ */}

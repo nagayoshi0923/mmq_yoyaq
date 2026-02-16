@@ -457,7 +457,8 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
               store_name: store?.name || event.venue,
               store_short_name: store?.short_name,
               store_color: store?.color,
-              available_seats: availableSeats
+              available_seats: availableSeats,
+              current_participants: currentParticipants
             }
           })
           
