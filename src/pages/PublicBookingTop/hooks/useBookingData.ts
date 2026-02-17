@@ -141,7 +141,11 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           query = query.eq('organization_id', orgId)
         }
         
-        return await query.order('display_order', { ascending: true, nullsFirst: false })
+        const result = await query.order('display_order', { ascending: true, nullsFirst: false })
+        if (result.error) {
+          console.error('stores query failed:', result.error)
+        }
+        return result
       } catch (err) {
         console.error('stores query error:', err)
         return { data: [], error: err }
@@ -317,6 +321,12 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     if (scenario.title) scenarioDataMap.set(scenario.title, scenario)
   })
   
+  // storesをMapに変換（ID→店舗データ）
+  const storesMap = new Map<string, any>()
+  storesData.forEach((store: any) => {
+    storesMap.set(store.id, store)
+  })
+  
   // イベントを加工
   const enrichedEvents = publicEvents.map((event: any) => {
     const scenarioFromMap = scenarioDataMap.get(event.scenario_id) || 
@@ -325,11 +335,17 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     const player_count_max = scenarioFromMap?.player_count_max || 8
     const key_visual_url = scenarioFromMap?.key_visual_url
     
+    // 店舗情報を追加
+    const store = storesMap.get(event.store_id)
+    
     return {
       ...event,
       player_count_max,
       key_visual_url,
-      scenario_data: scenarioFromMap
+      scenario_data: scenarioFromMap,
+      store_name: store?.name || event.venue,
+      store_short_name: store?.short_name,
+      store_color: store?.color
     }
   })
   
