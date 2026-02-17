@@ -87,18 +87,20 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           const isScenarioStore = !hasScenarioStoreLimit || scenarioAvailableStores.includes(id)
           return storeExists && isScenarioStore
         })
-        setSelectedStoreIdsInternal(validStoreIds)
-      } else if (storeFilterIds && storeFilterIds.length > 0) {
-        // 初回のみ：貸切用が空で、カレンダー/リストで店舗が選択されている場合
-        const validFilterIds = storeFilterIds.filter(id => {
-          const store = stores.find(s => s.id === id && s.ownership_type !== 'office')
-          const isScenarioStore = !hasScenarioStoreLimit || scenarioAvailableStores.includes(id)
-          return store && isScenarioStore
-        })
-        if (validFilterIds.length > 0) {
-          setSelectedStoreIdsInternal(validFilterIds)
-          setSavedStoreIds(validFilterIds)
+        // 有効な保存済み店舗がある場合のみ復元
+        if (validStoreIds.length > 0) {
+          setSelectedStoreIdsInternal(validStoreIds)
+        } else {
+          // 保存済みだが全て無効な場合は、利用可能な全店舗を選択
+          const allValidIds = validStores.map(s => s.id)
+          setSelectedStoreIdsInternal(allValidIds)
+          setSavedStoreIds(allValidIds)
         }
+      } else {
+        // 保存された店舗がない場合は、利用可能な全店舗を初期選択
+        const allValidIds = validStores.map(s => s.id)
+        setSelectedStoreIdsInternal(allValidIds)
+        setSavedStoreIds(allValidIds)
       }
     }
   }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario])
