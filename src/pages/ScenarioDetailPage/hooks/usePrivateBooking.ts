@@ -895,35 +895,31 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         }
         
         // === 夜公演の場合は営業時間設定の開始時間を優先 ===
-        // 営業時間設定がある場合はその時間を使用、ない場合は営業終了から逆算
+        // 営業時間設定がある場合はその時間を使用
         if (def.key === 'evening') {
           // 営業時間設定の開始時間（defaultStartTimesはslot_start_timesから設定済み）
           const configuredStart = defaultStartTimes[def.key]
           
-          // 営業終了時間から逆算した最早開始時間（公演が終了時間に間に合う最遅の開始時間）
-          const reverseCalculatedStart = hardDayLimit - durationMinutes
-          
           // 前公演がある場合は、その終了+1時間後が最早開始時間
-          // 逆算した開始時間と最早開始時間を比較して、遅い方を採用
-          // （前公演がある場合は、前公演終了+1時間後にしか開始できない）
-          const constrainedStart = Math.max(earliestPossibleStart, reverseCalculatedStart)
+          const hasEarlierEvent = earliestPossibleStart > configuredStart
           
-          // 前公演の制約で開始が遅れる場合、営業終了を超えるなら無効
-          if (constrainedStart + durationMinutes > hardDayLimit) {
+          if (hasEarlierEvent) {
+            // 前公演がある場合は前公演終了+1時間後を使用
+            startMinutes = earliestPossibleStart
+          } else {
+            // 前公演がない場合は営業時間設定の開始時間をそのまま使用
+            startMinutes = configuredStart
+          }
+          
+          // 営業終了時間を超える場合は無効
+          if (startMinutes + durationMinutes > hardDayLimit) {
             return null // 営業終了時間を超えるので無効
           }
           
-          // 前公演がない場合：営業時間設定の開始時間を優先
-          // 前公演がある場合：前公演終了+1時間後を使用
-          const hasEarlierEvent = earliestPossibleStart > defaultStartTimes[def.key]
-          // 営業時間設定の開始時間と逆算開始時間の遅い方を採用（早く開始しすぎない）
-          // ただし前公演がある場合はconstrainedStartを使用
-          startMinutes = hasEarlierEvent ? constrainedStart : Math.max(configuredStart, reverseCalculatedStart)
-          
           logger.log('[getTimeSlotsForDate] 夜公演開始時間計算:', {
             configuredStart: minutesToTime(configuredStart),
-            reverseCalculatedStart: minutesToTime(reverseCalculatedStart),
             hasEarlierEvent,
+            earliestPossibleStart: minutesToTime(earliestPossibleStart),
             startMinutes: minutesToTime(startMinutes)
           })
         } else {
