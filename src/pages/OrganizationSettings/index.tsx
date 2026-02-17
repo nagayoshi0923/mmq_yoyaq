@@ -45,6 +45,7 @@ export default function OrganizationSettings() {
     contact_name: '',
     contact_email: '',
     notes: '',
+    theme_color: '#E60012',
   })
 
   // 組織情報をフォームに反映
@@ -55,6 +56,7 @@ export default function OrganizationSettings() {
         contact_name: organization.contact_name || '',
         contact_email: organization.contact_email || '',
         notes: organization.notes || '',
+        theme_color: organization.theme_color || '#E60012',
       })
     }
   }, [organization])
@@ -84,6 +86,7 @@ export default function OrganizationSettings() {
         contact_name: formData.contact_name.trim() || null,
         contact_email: formData.contact_email.trim() || null,
         notes: formData.notes.trim() || null,
+        theme_color: formData.theme_color || '#E60012',
       })
 
       if (result) {
@@ -245,6 +248,34 @@ export default function OrganizationSettings() {
                 placeholder="組織に関するメモ..."
                 rows={3}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="theme_color">イメージカラー</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  id="theme_color"
+                  value={formData.theme_color}
+                  onChange={(e) => setFormData(prev => ({ ...prev, theme_color: e.target.value }))}
+                  className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+                />
+                <Input
+                  value={formData.theme_color}
+                  onChange={(e) => setFormData(prev => ({ ...prev, theme_color: e.target.value }))}
+                  placeholder="#E60012"
+                  className="w-28 font-mono"
+                />
+                <div 
+                  className="px-4 py-2 rounded text-white text-sm font-medium"
+                  style={{ backgroundColor: formData.theme_color }}
+                >
+                  プレビュー
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                予約トップページのボタンなどに使用されます
+              </p>
             </div>
 
             <div className="flex justify-end">

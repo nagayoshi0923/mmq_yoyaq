@@ -29,6 +29,7 @@ interface StoreSettings {
   is_temporary?: boolean
   ownership_type?: string
   kit_group_id?: string | null  // キットグループの親店舗ID
+  header_image_url?: string | null  // 店舗のヘッダー画像URL
 }
 
 interface StoreBasicSettingsProps {
@@ -411,6 +412,31 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
                 style={{ backgroundColor: formData.color }}
               />
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="header_image_url">ヘッダー画像URL</Label>
+            <Input
+              id="header_image_url"
+              value={formData.header_image_url || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, header_image_url: e.target.value || null }))}
+              placeholder="https://example.com/header.jpg"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              予約トップページに表示されるヘッダー画像のURL
+            </p>
+            {formData.header_image_url && (
+              <div className="mt-2 rounded-lg overflow-hidden border">
+                <img 
+                  src={formData.header_image_url} 
+                  alt="ヘッダープレビュー"
+                  className="w-full h-32 object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           <div>
