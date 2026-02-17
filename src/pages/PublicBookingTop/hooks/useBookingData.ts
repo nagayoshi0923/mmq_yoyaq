@@ -207,7 +207,11 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           query = query.eq('organization_id', orgId)
         }
         
-        return await query
+        const result = await query
+        if (result.error) {
+          console.error('schedule_events query failed:', result.error)
+        }
+        return result
       } catch (err) {
         console.error('schedule_events query error:', err)
         return { data: [], error: err }
