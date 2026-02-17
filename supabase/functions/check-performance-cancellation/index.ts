@@ -193,6 +193,20 @@ async function sendCancellationNotifications(
       .in('id', reservationIds)
   }
 
+  // 3.5. イベント自体を中止状態に更新
+  const { error: eventUpdateError } = await supabase
+    .from('schedule_events')
+    .update({
+      is_cancelled: true
+    })
+    .eq('id', event.event_id)
+  
+  if (eventUpdateError) {
+    console.error('❌ イベント中止フラグ更新エラー:', eventUpdateError)
+  } else {
+    console.log('✅ イベント中止フラグ更新完了:', event.event_id)
+  }
+
   // 4. Discord通知（GMメンション付き）
   await sendDiscordCancellationNotification(supabase, event, checkType, reservations?.length || 0)
 
