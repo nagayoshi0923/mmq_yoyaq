@@ -111,31 +111,41 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   ] = await Promise.all([
     // 1. シナリオ取得
     (async () => {
-      let query = supabase
-        .from('scenarios')
-        .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended')
-        .in('status', ['available', 'unavailable'])
-        .neq('scenario_type', 'gm_test')
-      
-      if (orgId) {
-        query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+      try {
+        let query = supabase
+          .from('scenarios')
+          .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended')
+          .in('status', ['available', 'unavailable'])
+          .neq('scenario_type', 'gm_test')
+        
+        if (orgId) {
+          query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+        }
+        
+        return await query.order('title', { ascending: true })
+      } catch (err) {
+        console.error('scenarios query error:', err)
+        return { data: [], error: err }
       }
-      
-      return query.order('title', { ascending: true })
     })(),
     
     // 2. 店舗取得
     (async () => {
-      let query = supabase
-        .from('stores')
-        .select('id, organization_id, name, short_name, address, color, capacity, rooms, ownership_type, status, is_temporary, temporary_dates, temporary_venue_names, display_order, region, transport_allowance')
-        .or('ownership_type.is.null,ownership_type.neq.office')
-      
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
+      try {
+        let query = supabase
+          .from('stores')
+          .select('id, organization_id, name, short_name, address, color, capacity, rooms, ownership_type, status, is_temporary, temporary_dates, temporary_venue_names, display_order, region, transport_allowance')
+          .or('ownership_type.is.null,ownership_type.neq.office')
+        
+        if (orgId) {
+          query = query.eq('organization_id', orgId)
+        }
+        
+        return await query.order('display_order', { ascending: true, nullsFirst: false })
+      } catch (err) {
+        console.error('stores query error:', err)
+        return { data: [], error: err }
       }
-      
-      return query.order('display_order', { ascending: true, nullsFirst: false })
     })(),
     
     // 3. 設定取得
@@ -146,43 +156,62 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
       .maybeSingle(),
     
     // 4. 公開中の組織シナリオキー取得
-    supabase.rpc('get_public_available_scenario_keys'),
+    (async () => {
+      try {
+        return await supabase.rpc('get_public_available_scenario_keys')
+      } catch (err) {
+        console.error('get_public_available_scenario_keys RPC error:', err)
+        return { data: [], error: err }
+      }
+    })(),
     
     // 5. 🚀 最適化: RPCで遊びたいリスト数を集計（全件取得を回避）
-    supabase.rpc('get_scenario_likes_count'),
+    (async () => {
+      try {
+        return await supabase.rpc('get_scenario_likes_count')
+      } catch (err) {
+        console.error('get_scenario_likes_count RPC error:', err)
+        return { data: [], error: err }
+      }
+    })(),
     
     // 6. 公演データ取得
     (async () => {
-      let query = supabase
-        .from('schedule_events')
-        .select(`
-          id,
-          date,
-          start_time,
-          end_time,
-          scenario_id,
-          scenario,
-          store_id,
-          venue,
-          current_participants,
-          is_cancelled,
-          is_reservation_enabled,
-          category,
-          is_private_booking,
-          reservation_deadline_hours,
-          organization_id
-        `)
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .eq('is_cancelled', false)
-        .order('date', { ascending: true })
-        .order('start_time', { ascending: true })
-      
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
+      try {
+        let query = supabase
+          .from('schedule_events')
+          .select(`
+            id,
+            date,
+            start_time,
+            end_time,
+            scenario_id,
+            scenario,
+            store_id,
+            venue,
+            current_participants,
+            is_cancelled,
+            is_reservation_enabled,
+            category,
+            is_private_booking,
+            reservation_deadline_hours,
+            organization_id
+          `)
+          .gte('date', startDate)
+          .lte('date', endDate)
+          .eq('is_cancelled', false)
+          .order('date', { ascending: true })
+          .order('start_time', { ascending: true })
+        
+        if (orgId) {
+          query = query.eq('organization_id', orgId)
+        }
+        
+        return await query
+      } catch (err) {
+        console.error('schedule_events query error:', err)
+        return { data: [], error: err }
       }
-      
-      return query
     })()
   ])
   
@@ -198,12 +227,27 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   
   const shouldFilterByOrgStatus = !availableOrgResult.error && availableOrgKeysData.length > 0
   
-  // 遊びたいリスト数をMapに変換（🚀 RPC結果を使用）
+  // 遊びたいリスト数をMapに変換（🚀 RPC結果を使用、エラー時はフォールバック）
   const favoriteCountMap = new Map<string, number>()
-  if (likesCountResult.data) {
+  if (likesCountResult.data && !likesCountResult.error) {
     likesCountResult.data.forEach((item: { scenario_id: string; likes_count: number }) => {
-      favoriteCountMap.set(item.scenario_id, item.likes_count)
+      favoriteCountMap.set(item.scenario_id, Number(item.likes_count))
     })
+  } else if (likesCountResult.error) {
+    // RPCが失敗した場合はフォールバックとしてscenario_likesを直接取得
+    console.warn('get_scenario_likes_count RPC failed, falling back to direct query')
+    try {
+      const { data: likesData } = await supabase
+        .from('scenario_likes')
+        .select('scenario_id')
+      if (likesData) {
+        likesData.forEach((like: { scenario_id: string }) => {
+          favoriteCountMap.set(like.scenario_id, (favoriteCountMap.get(like.scenario_id) || 0) + 1)
+        })
+      }
+    } catch (err) {
+      console.error('scenario_likes fallback query error:', err)
+    }
   }
   
   // シナリオをフィルタリング
