@@ -208,12 +208,11 @@ const LazyImage: React.FC<{
   const handleLoad = () => setHasLoaded(true)
 
   if (!isVisible) {
-    // プレースホルダー表示
+    // プレースホルダー表示（親から渡されたclassNameを尊重）
     return (
       <div
         ref={imgRef}
-        className={`bg-gray-200 animate-pulse ${className}`}
-        style={{ aspectRatio: '1/1' }}
+        className={`bg-gray-200 animate-pulse ${className || ''}`}
       />
     )
   }
@@ -285,12 +284,11 @@ const LazyPicture: React.FC<{
   const handleLoad = () => setHasLoaded(true)
 
   if (!isVisible) {
-    // プレースホルダー表示
+    // プレースホルダー表示（親から渡されたclassNameを尊重）
     return (
       <div
         ref={imgRef}
-        className={`bg-gray-200 animate-pulse ${className}`}
-        style={{ aspectRatio: '1/1' }}
+        className={`bg-gray-200 animate-pulse ${className || ''}`}
       />
     )
   }
