@@ -760,6 +760,18 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       })
       .sort((a: any, b: any) => (a.end_time || '').localeCompare(b.end_time || ''))
     
+    // デバッグ：火曜日のイベントを出力
+    if (dayOfWeek === 2) {
+      console.log('🟠 火曜日 dayEvents:', dayEvents.map((e: any) => ({
+        id: e.id,
+        date: e.date,
+        start_time: e.start_time,
+        end_time: e.end_time,
+        scenario: e.scenarios?.title || e.scenario_id,
+        store: e.store_id
+      })))
+    }
+    
     
     // 各スロットの前にあるイベントの最遅end_timeを計算
     const getLatestEndTimeBefore = (slotKey: string): number | null => {
