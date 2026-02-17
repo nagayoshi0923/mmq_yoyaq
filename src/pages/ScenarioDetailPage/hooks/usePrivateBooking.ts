@@ -180,25 +180,20 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         
         // キャッシュに保存
         const cache = new Map<string, any>()
+        console.log('🟡 [営業時間設定] 取得開始:', { storeIds, dataLength: data?.length, error })
         if (data) {
-          logger.log('[営業時間設定] 取得データ:', data.length, '件')
+          console.log('🟡 [営業時間設定] 取得データ:', data.length, '件')
           for (const setting of data) {
             // 詳細なログ出力
             const oh = setting.opening_hours
-            if (oh) {
-              logger.log('[営業時間設定] 店舗:', setting.store_id, {
-                monday: oh.monday?.slot_start_times,
-                tuesday: oh.tuesday?.slot_start_times,
-                saturday: oh.saturday?.slot_start_times,
-                sunday: oh.sunday?.slot_start_times
-              })
-            } else {
-              logger.log('[営業時間設定] 店舗:', setting.store_id, 'opening_hours: なし')
-            }
+            console.log('🟡 [営業時間設定] 店舗:', setting.store_id, {
+              tuesday: oh?.tuesday?.slot_start_times,
+              hasOpeningHours: !!oh
+            })
             cache.set(setting.store_id, setting)
           }
         } else {
-          logger.log('[営業時間設定] データなし')
+          console.log('🟡 [営業時間設定] データなし')
         }
         setBusinessHoursCache(cache)
       } catch (error) {
@@ -571,16 +566,17 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     const settings = targetStoreId ? businessHoursCache.get(targetStoreId) : null
     
-    // デバッグログ
-    logger.log('[getTimeSlotsForDate]', {
-      date,
-      dayOfWeek,
-      isWeekendOrHoliday,
-      targetStoreId,
-      hasSettings: !!settings,
-      hasOpeningHours: !!settings?.opening_hours,
-      cacheSize: businessHoursCache.size
-    })
+    // デバッグログ（console.logで出力）
+    if (dayOfWeek === 2) { // 火曜日のみ
+      console.log('🟢 [getTimeSlotsForDate] 火曜日:', {
+        date,
+        targetStoreId,
+        hasSettings: !!settings,
+        hasOpeningHours: !!settings?.opening_hours,
+        cacheSize: businessHoursCache.size,
+        tuesdaySlotTimes: settings?.opening_hours?.tuesday?.slot_start_times
+      })
+    }
     
     // 分を時間に変換
     const minutesToTime = (minutes: number): string => {
