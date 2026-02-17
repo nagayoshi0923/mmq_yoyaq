@@ -896,9 +896,13 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         
         // === 夜公演の場合は営業時間設定の開始時間を優先 ===
         // 営業時間設定がある場合はその時間を使用
+        // ただし、長時間公演で営業終了を超える場合は逆算して早める
         if (def.key === 'evening') {
           // 営業時間設定の開始時間（defaultStartTimesはslot_start_timesから設定済み）
           const configuredStart = defaultStartTimes[def.key]
+          
+          // 営業終了時間から逆算した開始時間（長時間公演用）
+          const reverseCalculatedStart = hardDayLimit - durationMinutes
           
           // 前公演がある場合は、その終了+1時間後が最早開始時間
           const hasEarlierEvent = earliestPossibleStart > configuredStart
@@ -907,17 +911,26 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
             // 前公演がある場合は前公演終了+1時間後を使用
             startMinutes = earliestPossibleStart
           } else {
-            // 前公演がない場合は営業時間設定の開始時間をそのまま使用
-            startMinutes = configuredStart
+            // 前公演がない場合：
+            // - 通常公演（設定時間で営業終了内に収まる）→ 設定時間を使用
+            // - 長時間公演（設定時間だと営業終了を超える）→ 逆算して早める
+            if (configuredStart + durationMinutes <= hardDayLimit) {
+              // 設定時間で収まる場合はそのまま使用
+              startMinutes = configuredStart
+            } else {
+              // 長時間公演：逆算して早める
+              startMinutes = reverseCalculatedStart
+            }
           }
           
-          // 営業終了時間を超える場合は無効
+          // 営業終了時間を超える場合は無効（前公演がある場合など）
           if (startMinutes + durationMinutes > hardDayLimit) {
             return null // 営業終了時間を超えるので無効
           }
           
           logger.log('[getTimeSlotsForDate] 夜公演開始時間計算:', {
             configuredStart: minutesToTime(configuredStart),
+            reverseCalculatedStart: minutesToTime(reverseCalculatedStart),
             hasEarlierEvent,
             earliestPossibleStart: minutesToTime(earliestPossibleStart),
             startMinutes: minutesToTime(startMinutes)
