@@ -876,10 +876,13 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           }
         }
         
-        // === 夜公演の場合は営業終了時間から逆算 ===
-        // 朝・昼公演は開始時間準拠、夜公演は終了時間準拠
+        // === 夜公演の場合は営業時間設定の開始時間を優先 ===
+        // 営業時間設定がある場合はその時間を使用、ない場合は営業終了から逆算
         if (def.key === 'evening') {
-          // 営業終了時間から逆算した開始時間
+          // 営業時間設定の開始時間（defaultStartTimesはslot_start_timesから設定済み）
+          const configuredStart = defaultStartTimes[def.key]
+          
+          // 営業終了時間から逆算した最早開始時間（公演が終了時間に間に合う最遅の開始時間）
           const reverseCalculatedStart = hardDayLimit - durationMinutes
           
           // 前公演がある場合は、その終了+1時間後が最早開始時間
@@ -892,10 +895,19 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
             return null // 営業終了時間を超えるので無効
           }
           
-          // 前公演がない場合（earliestPossibleStart がデフォルト値の場合）は逆算した開始時間を使用
-          // 前公演がある場合は、前公演終了+1時間後を使用
+          // 前公演がない場合：営業時間設定の開始時間を優先
+          // 前公演がある場合：前公演終了+1時間後を使用
           const hasEarlierEvent = earliestPossibleStart > defaultStartTimes[def.key]
-          startMinutes = hasEarlierEvent ? constrainedStart : reverseCalculatedStart
+          // 営業時間設定の開始時間と逆算開始時間の遅い方を採用（早く開始しすぎない）
+          // ただし前公演がある場合はconstrainedStartを使用
+          startMinutes = hasEarlierEvent ? constrainedStart : Math.max(configuredStart, reverseCalculatedStart)
+          
+          logger.log('[getTimeSlotsForDate] 夜公演開始時間計算:', {
+            configuredStart: minutesToTime(configuredStart),
+            reverseCalculatedStart: minutesToTime(reverseCalculatedStart),
+            hasEarlierEvent,
+            startMinutes: minutesToTime(startMinutes)
+          })
         } else {
           // 朝・昼公演は従来通り開始時間準拠
           startMinutes = earliestPossibleStart
