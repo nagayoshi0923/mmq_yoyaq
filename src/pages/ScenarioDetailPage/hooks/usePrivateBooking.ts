@@ -568,13 +568,16 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     // デバッグログ（console.logで出力）
     if (dayOfWeek === 2) { // 火曜日のみ
+      const dayHoursDebug = settings?.opening_hours?.tuesday
       console.log('🟢 [getTimeSlotsForDate] 火曜日:', {
         date,
         targetStoreId,
         hasSettings: !!settings,
         hasOpeningHours: !!settings?.opening_hours,
         cacheSize: businessHoursCache.size,
-        tuesdaySlotTimes: settings?.opening_hours?.tuesday?.slot_start_times
+        tuesdaySlotTimes: dayHoursDebug?.slot_start_times,
+        tuesdayAvailableSlots: dayHoursDebug?.available_slots,
+        tuesdayIsOpen: dayHoursDebug?.is_open
       })
     }
     
@@ -662,6 +665,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           slotEndLimits.evening = timeToMinutes(dayHours.close_time)
         }
       }
+    }
+    
+    // 火曜日の場合、availableSlotsも出力
+    if (dayOfWeek === 2) {
+      console.log('🟣 [getTimeSlotsForDate] 火曜日 availableSlots:', availableSlots)
     }
     
     logger.log('[getTimeSlotsForDate] 最終開始時間:', {
