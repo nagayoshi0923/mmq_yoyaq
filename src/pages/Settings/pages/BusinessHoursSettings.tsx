@@ -317,8 +317,8 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       const openingHoursToSave = mergeWithDefaults(formData.opening_hours)
       
       // デバッグ：火曜日の設定を確認
-      logger.log('火曜日の設定（formData）:', formData.opening_hours?.tuesday)
-      logger.log('火曜日の設定（保存用）:', openingHoursToSave.tuesday)
+      console.log('🔴 火曜日の設定（formData）:', JSON.stringify(formData.opening_hours?.tuesday, null, 2))
+      console.log('🔴 火曜日の設定（保存用）:', JSON.stringify(openingHoursToSave.tuesday, null, 2))
       
       for (const store of targetStores) {
         if (!store) continue
