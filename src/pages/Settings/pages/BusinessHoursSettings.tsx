@@ -118,12 +118,19 @@ const mergeWithDefaults = (dbOpeningHours: OpeningHours | null): OpeningHours =>
     const dbDay = dbOpeningHours[day]
     
     if (dbDay) {
-      // DBのデータがある場合、slot_start_timesがなければデフォルトを設定
+      // slot_start_timesは個々のプロパティをマージ（部分的に設定されている場合に対応）
+      const mergedSlotTimes: SlotTimes = {
+        morning: dbDay.slot_start_times?.morning || defaultHours.slot_start_times?.morning || '10:00',
+        afternoon: dbDay.slot_start_times?.afternoon || defaultHours.slot_start_times?.afternoon || '13:00',
+        evening: dbDay.slot_start_times?.evening || defaultHours.slot_start_times?.evening || '19:00'
+      }
+      
+      // DBのデータがある場合、デフォルトとマージ
       result[day] = {
         ...defaultHours,  // まずデフォルトを適用
         ...dbDay,         // DBのデータで上書き
-        // slot_start_timesは特別扱い：DBにない場合はデフォルトを使用
-        slot_start_times: dbDay.slot_start_times || defaultHours.slot_start_times,
+        // slot_start_timesは個々のプロパティをマージ
+        slot_start_times: mergedSlotTimes,
         // available_slotsも同様
         available_slots: dbDay.available_slots || defaultHours.available_slots
       }
@@ -308,6 +315,10 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       
       // 保存前にすべての曜日にslot_start_timesを確実に含める
       const openingHoursToSave = mergeWithDefaults(formData.opening_hours)
+      
+      // デバッグ：火曜日の設定を確認
+      logger.log('火曜日の設定（formData）:', formData.opening_hours?.tuesday)
+      logger.log('火曜日の設定（保存用）:', openingHoursToSave.tuesday)
       
       for (const store of targetStores) {
         if (!store) continue
