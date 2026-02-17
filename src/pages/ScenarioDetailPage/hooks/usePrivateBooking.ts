@@ -851,6 +851,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         if (selectedStoreIds.length > 1) {
           const earliestStart = getEarliestAvailableStartForStores(def.key)
           if (earliestStart === null) {
+            if (dayOfWeek === 2) console.log('🔴 火曜日 null理由: 複数店舗で入れない', def.key)
             return null // いずれの店舗でも入れない
           }
           earliestPossibleStart = earliestStart
@@ -860,6 +861,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           
           // -1 は使用不可を意味する
           if (slotStartConsideringEvents === -1) {
+            if (dayOfWeek === 2) console.log('🔴 火曜日 null理由: スロット内にイベントあり', def.key)
             return null
           }
           
@@ -921,16 +923,19 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         
         // 開始時間がスロットの時間帯を超えている場合は無効
         if (startMinutes >= slotEndLimit) {
+          if (dayOfWeek === 2) console.log('🔴 火曜日 null理由: 開始時間がスロット終了を超過', def.key, { startMinutes, slotEndLimit })
           return null
         }
         
         // 営業終了時間を超える場合は無効
         if (endMinutes > hardDayLimit) {
+          if (dayOfWeek === 2) console.log('🔴 火曜日 null理由: 終了時間が営業終了を超過', def.key, { endMinutes, hardDayLimit })
           return null
         }
         
         // スロット境界内に収まる場合は問題なし
         if (endMinutes <= slotEndLimit) {
+          if (dayOfWeek === 2) console.log('🟢 火曜日 スロット生成OK', def.key, { startMinutes, endMinutes })
           return {
             label: def.label,
             startTime: minutesToTime(startMinutes),
@@ -947,6 +952,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           : hardDayLimit - extraPrepTime   // 営業終了から準備時間を引いた時間
         
         if (endMinutes > effectiveEndLimit) {
+          if (dayOfWeek === 2) console.log('🔴 火曜日 null理由: 後続イベントとバッティング', def.key, { endMinutes, effectiveEndLimit })
           return null
         }
         
