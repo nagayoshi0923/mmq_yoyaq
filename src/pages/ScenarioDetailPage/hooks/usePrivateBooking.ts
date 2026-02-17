@@ -556,10 +556,18 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     const durationMinutes = scenario?.duration || 180
     
     // 選択された店舗がある場合は、その店舗の設定を使用
-    // 店舗未選択時はキャッシュの最初の店舗の設定を使用（全店舗共通設定として）
+    // 店舗未選択時はシナリオのavailable_storesの最初の店舗を使用
     let targetStoreId = selectedStoreIds.length > 0 ? selectedStoreIds[0] : null
     
-    // 店舗未選択時、キャッシュに設定があれば最初の設定を使用
+    // 店舗未選択時、シナリオのavailable_storesがあればその最初の店舗を使用
+    if (!targetStoreId && scenario) {
+      const scenarioStores = scenario.available_stores || scenario.available_stores_ids
+      if (Array.isArray(scenarioStores) && scenarioStores.length > 0) {
+        targetStoreId = scenarioStores[0]
+      }
+    }
+    
+    // それでも店舗がない場合、キャッシュの最初の設定を使用
     if (!targetStoreId && businessHoursCache.size > 0) {
       targetStoreId = (businessHoursCache.keys().next().value as string | undefined) ?? null
     }
