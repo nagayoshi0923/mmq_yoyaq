@@ -670,6 +670,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     // 火曜日の場合、availableSlotsも出力
     if (dayOfWeek === 2) {
       console.log('🟣 [getTimeSlotsForDate] 火曜日 availableSlots:', availableSlots)
+      console.log('🟣 [getTimeSlotsForDate] 火曜日 defaultStartTimes:', {
+        morning: minutesToTime(defaultStartTimes.morning),
+        afternoon: minutesToTime(defaultStartTimes.afternoon),
+        evening: minutesToTime(defaultStartTimes.evening)
+      })
     }
     
     logger.log('[getTimeSlotsForDate] 最終開始時間:', {
@@ -745,20 +750,19 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       return Math.min(...storeStartTimes)
     }
     
-    // 単一店舗または店舗未選択時の従来ロジック用
-    const dayEvents = allStoreEvents
-      .filter((e: any) => {
-        const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
-        if (eventDate !== targetDate) return false
-        const eventStoreId = e.store_id || e.stores?.id
-        // 単一店舗選択時のみ、その店舗のイベントをフィルタ
-        if (selectedStoreIds.length === 1) {
-          return eventStoreId === selectedStoreIds[0]
-        }
-        // 店舗未選択時は全イベント（複数店舗選択時は getEarliestAvailableStartForStores で処理）
-        return selectedStoreIds.length === 0
-      })
-      .sort((a: any, b: any) => (a.end_time || '').localeCompare(b.end_time || ''))
+    // 単一店舗選択時のみイベントを取得（店舗未選択時・複数店舗選択時は空）
+    // 店舗未選択時：まだ店舗が決まっていないので、イベント判定はスキップ
+    // 複数店舗選択時：getEarliestAvailableStartForStores で各店舗ごとに処理
+    const dayEvents = selectedStoreIds.length === 1
+      ? allStoreEvents
+          .filter((e: any) => {
+            const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
+            if (eventDate !== targetDate) return false
+            const eventStoreId = e.store_id || e.stores?.id
+            return eventStoreId === selectedStoreIds[0]
+          })
+          .sort((a: any, b: any) => (a.end_time || '').localeCompare(b.end_time || ''))
+      : [] // 店舗未選択 or 複数店舗選択時は空配列
     
     // デバッグ：火曜日のイベントを出力
     if (dayOfWeek === 2) {
