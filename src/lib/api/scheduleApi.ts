@@ -1029,10 +1029,24 @@ export const scheduleApi = {
   },
 
   // 公演をキャンセル/復活
-  async toggleCancel(id: string, isCancelled: boolean) {
+  async toggleCancel(id: string, isCancelled: boolean, cancellationReason?: string) {
+    const updateData: Record<string, unknown> = { 
+      is_cancelled: isCancelled 
+    }
+    
+    // 中止の場合は理由と日時を設定
+    if (isCancelled) {
+      updateData.cancellation_reason = cancellationReason || null
+      updateData.cancelled_at = new Date().toISOString()
+    } else {
+      // 復活の場合はクリア
+      updateData.cancellation_reason = null
+      updateData.cancelled_at = null
+    }
+    
     const { data, error } = await supabase
       .from('schedule_events')
-      .update({ is_cancelled: isCancelled })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()

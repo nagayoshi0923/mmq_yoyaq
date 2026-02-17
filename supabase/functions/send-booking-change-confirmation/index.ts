@@ -286,19 +286,36 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
 このメールは予約変更時に自動送信されています
     `
 
-    // テンプレートの変数置換用関数
+    // テンプレートの変数置換用関数（基本変数セット対応）
     const applyTemplate = (template: string) => {
       return template
+        // 顧客情報
         .replace(/{customer_name}/g, changeData.customerName || 'お客様')
+        .replace(/{customer_email}/g, changeData.customerEmail || '')
+        // 予約情報
+        .replace(/{reservation_number}/g, changeData.reservationNumber || '')
         .replace(/{scenario_title}/g, changeData.scenarioTitle || '')
         .replace(/{date}/g, changeData.newEventDate ? formatDate(changeData.newEventDate) : '')
         .replace(/{time}/g, changeData.newStartTime ? formatTime(changeData.newStartTime) : '')
+        .replace(/{end_time}/g, changeData.newEndTime ? formatTime(changeData.newEndTime) : '')
         .replace(/{venue}/g, changeData.newStoreName || '')
-        .replace(/{reservation_number}/g, changeData.reservationNumber || '')
         .replace(/{participants}/g, String(changeData.newParticipantCount || ''))
+        .replace(/{participant_count}/g, String(changeData.newParticipantCount || ''))
         .replace(/{total_price}/g, (changeData.newTotalPrice || 0).toLocaleString())
+        // キャンセル関連
+        .replace(/{cancellation_fee}/g, '')
+        .replace(/{cancellation_reason}/g, '')
+        // 会社情報
+        .replace(/{company_name}/g, companyName)
+        .replace(/{company_phone}/g, companyPhone || '')
+        .replace(/{company_email}/g, companyEmail || '')
+        // 変更専用の追加変数
         .replace(/{price_difference}/g, (changeData.priceDifference || 0).toLocaleString())
         .replace(/{changes}/g, changesText)
+        .replace(/{old_date}/g, changeData.oldEventDate ? formatDate(changeData.oldEventDate) : '')
+        .replace(/{new_date}/g, changeData.newEventDate ? formatDate(changeData.newEventDate) : '')
+        .replace(/{old_participants}/g, String(changeData.oldParticipantCount || ''))
+        .replace(/{new_participants}/g, String(changeData.newParticipantCount || ''))
     }
 
     // カスタムテンプレートをHTMLに変換

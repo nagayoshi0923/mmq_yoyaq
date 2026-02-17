@@ -63,18 +63,18 @@ const slotOptions = [
   { value: 'evening' as const, label: '夜公演', defaultTime: '18:00' }
 ]
 
-// デフォルトの開始時間
+// デフォルトの開始時間（土日祝用）
 const defaultSlotTimes: SlotTimes = {
   morning: '10:00',
   afternoon: '14:00',
-  evening: '18:00'
+  evening: '19:00'
 }
 
 // 平日用の開始時間（昼公演は13:00開始）
 const weekdaySlotTimes: SlotTimes = {
   morning: '10:00',
   afternoon: '13:00',
-  evening: '18:00'
+  evening: '19:00'
 }
 
 // デフォルトの営業時間設定
@@ -102,6 +102,36 @@ const getDefaultOpeningHours = (): OpeningHours => ({
   saturday: { ...defaultWeekendHours },
   sunday: { ...defaultWeekendHours }
 })
+
+// DBから取得したデータにデフォルト値をマージする関数
+// slot_start_timesなどが欠けている古いデータ用
+const mergeWithDefaults = (dbOpeningHours: OpeningHours | null): OpeningHours => {
+  const defaults = getDefaultOpeningHours()
+  if (!dbOpeningHours) return defaults
+  
+  const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
+  const result: OpeningHours = { ...defaults }
+  
+  for (const day of weekdays) {
+    const isWeekend = day === 'saturday' || day === 'sunday'
+    const defaultHours = isWeekend ? defaultWeekendHours : defaultWeekdayHours
+    const dbDay = dbOpeningHours[day]
+    
+    if (dbDay) {
+      // DBのデータがある場合、slot_start_timesがなければデフォルトを設定
+      result[day] = {
+        ...defaultHours,  // まずデフォルトを適用
+        ...dbDay,         // DBのデータで上書き
+        // slot_start_timesは特別扱い：DBにない場合はデフォルトを使用
+        slot_start_times: dbDay.slot_start_times || defaultHours.slot_start_times,
+        // available_slotsも同様
+        available_slots: dbDay.available_slots || defaultHours.available_slots
+      }
+    }
+  }
+  
+  return result
+}
 
 interface BusinessHoursSettingsProps {
   storeId?: string
@@ -162,10 +192,10 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       }
 
       if (basicData) {
-        // 基本データがあれば設定
+        // 基本データがあれば設定（slot_start_timesがない古いデータ用にデフォルト値をマージ）
         setFormData({
           ...basicData,
-          opening_hours: basicData.opening_hours || getDefaultOpeningHours(),
+          opening_hours: mergeWithDefaults(basicData.opening_hours),
           holidays: basicData.holidays || [],
           special_open_days: [],
           special_closed_days: []
@@ -276,12 +306,15 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       
       const orgId = await getCurrentOrganizationId()
       
+      // 保存前にすべての曜日にslot_start_timesを確実に含める
+      const openingHoursToSave = mergeWithDefaults(formData.opening_hours)
+      
       for (const store of targetStores) {
         if (!store) continue
         
         const saveData = {
           store_id: store.id,
-          opening_hours: formData.opening_hours,
+          opening_hours: openingHoursToSave,
           holidays: formData.holidays,
           organization_id: orgId
         }
@@ -293,7 +326,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         const { error: updateError, data: updateData } = await supabase
           .from('business_hours_settings')
           .update({
-            opening_hours: formData.opening_hours,
+            opening_hours: openingHoursToSave,
             holidays: formData.holidays
           })
           .eq('store_id', store.id)

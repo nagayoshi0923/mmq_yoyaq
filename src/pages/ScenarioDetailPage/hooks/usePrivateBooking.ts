@@ -183,7 +183,18 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         if (data) {
           logger.log('[営業時間設定] 取得データ:', data.length, '件')
           for (const setting of data) {
-            logger.log('[営業時間設定] 店舗:', setting.store_id, 'opening_hours:', setting.opening_hours ? '設定あり' : 'なし')
+            // 詳細なログ出力
+            const oh = setting.opening_hours
+            if (oh) {
+              logger.log('[営業時間設定] 店舗:', setting.store_id, {
+                monday: oh.monday?.slot_start_times,
+                tuesday: oh.tuesday?.slot_start_times,
+                saturday: oh.saturday?.slot_start_times,
+                sunday: oh.sunday?.slot_start_times
+              })
+            } else {
+              logger.log('[営業時間設定] 店舗:', setting.store_id, 'opening_hours: なし')
+            }
             cache.set(setting.store_id, setting)
           }
         } else {
@@ -584,17 +595,17 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       return h * 60 + (m || 0)
     }
     
-    // デフォルトの開始時間・終了時間（平日は昼13:00開始、土日祝・カスタム休日は14:00）
+    // デフォルトの開始時間・終了時間（平日は昼13:00開始、土日祝・カスタム休日は14:00、夜公演は19:00）
     const defaultStartTimes: Record<string, number> = isWeekendOrHoliday
       ? {
           morning: timeToMinutes('10:00'),
           afternoon: timeToMinutes('14:00'),
-          evening: timeToMinutes('18:00')
+          evening: timeToMinutes('19:00')  // 夜公演は19:00開始
         }
       : {
           morning: timeToMinutes('10:00'),
           afternoon: timeToMinutes('13:00'),  // 平日は13:00開始
-          evening: timeToMinutes('18:00')
+          evening: timeToMinutes('19:00')  // 夜公演は19:00開始
         }
     const slotEndLimits: Record<string, number> = {
       morning: timeToMinutes('13:00'),
@@ -640,18 +651,14 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         if (dayHours.slot_start_times) {
           const st = dayHours.slot_start_times
           logger.log('[getTimeSlotsForDate] slot_start_times適用:', st)
-          if (st.morning) defaultStartTimes.morning = timeToMinutes(st.morning)
-          if (st.afternoon) defaultStartTimes.afternoon = timeToMinutes(st.afternoon)
-          if (st.evening) defaultStartTimes.evening = timeToMinutes(st.evening)
-        }
-        // slot_start_timesがない場合はopen_timeを昼公演の開始時間として使用
-        else if (dayHours.open_time) {
-          const openMinutes = timeToMinutes(dayHours.open_time)
-          logger.log('[getTimeSlotsForDate] open_timeからafternoon開始時間を設定:', dayHours.open_time, '→', openMinutes)
-          // 営業開始時間が昼公演のデフォルト開始時間と異なる場合、それを適用
-          if (openMinutes > timeToMinutes('09:00') && openMinutes < timeToMinutes('16:00')) {
-            defaultStartTimes.afternoon = openMinutes
-          }
+          // 値が存在し、かつ有効な時間形式の場合のみ適用
+          if (st.morning && st.morning.includes(':')) defaultStartTimes.morning = timeToMinutes(st.morning)
+          if (st.afternoon && st.afternoon.includes(':')) defaultStartTimes.afternoon = timeToMinutes(st.afternoon)
+          if (st.evening && st.evening.includes(':')) defaultStartTimes.evening = timeToMinutes(st.evening)
+        } else {
+          // slot_start_timesがない古いデータの場合、デフォルト値を維持
+          // （defaultStartTimesは既に曜日に応じた適切な値が設定されている）
+          logger.log('[getTimeSlotsForDate] slot_start_timesなし - デフォルト値を使用')
         }
         
         // 営業終了時間を夜公演の上限に反映
@@ -662,9 +669,12 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     }
     
     logger.log('[getTimeSlotsForDate] 最終開始時間:', {
+      date,
+      isWeekendOrHoliday,
       morning: minutesToTime(defaultStartTimes.morning),
       afternoon: minutesToTime(defaultStartTimes.afternoon),
-      evening: minutesToTime(defaultStartTimes.evening)
+      evening: minutesToTime(defaultStartTimes.evening),
+      availableSlots
     })
     
     // === 既存イベントのスケジュールを参照して開始時間を計算 ===

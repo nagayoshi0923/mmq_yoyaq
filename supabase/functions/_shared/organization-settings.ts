@@ -218,6 +218,9 @@ export interface StoreEmailSettings {
   private_rejection_template: string | null
   waitlist_notify_template: string | null
   waitlist_registration_template: string | null
+  performance_cancellation_template: string | null
+  event_cancellation_template: string | null
+  performance_extension_template: string | null
 }
 
 export async function getStoreEmailSettings(
@@ -241,6 +244,9 @@ export async function getStoreEmailSettings(
       'private_rejection_template',
       'waitlist_notify_template',
       'waitlist_registration_template',
+      'performance_cancellation_template',
+      'event_cancellation_template',
+      'performance_extension_template',
     ].join(','))
 
   // store_id が指定されている場合はそれを優先
@@ -276,6 +282,133 @@ export function replaceTemplateVariables(
     result = result.split(placeholder).join(String(value ?? ''))
   }
   return result
+}
+
+/**
+ * 日付をフォーマット（曜日付き）
+ */
+export function formatDateJa(dateStr: string): string {
+  const date = new Date(dateStr)
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日(${weekdays[date.getDay()]})`
+}
+
+/**
+ * 時刻をフォーマット（HH:MM形式）
+ */
+export function formatTimeJa(timeStr: string): string {
+  return timeStr.slice(0, 5)
+}
+
+/**
+ * 基本変数セットのインターフェース
+ * 全メールテンプレートで共通して使用可能な変数
+ */
+export interface BaseTemplateVariables {
+  // 顧客情報
+  customer_name: string
+  customer_email?: string
+  
+  // 予約情報
+  reservation_number?: string
+  scenario_title: string
+  date: string
+  time: string
+  end_time?: string
+  venue: string
+  participants: string
+  total_price?: string
+  
+  // キャンセル関連
+  cancellation_fee?: string
+  cancellation_reason?: string
+  
+  // 会社情報
+  company_name: string
+  company_phone?: string
+  company_email?: string
+  
+  // その他
+  booking_url?: string
+  current_participants?: string
+  max_participants?: string
+}
+
+/**
+ * 予約情報から基本変数セットを生成
+ */
+export function buildBaseTemplateVariables(params: {
+  customerName: string
+  customerEmail?: string
+  reservationNumber?: string
+  scenarioTitle: string
+  eventDate: string
+  startTime: string
+  endTime?: string
+  storeName: string
+  participantCount: number
+  totalPrice?: number
+  cancellationFee?: number
+  cancellationReason?: string
+  companyName: string
+  companyPhone?: string
+  companyEmail?: string
+  bookingUrl?: string
+  currentParticipants?: number
+  maxParticipants?: number
+}): Record<string, string> {
+  const variables: Record<string, string> = {
+    // 顧客情報
+    customer_name: params.customerName,
+    
+    // 予約情報
+    scenario_title: params.scenarioTitle,
+    date: formatDateJa(params.eventDate),
+    time: formatTimeJa(params.startTime),
+    venue: params.storeName,
+    participants: `${params.participantCount}`,
+    participant_count: `${params.participantCount}`,
+    
+    // 会社情報
+    company_name: params.companyName,
+  }
+  
+  // オプション項目
+  if (params.customerEmail) {
+    variables.customer_email = params.customerEmail
+  }
+  if (params.reservationNumber) {
+    variables.reservation_number = params.reservationNumber
+  }
+  if (params.endTime) {
+    variables.end_time = formatTimeJa(params.endTime)
+  }
+  if (params.totalPrice !== undefined) {
+    variables.total_price = params.totalPrice.toLocaleString()
+  }
+  if (params.cancellationFee !== undefined) {
+    variables.cancellation_fee = params.cancellationFee.toLocaleString()
+  }
+  if (params.cancellationReason) {
+    variables.cancellation_reason = params.cancellationReason
+  }
+  if (params.companyPhone) {
+    variables.company_phone = params.companyPhone
+  }
+  if (params.companyEmail) {
+    variables.company_email = params.companyEmail
+  }
+  if (params.bookingUrl) {
+    variables.booking_url = params.bookingUrl
+  }
+  if (params.currentParticipants !== undefined) {
+    variables.current_participants = `${params.currentParticipants}`
+  }
+  if (params.maxParticipants !== undefined) {
+    variables.max_participants = `${params.maxParticipants}`
+  }
+  
+  return variables
 }
 
 /**

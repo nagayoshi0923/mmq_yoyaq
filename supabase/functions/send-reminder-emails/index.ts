@@ -141,16 +141,28 @@ serve(async (req) => {
       emailTemplate = getDefaultReminderTemplate(dayMessage)
     }
 
-    // テンプレートの変数を置換
+    // テンプレートの変数を置換（基本変数セット対応）
     const appliedTemplate = emailTemplate
+      // 顧客情報
       .replace(/{customer_name}/g, reminderData.customerName || 'お客様')
+      .replace(/{customer_email}/g, reminderData.customerEmail || '')
+      // 予約情報
+      .replace(/{reservation_number}/g, reminderData.reservationNumber || '')
       .replace(/{scenario_title}/g, reminderData.scenarioTitle || '')
       .replace(/{date}/g, formatDate(reminderData.eventDate))
       .replace(/{time}/g, formatTime(reminderData.startTime))
+      .replace(/{end_time}/g, reminderData.endTime ? formatTime(reminderData.endTime) : '')
       .replace(/{venue}/g, reminderData.storeName || '')
-      .replace(/{reservation_number}/g, reminderData.reservationNumber || '')
       .replace(/{participants}/g, String(reminderData.participantCount || ''))
+      .replace(/{participant_count}/g, String(reminderData.participantCount || ''))
       .replace(/{total_price}/g, (reminderData.totalPrice || 0).toLocaleString())
+      // キャンセル関連
+      .replace(/{cancellation_fee}/g, '')
+      .replace(/{cancellation_reason}/g, '')
+      // 会社情報
+      .replace(/{company_name}/g, companyName)
+      .replace(/{company_phone}/g, companyPhone || '')
+      .replace(/{company_email}/g, companyEmail || '')
 
     // カスタムテンプレートをHTMLに変換
     const templateToHtml = (template: string) => {

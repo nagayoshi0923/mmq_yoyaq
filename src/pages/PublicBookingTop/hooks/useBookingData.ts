@@ -22,6 +22,7 @@ export interface ScenarioCard {
     store_color?: string
     available_seats?: number
     current_participants?: number
+    is_extended?: boolean
   }>
   total_events_count?: number // 次回公演の総数（表示用）
   status: 'available' | 'few_seats' | 'sold_out' | 'private_booking'
@@ -198,6 +199,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
             is_reservation_enabled,
             category,
             is_private_booking,
+            is_extended,
             reservation_deadline_hours,
             organization_id
           `)
@@ -446,7 +448,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           store_short_name: store?.short_name,
           store_color: store?.color,
           available_seats: availableSeats,
-          current_participants: currentParticipants
+          current_participants: currentParticipants,
+          is_extended: event.is_extended || false
         }
       })
       

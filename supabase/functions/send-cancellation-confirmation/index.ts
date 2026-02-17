@@ -104,8 +104,11 @@ serve(async (req) => {
     const companyEmail = storeEmailSettings?.company_email || replyToEmail || ''
     const companyPhone = storeEmailSettings?.company_phone || ''
     
-    // カスタムテンプレートの取得
-    const customTemplate = storeEmailSettings?.cancellation_template
+    // カスタムテンプレートの取得（店舗都合中止の場合は別テンプレート）
+    const isStoreCancellation = cancellationData.cancelledBy === 'store'
+    const customTemplate = isStoreCancellation 
+      ? storeEmailSettings?.event_cancellation_template 
+      : storeEmailSettings?.cancellation_template
 
     // 日付フォーマット関数
     const formatDate = (dateStr: string): string => {
@@ -118,7 +121,6 @@ serve(async (req) => {
       return timeStr.slice(0, 5)
     }
 
-    const isStoreCancellation = cancellationData.cancelledBy === 'store'
     const hasCancellationFee = cancellationData.cancellationFee && cancellationData.cancellationFee > 0
 
     // メール本文を作成（顧客都合 or 店舗都合で分ける）
@@ -301,19 +303,29 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
 ご不明な点がございましたら、お気軽にお問い合わせください
     `
 
-    // テンプレートの変数置換用関数
+    // テンプレートの変数置換用関数（基本変数セット対応）
     const applyTemplate = (template: string) => {
       return template
+        // 顧客情報
         .replace(/{customer_name}/g, cancellationData.customerName || 'お客様')
+        .replace(/{customer_email}/g, cancellationData.customerEmail || '')
+        // 予約情報
+        .replace(/{reservation_number}/g, cancellationData.reservationNumber || '')
         .replace(/{scenario_title}/g, cancellationData.scenarioTitle || '')
         .replace(/{date}/g, formatDate(cancellationData.eventDate))
         .replace(/{time}/g, formatTime(cancellationData.startTime))
+        .replace(/{end_time}/g, cancellationData.endTime ? formatTime(cancellationData.endTime) : '')
         .replace(/{venue}/g, cancellationData.storeName || '')
-        .replace(/{reservation_number}/g, cancellationData.reservationNumber || '')
         .replace(/{participants}/g, String(cancellationData.participantCount || ''))
+        .replace(/{participant_count}/g, String(cancellationData.participantCount || ''))
         .replace(/{total_price}/g, (cancellationData.totalPrice || 0).toLocaleString())
+        // キャンセル関連
         .replace(/{cancellation_fee}/g, (cancellationData.cancellationFee || 0).toLocaleString())
         .replace(/{cancellation_reason}/g, cancellationData.cancellationReason || '')
+        // 会社情報
+        .replace(/{company_name}/g, companyName)
+        .replace(/{company_phone}/g, companyPhone || '')
+        .replace(/{company_email}/g, companyEmail || '')
     }
 
     // カスタムテンプレートをHTMLに変換

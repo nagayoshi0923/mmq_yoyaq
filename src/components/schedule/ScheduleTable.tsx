@@ -82,6 +82,8 @@ export interface ScheduleTableModals {
     isCancelDialogOpen: boolean
     onCloseCancelDialog: () => void
     onConfirmCancel: () => void
+    cancellationReason?: string
+    onCancellationReasonChange?: (reason: string) => void
     isRestoreDialogOpen?: boolean
     onCloseRestoreDialog?: () => void
     onConfirmRestore?: () => void

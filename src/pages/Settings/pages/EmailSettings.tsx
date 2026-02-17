@@ -386,6 +386,118 @@ ${emailLine}
 ─────────────────────────`
 }
 
+function getDefaultPerformanceCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  
+  return `{customer_name} 様
+
+誠に申し訳ございませんが、ご予約いただいておりました公演は
+人数未達のため中止となりました。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 中止となった公演
+━━━━━━━━━━━━━━━━━━━━━━
+
+シナリオ: {scenario_title}
+日時: {date} {time}
+会場: {venue}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+ご迷惑をおかけして誠に申し訳ございません。
+またのご予約をお待ちしております。
+
+─────────────────────────
+${companyName}
+${phoneLine}
+${emailLine}
+─────────────────────────`
+}
+
+function getDefaultEventCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  
+  return `{customer_name} 様
+
+誠に申し訳ございませんが、以下の公演を中止させていただくこととなりました。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 中止された公演
+━━━━━━━━━━━━━━━━━━━━━━
+
+予約番号: {reservation_number}
+シナリオ: {scenario_title}
+日時: {date} {time}
+会場: {venue}
+参加人数: {participants}名
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 中止理由
+━━━━━━━━━━━━━━━━━━━━━━
+
+{cancellation_reason}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+ご迷惑をおかけして大変申し訳ございません。
+またのご利用を心よりお待ちしております。
+
+─────────────────────────
+${companyName}
+${phoneLine}
+${emailLine}
+─────────────────────────`
+}
+
+function getDefaultPerformanceExtensionTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  
+  return `{customer_name} 様
+
+ご予約いただいている公演について、ご連絡いたします。
+
+現在、定員に達していないため、募集を公演4時間前まで延長いたします。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 公演情報
+━━━━━━━━━━━━━━━━━━━━━━
+
+シナリオ: {scenario_title}
+日時: {date} {time}
+会場: {venue}
+現在の参加者: {current_participants}/{max_participants}名
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 今後の流れ
+━━━━━━━━━━━━━━━━━━━━━━
+
+・公演4時間前までに定員に達した場合 → 公演開催
+・定員に達しない場合 → 中止（改めてご連絡いたします）
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ キャンセルについて
+━━━━━━━━━━━━━━━━━━━━━━
+
+募集延長中の公演は、キャンセル料無料でキャンセルが可能です。
+ご都合が悪くなった場合は、お気軽にご連絡ください。
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+お知り合いでご興味のある方がいらっしゃいましたら、
+ぜひお誘いいただけますと幸いです。
+
+ご協力よろしくお願いいたします。
+
+─────────────────────────
+${companyName}
+${phoneLine}
+${emailLine}
+─────────────────────────`
+}
+
 // ========== 型定義 ==========
 
 interface EmailTemplates {
@@ -399,6 +511,9 @@ interface EmailTemplates {
   private_rejection_template: string
   waitlist_notify_template: string
   waitlist_registration_template: string
+  performance_cancellation_template: string
+  event_cancellation_template: string
+  performance_extension_template: string
 }
 
 interface EmailSettings extends EmailTemplates {
@@ -425,13 +540,42 @@ interface EmailSettingsProps {
   storeId?: string
 }
 
+// 基本変数セット（全メールで共通して使用可能）
+const BASE_VARIABLES = [
+  'customer_name',      // お客様名
+  'customer_email',     // お客様メールアドレス
+  'reservation_number', // 予約番号
+  'scenario_title',     // シナリオ名
+  'date',               // 日付（曜日付き）
+  'time',               // 開始時刻
+  'end_time',           // 終了時刻
+  'venue',              // 会場・店舗名
+  'participants',       // 参加人数
+  'total_price',        // 合計金額
+  'cancellation_fee',   // キャンセル料
+  'cancellation_reason',// キャンセル・中止理由
+  'company_name',       // 会社名
+  'company_phone',      // 電話番号
+  'company_email',      // メールアドレス
+]
+
+// メールタイプ別の追加変数
+const ADDITIONAL_VARIABLES: Record<string, string[]> = {
+  waitlist: ['booking_url', 'freed_seats'],
+  performance: ['current_participants', 'max_participants'],
+  extension: ['current_participants', 'max_participants', 'remaining_seats', 'extension_deadline'],
+  private_request: ['stores', 'estimated_price', 'candidate_dates'],
+  rejection: ['rejection_reason'],
+  change: ['changes', 'old_date', 'new_date', 'old_participants', 'new_participants'],
+}
+
 // テンプレート定義
 interface TemplateConfig {
   key: keyof EmailTemplates
   title: string
   description: string
   category: 'reservation' | 'private' | 'other'
-  variables: string[]
+  additionalVariables?: string[]  // 基本変数に追加で使える変数
   getDefault: (companyName: string, companyPhone: string, companyEmail: string) => string
 }
 
@@ -441,7 +585,6 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: '予約確認メール',
     description: '予約完了時に自動送信',
     category: 'reservation',
-    variables: ['customer_name', 'scenario_title', 'date', 'time', 'participants', 'total_price'],
     getDefault: getDefaultReservationTemplate
   },
   {
@@ -449,7 +592,7 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: '予約変更確認メール',
     description: '参加人数や日時の変更時に自動送信',
     category: 'reservation',
-    variables: ['customer_name', 'reservation_number', 'changes'],
+    additionalVariables: ADDITIONAL_VARIABLES.change,
     getDefault: getDefaultBookingChangeTemplate
   },
   {
@@ -457,7 +600,6 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: 'キャンセル確認メール',
     description: '予約キャンセル時に自動送信',
     category: 'reservation',
-    variables: ['customer_name', 'scenario_title', 'date', 'cancellation_fee'],
     getDefault: getDefaultCancellationTemplate
   },
   {
@@ -465,7 +607,6 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: 'リマインドメール',
     description: '設定したタイミングで自動送信',
     category: 'reservation',
-    variables: ['customer_name', 'scenario_title', 'date', 'time', 'venue'],
     getDefault: (cn, cp, ce) => getDefaultReminderTemplate(cn, cp, ce, 1)
   },
   {
@@ -473,7 +614,7 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: '貸切リクエスト受付メール',
     description: '貸切予約の申込み時に自動送信',
     category: 'private',
-    variables: ['customer_name', 'reservation_number', 'scenario_title', 'participants', 'stores', 'estimated_price', 'candidate_dates'],
+    additionalVariables: ADDITIONAL_VARIABLES.private_request,
     getDefault: getDefaultPrivateRequestTemplate
   },
   {
@@ -481,7 +622,6 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: '貸切予約確定メール',
     description: '貸切予約の承認時に自動送信',
     category: 'private',
-    variables: ['customer_name', 'reservation_number', 'scenario_title', 'date', 'time', 'venue', 'participants', 'total_price'],
     getDefault: getDefaultPrivateConfirmTemplate
   },
   {
@@ -489,7 +629,6 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: '貸切キャンセル確認メール',
     description: '貸切予約のキャンセル時に自動送信',
     category: 'private',
-    variables: ['customer_name', 'reservation_number', 'scenario_title', 'date', 'time', 'venue', 'participants', 'cancellation_fee'],
     getDefault: getDefaultPrivateCancellationTemplate
   },
   {
@@ -497,7 +636,7 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: '貸切リクエスト却下メール',
     description: '貸切予約を受け付けられない場合に送信',
     category: 'private',
-    variables: ['customer_name', 'scenario_title', 'rejection_reason'],
+    additionalVariables: ADDITIONAL_VARIABLES.rejection,
     getDefault: getDefaultPrivateRejectionTemplate
   },
   {
@@ -505,7 +644,7 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: 'キャンセル待ち通知メール',
     description: 'キャンセル発生時に空席をお知らせ',
     category: 'other',
-    variables: ['customer_name', 'scenario_title', 'date', 'time', 'venue', 'participants', 'booking_url'],
+    additionalVariables: ADDITIONAL_VARIABLES.waitlist,
     getDefault: getDefaultWaitlistNotifyTemplate
   },
   {
@@ -513,8 +652,30 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     title: 'キャンセル待ち登録完了メール',
     description: 'キャンセル待ち登録時に送信',
     category: 'other',
-    variables: ['customer_name', 'scenario_title', 'date', 'time', 'venue', 'participants'],
     getDefault: getDefaultWaitlistRegistrationTemplate
+  },
+  {
+    key: 'performance_cancellation_template',
+    title: '人数未達中止メール',
+    description: '参加人数が集まらず公演中止になった際に送信（自動判定）',
+    category: 'other',
+    additionalVariables: ADDITIONAL_VARIABLES.performance,
+    getDefault: getDefaultPerformanceCancellationTemplate
+  },
+  {
+    key: 'event_cancellation_template',
+    title: '公演中止メール',
+    description: '管理者が手動で公演を中止した際に送信',
+    category: 'other',
+    getDefault: getDefaultEventCancellationTemplate
+  },
+  {
+    key: 'performance_extension_template',
+    title: '募集延長メール',
+    description: '前日23:59時点で過半数達成・満席未達の場合に送信（4時間前まで延長）',
+    category: 'other',
+    additionalVariables: ADDITIONAL_VARIABLES.extension,
+    getDefault: getDefaultPerformanceExtensionTemplate
   }
 ]
 
@@ -559,19 +720,30 @@ function AccordionItem({ config, value, onChange, onReset, isOpen, onToggle }: A
       
       {isOpen && (
         <div className="p-4 border-t border-gray-200 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              使用可能な変数: {config.variables.map(v => `{${v}}`).join(', ')}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">基本変数（全メール共通）:</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onReset}
+                className="text-xs"
+              >
+                デフォルトに戻す
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {BASE_VARIABLES.map(v => `{${v}}`).join(', ')}
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onReset}
-              className="text-xs"
-            >
-              デフォルトに戻す
-            </Button>
+            {config.additionalVariables && config.additionalVariables.length > 0 && (
+              <>
+                <p className="text-xs font-medium text-muted-foreground mt-2">追加変数（このメール専用）:</p>
+                <p className="text-xs text-blue-600 leading-relaxed">
+                  {config.additionalVariables.map(v => `{${v}}`).join(', ')}
+                </p>
+              </>
+            )}
           </div>
           <Textarea
             value={value}
@@ -610,6 +782,9 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     private_rejection_template: '',
     waitlist_notify_template: '',
     waitlist_registration_template: '',
+    performance_cancellation_template: '',
+    event_cancellation_template: '',
+    performance_extension_template: '',
     reminder_enabled: true,
     reminder_schedule: [
       { days_before: 7, time: '10:00', enabled: true },
@@ -678,7 +853,9 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           private_cancellation_template: data.private_cancellation_template || '',
           private_rejection_template: data.private_rejection_template || '',
           waitlist_notify_template: data.waitlist_notify_template || '',
-          waitlist_registration_template: data.waitlist_registration_template || ''
+          waitlist_registration_template: data.waitlist_registration_template || '',
+          performance_cancellation_template: data.performance_cancellation_template || '',
+          event_cancellation_template: data.event_cancellation_template || ''
         } as EmailSettings)
       } else {
         // 新規作成時はデフォルト値を設定
@@ -701,6 +878,9 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
           private_rejection_template: getDefaultPrivateRejectionTemplate(),
           waitlist_notify_template: getDefaultWaitlistNotifyTemplate(),
           waitlist_registration_template: getDefaultWaitlistRegistrationTemplate(),
+          performance_cancellation_template: getDefaultPerformanceCancellationTemplate(),
+          event_cancellation_template: getDefaultEventCancellationTemplate(),
+          performance_extension_template: getDefaultPerformanceExtensionTemplate(),
           reminder_enabled: false,
           reminder_schedule: [],
           reminder_time: '10:00',
@@ -737,6 +917,9 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       private_rejection_template: formData.private_rejection_template,
       waitlist_notify_template: formData.waitlist_notify_template,
       waitlist_registration_template: formData.waitlist_registration_template,
+      performance_cancellation_template: formData.performance_cancellation_template,
+      event_cancellation_template: formData.event_cancellation_template,
+      performance_extension_template: formData.performance_extension_template,
       reminder_enabled: formData.reminder_enabled,
       reminder_schedule: formData.reminder_schedule,
       reminder_time: formData.reminder_time,

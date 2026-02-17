@@ -27,6 +27,7 @@ export interface ScenarioCardData {
     store_color?: string
     available_seats?: number
     current_participants?: number
+    is_extended?: boolean
   }>
   total_events_count?: number
   // バッジ用フィールド
@@ -153,11 +154,12 @@ export const ScenarioCard = memo(function ScenarioCard({
             alt={scenario.scenario_title}
             className="w-full h-full"
           />
-          {/* バッジ表示: 成立間近 > おすすめ > ロングセラー > 人気 */}
+          {/* バッジ表示: 成立間近 > 募集延長中 > おすすめ > ロングセラー > 人気 */}
           {(() => {
+            const nextEvent = scenario.next_events?.[0]
+            
             // 成立間近 - 最優先
             // 4人以下のシナリオ: 残り2人以下、5人以上のシナリオ: 残り3人以下
-            const nextEvent = scenario.next_events?.[0]
             if (nextEvent) {
               const currentParticipants = nextEvent.current_participants ?? 0
               const minRequired = scenario.player_count_min
@@ -173,6 +175,17 @@ export const ScenarioCard = memo(function ScenarioCard({
                   </div>
                 )
               }
+            }
+            // 募集延長中 - 高優先度
+            if (nextEvent?.is_extended) {
+              return (
+                <div 
+                  className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-white"
+                  style={{ backgroundColor: '#F59E0B' }}
+                >
+                  募集延長中！
+                </div>
+              )
             }
             // おすすめ（管理者設定）
             if (scenario.is_recommended) {

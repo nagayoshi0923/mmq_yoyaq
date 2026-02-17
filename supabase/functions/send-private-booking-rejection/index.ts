@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getEmailSettings } from '../_shared/organization-settings.ts'
+import { getEmailSettings, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
 
 interface PrivateBookingRejectionRequest {
@@ -69,6 +69,10 @@ serve(async (req) => {
       console.error('RESEND_API_KEY is not set')
       throw new Error('メール送信サービスが設定されていません')
     }
+    
+    // カスタムテンプレート取得
+    const storeEmailSettings = await getStoreEmailSettings(serviceClient, { organizationId: rejectionData.organizationId })
+    const customTemplate = storeEmailSettings?.private_rejection_template
 
     // 日付フォーマット関数
     const formatDate = (dateStr: string): string => {
@@ -208,6 +212,42 @@ Murder Mystery Queue (MMQ)
 このメールは自動送信されています
     `
 
+    // カスタムテンプレート対応
+    let finalHtml = emailHtml
+    let finalText = emailText
+    
+    if (customTemplate && customTemplate.trim()) {
+      // テンプレート変数
+      const templateVariables = {
+        customer_name: rejectionData.customerName,
+        scenario_title: rejectionData.scenarioTitle,
+        rejection_reason: rejectionData.rejectionReason,
+        candidate_dates: candidatesText.replace('\n\nご希望いただいた日程:\n', ''),
+        company_name: senderName
+      }
+      
+      const appliedTemplate = replaceTemplateVariables(customTemplate, templateVariables)
+      
+      // テキストをHTMLに変換
+      const htmlContent = appliedTemplate
+        .split('\n')
+        .map(line => `<p style="margin: 0.5em 0;">${line || '&nbsp;'}</p>`)
+        .join('\n')
+      
+      finalHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  ${htmlContent}
+</body>
+</html>`
+      finalText = appliedTemplate
+      console.log('📧 Using custom private_rejection_template')
+    }
+
     // Resend APIを使ってメール送信
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -219,8 +259,8 @@ Murder Mystery Queue (MMQ)
         from: `${senderName} <${senderEmail}>`,
         to: [rejectionData.customerEmail],
         subject: `【貸切リクエスト】${rejectionData.scenarioTitle}のお申し込みについて`,
-        html: emailHtml,
-        text: emailText,
+        html: finalHtml,
+        text: finalText,
       }),
     })
 

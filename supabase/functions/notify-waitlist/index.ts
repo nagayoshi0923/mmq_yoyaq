@@ -336,16 +336,32 @@ ${emailTemplates.signature}
 ${emailTemplates.footer}
       `
 
-      // テンプレートの変数置換用関数
+      // テンプレートの変数置換用関数（基本変数セット対応）
       const applyTemplate = (template: string) => {
         return template
+          // 顧客情報
           .replace(/{customer_name}/g, entry.customer_name || 'お客様')
+          .replace(/{customer_email}/g, entry.customer_email || '')
+          // 予約情報
+          .replace(/{reservation_number}/g, '')
           .replace(/{scenario_title}/g, data.scenarioTitle || '')
           .replace(/{date}/g, formatDate(data.eventDate))
-          .replace(/{time}/g, `${formatTime(data.startTime)} - ${formatTime(data.endTime)}`)
+          .replace(/{time}/g, formatTime(data.startTime))
+          .replace(/{end_time}/g, formatTime(data.endTime))
           .replace(/{venue}/g, data.storeName || '')
           .replace(/{participants}/g, String(entry.participant_count || ''))
+          .replace(/{participant_count}/g, String(entry.participant_count || ''))
+          .replace(/{total_price}/g, '')
+          // キャンセル関連
+          .replace(/{cancellation_fee}/g, '')
+          .replace(/{cancellation_reason}/g, '')
+          // 会社情報
+          .replace(/{company_name}/g, companyName)
+          .replace(/{company_phone}/g, companyPhone || '')
+          .replace(/{company_email}/g, companyEmail || '')
+          // 追加変数（キャンセル待ち専用）
           .replace(/{booking_url}/g, bookingUrl)
+          .replace(/{freed_seats}/g, String(data.freedSeats || ''))
       }
 
       // カスタムテンプレートをHTMLに変換

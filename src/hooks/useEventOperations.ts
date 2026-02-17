@@ -188,6 +188,7 @@ export function useEventOperations({
   // 中止ダイアログ状態
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
   const [cancellingEvent, setCancellingEvent] = useState<ScheduleEvent | null>(null)
+  const [cancellationReason, setCancellationReason] = useState('')
   
   // 公開ダイアログ状態
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false)
@@ -1287,6 +1288,7 @@ export function useEventOperations({
   // 中止確認ダイアログを開く
   const handleCancelConfirmPerformance = useCallback((event: ScheduleEvent) => {
     setCancellingEvent(event)
+    setCancellationReason('')  // リセット
     setIsCancelDialogOpen(true)
   }, [])
 
@@ -1309,9 +1311,10 @@ export function useEventOperations({
         if (fetchError) throw fetchError
 
         // 予約をキャンセル（在庫返却 + 通知）
+        const reason = cancellationReason || '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
         await reservationApi.cancel(
           cancellingEvent.reservation_id,
-          '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
+          reason
         )
         
         setEvents(prev => prev.map(e => 
@@ -1321,9 +1324,10 @@ export function useEventOperations({
         // キャンセル確認メールは reservationApi.cancel() 内で送信済み
       } else {
         // 通常公演の中止処理
-        await scheduleApi.toggleCancel(cancellingEvent.id, true)
+        const reason = cancellationReason || '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
+        await scheduleApi.toggleCancel(cancellingEvent.id, true, reason)
         setEvents(prev => prev.map(e => 
-          e.id === cancellingEvent.id ? { ...e, is_cancelled: true } : e
+          e.id === cancellingEvent.id ? { ...e, is_cancelled: true, cancellation_reason: reason } : e
         ))
         
         // 履歴を記録（中止）
@@ -1380,7 +1384,7 @@ export function useEventOperations({
                   totalPrice: reservation.total_price || 0,
                   reservationNumber: reservation.reservation_number,
                   cancelledBy: 'store',
-                  cancellationReason: '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
+                  cancellationReason: cancellationReason || '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
                 }
               })
             })
@@ -1400,7 +1404,7 @@ export function useEventOperations({
       logger.error('公演中止エラー:', error)
       showToast.error('公演の中止処理に失敗しました')
     }
-  }, [cancellingEvent, setEvents, organizationId])
+  }, [cancellingEvent, cancellationReason, setEvents, organizationId])
 
   // 公演をキャンセル解除
   const handleUncancelPerformance = useCallback(async (event: ScheduleEvent) => {
@@ -1656,6 +1660,8 @@ export function useEventOperations({
     // 中止ダイアログ状態
     isCancelDialogOpen,
     cancellingEvent,
+    cancellationReason,
+    setCancellationReason,
     
     // 公開ダイアログ状態
     isPublishDialogOpen,

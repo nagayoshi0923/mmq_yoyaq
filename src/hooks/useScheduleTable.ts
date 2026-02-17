@@ -167,6 +167,8 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         isCancelDialogOpen: eventOperations.isCancelDialogOpen,
         onCloseCancelDialog: () => eventOperations.setIsCancelDialogOpen(false),
         onConfirmCancel: eventOperations.handleConfirmCancel,
+        cancellationReason: eventOperations.cancellationReason,
+        onCancellationReasonChange: eventOperations.setCancellationReason,
         // 復活機能はhandleUncancelPerformanceで直接実行される（ダイアログなし）
         // isRestoreDialogOpen: eventOperations.isRestoreDialogOpen,
         // onCloseRestoreDialog: () => eventOperations.setIsRestoreDialogOpen(false),
@@ -261,6 +263,8 @@ export function useScheduleTableModals(currentDate: Date) {
       isCancelDialogOpen: eventOperations.isCancelDialogOpen,
       onCloseCancelDialog: () => eventOperations.setIsCancelDialogOpen(false),
       onConfirmCancel: eventOperations.handleConfirmCancel,
+      cancellationReason: eventOperations.cancellationReason,
+      onCancellationReasonChange: eventOperations.setCancellationReason,
       // 復活機能はhandleUncancelPerformanceで直接実行される（ダイアログなし）
       // isRestoreDialogOpen: eventOperations.isRestoreDialogOpen,
       // onCloseRestoreDialog: () => eventOperations.setIsRestoreDialogOpen(false),

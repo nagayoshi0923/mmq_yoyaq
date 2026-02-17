@@ -1,6 +1,6 @@
 import { BaseModal } from './BaseModal'
 import { Button } from '@/components/ui/button'
-import { memo } from 'react'
+import { memo, ReactNode } from 'react'
 
 interface ConfirmModalProps {
   open: boolean
@@ -12,6 +12,7 @@ interface ConfirmModalProps {
   confirmLabel?: string
   cancelLabel?: string
   variant?: 'default' | 'danger' | 'warning'
+  children?: ReactNode
 }
 
 /**
@@ -39,7 +40,8 @@ export const ConfirmModal = memo(function ConfirmModal({
   message,
   confirmLabel = '確認',
   cancelLabel = 'キャンセル',
-  variant = 'default'
+  variant = 'default',
+  children
 }: ConfirmModalProps) {
   return (
     <BaseModal
@@ -66,6 +68,7 @@ export const ConfirmModal = memo(function ConfirmModal({
       }
     >
       <p className="text-sm">{message}</p>
+      {children}
     </BaseModal>
   )
 })
