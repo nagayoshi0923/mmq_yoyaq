@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, checkRateLimit, getClientIP, rateLimitResponse, getServiceRoleKey } from '../_shared/security.ts'
 
-const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY')!
+const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY_V2') || Deno.env.get('DISCORD_PUBLIC_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
 
@@ -124,12 +124,13 @@ async function processUnavailable(interaction: any, requestId: string) {
   try {
     const { data: reservation, error } = await supabase
       .from('reservations')
-      .select('candidate_datetimes, title')
+      .select('candidate_datetimes, title, organization_id')
       .eq('id', requestId)
       .single()
     
     if (error) throw error
     
+    const organizationId = reservation.organization_id
     const candidates = reservation.candidate_datetimes?.candidates || []
     const scenarioTitle = reservation.title || '貸切予約'
     
@@ -153,6 +154,7 @@ async function processUnavailable(interaction: any, requestId: string) {
     await supabase
       .from('gm_availability_responses')
       .upsert({
+        organization_id: organizationId,
         reservation_id: requestId,
         staff_id: staffId,
         gm_discord_id: gmUserId,
@@ -229,7 +231,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     // Supabaseから候補日程を取得
     const { data: reservation, error } = await supabase
       .from('reservations')
-      .select('candidate_datetimes, title')
+      .select('candidate_datetimes, title, organization_id')
       .eq('id', requestId)
       .single()
     
@@ -238,6 +240,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       throw error
     }
     
+    const organizationId = reservation.organization_id
     const candidates = reservation.candidate_datetimes?.candidates || []
     const selectedCandidate = candidates[dateIndex]
     
@@ -336,6 +339,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     const { data: gmResponse, error: gmError } = await supabase
       .from('gm_availability_responses')
       .upsert({
+        organization_id: organizationId,
         reservation_id: requestId,
         staff_id: staffId,
         gm_discord_id: gmUserId,
@@ -351,7 +355,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
         response_history: responseHistory,
         responded_at: new Date().toISOString()
       }, {
-        onConflict: 'reservation_id,staff_id'  // 重複時は更新
+        onConflict: 'reservation_id,staff_id'
       })
     
     if (gmError) {

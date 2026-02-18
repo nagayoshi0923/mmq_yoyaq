@@ -281,8 +281,32 @@ export function DateRangePopover({
             </div>
           )}
 
-          {/* ボタン */}
+          {/* クイック選択 */}
           <div className="flex gap-2 pt-2 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="flex-1 h-7 text-xs"
+              onClick={() => {
+                const now = new Date()
+                const year = now.getFullYear()
+                const month = now.getMonth()
+                const firstDay = `${year}-${String(month + 1).padStart(2, '0')}-01`
+                const lastDay = `${year}-${String(month + 1).padStart(2, '0')}-${String(getDaysInMonth(year, month)).padStart(2, '0')}`
+                setTempStartDate(firstDay)
+                setTempEndDate(lastDay)
+                setViewYear(year)
+                setViewMonth(month)
+                setSelectingStart(true)
+              }}
+            >
+              今月
+            </Button>
+          </div>
+
+          {/* ボタン */}
+          <div className="flex gap-2 pt-2">
             <Button
               type="button"
               variant="ghost"

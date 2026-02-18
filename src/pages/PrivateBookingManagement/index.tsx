@@ -46,7 +46,7 @@ export function PrivateBookingManagement() {
   const [sidebarActiveTab, setSidebarActiveTab] = useState('booking-management')
   
   // タブ状態（sessionStorageと同期）
-  const [activeTab, setActiveTab] = useSessionState<'pending' | 'all'>('privateBookingActiveTab', 'pending')
+  const [activeTab, setActiveTab] = useSessionState<'gm_pending' | 'store_pending' | 'all'>('privateBookingActiveTab', 'store_pending')
   
   // 選択状態
   const [selectedRequest, setSelectedRequest] = useState<PrivateBookingRequest | null>(null)
@@ -294,8 +294,13 @@ export function PrivateBookingManagement() {
   }
 
   // フィルタリング
-  const pendingRequests = requests.filter(r => 
-    r.status === 'pending' || r.status === 'pending_gm' || r.status === 'gm_confirmed' || r.status === 'pending_store'
+  // GM確認中: pending, pending_gm
+  const gmPendingRequests = requests.filter(r => 
+    r.status === 'pending' || r.status === 'pending_gm'
+  )
+  // 店舗承認待ち: gm_confirmed, pending_store
+  const storePendingRequests = requests.filter(r => 
+    r.status === 'gm_confirmed' || r.status === 'pending_store'
   )
   
   // 期間でフィルタリング（候補日の最初の日付でフィルター）
@@ -329,7 +334,11 @@ export function PrivateBookingManagement() {
     setDateRangeEnd(end)
   }
   
-  const baseRequests = activeTab === 'pending' ? pendingRequests : requests
+  const baseRequests = activeTab === 'gm_pending' 
+    ? gmPendingRequests 
+    : activeTab === 'store_pending' 
+      ? storePendingRequests 
+      : requests
   const dateFilteredRequests = filterByDateRange(baseRequests)
   const filteredRequests = applyLimit(dateFilteredRequests)
 
@@ -384,10 +393,11 @@ export function PrivateBookingManagement() {
           description="貸切予約リクエストの承認・却下・店舗調整を行います"
         />
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'gm_pending' | 'store_pending' | 'all')}>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
             <TabsList className="w-full sm:w-auto">
-              <TabsTrigger value="pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">店舗確認待ち ({pendingRequests.length})</TabsTrigger>
+              <TabsTrigger value="gm_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">GM確認中 ({gmPendingRequests.length})</TabsTrigger>
+              <TabsTrigger value="store_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">店舗承認待ち ({storePendingRequests.length})</TabsTrigger>
               <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
             </TabsList>
             
