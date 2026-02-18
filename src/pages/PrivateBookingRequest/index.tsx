@@ -258,17 +258,6 @@ export function PrivateBookingRequest({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold">候補日時（{editableTimeSlots.length}/{MAX_TIME_SLOTS}件）</h2>
-                {editableTimeSlots.length < MAX_TIME_SLOTS && !showAddForm && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAddForm(true)}
-                    className="text-purple-600 border-purple-200 hover:bg-purple-50"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    追加
-                  </Button>
-                )}
               </div>
               
               {/* 追加フォーム */}
@@ -353,14 +342,16 @@ export function PrivateBookingRequest({
                             <span>{slot.slot.label} {slot.slot.startTime} - {slot.slot.endTime}</span>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveTimeSlot(index)}
-                          className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1 h-auto"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
+                        {editableTimeSlots.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveTimeSlot(index)}
+                            className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1 h-auto"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   ))
@@ -471,7 +462,7 @@ export function PrivateBookingRequest({
           {/* 右側：料金サマリー */}
           <div className="space-y-6">
             <div>
-              <h2 className="text-base font-semibold mb-3">料金（目安）</h2>
+              <h2 className="text-base font-semibold mb-3">料金</h2>
               <Card>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex justify-between text-sm">
@@ -480,13 +471,13 @@ export function PrivateBookingRequest({
                   </div>
 
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">貸切人数</span>
+                    <span className="text-muted-foreground">人数</span>
                     <span>{maxParticipants}名</span>
                   </div>
 
                   <div className="border-t pt-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-base font-bold">合計（目安）</span>
+                      <span className="text-base font-bold">合計</span>
                       <span className="text-lg text-purple-600 font-bold">¥{totalPrice.toLocaleString()}</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">

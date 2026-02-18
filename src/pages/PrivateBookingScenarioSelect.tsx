@@ -341,18 +341,18 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
 
                   {/* 料金情報 */}
                   <div className="border rounded-lg bg-purple-50 p-4 space-y-2">
-                    <h3 className="text-sm font-medium text-purple-800">料金（目安）</h3>
+                    <h3 className="text-sm font-medium text-purple-800">料金</h3>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">参加費（1名）</span>
                         <span>¥{participationFee.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">貸切人数</span>
+                        <span className="text-muted-foreground">人数</span>
                         <span>{participantCount}名</span>
                       </div>
                       <div className="flex justify-between pt-2 border-t border-purple-200">
-                        <span className="font-medium">合計（目安）</span>
+                        <span className="font-medium">合計</span>
                         <span className="text-purple-600 font-bold">¥{totalPrice.toLocaleString()}</span>
                       </div>
                     </div>
