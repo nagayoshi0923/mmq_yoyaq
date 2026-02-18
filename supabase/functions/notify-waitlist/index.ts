@@ -222,7 +222,11 @@ serve(async (req) => {
       .from('schedule_events')
       .select('store_id')
       .eq('id', data.scheduleEventId)
-      .single()
+      .maybeSingle()
+    
+    if (eventError) {
+      console.warn('schedule_events取得エラー（続行）:', eventError)
+    }
     
     const storeId = scheduleEvent?.store_id
     
