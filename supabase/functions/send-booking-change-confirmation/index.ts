@@ -93,18 +93,44 @@ serve(async (req) => {
     }
 
     // 店舗のメール設定（テンプレート・会社情報）を取得
-    console.log('📧 getStoreEmailSettings params:', {
+    console.log('📧 changeData received:', {
       storeId: changeData.storeId,
+      organizationId: changeData.organizationId,
+      resolvedOrganizationId,
+      reservationId: changeData.reservationId
+    })
+    
+    // storeIdがない場合、予約から取得を試みる
+    let effectiveStoreId = changeData.storeId
+    if (!effectiveStoreId && changeData.reservationId) {
+      console.log('📧 storeId not provided, fetching from reservation...')
+      const { data: reservationData } = await serviceClient
+        .from('reservations')
+        .select('store_id, schedule_events!schedule_event_id(store_id)')
+        .eq('id', changeData.reservationId)
+        .single()
+      
+      if (reservationData) {
+        effectiveStoreId = reservationData.store_id || 
+          (Array.isArray(reservationData.schedule_events) 
+            ? reservationData.schedule_events[0]?.store_id 
+            : (reservationData.schedule_events as any)?.store_id)
+        console.log('📧 fetched storeId from reservation:', effectiveStoreId)
+      }
+    }
+    
+    console.log('📧 getStoreEmailSettings params:', {
+      storeId: effectiveStoreId,
       organizationId: resolvedOrganizationId
     })
     const storeEmailSettings = await getStoreEmailSettings(serviceClient, {
-      storeId: changeData.storeId,
+      storeId: effectiveStoreId,
       organizationId: resolvedOrganizationId
     })
     console.log('📧 storeEmailSettings result:', {
       hasSettings: !!storeEmailSettings,
       company_name: storeEmailSettings?.company_name,
-      booking_change_template: storeEmailSettings?.booking_change_template ? '(設定あり)' : '(未設定)'
+      booking_change_template: storeEmailSettings?.booking_change_template ? `(設定あり: ${storeEmailSettings.booking_change_template.substring(0, 50)}...)` : '(未設定)'
     })
     
     // 会社情報（デフォルト値付き）
