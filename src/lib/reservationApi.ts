@@ -418,7 +418,7 @@ export const reservationApi = {
       .from('reservations')
       .select(`
         id, reservation_number, unit_price, schedule_event_id, participant_count, customer_id,
-        customer_email, customer_name, title, organization_id, final_price,
+        customer_email, customer_name, title, organization_id, final_price, total_price,
         schedule_events!schedule_event_id(date, start_time, end_time, scenario, store_id)
       `)
       .eq('id', reservationId)
@@ -437,7 +437,17 @@ export const reservationApi = {
     }
 
     const oldCount = reservation.participant_count
-    const oldPrice = reservation.final_price || (reservation.unit_price * oldCount)
+    // final_price, total_price, または unit_price * oldCount を使用
+    const oldPrice = reservation.final_price || reservation.total_price || (reservation.unit_price * oldCount)
+    
+    logger.log('人数変更前の情報:', {
+      oldCount,
+      oldPrice,
+      final_price: reservation.final_price,
+      total_price: reservation.total_price,
+      unit_price: reservation.unit_price,
+      calculated: reservation.unit_price * oldCount
+    })
 
     // RPC を呼び出して人数を変更（在庫ロック + 料金再計算含む）
     const result = await this.updateParticipantsWithLock(reservationId, newCount, customerId)
