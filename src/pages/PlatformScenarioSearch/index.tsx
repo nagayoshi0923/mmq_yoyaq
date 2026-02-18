@@ -3,7 +3,7 @@
  * @path /scenario
  * @purpose 全組織のシナリオを検索・フィルター
  */
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Header } from '@/components/layout/Header'
@@ -39,6 +39,12 @@ interface ScenarioData {
   is_recommended?: boolean
 }
 
+interface CategoryData {
+  id: string
+  name: string
+  sort_order: number
+}
+
 // バッジ種類を判定するヘルパー関数
 function getScenarioBadge(scenario: ScenarioData): { label: string; bgColor: string; textColor: string } | null {
   // おすすめ（管理者設定）- 最優先
@@ -57,13 +63,18 @@ function getScenarioBadge(scenario: ScenarioData): { label: string; bgColor: str
   return null
 }
 
+interface ScenarioSearchResult {
+  scenarios: ScenarioData[]
+  categories: CategoryData[]
+}
+
 /**
  * シナリオ検索データを取得する関数
  * React Queryでキャッシュされる
  */
-async function fetchScenarioSearchData(): Promise<ScenarioData[]> {
-  // 🚀 並列取得: RPC、シナリオ、店舗データを同時に取得
-  const [keysResult, scenariosResult, storesResult] = await Promise.all([
+async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
+  // 🚀 並列取得: RPC、シナリオ、店舗データ、カテゴリを同時に取得
+  const [keysResult, scenariosResult, storesResult, categoriesResult] = await Promise.all([
     supabase.rpc('get_public_available_scenario_keys'),
     supabase
       .from('scenarios')
@@ -79,7 +90,12 @@ async function fetchScenarioSearchData(): Promise<ScenarioData[]> {
     // 店舗データを取得（available_storesのIDを名前に変換するため）
     supabase
       .from('stores')
-      .select('id, name, short_name')
+      .select('id, name, short_name'),
+    // カテゴリ（ジャンル）を取得
+    supabase
+      .from('organization_categories')
+      .select('id, name, sort_order')
+      .order('sort_order')
   ])
 
   const availableKeys = keysResult.data || []
@@ -101,7 +117,7 @@ async function fetchScenarioSearchData(): Promise<ScenarioData[]> {
   })
 
   // 組織の公開ステータスで絞り込み
-  return (scenariosResult.data || [])
+  const filteredScenarios = (scenariosResult.data || [])
     .filter(s => {
       if (!shouldFilterByOrgStatus) {
         return s.status === 'available'
@@ -123,6 +139,11 @@ async function fetchScenarioSearchData(): Promise<ScenarioData[]> {
         available_stores: storeNames,
       }
     })
+  
+  return {
+    scenarios: filteredScenarios,
+    categories: categoriesResult.data || []
+  }
 }
 
 export function PlatformScenarioSearch() {
@@ -131,12 +152,15 @@ export function PlatformScenarioSearch() {
   const [searchParams, setSearchParams] = useSearchParams()
   
   // React Queryでデータ取得（キャッシュ活用）
-  const { data: scenarios = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['scenario-search'],
     queryFn: fetchScenarioSearchData,
     staleTime: 5 * 60 * 1000, // 5分間キャッシュ
     gcTime: 10 * 60 * 1000, // 10分間メモリ保持
   })
+  
+  const scenarios = data?.scenarios || []
+  const categories = data?.categories || []
 
   // フィルター状態（URLパラメータと同期）
   const searchTerm = searchParams.get('q') || ''
@@ -149,6 +173,16 @@ export function PlatformScenarioSearch() {
   const [showFilters, setShowFilters] = useState(() => {
     return searchParams.has('genre') || searchParams.has('duration') || searchParams.has('players') || searchParams.has('org')
   })
+  
+  // 検索入力用ローカルstate（IME対応）
+  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm)
+  // IME composing 中かどうか
+  const [isComposing, setIsComposing] = useState(false)
+  
+  // URLパラメータが外部から変更された場合に同期
+  useEffect(() => {
+    setLocalSearchTerm(searchTerm)
+  }, [searchTerm])
   
   const { isFavorite, toggleFavorite } = useFavorites()
 
@@ -169,16 +203,10 @@ export function PlatformScenarioSearch() {
   const setSelectedPlayerCount = useCallback((value: string) => updateFilter('players', value), [updateFilter])
   const setSelectedOrganization = useCallback((value: string) => updateFilter('org', value), [updateFilter])
 
-  // ジャンル一覧を取得
+  // ジャンル一覧（organization_categoriesから取得）
   const genres = useMemo(() => {
-    const genreSet = new Set<string>()
-    scenarios.forEach(s => {
-      if (s.genre) {
-        s.genre.forEach(g => genreSet.add(g))
-      }
-    })
-    return Array.from(genreSet).sort()
-  }, [scenarios])
+    return categories.map(c => c.name)
+  }, [categories])
 
   // 組織一覧を取得
   const organizations = useMemo(() => {
@@ -212,9 +240,14 @@ export function PlatformScenarioSearch() {
       // 所要時間フィルター
       if (selectedDuration !== 'all') {
         const duration = scenario.duration
-        if (selectedDuration === 'short' && duration > 120) return false
-        if (selectedDuration === 'medium' && (duration <= 120 || duration > 180)) return false
-        if (selectedDuration === 'long' && duration <= 180) return false
+        const maxDuration = parseInt(selectedDuration)
+        if (selectedDuration === '901') {
+          // 15時間以上
+          if (duration < 900) return false
+        } else {
+          // 指定時間以下
+          if (duration > maxDuration) return false
+        }
       }
       
       // プレイ人数フィルター
@@ -311,8 +344,18 @@ export function PlatformScenarioSearch() {
               <Input
                 type="text"
                 placeholder="タイトル、作者、ジャンル、店舗名で検索..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={localSearchTerm}
+                onChange={(e) => {
+                  setLocalSearchTerm(e.target.value)
+                  if (!isComposing) {
+                    setSearchTerm(e.target.value)
+                  }
+                }}
+                onCompositionStart={() => setIsComposing(true)}
+                onCompositionEnd={(e) => {
+                  setIsComposing(false)
+                  setSearchTerm((e.target as HTMLInputElement).value)
+                }}
                 className="pl-10 h-10"
               />
             </div>
@@ -389,9 +432,23 @@ export function PlatformScenarioSearch() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">すべての時間</SelectItem>
-                  <SelectItem value="short">〜2時間</SelectItem>
-                  <SelectItem value="medium">2〜3時間</SelectItem>
-                  <SelectItem value="long">3時間〜</SelectItem>
+                  <SelectItem value="60">〜1時間</SelectItem>
+                  <SelectItem value="90">〜1.5時間</SelectItem>
+                  <SelectItem value="120">〜2時間</SelectItem>
+                  <SelectItem value="150">〜2.5時間</SelectItem>
+                  <SelectItem value="180">〜3時間</SelectItem>
+                  <SelectItem value="210">〜3.5時間</SelectItem>
+                  <SelectItem value="240">〜4時間</SelectItem>
+                  <SelectItem value="270">〜4.5時間</SelectItem>
+                  <SelectItem value="300">〜5時間</SelectItem>
+                  <SelectItem value="360">〜6時間</SelectItem>
+                  <SelectItem value="420">〜7時間</SelectItem>
+                  <SelectItem value="480">〜8時間</SelectItem>
+                  <SelectItem value="540">〜9時間</SelectItem>
+                  <SelectItem value="600">〜10時間</SelectItem>
+                  <SelectItem value="720">〜12時間</SelectItem>
+                  <SelectItem value="900">〜15時間</SelectItem>
+                  <SelectItem value="901">15時間〜</SelectItem>
                 </SelectContent>
               </Select>
               
