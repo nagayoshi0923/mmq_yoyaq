@@ -2,14 +2,14 @@
  * 組織デザイン設定
  * 組織トップページのデザインに関わる設定を管理
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Save, Loader2, Palette, Image } from 'lucide-react'
+import { Save, Loader2, Palette, Image, Upload, X } from 'lucide-react'
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
+import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
@@ -18,6 +18,8 @@ export function OrganizationDesignSettings() {
   const [themeColor, setThemeColor] = useState('#E60012')
   const [headerImageUrl, setHeaderImageUrl] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 組織のデザイン設定を反映
   useEffect(() => {
@@ -26,6 +28,43 @@ export function OrganizationDesignSettings() {
       setHeaderImageUrl(organization.header_image_url || '')
     }
   }, [organization])
+
+  // 画像アップロード
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // バリデーション
+    const validation = validateImageFile(file, 10) // 10MB制限
+    if (!validation.valid) {
+      showToast.error(validation.error || 'ファイルが無効です')
+      return
+    }
+
+    setUploading(true)
+    try {
+      const result = await uploadImage(file, 'key-visuals', 'organization-headers', true)
+      if (result) {
+        setHeaderImageUrl(result.url)
+        showToast.success('画像をアップロードしました')
+      } else {
+        showToast.error('画像のアップロードに失敗しました')
+      }
+    } catch (error) {
+      logger.error('画像アップロードエラー:', error)
+      showToast.error('画像のアップロードに失敗しました')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  // 画像削除
+  const handleRemoveImage = () => {
+    setHeaderImageUrl('')
+  }
 
   // 保存
   const handleSave = async () => {
@@ -119,43 +158,88 @@ export function OrganizationDesignSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="header_image_url">画像URL</Label>
-            <Input
-              id="header_image_url"
-              value={headerImageUrl}
-              onChange={(e) => setHeaderImageUrl(e.target.value)}
-              placeholder="https://example.com/header.jpg"
+          {/* アップロードエリア */}
+          <div className="space-y-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={handleImageUpload}
+              className="hidden"
+              id="header-image-upload"
             />
-            <p className="text-xs text-muted-foreground">
-              推奨サイズ: 横幅1200px以上、高さ300px〜400px程度
-            </p>
-          </div>
-          
-          {headerImageUrl && (
-            <div className="rounded-lg overflow-hidden border bg-gray-50">
-              <img 
-                src={headerImageUrl} 
-                alt="ヘッダープレビュー"
-                className="w-full h-40 object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement
-                  target.style.display = 'none'
-                  const errorDiv = target.nextElementSibling
-                  if (errorDiv) errorDiv.classList.remove('hidden')
-                }}
-              />
-              <div className="hidden p-4 text-center text-sm text-muted-foreground">
-                画像を読み込めませんでした。URLが正しいか確認してください。
+            
+            {headerImageUrl ? (
+              // 画像プレビュー
+              <div className="relative rounded-lg overflow-hidden border bg-gray-50">
+                <img 
+                  src={headerImageUrl} 
+                  alt="ヘッダープレビュー"
+                  className="w-full h-40 object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.src = ''
+                    target.alt = '画像を読み込めません'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
+                  title="画像を削除"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            </div>
-          )}
+            ) : (
+              // アップロードボタン
+              <label
+                htmlFor="header-image-upload"
+                className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors"
+              >
+                {uploading ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                    <span className="text-sm text-gray-500">アップロード中...</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="w-8 h-8 text-gray-400" />
+                    <span className="text-sm text-gray-500">クリックして画像を選択</span>
+                    <span className="text-xs text-gray-400">JPEG, PNG, GIF, WebP（10MB以下）</span>
+                  </div>
+                )}
+              </label>
+            )}
+
+            {/* 画像変更ボタン */}
+            {headerImageUrl && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4 mr-2" />
+                )}
+                画像を変更
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            推奨サイズ: 横幅1200px以上、高さ300px〜400px程度
+          </p>
         </CardContent>
       </Card>
 
       {/* 保存ボタン */}
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} disabled={saving || uploading}>
           {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           <Save className="w-4 h-4 mr-2" />
           保存
