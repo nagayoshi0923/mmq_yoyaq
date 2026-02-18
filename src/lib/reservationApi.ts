@@ -437,16 +437,19 @@ export const reservationApi = {
     }
 
     const oldCount = reservation.participant_count
-    // final_price, total_price, または unit_price * oldCount を使用
-    const oldPrice = reservation.final_price || reservation.total_price || (reservation.unit_price * oldCount)
+    const unitPrice = reservation.unit_price || 0
+    // 料金は常に unit_price × 人数 で計算
+    const oldPrice = unitPrice * oldCount
     
     logger.log('人数変更前の情報:', {
       oldCount,
+      newCount,
+      unitPrice,
       oldPrice,
-      final_price: reservation.final_price,
-      total_price: reservation.total_price,
-      unit_price: reservation.unit_price,
-      calculated: reservation.unit_price * oldCount
+      newPrice: unitPrice * newCount,
+      reservation_unit_price: reservation.unit_price,
+      reservation_total_price: reservation.total_price,
+      reservation_final_price: reservation.final_price
     })
 
     // RPC を呼び出して人数を変更（在庫ロック + 料金再計算含む）
@@ -471,17 +474,8 @@ export const reservationApi = {
     // 人数変更確認メールを送信
     if (sendEmail && reservation.customer_email) {
       try {
-        // RPC呼び出し後の更新された予約情報を取得
-        const { data: updatedReservation, error: fetchUpdatedError } = await supabase
-          .from('reservations')
-          .select('final_price, total_price, unit_price')
-          .eq('id', reservationId)
-          .single()
-        
-        // 新料金は更新された予約から取得（final_price優先、なければ計算）
-        const newPrice = updatedReservation?.final_price 
-          || updatedReservation?.total_price 
-          || (reservation.unit_price * newCount)
+        // 新料金は unit_price × newCount で計算
+        const newPrice = unitPrice * newCount
         const priceDifference = newPrice - oldPrice
         const scheduleEvent = reservation.schedule_events as any
         
