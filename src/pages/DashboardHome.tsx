@@ -295,10 +295,12 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">
-                    {event.scenarios?.title || event.scenario}
+                    {event.category === 'MTG' || event.category === 'mtg'
+                      ? 'MTG'
+                      : event.scenarios?.title || event.scenario || 'タイトル未定'}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {event.start_time.slice(0, 5)}〜 @ {event.stores?.name || event.venue}
+                    {event.start_time?.slice(0, 5) || ''}〜 @ {event.stores?.name || event.venue}
                   </div>
                 </div>
                 <div className="flex-shrink-0 text-xs text-muted-foreground">
@@ -372,11 +374,19 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                     
                     {/* イベントタイトル */}
                     <div className="flex flex-col gap-0.5 mt-0.5 w-full px-0.5 overflow-hidden">
-                      {dayEvents.slice(0, 2).map((e, i) => (
-                        <div key={i} className="text-[8px] sm:text-[10px] leading-tight truncate text-primary w-full text-center">
-                          {e.scenarios?.title || e.scenario}
-                        </div>
-                      ))}
+                      {dayEvents.slice(0, 2).map((e, i) => {
+                        // タイトル表示ロジック: MTGカテゴリ → シナリオタイトル → 「タイトル未定」
+                        const displayTitle = e.category === 'MTG' || e.category === 'mtg'
+                          ? 'MTG'
+                          : e.scenarios?.title || e.scenario || 'タイトル未定'
+                        const startTime = e.start_time?.slice(0, 5) || ''
+                        return (
+                          <div key={i} className="text-[8px] sm:text-[10px] leading-tight truncate text-primary w-full text-center">
+                            {startTime && <span className="text-muted-foreground">{startTime} </span>}
+                            {displayTitle}
+                          </div>
+                        )
+                      })}
                       {dayEvents.length > 2 && (
                         <div className="text-[8px] text-muted-foreground text-center">+{dayEvents.length - 2}</div>
                       )}
@@ -467,11 +477,16 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            {selectedDateEvents.map((event, i) => (
+            {selectedDateEvents.map((event, i) => {
+              // タイトル表示ロジック: MTGカテゴリ → シナリオタイトル → 「タイトル未定」
+              const displayTitle = event.category === 'MTG' || event.category === 'mtg'
+                ? 'MTG'
+                : event.scenarios?.title || event.scenario || 'タイトル未定'
+              return (
               <div key={i} className="bg-muted/50 p-4 rounded-lg border">
                 <div className="flex items-start justify-between mb-2">
-                   <h3 className="font-bold text-lg">{event.scenarios?.title || event.scenario}</h3>
-                   <Badge>{event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}</Badge>
+                   <h3 className="font-bold text-lg">{displayTitle}</h3>
+                   <Badge>{event.start_time?.slice(0, 5) || ''} - {event.end_time?.slice(0, 5) || ''}</Badge>
                 </div>
                 <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
@@ -484,7 +499,8 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         </DialogContent>
       </Dialog>
