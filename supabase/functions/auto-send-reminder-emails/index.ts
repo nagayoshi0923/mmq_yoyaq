@@ -121,6 +121,8 @@ serve(async (req) => {
             const { error: sendError } = await supabaseClient.functions.invoke('send-reminder-emails', {
               body: {
                 reservationId: reservation.id,
+                organizationId: event.organization_id,
+                storeId: event.store_id,
                 customerEmail: reservation.customers.email,
                 customerName: reservation.customers.name,
                 scenarioTitle: event.scenarios?.title || event.scenario,

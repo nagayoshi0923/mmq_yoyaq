@@ -174,6 +174,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
           await supabase.functions.invoke('send-private-booking-confirmation', {
             body: {
+              organizationId,
+              storeId: selectedStoreId,
               reservationId: requestId,
               customerEmail,
               customerName,
@@ -253,6 +255,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
           await supabase.functions.invoke('send-private-booking-rejection', {
             body: {
+              organizationId,
               reservationId: reservation.id,
               customerEmail: reservation.customers.email,
               customerName: reservation.customers.name,

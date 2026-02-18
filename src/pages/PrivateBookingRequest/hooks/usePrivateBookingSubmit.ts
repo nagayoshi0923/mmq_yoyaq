@@ -184,8 +184,10 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
             endTime: c.endTime
           }))
 
+          const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
           const { error: emailError } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
             body: {
+              organizationId: orgId,
               reservationId: parentReservationId,
               customerEmail,
               customerName,

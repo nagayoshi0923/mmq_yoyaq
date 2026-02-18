@@ -367,6 +367,7 @@ export interface PublicScenarioEvent {
 export interface ScheduleEvent {
   id: string
   organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
+  store_id?: string  // 店舗ID（メール設定取得などに使用）
   date: string
   venue: string
   scenario: string

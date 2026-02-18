@@ -84,6 +84,7 @@ serve(async (req) => {
           customer_email,
           participant_count,
           total_price,
+          organization_id,
           schedule_events!inner(
             id,
             date,
@@ -91,6 +92,7 @@ serve(async (req) => {
             end_time,
             scenario,
             venue,
+            store_id,
             stores!inner(name, address)
           )
         `)
@@ -123,6 +125,8 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               reservationId: reservation.id,
+              organizationId: reservation.organization_id,
+              storeId: event.store_id,
               customerEmail: reservation.customer_email,
               customerName: reservation.customer_name,
               scenarioTitle: event.scenario,

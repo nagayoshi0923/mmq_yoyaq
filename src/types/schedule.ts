@@ -7,6 +7,7 @@ export interface ScheduleEvent {
   scenario: string
   scenario_id?: string  // 旧シナリオID（scenarios テーブル）
   organization_scenario_id?: string  // 組織シナリオID（organization_scenarios テーブル）
+  store_id?: string  // 店舗ID（メール設定取得などに使用）
   gms: string[]
   start_time: string
   end_time: string

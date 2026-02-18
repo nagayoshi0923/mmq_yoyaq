@@ -530,6 +530,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
           body: {
             reservationId: reservationData.id,
             organizationId,
+            storeId: props.storeId,
             customerEmail: customerEmail,
             customerName: customerName,
             scenarioTitle: props.scenarioTitle,

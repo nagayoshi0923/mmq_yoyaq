@@ -419,7 +419,7 @@ export const reservationApi = {
       .select(`
         id, reservation_number, unit_price, schedule_event_id, participant_count, customer_id,
         customer_email, customer_name, title, organization_id, final_price,
-        schedule_events!schedule_event_id(date, start_time, end_time, scenario)
+        schedule_events!schedule_event_id(date, start_time, end_time, scenario, store_id)
       `)
       .eq('id', reservationId)
       .single()
@@ -461,13 +461,24 @@ export const reservationApi = {
     // 人数変更確認メールを送信
     if (sendEmail && reservation.customer_email) {
       try {
-        const newPrice = reservation.unit_price * newCount
+        // RPC呼び出し後の更新された予約情報を取得
+        const { data: updatedReservation, error: fetchUpdatedError } = await supabase
+          .from('reservations')
+          .select('final_price, total_price, unit_price')
+          .eq('id', reservationId)
+          .single()
+        
+        // 新料金は更新された予約から取得（final_price優先、なければ計算）
+        const newPrice = updatedReservation?.final_price 
+          || updatedReservation?.total_price 
+          || (reservation.unit_price * newCount)
         const priceDifference = newPrice - oldPrice
         const scheduleEvent = reservation.schedule_events as any
         
         const { error: emailError } = await supabase.functions.invoke('send-booking-change-confirmation', {
           body: {
             organizationId: reservation.organization_id,
+            storeId: scheduleEvent?.store_id,
             reservationId: reservation.id,
             customerEmail: reservation.customer_email,
             customerName: reservation.customer_name || 'お客様',
@@ -517,7 +528,7 @@ export const reservationApi = {
         .select(`
           *,
           customers(*),
-          schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario)
+          schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, store_id)
         `)
         .eq('id', id)
         .single()
@@ -541,7 +552,7 @@ export const reservationApi = {
       .select(`
         *,
         customers(*),
-        schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario)
+        schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, store_id)
       `)
       .eq('id', id)
       .single()
@@ -582,6 +593,8 @@ export const reservationApi = {
 
           await supabase.functions.invoke('send-booking-change-confirmation', {
             body: {
+              organizationId: data.organization_id,
+              storeId: scheduleEvent?.store_id,
               reservationId: data.id,
               customerEmail: data.customers.email,
               customerName: data.customers.name,
@@ -658,7 +671,7 @@ export const reservationApi = {
         await supabase.functions.invoke('send-cancellation-confirmation', {
           body: {
             organizationId: orgIdForEmail,
-            storeId: scheduleEvent?.venue,
+            storeId: scheduleEvent?.store_id,
             reservationId: reservation.id,
             customerEmail: reservation.customers.email,
             customerName: reservation.customers.name,

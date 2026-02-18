@@ -70,16 +70,19 @@ serve(async (req) => {
 
     const data: NotifyWaitlistRequest = await req.json()
 
-    // 🔒 イベントへのアクセス権限確認
+    // 🔒 イベントへのアクセス権限確認（匿名ユーザーはスキップ）
+    // 匿名ユーザーの場合は、予約IDとメールアドレスの検証で代替
     // スタッフ: 組織メンバーであればOK
     // 顧客: そのイベントに予約があればOK
-    console.log('🔍 アクセス権限確認開始:', { 
-      userId: authResult.user?.id, 
-      organizationId: data.organizationId,
-      scheduleEventId: data.scheduleEventId 
-    })
+    const isAnonymous = authResult.user?.id === 'anonymous' || authResult.user?.role === 'anonymous'
     
-    if (data.scheduleEventId && authResult.user?.id) {
+    if (!isAnonymous && data.scheduleEventId && authResult.user?.id) {
+      console.log('🔍 アクセス権限確認開始:', { 
+        userId: authResult.user?.id, 
+        organizationId: data.organizationId,
+        scheduleEventId: data.scheduleEventId 
+      })
+      
       // 1. スタッフかどうか確認（organization_idがある場合のみフィルタ）
       let staffQuery = serviceClient
         .from('staff')
@@ -117,6 +120,8 @@ serve(async (req) => {
         }
       }
       console.log('✅ アクセス権限確認OK')
+    } else if (isAnonymous) {
+      console.log('✅ 匿名ユーザー: アクセス権限チェックをスキップ')
     }
     console.log('Notify waitlist request:', { 
       eventId: data.scheduleEventId, 
@@ -212,8 +217,18 @@ serve(async (req) => {
     // 🎨 組織別メールテンプレートを取得
     const emailTemplates = await getEmailTemplates(serviceClient, data.organizationId)
     
+    // schedule_events から store_id を取得
+    const { data: scheduleEvent, error: eventError } = await serviceClient
+      .from('schedule_events')
+      .select('store_id')
+      .eq('id', data.scheduleEventId)
+      .single()
+    
+    const storeId = scheduleEvent?.store_id
+    
     // 店舗のメール設定（テンプレート・会社情報）を取得
     const storeEmailSettings = await getStoreEmailSettings(serviceClient, {
+      storeId: storeId,
       organizationId: data.organizationId
     })
     

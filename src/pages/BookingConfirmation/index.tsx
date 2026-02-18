@@ -318,7 +318,7 @@ export function BookingConfirmation({
         await supabase.functions.invoke('send-waitlist-registration-confirmation', {
           body: {
             organizationId: eventData.organization_id,
-            storeId: eventData.store_id || eventData.venue,
+            storeId: eventData.store_id,
             customerName,
             customerEmail,
             scenarioTitle,
