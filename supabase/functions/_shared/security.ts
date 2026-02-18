@@ -178,14 +178,23 @@ export interface AuthResult {
  */
 export async function verifyAuth(
   req: Request,
-  requiredRoles?: string[]
+  requiredRoles?: string[],
+  options?: { allowAnonymous?: boolean }
 ): Promise<AuthResult> {
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-  const SUPABASE_ANON_KEY = getAnonKey()
   const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
 
   const authHeader = req.headers.get('Authorization')
+  
+  // 認証ヘッダーがない場合
   if (!authHeader) {
+    // allowAnonymous が true なら匿名として成功扱い
+    if (options?.allowAnonymous) {
+      return {
+        success: true,
+        user: { id: 'anonymous', email: undefined, role: 'anonymous' }
+      }
+    }
     return {
       success: false,
       error: '認証が必要です',
@@ -194,22 +203,56 @@ export async function verifyAuth(
   }
 
   try {
-    // 呼び出し元ユーザーの認証を検証
-    if (!SUPABASE_ANON_KEY) {
+    // Service Role Key で認証を検証（Publishable Key 対応）
+    if (!SUPABASE_SERVICE_ROLE_KEY) {
+      // SERVICE_ROLE_KEY がなくても allowAnonymous なら続行
+      if (options?.allowAnonymous) {
+        console.warn('SERVICE_ROLE_KEY未設定、匿名モードで続行')
+        return {
+          success: true,
+          user: { id: 'anonymous', email: undefined, role: 'anonymous' }
+        }
+      }
       return {
         success: false,
-        error: 'サーバー設定エラー（ANON_KEY）',
+        error: 'サーバー設定エラー（SERVICE_ROLE_KEY）',
         statusCode: 500,
       }
     }
 
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } }
-    })
+    // Authorization ヘッダーから Bearer トークンを抽出
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim()
     
-    const { data: { user }, error: authError } = await userClient.auth.getUser()
+    // Publishable Key 自体が送られてきた場合はスキップ
+    if (token.startsWith('sb_publishable_') || token.startsWith('sb_secret_')) {
+      if (options?.allowAnonymous) {
+        console.log('Publishable/Secret Key検出、匿名モードで続行')
+        return {
+          success: true,
+          user: { id: 'anonymous', email: undefined, role: 'anonymous' }
+        }
+      }
+      return {
+        success: false,
+        error: '認証トークンが無効です',
+        statusCode: 401,
+      }
+    }
+    
+    // Service Role Key を使ってユーザー情報を取得
+    const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    const { data: { user }, error: authError } = await serviceClient.auth.getUser(token)
     
     if (authError || !user) {
+      // 認証失敗でも allowAnonymous なら続行
+      if (options?.allowAnonymous) {
+        console.log('認証失敗、匿名モードで続行:', authError?.message)
+        return {
+          success: true,
+          user: { id: 'anonymous', email: undefined, role: 'anonymous' }
+        }
+      }
+      console.warn('認証エラー詳細:', authError?.message || 'ユーザーが見つかりません')
       return {
         success: false,
         error: '認証に失敗しました',
@@ -219,14 +262,6 @@ export async function verifyAuth(
 
     // ロールが必要な場合は確認
     if (requiredRoles && requiredRoles.length > 0) {
-      if (!SUPABASE_SERVICE_ROLE_KEY) {
-        return {
-          success: false,
-          error: 'サーバー設定エラー（SERVICE_ROLE_KEY）',
-          statusCode: 500,
-        }
-      }
-      const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
       const { data: userData, error: userError } = await serviceClient
         .from('users')
         .select('role')

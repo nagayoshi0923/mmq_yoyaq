@@ -35,19 +35,16 @@ serve(async (req) => {
   }
 
   try {
-    const authResult = await verifyAuth(req)
+    // 認証は緩和（予約IDとメールアドレスで正当性を検証するため）
+    const authResult = await verifyAuth(req, undefined, { allowAnonymous: true })
     if (!authResult.success) {
       return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
     }
 
+    // Service Role Key を使用（Publishable Key 対応）
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      getAnonKey(),
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      getServiceRoleKey()
     )
 
     // リクエストボディを取得

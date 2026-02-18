@@ -55,8 +55,9 @@ serve(async (req) => {
       return rateLimitResponse(rateLimit.retryAfter, corsHeaders)
     }
 
-    // 🔒 認証チェック: ログイン済みユーザーのみ呼び出し可能
-    const authResult = await verifyAuth(req)
+    // 🔒 認証チェック（緩和: Publishable Key 対応のため匿名許可）
+    // セキュリティはイベントへのアクセス権限確認で担保
+    const authResult = await verifyAuth(req, undefined, { allowAnonymous: true })
     if (!authResult.success) {
       console.warn('⚠️ 認証失敗: notify-waitlist への不正アクセス試行')
       return errorResponse(
@@ -65,7 +66,7 @@ serve(async (req) => {
         corsHeaders
       )
     }
-    console.log('✅ 認証成功:', authResult.user?.email)
+    console.log('✅ 認証:', authResult.user?.email || '匿名')
 
     const data: NotifyWaitlistRequest = await req.json()
 

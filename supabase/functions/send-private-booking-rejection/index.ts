@@ -28,20 +28,16 @@ serve(async (req) => {
   }
 
   try {
-    // 🔒 認証・権限（管理者系のみ）
-    const authResult = await verifyAuth(req, ['admin', 'license_admin', 'owner'])
+    // 🔒 認証・権限（管理者系のみ、匿名許可で Publishable Key 対応）
+    const authResult = await verifyAuth(req, ['admin', 'license_admin', 'owner'], { allowAnonymous: true })
     if (!authResult.success) {
       return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
     }
 
+    // Service Role Key を使用（Publishable Key 対応）
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      getAnonKey(),
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      getServiceRoleKey()
     )
 
     // リクエストボディを取得

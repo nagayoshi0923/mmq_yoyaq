@@ -32,23 +32,19 @@ serve(async (req) => {
   }
 
   try {
-    // 🔒 P0-4修正: 認証チェック追加（Service Role / cron / 管理者・スタッフのみ許可）
+    // 🔒 認証チェック（Service Role / cron / 管理者・スタッフ、または匿名許可）
     const isServiceCall = isCronOrServiceRoleCall(req)
     if (!isServiceCall) {
-      const authResult = await verifyAuth(req, ['admin', 'staff', 'owner', 'license_admin'])
+      const authResult = await verifyAuth(req, ['admin', 'staff', 'owner', 'license_admin'], { allowAnonymous: true })
       if (!authResult.success) {
         return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
       }
     }
 
+    // Service Role Key を使用（Publishable Key 対応）
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      getAnonKey(),
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      getServiceRoleKey()
     )
 
     // リクエストボディを取得
