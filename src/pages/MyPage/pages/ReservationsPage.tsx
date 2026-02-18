@@ -116,11 +116,11 @@ export function ReservationsPage() {
       if (customerByUserId) {
         customer = customerByUserId
       } else {
-        // user_idで見つからない場合、emailで検索
+        // user_idで見つからない場合、emailで検索（大文字/小文字を区別しない）
         const { data: customerByEmail, error: emailError } = await supabase
           .from('customers')
           .select('id, user_id')
-          .eq('email', user.email)
+          .ilike('email', user.email)
           .maybeSingle()
         
         if (emailError && emailError.code !== 'PGRST116') throw emailError

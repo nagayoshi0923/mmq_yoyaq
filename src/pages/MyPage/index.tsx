@@ -160,14 +160,42 @@ export default function MyPage() {
 
     setLoading(true)
     try {
-      // 顧客情報を取得
-      const { data: customer, error: customerError } = await supabase
+      // 顧客情報を取得（user_id優先、emailフォールバック）
+      let customer = null
+      
+      // まずuser_idで検索
+      const { data: customerByUserId } = await supabase
         .from('customers')
-        .select('id, name, nickname, avatar_url')
-        .eq('email', user.email)
+        .select('id, name, nickname, avatar_url, user_id')
+        .eq('user_id', user.id)
         .maybeSingle()
 
-      if (customerError) throw customerError
+      if (customerByUserId) {
+        customer = customerByUserId
+      } else {
+        // user_idで見つからない場合、emailで検索（大文字/小文字を区別しない）
+        const { data: customerByEmail, error: emailError } = await supabase
+          .from('customers')
+          .select('id, name, nickname, avatar_url, user_id')
+          .ilike('email', user.email)
+          .maybeSingle()
+        
+        if (emailError && emailError.code !== 'PGRST116') throw emailError
+        
+        if (customerByEmail) {
+          customer = customerByEmail
+          
+          // user_idが設定されていない場合は自動で紐付け
+          if (!customerByEmail.user_id && user.id) {
+            await supabase
+              .from('customers')
+              .update({ user_id: user.id })
+              .eq('id', customerByEmail.id)
+            logger.log('顧客レコードにuser_idを自動設定しました:', customerByEmail.id)
+          }
+        }
+      }
+
       if (!customer) {
         setReservations([])
         setCustomerInfo(null)
