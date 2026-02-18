@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
-import { Link2, Unlink, Trash2 } from 'lucide-react'
+import { Link2, Unlink, Trash2, X } from 'lucide-react'
 import type { Staff, Store, Scenario } from '@/types'
 
 interface StaffEditFormProps {
@@ -87,6 +87,19 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
     name: store.name,
     displayInfo: store.address || ''
   }))
+
+  // シナリオID→タイトルのマッピング（scenario.idとscenario_master_id両方に対応）
+  const scenarioIdToTitle = useMemo(() => {
+    const map = new Map<string, string>()
+    scenarios.forEach(scenario => {
+      // scenario.id でも scenario_master_id でもタイトルを取得できるようにする
+      map.set(scenario.id, scenario.title)
+      if (scenario.scenario_master_id) {
+        map.set(scenario.scenario_master_id, scenario.title)
+      }
+    })
+    return map
+  }, [scenarios])
 
   const scenarioOptions: MultiSelectOption[] = scenarios.map(scenario => ({
     id: scenario.id,
@@ -241,9 +254,25 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                 emptyText="シナリオがありません"
                 emptySearchText="シナリオが見つかりません"
                 useIdAsValue={true}
-                showBadges={true}
-                badgeClassName="bg-blue-50 border-blue-200 text-blue-700"
+                showBadges={false}
               />
+              {/* カスタムバッジ表示（scenario_master_id対応） */}
+              {(formData.special_scenarios || []).length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {(formData.special_scenarios || []).map(id => (
+                    <span key={id} className="inline-flex items-center gap-0.5 text-xs py-0.5 px-1.5 rounded border bg-blue-50 border-blue-200 text-blue-700">
+                      {scenarioIdToTitle.get(id) || id}
+                      <button
+                        type="button"
+                        className="ml-0.5 hover:bg-red-100 p-0.5"
+                        onClick={() => handleSpecialScenariosChange((formData.special_scenarios || []).filter(v => v !== id))}
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground mt-1">※追加すると体験済みにも自動追加されます</p>
             </div>
 
@@ -258,9 +287,25 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                 emptyText="シナリオがありません"
                 emptySearchText="シナリオが見つかりません"
                 useIdAsValue={true}
-                showBadges={true}
-                badgeClassName="bg-green-50 border-green-200 text-green-700"
+                showBadges={false}
               />
+              {/* カスタムバッジ表示（scenario_master_id対応） */}
+              {(formData.experienced_scenarios || []).length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {(formData.experienced_scenarios || []).map(id => (
+                    <span key={id} className="inline-flex items-center gap-0.5 text-xs py-0.5 px-1.5 rounded border bg-green-50 border-green-200 text-green-700">
+                      {scenarioIdToTitle.get(id) || id}
+                      <button
+                        type="button"
+                        className="ml-0.5 hover:bg-red-100 p-0.5"
+                        onClick={() => setFormData({ ...formData, experienced_scenarios: (formData.experienced_scenarios || []).filter(v => v !== id) })}
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground mt-1">※GMはできないが体験したシナリオ</p>
             </div>
               </div>
