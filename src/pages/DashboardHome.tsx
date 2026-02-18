@@ -267,57 +267,59 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         </Card>
       )}
 
-      {/* 1. 直近の出勤予定 */}
-      <section>
-        <div className="flex items-center gap-2 mb-3">
-          <Clock className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-bold">直近の出勤予定</h2>
-          {upcomingEvents.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              （{upcomingEvents.length}件）
-            </span>
+      {/* 直近の出勤予定 と マイスケジュール を2カラム（PC時） */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 1. 直近の出勤予定 */}
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-bold">直近の出勤予定</h2>
+            {upcomingEvents.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                （{upcomingEvents.length}件）
+              </span>
+            )}
+          </div>
+          
+          {loading && staffName === '' ? (
+            <div className="text-sm text-muted-foreground">読み込み中...</div>
+          ) : upcomingEvents.length > 0 ? (
+            <div className="border rounded-lg divide-y divide-border bg-background">
+              {upcomingEvents.map(event => (
+                <div key={event.id} className="px-3 py-2 flex items-center gap-3">
+                  <div className="text-center flex-shrink-0 w-12">
+                    <div className="text-xs text-muted-foreground">
+                      {format(parseISO(event.date), 'M/d')}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {format(parseISO(event.date), 'EEE', { locale: ja })}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {event.category === 'MTG' || event.category === 'mtg'
+                        ? 'MTG'
+                        : event.scenarios?.title || event.scenario || 'タイトル未定'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {event.start_time?.slice(0, 5) || ''}〜 @ {event.stores?.name || event.venue}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 text-xs text-muted-foreground">
+                    {event.current_participants}名
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground py-2">
+              直近の予定はありません
+            </div>
           )}
-        </div>
-        
-        {loading && staffName === '' ? (
-          <div className="text-sm text-muted-foreground">読み込み中...</div>
-        ) : upcomingEvents.length > 0 ? (
-          <div className="border rounded-lg divide-y divide-border bg-background">
-            {upcomingEvents.map(event => (
-              <div key={event.id} className="px-3 py-2 flex items-center gap-3">
-                <div className="text-center flex-shrink-0 w-12">
-                  <div className="text-xs text-muted-foreground">
-                    {format(parseISO(event.date), 'M/d')}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">
-                    {format(parseISO(event.date), 'EEE', { locale: ja })}
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {event.category === 'MTG' || event.category === 'mtg'
-                      ? 'MTG'
-                      : event.scenarios?.title || event.scenario || 'タイトル未定'}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {event.start_time?.slice(0, 5) || ''}〜 @ {event.stores?.name || event.venue}
-                  </div>
-                </div>
-                <div className="flex-shrink-0 text-xs text-muted-foreground">
-                  {event.current_participants}名
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-muted-foreground py-2">
-            直近の予定はありません
-          </div>
-        )}
-      </section>
+        </section>
 
-      {/* 2. 今月のスケジュール（カレンダー） */}
-      <section>
+        {/* 2. 今月のスケジュール（カレンダー） */}
+        <section>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5 text-primary" />
@@ -397,7 +399,8 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
             </div>
           </CardContent>
         </Card>
-      </section>
+        </section>
+      </div>
 
       {/* 3. クイックリンク */}
       <section>
