@@ -58,6 +58,7 @@ export function PrivateBookingManagement() {
   const [dateRangeEnd, setDateRangeEnd] = useState<string | undefined>(undefined)  // 期間フィルター終了日
   const [scenarioAvailableStores, setScenarioAvailableStores] = useState<string[]>([])  // シナリオ対応店舗ID
   const [selectedRegionFilter, setSelectedRegionFilter] = useState<string>('all')  // 地域フィルター
+  const [assignedGMIds, setAssignedGMIds] = useState<string[]>([])  // シナリオ担当GM
 
   // リクエストデータ管理
   const { requests, loading, loadRequests } = useBookingRequests({
@@ -135,11 +136,12 @@ export function PrivateBookingManagement() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRequest])
 
-  // シナリオの対応店舗を取得
+  // シナリオの対応店舗と担当GMを取得
   useEffect(() => {
-    const loadScenarioAvailableStores = async () => {
+    const loadScenarioData = async () => {
       if (selectedRequest?.scenario_id) {
         try {
+          // 対応店舗を取得
           const { data: scenarioData, error } = await supabase
             .from('scenarios')
             .select('available_stores')
@@ -152,16 +154,31 @@ export function PrivateBookingManagement() {
           } else {
             setScenarioAvailableStores(scenarioData?.available_stores || [])
           }
+          
+          // 担当GMを取得
+          const { data: assignmentData, error: assignmentError } = await supabase
+            .from('gm_scenario_assignments')
+            .select('staff_id')
+            .eq('scenario_id', selectedRequest.scenario_id)
+          
+          if (assignmentError) {
+            logger.error('担当GM取得エラー:', assignmentError)
+            setAssignedGMIds([])
+          } else {
+            setAssignedGMIds((assignmentData || []).map(a => a.staff_id))
+          }
         } catch (error) {
-          logger.error('シナリオ対応店舗取得エラー:', error)
+          logger.error('シナリオデータ取得エラー:', error)
           setScenarioAvailableStores([])
+          setAssignedGMIds([])
         }
       } else {
         setScenarioAvailableStores([])
+        setAssignedGMIds([])
       }
     }
     
-    loadScenarioAvailableStores()
+    loadScenarioData()
   }, [selectedRequest?.scenario_id])
 
   // シナリオ対応店舗でフィルタリングした店舗リスト
@@ -585,14 +602,16 @@ export function PrivateBookingManagement() {
                       .map((gm) => {
                         const availableGM = availableGMs.find(ag => ag.gm_id === gm.id)
                         const isAvailable = availableGM?.response_status === 'available'
-                        return { gm, availableGM, isAvailable }
+                        const isAssigned = assignedGMIds.includes(gm.id)
+                        return { gm, availableGM, isAvailable, isAssigned }
                       })
                       .sort((a, b) => {
-                        if (a.isAvailable && !b.isAvailable) return -1
-                        if (!a.isAvailable && b.isAvailable) return 1
-                        return 0
+                        // 担当かつ対応可能 > 対応可能 > 担当 > その他
+                        const scoreA = (a.isAssigned ? 2 : 0) + (a.isAvailable ? 1 : 0)
+                        const scoreB = (b.isAssigned ? 2 : 0) + (b.isAvailable ? 1 : 0)
+                        return scoreB - scoreA
                       })
-                      .map(({ gm, availableGM, isAvailable }) => {
+                      .map(({ gm, availableGM, isAvailable, isAssigned }) => {
                         const gmNotes = availableGM?.notes || ''
                         
                         let isGMDisabled = false
@@ -614,6 +633,11 @@ export function PrivateBookingManagement() {
                           >
                             <span className="flex items-center gap-2">
                               {gm.name}
+                              {isAssigned && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded">
+                                  担当
+                                </span>
+                              )}
                               {isAvailable && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded">
                                   対応可能
@@ -627,9 +651,9 @@ export function PrivateBookingManagement() {
                       })}
                   </SelectContent>
                 </Select>
-                {availableGMs.length > 0 && (
+                {(assignedGMIds.length > 0 || availableGMs.length > 0) && (
                   <div className="mt-2 text-xs text-muted-foreground">
-                    ℹ️ 対応可能バッジがこのシナリオに対応可能なGMです
+                    ℹ️ <span className="inline-flex items-center px-1 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">担当</span> このシナリオの担当GM / <span className="inline-flex items-center px-1 py-0.5 text-xs bg-green-100 text-green-700 rounded">対応可能</span> 今回対応可能と回答したGM
                   </div>
                 )}
               </div>
