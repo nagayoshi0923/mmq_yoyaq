@@ -148,7 +148,8 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         staff,
         availableStaffByScenario,
         allAvailableStaff,
-        onParticipantChange: eventOperations.handleParticipantChange
+        onParticipantChange: eventOperations.handleParticipantChange,
+        onDeleteEvent: eventOperations.deleteEventDirectly
       },
       // performance 用（コンテキストメニューから使用）
       performance: {

@@ -33,6 +33,8 @@ interface ReservationListProps {
   onGmsChange?: (gms: string[], gmRoles: Record<string, string>) => void
   // 予約データから取得したスタッフ参加者を親に通知（DBの情報を直接反映）
   onStaffParticipantsChange?: (staffParticipants: string[]) => void
+  // イベント削除時のコールバック（貸切参加者全員キャンセル時）
+  onDeleteEvent?: () => Promise<void>
 }
 
 export function ReservationList({
@@ -44,7 +46,8 @@ export function ReservationList({
   staff,
   onParticipantChange,
   onGmsChange,
-  onStaffParticipantsChange
+  onStaffParticipantsChange,
+  onDeleteEvent
 }: ReservationListProps) {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loadingReservations, setLoadingReservations] = useState(false)
@@ -59,6 +62,8 @@ export function ReservationList({
   const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   const [shouldSendEmail, setShouldSendEmail] = useState(true) // メール送信するかどうか
+  const [isDeleteEventDialogOpen, setIsDeleteEventDialogOpen] = useState(false) // イベント削除確認ダイアログ
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false) // イベント削除中フラグ
   const [emailContent, setEmailContent] = useState({
     customerEmail: '',
     customerName: '',
@@ -709,6 +714,24 @@ ${content.organizationName || '店舗'}
         organizationName: '',
         emailBody: ''
       })
+      
+      // 貸切公演の場合、全員キャンセル後にイベント削除を確認
+      if (event?.is_private_request && onDeleteEvent) {
+        // 最新の予約リストを取得（UIの状態更新後）
+        // setReservations は非同期なので、少し遅延を入れてからチェック
+        setTimeout(() => {
+          setReservations(currentReservations => {
+            const activeReservations = currentReservations.filter(r => 
+              r.status !== 'cancelled'
+            )
+            if (activeReservations.length === 0) {
+              setIsDeleteEventDialogOpen(true)
+            }
+            return currentReservations
+          })
+        }, 100)
+      }
+      
       return true
     } catch (error) {
       logger.error('予約キャンセルエラー:', error)
@@ -1617,6 +1640,52 @@ ${content.organizationName || '店舗'}
                 {isCancelling ? '処理中...' : 'キャンセル確定'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 貸切イベント削除確認ダイアログ */}
+      <Dialog open={isDeleteEventDialogOpen} onOpenChange={setIsDeleteEventDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>貸切公演を削除しますか？</DialogTitle>
+            <DialogDescription>
+              全ての参加者がキャンセルされました。この貸切公演自体を削除しますか？
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              「削除する」を選択すると、この貸切公演がスケジュールから完全に削除されます。
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteEventDialogOpen(false)}
+              disabled={isDeletingEvent}
+            >
+              削除しない
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!onDeleteEvent) return
+                setIsDeletingEvent(true)
+                try {
+                  await onDeleteEvent()
+                  setIsDeleteEventDialogOpen(false)
+                  showToast.success('貸切公演を削除しました')
+                } catch (error) {
+                  logger.error('イベント削除エラー:', error)
+                  showToast.error('削除に失敗しました')
+                } finally {
+                  setIsDeletingEvent(false)
+                }
+              }}
+              disabled={isDeletingEvent}
+            >
+              {isDeletingEvent ? '削除中...' : '削除する'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

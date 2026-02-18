@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
@@ -16,6 +18,16 @@ import { SettingsPage } from './pages/SettingsPage'
 import { WantToPlayPage } from './pages/LikedScenariosPage'
 import { CouponsPage } from './pages/CouponsPage'
 import type { Reservation, Store } from '@/types'
+
+interface ScenarioOption {
+  id: string
+  title: string
+}
+
+interface StoreOption {
+  id: string
+  name: string
+}
 
 interface PlayedScenario {
   scenario: string
@@ -37,6 +49,7 @@ const menuItems = [
 
 export default function MyPage() {
   const { user } = useAuth()
+  const { organizationId } = useOrganization()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<string>('reservations')
   
@@ -62,10 +75,15 @@ export default function MyPage() {
   
   // 手動登録用ステート
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [newScenarioTitle, setNewScenarioTitle] = useState('')
+  const [newScenarioId, setNewScenarioId] = useState('')
   const [newPlayedAt, setNewPlayedAt] = useState('')
-  const [newVenue, setNewVenue] = useState('')
+  const [newStoreId, setNewStoreId] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // 選択肢用データ
+  const [scenarioOptions, setScenarioOptions] = useState<ScenarioOption[]>([])
+  const [storeOptions, setStoreOptions] = useState<StoreOption[]>([])
+  const [optionsLoading, setOptionsLoading] = useState(true)
   
   // アバター画像
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -154,6 +172,47 @@ export default function MyPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
   }, [user])
+
+  // シナリオと店舗の選択肢を取得
+  useEffect(() => {
+    const fetchOptions = async () => {
+      setOptionsLoading(true)
+      try {
+        // シナリオを取得（アクティブなもののみ）
+        let scenarioQuery = supabase
+          .from('scenarios')
+          .select('id, title')
+          .eq('is_active', true)
+          .order('title')
+        if (organizationId) {
+          scenarioQuery = scenarioQuery.eq('organization_id', organizationId)
+        }
+        const { data: scenarios, error: scenarioError } = await scenarioQuery
+        
+        if (scenarioError) throw scenarioError
+        setScenarioOptions(scenarios || [])
+
+        // 店舗を取得
+        let storeQuery = supabase
+          .from('stores')
+          .select('id, name')
+          .order('name')
+        if (organizationId) {
+          storeQuery = storeQuery.eq('organization_id', organizationId)
+        }
+        const { data: stores, error: storeError } = await storeQuery
+        
+        if (storeError) throw storeError
+        setStoreOptions(stores || [])
+      } catch (error) {
+        logger.error('オプション取得エラー:', error)
+      } finally {
+        setOptionsLoading(false)
+      }
+    }
+
+    fetchOptions()
+  }, [organizationId])
 
   const fetchData = async () => {
     if (!user?.email) return
@@ -418,29 +477,38 @@ export default function MyPage() {
 
   // 手動登録を追加
   const handleAddManualHistory = async () => {
-    if (!customerId || !newScenarioTitle.trim() || !newPlayedAt) {
-      showToast.error('シナリオ名と日付は必須です')
+    if (!customerId || !newScenarioId || !newPlayedAt) {
+      showToast.error('シナリオと日付は必須です')
       return
     }
 
     setIsSubmitting(true)
     try {
+      // 選択されたシナリオのタイトルを取得
+      const selectedScenario = scenarioOptions.find(s => s.id === newScenarioId)
+      const scenarioTitle = selectedScenario?.title || ''
+      
+      // 選択された店舗の名前を取得
+      const selectedStore = storeOptions.find(s => s.id === newStoreId)
+      const storeName = selectedStore?.name || null
+
       const { error } = await supabase
         .from('manual_play_history')
         .insert({
           customer_id: customerId,
-          scenario_title: newScenarioTitle.trim(),
+          scenario_title: scenarioTitle,
+          scenario_id: newScenarioId,
           played_at: newPlayedAt,
-          venue: newVenue.trim() || null,
+          venue: storeName,
         })
 
       if (error) throw error
 
       showToast.success('プレイ履歴を追加しました')
       setIsAddDialogOpen(false)
-      setNewScenarioTitle('')
+      setNewScenarioId('')
       setNewPlayedAt('')
-      setNewVenue('')
+      setNewStoreId('')
       fetchData()
     } catch (error) {
       logger.error('手動履歴追加エラー:', error)
@@ -873,35 +941,54 @@ export default function MyPage() {
                         </DialogHeader>
                         <div className="space-y-4 pt-4">
                           <div className="space-y-2">
-                            <Label htmlFor="scenario-title">シナリオ名 *</Label>
-                            <Input
-                              id="scenario-title"
-                              value={newScenarioTitle}
-                              onChange={(e) => setNewScenarioTitle(e.target.value)}
-                              placeholder="例: 六人の嘘つきな大学生"
+                            <Label>シナリオ *</Label>
+                            <Select
+                              value={newScenarioId}
+                              onValueChange={setNewScenarioId}
+                              disabled={optionsLoading}
+                            >
+                              <SelectTrigger className="h-10 text-sm">
+                                <SelectValue placeholder={optionsLoading ? '読み込み中...' : 'シナリオを選択'} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {scenarioOptions.map((scenario) => (
+                                  <SelectItem key={scenario.id} value={scenario.id} className="text-sm">
+                                    {scenario.title}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>プレイした日付 *</Label>
+                            <SingleDatePopover
+                              date={newPlayedAt}
+                              onDateChange={(date) => setNewPlayedAt(date || '')}
+                              placeholder="日付を選択"
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="played-at">プレイした日付 *</Label>
-                            <Input
-                              id="played-at"
-                              type="date"
-                              value={newPlayedAt}
-                              onChange={(e) => setNewPlayedAt(e.target.value)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="venue">店舗名（任意）</Label>
-                            <Input
-                              id="venue"
-                              value={newVenue}
-                              onChange={(e) => setNewVenue(e.target.value)}
-                              placeholder="例: MMQ渋谷店"
-                            />
+                            <Label>店舗（任意）</Label>
+                            <Select
+                              value={newStoreId}
+                              onValueChange={setNewStoreId}
+                              disabled={optionsLoading}
+                            >
+                              <SelectTrigger className="h-10 text-sm">
+                                <SelectValue placeholder={optionsLoading ? '読み込み中...' : '店舗を選択'} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {storeOptions.map((store) => (
+                                  <SelectItem key={store.id} value={store.id} className="text-sm">
+                                    {store.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <Button 
                             onClick={handleAddManualHistory} 
-                            disabled={isSubmitting || !newScenarioTitle.trim() || !newPlayedAt}
+                            disabled={isSubmitting || !newScenarioId || !newPlayedAt}
                             className="w-full"
                           >
                             {isSubmitting ? '追加中...' : '追加'}

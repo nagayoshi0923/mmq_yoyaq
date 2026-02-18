@@ -101,6 +101,7 @@ serve(async (req) => {
       
       if (!staffMember) {
         // 2. スタッフでなければ、そのイベントに予約があるか確認
+        // まず customers.user_id で確認
         const { data: customerReservation, error: reservationError } = await serviceClient
           .from('reservations')
           .select('id, customers!inner(user_id)')
@@ -108,14 +109,33 @@ serve(async (req) => {
           .eq('customers.user_id', authResult.user.id)
           .maybeSingle()
         
-        console.log('🔍 予約チェック結果:', { customerReservation, reservationError })
+        console.log('🔍 予約チェック結果 (customers.user_id):', { customerReservation, reservationError })
         
-        if (!customerReservation) {
-          console.warn('⚠️ アクセス権限なし:', authResult.user?.email, '→ event:', data.scheduleEventId)
-          return errorResponse(
-            'このイベントへのアクセス権がありません',
-            403,
-            corsHeaders
+        // customers.user_id で見つからない場合、reservations.user_id で確認
+        let hasAccess = !!customerReservation
+        if (!hasAccess) {
+          const { data: directReservation, error: directError } = await serviceClient
+            .from('reservations')
+            .select('id, user_id')
+            .eq('schedule_event_id', data.scheduleEventId)
+            .eq('user_id', authResult.user.id)
+            .maybeSingle()
+          
+          console.log('🔍 予約チェック結果 (reservations.user_id):', { directReservation, directError })
+          hasAccess = !!directReservation
+        }
+        
+        if (!hasAccess) {
+          // アクセス権がなくても、キャンセル待ち通知は処理を続行
+          // 予約変更のメイン処理には影響しないように
+          console.warn('⚠️ アクセス権限なし（スキップ）:', authResult.user?.email, '→ event:', data.scheduleEventId)
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              message: 'アクセス権限の確認ができませんでした（通知スキップ）',
+              notifiedCount: 0 
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
           )
         }
       }

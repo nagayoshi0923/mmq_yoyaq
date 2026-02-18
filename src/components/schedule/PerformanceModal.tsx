@@ -45,6 +45,7 @@ interface PerformanceModalProps {
   onScenariosUpdate?: () => void  // シナリオ作成後の更新用コールバック
   onStaffUpdate?: () => void  // スタッフ作成後の更新用コールバック
   onParticipantChange?: (eventId: string, newCount: number) => void  // 参加者数変更時のコールバック
+  onDeleteEvent?: (event: ScheduleEvent) => Promise<void>  // イベント削除時のコールバック（貸切参加者全員キャンセル時）
 }
 
 // 30分間隔の時間オプションを生成
@@ -101,7 +102,8 @@ export function PerformanceModal({
   allAvailableStaff = [],
   onScenariosUpdate,
   onStaffUpdate,
-  onParticipantChange
+  onParticipantChange,
+  onDeleteEvent
 }: PerformanceModalProps) {
   const [isScenarioDialogOpen, setIsScenarioDialogOpen] = useState(false)
   const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null)
@@ -1308,6 +1310,10 @@ export function PerformanceModal({
               }}
               onGmsChange={(gms, gmRoles) => setFormData(prev => ({ ...prev, gms, gmRoles }))}
               onStaffParticipantsChange={setStaffParticipantsFromDB}
+              onDeleteEvent={event && onDeleteEvent ? async () => {
+                await onDeleteEvent(event)
+                onClose()
+              } : undefined}
             />
           </TabsContent>
 

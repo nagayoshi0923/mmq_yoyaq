@@ -1046,6 +1046,7 @@ export function ScheduleManager() {
         availableStaffByScenario={modals.performanceModal.availableStaffByScenario}
         allAvailableStaff={modals.performanceModal.allAvailableStaff}
         onParticipantChange={modals.performanceModal.onParticipantChange}
+        onDeleteEvent={modals.performanceModal.onDeleteEvent}
       />
 
       <ImportScheduleModal
@@ -1077,6 +1078,8 @@ export function ScheduleManager() {
         isCancelDialogOpen={modals.scheduleDialogs.isCancelDialogOpen}
         onCloseCancelDialog={modals.scheduleDialogs.onCloseCancelDialog}
         onConfirmCancel={modals.scheduleDialogs.onConfirmCancel}
+        cancellationReason={modals.scheduleDialogs.cancellationReason}
+        onCancellationReasonChange={modals.scheduleDialogs.onCancellationReasonChange}
         isRestoreDialogOpen={modals.scheduleDialogs.isRestoreDialogOpen ?? false}
         onCloseRestoreDialog={modals.scheduleDialogs.onCloseRestoreDialog ?? (() => {})}
         onConfirmRestore={modals.scheduleDialogs.onConfirmRestore ?? (() => {})}

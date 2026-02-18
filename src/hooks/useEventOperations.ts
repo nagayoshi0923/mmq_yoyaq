@@ -1285,6 +1285,149 @@ export function useEventOperations({
     }
   }, [deletingEvent, setEvents, organizationId])
 
+  // 貸切公演を直接削除（確認ダイアログなし - ReservationListから呼び出し用）
+  const deleteEventDirectly = useCallback(async (eventToDelete: ScheduleEvent) => {
+    try {
+      // 貸切予約の判定: is_private_requestフラグまたは、IDが`private-`で始まる、または複合ID形式
+      const isPrivateBooking = eventToDelete.is_private_request || 
+                               eventToDelete.id.startsWith('private-') ||
+                               (eventToDelete.id.includes('-') && eventToDelete.id.split('-').length > 5)
+      
+      if (isPrivateBooking) {
+        // reservation_idが直接指定されている場合、それを使用
+        // そうでない場合、IDからUUID部分を抽出
+        let reservationId = eventToDelete.reservation_id
+        if (!reservationId) {
+          if (eventToDelete.id.startsWith('private-')) {
+            // `private-UUID-数字`形式の場合、`private-`を除去してUUID部分を取得
+            const parts = eventToDelete.id.replace(/^private-/, '').split('-')
+            reservationId = parts.slice(0, 5).join('-')
+          } else if (eventToDelete.id.includes('-') && eventToDelete.id.split('-').length > 5) {
+            // `UUID-数字`形式の場合、UUID部分（最初の5つの要素）を取得
+            reservationId = eventToDelete.id.split('-').slice(0, 5).join('-')
+          } else {
+            reservationId = eventToDelete.id
+          }
+        }
+        
+        // まず予約情報を取得してschedule_event_idを確認
+        let reservationQuery = supabase
+          .from('reservations')
+          .select('schedule_event_id')
+          .eq('id', reservationId)
+        if (organizationId) {
+          reservationQuery = reservationQuery.eq('organization_id', organizationId)
+        }
+        const { data: reservation, error: fetchError } = await reservationQuery.single()
+        
+        if (fetchError) {
+          logger.error('予約情報取得エラー:', fetchError)
+        }
+        
+        // 予約を削除
+        const { error } = await supabase.rpc('admin_delete_reservations_by_ids', {
+          p_reservation_ids: [reservationId]
+        })
+        
+        if (error) throw error
+        
+        // schedule_event_idが紐付いている場合、schedule_eventsも削除
+        if (reservation?.schedule_event_id) {
+          // 削除前にイベント情報を取得（履歴用）
+          let eventQuery = supabase
+            .from('schedule_events')
+            .select('id, organization_id, date, venue, store_id, scenario, scenario_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
+            .eq('id', reservation.schedule_event_id)
+          if (organizationId) {
+            eventQuery = eventQuery.eq('organization_id', organizationId)
+          }
+          const { data: scheduleEventToDelete } = await eventQuery.single()
+          
+          let scheduleDeleteQuery = supabase
+            .from('schedule_events')
+            .delete()
+            .eq('id', reservation.schedule_event_id)
+          if (organizationId) {
+            scheduleDeleteQuery = scheduleDeleteQuery.eq('organization_id', organizationId)
+          }
+          const { error: scheduleError } = await scheduleDeleteQuery
+          
+          if (scheduleError) {
+            logger.error('schedule_events削除エラー:', scheduleError)
+          }
+          
+          // 履歴を記録（貸切予約削除）
+          if (organizationId && scheduleEventToDelete) {
+            try {
+              await createEventHistory(
+                null,
+                organizationId,
+                'delete',
+                scheduleEventToDelete,
+                {},
+                {
+                  date: scheduleEventToDelete.date,
+                  storeId: scheduleEventToDelete.store_id || eventToDelete.venue,
+                  timeSlot: scheduleEventToDelete.time_slot || null
+                },
+                {
+                  deletedEventScenario: scheduleEventToDelete.scenario || eventToDelete.scenario
+                }
+              )
+            } catch (historyError) {
+              logger.error('履歴記録エラー（貸切予約削除）:', historyError)
+            }
+          }
+        }
+        
+        setEvents(prev => prev.filter(event => {
+          // イベントのreservation_idを取得（複合IDの場合はUUID部分を抽出）
+          let eventReservationId = event.reservation_id
+          if (!eventReservationId) {
+            if (event.id.startsWith('private-')) {
+              const parts = event.id.replace(/^private-/, '').split('-')
+              eventReservationId = parts.slice(0, 5).join('-')
+            } else if (event.id.includes('-') && event.id.split('-').length > 5) {
+              eventReservationId = event.id.split('-').slice(0, 5).join('-')
+            }
+          }
+          return eventReservationId !== reservationId
+        }))
+      } else {
+        // 通常の公演の場合
+        await scheduleApi.delete(eventToDelete.id)
+        
+        // 履歴を記録（削除）
+        if (organizationId) {
+          try {
+            await createEventHistory(
+              null,
+              organizationId,
+              'delete',
+              eventToDelete,
+              {},
+              {
+                date: eventToDelete.date,
+                storeId: eventToDelete.store_id || eventToDelete.venue,
+                timeSlot: eventToDelete.time_slot || null
+              },
+              {
+                deletedEventScenario: eventToDelete.scenario
+              }
+            )
+          } catch (historyError) {
+            logger.error('履歴記録エラー（削除）:', historyError)
+          }
+        }
+        
+        setEvents(prev => prev.filter(event => event.id !== eventToDelete.id))
+      }
+    } catch (error) {
+      logger.error('公演削除エラー:', error)
+      throw error
+    }
+  }, [setEvents, organizationId])
+
   // 中止確認ダイアログを開く
   const handleCancelConfirmPerformance = useCallback((event: ScheduleEvent) => {
     setCancellingEvent(event)
@@ -1350,7 +1493,7 @@ export function useEventOperations({
           }
         }
 
-        // 通常公演の場合、予約者全員にメール送信
+        // 通常公演の場合、予約者全員の予約をキャンセル＆メール送信
         try {
           let reservationsQuery = supabase
             .from('reservations')
@@ -1365,36 +1508,54 @@ export function useEventOperations({
           if (resError) throw resError
 
           if (reservations && reservations.length > 0) {
-            const emailPromises = reservations.map(reservation => {
-              if (!reservation.customers) return Promise.resolve()
+            // 各予約をキャンセル状態に更新＋メール送信
+            const cancelPromises = reservations.map(async (reservation) => {
+              // 予約ステータスをcancelledに更新
+              try {
+                await reservationApi.cancelWithLock(
+                  reservation.id,
+                  reservation.customer_id ?? null,
+                  reason
+                )
+                logger.log(`予約${reservation.reservation_number}をキャンセル済みに更新`)
+              } catch (cancelError) {
+                logger.error(`予約${reservation.reservation_number}のキャンセル更新エラー:`, cancelError)
+              }
               
-              return supabase.functions.invoke('send-cancellation-confirmation', {
-                body: {
-                  organizationId: organizationId,
-                  storeId: cancellingEvent.store_id,
-                  reservationId: reservation.id,
-                  customerEmail: reservation.customers.email,
-                  customerName: reservation.customers.name,
-                  scenarioTitle: reservation.scenario_title || cancellingEvent.scenario,
-                  eventDate: cancellingEvent.date,
-                  startTime: cancellingEvent.start_time,
-                  endTime: cancellingEvent.end_time,
-                  storeName: cancellingEvent.venue,
-                  participantCount: reservation.participant_count,
-                  totalPrice: reservation.total_price || 0,
-                  reservationNumber: reservation.reservation_number,
-                  cancelledBy: 'store',
-                  cancellationReason: cancellationReason || '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
-                }
-              })
+              // メール送信
+              if (!reservation.customers) return
+              
+              try {
+                await supabase.functions.invoke('send-cancellation-confirmation', {
+                  body: {
+                    organizationId: organizationId,
+                    storeId: cancellingEvent.store_id,
+                    reservationId: reservation.id,
+                    customerEmail: reservation.customers.email,
+                    customerName: reservation.customers.name,
+                    scenarioTitle: reservation.scenario_title || cancellingEvent.scenario,
+                    eventDate: cancellingEvent.date,
+                    startTime: cancellingEvent.start_time,
+                    endTime: cancellingEvent.end_time,
+                    storeName: cancellingEvent.venue,
+                    participantCount: reservation.participant_count,
+                    totalPrice: reservation.total_price || 0,
+                    reservationNumber: reservation.reservation_number,
+                    cancelledBy: 'store',
+                    cancellationReason: reason
+                  }
+                })
+              } catch (emailErr) {
+                logger.error(`予約${reservation.reservation_number}へのメール送信エラー:`, emailErr)
+              }
             })
             
-            await Promise.all(emailPromises)
-            logger.log(`${reservations.length}件のキャンセル確認メール送信成功`)
+            await Promise.all(cancelPromises)
+            logger.log(`${reservations.length}件の予約をキャンセル処理完了`)
           }
         } catch (emailError) {
-          logger.error('キャンセル確認メール送信エラー:', emailError)
-          // メール送信失敗してもキャンセル処理は続行
+          logger.error('予約キャンセル処理エラー:', emailError)
+          // 処理失敗しても公演中止は続行
         }
       }
 
@@ -1688,6 +1849,7 @@ export function useEventOperations({
     handleSavePerformance,
     handleDeletePerformance,
     handleConfirmDelete,
+    deleteEventDirectly,
     handleCancelConfirmPerformance,
     handleConfirmCancel,
     handleUncancelPerformance,
