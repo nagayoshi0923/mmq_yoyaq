@@ -614,13 +614,13 @@ export const reservationApi = {
     const clog = createCorrelatedLogger(generateCorrelationId(), 'cancel')
     clog.info('キャンセル開始', { reservationId: id })
 
-    // 予約情報を取得（メール送信用）
+    // 予約情報を取得（メール送信用、GM通知用にis_private_bookingとgmsも取得）
     const { data: reservation, error: fetchError } = await supabase
       .from('reservations')
       .select(`
         *,
         customers(*),
-        schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, organization_id)
+        schedule_events!schedule_event_id(id, date, start_time, end_time, venue, scenario, organization_id, is_private_booking, gms, store_id)
       `)
       .eq('id', id)
       .single()
@@ -745,6 +745,37 @@ export const reservationApi = {
       } catch (emailError) {
         logger.error('キャンセル確認メール送信エラー:', emailError)
         // メール送信失敗してもキャンセル処理は続行
+      }
+    }
+
+    // 貸切予約のキャンセル時、担当GMにDiscord通知を送信
+    const scheduleEventForGM = Array.isArray(reservation.schedule_events) 
+      ? reservation.schedule_events[0] 
+      : reservation.schedule_events
+    
+    if (scheduleEventForGM?.is_private_booking && scheduleEventForGM?.gms?.length > 0) {
+      try {
+        const orgId = reservation.organization_id || scheduleEventForGM.organization_id
+        
+        await supabase.functions.invoke('notify-private-booking-cancelled-discord', {
+          body: {
+            organizationId: orgId,
+            scheduleEventId: scheduleEventForGM.id,
+            gms: scheduleEventForGM.gms,
+            customerName: reservation.customers?.name || reservation.customer_name || '顧客',
+            scenarioTitle: reservation.scenario_title || scheduleEventForGM.scenario || 'シナリオ未定',
+            eventDate: scheduleEventForGM.date,
+            startTime: scheduleEventForGM.start_time,
+            endTime: scheduleEventForGM.end_time,
+            storeName: scheduleEventForGM.venue || '店舗不明',
+            storeId: scheduleEventForGM.store_id,
+            cancellationReason: cancellationReason || 'お客様のご都合によるキャンセル'
+          }
+        })
+        logger.log('貸切キャンセルGM通知送信成功')
+      } catch (gmNotifyError) {
+        logger.error('貸切キャンセルGM通知エラー:', gmNotifyError)
+        // 通知失敗してもキャンセル処理は成功とする
       }
     }
 
