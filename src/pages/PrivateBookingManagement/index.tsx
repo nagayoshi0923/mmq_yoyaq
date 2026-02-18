@@ -141,10 +141,10 @@ export function PrivateBookingManagement() {
     const loadScenarioData = async () => {
       if (selectedRequest?.scenario_id) {
         try {
-          // 対応店舗を取得
+          // 対応店舗とscenario_master_idを取得
           const { data: scenarioData, error } = await supabase
             .from('scenarios')
-            .select('available_stores')
+            .select('available_stores, scenario_master_id')
             .eq('id', selectedRequest.scenario_id)
             .single()
           
@@ -155,17 +155,24 @@ export function PrivateBookingManagement() {
             setScenarioAvailableStores(scenarioData?.available_stores || [])
           }
           
-          // 担当GMを取得
-          const { data: assignmentData, error: assignmentError } = await supabase
-            .from('gm_scenario_assignments')
-            .select('staff_id')
-            .eq('scenario_id', selectedRequest.scenario_id)
-          
-          if (assignmentError) {
-            logger.error('担当GM取得エラー:', assignmentError)
-            setAssignedGMIds([])
+          // 担当GMを取得（staff_scenario_assignmentsテーブルを使用）
+          // scenario_idはscenario_master_idを参照している
+          const masterId = scenarioData?.scenario_master_id
+          if (masterId) {
+            const { data: assignmentData, error: assignmentError } = await supabase
+              .from('staff_scenario_assignments')
+              .select('staff_id')
+              .eq('scenario_id', masterId)
+              .or('can_main_gm.eq.true,can_sub_gm.eq.true')
+            
+            if (assignmentError) {
+              logger.error('担当GM取得エラー:', assignmentError)
+              setAssignedGMIds([])
+            } else {
+              setAssignedGMIds((assignmentData || []).map(a => a.staff_id))
+            }
           } else {
-            setAssignedGMIds((assignmentData || []).map(a => a.staff_id))
+            setAssignedGMIds([])
           }
         } catch (error) {
           logger.error('シナリオデータ取得エラー:', error)

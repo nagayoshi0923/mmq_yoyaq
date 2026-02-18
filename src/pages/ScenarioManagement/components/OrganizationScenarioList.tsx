@@ -118,8 +118,8 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         return
       }
 
-      // 組織名、店舗一覧、シナリオ一覧を並列取得（パフォーマンス改善）
-      const [orgResult, storesResult, scenariosResult] = await Promise.all([
+      // 組織名、店舗一覧、スタッフ一覧、シナリオ一覧を並列取得（パフォーマンス改善）
+      const [orgResult, storesResult, staffResult, scenariosResult] = await Promise.all([
         // 組織名を取得
         supabase
           .from('organizations')
@@ -130,6 +130,11 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         supabase
           .from('stores')
           .select('id, name, short_name, ownership_type, is_temporary')
+          .eq('organization_id', organizationId),
+        // スタッフ一覧を取得（IDから名前への変換用）
+        supabase
+          .from('staff')
+          .select('id, name')
           .eq('organization_id', organizationId),
         // シナリオ一覧を取得（組織設定項目を含める）
         supabase
@@ -194,6 +199,17 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         console.warn('⚠️ 店舗データの取得に失敗:', storesResult.error)
       }
 
+      // スタッフIDから名前への変換用Map（RLSの影響を受けないようにここで一括取得）
+      const staffNameMap = new Map<string, string>()
+      if (staffResult.data) {
+        staffResult.data.forEach(staff => {
+          staffNameMap.set(staff.id, staff.name)
+        })
+        console.log('👤 スタッフ一覧:', { total: staffResult.data.length })
+      } else {
+        console.warn('⚠️ スタッフデータの取得に失敗:', staffResult.error)
+      }
+
       const data = scenariosResult.data
       const fetchError = scenariosResult.error
 
@@ -254,30 +270,33 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         })
 
         // staff_scenario_assignments を scenario_master_id で直接検索
+        // JOINを使わずにstaff_idのみを取得し、先に取得したstaffNameMapで名前を解決
+        // これによりRLSの影響を受けずに担当GMを正しく表示できる
         const { data: assignmentsData } = await supabase
           .from('staff_scenario_assignments')
-          .select('scenario_id, can_main_gm, can_sub_gm, is_experienced, staff:staff_id(id, name)')
+          .select('scenario_id, staff_id, can_main_gm, can_sub_gm, is_experienced')
           .eq('organization_id', organizationId)
           .in('scenario_id', scenarioMasterIds)
         
         if (assignmentsData) {
           assignmentsData.forEach((a: any) => {
             const masterId = a.scenario_id
-            if (masterId && a.staff?.name) {
+            const staffName = staffNameMap.get(a.staff_id)
+            if (masterId && staffName) {
               if (a.can_main_gm || a.can_sub_gm) {
                 if (!availableGmsMap.has(masterId)) {
                   availableGmsMap.set(masterId, [])
                 }
-                if (!availableGmsMap.get(masterId)!.includes(a.staff.name)) {
-                  availableGmsMap.get(masterId)!.push(a.staff.name)
+                if (!availableGmsMap.get(masterId)!.includes(staffName)) {
+                  availableGmsMap.get(masterId)!.push(staffName)
                 }
               }
               if (a.is_experienced && !a.can_main_gm && !a.can_sub_gm) {
                 if (!experiencedStaffMap.has(masterId)) {
                   experiencedStaffMap.set(masterId, [])
                 }
-                if (!experiencedStaffMap.get(masterId)!.includes(a.staff.name)) {
-                  experiencedStaffMap.get(masterId)!.push(a.staff.name)
+                if (!experiencedStaffMap.get(masterId)!.includes(staffName)) {
+                  experiencedStaffMap.get(masterId)!.push(staffName)
                 }
               }
             }

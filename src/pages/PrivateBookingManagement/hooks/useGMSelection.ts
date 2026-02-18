@@ -39,13 +39,32 @@ export const useGMSelection = (allGMs: Staff[]) => {
 
       if (requestError) throw requestError
 
-      // 担当可能なGMのIDを取得
-      const { data: assignmentData, error: assignmentError } = await supabase
-        .from('gm_scenario_assignments')
-        .select('staff_id')
-        .eq('scenario_id', requestData.scenario_id)
+      // scenariosテーブルからscenario_master_idを取得
+      const { data: scenarioData, error: scenarioError } = await supabase
+        .from('scenarios')
+        .select('scenario_master_id')
+        .eq('id', requestData.scenario_id)
+        .single()
 
-      if (assignmentError) throw assignmentError
+      if (scenarioError) {
+        logger.error('シナリオ情報取得エラー:', scenarioError)
+      }
+
+      // 担当可能なGMのIDを取得（staff_scenario_assignmentsテーブルを使用）
+      let assignmentData: { staff_id: string }[] = []
+      if (scenarioData?.scenario_master_id) {
+        const { data, error: assignmentError } = await supabase
+          .from('staff_scenario_assignments')
+          .select('staff_id')
+          .eq('scenario_id', scenarioData.scenario_master_id)
+          .or('can_main_gm.eq.true,can_sub_gm.eq.true')
+
+        if (assignmentError) {
+          logger.error('担当GM取得エラー:', assignmentError)
+        } else {
+          assignmentData = data || []
+        }
+      }
 
       // GM回答データを取得（CORSエラー回避のため、クライアント側でフィルタリング）
       const { data: availableData, error: availableError } = await supabase
