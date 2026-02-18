@@ -67,7 +67,10 @@ serve(async (req) => {
     }
     
     // カスタムテンプレート取得
-    const storeEmailSettings = await getStoreEmailSettings(serviceClient, { organizationId: rejectionData.organizationId })
+    const storeEmailSettings = await getStoreEmailSettings(serviceClient, { 
+      organizationId: rejectionData.organizationId,
+      reservationId: rejectionData.reservationId
+    })
     const customTemplate = storeEmailSettings?.private_rejection_template
 
     // 日付フォーマット関数

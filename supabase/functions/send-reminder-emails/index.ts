@@ -102,7 +102,8 @@ serve(async (req) => {
     // 店舗のメール設定（テンプレート・会社情報）を取得
     const storeEmailSettings = await getStoreEmailSettings(serviceClient, {
       storeId: reminderData.storeId,
-      organizationId: resolvedOrganizationId
+      organizationId: resolvedOrganizationId,
+      reservationId: reminderData.reservationId
     })
     
     // 会社情報（デフォルト値付き）

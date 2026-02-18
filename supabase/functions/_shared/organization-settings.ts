@@ -225,8 +225,28 @@ export interface StoreEmailSettings {
 
 export async function getStoreEmailSettings(
   supabase: SupabaseClient,
-  options: { storeId?: string; organizationId?: string }
+  options: { storeId?: string; organizationId?: string; reservationId?: string }
 ): Promise<StoreEmailSettings | null> {
+  let effectiveStoreId = options.storeId
+  
+  // storeIdがない場合、reservationIdから取得を試みる
+  if (!effectiveStoreId && options.reservationId) {
+    console.log('📧 storeId not provided, fetching from reservation:', options.reservationId)
+    const { data: reservationData } = await supabase
+      .from('reservations')
+      .select('store_id, schedule_events!schedule_event_id(store_id)')
+      .eq('id', options.reservationId)
+      .single()
+    
+    if (reservationData) {
+      effectiveStoreId = reservationData.store_id || 
+        (Array.isArray(reservationData.schedule_events) 
+          ? reservationData.schedule_events[0]?.store_id 
+          : (reservationData.schedule_events as any)?.store_id)
+      console.log('📧 fetched storeId from reservation:', effectiveStoreId)
+    }
+  }
+
   let query = supabase
     .from('email_settings')
     .select([
@@ -250,8 +270,8 @@ export async function getStoreEmailSettings(
     ].join(','))
 
   // store_id が指定されている場合はそれを優先
-  if (options.storeId) {
-    query = query.eq('store_id', options.storeId)
+  if (effectiveStoreId) {
+    query = query.eq('store_id', effectiveStoreId)
   } else if (options.organizationId) {
     // organization_id のみ指定されている場合は組織の最初の設定を取得
     query = query.eq('organization_id', options.organizationId)
@@ -265,6 +285,13 @@ export async function getStoreEmailSettings(
     console.error('店舗メール設定取得エラー:', error)
     return null
   }
+
+  console.log('📧 getStoreEmailSettings result:', {
+    storeId: effectiveStoreId,
+    organizationId: options.organizationId,
+    hasSettings: !!data,
+    hasTemplate: data ? Object.keys(data).filter(k => k.includes('template') && data[k]).length : 0
+  })
 
   return data
 }
