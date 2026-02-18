@@ -93,9 +93,18 @@ serve(async (req) => {
     }
 
     // 店舗のメール設定（テンプレート・会社情報）を取得
+    console.log('📧 getStoreEmailSettings params:', {
+      storeId: changeData.storeId,
+      organizationId: resolvedOrganizationId
+    })
     const storeEmailSettings = await getStoreEmailSettings(serviceClient, {
       storeId: changeData.storeId,
       organizationId: resolvedOrganizationId
+    })
+    console.log('📧 storeEmailSettings result:', {
+      hasSettings: !!storeEmailSettings,
+      company_name: storeEmailSettings?.company_name,
+      booking_change_template: storeEmailSettings?.booking_change_template ? '(設定あり)' : '(未設定)'
     })
     
     // 会社情報（デフォルト値付き）
