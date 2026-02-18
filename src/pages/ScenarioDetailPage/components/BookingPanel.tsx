@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -6,6 +6,7 @@ import { VenueAccess } from './VenueAccess'
 import { BookingNotice } from './BookingNotice'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import type { EventSchedule } from '../utils/types'
+import { isWeekendOrHoliday } from '../utils/pricingUtils'
 
 interface BookingPanelProps {
   participantCount: number
@@ -41,6 +42,12 @@ export const BookingPanel = memo(function BookingPanel({
     : maxParticipants
   // 選択可能な最大人数（残席数とシナリオ最大人数の小さい方）
   const selectableMax = Math.min(availableSeats, maxParticipants)
+
+  // 選択した日付が土日祝かどうか
+  const isWeekendOrHolidayDate = useMemo(() => {
+    if (!selectedEvent?.date) return false
+    return isWeekendOrHoliday(selectedEvent.date)
+  }, [selectedEvent?.date])
 
   return (
     <div className="space-y-3">
@@ -92,7 +99,9 @@ export const BookingPanel = memo(function BookingPanel({
         <Card>
           <CardContent className="p-3 space-y-1.5">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">参加費（1名）</span>
+              <span className="text-muted-foreground">
+                参加費（1名{isWeekendOrHolidayDate ? '・土日祝' : ''}）
+              </span>
               <span className="font-medium">¥{participationFee.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-sm">

@@ -12,6 +12,7 @@ import { MYPAGE_THEME as THEME } from '@/lib/theme'
 
 // 分離された型定義
 import { TIME_SLOTS } from './utils/types'
+import { calculateParticipationFee } from './utils/pricingUtils'
 
 // 分離されたフック
 import { useScenarioDetail } from './hooks/useScenarioDetail'
@@ -94,6 +95,22 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     toggleTimeSlot,
     getTimeSlotsForDate
   } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug, isCustomHoliday })
+
+  // 選択されたイベントの日付に応じた参加費を計算
+  const calculatedParticipationFee = useMemo(() => {
+    if (!scenario) return 0
+    
+    // 選択されたイベントの日付を取得
+    const selectedEvent = selectedEventId ? events.find(e => e.event_id === selectedEventId) : null
+    const eventDate = selectedEvent?.date
+    
+    return calculateParticipationFee(
+      scenario.participation_fee,
+      scenario.participation_costs,
+      eventDate,
+      isCustomHoliday
+    )
+  }, [scenario, selectedEventId, events, isCustomHoliday])
 
   // 公演日程タブ用の店舗リスト（実際にスケジュールに存在する店舗から抽出）
   // scenario.available_storesではなく、eventsに実際に存在する店舗を使用
@@ -179,7 +196,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         storeColor={selectedEvent.store_color}
         maxParticipants={selectedEvent.max_participants}
         currentParticipants={selectedEvent.current_participants}
-        participationFee={scenario.participation_fee}
+        participationFee={calculatedParticipationFee}
         initialParticipantCount={participantCount}
         organizationSlug={organizationSlug}
         onBack={handleBackFromBooking}
@@ -511,7 +528,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   <BookingPanel
                     participantCount={participantCount}
                     maxParticipants={scenario.player_count_max}
-                    participationFee={scenario.participation_fee}
+                    participationFee={calculatedParticipationFee}
                     selectedEventId={selectedEventId}
                     isLoggedIn={!!user}
                     events={events}

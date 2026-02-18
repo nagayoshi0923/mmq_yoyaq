@@ -122,7 +122,7 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
                       <SelectContent>
                         <SelectItem value="normal">通常公演</SelectItem>
                         <SelectItem value="gmtest">GMテスト</SelectItem>
-                        <SelectItem value="weekend">週末</SelectItem>
+                        <SelectItem value="weekend">土日祝</SelectItem>
                         <SelectItem value="holiday">祝日</SelectItem>
                         <SelectItem value="late_night">深夜</SelectItem>
                       </SelectContent>

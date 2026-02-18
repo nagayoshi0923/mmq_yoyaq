@@ -18,7 +18,7 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
       options: [
         { value: 'normal', label: '通常公演' },
         { value: 'gmtest', label: 'GMテスト' },
-        { value: 'weekend', label: '週末' },
+        { value: 'weekend', label: '土日祝' },
         { value: 'holiday', label: '祝日' },
         { value: 'late_night', label: '深夜' },
       ]
