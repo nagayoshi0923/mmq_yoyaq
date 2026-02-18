@@ -128,6 +128,22 @@ serve(async (req) => {
       freedSeats: data.freedSeats 
     })
 
+    // 必須パラメータチェック
+    if (!data.organizationId || !data.scheduleEventId) {
+      console.log('📧 Missing required params:', { 
+        organizationId: data.organizationId, 
+        scheduleEventId: data.scheduleEventId 
+      })
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: '必要なパラメータが不足しています（通知スキップ）',
+          notifiedCount: 0 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      )
+    }
+
     // 🔒 SEC-P0-03対策: bookingUrl をサーバー側で生成（入力値を無視）
     const { data: org, error: orgError } = await serviceClient
       .from('organizations')
@@ -137,7 +153,15 @@ serve(async (req) => {
     
     if (orgError || !org) {
       console.error('Organization fetch error:', orgError)
-      throw new Error('組織情報の取得に失敗しました')
+      // エラーでも処理を続行（通知スキップ）
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: '組織情報が取得できませんでした（通知スキップ）',
+          notifiedCount: 0 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      )
     }
     
     // デフォルトドメイン + slug で予約URLを生成
@@ -156,7 +180,14 @@ serve(async (req) => {
 
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set')
-      throw new Error('メール送信サービスが設定されていません')
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'メール設定がありません（通知スキップ）',
+          notifiedCount: 0 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      )
     }
 
     // キャンセル待ち全員に一斉通知
@@ -168,7 +199,15 @@ serve(async (req) => {
 
     if (waitlistError) {
       console.error('Waitlist fetch error:', waitlistError)
-      throw new Error('キャンセル待ちリストの取得に失敗しました')
+      // RPCエラーでも処理を続行（通知スキップ）
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'キャンセル待ちリストの取得に失敗しました（通知スキップ）',
+          notifiedCount: 0 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      )
     }
 
     // RPCが空配列を返す場合（キャンセル待ちなし）
@@ -472,13 +511,17 @@ ${emailTemplates.footer}
 
   } catch (error) {
     console.error('Error:', error)
+    // キャンセル待ち通知は補助機能なので、エラーでも200を返す
+    // メイン処理（キャンセル・人数変更）には影響しないようにする
     return new Response(
       JSON.stringify({ 
-        success: false, 
-        // 🔒 セキュリティ: 技術的詳細をサニタイズ
-        error: sanitizeErrorMessage(error, 'キャンセル待ち通知に失敗しました')
+        success: true, 
+        message: 'キャンセル待ち通知処理中にエラーが発生しました（スキップ）',
+        notifiedCount: 0,
+        // 内部ログ用（フロントエンドには表示しない）
+        _debug: sanitizeErrorMessage(error, '')
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   }
 })
