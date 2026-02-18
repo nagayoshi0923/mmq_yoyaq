@@ -28,6 +28,25 @@ interface ScenarioData {
   participation_fee?: number
   difficulty?: string
   release_date?: string
+  is_recommended?: boolean
+}
+
+// バッジ種類を判定するヘルパー関数
+function getScenarioBadge(scenario: ScenarioData): { label: string; bgColor: string; textColor: string } | null {
+  // おすすめ（管理者設定）- 最優先
+  if (scenario.is_recommended) {
+    return { label: 'おすすめ', bgColor: THEME.primary, textColor: '#fff' }
+  }
+  // ロングセラー（リリースから1年以上）
+  if (scenario.release_date) {
+    const releaseDate = new Date(scenario.release_date)
+    const oneYearAgo = new Date()
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+    if (releaseDate <= oneYearAgo) {
+      return { label: 'ロングセラー', bgColor: THEME.accent, textColor: '#000' }
+    }
+  }
+  return null
 }
 
 interface ScenarioCatalogProps {
@@ -396,15 +415,21 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                         <Sparkles className="w-8 h-8 text-gray-300" />
                       </div>
                     )}
-                    {/* 人気タグ（最初のカードのみ） */}
-                    {index === 0 && (
-                      <div 
-                        className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-black"
-                        style={{ backgroundColor: THEME.accent }}
-                      >
-                        人気
-                      </div>
-                    )}
+                    {/* バッジ表示: おすすめ > ロングセラー */}
+                    {(() => {
+                      const badge = getScenarioBadge(scenario)
+                      if (badge) {
+                        return (
+                          <div 
+                            className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold"
+                            style={{ backgroundColor: badge.bgColor, color: badge.textColor }}
+                          >
+                            {badge.label}
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
                   </div>
 
                   {/* コンテンツ */}

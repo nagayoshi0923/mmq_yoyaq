@@ -36,6 +36,25 @@ interface ScenarioData {
   organization_name?: string
   scenario_master_id?: string | null
   available_stores?: string[] // 公演可能店舗名リスト
+  is_recommended?: boolean
+}
+
+// バッジ種類を判定するヘルパー関数
+function getScenarioBadge(scenario: ScenarioData): { label: string; bgColor: string; textColor: string } | null {
+  // おすすめ（管理者設定）- 最優先
+  if (scenario.is_recommended) {
+    return { label: 'おすすめ', bgColor: THEME.primary, textColor: '#fff' }
+  }
+  // ロングセラー（リリースから1年以上）
+  if (scenario.release_date) {
+    const releaseDate = new Date(scenario.release_date)
+    const oneYearAgo = new Date()
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+    if (releaseDate <= oneYearAgo) {
+      return { label: 'ロングセラー', bgColor: THEME.accent, textColor: '#000' }
+    }
+  }
+  return null
 }
 
 /**
@@ -52,7 +71,7 @@ async function fetchScenarioSearchData(): Promise<ScenarioData[]> {
         id, slug, title, author, key_visual_url,
         duration, player_count_min, player_count_max,
         genre, participation_fee, difficulty, release_date,
-        organization_id, status, scenario_master_id, available_stores,
+        organization_id, status, scenario_master_id, available_stores, is_recommended,
         organizations:organization_id (slug, name)
       `)
       .in('status', ['available', 'unavailable'])
@@ -462,14 +481,21 @@ export function PlatformScenarioSearch() {
                         <Sparkles className="w-8 h-8 text-gray-300" />
                       </div>
                     )}
-                    {index === 0 && (
-                      <div 
-                        className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-black"
-                        style={{ backgroundColor: THEME.accent }}
-                      >
-                        人気
-                      </div>
-                    )}
+                    {/* バッジ表示: おすすめ > ロングセラー */}
+                    {(() => {
+                      const badge = getScenarioBadge(scenario)
+                      if (badge) {
+                        return (
+                          <div 
+                            className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold"
+                            style={{ backgroundColor: badge.bgColor, color: badge.textColor }}
+                          >
+                            {badge.label}
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
                   </div>
 
                   {/* コンテンツ */}
