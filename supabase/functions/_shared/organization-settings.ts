@@ -269,28 +269,76 @@ export async function getStoreEmailSettings(
       'performance_extension_template',
     ].join(','))
 
+  console.log('📧 getStoreEmailSettings called:', {
+    originalStoreId: options.storeId,
+    effectiveStoreId,
+    organizationId: options.organizationId,
+    reservationId: options.reservationId
+  })
+
   // store_id が指定されている場合はそれを優先
   if (effectiveStoreId) {
     query = query.eq('store_id', effectiveStoreId)
   } else if (options.organizationId) {
-    // organization_id のみ指定されている場合は組織の最初の設定を取得
+    // organization_id のみ指定されている場合は組織の設定を取得
     query = query.eq('organization_id', options.organizationId)
   } else {
+    console.log('📧 No storeId or organizationId provided, returning null')
     return null
   }
 
   const { data, error } = await query.maybeSingle()
 
   if (error) {
-    console.error('店舗メール設定取得エラー:', error)
+    console.error('📧 店舗メール設定取得エラー:', error)
     return null
+  }
+
+  // storeIdで見つからない場合、organizationIdで再検索
+  if (!data && effectiveStoreId && options.organizationId) {
+    console.log('📧 No settings found for storeId, trying organizationId fallback')
+    const { data: orgData, error: orgError } = await supabase
+      .from('email_settings')
+      .select([
+        'company_name',
+        'company_email',
+        'company_phone',
+        'company_address',
+        'reservation_confirmation_template',
+        'cancellation_template',
+        'reminder_template',
+        'booking_change_template',
+        'private_request_template',
+        'private_confirm_template',
+        'private_cancellation_template',
+        'private_rejection_template',
+        'waitlist_notify_template',
+        'waitlist_registration_template',
+        'performance_cancellation_template',
+        'event_cancellation_template',
+        'performance_extension_template',
+      ].join(','))
+      .eq('organization_id', options.organizationId)
+      .limit(1)
+      .maybeSingle()
+    
+    if (orgError) {
+      console.error('📧 Organization fallback error:', orgError)
+    } else if (orgData) {
+      console.log('📧 Found settings via organizationId fallback:', {
+        hasBookingChangeTemplate: !!orgData.booking_change_template,
+        templatePreview: orgData.booking_change_template?.substring(0, 50)
+      })
+      return orgData
+    }
   }
 
   console.log('📧 getStoreEmailSettings result:', {
     storeId: effectiveStoreId,
     organizationId: options.organizationId,
     hasSettings: !!data,
-    hasTemplate: data ? Object.keys(data).filter(k => k.includes('template') && data[k]).length : 0
+    hasBookingChangeTemplate: !!data?.booking_change_template,
+    templatePreview: data?.booking_change_template?.substring(0, 50) || '(なし)'
   })
 
   return data
