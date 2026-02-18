@@ -61,15 +61,15 @@ export function PrivateBookingRequest({
     return null
   }, [scenarioAvailableStores])
 
-  // 編集可能な希望店舗（初期値をシナリオ対応店舗でフィルタ）
-  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>(() => {
+  // 希望店舗（前ページで選択済み、変更不可）
+  const selectedStoreIds = useMemo(() => {
     const filtered = initialStoreIds.filter(id => {
       const isValid = displayStores.some((s: any) => s.id === id)
       const isAvailable = scenarioAvailableSet === null || scenarioAvailableSet.has(id)
       return isValid && isAvailable
     })
     return filtered.length > 0 ? filtered : []
-  })
+  }, [initialStoreIds, displayStores, scenarioAvailableSet])
 
   // 追加可能な日付の範囲（今日から60日後まで）
   const dateRange = useMemo(() => {
@@ -368,65 +368,31 @@ export function PrivateBookingRequest({
               </div>
             </div>
 
-            {/* 希望店舗 */}
+            {/* 希望店舗（前ページで選択済みの店舗を表示） */}
             <div>
               <h2 className="text-base font-semibold mb-3">希望店舗</h2>
               <Card>
                 <CardContent className="p-4 space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    希望する店舗を選択してください（複数選択可）
-                  </p>
                   <div className="space-y-2">
-                    {displayStores.map((store: any) => {
-                      const isSelected = selectedStoreIds.includes(store.id)
-                      const isUnavailable = scenarioAvailableSet !== null && !scenarioAvailableSet.has(store.id)
-                      
-                      return (
-                        <label
+                    {displayStores
+                      .filter((store: any) => selectedStoreIds.includes(store.id))
+                      .map((store: any) => (
+                        <div
                           key={store.id}
-                          className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-                            isUnavailable
-                              ? 'border-gray-200 bg-gray-100 opacity-60 cursor-not-allowed'
-                              : isSelected
-                                ? 'border-purple-300 bg-purple-50 cursor-pointer'
-                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
-                          }`}
+                          className="flex items-start gap-3 p-3 rounded-lg border border-purple-300 bg-purple-50"
                         >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            disabled={isUnavailable}
-                            onChange={() => {
-                              if (isUnavailable) return
-                              setSelectedStoreIds(prev =>
-                                isSelected
-                                  ? prev.filter(id => id !== store.id)
-                                  : [...prev, store.id]
-                              )
-                            }}
-                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:opacity-50"
-                          />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <MapPin className={`w-3.5 h-3.5 flex-shrink-0 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`} />
-                              <span className={`text-sm font-medium ${isUnavailable ? 'text-gray-400' : ''}`}>{store.name}</span>
-                              {isUnavailable && (
-                                <span className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded">対応不可</span>
-                              )}
+                              <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
+                              <span className="text-sm font-medium">{store.name}</span>
                             </div>
                             {store.address && (
-                              <p className={`text-xs mt-0.5 ml-5.5 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`}>{store.address}</p>
+                              <p className="text-xs mt-0.5 ml-5.5 text-muted-foreground">{store.address}</p>
                             )}
                           </div>
-                        </label>
-                      )
-                    })}
+                        </div>
+                      ))}
                   </div>
-                  {selectedStoreIds.length === 0 && (
-                    <p className="text-xs text-orange-600">
-                      ※ 店舗を1つ以上選択してください
-                    </p>
-                  )}
                   {selectedStoreIds.length > 1 && (
                     <p className="text-xs text-muted-foreground">
                       ※ 最終的な開催店舗は、候補日時と合わせて店舗側が決定します

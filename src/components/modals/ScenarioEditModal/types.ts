@@ -103,5 +103,7 @@ export interface ScenarioFormData {
   kit_count?: number
   // 追加準備時間（分）- 通常の60分に加算される
   extra_preparation_time?: number
+  // 貸切受付可能時間枠（'朝公演', '昼公演', '夜公演'）
+  private_booking_time_slots?: string[]
 }
 

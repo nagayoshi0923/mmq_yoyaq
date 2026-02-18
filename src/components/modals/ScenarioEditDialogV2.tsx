@@ -628,6 +628,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           key_visual_url: scenario.key_visual_url || '',
           available_stores: scenario.available_stores || [],
           extra_preparation_time: scenario.extra_preparation_time || undefined,
+          private_booking_time_slots: scenario.private_booking_time_slots || [],
           caution: ''
         })
         
@@ -813,6 +814,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         })),
         // 公演可能店舗
         available_stores: formData.available_stores || [],
+        // 貸切受付時間枠
+        private_booking_time_slots: formData.private_booking_time_slots || null,
         updated_at: new Date().toISOString()
       }
 

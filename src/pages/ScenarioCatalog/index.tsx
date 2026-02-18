@@ -29,6 +29,19 @@ interface ScenarioData {
   difficulty?: string
   release_date?: string
   is_recommended?: boolean
+  available_stores?: string[]
+}
+
+interface StoreData {
+  id: string
+  name: string
+  short_name?: string
+}
+
+interface CategoryData {
+  id: string
+  name: string
+  sort_order: number
 }
 
 // バッジ種類を判定するヘルパー関数
@@ -64,6 +77,8 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   
   const [scenarios, setScenarios] = useState<ScenarioData[]>([])
+  const [stores, setStores] = useState<StoreData[]>([])
+  const [categories, setCategories] = useState<CategoryData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   // URLパラメータからジャンルを読み取り
@@ -73,6 +88,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   })
   const [selectedDuration, setSelectedDuration] = useState<string>('all')
   const [selectedPlayerCount, setSelectedPlayerCount] = useState<string>('all')
+  const [selectedStore, setSelectedStore] = useState<string>('all')
   const [showFilters, setShowFilters] = useState(() => {
     // URLにジャンルパラメータがあればフィルターを表示
     return !!searchParams.get('genre')
@@ -96,12 +112,32 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
       try {
         setIsLoading(true)
         
-        // シナリオと公開リストを並列取得
-        const [data, availableKeysResult] = await Promise.all([
+        // シナリオ、公開リスト、店舗、カテゴリを並列取得
+        const [data, availableKeysResult, storesResult, categoriesResult] = await Promise.all([
           scenarioApi.getAll(),
           // 🔐 公開中かつ承認済みのシナリオキーを取得（RPC: RLSバイパス、匿名OK）
-          supabase.rpc('get_public_available_scenario_keys')
+          supabase.rpc('get_public_available_scenario_keys'),
+          // 店舗データを取得
+          supabase.from('stores').select('id, name, short_name'),
+          // カテゴリ（ジャンル）を取得
+          supabase.from('organization_categories').select('id, name, sort_order').order('sort_order')
         ])
+        
+        // 店舗データをセット
+        if (storesResult.data) {
+          setStores(storesResult.data)
+        }
+        
+        // カテゴリデータをセット
+        if (categoriesResult.data) {
+          setCategories(categoriesResult.data)
+        }
+        
+        // 店舗IDから名前へのマップを作成
+        const storeMap = new Map<string, string>()
+        ;(storesResult.data || []).forEach((store: StoreData) => {
+          storeMap.set(store.id, store.short_name || store.name)
+        })
         
         // 公開中の組織シナリオのキーセット
         const keysData = availableKeysResult.data || []
@@ -122,7 +158,13 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
           if (!s.scenario_master_id) return s.status === 'available'
           // 公開中・近日公開の組織シナリオに含まれているもののみ表示
           return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
-        })
+        }).map((s: any) => ({
+          ...s,
+          // available_storesのIDを店舗名に変換
+          available_stores: (s.available_stores || [])
+            .map((storeId: string) => storeMap.get(storeId))
+            .filter((name: string | undefined): name is string => !!name)
+        }))
         setScenarios(availableScenarios as unknown as ScenarioData[])
       } catch (error) {
         logger.error('シナリオ取得エラー:', error)
@@ -133,16 +175,10 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     loadScenarios()
   }, [])
 
-  // ジャンル一覧を取得
+  // ジャンル一覧（organization_categoriesから取得）
   const genres = useMemo(() => {
-    const genreSet = new Set<string>()
-    scenarios.forEach(s => {
-      if (s.genre) {
-        s.genre.forEach(g => genreSet.add(g))
-      }
-    })
-    return Array.from(genreSet).sort()
-  }, [scenarios])
+    return categories.map(c => c.name)
+  }, [categories])
 
   // フィルタリング
   const filteredScenarios = useMemo(() => {
@@ -153,7 +189,8 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
         const matchTitle = scenario.title.toLowerCase().includes(term)
         const matchAuthor = scenario.author?.toLowerCase().includes(term)
         const matchGenre = scenario.genre?.some(g => g.toLowerCase().includes(term))
-        if (!matchTitle && !matchAuthor && !matchGenre) return false
+        const matchStore = scenario.available_stores?.some(s => s.toLowerCase().includes(term))
+        if (!matchTitle && !matchAuthor && !matchGenre && !matchStore) return false
       }
       
       // ジャンルフィルター
@@ -164,9 +201,14 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
       // 所要時間フィルター
       if (selectedDuration !== 'all') {
         const duration = scenario.duration
-        if (selectedDuration === 'short' && duration > 120) return false
-        if (selectedDuration === 'medium' && (duration <= 120 || duration > 180)) return false
-        if (selectedDuration === 'long' && duration <= 180) return false
+        const maxDuration = parseInt(selectedDuration)
+        if (selectedDuration === '901') {
+          // 15時間以上
+          if (duration < 900) return false
+        } else {
+          // 指定時間以下
+          if (duration > maxDuration) return false
+        }
       }
       
       // プレイ人数フィルター
@@ -175,9 +217,16 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
         if (count < scenario.player_count_min || count > scenario.player_count_max) return false
       }
       
+      // 店舗フィルター
+      if (selectedStore !== 'all') {
+        const storeName = stores.find(s => s.id === selectedStore)?.short_name || 
+                          stores.find(s => s.id === selectedStore)?.name
+        if (!storeName || !scenario.available_stores?.includes(storeName)) return false
+      }
+      
       return true
     })
-  }, [scenarios, searchTerm, selectedGenre, selectedDuration, selectedPlayerCount])
+  }, [scenarios, searchTerm, selectedGenre, selectedDuration, selectedPlayerCount, selectedStore, stores])
 
   const handleBack = useCallback(() => {
     window.location.href = bookingBasePath
@@ -203,9 +252,10 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     setSelectedGenre('all')
     setSelectedDuration('all')
     setSelectedPlayerCount('all')
+    setSelectedStore('all')
   }, [])
 
-  const hasActiveFilters = searchTerm || selectedGenre !== 'all' || selectedDuration !== 'all' || selectedPlayerCount !== 'all'
+  const hasActiveFilters = searchTerm || selectedGenre !== 'all' || selectedDuration !== 'all' || selectedPlayerCount !== 'all' || selectedStore !== 'all'
 
   return (
     <div className="min-h-screen overflow-x-clip" style={{ backgroundColor: THEME.background }}>
@@ -325,18 +375,44 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
             </div>
           )}
           
-          {/* フィルターパネル（所要時間・プレイ人数のみ。ジャンルは上のバッジで選択） */}
+          {/* フィルターパネル */}
           {showFilters && (
-            <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="ジャンル" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべてのジャンル</SelectItem>
+                  {genres.map(genre => (
+                    <SelectItem key={genre} value={genre}>{genre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
               <Select value={selectedDuration} onValueChange={setSelectedDuration}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="所要時間" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">すべての時間</SelectItem>
-                  <SelectItem value="short">〜2時間</SelectItem>
-                  <SelectItem value="medium">2〜3時間</SelectItem>
-                  <SelectItem value="long">3時間〜</SelectItem>
+                  <SelectItem value="60">〜1時間</SelectItem>
+                  <SelectItem value="90">〜1.5時間</SelectItem>
+                  <SelectItem value="120">〜2時間</SelectItem>
+                  <SelectItem value="150">〜2.5時間</SelectItem>
+                  <SelectItem value="180">〜3時間</SelectItem>
+                  <SelectItem value="210">〜3.5時間</SelectItem>
+                  <SelectItem value="240">〜4時間</SelectItem>
+                  <SelectItem value="270">〜4.5時間</SelectItem>
+                  <SelectItem value="300">〜5時間</SelectItem>
+                  <SelectItem value="360">〜6時間</SelectItem>
+                  <SelectItem value="420">〜7時間</SelectItem>
+                  <SelectItem value="480">〜8時間</SelectItem>
+                  <SelectItem value="540">〜9時間</SelectItem>
+                  <SelectItem value="600">〜10時間</SelectItem>
+                  <SelectItem value="720">〜12時間</SelectItem>
+                  <SelectItem value="900">〜15時間</SelectItem>
+                  <SelectItem value="901">15時間〜</SelectItem>
                 </SelectContent>
               </Select>
               
@@ -348,6 +424,18 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                   <SelectItem value="all">すべての人数</SelectItem>
                   {[4, 5, 6, 7, 8, 9, 10].map(count => (
                     <SelectItem key={count} value={count.toString()}>{count}人</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={selectedStore} onValueChange={setSelectedStore}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="店舗" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべての店舗</SelectItem>
+                  {stores.map(store => (
+                    <SelectItem key={store.id} value={store.id}>{store.short_name || store.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

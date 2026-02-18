@@ -325,6 +325,7 @@ export interface Scenario {
   available_stores?: string[] // 公演可能店舗ID
   gm_assignments?: Array<{ role: string; staff_id?: string; reward?: number }> // GM配置情報
   extra_preparation_time?: number // 追加準備時間（分）。通常の60分に加算される
+  private_booking_time_slots?: string[] // 貸切受付可能時間枠（'朝公演', '昼公演', '夜公演'）。未設定の場合は全て受付
 }
 
 // 顧客向け公演情報（予約サイト用）

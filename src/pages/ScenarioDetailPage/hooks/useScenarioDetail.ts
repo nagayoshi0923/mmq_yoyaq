@@ -197,7 +197,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     official_site_url: scenarioData.official_site_url,
     participation_fee: scenarioData.participation_fee || 3000,
     available_stores: scenarioData.available_stores || [],
-    extra_preparation_time: scenarioData.extra_preparation_time || 0
+    extra_preparation_time: scenarioData.extra_preparation_time || 0,
+    private_booking_time_slots: scenarioData.private_booking_time_slots || undefined
   }
   
   return {

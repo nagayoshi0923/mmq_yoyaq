@@ -998,6 +998,14 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         }
       })
       .filter((slot): slot is TimeSlot => slot !== null)
+      .filter((slot) => {
+        // シナリオで貸切受付時間枠が指定されている場合、その枠のみ表示
+        const allowedSlots = scenario?.private_booking_time_slots
+        if (Array.isArray(allowedSlots) && allowedSlots.length > 0) {
+          return allowedSlots.includes(slot.label)
+        }
+        return true // 未設定の場合は全て表示
+      })
   }, [selectedStoreIds, businessHoursCache, scenario, allStoreEvents, stores, isCustomHoliday])
 
   // シナリオが対応している店舗のみにフィルタリングした店舗リスト

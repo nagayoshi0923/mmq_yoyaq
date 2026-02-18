@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { VenueAccess } from './VenueAccess'
+import { BookingNotice } from './BookingNotice'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import type { EventSchedule } from '../utils/types'
 
@@ -15,6 +16,8 @@ interface BookingPanelProps {
   events: EventSchedule[]
   onParticipantCountChange: (count: number) => void
   onBooking: () => void
+  reservationDeadlineHours?: number
+  hasPreReading?: boolean
 }
 
 export const BookingPanel = memo(function BookingPanel({
@@ -25,7 +28,9 @@ export const BookingPanel = memo(function BookingPanel({
   isLoggedIn,
   events,
   onParticipantCountChange,
-  onBooking
+  onBooking,
+  reservationDeadlineHours,
+  hasPreReading
 }: BookingPanelProps) {
   const navigate = useNavigate()
   
@@ -105,6 +110,13 @@ export const BookingPanel = memo(function BookingPanel({
           </CardContent>
         </Card>
       </div>
+
+      {/* 注意事項（ボタンの上に表示） */}
+      <BookingNotice 
+        reservationDeadlineHours={reservationDeadlineHours}
+        hasPreReading={hasPreReading}
+        mode="schedule"
+      />
 
       {/* 予約確認ボタン */}
       <Button 

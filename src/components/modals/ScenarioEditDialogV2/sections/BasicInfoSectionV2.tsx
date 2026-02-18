@@ -418,6 +418,39 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
               placeholder="全店舗で公演可能"
             />
           </div>
+
+          {/* 貸切受付時間枠 */}
+          <div>
+            <Label className={labelStyle}>貸切受付時間枠</Label>
+            <p className={hintStyle}>選択した時間枠のみ貸切予約を受け付けます。未選択で全時間枠を受付。</p>
+            <div className="flex gap-2 mt-1">
+              {['朝公演', '昼公演', '夜公演'].map((slot) => {
+                const isSelected = (formData.private_booking_time_slots || []).includes(slot)
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => {
+                        const currentSlots = prev.private_booking_time_slots || []
+                        const newSlots = isSelected
+                          ? currentSlots.filter(s => s !== slot)
+                          : [...currentSlots, slot]
+                        return { ...prev, private_booking_time_slots: newSlots }
+                      })
+                    }}
+                    className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                      isSelected
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    {slot}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

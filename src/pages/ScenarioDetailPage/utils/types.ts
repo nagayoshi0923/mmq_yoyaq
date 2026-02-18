@@ -24,6 +24,7 @@ export interface ScenarioDetail {
   participation_fee: number
   available_stores?: string[]  // 公演可能店舗IDリスト
   extra_preparation_time?: number  // 追加準備時間（分）
+  private_booking_time_slots?: string[]  // 貸切受付可能時間枠
 }
 
 export interface EventSchedule {

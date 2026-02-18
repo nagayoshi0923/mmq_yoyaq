@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { BookingNotice } from './BookingNotice'
 
 interface PrivateBookingPanelProps {
   participationFee: number
@@ -8,6 +9,8 @@ interface PrivateBookingPanelProps {
   selectedTimeSlotsCount: number
   isLoggedIn: boolean
   onRequestBooking: () => void
+  reservationDeadlineHours?: number
+  hasPreReading?: boolean
 }
 
 export const PrivateBookingPanel = memo(function PrivateBookingPanel({
@@ -15,7 +18,9 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   maxParticipants,
   selectedTimeSlotsCount,
   isLoggedIn,
-  onRequestBooking
+  onRequestBooking,
+  reservationDeadlineHours,
+  hasPreReading
 }: PrivateBookingPanelProps) {
   return (
     <div className="space-y-6">
@@ -46,6 +51,13 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
           </CardContent>
         </Card>
       </div>
+
+      {/* 注意事項（ボタンの上に表示） */}
+      <BookingNotice 
+        reservationDeadlineHours={reservationDeadlineHours}
+        hasPreReading={hasPreReading}
+        mode="private"
+      />
 
       {/* 貸切リクエスト送信ボタン */}
       <Button 

@@ -25,7 +25,6 @@ import { EventList } from './components/EventList'
 import { PrivateBookingForm } from './components/PrivateBookingForm'
 import { BookingPanel } from './components/BookingPanel'
 import { PrivateBookingPanel } from './components/PrivateBookingPanel'
-import { BookingNotice } from './components/BookingNotice'
 import { VenueAccess } from './components/VenueAccess'
 import { RelatedScenarios } from './components/RelatedScenarios'
 import { StoreSelector } from './components/StoreSelector'
@@ -396,15 +395,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
             
             {/* あらすじ・シナリオ情報 */}
             <ScenarioAbout scenario={scenario} stores={stores} />
-            
-            {/* PC版: 注意事項をここに表示（タブに応じて内容切り替え） */}
-            <div className="hidden md:block">
-              <BookingNotice 
-                reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
-                hasPreReading={scenario.has_pre_reading}
-                mode={activeTab}
-              />
-            </div>
           </div>
 
           {/* 右サイドバー - チケット購入 */}
@@ -514,14 +504,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 </TabsContent>
               </Tabs>
 
-              {/* モバイル版: 注意事項をタブの下に表示（タブに応じて内容切り替え） */}
-              <div className="md:hidden">
-                <BookingNotice 
-                  reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
-                  hasPreReading={scenario.has_pre_reading}
-                  mode={activeTab}
-                />
-              </div>
 
               {/* タブの内容に応じて表示を切り替え */}
               <div>
@@ -535,6 +517,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     events={events}
                     onParticipantCountChange={setParticipantCount}
                     onBooking={handleBooking}
+                    reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
+                    hasPreReading={scenario.has_pre_reading}
                   />
                 )}
 
@@ -554,6 +538,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       selectedTimeSlotsCount={selectedTimeSlots.length}
                       isLoggedIn={!!user}
                       onRequestBooking={() => handlePrivateBookingRequest(!!user)}
+                      reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
+                      hasPreReading={scenario.has_pre_reading}
                     />
                   </div>
                 )}

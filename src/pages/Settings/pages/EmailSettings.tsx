@@ -540,23 +540,59 @@ interface EmailSettingsProps {
   storeId?: string
 }
 
+// 変数の説明マップ
+const VARIABLE_DESCRIPTIONS: Record<string, string> = {
+  // 基本変数
+  customer_name: 'お客様名',
+  customer_email: 'お客様メールアドレス',
+  reservation_number: '予約番号',
+  scenario_title: 'シナリオ名',
+  date: '日付（曜日付き）',
+  time: '開始時刻',
+  end_time: '終了時刻',
+  venue: '会場・店舗名',
+  participants: '参加人数',
+  total_price: '合計金額',
+  cancellation_fee: 'キャンセル料',
+  cancellation_reason: 'キャンセル・中止理由',
+  company_name: '会社名',
+  company_phone: '電話番号',
+  company_email: 'メールアドレス',
+  // 追加変数
+  booking_url: '予約ページURL',
+  freed_seats: '空いた席数',
+  current_participants: '現在の参加人数',
+  max_participants: '最大参加人数',
+  remaining_seats: '残り席数',
+  extension_deadline: '延長期限',
+  stores: '希望店舗一覧',
+  estimated_price: '料金目安',
+  candidate_dates: '候補日時一覧',
+  rejection_reason: '却下理由',
+  changes: '変更内容',
+  old_date: '変更前の日時',
+  new_date: '変更後の日時',
+  old_participants: '変更前の人数',
+  new_participants: '変更後の人数',
+}
+
 // 基本変数セット（全メールで共通して使用可能）
 const BASE_VARIABLES = [
-  'customer_name',      // お客様名
-  'customer_email',     // お客様メールアドレス
-  'reservation_number', // 予約番号
-  'scenario_title',     // シナリオ名
-  'date',               // 日付（曜日付き）
-  'time',               // 開始時刻
-  'end_time',           // 終了時刻
-  'venue',              // 会場・店舗名
-  'participants',       // 参加人数
-  'total_price',        // 合計金額
-  'cancellation_fee',   // キャンセル料
-  'cancellation_reason',// キャンセル・中止理由
-  'company_name',       // 会社名
-  'company_phone',      // 電話番号
-  'company_email',      // メールアドレス
+  'customer_name',
+  'customer_email',
+  'reservation_number',
+  'scenario_title',
+  'date',
+  'time',
+  'end_time',
+  'venue',
+  'participants',
+  'total_price',
+  'cancellation_fee',
+  'cancellation_reason',
+  'company_name',
+  'company_phone',
+  'company_email',
 ]
 
 // メールタイプ別の追加変数
@@ -733,15 +769,25 @@ function AccordionItem({ config, value, onChange, onReset, isOpen, onToggle }: A
                 デフォルトに戻す
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {BASE_VARIABLES.map(v => `{${v}}`).join(', ')}
-            </p>
+            <div className="text-xs text-muted-foreground leading-relaxed space-y-0.5">
+              {BASE_VARIABLES.map(v => (
+                <span key={v} className="inline-block mr-3">
+                  <code className="bg-gray-100 px-1 rounded">{`{${v}}`}</code>
+                  <span className="text-gray-500 ml-1">{VARIABLE_DESCRIPTIONS[v]}</span>
+                </span>
+              ))}
+            </div>
             {config.additionalVariables && config.additionalVariables.length > 0 && (
               <>
-                <p className="text-xs font-medium text-muted-foreground mt-2">追加変数（このメール専用）:</p>
-                <p className="text-xs text-blue-600 leading-relaxed">
-                  {config.additionalVariables.map(v => `{${v}}`).join(', ')}
-                </p>
+                <p className="text-xs font-medium text-muted-foreground mt-3">追加変数（このメール専用）:</p>
+                <div className="text-xs text-blue-600 leading-relaxed space-y-0.5">
+                  {config.additionalVariables.map(v => (
+                    <span key={v} className="inline-block mr-3">
+                      <code className="bg-blue-50 px-1 rounded">{`{${v}}`}</code>
+                      <span className="text-blue-500 ml-1">{VARIABLE_DESCRIPTIONS[v]}</span>
+                    </span>
+                  ))}
+                </div>
               </>
             )}
           </div>
@@ -1283,9 +1329,15 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                           disabled={!schedule.enabled}
                         />
                         
-                        <p className="text-xs text-muted-foreground mt-1">
-                          使用可能な変数: {'{customer_name}'}, {'{scenario_title}'}, {'{date}'}, {'{time}'}, {'{venue}'}
-                        </p>
+                        <div className="text-xs text-muted-foreground mt-2 space-y-0.5">
+                          <p className="font-medium mb-1">使用可能な変数:</p>
+                          {['customer_name', 'scenario_title', 'date', 'time', 'venue', 'participants', 'total_price'].map(v => (
+                            <span key={v} className="inline-block mr-3">
+                              <code className="bg-gray-100 px-1 rounded">{`{${v}}`}</code>
+                              <span className="text-gray-500 ml-1">{VARIABLE_DESCRIPTIONS[v]}</span>
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   ))}
