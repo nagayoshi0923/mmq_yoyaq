@@ -41,6 +41,8 @@ interface BookingDataResult {
   privateBookingDeadlineDays: number
   organizationId: string | null
   organizationName: string | null
+  organizationHeaderImageUrl: string | null
+  organizationThemeColor: string | null
   organizationNotFound: boolean
 }
 
@@ -65,12 +67,14 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   // 組織slugからorganization_idを取得
   let orgId: string | null = null
   let orgName: string | null = null
+  let orgHeaderImageUrl: string | null = null
+  let orgThemeColor: string | null = null
   let organizationNotFound = false
   
   if (organizationSlug) {
     const { data: orgData } = await supabase
       .from('organizations')
-      .select('id, name')
+      .select('id, name, header_image_url, theme_color')
       .eq('slug', organizationSlug)
       .eq('is_active', true)
       .single()
@@ -78,6 +82,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     if (orgData) {
       orgId = orgData.id
       orgName = orgData.name
+      orgHeaderImageUrl = orgData.header_image_url
+      orgThemeColor = orgData.theme_color
     } else {
       return {
         scenarios: [],
@@ -87,6 +93,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         privateBookingDeadlineDays: 7,
         organizationId: null,
         organizationName: null,
+        organizationHeaderImageUrl: null,
+        organizationThemeColor: null,
         organizationNotFound: true
       }
     }
@@ -532,6 +540,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     privateBookingDeadlineDays,
     organizationId: orgId,
     organizationName: orgName,
+    organizationHeaderImageUrl: orgHeaderImageUrl,
+    organizationThemeColor: orgThemeColor,
     organizationNotFound
   }
 }
@@ -561,6 +571,8 @@ export function useBookingData(organizationSlug?: string) {
     isLoading,
     loadData: refetch,
     organizationNotFound: data?.organizationNotFound ?? false,
-    organizationName: data?.organizationName ?? null
+    organizationName: data?.organizationName ?? null,
+    organizationHeaderImageUrl: data?.organizationHeaderImageUrl ?? null,
+    organizationThemeColor: data?.organizationThemeColor ?? null
   }
 }

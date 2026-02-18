@@ -70,7 +70,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     isLoading, 
     loadData,
     organizationNotFound,
-    organizationName
+    organizationName,
+    organizationHeaderImageUrl
   } = useBookingData(organizationSlug)
   
   // スクロール位置の保存と復元（一覧→詳細→戻る時に位置を保持）
@@ -279,21 +280,6 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     return '#4F46E5'
   }, [])
 
-  // 店舗ヘッダー画像（選択店舗またはヘッダー画像がある店舗）
-  const storeHeaders = useMemo(() => {
-    // ヘッダー画像がある店舗のみ
-    const storesWithHeaders = stores.filter((s: any) => 
-      s.header_image_url && 
-      !s.is_temporary && 
-      s.status === 'active'
-    )
-    
-    // 選択中の店舗でフィルタ（選択なし or 全選択の場合は全て表示）
-    if (selectedStoreIds.length > 0 && selectedStoreIds.length < stores.length) {
-      return storesWithHeaders.filter((s: any) => selectedStoreIds.includes(s.id))
-    }
-    return storesWithHeaders
-  }, [stores, selectedStoreIds])
 
   // 組織が見つからない場合のエラー表示
   if (organizationNotFound) {
@@ -325,57 +311,17 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
       )}
 
-      {/* 店舗ヘッダー画像セクション */}
-      {storeHeaders.length > 0 && (
+      {/* 組織ヘッダー画像 */}
+      {organizationHeaderImageUrl && (
         <section className="relative">
-          {storeHeaders.length === 1 ? (
-            // 単一店舗の場合：大きく表示
-            <div className="relative h-40 md:h-56 overflow-hidden">
-              <img 
-                src={storeHeaders[0].header_image_url} 
-                alt={storeHeaders[0].name}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
-                <div className="container mx-auto max-w-7xl">
-                  <h2 className="text-white text-lg md:text-2xl font-bold">
-                    {storeHeaders[0].short_name || storeHeaders[0].name}
-                  </h2>
-                  {storeHeaders[0].address && (
-                    <p className="text-white/80 text-xs md:text-sm flex items-center gap-1 mt-1">
-                      <MapPin className="w-3 h-3" />
-                      {storeHeaders[0].address}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            // 複数店舗の場合：横スクロールで表示
-            <div className="overflow-x-auto scrollbar-hide">
-              <div className="flex gap-2 p-2">
-                {storeHeaders.map((store: any) => (
-                  <div 
-                    key={store.id}
-                    className="relative flex-shrink-0 w-64 md:w-80 h-32 md:h-40 rounded-lg overflow-hidden"
-                  >
-                    <img 
-                      src={store.header_image_url} 
-                      alt={store.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <h3 className="text-white text-sm md:text-base font-bold">
-                        {store.short_name || store.name}
-                      </h3>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <div className="relative h-40 md:h-56 overflow-hidden">
+            <img 
+              src={organizationHeaderImageUrl} 
+              alt={organizationName || ''}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          </div>
         </section>
       )}
 
