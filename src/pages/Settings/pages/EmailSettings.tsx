@@ -843,19 +843,28 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
       if (error && error.code !== 'PGRST116') throw error
 
       if (data) {
+        // 会社情報（デフォルト値の生成に使用）
+        const companyName = data.company_name || ''
+        const companyPhone = data.company_phone || ''
+        const companyEmail = data.company_email || ''
+        
         setFormData({
           ...data,
           reminder_schedule: data.reminder_schedule || [],
-          // 新しいテンプレートがなければデフォルト値を設定
-          booking_change_template: data.booking_change_template || '',
-          private_request_template: data.private_request_template || '',
-          private_confirm_template: data.private_confirm_template || '',
-          private_cancellation_template: data.private_cancellation_template || '',
-          private_rejection_template: data.private_rejection_template || '',
-          waitlist_notify_template: data.waitlist_notify_template || '',
-          waitlist_registration_template: data.waitlist_registration_template || '',
-          performance_cancellation_template: data.performance_cancellation_template || '',
-          event_cancellation_template: data.event_cancellation_template || ''
+          // 空のテンプレートはデフォルト値を設定
+          reservation_confirmation_template: data.reservation_confirmation_template || getDefaultReservationTemplate(companyName, companyPhone, companyEmail),
+          cancellation_template: data.cancellation_template || getDefaultCancellationTemplate(companyName, companyPhone, companyEmail),
+          reminder_template: data.reminder_template || getDefaultReminderTemplate(companyName, companyPhone, companyEmail),
+          booking_change_template: data.booking_change_template || getDefaultBookingChangeTemplate(companyName, companyPhone, companyEmail),
+          private_request_template: data.private_request_template || getDefaultPrivateRequestTemplate(companyName, companyPhone, companyEmail),
+          private_confirm_template: data.private_confirm_template || getDefaultPrivateConfirmTemplate(companyName, companyPhone, companyEmail),
+          private_cancellation_template: data.private_cancellation_template || getDefaultPrivateCancellationTemplate(companyName, companyPhone, companyEmail),
+          private_rejection_template: data.private_rejection_template || getDefaultPrivateRejectionTemplate(companyName, companyPhone, companyEmail),
+          waitlist_notify_template: data.waitlist_notify_template || getDefaultWaitlistNotifyTemplate(companyName, companyPhone, companyEmail),
+          waitlist_registration_template: data.waitlist_registration_template || getDefaultWaitlistRegistrationTemplate(companyName, companyPhone, companyEmail),
+          performance_cancellation_template: data.performance_cancellation_template || getDefaultPerformanceCancellationTemplate(companyName, companyPhone, companyEmail),
+          event_cancellation_template: data.event_cancellation_template || getDefaultEventCancellationTemplate(companyName, companyPhone, companyEmail),
+          performance_extension_template: data.performance_extension_template || getDefaultPerformanceExtensionTemplate(companyName, companyPhone, companyEmail)
         } as EmailSettings)
       } else {
         // 新規作成時はデフォルト値を設定
