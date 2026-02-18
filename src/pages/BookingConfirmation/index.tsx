@@ -77,9 +77,13 @@ export function BookingConfirmation({
   const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null)
   const [couponsLoading, setCouponsLoading] = useState(false)
 
-  // 利用可能クーポンを取得
+  // 支払い方法の設定
+  const [paymentMethodLabel, setPaymentMethodLabel] = useState('現地決済')
+  const [paymentMethodDescription, setPaymentMethodDescription] = useState('ご来店時にお支払いください')
+
+  // 利用可能クーポンを取得 & 支払い方法設定を取得
   useEffect(() => {
-    const fetchCoupons = async () => {
+    const fetchCouponsAndSettings = async () => {
       if (!user) return
       setCouponsLoading(true)
       try {
@@ -94,14 +98,32 @@ export function BookingConfirmation({
           const coupons = await getAvailableCoupons(eventData.organization_id)
           setAvailableCoupons(coupons)
         }
+
+        // 支払い方法設定を取得
+        if (storeId) {
+          const { data: settingsData } = await supabase
+            .from('reservation_settings')
+            .select('payment_method_label, payment_method_description')
+            .eq('store_id', storeId)
+            .maybeSingle()
+
+          if (settingsData) {
+            if (settingsData.payment_method_label) {
+              setPaymentMethodLabel(settingsData.payment_method_label)
+            }
+            if (settingsData.payment_method_description) {
+              setPaymentMethodDescription(settingsData.payment_method_description)
+            }
+          }
+        }
       } catch (err) {
         logger.error('クーポン取得エラー:', err)
       } finally {
         setCouponsLoading(false)
       }
     }
-    fetchCoupons()
-  }, [user, eventId])
+    fetchCouponsAndSettings()
+  }, [user, eventId, storeId])
 
   // キャンセル待ち用のstate
   const [waitlistMode, setWaitlistMode] = useState(false)
@@ -763,10 +785,10 @@ export function BookingConfirmation({
                 <CardContent className="p-2">
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    <span className="font-medium">当日現金払い</span>
+                    <span className="font-medium">{paymentMethodLabel}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    ご来店時に現金でお支払いください
+                    {paymentMethodDescription}
                   </p>
                 </CardContent>
               </Card>

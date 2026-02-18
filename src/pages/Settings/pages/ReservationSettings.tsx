@@ -20,6 +20,8 @@ interface ReservationSettings {
   private_booking_deadline_days: number
   max_bookings_per_customer: number | null
   require_phone_verification: boolean
+  payment_method_label: string
+  payment_method_description: string
 }
 
 interface ReservationSettingsProps {
@@ -37,7 +39,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     same_day_booking_cutoff: 0,
     private_booking_deadline_days: 7,
     max_bookings_per_customer: null,
-    require_phone_verification: false
+    require_phone_verification: false,
+    payment_method_label: '現地決済',
+    payment_method_description: 'ご来店時にお支払いください'
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -70,7 +74,7 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('reservation_settings')
-        .select('id, store_id, organization_id, max_participants_per_booking, advance_booking_days, same_day_booking_cutoff, private_booking_deadline_days, max_bookings_per_customer, require_phone_verification, updated_at')
+        .select('id, store_id, organization_id, max_participants_per_booking, advance_booking_days, same_day_booking_cutoff, private_booking_deadline_days, max_bookings_per_customer, require_phone_verification, payment_method_label, payment_method_description, updated_at')
         .eq('store_id', storeId)
         .maybeSingle()
 
@@ -85,7 +89,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
           same_day_booking_cutoff: data.same_day_booking_cutoff ?? 0,
           private_booking_deadline_days: data.private_booking_deadline_days ?? 7,
           max_bookings_per_customer: data.max_bookings_per_customer,
-          require_phone_verification: data.require_phone_verification ?? false
+          require_phone_verification: data.require_phone_verification ?? false,
+          payment_method_label: data.payment_method_label ?? '現地決済',
+          payment_method_description: data.payment_method_description ?? 'ご来店時にお支払いください'
         })
       } else {
         setFormData({
@@ -96,7 +102,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
           same_day_booking_cutoff: 0,
           private_booking_deadline_days: 7,
           max_bookings_per_customer: null,
-          require_phone_verification: false
+          require_phone_verification: false,
+          payment_method_label: '現地決済',
+          payment_method_description: 'ご来店時にお支払いください'
         })
       }
     } catch (error) {
@@ -121,7 +129,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
             same_day_booking_cutoff: formData.same_day_booking_cutoff,
             private_booking_deadline_days: formData.private_booking_deadline_days,
             max_bookings_per_customer: formData.max_bookings_per_customer,
-            require_phone_verification: formData.require_phone_verification
+            require_phone_verification: formData.require_phone_verification,
+            payment_method_label: formData.payment_method_label,
+            payment_method_description: formData.payment_method_description
           })
           .eq('id', formData.id)
 
@@ -138,7 +148,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
             same_day_booking_cutoff: formData.same_day_booking_cutoff,
             private_booking_deadline_days: formData.private_booking_deadline_days,
             max_bookings_per_customer: formData.max_bookings_per_customer,
-            require_phone_verification: formData.require_phone_verification
+            require_phone_verification: formData.require_phone_verification,
+            payment_method_label: formData.payment_method_label,
+            payment_method_description: formData.payment_method_description
           })
           .select()
           .single()
@@ -153,7 +165,9 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
             same_day_booking_cutoff: data.same_day_booking_cutoff ?? 0,
             private_booking_deadline_days: data.private_booking_deadline_days ?? 7,
             max_bookings_per_customer: data.max_bookings_per_customer,
-            require_phone_verification: data.require_phone_verification ?? false
+            require_phone_verification: data.require_phone_verification ?? false,
+            payment_method_label: data.payment_method_label ?? '現地決済',
+            payment_method_description: data.payment_method_description ?? 'ご来店時にお支払いください'
           })
         }
       }
@@ -300,6 +314,40 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
               checked={formData.require_phone_verification}
               onCheckedChange={(checked) => setFormData(prev => ({ ...prev, require_phone_verification: checked }))}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 支払い方法表示設定 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>支払い方法</CardTitle>
+          <CardDescription>予約確認画面に表示される支払い方法の表示内容を設定します</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="payment_method_label">支払い方法の名称</Label>
+            <Input
+              id="payment_method_label"
+              value={formData.payment_method_label}
+              onChange={(e) => setFormData(prev => ({ ...prev, payment_method_label: e.target.value }))}
+              placeholder="現地決済"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              例: 現地決済、当日現金払い、カード決済可 など
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="payment_method_description">説明文</Label>
+            <Input
+              id="payment_method_description"
+              value={formData.payment_method_description}
+              onChange={(e) => setFormData(prev => ({ ...prev, payment_method_description: e.target.value }))}
+              placeholder="ご来店時にお支払いください"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              支払い方法の補足説明
+            </p>
           </div>
         </CardContent>
       </Card>

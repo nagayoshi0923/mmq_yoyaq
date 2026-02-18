@@ -118,8 +118,9 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         return
       }
 
-      // 組織名、店舗一覧、スタッフ一覧、シナリオ一覧を並列取得（パフォーマンス改善）
-      const [orgResult, storesResult, staffResult, scenariosResult] = await Promise.all([
+      // 組織名、店舗一覧、シナリオ一覧を並列取得（パフォーマンス改善）
+      // ※ 担当GMと体験済みスタッフはビューで直接取得される（staff_scenario_assignmentsから動的に計算）
+      const [orgResult, storesResult, scenariosResult] = await Promise.all([
         // 組織名を取得
         supabase
           .from('organizations')
@@ -131,12 +132,8 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           .from('stores')
           .select('id, name, short_name, ownership_type, is_temporary')
           .eq('organization_id', organizationId),
-        // スタッフ一覧を取得（IDから名前への変換用）
-        supabase
-          .from('staff')
-          .select('id, name')
-          .eq('organization_id', organizationId),
         // シナリオ一覧を取得（組織設定項目を含める）
+        // ※ available_gms, experienced_staff はビューで staff_scenario_assignments から動的に計算
         supabase
           .from('organization_scenarios_with_master')
           .select(`
@@ -199,17 +196,6 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         console.warn('⚠️ 店舗データの取得に失敗:', storesResult.error)
       }
 
-      // スタッフIDから名前への変換用Map（RLSの影響を受けないようにここで一括取得）
-      const staffNameMap = new Map<string, string>()
-      if (staffResult.data) {
-        staffResult.data.forEach(staff => {
-          staffNameMap.set(staff.id, staff.name)
-        })
-        console.log('👤 スタッフ一覧:', { total: staffResult.data.length })
-      } else {
-        console.warn('⚠️ スタッフデータの取得に失敗:', staffResult.error)
-      }
-
       const data = scenariosResult.data
       const fetchError = scenariosResult.error
 
@@ -219,135 +205,45 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         return
       }
 
-      // 担当GMと体験済みスタッフを取得（staff_scenario_assignmentsから）
-      // scenario_id は scenario_master_id と統一済み
+      // 対応店舗のフォールバック用Map（ビューに無い場合の補完）
       const scenarioMasterIds = (data || []).map(s => s.scenario_master_id).filter(Boolean)
-      const availableGmsMap = new Map<string, string[]>()
-      const experiencedStaffMap = new Map<string, string[]>()
       const availableStoresMap = new Map<string, string[]>()
       
       if (scenarioMasterIds.length > 0) {
-        // 対応店舗: organization_scenarios から直接取得（ビューのデータを補完）
-        const { data: orgScenariosStores } = await supabase
-          .from('organization_scenarios')
-          .select('scenario_master_id, available_stores')
-          .eq('organization_id', organizationId)
-          .in('scenario_master_id', scenarioMasterIds)
+        // ビューにavailable_storesが無いシナリオ用のフォールバック
+        const missingStoresMasterIds = (data || [])
+          .filter(s => !s.available_stores || s.available_stores.length === 0)
+          .map(s => s.scenario_master_id)
+          .filter(Boolean)
         
-        if (orgScenariosStores) {
-          orgScenariosStores.forEach(os => {
-            if (os.scenario_master_id && os.available_stores && os.available_stores.length > 0) {
-              availableStoresMap.set(os.scenario_master_id, os.available_stores)
-            }
-          })
-        }
-
-        // organization_scenarios に無い場合、scenarios テーブルからフォールバック
-        const missingMasterIds = scenarioMasterIds.filter(id => !availableStoresMap.has(id))
-        if (missingMasterIds.length > 0) {
-          const { data: scenariosData } = await supabase
-            .from('scenarios')
+        if (missingStoresMasterIds.length > 0) {
+          // organization_scenarios から直接取得
+          const { data: orgScenariosStores } = await supabase
+            .from('organization_scenarios')
             .select('scenario_master_id, available_stores')
             .eq('organization_id', organizationId)
-            .in('scenario_master_id', missingMasterIds)
+            .in('scenario_master_id', missingStoresMasterIds)
           
-          if (scenariosData) {
-            scenariosData.forEach(s => {
-              if (s.scenario_master_id && s.available_stores && s.available_stores.length > 0) {
-                availableStoresMap.set(s.scenario_master_id, s.available_stores)
+          if (orgScenariosStores) {
+            orgScenariosStores.forEach(os => {
+              if (os.scenario_master_id && os.available_stores && os.available_stores.length > 0) {
+                availableStoresMap.set(os.scenario_master_id, os.available_stores)
               }
             })
           }
         }
-
-        // デバッグ: 対応店舗の取得状況
-        const withStores = Array.from(availableStoresMap.entries()).filter(([, v]) => v.length > 0)
-        console.log('🏪 対応店舗データ:', {
-          total: scenarioMasterIds.length,
-          withStores: withStores.length,
-          fromOrgScenarios: orgScenariosStores?.filter(os => os.available_stores && os.available_stores.length > 0).length || 0,
-          details: withStores.map(([id, stores]) => ({ id: id.substring(0, 8), stores }))
-        })
-
-        // staff_scenario_assignments を scenario_master_id で直接検索
-        // JOINを使わずにstaff_idのみを取得し、先に取得したstaffNameMapで名前を解決
-        // これによりRLSの影響を受けずに担当GMを正しく表示できる
-        const { data: assignmentsData, error: assignmentsError } = await supabase
-          .from('staff_scenario_assignments')
-          .select('scenario_id, staff_id, can_main_gm, can_sub_gm, is_experienced')
-          .eq('organization_id', organizationId)
-          .in('scenario_id', scenarioMasterIds)
-        
-        console.log('🎭 staff_scenario_assignments:', {
-          total: assignmentsData?.length || 0,
-          error: assignmentsError,
-          scenarioMasterIdsCount: scenarioMasterIds.length,
-          sample: assignmentsData?.slice(0, 5).map(a => ({
-            scenario_id: a.scenario_id?.substring(0, 8),
-            staff_id: a.staff_id?.substring(0, 8),
-            staffName: staffNameMap.get(a.staff_id),
-            can_main_gm: a.can_main_gm,
-            can_sub_gm: a.can_sub_gm
-          }))
-        })
-        
-        if (assignmentsData) {
-          assignmentsData.forEach((a: any) => {
-            const masterId = a.scenario_id
-            const staffName = staffNameMap.get(a.staff_id)
-            if (masterId && staffName) {
-              if (a.can_main_gm || a.can_sub_gm) {
-                if (!availableGmsMap.has(masterId)) {
-                  availableGmsMap.set(masterId, [])
-                }
-                if (!availableGmsMap.get(masterId)!.includes(staffName)) {
-                  availableGmsMap.get(masterId)!.push(staffName)
-                }
-              }
-              if (a.is_experienced && !a.can_main_gm && !a.can_sub_gm) {
-                if (!experiencedStaffMap.has(masterId)) {
-                  experiencedStaffMap.set(masterId, [])
-                }
-                if (!experiencedStaffMap.get(masterId)!.includes(staffName)) {
-                  experiencedStaffMap.get(masterId)!.push(staffName)
-                }
-              }
-            }
-          })
-        }
-        
-        console.log('🎭 担当GMマップ:', {
-          totalScenarios: availableGmsMap.size,
-          sample: Array.from(availableGmsMap.entries()).slice(0, 5)
-        })
       }
 
-      // ビューから返ってくるavailable_storesの状態をデバッグ
-      const viewWithStores = (data || []).filter(s => s.available_stores && s.available_stores.length > 0)
-      console.log('🔍 ビュー available_stores:', {
-        total: (data || []).length,
-        withStores: viewWithStores.length,
-        sample: (data || []).slice(0, 3).map(s => ({
-          title: s.title?.substring(0, 15),
-          available_stores: s.available_stores,
-          masterId: s.scenario_master_id?.substring(0, 8)
-        }))
-      })
-
-      // シナリオに担当GM、体験済みスタッフ、対応店舗をマージ
+      // シナリオに対応店舗をマージ
+      // ※ 担当GMと体験済みスタッフはビューで直接取得される（staff_scenario_assignmentsから動的に計算）
       const scenariosWithAssignments = (data || []).map(scenario => {
-        const assignedGms = availableGmsMap.get(scenario.scenario_master_id)
-        const assignedExperienced = experiencedStaffMap.get(scenario.scenario_master_id)
         // 対応店舗: ビュー → organization_scenarios直接 → scenarios のどれかから取得
         const viewStores = scenario.available_stores && scenario.available_stores.length > 0 ? scenario.available_stores : null
         const mapStores = availableStoresMap.get(scenario.scenario_master_id)
         
         return {
           ...scenario,
-          // 担当GM: staff_scenario_assignmentsから取得
-          available_gms: assignedGms || [],
-          // 体験済み: staff_scenario_assignmentsから取得
-          experienced_staff: assignedExperienced || [],
+          // 担当GM・体験済み: ビューから直接取得（上書きしない）
           // 対応店舗: ビュー > organization_scenarios直接 > scenarios > 空配列
           available_stores: viewStores || mapStores || []
         }
