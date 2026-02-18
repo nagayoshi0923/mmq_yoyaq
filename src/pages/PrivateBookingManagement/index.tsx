@@ -581,40 +581,55 @@ export function PrivateBookingManagement() {
                     <SelectValue placeholder="GMを選択してください" />
                   </SelectTrigger>
                   <SelectContent>
-                    {allGMs.map((gm) => {
-                      const availableGM = availableGMs.find(ag => ag.gm_id === gm.id)
-                      const isAvailable = availableGM?.response_status === 'available'
-                      const gmNotes = availableGM?.notes || ''
-                      
-                      let isGMDisabled = false
-                      if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
-                        const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
-                          c => c.order === selectedCandidateOrder
-                        )
-                        if (selectedCandidate) {
-                          const conflictKey = `${gm.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
-                          isGMDisabled = conflictInfo.gmDateConflicts.has(conflictKey)
+                    {[...allGMs]
+                      .map((gm) => {
+                        const availableGM = availableGMs.find(ag => ag.gm_id === gm.id)
+                        const isAvailable = availableGM?.response_status === 'available'
+                        return { gm, availableGM, isAvailable }
+                      })
+                      .sort((a, b) => {
+                        if (a.isAvailable && !b.isAvailable) return -1
+                        if (!a.isAvailable && b.isAvailable) return 1
+                        return 0
+                      })
+                      .map(({ gm, availableGM, isAvailable }) => {
+                        const gmNotes = availableGM?.notes || ''
+                        
+                        let isGMDisabled = false
+                        if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
+                          const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
+                            c => c.order === selectedCandidateOrder
+                          )
+                          if (selectedCandidate) {
+                            const conflictKey = `${gm.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
+                            isGMDisabled = conflictInfo.gmDateConflicts.has(conflictKey)
+                          }
                         }
-                      }
-                      
-                      return (
-                        <SelectItem 
-                          key={gm.id} 
-                          value={gm.id}
-                          disabled={isGMDisabled}
-                        >
-                          {gm.name}
-                          {isAvailable && ' (対応可能)'}
-                          {gmNotes && ` - ${gmNotes}`}
-                          {isGMDisabled && ' - 予約済み'}
-                        </SelectItem>
-                      )
-                    })}
+                        
+                        return (
+                          <SelectItem 
+                            key={gm.id} 
+                            value={gm.id}
+                            disabled={isGMDisabled}
+                          >
+                            <span className="flex items-center gap-2">
+                              {gm.name}
+                              {isAvailable && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded">
+                                  対応可能
+                                </span>
+                              )}
+                              {gmNotes && <span className="text-muted-foreground">- {gmNotes}</span>}
+                              {isGMDisabled && <span className="text-destructive">- 予約済み</span>}
+                            </span>
+                          </SelectItem>
+                        )
+                      })}
                   </SelectContent>
                 </Select>
                 {availableGMs.length > 0 && (
                   <div className="mt-2 text-xs text-muted-foreground">
-                    ℹ️ (対応可能) がこのシナリオに対応可能なGMです
+                    ℹ️ 対応可能バッジがこのシナリオに対応可能なGMです
                   </div>
                 )}
               </div>
