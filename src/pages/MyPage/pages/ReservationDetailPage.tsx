@@ -140,10 +140,11 @@ export function ReservationDetailPage() {
       
       // schedule_eventを別途取得
       let scheduleEvent = null
+      let eventStoreId: string | null = null
       if (resData.schedule_event_id) {
         const { data: eventData, error: eventError } = await supabase
           .from('schedule_events')
-          .select('date, start_time, category, current_participants, max_participants')
+          .select('date, start_time, category, current_participants, max_participants, store_id')
           .eq('id', resData.schedule_event_id)
           .maybeSingle()
         if (!eventError && eventData) {
@@ -154,9 +155,8 @@ export function ReservationDetailPage() {
             current_participants: eventData.current_participants,
             max_participants: eventData.max_participants
           }
+          eventStoreId = eventData.store_id
         }
-      } else {
-        // noop
       }
       
       setReservation({
@@ -164,12 +164,13 @@ export function ReservationDetailPage() {
         schedule_events: scheduleEvent || undefined
       })
 
-      // 店舗データを取得
-      if (resData.store_id) {
+      // 店舗データを取得（スケジュールイベントのstore_idを優先）
+      const storeIdToUse = eventStoreId || resData.store_id
+      if (storeIdToUse) {
         const { data: storeData } = await supabase
           .from('stores')
           .select('id, name, address')
-          .eq('id', resData.store_id)
+          .eq('id', storeIdToUse)
           .single()
         
         if (storeData) setStore(storeData)
@@ -177,7 +178,7 @@ export function ReservationDetailPage() {
         const { data: settingsData } = await supabase
           .from('reservation_settings')
           .select('cancellation_policy, cancellation_deadline_hours')
-          .eq('store_id', resData.store_id)
+          .eq('store_id', storeIdToUse)
           .maybeSingle()
 
         if (settingsData) {
