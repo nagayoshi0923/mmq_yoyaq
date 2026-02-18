@@ -316,10 +316,6 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       // 保存前にすべての曜日にslot_start_timesを確実に含める
       const openingHoursToSave = mergeWithDefaults(formData.opening_hours)
       
-      // デバッグ：火曜日の設定を確認
-      console.log('🔴 火曜日の設定（formData）:', JSON.stringify(formData.opening_hours?.tuesday, null, 2))
-      console.log('🔴 火曜日の設定（保存用）:', JSON.stringify(openingHoursToSave.tuesday, null, 2))
-      
       for (const store of targetStores) {
         if (!store) continue
         

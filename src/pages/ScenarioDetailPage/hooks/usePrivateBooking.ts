@@ -182,20 +182,10 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         
         // キャッシュに保存
         const cache = new Map<string, any>()
-        console.log('🟡 [営業時間設定] 取得開始:', { storeIds, dataLength: data?.length, error })
         if (data) {
-          console.log('🟡 [営業時間設定] 取得データ:', data.length, '件')
           for (const setting of data) {
-            // 詳細なログ出力
-            const oh = setting.opening_hours
-            console.log('🟡 [営業時間設定] 店舗:', setting.store_id, {
-              tuesday: oh?.tuesday?.slot_start_times,
-              hasOpeningHours: !!oh
-            })
             cache.set(setting.store_id, setting)
           }
-        } else {
-          console.log('🟡 [営業時間設定] データなし')
         }
         setBusinessHoursCache(cache)
       } catch (error) {
@@ -576,21 +566,6 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     const settings = targetStoreId ? businessHoursCache.get(targetStoreId) : null
     
-    // デバッグログ（console.logで出力）
-    if (dayOfWeek === 2) { // 火曜日のみ
-      const dayHoursDebug = settings?.opening_hours?.tuesday
-      console.log('🟢 [getTimeSlotsForDate] 火曜日:', {
-        date,
-        targetStoreId,
-        hasSettings: !!settings,
-        hasOpeningHours: !!settings?.opening_hours,
-        cacheSize: businessHoursCache.size,
-        tuesdaySlotTimes: dayHoursDebug?.slot_start_times,
-        tuesdayAvailableSlots: dayHoursDebug?.available_slots,
-        tuesdayIsOpen: dayHoursDebug?.is_open
-      })
-    }
-    
     // 分を時間に変換
     const minutesToTime = (minutes: number): string => {
       const h = Math.floor(minutes / 60)
@@ -675,16 +650,6 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           slotEndLimits.evening = timeToMinutes(dayHours.close_time)
         }
       }
-    }
-    
-    // 火曜日の場合、availableSlotsも出力
-    if (dayOfWeek === 2) {
-      console.log('🟣 [getTimeSlotsForDate] 火曜日 availableSlots:', availableSlots)
-      console.log('🟣 [getTimeSlotsForDate] 火曜日 defaultStartTimes:', {
-        morning: minutesToTime(defaultStartTimes.morning),
-        afternoon: minutesToTime(defaultStartTimes.afternoon),
-        evening: minutesToTime(defaultStartTimes.evening)
-      })
     }
     
     logger.log('[getTimeSlotsForDate] 最終開始時間:', {
@@ -773,19 +738,6 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           })
           .sort((a: any, b: any) => (a.end_time || '').localeCompare(b.end_time || ''))
       : [] // 店舗未選択 or 複数店舗選択時は空配列
-    
-    // デバッグ：火曜日のイベントを出力
-    if (dayOfWeek === 2) {
-      console.log('🟠 火曜日 dayEvents:', dayEvents.map((e: any) => ({
-        id: e.id,
-        date: e.date,
-        start_time: e.start_time,
-        end_time: e.end_time,
-        scenario: e.scenarios?.title || e.scenario_id,
-        store: e.store_id
-      })))
-    }
-    
     
     // 各スロットの前にあるイベントの最遅end_timeを計算
     const getLatestEndTimeBefore = (slotKey: string): number | null => {
@@ -877,7 +829,6 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         if (selectedStoreIds.length > 1) {
           const earliestStart = getEarliestAvailableStartForStores(def.key)
           if (earliestStart === null) {
-            if (dayOfWeek === 2) console.log('🔴 火曜日 null理由: 複数店舗で入れない', def.key)
             return null // いずれの店舗でも入れない
           }
           earliestPossibleStart = earliestStart
@@ -887,7 +838,6 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           
           // -1 は使用不可を意味する
           if (slotStartConsideringEvents === -1) {
-            if (dayOfWeek === 2) console.log('🔴 火曜日 null理由: スロット内にイベントあり', def.key)
             return null
           }
           
@@ -958,19 +908,16 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         
         // 開始時間がスロットの時間帯を超えている場合は無効
         if (startMinutes >= slotEndLimit) {
-          if (dayOfWeek === 2) console.log('🔴 火曜日 null理由: 開始時間がスロット終了を超過', def.key, { startMinutes, slotEndLimit })
           return null
         }
         
         // 営業終了時間を超える場合は無効
         if (endMinutes > hardDayLimit) {
-          if (dayOfWeek === 2) console.log('🔴 火曜日 null理由: 終了時間が営業終了を超過', def.key, { endMinutes, hardDayLimit })
           return null
         }
         
         // スロット境界内に収まる場合は問題なし
         if (endMinutes <= slotEndLimit) {
-          if (dayOfWeek === 2) console.log('🟢 火曜日 スロット生成OK', def.key, { startMinutes, endMinutes })
           return {
             label: def.label,
             startTime: minutesToTime(startMinutes),
@@ -987,7 +934,6 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           : hardDayLimit - extraPrepTime   // 営業終了から準備時間を引いた時間
         
         if (endMinutes > effectiveEndLimit) {
-          if (dayOfWeek === 2) console.log('🔴 火曜日 null理由: 後続イベントとバッティング', def.key, { endMinutes, effectiveEndLimit })
           return null
         }
         

@@ -211,11 +211,6 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           // 開始時間と終了時間を取得（表示は常に3枠固定）
           const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
           
-          // デバッグ：火曜日(dayOfWeek===2)の場合にログ出力
-          if (dateObj.getDay() === 2) {
-            console.log('🔵 火曜日のスロット:', date, slotsForDate.map(s => ({ label: s.label, startTime: s.startTime, endTime: s.endTime })))
-          }
-          
           const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
           
           // 曜日に応じたデフォルト開始時間（公演時間から計算、夜公演は営業終了から逆算）
