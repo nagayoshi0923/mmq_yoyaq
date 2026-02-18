@@ -272,11 +272,24 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         // staff_scenario_assignments を scenario_master_id で直接検索
         // JOINを使わずにstaff_idのみを取得し、先に取得したstaffNameMapで名前を解決
         // これによりRLSの影響を受けずに担当GMを正しく表示できる
-        const { data: assignmentsData } = await supabase
+        const { data: assignmentsData, error: assignmentsError } = await supabase
           .from('staff_scenario_assignments')
           .select('scenario_id, staff_id, can_main_gm, can_sub_gm, is_experienced')
           .eq('organization_id', organizationId)
           .in('scenario_id', scenarioMasterIds)
+        
+        console.log('🎭 staff_scenario_assignments:', {
+          total: assignmentsData?.length || 0,
+          error: assignmentsError,
+          scenarioMasterIdsCount: scenarioMasterIds.length,
+          sample: assignmentsData?.slice(0, 5).map(a => ({
+            scenario_id: a.scenario_id?.substring(0, 8),
+            staff_id: a.staff_id?.substring(0, 8),
+            staffName: staffNameMap.get(a.staff_id),
+            can_main_gm: a.can_main_gm,
+            can_sub_gm: a.can_sub_gm
+          }))
+        })
         
         if (assignmentsData) {
           assignmentsData.forEach((a: any) => {
@@ -302,6 +315,11 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
             }
           })
         }
+        
+        console.log('🎭 担当GMマップ:', {
+          totalScenarios: availableGmsMap.size,
+          sample: Array.from(availableGmsMap.entries()).slice(0, 5)
+        })
       }
 
       // ビューから返ってくるavailable_storesの状態をデバッグ

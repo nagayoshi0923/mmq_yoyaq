@@ -797,6 +797,16 @@ export function BookingConfirmation({
               </CardContent>
             </Card>
 
+            {/* エラーメッセージ（ボタン付近に表示） */}
+            {error && (
+              <Card className="border-2 border-red-200 bg-red-50">
+                <CardContent className="p-2 flex items-center gap-2 text-red-800 text-sm">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{error}</span>
+                </CardContent>
+              </Card>
+            )}
+
             {/* 満席の場合はキャンセル待ちボタン、そうでなければ予約ボタン */}
             {isSoldOut ? (
               <div className="space-y-2">

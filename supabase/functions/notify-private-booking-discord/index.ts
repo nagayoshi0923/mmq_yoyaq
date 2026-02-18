@@ -146,11 +146,33 @@ async function sendNotificationToGMChannels(booking: any) {
   console.log('📤 Sending notifications to individual GM channels...')
   console.log(`📋 Scenario ID: ${booking.scenario_id}`)
   
+  // scenarios テーブルから scenario_master_id を取得
+  // staff_scenario_assignments は scenario_master_id で保存されているため
+  const { data: scenarioData, error: scenarioError } = await supabase
+    .from('scenarios')
+    .select('scenario_master_id')
+    .eq('id', booking.scenario_id)
+    .maybeSingle()
+  
+  if (scenarioError) {
+    console.error('❌ Error fetching scenario:', scenarioError)
+    return
+  }
+  
+  const scenarioMasterId = scenarioData?.scenario_master_id
+  if (!scenarioMasterId) {
+    console.log('⚠️ scenario_master_id not found for scenario:', booking.scenario_id)
+    return
+  }
+  
+  console.log(`📋 Scenario Master ID: ${scenarioMasterId}`)
+  
   // このシナリオを担当しているGMを取得（can_main_gm または can_sub_gm が true のスタッフのみ）
+  // staff_scenario_assignments.scenario_id には scenario_master_id が格納されている
   const { data: assignments, error: assignmentError } = await supabase
     .from('staff_scenario_assignments')
     .select('staff_id')
-    .eq('scenario_id', booking.scenario_id)
+    .eq('scenario_id', scenarioMasterId)
     .or('can_main_gm.eq.true,can_sub_gm.eq.true')
   
   if (assignmentError) {
