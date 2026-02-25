@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useSessionState } from '@/hooks/useSessionState'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { TrendingUp, BarChart, FileText, Store, ShoppingBag } from 'lucide-react'
+import { TrendingUp, BarChart, FileText, Store, ShoppingBag, Users } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
 const SALES_MENU_ITEMS: SidebarMenuItem[] = [
@@ -11,10 +11,12 @@ const SALES_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'external-sales', label: '外部売上', icon: ShoppingBag, description: 'BOOTH・他店公演' },
   { id: 'misc-transactions', label: '雑収支管理', icon: FileText, description: '公演外の収支を管理' },
   { id: 'franchise-sales', label: 'フランチャイズ', icon: Store, description: 'FC店舗の売上' },
+  { id: 'staff-salary-report', label: 'スタッフ報酬', icon: Users, description: 'スタッフ別報酬レポート' },
   { id: 'salary-calculation', label: '給与計算', icon: FileText, description: 'スタッフ給与計算' }
 ]
 // 作者レポートはライセンス管理に移動
 import SalaryCalculation from '../SalaryCalculation/index'
+import { StaffSalaryReport } from './components/StaffSalaryReport'
 import { useSalesData } from './hooks/useSalesData'
 import { SalesOverview } from './components/SalesOverview'
 import { ScenarioPerformance } from './components/ScenarioPerformance'
@@ -176,6 +178,8 @@ const SalesManagement: React.FC = () => {
             isFranchiseOnly={true}
           />
         )
+      case 'staff-salary-report':
+        return <StaffSalaryReport />
       case 'salary-calculation':
         return <SalaryCalculation />
       default:
