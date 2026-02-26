@@ -727,7 +727,13 @@ export const scheduleApi = {
     const { data: allReservations, error: reservationError } = await resQuery
     
     if (reservationError) {
-      logger.error('予約データの取得に失敗:', reservationError)
+      if (reservationError.code !== 'PGRST116') {
+        logger.warn('予約データの取得に失敗:', {
+          code: reservationError.code,
+          message: reservationError.message,
+          details: reservationError.details
+        })
+      }
     }
     
     const participantsByEventId = new Map<string, number>()
@@ -1097,8 +1103,14 @@ export const scheduleApi = {
             .in('status', ['confirmed', 'pending'])
           
           if (reservationError) {
-            logger.error(`予約データの取得に失敗 (${event.id}):`, reservationError)
-            errorCount++
+            if (reservationError.code !== 'PGRST116') {
+              logger.warn(`予約データの取得に失敗 (${event.id}):`, {
+                code: reservationError.code,
+                message: reservationError.message,
+                details: reservationError.details
+              })
+              errorCount++
+            }
             continue
           }
           

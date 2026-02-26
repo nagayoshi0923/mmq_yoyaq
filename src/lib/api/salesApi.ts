@@ -180,7 +180,15 @@ export const salesApi = {
       const { data: reservations, error: reservationError } = await resQuery
       
       if (reservationError) {
-        logger.error('予約データの取得に失敗:', reservationError)
+        // PGRST116 は "No rows" エラーなので無視
+        if (reservationError.code !== 'PGRST116') {
+          logger.warn('予約データの取得に失敗:', {
+            eventId: event.id,
+            code: reservationError.code,
+            message: reservationError.message,
+            details: reservationError.details
+          })
+        }
       }
       
       // 実際の参加者数と売上を計算
