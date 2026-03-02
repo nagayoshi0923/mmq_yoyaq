@@ -83,7 +83,7 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
       
       try {
         let query = supabase
-          .from('scenarios')
+          .from('organization_scenarios_with_master')
           .select('id, title, author')
         
         // organization_id でフィルタ（マルチテナント対応）

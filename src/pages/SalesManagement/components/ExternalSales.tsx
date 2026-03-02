@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Plus, Edit2, Trash2, ShoppingBag, Store, Calendar } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { supabase } from '@/lib/supabase'
+import { useOrganization } from '@/hooks/useOrganization'
 import { showToast } from '@/utils/toast'
 import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
@@ -54,6 +55,7 @@ interface ScenarioWithLicense {
 }
 
 export const ExternalSales: React.FC = () => {
+  const { organizationId } = useOrganization()
   const [currentDate, setCurrentDate] = useState(() => new Date())
   const [sales, setSales] = useState<ExternalSale[]>([])
   const [scenarios, setScenarios] = useState<ScenarioWithLicense[]>([])
@@ -73,12 +75,14 @@ export const ExternalSales: React.FC = () => {
   const selectedYear = currentDate.getFullYear()
   const selectedMonth = currentDate.getMonth() + 1
 
-  // シナリオデータを取得
+  // シナリオデータを取得（organization_scenarios_with_master: 組織固有の franchise_license_amount）
   useEffect(() => {
     const fetchScenarios = async () => {
+      if (!organizationId) return
       const { data, error } = await supabase
-        .from('scenarios')
+        .from('organization_scenarios_with_master')
         .select('id, title, franchise_license_amount, franchise_gm_test_license_amount, organization_id')
+        .eq('organization_id', organizationId)
         .order('title')
       
       if (!error && data) {
@@ -86,7 +90,7 @@ export const ExternalSales: React.FC = () => {
       }
     }
     fetchScenarios()
-  }, [])
+  }, [organizationId])
 
   // 外部売上データを取得
   useEffect(() => {

@@ -129,9 +129,9 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         continue
       }
 
-      // シナリオ情報を取得（組織でフィルタ）
+      // シナリオ情報を取得（組織固有設定: organization_scenarios_with_master）
       const { data: scenario, error: scenarioError } = await supabase
-        .from('scenarios')
+        .from('organization_scenarios_with_master')
         .select('id, title, duration, participation_fee, gm_test_participation_fee')
         .eq('title', event.scenario.trim())
         .eq('organization_id', orgId)
@@ -184,7 +184,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       const demoReservation = {
         schedule_event_id: event.id,
         title: event.scenario || '',
-        scenario_id: scenario?.id || null,
+        scenario_master_id: scenario?.id || null,
         store_id: store?.id || null,
         customer_id: demoCustomer.id, // デモ顧客を設定
         customer_notes: `デモ参加者（自動追加） - ${shortfall}名`,
@@ -262,9 +262,9 @@ async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise
         )
         
         if (!hasDemoParticipant) {
-          // シナリオ情報を取得（組織でフィルタ）
+          // シナリオ情報を取得（組織固有設定: organization_scenarios_with_master）
           let scenarioQuery = supabase
-            .from('scenarios')
+            .from('organization_scenarios_with_master')
             .select('id, title, duration, participation_fee, gm_test_participation_fee')
             .eq('title', event.scenario)
           
@@ -289,7 +289,7 @@ async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise
           const demoReservation = {
             schedule_event_id: event.id,
             title: event.scenario || '',
-            scenario_id: scenario?.id || null,
+            scenario_master_id: scenario?.id || null,
             store_id: event.venue || null,
             customer_id: null,
             customer_notes: 'デモ参加者',
@@ -395,7 +395,7 @@ interface PrivateRequestData {
       storeName?: string
     }
   }
-  scenarios?: { title: string; player_count_max: number }
+  scenario_masters?: { title: string; player_count_max: number }
 }
 
 export function useScheduleData(currentDate: Date) {
@@ -860,14 +860,14 @@ export function useScheduleData(currentDate: Date) {
                     id: `${request.id}-${candidate.order}`,
                     date: candidate.date,
                     venue: venueId,
-                    scenario: request.scenarios?.title || request.title,
+                    scenario: request.scenario_masters?.title || request.title,
                     gms: gmNames,
                     start_time: candidate.startTime || '',
                     end_time: candidate.endTime || '',
                     category: 'private', // 貸切
                     is_cancelled: false,
                     current_participants: request.participant_count || 0, // Reservationのparticipant_countをScheduleEventのcurrent_participantsに変換
-                    max_participants: request.scenarios?.player_count_max || 8,
+                    max_participants: request.scenario_masters?.player_count_max || 8,
                     notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】`,
                     is_reservation_enabled: true, // 貸切公演は常に公開中
                     is_private_request: true, // 貸切リクエストフラグ
@@ -1229,14 +1229,14 @@ export function useScheduleData(currentDate: Date) {
                   id: `${request.id}-${candidate.order}`,
                   date: candidate.date,
                   venue: venueId,
-                  scenario: request.scenarios?.title || request.title,
+                  scenario: request.scenario_masters?.title || request.title,
                   gms: gmNames,
                   start_time: candidate.startTime || '',
                   end_time: candidate.endTime || '',
                   category: 'private',
                   is_cancelled: false,
-                  current_participants: request.participant_count || 0, // Reservationのparticipant_countをScheduleEventのcurrent_participantsに変換
-                  max_participants: request.scenarios?.player_count_max || 8,
+                  current_participants: request.participant_count || 0,
+                  max_participants: request.scenario_masters?.player_count_max || 8,
                   notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】`,
                   is_reservation_enabled: true,
                   is_private_request: true,

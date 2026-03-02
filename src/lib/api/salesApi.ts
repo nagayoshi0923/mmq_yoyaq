@@ -7,7 +7,7 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const SCHEDULE_EVENT_SALES_SELECT_FIELDS =
-  'id, organization_id, date, start_time, end_time, store_id, venue, scenario_id, scenario, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled' as const
+  'id, organization_id, date, start_time, end_time, store_id, venue, scenario_id, scenario_master_id, scenario, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled' as const
 
 export const salesApi = {
   // 期間別売上データを取得
@@ -38,13 +38,13 @@ export const salesApi = {
       return []
     }
     
-    // シナリオを取得（組織フィルタ適用）
+    // シナリオを取得（organization_scenarios_with_master: 組織固有設定を含む）
     let scenarioQuery = supabase
-      .from('scenarios')
+      .from('organization_scenarios_with_master')
       .select('id, title, author, duration, participation_fee, gm_test_participation_fee, participation_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, scenario_type, gm_costs, production_costs, required_props')
     
     if (orgId) {
-      scenarioQuery = scenarioQuery.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+      scenarioQuery = scenarioQuery.eq('organization_id', orgId)
     }
     
     const { data: scenarios, error: scenariosError } = await scenarioQuery
@@ -101,9 +101,10 @@ export const salesApi = {
     const enrichedEvents = await Promise.all(events.map(async (event) => {
       let scenarioInfo = null
       
-      // scenario_idがあればそれを使用、なければscenario（TEXT）からマッチング
-      if (event.scenario_id && scenarios) {
-        scenarioInfo = scenarios.find(s => s.id === event.scenario_id)
+      // scenario_master_id を優先、なければ scenario_id、最後に scenario（TEXT）からマッチング
+      const scenarioKey = event.scenario_master_id ?? event.scenario_id
+      if (scenarioKey && scenarios) {
+        scenarioInfo = scenarios.find(s => s.id === scenarioKey)
       } else if (event.scenario) {
         scenarioInfo = scenarioMap.get(event.scenario)
       }
@@ -145,9 +146,9 @@ export const salesApi = {
             fc_author_gm_test_license_amount: orgScenario.fc_author_gm_test_license_amount,
           }
         } else {
-          // scenarioInfoがない場合はorgScenarioの情報を使用
+          // scenarioInfoがない場合はorgScenarioの情報を使用（idはscenario_master_id）
           scenarioInfo = {
-            id: orgScenario.id,
+            id: orgScenario.scenario_master_id ?? orgScenario.id,
             title: event.scenario || '不明',
             gm_costs: orgScenario.gm_costs || [],
             license_amount: orgScenario.license_amount,
@@ -244,11 +245,13 @@ export const salesApi = {
           name,
           short_name
         ),
-        scenarios:scenario_id (
+        scenario_masters:scenario_master_id (
           id,
           title,
           author,
-          duration,
+          duration
+        ),
+        organization_scenarios:organization_scenario_id (
           participation_fee,
           gm_test_participation_fee,
           participation_costs,
@@ -284,11 +287,13 @@ export const salesApi = {
           name,
           short_name
         ),
-        scenarios:scenario_id (
+        scenario_masters:scenario_master_id (
           id,
           title,
           author,
-          duration,
+          duration
+        ),
+        organization_scenarios:organization_scenario_id (
           participation_fee,
           gm_test_participation_fee,
           participation_costs,
@@ -319,7 +324,7 @@ export const salesApi = {
       .from('schedule_events')
       .select(`
         date,
-        scenarios:scenario_id (
+        scenario_masters:scenario_master_id (
           id,
           title,
           author
@@ -385,19 +390,19 @@ export const salesApi = {
       return []
     }
 
-    // 全シナリオを取得（組織フィルタ）
+    // 全シナリオを取得（組織フィルタ）- organization_scenarios_with_master を使用
     let scenarioQuery = supabase
-      .from('scenarios')
+      .from('organization_scenarios_with_master')
       .select('id, title, author, license_amount, gm_test_license_amount, gm_costs')
     
     if (orgId) {
-      scenarioQuery = scenarioQuery.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+      scenarioQuery = scenarioQuery.eq('organization_id', orgId)
     }
     
     const { data: scenarios, error: scenariosError } = await scenarioQuery
     
     if (scenariosError) {
-      logger.error('scenarios取得エラー:', scenariosError)
+      logger.error('organization_scenarios_with_master取得エラー:', scenariosError)
     }
 
     // シナリオ名でマッピング
@@ -411,8 +416,9 @@ export const salesApi = {
     
     events.forEach(event => {
       let scenarioInfo = null
-      if (event.scenario_id && scenarios) {
-        scenarioInfo = scenarios.find(s => s.id === event.scenario_id)
+      const scenarioKey = event.scenario_master_id ?? event.scenario_id
+      if (scenarioKey && scenarios) {
+        scenarioInfo = scenarios.find(s => s.id === scenarioKey)
       } else if (event.scenario) {
         scenarioInfo = scenarioMap.get(event.scenario)
       }

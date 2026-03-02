@@ -153,29 +153,35 @@ export function AlbumPage() {
         setLikedScenarios(new Set(likes.map(l => l.scenario_id)))
       }
 
-      // いいねしたシナリオの詳細情報を取得
+      // いいねしたシナリオの詳細情報を取得（scenario_master_id を使用）
       const { data: likesData, error: likesError } = await supabase
         .from('scenario_likes')
-        .select('id, scenario_id, created_at')
+        .select('id, scenario_id, scenario_master_id, created_at')
         .eq('customer_id', customer.id)
         .order('created_at', { ascending: false })
 
       if (!likesError && likesData && likesData.length > 0) {
-        const scenarioIds = likesData.map(like => like.scenario_id)
+        const scenarioMasterIds = likesData.map(like => (like as { scenario_master_id?: string }).scenario_master_id ?? like.scenario_id).filter(Boolean)
         const { data: scenariosData, error: scenariosError } = await supabase
-          .from('scenarios')
-          .select('id, title, description, author, duration, player_count_min, player_count_max, difficulty, genre, rating, play_count, key_visual_url')
-          .in('id', scenarioIds)
+          .from('scenario_masters')
+          .select('id, title, description, author, official_duration, player_count_min, player_count_max, difficulty, genre, key_visual_url')
+          .in('id', scenarioMasterIds)
 
         if (!scenariosError && scenariosData) {
           const combined = likesData.map(like => {
-            const scenario = scenariosData.find(s => s.id === like.scenario_id)
+            const masterId = (like as { scenario_master_id?: string }).scenario_master_id ?? like.scenario_id
+            const scenario = scenariosData.find(s => s.id === masterId)
             return {
               id: like.id,
               scenario_id: like.scenario_id,
               created_at: like.created_at,
-              scenario: scenario || {
-                id: like.scenario_id,
+              scenario: scenario ? {
+                ...scenario,
+                duration: (scenario as { official_duration?: number }).official_duration ?? 0,
+                rating: 0,
+                play_count: 0,
+              } : {
+                id: masterId ?? like.scenario_id,
                 title: '不明',
                 description: '',
                 author: '',
@@ -198,7 +204,7 @@ export function AlbumPage() {
       // 予約を取得
       const { data: reservations, error: reservationsError } = await supabase
         .from('reservations')
-        .select('requested_datetime, title, scenario_id')
+        .select('requested_datetime, title, scenario_id, scenario_master_id')
         .eq('customer_id', customer.id)
         .eq('status', 'confirmed')
         .lte('requested_datetime', new Date().toISOString())
@@ -224,14 +230,15 @@ export function AlbumPage() {
             .eq('scenario', reservation.title)
             .maybeSingle()
 
-          // シナリオの画像と作者を取得
+          // シナリオの画像と作者を取得（scenario_master_id を優先、scenario_masters から）
           let keyVisualUrl = null
           let author = null
-          if (reservation.scenario_id) {
+          const scenarioMasterId = (reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id
+          if (scenarioMasterId) {
             const { data: scenarioData } = await supabase
-              .from('scenarios')
+              .from('scenario_masters')
               .select('key_visual_url, author')
-              .eq('id', reservation.scenario_id)
+              .eq('id', scenarioMasterId)
               .maybeSingle()
             keyVisualUrl = scenarioData?.key_visual_url
             author = scenarioData?.author
@@ -243,7 +250,7 @@ export function AlbumPage() {
               date: event.date,
               venue: event.venue,
               gms: event.gms || [],
-              scenario_id: reservation.scenario_id || undefined,
+              scenario_id: ((reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id) || undefined,
               key_visual_url: keyVisualUrl,
               author: author || undefined,
             })
@@ -254,7 +261,7 @@ export function AlbumPage() {
               date: dateStr,
               venue: '店舗不明',
               gms: [],
-              scenario_id: reservation.scenario_id || undefined,
+              scenario_id: ((reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id) || undefined,
               key_visual_url: keyVisualUrl,
               author: author || undefined,
             })
@@ -262,23 +269,24 @@ export function AlbumPage() {
         }
       }
 
-      // 手動登録履歴を取得
+      // 手動登録履歴を取得（scenario_master_id で scenario_masters を JOIN）
       const { data: manualHistory } = await supabase
         .from('manual_play_history')
-        .select('id, scenario_title, played_at, venue, scenario_id, scenarios(key_visual_url, author)')
+        .select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id, scenario_masters:scenario_master_id(key_visual_url, author)')
         .eq('customer_id', customer.id)
         .order('played_at', { ascending: false })
       
       if (manualHistory) {
         manualHistory.forEach((item: any) => {
+          const master = item.scenario_masters as { key_visual_url?: string; author?: string } | null
           scenarios.push({
             scenario: item.scenario_title,
             date: item.played_at,
             venue: item.venue || '',
             gms: [],
-            scenario_id: item.scenario_id || undefined,
-            key_visual_url: item.scenarios?.key_visual_url || undefined,
-            author: item.scenarios?.author || undefined,
+            scenario_id: (item.scenario_master_id ?? item.scenario_id) || undefined,
+            key_visual_url: master?.key_visual_url || undefined,
+            author: master?.author || undefined,
             is_manual: true,
             manual_id: item.id,
           })

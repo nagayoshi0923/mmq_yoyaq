@@ -33,30 +33,22 @@ export const useGMSelection = (allGMs: Staff[]) => {
       // このシナリオに担当可能なGMを取得
       const { data: requestData, error: requestError } = await supabase
         .from('private_booking_requests')
-        .select('scenario_id')
+        .select('scenario_master_id, scenario_id')
         .eq('id', reservationId)
         .single()
 
       if (requestError) throw requestError
 
-      // scenariosテーブルからscenario_master_idを取得
-      const { data: scenarioData, error: scenarioError } = await supabase
-        .from('scenarios')
-        .select('scenario_master_id')
-        .eq('id', requestData.scenario_id)
-        .single()
-
-      if (scenarioError) {
-        logger.error('シナリオ情報取得エラー:', scenarioError)
-      }
+      // scenario_master_id を取得（reservations は scenario_master_id を使用、scenario_id は後方互換で同値の可能性）
+      const scenarioMasterId = requestData.scenario_master_id ?? requestData.scenario_id
 
       // 担当可能なGMのIDを取得（staff_scenario_assignmentsテーブルを使用）
       let assignmentData: { staff_id: string }[] = []
-      if (scenarioData?.scenario_master_id) {
+      if (scenarioMasterId) {
         const { data, error: assignmentError } = await supabase
           .from('staff_scenario_assignments')
           .select('staff_id')
-          .eq('scenario_id', scenarioData.scenario_master_id)
+          .eq('scenario_id', scenarioMasterId)
           .or('can_main_gm.eq.true,can_sub_gm.eq.true')
 
         if (assignmentError) {

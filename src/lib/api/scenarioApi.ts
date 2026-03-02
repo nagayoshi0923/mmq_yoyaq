@@ -12,136 +12,26 @@ const SCENARIO_SELECT_FIELDS =
   // NOTE: scenarios テーブルに存在するカラムのみ（存在しないカラムを含めると PostgREST が 400 を返す）
   'id, title, slug, description, author, author_email, report_display_name, duration, weekend_duration, player_count_min, player_count_max, male_count, female_count, other_count, difficulty, rating, status, scenario_type, participation_fee, participation_costs, gm_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, external_license_amount, external_gm_test_license_amount, license_rewards, production_cost, genre, has_pre_reading, key_visual_url, notes, required_props, production_costs, kit_count, gm_count, available_stores, scenario_master_id, organization_id, is_shared, extra_preparation_time, available_gms, play_count, release_date, is_recommended, created_at, updated_at' as const
 
-/**
- * 渡されたIDから対応するシナリオID（scenarios.id）のリストを取得
- * IDは scenarios.id または scenario_master_id のどちらでも対応
- * @param idOrMasterId - scenarios.id または scenario_master_id
- * @returns scenarios.id のリスト（同じscenario_master_idを持つシナリオ全て）
- */
-async function resolveScenarioIds(idOrMasterId: string): Promise<string[]> {
-  // まず、渡されたIDが scenarios.id として存在するか確認
-  const { data: directMatch } = await supabase
-    .from('scenarios')
-    .select('id, scenario_master_id')
-    .eq('id', idOrMasterId)
-    .single()
-  
-  if (directMatch) {
-    // scenarios.id として存在する場合、同じscenario_master_idを持つ全シナリオを取得
-    if (directMatch.scenario_master_id) {
-      const { data: siblings } = await supabase
-        .from('scenarios')
-        .select('id')
-        .eq('scenario_master_id', directMatch.scenario_master_id)
-      return siblings?.map(s => s.id) || [idOrMasterId]
-    }
-    return [idOrMasterId]
-  }
-  
-  // scenarios.id として存在しない場合、scenario_master_id として検索
-  const { data: byMaster } = await supabase
-    .from('scenarios')
-    .select('id')
-    .eq('scenario_master_id', idOrMasterId)
-  
-  if (byMaster && byMaster.length > 0) {
-    return byMaster.map(s => s.id)
-  }
-  
-  // どちらにも見つからない場合は元のIDを返す（フォールバック）
-  return [idOrMasterId]
-}
-
-/**
- * DBに存在するscenariosテーブルのカラム一覧
- * UI専用フィールドは含めない（DBに送信するとエラーになるため）
- */
-const DB_SCENARIO_COLUMNS = [
-  'title',
-  'slug',
-  'description',
-  'author',
-  'author_email',
-  'report_display_name',
-  'duration',
-  'weekend_duration',
-  'player_count_min',
-  'player_count_max',
-  'male_count',
-  'female_count',
-  'other_count',
-  'difficulty',
-  'rating',
-  'status',
-  'scenario_type',
-  'participation_fee',
-  'participation_costs',
-  'gm_costs',
-  'license_amount',
-  'gm_test_license_amount',
-  'franchise_license_amount',
-  'franchise_gm_test_license_amount',
-  'external_license_amount',
-  'external_gm_test_license_amount',
-  'genre',
-  'has_pre_reading',
-  'key_visual_url',
-  'notes',
-  'required_props',
-  'production_costs',
-  'kit_count',
-  'gm_count',
-  'available_stores',
-  'scenario_master_id',
-  'organization_id',
-  'is_shared',
-  'extra_preparation_time',
-  'available_gms', // 配列カラム
-  'play_count',
-] as const
-
-/**
- * Scenarioオブジェクトから、DBに存在するカラムのみを抽出する
- * UI専用フィールド（experienced_staff, use_flexible_pricing, flexible_pricing, etc.）は除外される
- */
-function extractDbColumns(scenario: Partial<Scenario>): Record<string, unknown> {
-  const result: Record<string, unknown> = {}
-  
-  for (const key of DB_SCENARIO_COLUMNS) {
-    if (key in scenario && scenario[key as keyof Scenario] !== undefined) {
-      result[key] = scenario[key as keyof Scenario]
-    }
-  }
-  
-  return result
-}
-
-// scenarios テーブル廃止フラグ（true にすると scenarios_v2 ビューを使用）
-const USE_SCENARIOS_V2 = false
-
-// scenarios_v2 ビュー用のSELECTフィールド
-const SCENARIOS_V2_SELECT_FIELDS = 
-  'id, org_scenario_id, organization_id, scenario_master_id, slug, status, participation_fee, participation_costs, gm_costs, gm_count, gm_assignments, extra_preparation_time, available_stores, available_gms, experienced_staff, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, production_cost, production_costs, depreciation_per_performance, play_count, notes, created_at, updated_at, title, author, author_email, author_id, key_visual_url, description, synopsis, caution, player_count_min, player_count_max, duration, genre, difficulty, has_pre_reading, release_date, official_site_url, required_props, master_status, is_shared, scenario_type, rating, kit_count' as const
+// organization_scenarios_with_master ビュー用のSELECTフィールド
+const ORG_SCENARIOS_VIEW_SELECT_FIELDS = 
+  'id, org_scenario_id, organization_id, scenario_master_id, slug, status, title, author, author_email, author_id, key_visual_url, description, synopsis, caution, player_count_min, player_count_max, duration, weekend_duration, genre, difficulty, has_pre_reading, release_date, official_site_url, required_props, participation_fee, gm_test_participation_fee, participation_costs, flexible_pricing, use_flexible_pricing, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, gm_costs, gm_count, gm_assignments, available_gms, experienced_staff, available_stores, production_cost, production_costs, depreciation_per_performance, extra_preparation_time, play_count, notes, created_at, updated_at, master_status, is_shared, scenario_type, rating, kit_count, license_rewards' as const
 
 export const scenarioApi = {
   // 全シナリオを取得
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
   // skipOrgFilter: trueの場合、組織フィルタをスキップ（全組織のデータを取得）
   async getAll(organizationId?: string, skipOrgFilter?: boolean): Promise<Scenario[]> {
-    const tableName = USE_SCENARIOS_V2 ? 'scenarios_v2' : 'scenarios'
-    const selectFields = USE_SCENARIOS_V2 ? SCENARIOS_V2_SELECT_FIELDS : SCENARIO_SELECT_FIELDS
-    
+    // organization_scenarios_with_master ビューを使用
     let query = supabase
-      .from(tableName)
-      .select(selectFields)
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
     
     // 組織フィルタリング
     if (!skipOrgFilter) {
-      // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
       const orgId = organizationId || await getCurrentOrganizationId()
       logger.log('🏢 シナリオ取得: organization_id =', orgId)
       if (orgId) {
-        query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+        query = query.eq('organization_id', orgId)
       } else {
         logger.log('⚠️ organization_idがnullのため、フィルタなしで取得')
       }
@@ -150,22 +40,20 @@ export const scenarioApi = {
     const { data, error } = await query.order('title', { ascending: true })
     
     if (error) throw error
-    return data || []
+    return (data || []) as unknown as Scenario[]
   },
 
   // 公開用シナリオを取得（status='available'のみ、必要なフィールドのみ）
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
   async getPublic(organizationId?: string): Promise<Partial<Scenario>[]> {
     let query = supabase
-      .from('scenarios')
-      .select('id, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, organization_id, is_shared')
+      .from('organization_scenarios_with_master')
+      .select('id, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, organization_id')
       .eq('status', 'available')
-      .neq('scenario_type', 'gm_test') // GMテストを除外
     
-    // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
     const orgId = organizationId || await getCurrentOrganizationId()
     if (orgId) {
-      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+      query = query.eq('organization_id', orgId)
     }
     
     const { data, error } = await query.order('title', { ascending: true })
@@ -174,448 +62,396 @@ export const scenarioApi = {
     return data || []
   },
 
-  // IDでシナリオを取得
+  // IDでシナリオを取得（scenario_master_id で検索）
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
-  // 公開シナリオ（status='available'）は常に表示可能
   async getById(id: string, organizationId?: string): Promise<Scenario | null> {
     let query = supabase
-      .from('scenarios')
-      .select(SCENARIO_SELECT_FIELDS)
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
       .eq('id', id)
     
-    // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
     const orgId = organizationId || await getCurrentOrganizationId()
     if (orgId) {
-      // 公開シナリオ（status='available'）も含める
-      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true,status.eq.available`)
+      query = query.eq('organization_id', orgId)
     }
     
     const { data, error } = await query.single()
     
     if (error) {
       if (error.code === 'PGRST116') {
-        return null // レコードが見つからない
+        return null
       }
       throw error
     }
-    return data
+    return data as unknown as Scenario
   },
 
   // slugでシナリオを取得
-  // 公開シナリオ（status='available'）は常に表示可能
   async getBySlug(slug: string, organizationId?: string): Promise<Scenario | null> {
     let query = supabase
-      .from('scenarios')
-      .select(SCENARIO_SELECT_FIELDS)
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
       .eq('slug', slug)
     
-    // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
     const orgId = organizationId || await getCurrentOrganizationId()
     if (orgId) {
-      // 公開シナリオ（status='available'）も含める
-      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true,status.eq.available`)
+      query = query.eq('organization_id', orgId)
     }
     
     const { data, error } = await query.single()
     
     if (error) {
       if (error.code === 'PGRST116') {
-        return null // レコードが見つからない
+        return null
       }
       throw error
     }
-    return data
+    return data as unknown as Scenario
   },
 
   // IDまたはslugでシナリオを取得（slugを優先、見つからなければIDで検索）
   async getByIdOrSlug(idOrSlug: string, organizationId?: string): Promise<Scenario | null> {
-    // UUIDパターンかどうかをチェック
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     const isUuid = uuidPattern.test(idOrSlug)
     
-    // UUIDの場合はIDで検索
     if (isUuid) {
       return this.getById(idOrSlug, organizationId)
     }
     
-    // slugで検索
     const bySlug = await this.getBySlug(idOrSlug, organizationId)
     if (bySlug) return bySlug
     
-    // slugで見つからなければIDでも試す（後方互換）
     return this.getById(idOrSlug, organizationId)
   },
 
   // ページネーション対応：シナリオを取得
-  async getPaginated(page: number = 0, pageSize: number = 20): Promise<PaginatedResponse<Scenario>> {
+  async getPaginated(page: number = 0, pageSize: number = 20, organizationId?: string): Promise<PaginatedResponse<Scenario>> {
     const from = page * pageSize
     const to = from + pageSize - 1
     
-    // データ取得とカウントを同時に実行
-    const { data, error, count } = await supabase
-      .from('scenarios')
-      .select('*', { count: 'exact' })
+    let query = supabase
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS, { count: 'exact' })
+    
+    const orgId = organizationId || await getCurrentOrganizationId()
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error, count } = await query
       .order('title', { ascending: true })
       .range(from, to)
     
     if (error) throw error
     
     return {
-      data: data || [],
+      data: (data || []) as unknown as Scenario[],
       count: count || 0,
       hasMore: count ? (from + pageSize) < count : false
     }
   },
 
   // シナリオを作成
-  // 旧UIと新UI両方で表示されるよう、3つのテーブルに保存
+  // scenario_masters + organization_scenarios に保存
   async create(scenario: Omit<Scenario, 'id' | 'created_at' | 'updated_at'>): Promise<Scenario> {
-    // organization_idを自動取得（マルチテナント対応）
     const organizationId = await getCurrentOrganizationId()
-    
-    // DBに存在するカラムのみを抽出（UI専用フィールドを除外）
-    const dbData = extractDbColumns(scenario)
-    dbData.organization_id = organizationId
-    
-    logger.log('📝 シナリオ作成データ:', Object.keys(dbData))
-    
-    // ========================================
-    // STEP 1: scenario_masters に追加（新UI用）
-    // ========================================
-    let scenarioMasterId: string | null = null
-    try {
-      const { data: masterData, error: masterError } = await supabase
-        .from('scenario_masters')
-        .insert({
-          title: scenario.title,
-          author: scenario.author || null,
-          author_email: scenario.author_email || null,
-          description: scenario.description || null,
-          synopsis: scenario.synopsis || null,
-          player_count_min: scenario.player_count_min || 4,
-          player_count_max: scenario.player_count_max || 6,
-          official_duration: scenario.duration || 180,
-          weekend_duration: scenario.weekend_duration || null,
-          genre: scenario.genre || [],
-          difficulty: scenario.difficulty ? String(scenario.difficulty) : null,
-          key_visual_url: scenario.key_visual_url || null,
-          has_pre_reading: scenario.has_pre_reading || false,
-          release_date: scenario.release_date || null,
-          official_site_url: scenario.official_site_url || null,
-          master_status: 'draft', // 組織から作成はdraft
-          submitted_by_organization_id: organizationId,
-        })
-        .select()
-        .single()
-
-      if (masterError) {
-        logger.error('scenario_masters作成エラー:', masterError)
-        // マスタ作成失敗しても旧テーブルには保存を続行
-      } else {
-        scenarioMasterId = masterData.id
-        logger.log('✅ scenario_masters作成成功:', scenarioMasterId)
-      }
-    } catch (err) {
-      logger.error('scenario_masters作成で例外:', err)
+    if (!organizationId) {
+      throw new Error('組織IDが取得できません')
     }
-
+    
+    logger.log('📝 シナリオ作成開始')
+    
     // ========================================
-    // STEP 2: organization_scenarios に追加（新UI用）
+    // STEP 1: scenario_masters に追加
     // ========================================
-    if (scenarioMasterId && organizationId) {
-      // ステータスの決定（available/unavailable）
-      const orgStatus = scenario.status === 'available' ? 'available' : 'unavailable'
-      logger.log('📋 organization_scenarios作成開始:', {
-        scenario_master_id: scenarioMasterId,
-        organization_id: organizationId,
-        org_status: orgStatus,
-        input_status: scenario.status
+    const { data: masterData, error: masterError } = await supabase
+      .from('scenario_masters')
+      .insert({
+        title: scenario.title,
+        author: scenario.author || null,
+        author_email: scenario.author_email || null,
+        description: scenario.description || null,
+        synopsis: scenario.synopsis || null,
+        player_count_min: scenario.player_count_min || 4,
+        player_count_max: scenario.player_count_max || 6,
+        official_duration: scenario.duration || 180,
+        weekend_duration: scenario.weekend_duration || null,
+        genre: scenario.genre || [],
+        difficulty: scenario.difficulty ? String(scenario.difficulty) : null,
+        key_visual_url: scenario.key_visual_url || null,
+        has_pre_reading: scenario.has_pre_reading || false,
+        release_date: scenario.release_date || null,
+        official_site_url: scenario.official_site_url || null,
+        master_status: 'draft',
+        submitted_by_organization_id: organizationId,
       })
-      
-      try {
-        const { data: orgData, error: orgScenarioError } = await supabase
-          .from('organization_scenarios')
-          .insert({
-            organization_id: organizationId,
-            scenario_master_id: scenarioMasterId,
-            slug: scenario.slug || null,
-            duration: scenario.duration || null,
-            participation_fee: scenario.participation_fee || null,
-            extra_preparation_time: scenario.extra_preparation_time ?? null,
-            org_status: orgStatus,
-            license_amount: scenario.license_amount || null,
-            gm_test_license_amount: scenario.gm_test_license_amount || null,
-            franchise_license_amount: scenario.franchise_license_amount || null,
-            franchise_gm_test_license_amount: scenario.franchise_gm_test_license_amount || null,
-            gm_count: scenario.gm_count || null,
-            gm_costs: scenario.gm_costs || [],
-            available_stores: scenario.available_stores || [],
-            production_costs: scenario.production_costs || [],
-            play_count: scenario.play_count || 0,
-          })
-          .select()
-          .single()
-
-        if (orgScenarioError) {
-          logger.error('❌ organization_scenarios作成エラー:', orgScenarioError)
-        } else {
-          logger.log('✅ organization_scenarios作成成功:', orgData?.id)
-        }
-      } catch (err) {
-        logger.error('❌ organization_scenarios作成で例外:', err)
-      }
-    } else {
-      logger.log('⚠️ organization_scenarios作成スキップ:', {
-        scenarioMasterId,
-        organizationId
-      })
-    }
-
-    // ========================================
-    // STEP 3: scenarios に追加（旧UI用・後方互換）
-    // ========================================
-    // scenario_master_idを設定して連携
-    if (scenarioMasterId) {
-      dbData.scenario_master_id = scenarioMasterId
-    }
-    
-    const { data, error } = await supabase
-      .from('scenarios')
-      .insert([dbData])
       .select()
       .single()
-    
-    if (error) {
-      logger.error('シナリオ作成エラー:', error)
-      throw error
+
+    if (masterError) {
+      logger.error('scenario_masters作成エラー:', masterError)
+      throw masterError
     }
     
-    logger.log('✅ scenarios作成成功（3テーブル同期完了）')
-    return data
+    const scenarioMasterId = masterData.id
+    logger.log('✅ scenario_masters作成成功:', scenarioMasterId)
+
+    // ========================================
+    // STEP 2: organization_scenarios に追加
+    // ========================================
+    const orgStatus = scenario.status === 'available' ? 'available' : 'unavailable'
+    
+    const { data: orgData, error: orgScenarioError } = await supabase
+      .from('organization_scenarios')
+      .insert({
+        organization_id: organizationId,
+        scenario_master_id: scenarioMasterId,
+        slug: scenario.slug || null,
+        duration: scenario.duration || null,
+        participation_fee: scenario.participation_fee || null,
+        gm_test_participation_fee: scenario.gm_test_participation_fee || null,
+        extra_preparation_time: scenario.extra_preparation_time ?? null,
+        org_status: orgStatus,
+        license_amount: scenario.license_amount || null,
+        gm_test_license_amount: scenario.gm_test_license_amount || null,
+        franchise_license_amount: scenario.franchise_license_amount || null,
+        franchise_gm_test_license_amount: scenario.franchise_gm_test_license_amount || null,
+        gm_count: scenario.gm_count || null,
+        gm_costs: scenario.gm_costs || [],
+        gm_assignments: scenario.gm_assignments || null,
+        available_gms: scenario.available_gms || [],
+        experienced_staff: scenario.experienced_staff || [],
+        available_stores: scenario.available_stores || [],
+        production_cost: scenario.production_cost || null,
+        production_costs: scenario.production_costs || [],
+        depreciation_per_performance: scenario.depreciation_per_performance || null,
+        play_count: scenario.play_count || 0,
+        notes: scenario.notes || null,
+      })
+      .select()
+      .single()
+
+    if (orgScenarioError) {
+      logger.error('organization_scenarios作成エラー:', orgScenarioError)
+      // マスターは作成済みなので、organization_scenariosの作成失敗はロールバックしない
+      throw orgScenarioError
+    }
+    
+    logger.log('✅ organization_scenarios作成成功:', orgData?.id)
+    
+    // organization_scenarios_with_master ビューから作成したデータを取得して返す
+    const { data: createdScenario, error: fetchError } = await supabase
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+      .eq('id', scenarioMasterId)
+      .eq('organization_id', organizationId)
+      .single()
+    
+    if (fetchError) {
+      logger.error('作成後のシナリオ取得エラー:', fetchError)
+      throw fetchError
+    }
+    
+    logger.log('✅ シナリオ作成完了')
+    return createdScenario as unknown as Scenario
   },
 
   // シナリオを更新
-  // id: scenarios.id または scenario_master_id のどちらでも検索可能
+  // id: scenario_master_id として検索（organization_scenarios_with_master のid = scenario_master_id）
   async update(id: string, updates: Partial<Scenario>): Promise<Scenario> {
-    // DBに存在するカラムのみを抽出（UI専用フィールドを除外）
-    const dbData = extractDbColumns(updates)
+    logger.log('📝 シナリオ更新:', id, Object.keys(updates))
     
-    logger.log('📝 シナリオ更新データ:', Object.keys(dbData))
-    
-    // 現在の組織IDを取得
     const orgId = await getCurrentOrganizationId()
+    if (!orgId) {
+      throw new Error('組織IDが取得できません')
+    }
     
-    // まず対象のシナリオを特定（id または scenario_master_id で検索）
-    let targetScenario: { id: string; scenario_master_id?: string } | null = null
-    
-    // idで検索
-    const { data: byId } = await supabase
-      .from('scenarios')
+    // 対象のorganization_scenariosを特定
+    const { data: orgScenario } = await supabase
+      .from('organization_scenarios')
       .select('id, scenario_master_id')
-      .eq('id', id)
+      .eq('scenario_master_id', id)
+      .eq('organization_id', orgId)
       .maybeSingle()
     
-    if (byId) {
-      targetScenario = byId
-    } else {
-      // scenario_master_id + organization_id で検索
-      logger.log('📝 idで見つからず、scenario_master_id + organization_idで検索:', id, orgId)
-      let query = supabase
-        .from('scenarios')
-        .select('id, scenario_master_id')
-        .eq('scenario_master_id', id)
-      
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
-      
-      const { data: byMasterId } = await query.maybeSingle()
-      if (byMasterId) {
-        targetScenario = byMasterId
+    if (!orgScenario) {
+      throw new Error('シナリオが見つかりません')
+    }
+    
+    // organization_scenarios 用のデータを構築
+    const orgScenarioData: Record<string, unknown> = {}
+    
+    // statusはorg_statusにマッピング
+    if (updates.status) {
+      const validOrgStatuses = ['available', 'unavailable', 'coming_soon']
+      if (validOrgStatuses.includes(updates.status)) {
+        orgScenarioData.org_status = updates.status
       }
     }
     
-    if (!targetScenario) {
-      throw new Error('シナリオが見つかりません。')
+    // 組織固有カラムをマッピング
+    const directOrgColumns = [
+      'slug', 'duration', 'participation_fee', 'gm_test_participation_fee',
+      'extra_preparation_time', 'license_amount', 'gm_test_license_amount',
+      'franchise_license_amount', 'franchise_gm_test_license_amount',
+      'available_gms', 'experienced_staff', 'available_stores',
+      'gm_costs', 'gm_count', 'gm_assignments',
+      'production_cost', 'production_costs', 'depreciation_per_performance',
+      'play_count', 'notes', 'participation_costs', 'flexible_pricing', 'use_flexible_pricing'
+    ]
+    
+    for (const col of directOrgColumns) {
+      if (updates[col as keyof Scenario] !== undefined) {
+        orgScenarioData[col] = updates[col as keyof Scenario]
+      }
     }
     
-    logger.log('📝 更新対象シナリオ特定:', targetScenario.id)
+    // override フィールド（マスター情報の組織固有上書き）
+    const overrideMapping: Record<string, string> = {
+      'title': 'override_title',
+      'author': 'override_author',
+      'genre': 'override_genre',
+      'difficulty': 'override_difficulty',
+      'player_count_min': 'override_player_count_min',
+      'player_count_max': 'override_player_count_max',
+    }
     
-    // 特定したIDで更新
-    const { data, error } = await supabase
-      .from('scenarios')
-      .update(dbData)
-      .eq('id', targetScenario.id)
-      .select()
+    for (const [scenarioCol, orgCol] of Object.entries(overrideMapping)) {
+      if (updates[scenarioCol as keyof Scenario] !== undefined) {
+        orgScenarioData[orgCol] = updates[scenarioCol as keyof Scenario]
+      }
+    }
+    
+    // custom フィールド
+    const customMapping: Record<string, string> = {
+      'key_visual_url': 'custom_key_visual_url',
+      'description': 'custom_description',
+      'synopsis': 'custom_synopsis',
+      'caution': 'custom_caution',
+    }
+    
+    for (const [scenarioCol, orgCol] of Object.entries(customMapping)) {
+      if (updates[scenarioCol as keyof Scenario] !== undefined) {
+        orgScenarioData[orgCol] = updates[scenarioCol as keyof Scenario]
+      }
+    }
+    
+    // organization_scenarios を更新
+    if (Object.keys(orgScenarioData).length > 0) {
+      orgScenarioData.updated_at = new Date().toISOString()
+      logger.log('📝 organization_scenarios更新:', Object.keys(orgScenarioData))
+      
+      const { error: orgError } = await supabase
+        .from('organization_scenarios')
+        .update(orgScenarioData)
+        .eq('id', orgScenario.id)
+      
+      if (orgError) {
+        logger.error('organization_scenarios更新エラー:', orgError)
+        throw orgError
+      }
+    }
+    
+    // 組織が「公開中」にした場合、マスターがdraftならpendingに昇格
+    if (updates.status === 'available') {
+      const { data: masterData } = await supabase
+        .from('scenario_masters')
+        .select('id, master_status')
+        .eq('id', id)
+        .maybeSingle()
+      
+      if (masterData && masterData.master_status === 'draft') {
+        logger.log('📝 マスターをdraft→pendingに昇格:', id)
+        await supabase
+          .from('scenario_masters')
+          .update({ master_status: 'pending', updated_at: new Date().toISOString() })
+          .eq('id', id)
+      }
+    }
+    
+    // 更新後のデータを取得して返す
+    const { data: updatedScenario, error: fetchError } = await supabase
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+      .eq('id', id)
+      .eq('organization_id', orgId)
       .single()
     
-    if (error) {
-      logger.error('シナリオ更新エラー:', error)
-      throw error
+    if (fetchError) {
+      logger.error('更新後のシナリオ取得エラー:', fetchError)
+      throw fetchError
     }
     
-    // organization_scenariosも同期更新（対応するカラムのみ）
-    const scenarioMasterId = targetScenario.scenario_master_id || targetScenario.id
-    if (orgId && scenarioMasterId) {
-      const orgScenarioData: Record<string, unknown> = {}
-      
-      // statusはorg_statusにマッピング
-      if (dbData.status) {
-        // available/unavailable/coming_soon のみ有効
-        const validOrgStatuses = ['available', 'unavailable', 'coming_soon']
-        if (validOrgStatuses.includes(dbData.status as string)) {
-          orgScenarioData.org_status = dbData.status
-        }
-      }
-      
-      // 組織固有カラムをマッピング（organization_scenarios に保存）
-      const orgColumnMapping: Record<string, string> = {
-        // 組織固有の運用フィールド
-        'duration': 'duration',
-        'participation_fee': 'participation_fee',
-        'extra_preparation_time': 'extra_preparation_time',
-        'license_amount': 'license_amount',
-        'gm_test_license_amount': 'gm_test_license_amount',
-        'available_gms': 'available_gms',
-        'available_stores': 'available_stores',
-        'gm_costs': 'gm_costs',
-        'production_costs': 'production_costs',
-        'play_count': 'play_count',
-        'notes': 'notes',
-        // override フィールド（マスター情報の組織固有上書き）
-        'title': 'override_title',
-        'author': 'override_author',
-        'genre': 'override_genre',
-        'difficulty': 'override_difficulty',
-        'player_count_min': 'override_player_count_min',
-        'player_count_max': 'override_player_count_max',
-        // custom フィールド
-        'key_visual_url': 'custom_key_visual_url',
-        'description': 'custom_description',
-        'synopsis': 'custom_synopsis',
-        'caution': 'custom_caution',
-      }
-      
-      for (const [scenarioCol, orgCol] of Object.entries(orgColumnMapping)) {
-        if (dbData[scenarioCol] !== undefined) {
-          orgScenarioData[orgCol] = dbData[scenarioCol]
-        }
-      }
-      
-      if (Object.keys(orgScenarioData).length > 0) {
-        orgScenarioData.updated_at = new Date().toISOString()
-        logger.log('📝 organization_scenarios同期更新:', Object.keys(orgScenarioData))
-        const { error: orgError } = await supabase
-          .from('organization_scenarios')
-          .update(orgScenarioData)
-          .eq('scenario_master_id', scenarioMasterId)
-          .eq('organization_id', orgId)
-        
-        if (orgError) {
-          logger.error('organization_scenarios更新エラー（無視）:', orgError)
-          // エラーは無視（メインの更新は成功しているため）
-        }
-      }
-      
-      // NOTE: scenario_masters への書き込みは行わない。
-      // マスター情報の更新はマスター編集画面（権利者用）の責務。
-      // 組織固有の上書きは override_* / custom_* カラムに保存済み。
-      
-      // 組織が「公開中」にした場合、マスターがdraftならpendingに昇格
-      if (dbData.status === 'available') {
-        const { data: masterData } = await supabase
-          .from('scenario_masters')
-          .select('id, master_status')
-          .eq('id', scenarioMasterId)
-          .maybeSingle()
-        
-        if (masterData && masterData.master_status === 'draft') {
-          logger.log('📝 マスターをdraft→pendingに昇格:', scenarioMasterId)
-          await supabase
-            .from('scenario_masters')
-            .update({ master_status: 'pending', updated_at: new Date().toISOString() })
-            .eq('id', scenarioMasterId)
-        }
-      }
-    }
-    
-    return data
+    logger.log('✅ シナリオ更新完了')
+    return updatedScenario as unknown as Scenario
   },
 
-  // シナリオを削除
+  // シナリオを削除（organization_scenarios のみ削除、scenario_masters は残す）
+  // id: scenario_master_id
   async delete(id: string): Promise<void> {
-    // 組織フィルタ（マルチテナント対応）
     const orgId = await getCurrentOrganizationId()
-    
-    // 関連データの参照をクリア（スケジュールイベントは削除しない）
-    
-    // 1. reservationsのscenario_idをNULLに設定（組織フィルタ付き）
-    const { error: reservationError } = await supabase.rpc('admin_clear_reservations_scenario_id', {
-      p_scenario_id: id
-    })
-    
-    if (reservationError) throw reservationError
-    
-    // 2. schedule_eventsのscenario_idをNULLに設定（組織フィルタ付き）
-    let scheduleQuery = supabase
-      .from('schedule_events')
-      .update({ scenario_id: null })
-      .eq('scenario_id', id)
-    
-    if (orgId) {
-      scheduleQuery = scheduleQuery.eq('organization_id', orgId)
+    if (!orgId) {
+      throw new Error('組織IDが取得できません')
     }
     
-    const { error: scheduleError } = await scheduleQuery
+    logger.log('📝 シナリオ削除:', id)
     
-    if (scheduleError) throw scheduleError
+    // 関連データの参照をクリア（scenario_master_id を使用）
     
-    // 3. staff_scenario_assignmentsの削除（scenario_master_id で検索、組織フィルタ付き）
-    // scenario_id は scenario_master_id と統一済みのため、
-    // scenarios テーブルから scenario_master_id を取得して検索
-    const { data: scenarioRow } = await supabase
-      .from('scenarios')
-      .select('scenario_master_id')
-      .eq('id', id)
-      .maybeSingle()
-    const assignmentScenarioId = scenarioRow?.scenario_master_id || id
+    // 1. reservationsのscenario_master_idをNULLに設定
+    const { error: reservationError } = await supabase
+      .from('reservations')
+      .update({ scenario_master_id: null })
+      .eq('scenario_master_id', id)
+      .eq('organization_id', orgId)
     
-    let assignQuery = supabase
+    if (reservationError) {
+      logger.error('reservations更新エラー:', reservationError)
+    }
+    
+    // 2. schedule_eventsのscenario_master_idをNULLに設定
+    const { error: scheduleError } = await supabase
+      .from('schedule_events')
+      .update({ scenario_master_id: null })
+      .eq('scenario_master_id', id)
+      .eq('organization_id', orgId)
+    
+    if (scheduleError) {
+      logger.error('schedule_events更新エラー:', scheduleError)
+    }
+    
+    // 3. staff_scenario_assignmentsの削除
+    const { error: assignmentError } = await supabase
       .from('staff_scenario_assignments')
       .delete()
-      .eq('scenario_id', assignmentScenarioId)
+      .eq('scenario_id', id)
+      .eq('organization_id', orgId)
     
-    if (orgId) {
-      assignQuery = assignQuery.eq('organization_id', orgId)
+    if (assignmentError) {
+      logger.error('staff_scenario_assignments削除エラー:', assignmentError)
     }
     
-    const { error: assignmentError } = await assignQuery
-    
-    if (assignmentError) throw assignmentError
-    
-    // 4. performance_kitsの削除
+    // 4. performance_kitsの削除（scenario_master_id を使用）
     const { error: kitsError } = await supabase
       .from('performance_kits')
       .delete()
-      .eq('scenario_id', id)
+      .eq('scenario_master_id', id)
     
-    if (kitsError) throw kitsError
+    if (kitsError) {
+      logger.error('performance_kits削除エラー:', kitsError)
+    }
     
-    // 5. スタッフのspecial_scenariosからこのシナリオを削除（組織フィルタ付き）
-    let staffQuery = supabase
+    // 5. スタッフのspecial_scenariosからこのシナリオを削除
+    const { data: affectedStaff, error: staffError } = await supabase
       .from('staff')
       .select('id, special_scenarios')
       .contains('special_scenarios', [id])
+      .eq('organization_id', orgId)
     
-    if (orgId) {
-      staffQuery = staffQuery.eq('organization_id', orgId)
+    if (staffError) {
+      logger.error('staff検索エラー:', staffError)
     }
     
-    const { data: affectedStaff, error: staffError } = await staffQuery
-    
-    if (staffError) throw staffError
-    
-    // 各スタッフのspecial_scenariosからシナリオIDを削除
     if (affectedStaff && affectedStaff.length > 0) {
       const updatePromises = affectedStaff.map(staff => {
         const newScenarios = (staff.special_scenarios || []).filter((sid: string) => sid !== id)
@@ -628,48 +464,58 @@ export const scenarioApi = {
       await Promise.all(updatePromises)
     }
     
-    // 6. シナリオ本体の削除（組織フィルタ付き）
-    let deleteQuery = supabase
-      .from('scenarios')
+    // 6. organization_scenarios を削除（scenario_masters は残す）
+    const { error } = await supabase
+      .from('organization_scenarios')
       .delete()
-      .eq('id', id)
+      .eq('scenario_master_id', id)
+      .eq('organization_id', orgId)
     
-    if (orgId) {
-      deleteQuery = deleteQuery.eq('organization_id', orgId)
+    if (error) {
+      logger.error('organization_scenarios削除エラー:', error)
+      throw error
     }
     
-    const { error } = await deleteQuery
-    
-    if (error) throw error
+    logger.log('✅ シナリオ削除完了（organization_scenariosのみ）')
   },
 
   // シナリオの担当GMを更新
   async updateAvailableGms(id: string, availableGms: string[]): Promise<Scenario> {
-    const { data, error } = await supabase
-      .from('scenarios')
-      .update({ available_gms: availableGms })
-      .eq('id', id)
-      .select()
-      .single()
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) {
+      throw new Error('組織IDが取得できません')
+    }
+    
+    const { error } = await supabase
+      .from('organization_scenarios')
+      .update({ available_gms: availableGms, updated_at: new Date().toISOString() })
+      .eq('scenario_master_id', id)
+      .eq('organization_id', orgId)
     
     if (error) throw error
-    return data
+    
+    // 更新後のデータを取得して返す
+    const { data, error: fetchError } = await supabase
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .single()
+    
+    if (fetchError) throw fetchError
+    return data as unknown as Scenario
   },
 
   // シナリオの累計公演回数を取得
-  // scenarioId は scenarios.id または scenario_master_id のどちらでも対応
+  // scenarioId: scenario_master_id
   async getPerformanceCount(scenarioId: string): Promise<number> {
-    // IDを解決（scenario_master_id の場合は対応する scenarios.id リストを取得）
-    const scenarioIds = await resolveScenarioIds(scenarioId)
-    
-    // 組織フィルタ（マルチテナント対応）
     const orgId = await getCurrentOrganizationId()
     
     let query = supabase
       .from('schedule_events')
       .select('*', { count: 'exact', head: true })
-      .in('scenario_id', scenarioIds)
-      .not('status', 'eq', 'cancelled') // キャンセルを除外
+      .eq('scenario_master_id', scenarioId)
+      .not('status', 'eq', 'cancelled')
     
     if (orgId) {
       query = query.eq('organization_id', orgId)
@@ -701,32 +547,33 @@ export const scenarioApi = {
     // 組織フィルタ（マルチテナント対応）
     const orgId = await getCurrentOrganizationId()
     
-    // IDを解決（scenario_master_id の場合は対応する scenarios.id リストを取得）
-    const scenarioIds = await resolveScenarioIds(scenarioId)
-    logger.log('📊 getScenarioStats: resolveScenarioIds', { input: scenarioId, resolved: scenarioIds })
+    logger.log('📊 getScenarioStats: scenario_master_id =', scenarioId)
 
-    // シナリオの最大参加者数とライセンス料を取得
-    const { data: scenarioData } = await supabase
-      .from('scenarios')
+    // シナリオの最大参加者数とライセンス料を取得（organization_scenarios_with_master から）
+    let scenarioQuery = supabase
+      .from('organization_scenarios_with_master')
       .select('player_count_max, license_amount, gm_test_license_amount, license_rewards')
-      .in('id', scenarioIds)
-      .limit(1)
-      .single()
+      .eq('id', scenarioId)
+    
+    if (orgId) {
+      scenarioQuery = scenarioQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: scenarioData } = await scenarioQuery.maybeSingle()
     const maxParticipants = scenarioData?.player_count_max || 99
     const defaultLicenseAmount = scenarioData?.license_amount || 0
     const defaultGmTestLicenseAmount = scenarioData?.gm_test_license_amount || 0
-    // license_rewards からも取得を試みる（新形式対応）
     const licenseRewards = scenarioData?.license_rewards as Array<{ item: string; amount: number }> | undefined
     const normalLicenseFromRewards = licenseRewards?.find(r => r.item === 'normal')?.amount
     const gmTestLicenseFromRewards = licenseRewards?.find(r => r.item === 'gmtest')?.amount
     const normalLicenseAmount = normalLicenseFromRewards ?? defaultLicenseAmount
     const gmTestLicenseAmount = gmTestLicenseFromRewards ?? defaultGmTestLicenseAmount
 
-    // 公演回数（中止以外、今日まで、出張公演除外）
+    // 公演回数（中止以外、今日まで、出張公演除外）- scenario_master_id で検索
     let perfQuery = supabase
       .from('schedule_events')
       .select('*', { count: 'exact', head: true })
-      .in('scenario_id', scenarioIds)
+      .eq('scenario_master_id', scenarioId)
       .lte('date', today)
       .neq('category', 'offsite')
       .neq('is_cancelled', true)
@@ -743,7 +590,7 @@ export const scenarioApi = {
     let cancelQuery = supabase
       .from('schedule_events')
       .select('*', { count: 'exact', head: true })
-      .in('scenario_id', scenarioIds)
+      .eq('scenario_master_id', scenarioId)
       .lte('date', today)
       .neq('category', 'offsite')
       .eq('is_cancelled', true)
@@ -759,8 +606,8 @@ export const scenarioApi = {
     // 初公演日を取得（今日までの公演から、中止以外、出張公演除外）
     let firstQuery = supabase
       .from('schedule_events')
-      .select('date, scenario_id')
-      .in('scenario_id', scenarioIds)
+      .select('date, scenario_master_id')
+      .eq('scenario_master_id', scenarioId)
       .lte('date', today)
       .neq('category', 'offsite')
       .neq('is_cancelled', true)
@@ -780,7 +627,7 @@ export const scenarioApi = {
     let eventsQuery = supabase
       .from('schedule_events')
       .select('id, date, category, current_participants, total_revenue, gm_cost, license_cost, start_time, store_id, is_cancelled')
-      .in('scenario_id', scenarioIds)
+      .eq('scenario_master_id', scenarioId)
       .lte('date', today)
       .neq('category', 'offsite')
       .order('date', { ascending: false })
@@ -995,21 +842,27 @@ export const scenarioApi = {
   },
 
   // シナリオの担当GMを更新（スタッフのspecial_scenariosも同期更新）
+  // id: scenario_master_id
   async updateAvailableGmsWithSync(id: string, availableGms: string[]): Promise<Scenario> {
-    // シナリオの担当GMを更新
-    const { data: updatedScenario, error: updateError } = await supabase
-      .from('scenarios')
-      .update({ available_gms: availableGms })
-      .eq('id', id)
-      .select()
-      .single()
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) {
+      throw new Error('組織IDが取得できません')
+    }
+    
+    // organization_scenarios の担当GMを更新
+    const { error: updateError } = await supabase
+      .from('organization_scenarios')
+      .update({ available_gms: availableGms, updated_at: new Date().toISOString() })
+      .eq('scenario_master_id', id)
+      .eq('organization_id', orgId)
     
     if (updateError) throw updateError
 
-    // 全スタッフを取得して、各スタッフのspecial_scenariosを更新
+    // 組織内の全スタッフを取得して、各スタッフのspecial_scenariosを更新
     const { data: allStaff, error: staffError } = await supabase
       .from('staff')
       .select('id, name, special_scenarios')
+      .eq('organization_id', orgId)
     
     if (staffError) throw staffError
 
@@ -1018,21 +871,17 @@ export const scenarioApi = {
       const currentScenarios = staff.special_scenarios || []
       const staffName = staff.name
       
-      // このスタッフが担当GMに含まれているかチェック
       const isAssigned = availableGms.includes(staffName)
       const isCurrentlyAssigned = currentScenarios.includes(id)
       
       let newScenarios = [...currentScenarios]
       
       if (isAssigned && !isCurrentlyAssigned) {
-        // 担当GMに追加された場合、special_scenariosに追加
         newScenarios.push(id)
       } else if (!isAssigned && isCurrentlyAssigned) {
-        // 担当GMから削除された場合、special_scenariosから削除
         newScenarios = newScenarios.filter(scenarioId => scenarioId !== id)
       }
       
-      // 変更がある場合のみ更新
       if (JSON.stringify(newScenarios.sort()) !== JSON.stringify(currentScenarios.sort())) {
         return supabase
           .from('staff')
@@ -1043,10 +892,18 @@ export const scenarioApi = {
       return Promise.resolve()
     }) || []
 
-    // 全てのスタッフ更新を実行
     await Promise.all(updatePromises)
 
-    return updatedScenario
+    // 更新後のデータを取得して返す
+    const { data: updatedScenario, error: fetchError } = await supabase
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .single()
+    
+    if (fetchError) throw fetchError
+    return updatedScenario as unknown as Scenario
   }
 }
 

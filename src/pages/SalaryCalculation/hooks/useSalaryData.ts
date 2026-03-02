@@ -103,11 +103,12 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
       gmData?.forEach(event => {
         if (!event.gms || !Array.isArray(event.gms) || event.gms.length === 0) return
 
-        const scenario = event.scenarios as unknown as { title: string; gm_assignments: any; duration: number } | null
+        const scenarioMasters = event.scenario_masters as unknown as Array<{ title: string; official_duration: number }> | null
+        const scenario = scenarioMasters?.[0]
         if (!scenario) return
 
-        // シナリオのgm_assignmentsから報酬情報を取得
-        const gmAssignments = scenario.gm_assignments || []
+        // シナリオのgm_assignmentsから報酬情報を取得（organization_scenariosから取得する必要がある場合は別途対応）
+        const gmAssignments: any[] = []
         const isGMTest = event.category === 'gmtest'
 
         // GMごとに報酬を計算
@@ -167,7 +168,7 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
             } else {
               // 報酬が見つからない場合は新しい計算式を使用
               // 計算式: 基本給 + 時給 × 公演時間（時間単位）
-              const duration = scenario.duration || 180
+              const duration = scenario.official_duration || 180
               pay = calculateGmWage(duration, isGMTest, salarySettings)
               gmRole = isGMTest ? 'GM（GMテスト）' : 'GM（時給計算）'
             }

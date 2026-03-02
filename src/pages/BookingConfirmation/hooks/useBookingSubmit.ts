@@ -9,13 +9,21 @@ import { reservationApi } from '@/lib/reservationApi'
 /**
  * 参加費を計算する関数
  */
-const calculateParticipationFee = async (scenarioId: string, startTime: string, date: string): Promise<number> => {
-  // シナリオの料金設定を取得
-  const { data: scenario, error } = await supabase
-    .from('scenarios')
+const calculateParticipationFee = async (
+  scenarioId: string,
+  startTime: string,
+  date: string,
+  organizationId?: string
+): Promise<number> => {
+  // シナリオの料金設定を取得（organization_scenarios_with_master: 組織固有の participation_fee）
+  let query = supabase
+    .from('organization_scenarios_with_master')
     .select('participation_fee, participation_costs')
     .eq('id', scenarioId)
-    .single()
+  if (organizationId) {
+    query = query.eq('organization_id', organizationId)
+  }
+  const { data: scenario, error } = await query.maybeSingle()
 
   if (error) {
     logger.error('シナリオ料金設定取得エラー:', error)
@@ -138,9 +146,9 @@ export const checkDuplicateReservation = async (
             date,
             start_time,
             end_time,
-            scenarios (
+            scenario_masters:scenario_master_id (
               title,
-              duration
+              official_duration
             )
           )
         `)
@@ -160,7 +168,7 @@ export const checkDuplicateReservation = async (
             date?: string; 
             start_time?: string; 
             end_time?: string;
-            scenarios?: { title?: string; duration?: number } 
+            scenario_masters?: { title?: string; official_duration?: number } 
           } | null
           
           if (!scheduleEvent?.date || !scheduleEvent?.start_time) continue
@@ -175,7 +183,7 @@ export const checkDuplicateReservation = async (
           if (scheduleEvent.end_time) {
             resEndTime = new Date(`${scheduleEvent.date}T${scheduleEvent.end_time}`)
           } else {
-            const durationMs = ((scheduleEvent.scenarios?.duration || 180) + 30) * 60 * 1000 // 公演時間 + 30分バッファ
+            const durationMs = ((scheduleEvent.scenario_masters?.official_duration || 180) + 30) * 60 * 1000 // 公演時間 + 30分バッファ
             resEndTime = new Date(resStartTime.getTime() + durationMs)
           }
           
@@ -189,7 +197,7 @@ export const checkDuplicateReservation = async (
               existingReservation: { 
                 ...res,
                 isTimeConflict: true,
-                conflictEventTitle: scheduleEvent.scenarios?.title || res.title
+                conflictEventTitle: scheduleEvent.scenario_masters?.title || res.title
               },
               isTimeConflict: true
             }
@@ -415,16 +423,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         throw new Error(limitCheck.reason || '予約制限により予約できません')
       }
 
-      // 料金を計算
-      const calculatedFee = await calculateParticipationFee(
-        props.scenarioId,
-        props.startTime,
-        props.eventDate
-      )
-      // JSTとして明示的に指定して保存（タイムゾーン不整合を防ぐ）
-      const eventDateTime = `${props.eventDate}T${props.startTime}+09:00`
-      
-      // 組織IDを取得
+      // 組織IDを取得（料金計算と予約作成に必要）
       const { data: eventOrg, error: eventOrgError } = await supabase
         .from('schedule_events')
         .select('organization_id')
@@ -437,6 +436,16 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       }
 
       const organizationId = eventOrg.organization_id
+
+      // 料金を計算（組織固有の participation_fee）
+      const calculatedFee = await calculateParticipationFee(
+        props.scenarioId,
+        props.startTime,
+        props.eventDate,
+        organizationId
+      )
+      // JSTとして明示的に指定して保存（タイムゾーン不整合を防ぐ）
+      const eventDateTime = `${props.eventDate}T${props.startTime}+09:00`
 
       // 顧客レコードを取得または作成
       let customerId: string | null = null
@@ -499,7 +508,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       const reservationData = await reservationApi.create({
         schedule_event_id: props.eventId,
         title: `${props.scenarioTitle} - ${formatDate(props.eventDate)}`,
-        scenario_id: props.scenarioId,
+        scenario_master_id: props.scenarioId,
         store_id: props.storeId || null,
         customer_id: customerId,
         requested_datetime: eventDateTime,

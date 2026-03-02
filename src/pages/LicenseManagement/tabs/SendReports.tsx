@@ -1062,9 +1062,9 @@ ${scenariosText}
       // 対象シナリオのIDを抽出（重複を除去）
       const scenarioIds = [...new Set(bulkEmailTarget.items.map(item => item.scenarioId))]
 
-      // 各シナリオのauthor_emailを更新
+      // 各シナリオのauthor_emailを更新（scenario_masters に保存）
       const { error } = await supabase
-        .from('scenarios')
+        .from('scenario_masters')
         .update({ author_email: bulkEmail.trim() })
         .in('id', scenarioIds)
 
@@ -1106,9 +1106,9 @@ ${scenariosText}
         ? null 
         : newDisplayName.trim()
 
-      // 同じ作者名を持つ全シナリオを更新（月をまたいでも反映されるように）
+      // 同じ作者名を持つ全シナリオを更新（scenario_masters に report_display_name を保存）
       const { data: updatedScenarios, error } = await supabase
-        .from('scenarios')
+        .from('scenario_masters')
         .update({ report_display_name: displayNameValue })
         .eq('author', displayNameTarget.originalAuthorName)
         .select('id')

@@ -64,7 +64,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
             address
           )
         `)
-        .eq('scenario_id', scenarioData.id)
+        .eq('scenario_master_id', scenarioData.id)
         .gte('date', todayJST)
         .lte('date', endDateStr)
         .eq('is_cancelled', false)
@@ -159,19 +159,23 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
       }
     })(),
     
-    // 関連シナリオを取得
+    // 関連シナリオを取得（scenario_masters から基本情報）
     (async () => {
       if (!scenarioData.author) return []
       
       try {
         const { data: relatedData } = await supabase
-          .from('scenarios')
-          .select('id, slug, title, key_visual_url, author, player_count_min, player_count_max, duration')
+          .from('scenario_masters')
+          .select('id, title, key_visual_url, author, player_count_min, player_count_max, official_duration')
           .eq('author', scenarioData.author)
-          .neq('id', scenarioData.id)
+          .neq('id', scenarioData.scenario_master_id || scenarioData.id)
           .limit(6)
         
-        return relatedData || []
+        return (relatedData || []).map(r => ({
+          ...r,
+          slug: r.id, // scenario_masters に slug はないため id をフォールバック
+          duration: r.official_duration
+        }))
       } catch (error) {
         logger.error('関連シナリオの取得エラー:', error)
         return []

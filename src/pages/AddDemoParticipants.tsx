@@ -113,11 +113,15 @@ export function AddDemoParticipants() {
       
       log(`対象公演: ${pastEvents.length}件`, 'info')
       
-      // 全シナリオを事前に取得（ループ外で1回のみ）
+      // 全シナリオを事前に取得（organization_scenarios_with_master: 組織固有の participation_fee）
       log('シナリオマスタを取得中...', 'info')
-      const { data: allScenarios, error: scenariosError } = await supabase
-        .from('scenarios')
+      let scenariosQuery = supabase
+        .from('organization_scenarios_with_master')
         .select('id, title, duration, participation_fee, gm_test_participation_fee, player_count_max, player_count_min')
+      if (organizationId) {
+        scenariosQuery = scenariosQuery.eq('organization_id', organizationId)
+      }
+      const { data: allScenarios, error: scenariosError } = await scenariosQuery
       
       if (scenariosError) {
         log(`❌ シナリオ取得エラー: ${scenariosError.message}`, 'error')
@@ -187,12 +191,15 @@ export function AddDemoParticipants() {
         let scenario: any = null
         
         if (event.scenario_id) {
-          // ID がある場合は ID で検索（最優先）
-          const { data } = await supabase
-            .from('scenarios')
+          // ID がある場合は ID で検索（scenario_master_id で organization_scenarios_with_master から取得）
+          let idQuery = supabase
+            .from('organization_scenarios_with_master')
             .select('id, title, duration, participation_fee, gm_test_participation_fee, player_count_max, player_count_min')
             .eq('id', event.scenario_id)
-            .maybeSingle()
+          if (organizationId) {
+            idQuery = idQuery.eq('organization_id', organizationId)
+          }
+          const { data } = await idQuery.maybeSingle()
           
           scenario = data
         }
@@ -245,9 +252,9 @@ export function AddDemoParticipants() {
               log(`🔍 部分一致: ${event.scenario} → ${partialMatch.title}`, 'info')
               scenario = partialMatch
             } else {
-              // 類似シナリオを検索してデバッグ情報を表示
+              // 類似シナリオを検索してデバッグ情報を表示（scenario_masters から基本情報）
               const { data: similarScenarios } = await supabase
-                .from('scenarios')
+                .from('scenario_masters')
                 .select('title')
                 .ilike('title', `%${normalizedScenario.substring(0, 3)}%`)
                 .limit(3)

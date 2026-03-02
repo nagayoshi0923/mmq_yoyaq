@@ -914,7 +914,7 @@ export const scheduleApi = {
     }
     
     // organization_scenario_id を自動設定（scenario_master_id から逆引き）
-    const scenarioMasterIdToUse = finalUpdates.scenario_master_id || updates.scenario_master_id
+    const scenarioMasterIdToUse = (finalUpdates as Record<string, unknown>).scenario_master_id || (updates as Record<string, unknown>).scenario_master_id
     const orgIdToUse = organizationId || await getCurrentOrganizationId()
     if (scenarioMasterIdToUse && orgIdToUse && !finalUpdates.organization_scenario_id) {
       try {

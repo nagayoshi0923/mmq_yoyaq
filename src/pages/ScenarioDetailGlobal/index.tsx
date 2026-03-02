@@ -130,31 +130,31 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           if (masterById && masterById.length > 0) {
             masterId = masterById[0].id
           } else {
-            // scenario_mastersで見つからない場合、scenariosテーブルでID検索
+            // scenario_mastersで見つからない場合、organization_scenariosでID検索（org_scenario_id）
             const { data: legacyById } = await supabase
-              .from('scenarios')
-              .select('id')
+              .from('organization_scenarios')
+              .select('scenario_master_id')
               .eq('id', scenarioSlug)
               .limit(1)
             
             if (legacyById && legacyById.length > 0) {
-              masterId = legacyById[0].id
+              masterId = legacyById[0].scenario_master_id
               useLegacyTable = true
             }
           }
         }
       }
 
-      // 3. まだ見つからない場合、既存のscenariosテーブルからslugで検索
+      // 3. まだ見つからない場合、organization_scenariosからslugで検索
       if (!masterId) {
         const { data: legacyScenario } = await supabase
-          .from('scenarios')
-          .select('id')
+          .from('organization_scenarios')
+          .select('scenario_master_id')
           .eq('slug', scenarioSlug)
           .limit(1)
         
         if (legacyScenario && legacyScenario.length > 0) {
-          masterId = legacyScenario[0].id
+          masterId = legacyScenario[0].scenario_master_id
           useLegacyTable = true
         }
       }
@@ -180,12 +180,13 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         }
       }
       
-      // scenario_mastersから取得できなかった場合、既存のscenariosテーブルから取得
+      // scenario_mastersから取得できなかった場合、organization_scenarios_with_masterから取得
       if (!masterData) {
         const { data: legacyData, error: legacyError } = await supabase
-          .from('scenarios')
+          .from('organization_scenarios_with_master')
           .select(`
             id,
+            org_scenario_id,
             title,
             slug,
             description,
@@ -199,8 +200,9 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
             participation_fee,
             synopsis
           `)
-          .eq('id', masterId)
-          .single()
+          .eq('scenario_master_id', masterId)
+          .limit(1)
+          .maybeSingle()
         
         if (legacyError || !legacyData) {
           setError('シナリオの読み込みに失敗しました')
@@ -271,9 +273,9 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           }
         }
       } else {
-        // scenario_master_idが一致するscenariosの組織IDを取得
+        // scenario_master_idが一致するorganization_scenariosの組織IDを取得
         const { data: relatedScenarios } = await supabase
-          .from('scenarios')
+          .from('organization_scenarios')
           .select('organization_id')
           .eq('scenario_master_id', masterId)
         
@@ -329,12 +331,12 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       const availableOrgs: Array<{ id: string; slug: string; name: string; scenarioId: string; scenarioSlug: string }> = []
       
       if (!useLegacyTable) {
-        // scenario_master_idが一致するscenariosのID、組織ID、slugを全て取得
+        // scenario_master_idが一致するorganization_scenariosのID、組織ID、slugを全て取得
         const { data: relatedScenarios } = await supabase
-          .from('scenarios')
+          .from('organization_scenarios')
           .select('id, organization_id, slug')
           .eq('scenario_master_id', masterId)
-          .eq('status', 'available')
+          .eq('org_status', 'available')
         
         if (relatedScenarios && relatedScenarios.length > 0) {
           scenarioIdsForEvents = relatedScenarios.map(s => s.id)
@@ -373,11 +375,11 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       const { data: eventData, error: eventError } = await supabase
         .from('schedule_events')
         .select(`
-          id, date, start_time, time_slot, current_participants, category, is_cancelled,
+          id, date, start_time, time_slot, current_participants, category, is_cancelled, organization_id,
           scenario_masters:scenario_master_id (id, title, player_count_max),
           stores:store_id (id, name, short_name, color, region)
         `)
-        .in('scenario_id', scenarioIdsForEvents)
+        .eq('scenario_master_id', masterId)
         .gte('date', today)
         .eq('category', 'open')
         .eq('is_cancelled', false)
@@ -390,9 +392,9 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       }
 
       const formattedEvents: EventWithOrg[] = (eventData || []).map((e: any) => {
-        const scenario = e.scenarios
+        const scenario = e.scenario_masters
         const store = e.stores
-        const org = scenario?.organization_id ? orgMap[scenario.organization_id] : null
+        const org = e.organization_id ? orgMap[e.organization_id] : null
 
         return {
           id: e.id,
@@ -401,7 +403,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           time_slot: e.time_slot || '',
           current_participants: e.current_participants || 0,
           player_count_max: scenario?.player_count_max || masterData.player_count_max,
-          organization_id: scenario?.organization_id || '',
+          organization_id: e.organization_id || '',
           organization_slug: org?.slug || '',
           organization_name: org?.name || '不明',
           store_id: store?.id || '',

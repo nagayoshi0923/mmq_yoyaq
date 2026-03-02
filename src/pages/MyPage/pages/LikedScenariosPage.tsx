@@ -74,7 +74,7 @@ export function WantToPlayPage() {
       logger.log('[WantToPlayPage] Fetching scenario_likes for customer_id:', customer.id)
       const { data: likesData, error: likesError } = await supabase
         .from('scenario_likes')
-        .select('id, scenario_id, created_at')
+        .select('id, scenario_id, scenario_master_id, created_at')
         .eq('customer_id', customer.id)
         .order('created_at', { ascending: false })
 
@@ -86,24 +86,32 @@ export function WantToPlayPage() {
         return
       }
 
-      // シナリオ情報を取得
-      const scenarioIds = likesData.map(like => like.scenario_id)
+      // シナリオ情報を取得（scenario_master_id を優先、scenario_masters から）
+      const scenarioMasterIds = likesData.map(like => (like as { scenario_master_id?: string }).scenario_master_id ?? like.scenario_id).filter(Boolean)
       const { data: scenariosData, error: scenariosError } = await supabase
-        .from('scenarios')
-        .select('id, slug, title, description, author, duration, player_count_min, player_count_max, difficulty, genre, rating, play_count, key_visual_url')
-        .in('id', scenarioIds)
+        .from('scenario_masters')
+        .select('id, title, description, author, official_duration, player_count_min, player_count_max, difficulty, genre, key_visual_url')
+        .in('id', scenarioMasterIds)
 
       if (scenariosError) throw scenariosError
 
       // データを結合
       const combined = likesData.map(like => {
-        const scenario = scenariosData?.find(s => s.id === like.scenario_id)
+        const masterId = (like as { scenario_master_id?: string }).scenario_master_id ?? like.scenario_id
+        const scenario = scenariosData?.find(s => s.id === masterId)
         return {
           id: like.id,
           scenario_id: like.scenario_id,
           created_at: like.created_at,
-          scenario: scenario || {
-            id: like.scenario_id,
+          scenario: scenario ? {
+            ...scenario,
+            duration: (scenario as { official_duration?: number }).official_duration ?? 0,
+            slug: scenario.id,
+            rating: 0,
+            play_count: 0,
+          } : {
+            id: masterId ?? like.scenario_id,
+            slug: masterId ?? like.scenario_id,
             title: '不明',
             description: '',
             author: '',

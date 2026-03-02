@@ -62,9 +62,9 @@ export default function ExternalReportForm() {
     try {
       setLoading(true)
       
-      // 管理シナリオ（scenario_type = 'managed'）のみを取得
+      // 管理シナリオ（scenario_type = 'managed'）のみを取得（organization_scenarios_with_master）
       const { data, error } = await supabase
-        .from('scenarios')
+        .from('organization_scenarios_with_master')
         .select('id, title, author, license_amount')
         .eq('scenario_type', 'managed')
         .eq('status', 'available')

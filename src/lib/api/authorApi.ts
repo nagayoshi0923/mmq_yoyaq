@@ -121,21 +121,43 @@ export const authorApi = {
 
   // 作者のシナリオ一覧を取得（メールアドレスベース）
   async getAuthorScenariosByEmail(email: string): Promise<{ id: string; title: string; author: string; author_email: string | null; play_count: number }[]> {
-    const { data, error } = await supabase
-      .from('scenarios')
-      .select('id, title, author, author_email, play_count')
+    // scenario_masters から作者のシナリオを取得
+    const { data: masters, error: mastersError } = await supabase
+      .from('scenario_masters')
+      .select('id, title, author, author_email')
       .eq('author_email', email)
       .order('title')
     
-    if (error) {
-      // author_email カラムが存在しない場合は空配列を返す
-      if (error.code === 'PGRST204' || error.message?.includes('author_email')) {
-        logger.warn('author_email カラムが存在しません。マイグレーション007を実行してください。')
+    if (mastersError) {
+      if (mastersError.code === 'PGRST204' || mastersError.message?.includes('author_email')) {
+        logger.warn('author_email カラムが存在しません')
         return []
       }
-      throw error
+      throw mastersError
     }
-    return data || []
+    
+    if (!masters || masters.length === 0) return []
+    
+    // organization_scenarios から play_count を集計
+    const masterIds = masters.map(m => m.id)
+    const { data: orgScenarios } = await supabase
+      .from('organization_scenarios')
+      .select('scenario_master_id, play_count')
+      .in('scenario_master_id', masterIds)
+    
+    const playCountMap = new Map<string, number>()
+    orgScenarios?.forEach(os => {
+      const current = playCountMap.get(os.scenario_master_id) || 0
+      playCountMap.set(os.scenario_master_id, current + (os.play_count || 0))
+    })
+    
+    return masters.map(m => ({
+      id: m.id,
+      title: m.title,
+      author: m.author || '',
+      author_email: m.author_email,
+      play_count: playCountMap.get(m.id) || 0
+    }))
   },
 
   // 作者への公演報告一覧を取得（メールアドレスベース）

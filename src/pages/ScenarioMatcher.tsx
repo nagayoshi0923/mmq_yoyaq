@@ -83,7 +83,7 @@ export function ScenarioMatcher() {
       
       // シナリオマスターを取得（組織フィルタ付き）
       let scenariosQuery = supabase
-        .from('scenarios')
+        .from('organization_scenarios_with_master')
         .select('title')
       
       if (organizationId) {
@@ -141,7 +141,7 @@ export function ScenarioMatcher() {
   const loadAllScenarios = async () => {
     try {
       let query = supabase
-        .from('scenarios')
+        .from('organization_scenarios_with_master')
         .select('id, title')
       
       if (organizationId) {
@@ -179,7 +179,7 @@ export function ScenarioMatcher() {
           .from('schedule_events')
           .update({ 
             scenario: scenario.title,
-            scenario_id: scenario.id  // IDも同時に設定
+            scenario_master_id: scenario.id  // scenario_master_id を設定
           })
           .eq('scenario', eventScenario)
         

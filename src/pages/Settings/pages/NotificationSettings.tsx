@@ -89,10 +89,17 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
   
   const fetchScenarioList = async () => {
     try {
-      const { data, error } = await supabase
-        .from('scenarios')
+      const orgId = await getCurrentOrganizationId()
+      let query = supabase
+        .from('organization_scenarios_with_master')
         .select('id, title')
         .order('title')
+      
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+      
+      const { data, error } = await query
       
       if (error) throw error
       setScenarioList(data || [])

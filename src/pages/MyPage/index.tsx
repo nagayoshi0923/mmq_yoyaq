@@ -334,27 +334,25 @@ export default function MyPage() {
           }
         }
 
-        const scenarioIds = reservationData
-          .map(r => r.scenario_id)
+        const scenarioMasterIds = reservationData
+          .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
           .filter((id): id is string => id !== null && id !== undefined)
         
-        if (scenarioIds.length > 0) {
-          const { data: scenarios, error: scenariosError } = await supabase
-            .from('scenarios')
-            .select('id, key_visual_url, slug, player_count_min, player_count_max')
-            .in('id', scenarioIds)
+        if (scenarioMasterIds.length > 0) {
+          const { data: scenarioMasters, error: scenariosError } = await supabase
+            .from('scenario_masters')
+            .select('id, key_visual_url, player_count_min, player_count_max')
+            .in('id', scenarioMasterIds)
           
-          if (!scenariosError && scenarios) {
+          if (!scenariosError && scenarioMasters) {
             const imageMap: Record<string, string> = {}
             const slugMap: Record<string, string> = {}
             const infoMap: Record<string, { min: number; max: number }> = {}
-            scenarios.forEach(s => {
+            scenarioMasters.forEach(s => {
               if (s.key_visual_url) {
                 imageMap[s.id] = s.key_visual_url
               }
-              if (s.slug) {
-                slugMap[s.id] = s.slug
-              }
+              slugMap[s.id] = s.id
               infoMap[s.id] = {
                 min: s.player_count_min || 1,
                 max: s.player_count_max || 8
@@ -395,54 +393,56 @@ export default function MyPage() {
         )
         
         // 追加のシナリオ情報を取得
-        const pastScenarioIds = pastReservations
-          .map(r => r.scenario_id)
+        const pastScenarioMasterIds = pastReservations
+          .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
           .filter((id): id is string => id !== null && id !== undefined)
         
         const additionalScenarioData: Record<string, { key_visual_url?: string, slug?: string }> = {}
-        if (pastScenarioIds.length > 0) {
+        if (pastScenarioMasterIds.length > 0) {
           const { data: pastScenarios } = await supabase
-            .from('scenarios')
-            .select('id, key_visual_url, slug')
-            .in('id', pastScenarioIds)
+            .from('scenario_masters')
+            .select('id, key_visual_url')
+            .in('id', pastScenarioMasterIds)
           
           if (pastScenarios) {
             pastScenarios.forEach(s => {
-              additionalScenarioData[s.id] = { key_visual_url: s.key_visual_url, slug: s.slug }
+              additionalScenarioData[s.id] = { key_visual_url: s.key_visual_url, slug: s.id }
             })
           }
         }
         
         const played: PlayedScenario[] = pastReservations.map(reservation => {
-          const scenarioInfo = reservation.scenario_id ? additionalScenarioData[reservation.scenario_id] : null
+          const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+          const scenarioInfo = scenarioMasterId ? additionalScenarioData[scenarioMasterId] : null
           return {
             scenario: reservation.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim() || '',
             date: reservation.requested_datetime.split('T')[0],
             venue: storesData.find(s => s.id === reservation.store_id)?.name || '店舗情報なし',
-            scenario_id: reservation.scenario_id || undefined,
+            scenario_id: scenarioMasterId || undefined,
             scenario_slug: scenarioInfo?.slug || undefined,
             organization_slug: reservation.organization_id ? orgSlugMap[reservation.organization_id] : undefined,
             key_visual_url: scenarioInfo?.key_visual_url || undefined,
           }
         })
         
-        // 手動登録履歴を取得
+        // 手動登録履歴を取得（scenario_master_id で scenario_masters を JOIN）
         const { data: manualHistory } = await supabase
           .from('manual_play_history')
-          .select('id, scenario_title, played_at, venue, scenario_id, scenarios(key_visual_url, slug, organization_id)')
+          .select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id, scenario_masters:scenario_master_id(key_visual_url)')
           .eq('customer_id', customer.id)
           .order('played_at', { ascending: false })
         
         if (manualHistory) {
           manualHistory.forEach((item: any) => {
+            const master = item.scenario_masters as { key_visual_url?: string } | null
             played.push({
               scenario: item.scenario_title,
               date: item.played_at,
               venue: item.venue || '',
-              scenario_id: item.scenario_id || undefined,
-              scenario_slug: item.scenarios?.slug || undefined,
-              organization_slug: item.scenarios?.organization_id ? orgSlugMap[item.scenarios.organization_id] : undefined,
-              key_visual_url: item.scenarios?.key_visual_url || undefined,
+              scenario_id: (item.scenario_master_id ?? item.scenario_id) || undefined,
+              scenario_slug: (item.scenario_master_id ?? item.scenario_id) || undefined,
+              organization_slug: undefined,
+              key_visual_url: master?.key_visual_url || undefined,
             })
           })
         }

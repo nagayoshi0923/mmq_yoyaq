@@ -124,7 +124,7 @@ export function ReservationDetailPage() {
         .select(`
           id, reservation_number, title, requested_datetime, 
           participant_count, unit_price, final_price, status, payment_status, 
-          notes, scenario_id, store_id, organization_id, created_at, schedule_event_id
+          notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id
         `)
         .eq('id', reservationId)
         // RLSにより「存在しない」と同様に扱われるケースもあるためmaybeSingleで統一
@@ -198,16 +198,58 @@ export function ReservationDetailPage() {
         if (orgData) setOrganization(orgData)
       }
 
-      // シナリオデータを取得
-      if (resData.scenario_id) {
-        const { data: scenarioData } = await supabase
-          .from('scenarios')
-          .select('id, title, slug, key_visual_url, duration, player_count_min, player_count_max')
-          .eq('id', resData.scenario_id)
-          .single()
-        
-        logger.log('Scenario data loaded:', scenarioData)
-        if (scenarioData) setScenario(scenarioData)
+      // シナリオデータを取得（scenario_master_id を優先、organization_scenarios_with_master から取得して slug も取得）
+      const scenarioMasterId = (resData as { scenario_master_id?: string | null }).scenario_master_id ?? resData.scenario_id
+      if (scenarioMasterId) {
+        // organization_id があれば organization_scenarios_with_master から slug 付きで取得
+        if (resData.organization_id) {
+          const { data: viewData } = await supabase
+            .from('organization_scenarios_with_master')
+            .select('id, title, slug, key_visual_url, duration, player_count_min, player_count_max')
+            .eq('id', scenarioMasterId)
+            .eq('organization_id', resData.organization_id)
+            .maybeSingle()
+          if (viewData) {
+            setScenario({ ...viewData, slug: viewData.slug ?? viewData.id })
+            logger.log('Scenario data loaded (view):', viewData)
+          } else {
+            // フォールバック: scenario_masters から取得
+            const { data: scenarioData } = await supabase
+              .from('scenario_masters')
+              .select('id, title, key_visual_url, official_duration, player_count_min, player_count_max')
+              .eq('id', scenarioMasterId)
+              .single()
+            if (scenarioData) {
+              setScenario({
+                id: scenarioData.id,
+                title: scenarioData.title,
+                slug: scenarioData.id,
+                key_visual_url: scenarioData.key_visual_url,
+                duration: scenarioData.official_duration ?? null,
+                player_count_min: scenarioData.player_count_min,
+                player_count_max: scenarioData.player_count_max,
+              })
+            }
+          }
+        } else {
+          // organization_id がない場合: scenario_masters から取得
+          const { data: scenarioData } = await supabase
+            .from('scenario_masters')
+            .select('id, title, key_visual_url, official_duration, player_count_min, player_count_max')
+            .eq('id', scenarioMasterId)
+            .single()
+          if (scenarioData) {
+            setScenario({
+              id: scenarioData.id,
+              title: scenarioData.title,
+              slug: scenarioData.id,
+              key_visual_url: scenarioData.key_visual_url,
+              duration: scenarioData.official_duration ?? null,
+              player_count_min: scenarioData.player_count_min,
+              player_count_max: scenarioData.player_count_max,
+            })
+          }
+        }
       }
     } catch (error) {
       // 列挙ノイズ対策: 例外も同様に扱う

@@ -45,9 +45,9 @@ const calculateParticipationFee = async (
   organizationId?: string
 ): Promise<number> => {
   try {
-    // シナリオの料金設定を取得
+    // シナリオの料金設定を取得（organization_scenarios_with_master: 組織固有の participation_fee）
     let query = supabase
-      .from('scenarios')
+      .from('organization_scenarios_with_master')
       .select('participation_fee, participation_costs')
       .eq('id', scenarioId)
 
@@ -55,7 +55,7 @@ const calculateParticipationFee = async (
       query = query.eq('organization_id', organizationId)
     }
 
-    const { data: scenario, error } = await query.single()
+    const { data: scenario, error } = await query.maybeSingle()
 
     if (error) {
       logger.error('シナリオ料金設定取得エラー:', error)

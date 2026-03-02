@@ -173,7 +173,7 @@ export function ScheduleManager() {
       
       // シナリオリストを取得（名前で定員を検索するため）
       const { data: allScenarios } = await supabase
-        .from('scenarios')
+        .from('scenario_masters')
         .select('title, player_count_max')
       
       const scenarioByTitle = new Map<string, number>()
@@ -311,7 +311,7 @@ export function ScheduleManager() {
       let successCount = 0
       for (const event of events || []) {
         // シナリオJOIN → イベントのmax_participants → capacity → シナリオ名検索 → デフォルト8人
-        const scenarioMax = (event.scenarios as { player_count_max?: number } | null)?.player_count_max
+        const scenarioMax = (event.scenario_masters as { player_count_max?: number } | null)?.player_count_max
         let maxParticipants = scenarioMax || event.max_participants || event.capacity
         
         // JOINが効かなかった場合、シナリオ名で検索
@@ -345,20 +345,23 @@ export function ScheduleManager() {
           // イベントの詳細情報を取得
           const { data: eventDetails } = await supabase
             .from('schedule_events')
-            .select('date, start_time, scenario_id, store_id, gms')
+            .select('date, start_time, scenario_id, scenario_master_id, store_id, gms')
             .eq('id', event.id)
             .single()
           
           if (eventDetails) {
-            // シナリオ情報を取得
+            // シナリオ情報を取得（organization_scenarios_with_masterで組織固有のduration, participation_fee）
+            const scenarioMasterId = eventDetails.scenario_master_id || eventDetails.scenario_id
+            const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
             const { data: scenario } = await supabase
-              .from('scenarios')
-              .select('id, duration, participation_fee')
-              .eq('id', eventDetails.scenario_id)
-              .single()
+              .from('organization_scenarios_with_master')
+              .select('duration, participation_fee')
+              .eq('scenario_master_id', scenarioMasterId)
+              .eq('organization_id', orgId)
+              .limit(1)
+              .maybeSingle()
             
             const participationFee = scenario?.participation_fee || 0
-            const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
             
             // デモ参加者の予約を作成
             const demoReservation = {
@@ -465,8 +468,8 @@ export function ScheduleManager() {
 
   const scenarioMatchesEvent = useCallback((event: any) => {
     if (!selectedScenarioId || !selectedScenarioTitle) return true
-    // 通常公演: JOINされた scenarios.id
-    if (event?.scenarios?.id && String(event.scenarios.id) === String(selectedScenarioId)) {
+    // 通常公演: JOINされた scenario_masters.id
+    if (event?.scenario_masters?.id && String(event.scenario_masters.id) === String(selectedScenarioId)) {
       return true
     }
     // 貸切/フォールバック: タイトルで照合

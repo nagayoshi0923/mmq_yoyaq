@@ -184,24 +184,24 @@ export function ReservationsPage() {
       if (error) throw error
       setReservations(data || [])
 
-      // シナリオの画像を取得
+      // シナリオの画像を取得（scenario_master_id を使用）
       if (data && data.length > 0) {
-        const scenarioIds = data
-          .map(r => r.scenario_id)
+        const scenarioMasterIds = data
+          .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
           .filter((id): id is string => id !== null && id !== undefined)
         
-        if (scenarioIds.length > 0) {
-          const { data: scenarios, error: scenariosError } = await supabase
-            .from('scenarios')
+        if (scenarioMasterIds.length > 0) {
+          const { data: scenarioMasters, error: scenariosError } = await supabase
+            .from('scenario_masters')
             .select('id, key_visual_url, player_count_min, player_count_max')
-            .in('id', scenarioIds)
+            .in('id', scenarioMasterIds)
           
           if (scenariosError) {
             logger.error('シナリオ画像取得エラー:', scenariosError)
-          } else if (scenarios) {
+          } else if (scenarioMasters) {
             const imageMap: Record<string, string> = {}
             const scenarioInfoMap: Record<string, { min: number; max: number }> = {}
-            scenarios.forEach(s => {
+            scenarioMasters.forEach(s => {
               if (s.key_visual_url) {
                 imageMap[s.id] = s.key_visual_url
               }
@@ -329,7 +329,8 @@ export function ReservationsPage() {
       return null
     }
     
-    const scenarioData = reservation.scenario_id ? scenarioInfo[reservation.scenario_id] : null
+    const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+    const scenarioData = scenarioMasterId ? scenarioInfo[scenarioMasterId] : null
     const current = scheduleEvent?.current_participants || 0
     const max = scheduleEvent?.max_participants || scenarioData?.max || 8
     const min = scenarioData?.min || 1
@@ -549,13 +550,15 @@ export function ReservationsPage() {
         pricePerPerson = Math.round((editTarget.base_price || 0) / oldCount)
       }
       
-      if (!pricePerPerson && editTarget.scenario_id) {
-        // それでもない場合はシナリオから取得（フォールバック）
+      if (!pricePerPerson && (editTarget as { scenario_master_id?: string | null }).scenario_master_id) {
+        // それでもない場合は organization_scenarios_with_master から取得（フォールバック）
+        const scenarioMasterId = (editTarget as { scenario_master_id?: string | null }).scenario_master_id
         const { data: scenarioData } = await supabase
-          .from('scenarios')
+          .from('organization_scenarios_with_master')
           .select('participation_fee')
-          .eq('id', editTarget.scenario_id)
-          .single()
+          .eq('id', scenarioMasterId)
+          .eq('organization_id', editTarget.organization_id)
+          .maybeSingle()
         
         if (scenarioData?.participation_fee) {
           pricePerPerson = scenarioData.participation_fee
@@ -654,7 +657,8 @@ export function ReservationsPage() {
 
   // 日程変更処理
   const handleDateChangeClick = async (reservation: Reservation) => {
-    if (!reservation.scenario_id) {
+    const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+    if (!scenarioMasterId) {
       toast.error('シナリオ情報がありません')
       return
     }
@@ -673,7 +677,7 @@ export function ReservationsPage() {
           id, date, start_time, end_time, max_participants, current_participants,
           stores:store_id (id, name)
         `)
-        .eq('scenario_id', reservation.scenario_id)
+        .eq('scenario_master_id', scenarioMasterId)
         .gte('date', today)
         .eq('is_cancelled', false)
         .neq('id', reservation.schedule_event_id || '')
@@ -885,9 +889,11 @@ export function ReservationsPage() {
                     <div className="flex items-start gap-3 mb-3">
                       {/* シナリオ画像 */}
                       <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
-                        {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
+                        {(() => {
+                          const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+                          return scenarioMasterId && scenarioImages[scenarioMasterId] ? (
                           <OptimizedImage
-                            src={scenarioImages[reservation.scenario_id]}
+                            src={scenarioImages[scenarioMasterId]}
                             alt={reservation.title}
                             className="w-full h-full object-cover"
                             responsive={true}
@@ -905,7 +911,8 @@ export function ReservationsPage() {
                           <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
                             No Image
                           </div>
-                        )}
+                        )
+                        })()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -977,7 +984,7 @@ export function ReservationsPage() {
                           <Users className="h-4 w-4 mr-1" />
                           人数変更
                         </Button>
-                        {reservation.scenario_id && reservation.schedule_event_id && (
+                        {((reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id) && reservation.schedule_event_id && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -1200,27 +1207,30 @@ export function ReservationsPage() {
                   <div className="flex items-start gap-3 mb-3">
                     {/* シナリオ画像 */}
                     <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
-                      {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
-                        <OptimizedImage
-                          src={scenarioImages[reservation.scenario_id]}
-                          alt={reservation.title}
-                          className="w-full h-full object-cover"
-                          responsive={true}
-                          srcSetSizes={[48, 96, 192]}
-                          breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
-                          useWebP={true}
-                          quality={85}
-                          fallback={
-                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                              No Image
-                            </div>
-                          }
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                          No Image
-                        </div>
-                      )}
+                      {(() => {
+                        const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+                        return scenarioMasterId && scenarioImages[scenarioMasterId] ? (
+                          <OptimizedImage
+                            src={scenarioImages[scenarioMasterId]}
+                            alt={reservation.title}
+                            className="w-full h-full object-cover"
+                            responsive={true}
+                            srcSetSizes={[48, 96, 192]}
+                            breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
+                            useWebP={true}
+                            quality={85}
+                            fallback={
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                No Image
+                              </div>
+                            }
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                            No Image
+                          </div>
+                        )
+                      })()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">

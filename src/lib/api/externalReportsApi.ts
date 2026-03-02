@@ -243,14 +243,21 @@ export async function getLicensePerformanceSummary(
 
 /**
  * 管理シナリオ一覧を取得（報告フォーム用）
+ * organization_scenarios_with_master を使用（組織固有の license_amount を含む）
  */
 export async function getManagedScenarios(): Promise<Array<{ id: string; title: string; author: string; license_amount: number }>> {
-  const { data, error } = await supabase
-    .from('scenarios')
+  const orgId = await getCurrentOrganizationId()
+  let query = supabase
+    .from('organization_scenarios_with_master')
     .select('id, title, author, license_amount')
-    .eq('scenario_type', 'managed')
     .eq('status', 'available')
     .order('title')
+
+  if (orgId) {
+    query = query.eq('organization_id', orgId)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     logger.error('Failed to fetch managed scenarios:', error)

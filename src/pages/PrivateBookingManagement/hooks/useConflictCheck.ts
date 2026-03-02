@@ -136,7 +136,8 @@ export const useConflictCheck = () => {
           const endDateTime = new Date(datetime.getTime() + durationMinutes * 60 * 1000)
           const endTime = endDateTime.toTimeString().substring(0, 5)
           
-          const scenarioTitle = (reservation.scenarios as { title?: string } | null)?.title || reservation.title || '貸切予約'
+          const scenarioMasters = reservation.scenario_masters as Array<{ title?: string }> | null
+          const scenarioTitle = scenarioMasters?.[0]?.title || reservation.title || '貸切予約'
           
           existingEventsList.push({
             id: reservation.id,

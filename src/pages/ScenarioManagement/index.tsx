@@ -246,9 +246,9 @@ export function ScenarioManagement() {
         return
       }
 
-      // データベースを更新
+      // データベースを更新（key_visual_url は scenario_masters に保存）
       const { error } = await supabase
-        .from('scenarios')
+        .from('scenario_masters')
         .update({ key_visual_url: result.url })
         .eq('id', scenario.id)
 
@@ -278,9 +278,9 @@ export function ScenarioManagement() {
     if (!confirm('画像を削除しますか？')) return
 
     try {
-      // データベースを更新
+      // データベースを更新（key_visual_url は scenario_masters に保存）
       const { error } = await supabase
-        .from('scenarios')
+        .from('scenario_masters')
         .update({ key_visual_url: null })
         .eq('id', scenario.id)
 

@@ -164,7 +164,7 @@ export function PlatformTop() {
       const { data: eventData, error: eventError } = await supabase
         .from('schedule_events')
         .select(`
-          id, date, time_slot, current_participants, start_time, category, is_reservation_enabled, is_cancelled,
+          id, date, time_slot, current_participants, start_time, category, is_reservation_enabled, is_cancelled, organization_id,
           scenario_masters:scenario_master_id!inner (id, title, key_visual_url, player_count_min, player_count_max, official_duration, author, genre),
           stores:store_id (id, name, short_name, color, region)
         `)
@@ -184,17 +184,23 @@ export function PlatformTop() {
         const scenarioMap: Record<string, ScenarioWithEvents> = {}
         
         eventData.forEach(e => {
-          const scenario = e.scenarios as unknown as { 
-            id: string; title: string; status: string; organization_id: string; 
-            key_visual_url?: string | null; genre?: string[]; slug?: string;
+          const scenarioArr = e.scenario_masters as unknown as Array<{ 
+            id: string; title: string; 
+            key_visual_url?: string | null; genre?: string[];
             author?: string; player_count_min: number; player_count_max: number;
-            duration: number; scenario_type?: string; scenario_master_id?: string | null
-          } | null
+            official_duration: number
+          }> | null
+          const scenario = scenarioArr && scenarioArr[0] ? {
+            ...scenarioArr[0],
+            duration: scenarioArr[0].official_duration,
+            status: 'available' as const,
+            organization_id: e.organization_id || ''
+          } : null
           const store = e.stores as unknown as { id: string; name: string; short_name?: string; color?: string; region?: string } | null
           
           // 基本チェック
-          if (!scenario || !store || scenario.status !== 'available') return
-          if (!scenario.organization_id || !orgMap[scenario.organization_id]) return
+          if (!scenario || !store) return
+          if (!e.organization_id || !orgMap[e.organization_id]) return
 
           // 今日の公演で開始時間を過ぎたものは除外
           const nowForFilter = new Date()
@@ -207,26 +213,25 @@ export function PlatformTop() {
             }
           }
           
-          // GMテストを除外
-          if (scenario.scenario_type === 'gm_test') return
-          
           // 予約無効のイベントを除外
           if (e.is_reservation_enabled === false) return
           
           // 🔐 マスタ未登録または未承認のシナリオを除外
-          // scenario_master_id がない、または承認済みマスタIDセットに含まれないものは非表示
-          if (!scenario.scenario_master_id || !approvedMasterIds.has(scenario.scenario_master_id)) {
+          // scenario.id は scenario_master_id と同じ（JOINした結果）
+          if (!approvedMasterIds.has(scenario.id)) {
             return
           }
           
-          const org = orgMap[scenario.organization_id]
+          const org = orgMap[e.organization_id || '']
+          if (!org) return
+          
           const scenarioKey = scenario.id
           
           if (!scenarioMap[scenarioKey]) {
             scenarioMap[scenarioKey] = {
               scenario_id: scenario.id,
               scenario_title: scenario.title,
-              scenario_slug: scenario.slug,
+              scenario_slug: scenario.id, // scenario_masters には slug がないため id を使用
               key_visual_url: scenario.key_visual_url,
               author: scenario.author || '',
               player_count_min: scenario.player_count_min,

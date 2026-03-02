@@ -37,6 +37,7 @@ import type { PrivateBookingRequest } from './hooks/usePrivateBookingData'
 import { useBookingRequests } from './hooks/useBookingRequests'
 import { useBookingApproval } from './hooks/useBookingApproval'
 import { useStoreAndGMManagement } from './hooks/useStoreAndGMManagement'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
 
 // ユーティリティ
@@ -139,14 +140,18 @@ export function PrivateBookingManagement() {
   // シナリオの対応店舗と担当GMを取得
   useEffect(() => {
     const loadScenarioData = async () => {
-      if (selectedRequest?.scenario_id) {
+      const scenarioId = (selectedRequest as any)?.scenario_master_id ?? selectedRequest?.scenario_id
+      if (scenarioId) {
         try {
-          // 対応店舗とscenario_master_idを取得
+          // 対応店舗とscenario_master_idを取得（organization_scenarios_with_masterで組織固有のavailable_stores）
+          const orgId = await getCurrentOrganizationId()
           const { data: scenarioData, error } = await supabase
-            .from('scenarios')
+            .from('organization_scenarios_with_master')
             .select('available_stores, scenario_master_id')
-            .eq('id', selectedRequest.scenario_id)
-            .single()
+            .eq('scenario_master_id', scenarioId)
+            .eq('organization_id', orgId)
+            .limit(1)
+            .maybeSingle()
           
           if (error) {
             logger.error('シナリオ対応店舗取得エラー:', error)
@@ -157,7 +162,7 @@ export function PrivateBookingManagement() {
           
           // 担当GMを取得（staff_scenario_assignmentsテーブルを使用）
           // scenario_idはscenario_master_idを参照している
-          const masterId = scenarioData?.scenario_master_id
+          const masterId = scenarioData?.scenario_master_id ?? scenarioId
           if (masterId) {
             const { data: assignmentData, error: assignmentError } = await supabase
               .from('staff_scenario_assignments')
@@ -186,7 +191,7 @@ export function PrivateBookingManagement() {
     }
     
     loadScenarioData()
-  }, [selectedRequest?.scenario_id])
+  }, [(selectedRequest as any)?.scenario_master_id ?? selectedRequest?.scenario_id])
 
   // シナリオ対応店舗でフィルタリングした店舗リスト
   const filteredStores = useMemo(() => {

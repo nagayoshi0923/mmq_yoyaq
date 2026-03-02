@@ -71,7 +71,7 @@ export function PlayedScenariosPage() {
       // 予約を取得
       const { data: reservations, error: reservationsError } = await supabase
         .from('reservations')
-        .select('requested_datetime, title, scenario_id')
+        .select('requested_datetime, title, scenario_id, scenario_master_id')
         .eq('customer_id', customer.id)
         .eq('status', 'confirmed')
         .lte('requested_datetime', new Date().toISOString())
@@ -97,13 +97,14 @@ export function PlayedScenariosPage() {
             .eq('scenario', reservation.title)
             .maybeSingle()
 
-          // シナリオの画像を取得
+          // シナリオの画像を取得（scenario_master_id を優先、scenario_masters から）
           let keyVisualUrl = null
-          if (reservation.scenario_id) {
+          const scenarioMasterId = (reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id
+          if (scenarioMasterId) {
             const { data: scenarioData } = await supabase
-              .from('scenarios')
+              .from('scenario_masters')
               .select('key_visual_url')
-              .eq('id', reservation.scenario_id)
+              .eq('id', scenarioMasterId)
               .maybeSingle()
             keyVisualUrl = scenarioData?.key_visual_url
           }
@@ -114,7 +115,7 @@ export function PlayedScenariosPage() {
               date: event.date,
               venue: event.venue,
               gms: event.gms || [],
-              scenario_id: reservation.scenario_id || undefined,
+              scenario_id: ((reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id) || undefined,
               key_visual_url: keyVisualUrl,
             })
           } else {
@@ -124,7 +125,7 @@ export function PlayedScenariosPage() {
               date: dateStr,
               venue: '店舗不明',
               gms: [],
-              scenario_id: reservation.scenario_id || undefined,
+              scenario_id: ((reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id) || undefined,
               key_visual_url: keyVisualUrl,
             })
           }

@@ -119,11 +119,11 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     likesCountResult,
     eventsResult
   ] = await Promise.all([
-    // 1. シナリオ取得
+    // 1. シナリオ取得（organization_scenarios_with_master: 基本情報 + 組織固有設定）
     (async () => {
       try {
         let query = supabase
-          .from('scenarios')
+          .from('organization_scenarios_with_master')
           .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id, scenario_master_id, is_recommended')
           .in('status', ['available', 'unavailable'])
           .neq('scenario_type', 'gm_test')
@@ -199,6 +199,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
             date,
             start_time,
             end_time,
+            scenario_master_id,
             scenario_id,
             scenario,
             store_id,
@@ -340,7 +341,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   
   // イベントを加工
   const enrichedEvents = publicEvents.map((event: any) => {
-    const scenarioFromMap = scenarioDataMap.get(event.scenario_id) || 
+    const scenarioFromMap = scenarioDataMap.get(event.scenario_master_id) || 
+                            scenarioDataMap.get(event.scenario_id) || 
                             scenarioDataMap.get(event.scenario)
     
     const player_count_max = scenarioFromMap?.player_count_max || 8
@@ -365,7 +367,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   const eventsByScenarioTitle = new Map<string, any[]>()
   
   enrichedEvents.forEach((event: any) => {
-    const scenarioId = event.scenario_id
+    const scenarioId = event.scenario_master_id || event.scenario_id
     if (scenarioId) {
       if (!eventsByScenarioId.has(scenarioId)) {
         eventsByScenarioId.set(scenarioId, [])

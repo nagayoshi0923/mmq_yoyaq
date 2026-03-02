@@ -212,7 +212,7 @@ export const staffApi = {
     // スタッフ情報を取得
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
-      .select('name')
+      .select('name, organization_id')
       .eq('id', id)
       .single()
     
@@ -229,10 +229,11 @@ export const staffApi = {
     
     if (updateError) throw updateError
 
-    // 全シナリオを取得して、各シナリオのavailable_gmsを更新
+    // 組織のシナリオを取得して、各シナリオのavailable_gmsを更新
     const { data: allScenarios, error: scenariosError } = await supabase
-      .from('scenarios')
-      .select('id, available_gms')
+      .from('organization_scenarios')
+      .select('id, scenario_master_id, available_gms')
+      .eq('organization_id', staffData.organization_id)
     
     if (scenariosError) throw scenariosError
 
@@ -241,24 +242,22 @@ export const staffApi = {
       const currentGms = scenario.available_gms || []
       const staffName = staffData.name
       
-      // このシナリオが担当シナリオに含まれているかチェック
-      const isAssigned = specialScenarios.includes(scenario.id)
+      // specialScenarios には scenario_master_id が含まれる
+      const isAssigned = specialScenarios.includes(scenario.scenario_master_id)
       const isCurrentlyAssigned = currentGms.includes(staffName)
       
       let newGms = [...currentGms]
       
       if (isAssigned && !isCurrentlyAssigned) {
-        // 担当シナリオに追加された場合、available_gmsに追加
         newGms.push(staffName)
       } else if (!isAssigned && isCurrentlyAssigned) {
-        // 担当シナリオから削除された場合、available_gmsから削除
         newGms = newGms.filter(gm => gm !== staffName)
       }
       
       // 変更がある場合のみ更新
       if (JSON.stringify(newGms.sort()) !== JSON.stringify(currentGms.sort())) {
         return supabase
-          .from('scenarios')
+          .from('organization_scenarios')
           .update({ available_gms: newGms })
           .eq('id', scenario.id)
       }
@@ -266,7 +265,6 @@ export const staffApi = {
       return Promise.resolve()
     }) || []
 
-    // 全てのシナリオ更新を実行
     await Promise.all(updatePromises)
 
     return updatedStaff

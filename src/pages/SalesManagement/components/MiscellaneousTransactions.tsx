@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MonthSwitcher } from '@/components/patterns/calendar/MonthSwitcher'
 import { Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrganization } from '@/hooks/useOrganization'
 
 interface Transaction {
   id?: string
@@ -45,6 +46,7 @@ interface MiscellaneousTransactionsProps {
  * 公演に含まれない収入・支出を管理
  */
 export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps> = ({ stores }) => {
+  const { organizationId } = useOrganization()
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0, 0)
@@ -70,13 +72,15 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
   // フランチャイズ店舗
   const franchiseStores = stores.filter(s => s.ownership_type === 'franchise')
   
-  // シナリオを読み込み
+  // シナリオを読み込み（organization_scenarios_with_master から組織のシナリオを取得）
   useEffect(() => {
     const loadScenarios = async () => {
+      if (!organizationId) return
       try {
         const { data, error } = await supabase
-          .from('scenarios')
+          .from('organization_scenarios_with_master')
           .select('id, title, author')
+          .eq('organization_id', organizationId)
           .order('title', { ascending: true })
         
         if (error) throw error
@@ -87,7 +91,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     }
     
     loadScenarios()
-  }, [])
+  }, [organizationId])
   
   // 月の範囲を計算
   const getMonthRange = (date: Date) => {

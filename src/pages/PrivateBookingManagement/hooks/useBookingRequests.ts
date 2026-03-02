@@ -46,30 +46,15 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
           .single()
         
         if (staffData) {
-          // 担当シナリオのIDを取得（scenario_master_id → scenarios.id に変換）
-          // staff_scenario_assignments.scenario_id は scenario_master_id を参照するが、
-          // reservations.scenario_id は scenarios.id を参照するため、変換が必要
+          // 担当シナリオのIDを取得（staff_scenario_assignments.scenario_id = scenario_master_id）
           const { data: assignments } = await supabase
             .from('staff_scenario_assignments')
             .select('scenario_id')
             .eq('staff_id', staffData.id)
           
           if (assignments && assignments.length > 0) {
-            const masterIds = assignments.map(a => a.scenario_id)
-            
-            // scenario_master_id → scenarios.id に変換
-            const { data: scenarioRows } = await supabase
-              .from('scenarios')
-              .select('id')
-              .in('scenario_master_id', masterIds)
-            
-            // scenarios.id のリスト + 元の master_id も含める（一致するケースに対応）
-            const scenarioIdSet = new Set<string>(masterIds)
-            if (scenarioRows) {
-              scenarioRows.forEach(s => scenarioIdSet.add(s.id))
-            }
-            
-            allowedScenarioIds = Array.from(scenarioIdSet)
+            // scenario_id は scenario_master_id を参照
+            allowedScenarioIds = assignments.map(a => a.scenario_id)
             logger.log(`✅ ${allowedScenarioIds.length}件の担当シナリオを検出`)
           } else {
             logger.log('⚠️ 担当シナリオなし - 空の結果を返します')
@@ -101,7 +86,7 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
           setLoading(false)
           return
         }
-        query = query.in('scenario_id', allowedScenarioIds)
+        query = query.in('scenario_master_id', allowedScenarioIds)
       }
 
       // タブによってフィルター
@@ -131,8 +116,8 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
           return {
             id: req.id,
             reservation_number: req.reservation_number || '',
-            scenario_id: req.scenario_id,
-            scenario_title: req.scenarios?.title || req.title || 'シナリオ名不明',
+            scenario_master_id: req.scenario_master_id,
+            scenario_title: req.scenario_masters?.title || req.title || 'シナリオ名不明',
             customer_name: req.customers?.name || '顧客名不明',
             customer_email: req.customer_email || '',
             customer_phone: req.customers?.phone || req.customer_phone || '',
