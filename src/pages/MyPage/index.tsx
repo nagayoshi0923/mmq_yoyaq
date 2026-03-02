@@ -174,17 +174,17 @@ export default function MyPage() {
   }, [user])
 
   // シナリオと店舗の選択肢を取得
-  // 顧客は全組織のシナリオ/店舗を利用可能（RLSで公開シナリオのみ取得）
+  // 顧客は全組織のシナリオ/店舗を利用可能
+  // シナリオはscenario_mastersテーブルから取得（承認済みのみ）
   useEffect(() => {
     const fetchOptions = async () => {
       setOptionsLoading(true)
       try {
-        // シナリオを取得（アクティブなもののみ）
-        // RLSにより顧客は status='available' のシナリオのみ取得可能
+        // シナリオマスタを取得（承認済みのみ）
         const { data: scenarios, error: scenarioError } = await supabase
-          .from('scenarios')
+          .from('scenario_masters')
           .select('id, title')
-          .eq('is_active', true)
+          .eq('master_status', 'approved')
           .order('title')
         
         if (scenarioError) throw scenarioError
@@ -486,12 +486,14 @@ export default function MyPage() {
       const selectedStore = storeOptions.find(s => s.id === newStoreId)
       const storeName = selectedStore?.name || null
 
+      // NOTE: scenario_idはscenariosテーブル参照だが、scenario_mastersからの選択なのでnullにする
+      // タイトルは保持されるので、表示には問題なし
       const { error } = await supabase
         .from('manual_play_history')
         .insert({
           customer_id: customerId,
           scenario_title: scenarioTitle,
-          scenario_id: newScenarioId,
+          scenario_id: null,
           played_at: newPlayedAt,
           venue: storeName,
         })
