@@ -58,12 +58,13 @@ interface LikedScenario {
 
 export function AlbumPage() {
   const { user } = useAuth()
-  const { organizationId } = useOrganization()
+  const { organizationId: staffOrgId } = useOrganization()
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
   const [likedScenariosList, setLikedScenariosList] = useState<LikedScenario[]>([])
   const [hiddenScenarios, setHiddenScenarios] = useState<Set<string>>(new Set())
   const [likedScenarios, setLikedScenarios] = useState<Set<string>>(new Set())
   const [customerId, setCustomerId] = useState<string | null>(null)
+  const [customerOrgId, setCustomerOrgId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   
   // 手動登録用ステート
@@ -86,22 +87,30 @@ export function AlbumPage() {
   }, [user])
 
   // シナリオと店舗の選択肢を取得
+  // 顧客の組織IDを優先、なければスタッフの組織ID、それもなければ全体から取得
+  const effectiveOrgId = customerOrgId || staffOrgId
+  
   useEffect(() => {
     const fetchOptions = async () => {
       setOptionsLoading(true)
       try {
         // シナリオを取得（アクティブなもののみ）
+        // RLSにより顧客は status='available' のシナリオのみ取得可能
+        // 組織IDがある場合はその組織のシナリオに限定、なければRLSで許可された全シナリオ
         let scenarioQuery = supabase
           .from('scenarios')
           .select('id, title')
           .eq('is_active', true)
           .order('title')
-        if (organizationId) {
-          scenarioQuery = scenarioQuery.eq('organization_id', organizationId)
+        
+        if (effectiveOrgId) {
+          scenarioQuery = scenarioQuery.eq('organization_id', effectiveOrgId)
         }
+        
         const { data: scenarios, error: scenarioError } = await scenarioQuery
         
         if (scenarioError) throw scenarioError
+        logger.log('取得したシナリオ:', scenarios?.length, '件', 'orgId:', effectiveOrgId)
         setScenarioOptions(scenarios || [])
 
         // 店舗を取得
@@ -109,9 +118,11 @@ export function AlbumPage() {
           .from('stores')
           .select('id, name')
           .order('name')
-        if (organizationId) {
-          storeQuery = storeQuery.eq('organization_id', organizationId)
+        
+        if (effectiveOrgId) {
+          storeQuery = storeQuery.eq('organization_id', effectiveOrgId)
         }
+        
         const { data: stores, error: storeError } = await storeQuery
         
         if (storeError) throw storeError
@@ -124,17 +135,17 @@ export function AlbumPage() {
     }
 
     fetchOptions()
-  }, [organizationId])
+  }, [effectiveOrgId])
 
   const fetchPlayedScenarios = async () => {
     if (!user?.email) return
 
     setLoading(true)
     try {
-      // 顧客情報を取得
+      // 顧客情報を取得（organization_idも取得）
       const { data: customer, error: customerError } = await supabase
         .from('customers')
-        .select('id, name')
+        .select('id, name, organization_id')
         .eq('email', user.email)
         .maybeSingle()
 
@@ -148,6 +159,7 @@ export function AlbumPage() {
 
       logger.log('取得した顧客情報:', customer)
       setCustomerId(customer.id)
+      setCustomerOrgId(customer.organization_id || null)
 
       // いいね済みシナリオを取得
       const { data: likes } = await supabase
@@ -445,7 +457,7 @@ export function AlbumPage() {
           .insert({
             customer_id: customerId,
             scenario_id: scenarioId,
-            organization_id: organizationId,
+            organization_id: effectiveOrgId,
           })
 
         if (error) throw error
@@ -544,17 +556,21 @@ export function AlbumPage() {
                   <Select
                     value={newScenarioId}
                     onValueChange={setNewScenarioId}
-                    disabled={optionsLoading}
+                    disabled={optionsLoading || scenarioOptions.length === 0}
                   >
                     <SelectTrigger className="h-10 text-sm">
-                      <SelectValue placeholder={optionsLoading ? '読み込み中...' : 'シナリオを選択'} />
+                      <SelectValue placeholder={optionsLoading ? '読み込み中...' : scenarioOptions.length === 0 ? 'シナリオがありません' : 'シナリオを選択'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {scenarioOptions.map((scenario) => (
-                        <SelectItem key={scenario.id} value={scenario.id} className="text-sm">
-                          {scenario.title}
-                        </SelectItem>
-                      ))}
+                      {scenarioOptions.length === 0 ? (
+                        <div className="py-2 px-3 text-sm text-muted-foreground">シナリオがありません</div>
+                      ) : (
+                        scenarioOptions.map((scenario) => (
+                          <SelectItem key={scenario.id} value={scenario.id} className="text-sm">
+                            {scenario.title}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -571,17 +587,21 @@ export function AlbumPage() {
                   <Select
                     value={newStoreId}
                     onValueChange={setNewStoreId}
-                    disabled={optionsLoading}
+                    disabled={optionsLoading || storeOptions.length === 0}
                   >
                     <SelectTrigger className="h-10 text-sm">
-                      <SelectValue placeholder={optionsLoading ? '読み込み中...' : '店舗を選択'} />
+                      <SelectValue placeholder={optionsLoading ? '読み込み中...' : storeOptions.length === 0 ? '店舗がありません' : '店舗を選択'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {storeOptions.map((store) => (
-                        <SelectItem key={store.id} value={store.id} className="text-sm">
-                          {store.name}
-                        </SelectItem>
-                      ))}
+                      {storeOptions.length === 0 ? (
+                        <div className="py-2 px-3 text-sm text-muted-foreground">店舗がありません</div>
+                      ) : (
+                        storeOptions.map((store) => (
+                          <SelectItem key={store.id} value={store.id} className="text-sm">
+                            {store.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

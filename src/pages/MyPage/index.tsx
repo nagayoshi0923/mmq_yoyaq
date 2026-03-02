@@ -49,7 +49,7 @@ const menuItems = [
 
 export default function MyPage() {
   const { user } = useAuth()
-  const { organizationId } = useOrganization()
+  const { organizationId: staffOrgId } = useOrganization()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<string>('reservations')
   
@@ -72,6 +72,7 @@ export default function MyPage() {
   const [stats, setStats] = useState({ participationCount: 0, points: 0 })
   const [customerInfo, setCustomerInfo] = useState<{ name?: string; nickname?: string } | null>(null)
   const [customerId, setCustomerId] = useState<string | null>(null)
+  const [customerOrgId, setCustomerOrgId] = useState<string | null>(null)
   
   // 手動登録用ステート
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -174,19 +175,26 @@ export default function MyPage() {
   }, [user])
 
   // シナリオと店舗の選択肢を取得
+  // 顧客の組織IDを優先、なければスタッフの組織ID、それもなければ全体から取得
+  const effectiveOrgId = customerOrgId || staffOrgId
+  
   useEffect(() => {
     const fetchOptions = async () => {
       setOptionsLoading(true)
       try {
         // シナリオを取得（アクティブなもののみ）
+        // RLSにより顧客は status='available' のシナリオのみ取得可能
+        // 組織IDがある場合はその組織のシナリオに限定、なければRLSで許可された全シナリオ
         let scenarioQuery = supabase
           .from('scenarios')
           .select('id, title')
           .eq('is_active', true)
           .order('title')
-        if (organizationId) {
-          scenarioQuery = scenarioQuery.eq('organization_id', organizationId)
+        
+        if (effectiveOrgId) {
+          scenarioQuery = scenarioQuery.eq('organization_id', effectiveOrgId)
         }
+        
         const { data: scenarios, error: scenarioError } = await scenarioQuery
         
         if (scenarioError) throw scenarioError
@@ -197,13 +205,15 @@ export default function MyPage() {
           .from('stores')
           .select('id, name')
           .order('name')
-        if (organizationId) {
-          storeQuery = storeQuery.eq('organization_id', organizationId)
+        
+        if (effectiveOrgId) {
+          storeQuery = storeQuery.eq('organization_id', effectiveOrgId)
         }
-        const { data: stores, error: storeError } = await storeQuery
+        
+        const { data: storesData, error: storeError } = await storeQuery
         
         if (storeError) throw storeError
-        setStoreOptions(stores || [])
+        setStoreOptions(storesData || [])
       } catch (error) {
         logger.error('オプション取得エラー:', error)
       } finally {
@@ -212,7 +222,7 @@ export default function MyPage() {
     }
 
     fetchOptions()
-  }, [organizationId])
+  }, [effectiveOrgId])
 
   const fetchData = async () => {
     if (!user?.email) return
@@ -225,7 +235,7 @@ export default function MyPage() {
       // まずuser_idで検索
       const { data: customerByUserId } = await supabase
         .from('customers')
-        .select('id, name, nickname, avatar_url, user_id')
+        .select('id, name, nickname, avatar_url, user_id, organization_id')
         .eq('user_id', user.id)
         .maybeSingle()
 
@@ -235,7 +245,7 @@ export default function MyPage() {
         // user_idで見つからない場合、emailで検索（大文字/小文字を区別しない）
         const { data: customerByEmail, error: emailError } = await supabase
           .from('customers')
-          .select('id, name, nickname, avatar_url, user_id')
+          .select('id, name, nickname, avatar_url, user_id, organization_id')
           .ilike('email', user.email)
           .maybeSingle()
         
@@ -265,6 +275,7 @@ export default function MyPage() {
       // 顧客情報をセット
       setCustomerInfo({ name: customer.name, nickname: customer.nickname })
       setCustomerId(customer.id)
+      setCustomerOrgId(customer.organization_id || null)
       // アバター画像をセット
       if (customer.avatar_url) {
         setAvatarUrl(customer.avatar_url)
@@ -945,17 +956,21 @@ export default function MyPage() {
                             <Select
                               value={newScenarioId}
                               onValueChange={setNewScenarioId}
-                              disabled={optionsLoading}
+                              disabled={optionsLoading || scenarioOptions.length === 0}
                             >
                               <SelectTrigger className="h-10 text-sm">
-                                <SelectValue placeholder={optionsLoading ? '読み込み中...' : 'シナリオを選択'} />
+                                <SelectValue placeholder={optionsLoading ? '読み込み中...' : scenarioOptions.length === 0 ? 'シナリオがありません' : 'シナリオを選択'} />
                               </SelectTrigger>
                               <SelectContent>
-                                {scenarioOptions.map((scenario) => (
-                                  <SelectItem key={scenario.id} value={scenario.id} className="text-sm">
-                                    {scenario.title}
-                                  </SelectItem>
-                                ))}
+                                {scenarioOptions.length === 0 ? (
+                                  <div className="py-2 px-3 text-sm text-muted-foreground">シナリオがありません</div>
+                                ) : (
+                                  scenarioOptions.map((scenario) => (
+                                    <SelectItem key={scenario.id} value={scenario.id} className="text-sm">
+                                      {scenario.title}
+                                    </SelectItem>
+                                  ))
+                                )}
                               </SelectContent>
                             </Select>
                           </div>
@@ -972,17 +987,21 @@ export default function MyPage() {
                             <Select
                               value={newStoreId}
                               onValueChange={setNewStoreId}
-                              disabled={optionsLoading}
+                              disabled={optionsLoading || storeOptions.length === 0}
                             >
                               <SelectTrigger className="h-10 text-sm">
-                                <SelectValue placeholder={optionsLoading ? '読み込み中...' : '店舗を選択'} />
+                                <SelectValue placeholder={optionsLoading ? '読み込み中...' : storeOptions.length === 0 ? '店舗がありません' : '店舗を選択'} />
                               </SelectTrigger>
                               <SelectContent>
-                                {storeOptions.map((store) => (
-                                  <SelectItem key={store.id} value={store.id} className="text-sm">
-                                    {store.name}
-                                  </SelectItem>
-                                ))}
+                                {storeOptions.length === 0 ? (
+                                  <div className="py-2 px-3 text-sm text-muted-foreground">店舗がありません</div>
+                                ) : (
+                                  storeOptions.map((store) => (
+                                    <SelectItem key={store.id} value={store.id} className="text-sm">
+                                      {store.name}
+                                    </SelectItem>
+                                  ))
+                                )}
                               </SelectContent>
                             </Select>
                           </div>
