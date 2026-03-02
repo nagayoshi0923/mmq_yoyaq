@@ -60,7 +60,7 @@ export function useReservationData(filters: Filters, pagination: Pagination) {
         .from('reservations')
         .select(`
           *,
-          scenarios:scenario_id (title),
+          scenario_masters:scenario_master_id (title),
           stores:store_id (name)
         `, { count: 'exact' })
       

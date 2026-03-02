@@ -165,7 +165,7 @@ export function PlatformTop() {
         .from('schedule_events')
         .select(`
           id, date, time_slot, current_participants, start_time, category, is_reservation_enabled, is_cancelled,
-          scenarios:scenario_id!inner (id, title, slug, key_visual_url, player_count_min, player_count_max, duration, author, organization_id, status, scenario_type, scenario_master_id),
+          scenario_masters:scenario_master_id!inner (id, title, key_visual_url, player_count_min, player_count_max, official_duration, author, genre),
           stores:store_id (id, name, short_name, color, region)
         `)
         .gte('date', today)

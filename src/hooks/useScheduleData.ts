@@ -785,7 +785,7 @@ export function useScheduleData(currentDate: Date) {
             candidate_datetimes,
             participant_count,
             schedule_event_id,
-            scenarios:scenario_id (
+            scenario_masters:scenario_master_id (
               title,
               player_count_max
             ),
@@ -1163,7 +1163,7 @@ export function useScheduleData(currentDate: Date) {
           candidate_datetimes,
           participant_count,
           schedule_event_id,
-          scenarios:scenario_id (
+          scenario_masters:scenario_master_id (
             title,
             player_count_max
           ),

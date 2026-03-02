@@ -46,7 +46,7 @@ export async function getMyExternalReports(): Promise<ExternalPerformanceReport[
     .from('external_performance_reports')
     .select(`
       *,
-      scenarios:scenario_id (id, title, author),
+      scenario_masters:scenario_master_id (id, title, author),
       reporter:reported_by (id, name),
       reviewer:reviewed_by (id, name)
     `)
@@ -82,7 +82,7 @@ export async function getAllExternalReports(
     .from('external_performance_reports')
     .select(`
       *,
-      scenarios:scenario_id (id, title, author),
+      scenario_masters:scenario_master_id (id, title, author),
       organizations:organization_id (id, name, slug),
       reporter:reported_by (id, name),
       reviewer:reviewed_by (id, name)

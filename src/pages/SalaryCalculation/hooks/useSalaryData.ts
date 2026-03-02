@@ -74,10 +74,9 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
           gm_roles,
           category,
           stores:store_id (name),
-          scenarios:scenario_id (
+          scenario_masters:scenario_master_id (
             title,
-            gm_assignments,
-            duration
+            official_duration
           )
         `)
         .gte('date', startStr)

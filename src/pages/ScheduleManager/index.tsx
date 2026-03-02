@@ -186,7 +186,7 @@ export function ScheduleManager() {
       // まず対象のイベントを取得（シナリオの定員情報も含む）
       const { data: events, error: fetchError } = await supabase
         .from('schedule_events')
-        .select('id, scenario, max_participants, capacity, scenarios:scenario_id(player_count_max)')
+        .select('id, scenario, max_participants, capacity, scenario_masters:scenario_master_id(player_count_max)')
         .gte('date', startDate)
         .lte('date', endDate)
         .eq('is_cancelled', false)

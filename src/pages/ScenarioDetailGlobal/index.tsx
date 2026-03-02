@@ -374,7 +374,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         .from('schedule_events')
         .select(`
           id, date, start_time, time_slot, current_participants, category, is_cancelled,
-          scenarios:scenario_id (id, title, player_count_max, organization_id),
+          scenario_masters:scenario_master_id (id, title, player_count_max),
           stores:store_id (id, name, short_name, color, region)
         `)
         .in('scenario_id', scenarioIdsForEvents)

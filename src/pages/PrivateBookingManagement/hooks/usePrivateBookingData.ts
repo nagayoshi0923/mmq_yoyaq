@@ -101,7 +101,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
         .from('reservations')
         .select(`
           *,
-          scenarios:scenario_id(title),
+          scenario_masters:scenario_master_id(title),
           customers:customer_id(name, phone)
         `)
         .eq('reservation_source', 'web_private')

@@ -112,7 +112,7 @@ export const useConflictCheck = () => {
       // schedule_events だけでなく、予約済みの貸切も競合対象
       const { data: allReservations, error: reservationsError } = await supabase
         .from('reservations')
-        .select('id, title, requested_datetime, duration, store_id, scenario_id, scenarios:scenario_id(title)')
+        .select('id, title, requested_datetime, duration, store_id, scenario_master_id, scenario_masters:scenario_master_id(title)')
         .in('status', ['confirmed', 'gm_confirmed', 'pending'])
         .not('requested_datetime', 'is', null)
         .neq('id', reservationId) // 自分自身は除外

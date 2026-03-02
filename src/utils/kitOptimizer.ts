@@ -163,17 +163,9 @@ export function calculateKitTransfers(
             }
           }
           
-          // 未配置のキットも候補に（kit_countより少ない場合）
-          for (let kitNum = 1; kitNum <= kitCount; kitNum++) {
-            if (!scenarioState[kitNum]) {
-              // 未配置キットは任意の店舗から移動可能（初期配置として）
-              // ここでは最初のアクティブ店舗を仮の出発点とする
-              const firstStore = stores.find(s => s.status === 'active')
-              if (firstStore) {
-                otherKits.push({ kitNumber: kitNum, fromStoreId: firstStore.id, transferDate: proposedTransferDate })
-              }
-            }
-          }
+          // 注意: 未配置のキット（scenario_kit_locationsに登録されていないキット）は
+          // 現在位置が不明なため、移動計画の候補に含めない。
+          // 未配置キットがある場合は、先にキット管理画面で初期位置を登録する必要がある。
           
           // 同じ地域の店舗からの移動を優先（距離が近いほうが移動コストが低い）
           const destinationRegion = store.region || ''
