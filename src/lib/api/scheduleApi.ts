@@ -138,17 +138,10 @@ async function findMatchingScenario(scenarioName: string | undefined): Promise<{
     }
   }
   
-  // シナリオマスタから検索（組織フィルタ付き）
-  const orgId = await getCurrentOrganizationId()
-  let query = supabase
-    .from('scenarios')
+  // シナリオマスタから検索
+  const { data: scenarios } = await supabase
+    .from('scenario_masters')
     .select('id, title')
-  
-  if (orgId) {
-    query = query.eq('organization_id', orgId)
-  }
-  
-  const { data: scenarios } = await query
   
   if (!scenarios || scenarios.length === 0) return null
   
@@ -192,12 +185,12 @@ export const scheduleApi = {
           color,
           address
         ),
-        scenarios:scenario_id (
+        scenario_masters:scenario_master_id (
           id,
           title,
           player_count_max,
-          duration,
-          gm_costs
+          official_duration,
+          genre
         )
       `)
       .gte('date', startDate)
@@ -229,12 +222,12 @@ export const scheduleApi = {
             color,
             address
           ),
-          scenarios:scenario_id (
+          scenario_masters:scenario_master_id (
             id,
             title,
             player_count_max,
-            duration,
-            gm_costs
+            official_duration,
+            genre
           )
         )
       `)
@@ -340,11 +333,10 @@ export const scheduleApi = {
           color,
           address
         ),
-        scenarios:scenario_id (
+        scenario_masters:scenario_master_id (
           id,
           title,
-          player_count_max,
-          extra_preparation_time
+          player_count_max
         )
       `)
       .gte('date', startDate)
@@ -518,7 +510,7 @@ export const scheduleApi = {
         participant_count,
         candidate_datetimes,
         schedule_event_id,
-        scenarios:scenario_id (
+        scenario_masters:scenario_master_id (
           id,
           title,
           player_count_max
@@ -592,7 +584,7 @@ export const scheduleApi = {
                 gmNames = ['未定']
               }
               
-              const scenarioData = Array.isArray(booking.scenarios) ? booking.scenarios[0] : booking.scenarios
+              const scenarioData = Array.isArray(booking.scenario_masters) ? booking.scenario_masters[0] : booking.scenario_masters
               const candidateTimeSlot = candidate.timeSlot || ''
               
               privateEvents.push({
@@ -684,7 +676,7 @@ export const scheduleApi = {
           short_name,
           color
         ),
-        scenarios:scenario_id (
+        scenario_masters:scenario_master_id (
           id,
           title,
           player_count_max
@@ -822,29 +814,20 @@ export const scheduleApi = {
       }
     }
     
-    // organization_scenario_id を自動設定（scenario_id から逆引き）
-    if (finalData.scenario_id && eventData.organization_id && !finalData.organization_scenario_id) {
+    // organization_scenario_id を自動設定（scenario_master_id から逆引き）
+    if (finalData.scenario_master_id && eventData.organization_id && !finalData.organization_scenario_id) {
       try {
-        // scenarios テーブルから scenario_master_id を取得
-        const { data: scenarioData } = await supabase
-          .from('scenarios')
-          .select('scenario_master_id')
-          .eq('id', finalData.scenario_id as string)
+        // organization_scenarios から該当のレコードを取得
+        const { data: orgScenario } = await supabase
+          .from('organization_scenarios')
+          .select('id')
+          .eq('scenario_master_id', finalData.scenario_master_id as string)
+          .eq('organization_id', eventData.organization_id)
           .single()
         
-        if (scenarioData?.scenario_master_id) {
-          // organization_scenarios から該当のレコードを取得
-          const { data: orgScenario } = await supabase
-            .from('organization_scenarios')
-            .select('id')
-            .eq('scenario_master_id', scenarioData.scenario_master_id)
-            .eq('organization_id', eventData.organization_id)
-            .single()
-          
-          if (orgScenario?.id) {
-            finalData.organization_scenario_id = orgScenario.id
-            logger.info(`organization_scenario_id 自動設定: ${orgScenario.id}`)
-          }
+        if (orgScenario?.id) {
+          finalData.organization_scenario_id = orgScenario.id
+          logger.info(`organization_scenario_id 自動設定: ${orgScenario.id}`)
         }
       } catch (err) {
         // エラーは無視（organization_scenario_id は任意）
@@ -873,7 +856,7 @@ export const scheduleApi = {
             name,
             short_name
           ),
-          scenarios:scenario_id (
+          scenario_masters:scenario_master_id (
             id,
             title,
             player_count_max
@@ -930,29 +913,21 @@ export const scheduleApi = {
       }
     }
     
-    // organization_scenario_id を自動設定（scenario_id から逆引き）
-    const scenarioIdToUse = finalUpdates.scenario_id || updates.scenario_id
+    // organization_scenario_id を自動設定（scenario_master_id から逆引き）
+    const scenarioMasterIdToUse = finalUpdates.scenario_master_id || updates.scenario_master_id
     const orgIdToUse = organizationId || await getCurrentOrganizationId()
-    if (scenarioIdToUse && orgIdToUse && !finalUpdates.organization_scenario_id) {
+    if (scenarioMasterIdToUse && orgIdToUse && !finalUpdates.organization_scenario_id) {
       try {
-        const { data: scenarioData } = await supabase
-          .from('scenarios')
-          .select('scenario_master_id')
-          .eq('id', scenarioIdToUse as string)
+        const { data: orgScenario } = await supabase
+          .from('organization_scenarios')
+          .select('id')
+          .eq('scenario_master_id', scenarioMasterIdToUse as string)
+          .eq('organization_id', orgIdToUse)
           .single()
         
-        if (scenarioData?.scenario_master_id) {
-          const { data: orgScenario } = await supabase
-            .from('organization_scenarios')
-            .select('id')
-            .eq('scenario_master_id', scenarioData.scenario_master_id)
-            .eq('organization_id', orgIdToUse)
-            .single()
-          
-          if (orgScenario?.id) {
-            finalUpdates.organization_scenario_id = orgScenario.id
-            logger.info(`organization_scenario_id 自動設定（更新）: ${orgScenario.id}`)
-          }
+        if (orgScenario?.id) {
+          finalUpdates.organization_scenario_id = orgScenario.id
+          logger.info(`organization_scenario_id 自動設定（更新）: ${orgScenario.id}`)
         }
       } catch (err) {
         logger.warn('organization_scenario_id の自動設定に失敗（更新）:', err)
@@ -988,7 +963,7 @@ export const scheduleApi = {
             name,
             short_name
           ),
-          scenarios:scenario_id (
+          scenario_masters:scenario_master_id (
             id,
             title
           )
@@ -1059,7 +1034,7 @@ export const scheduleApi = {
       
       let query = supabase
         .from('schedule_events')
-        .select('id, organization_id, scenario_id, scenario, store_id, date, start_time, category, gms, capacity, max_participants')
+        .select('id, organization_id, scenario_id, scenario_master_id, scenario, store_id, date, start_time, category, gms, capacity, max_participants')
         .eq('is_cancelled', false)
         .order('date', { ascending: true })
       
@@ -1122,38 +1097,47 @@ export const scheduleApi = {
           const neededParticipants = capacity - reservedParticipants
           
           if (neededParticipants > 0 && !hasDemoParticipant) {
-            // scenario_idがnullの場合はスキップ
-            if (!event.scenario_id) {
+            // scenario_master_idがnullの場合はスキップ
+            if (!event.scenario_master_id) {
               continue
             }
             
-            const { data: scenario, error: scenarioError } = await supabase
-              .from('scenarios')
-              .select('id, title, duration, participation_fee, gm_test_participation_fee')
-              .eq('id', event.scenario_id)
+            // scenario_masters から基本情報を取得
+            const { data: scenarioMaster, error: masterError } = await supabase
+              .from('scenario_masters')
+              .select('id, title, official_duration')
+              .eq('id', event.scenario_master_id)
               .single()
             
-            if (scenarioError) {
-              logger.error(`シナリオ情報の取得に失敗 (${event.id}):`, scenarioError)
+            if (masterError) {
+              logger.error(`シナリオマスタ情報の取得に失敗 (${event.id}):`, masterError)
               errorCount++
               continue
             }
             
+            // organization_scenarios から料金情報を取得
+            const { data: orgScenario } = await supabase
+              .from('organization_scenarios')
+              .select('participation_fee, gm_test_participation_fee')
+              .eq('scenario_master_id', event.scenario_master_id)
+              .eq('organization_id', event.organization_id)
+              .single()
+            
             const isGmTest = event.category === 'gmtest'
             const participationFee = isGmTest 
-              ? (scenario?.gm_test_participation_fee || scenario?.participation_fee || 0)
-              : (scenario?.participation_fee || 0)
+              ? (orgScenario?.gm_test_participation_fee || orgScenario?.participation_fee || 0)
+              : (orgScenario?.participation_fee || 0)
             
             const demoReservation = {
               schedule_event_id: event.id,
               organization_id: event.organization_id || 'a0000000-0000-0000-0000-000000000001',
-              title: event.scenario || '',
-              scenario_id: event.scenario_id,
+              title: event.scenario || scenarioMaster?.title || '',
+              scenario_master_id: event.scenario_master_id,
               store_id: event.store_id || null,
               customer_id: null,
               customer_notes: neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${neededParticipants}名`,
               requested_datetime: `${event.date}T${event.start_time}+09:00`,
-              duration: scenario?.duration || 120,
+              duration: scenarioMaster?.official_duration || 120,
               participant_count: neededParticipants,
               participant_names: Array(neededParticipants).fill(null).map((_, i) => 
                 neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
