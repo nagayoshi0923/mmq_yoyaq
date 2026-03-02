@@ -1013,19 +1013,9 @@ export const scheduleApi = {
     throw lastError
   },
 
-  // 公演を削除（関連する予約も削除）
+  // 公演を削除（関連する予約はCASCADEで自動削除）
   async delete(id: string) {
-    // まず関連する予約を削除（デモ参加者含む）
-    const { error: reservationError } = await supabase.rpc('admin_delete_reservations_by_schedule_event_ids', {
-      p_schedule_event_ids: [id]
-    })
-    
-    if (reservationError) {
-      logger.warn('予約削除エラー（続行）:', reservationError)
-      // エラーでも続行（予約がない場合もある）
-    }
-    
-    // 公演を削除
+    // 公演を削除（ON DELETE CASCADE により関連データも自動削除）
     const { error } = await supabase
       .from('schedule_events')
       .delete()

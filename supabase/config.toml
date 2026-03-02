@@ -51,3 +51,7 @@ otp_expiry = 3600
 [functions.delete-my-account]
 verify_jwt = false
 
+# send-contact-inquiry は公開フォーム用（認証不要）
+[functions.send-contact-inquiry]
+verify_jwt = false
+
