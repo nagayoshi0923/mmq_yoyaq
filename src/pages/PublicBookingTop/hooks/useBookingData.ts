@@ -23,6 +23,7 @@ export interface ScenarioCard {
     available_seats?: number
     current_participants?: number
     is_extended?: boolean
+    is_confirmed?: boolean
   }>
   total_events_count?: number // 次回公演の総数（表示用）
   status: 'available' | 'few_seats' | 'sold_out' | 'private_booking'
@@ -444,10 +445,12 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
                      null
         
         const maxParticipants = scenario.player_count_max || 8
+        const minParticipants = scenario.player_count_min || 1
         const currentParticipants = event.current_participants || 0
         const availableSeats = event.is_private_booking === true 
           ? 0 
           : maxParticipants - currentParticipants
+        const isConfirmed = currentParticipants >= minParticipants && currentParticipants < maxParticipants
         
         return {
           date: event.date,
@@ -457,7 +460,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           store_color: store?.color,
           available_seats: availableSeats,
           current_participants: currentParticipants,
-          is_extended: event.is_extended || false
+          is_extended: event.is_extended || false,
+          is_confirmed: isConfirmed
         }
       })
       

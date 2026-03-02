@@ -11,6 +11,7 @@ interface EventListProps {
   selectedEventId: string | null
   scenarioTitle: string
   onEventSelect: (eventId: string | null) => void
+  minParticipants?: number
 }
 
 /**
@@ -20,7 +21,8 @@ export const EventList = memo(function EventList({
   events,
   selectedEventId,
   scenarioTitle,
-  onEventSelect
+  onEventSelect,
+  minParticipants = 1
 }: EventListProps) {
   if (events.length === 0) {
     return (
@@ -46,6 +48,7 @@ export const EventList = memo(function EventList({
         const storeColor = event.store_color || '#6B7280'
         
         const isSoldOut = event.available_seats === 0
+        const isConfirmed = event.current_participants >= minParticipants && !isSoldOut
         
         return (
           <Card 
@@ -107,8 +110,15 @@ export const EventList = memo(function EventList({
                   </>
                 ) : (
                   <>
-                    <div className="text-sm text-muted-foreground whitespace-nowrap">
-                      残り<span className="font-semibold text-foreground">{event.available_seats}</span>人
+                    <div className="flex items-center gap-2">
+                      {isConfirmed && (
+                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+                          開催決定
+                        </Badge>
+                      )}
+                      <div className="text-sm text-muted-foreground whitespace-nowrap">
+                        残り<span className="font-semibold text-foreground">{event.available_seats}</span>人
+                      </div>
                     </div>
                     <Button
                       variant={isSelected ? "default" : "outline"}

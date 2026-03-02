@@ -28,6 +28,7 @@ export interface ScenarioCardData {
     available_seats?: number
     current_participants?: number
     is_extended?: boolean
+    is_confirmed?: boolean
   }>
   total_events_count?: number
   // バッジ用フィールド
@@ -311,16 +312,30 @@ export const ScenarioCard = memo(function ScenarioCard({
                       </span>
                     </div>
                     {event.available_seats !== undefined && (
-                      <span 
-                        className="text-[10px] font-bold px-1.5 py-0.5 flex-shrink-0 ml-2"
-                        style={{
-                          backgroundColor: event.available_seats === 0 ? '#E5E7EB' : event.available_seats <= 2 ? '#FEE2E2' : THEME.accentLight,
-                          color: event.available_seats === 0 ? '#6B7280' : event.available_seats <= 2 ? '#DC2626' : THEME.accent,
-                          borderRadius: 0,
-                        }}
-                      >
-                        {event.available_seats === 0 ? '満席' : `残${event.available_seats}`}
-                      </span>
+                      <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                        {event.is_confirmed && event.available_seats > 0 && (
+                          <span 
+                            className="text-[10px] font-bold px-1.5 py-0.5"
+                            style={{
+                              backgroundColor: '#DBEAFE',
+                              color: '#1D4ED8',
+                              borderRadius: 0,
+                            }}
+                          >
+                            開催決定
+                          </span>
+                        )}
+                        <span 
+                          className="text-[10px] font-bold px-1.5 py-0.5"
+                          style={{
+                            backgroundColor: event.available_seats === 0 ? '#E5E7EB' : event.available_seats <= 2 ? '#FEE2E2' : THEME.accentLight,
+                            color: event.available_seats === 0 ? '#6B7280' : event.available_seats <= 2 ? '#DC2626' : THEME.accent,
+                            borderRadius: 0,
+                          }}
+                        >
+                          {event.available_seats === 0 ? '満席' : `残${event.available_seats}`}
+                        </span>
+                      </div>
                     )}
                   </div>
                 )

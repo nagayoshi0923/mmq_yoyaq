@@ -462,6 +462,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       selectedEventId={selectedEventId}
                       scenarioTitle={scenario.scenario_title}
                       onEventSelect={setSelectedEventId}
+                      minParticipants={scenario.player_count_min}
                     />
                   </div>
                 </TabsContent>

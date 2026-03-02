@@ -183,6 +183,10 @@ export const ListView = memo(function ListView({
                        event.scenario_data
       // useBookingDataで事前計算済みのkey_visual_urlを使用
       const imageUrl = event.key_visual_url
+      
+      // 最小人数達成判定（開催決定）
+      const minParticipants = scenario?.player_count_min || 1
+      const isConfirmed = currentParticipants >= minParticipants && !isFull
 
       // 予約済みの場合はdisabledボタン風の表示
       if (isReserved) {
@@ -255,8 +259,15 @@ export const ListView = memo(function ListView({
               <div className="text-xs sm:text-sm text-left truncate leading-tight text-gray-800">
                 {event.scenario || event.scenarios?.title}
               </div>
-              <div className={`text-xs sm:text-sm text-right leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                {isFull ? '満席' : `残り${available}人`}
+              <div className={`text-xs sm:text-sm text-right leading-tight flex items-center justify-end gap-1`}>
+                {isConfirmed && (
+                  <span className="text-[10px] font-bold px-1 py-0.5 bg-blue-100 text-blue-700">
+                    開催決定
+                  </span>
+                )}
+                <span className={isFull ? 'text-gray-500' : 'text-gray-600'}>
+                  {isFull ? '満席' : `残${available}`}
+                </span>
               </div>
             </div>
           </div>

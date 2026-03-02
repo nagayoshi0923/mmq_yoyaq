@@ -31,6 +31,8 @@ interface ScenarioWithEvents extends ScenarioCardData {
     store_short_name: string
     store_color?: string
     available_seats: number
+    current_participants?: number
+    is_confirmed?: boolean
     region?: string
   }>
 }
@@ -239,7 +241,9 @@ export function PlatformTop() {
           
           // 最大10件まで追加
           if (scenarioMap[scenarioKey].next_events.length < 10) {
-            const remainingSlots = scenario.player_count_max - (e.current_participants || 0)
+            const currentParticipants = e.current_participants || 0
+            const remainingSlots = scenario.player_count_max - currentParticipants
+            const isConfirmed = currentParticipants >= scenario.player_count_min && remainingSlots > 0
             scenarioMap[scenarioKey].next_events.push({
               date: e.date,
               time: e.start_time || e.time_slot || '',
@@ -247,6 +251,8 @@ export function PlatformTop() {
               store_short_name: store.short_name || store.name,
               store_color: store.color,
               available_seats: remainingSlots,
+              current_participants: currentParticipants,
+              is_confirmed: isConfirmed,
               region: store.region
             })
           }

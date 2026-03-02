@@ -238,7 +238,8 @@ export const CalendarView = memo(function CalendarView({
                     const renderEvent = (event: any, idx: number) => {
                       // useBookingDataで事前計算済みのplayer_count_maxを使用
                       const maxParticipants = event.player_count_max || 8
-                      const available = maxParticipants - (event.current_participants || 0)
+                      const currentParticipants = event.current_participants || 0
+                      const available = maxParticipants - currentParticipants
                       const isFull = available === 0
                       const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
                       const isGmTest = event.category === 'gmtest' || event.category === 'testplay'
@@ -250,6 +251,10 @@ export const CalendarView = memo(function CalendarView({
                                      scenarioMap.get(event.scenario) ||
                                      event.scenario_data
                       const imageUrl = event.key_visual_url
+                      
+                      // 最小人数達成判定（開催決定）
+                      const minParticipants = scenario?.player_count_min || 1
+                      const isConfirmed = currentParticipants >= minParticipants && !isFull
                       
                       if (isReserved) {
                         return (
@@ -318,8 +323,15 @@ export const CalendarView = memo(function CalendarView({
                               >
                                 {event.scenario || event.scenarios?.title}
                               </div>
-                              <div className={`text-xs leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                {isFull ? '満席' : `残${available}人`}
+                              <div className={`text-xs leading-tight flex items-center gap-1`}>
+                                {isConfirmed && (
+                                  <span className="text-[8px] font-bold px-0.5 py-0.5 bg-blue-100 text-blue-700">
+                                    開催決定
+                                  </span>
+                                )}
+                                <span className={isFull ? 'text-gray-500' : 'text-gray-600'}>
+                                  {isFull ? '満席' : `残${available}`}
+                                </span>
                               </div>
                             </div>
                           </div>
