@@ -49,7 +49,7 @@ const menuItems = [
 
 export default function MyPage() {
   const { user } = useAuth()
-  const { organizationId: staffOrgId } = useOrganization()
+  const { organizationId } = useOrganization()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<string>('reservations')
   
@@ -72,7 +72,6 @@ export default function MyPage() {
   const [stats, setStats] = useState({ participationCount: 0, points: 0 })
   const [customerInfo, setCustomerInfo] = useState<{ name?: string; nickname?: string } | null>(null)
   const [customerId, setCustomerId] = useState<string | null>(null)
-  const [customerOrgId, setCustomerOrgId] = useState<string | null>(null)
   
   // 手動登録用ステート
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -175,42 +174,27 @@ export default function MyPage() {
   }, [user])
 
   // シナリオと店舗の選択肢を取得
-  // 顧客の組織IDを優先、なければスタッフの組織ID、それもなければ全体から取得
-  const effectiveOrgId = customerOrgId || staffOrgId
-  
+  // 顧客は全組織のシナリオ/店舗を利用可能（RLSで公開シナリオのみ取得）
   useEffect(() => {
     const fetchOptions = async () => {
       setOptionsLoading(true)
       try {
         // シナリオを取得（アクティブなもののみ）
         // RLSにより顧客は status='available' のシナリオのみ取得可能
-        // 組織IDがある場合はその組織のシナリオに限定、なければRLSで許可された全シナリオ
-        let scenarioQuery = supabase
+        const { data: scenarios, error: scenarioError } = await supabase
           .from('scenarios')
           .select('id, title')
           .eq('is_active', true)
           .order('title')
         
-        if (effectiveOrgId) {
-          scenarioQuery = scenarioQuery.eq('organization_id', effectiveOrgId)
-        }
-        
-        const { data: scenarios, error: scenarioError } = await scenarioQuery
-        
         if (scenarioError) throw scenarioError
         setScenarioOptions(scenarios || [])
 
-        // 店舗を取得
-        let storeQuery = supabase
+        // 店舗を取得（RLSで許可された店舗）
+        const { data: storesData, error: storeError } = await supabase
           .from('stores')
           .select('id, name')
           .order('name')
-        
-        if (effectiveOrgId) {
-          storeQuery = storeQuery.eq('organization_id', effectiveOrgId)
-        }
-        
-        const { data: storesData, error: storeError } = await storeQuery
         
         if (storeError) throw storeError
         setStoreOptions(storesData || [])
@@ -222,7 +206,7 @@ export default function MyPage() {
     }
 
     fetchOptions()
-  }, [effectiveOrgId])
+  }, [])
 
   const fetchData = async () => {
     if (!user?.email) return
@@ -235,7 +219,7 @@ export default function MyPage() {
       // まずuser_idで検索
       const { data: customerByUserId } = await supabase
         .from('customers')
-        .select('id, name, nickname, avatar_url, user_id, organization_id')
+        .select('id, name, nickname, avatar_url, user_id')
         .eq('user_id', user.id)
         .maybeSingle()
 
@@ -245,7 +229,7 @@ export default function MyPage() {
         // user_idで見つからない場合、emailで検索（大文字/小文字を区別しない）
         const { data: customerByEmail, error: emailError } = await supabase
           .from('customers')
-          .select('id, name, nickname, avatar_url, user_id, organization_id')
+          .select('id, name, nickname, avatar_url, user_id')
           .ilike('email', user.email)
           .maybeSingle()
         
@@ -275,7 +259,6 @@ export default function MyPage() {
       // 顧客情報をセット
       setCustomerInfo({ name: customer.name, nickname: customer.nickname })
       setCustomerId(customer.id)
-      setCustomerOrgId(customer.organization_id || null)
       // アバター画像をセット
       if (customer.avatar_url) {
         setAvatarUrl(customer.avatar_url)

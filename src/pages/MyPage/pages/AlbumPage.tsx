@@ -58,13 +58,12 @@ interface LikedScenario {
 
 export function AlbumPage() {
   const { user } = useAuth()
-  const { organizationId: staffOrgId } = useOrganization()
+  const { organizationId } = useOrganization()
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
   const [likedScenariosList, setLikedScenariosList] = useState<LikedScenario[]>([])
   const [hiddenScenarios, setHiddenScenarios] = useState<Set<string>>(new Set())
   const [likedScenarios, setLikedScenarios] = useState<Set<string>>(new Set())
   const [customerId, setCustomerId] = useState<string | null>(null)
-  const [customerOrgId, setCustomerOrgId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   
   // 手動登録用ステート
@@ -87,43 +86,27 @@ export function AlbumPage() {
   }, [user])
 
   // シナリオと店舗の選択肢を取得
-  // 顧客の組織IDを優先、なければスタッフの組織ID、それもなければ全体から取得
-  const effectiveOrgId = customerOrgId || staffOrgId
-  
+  // 顧客は全組織のシナリオ/店舗を利用可能（RLSで公開シナリオのみ取得）
   useEffect(() => {
     const fetchOptions = async () => {
       setOptionsLoading(true)
       try {
         // シナリオを取得（アクティブなもののみ）
         // RLSにより顧客は status='available' のシナリオのみ取得可能
-        // 組織IDがある場合はその組織のシナリオに限定、なければRLSで許可された全シナリオ
-        let scenarioQuery = supabase
+        const { data: scenarios, error: scenarioError } = await supabase
           .from('scenarios')
           .select('id, title')
           .eq('is_active', true)
           .order('title')
         
-        if (effectiveOrgId) {
-          scenarioQuery = scenarioQuery.eq('organization_id', effectiveOrgId)
-        }
-        
-        const { data: scenarios, error: scenarioError } = await scenarioQuery
-        
         if (scenarioError) throw scenarioError
-        logger.log('取得したシナリオ:', scenarios?.length, '件', 'orgId:', effectiveOrgId)
         setScenarioOptions(scenarios || [])
 
-        // 店舗を取得
-        let storeQuery = supabase
+        // 店舗を取得（RLSで許可された店舗）
+        const { data: stores, error: storeError } = await supabase
           .from('stores')
           .select('id, name')
           .order('name')
-        
-        if (effectiveOrgId) {
-          storeQuery = storeQuery.eq('organization_id', effectiveOrgId)
-        }
-        
-        const { data: stores, error: storeError } = await storeQuery
         
         if (storeError) throw storeError
         setStoreOptions(stores || [])
@@ -135,17 +118,17 @@ export function AlbumPage() {
     }
 
     fetchOptions()
-  }, [effectiveOrgId])
+  }, [])
 
   const fetchPlayedScenarios = async () => {
     if (!user?.email) return
 
     setLoading(true)
     try {
-      // 顧客情報を取得（organization_idも取得）
+      // 顧客情報を取得
       const { data: customer, error: customerError } = await supabase
         .from('customers')
-        .select('id, name, organization_id')
+        .select('id, name')
         .eq('email', user.email)
         .maybeSingle()
 
@@ -159,7 +142,6 @@ export function AlbumPage() {
 
       logger.log('取得した顧客情報:', customer)
       setCustomerId(customer.id)
-      setCustomerOrgId(customer.organization_id || null)
 
       // いいね済みシナリオを取得
       const { data: likes } = await supabase
@@ -457,7 +439,7 @@ export function AlbumPage() {
           .insert({
             customer_id: customerId,
             scenario_id: scenarioId,
-            organization_id: effectiveOrgId,
+            organization_id: organizationId,
           })
 
         if (error) throw error
