@@ -116,14 +116,24 @@ function extractDbColumns(scenario: Partial<Scenario>): Record<string, unknown> 
   return result
 }
 
+// scenarios テーブル廃止フラグ（true にすると scenarios_v2 ビューを使用）
+const USE_SCENARIOS_V2 = false
+
+// scenarios_v2 ビュー用のSELECTフィールド
+const SCENARIOS_V2_SELECT_FIELDS = 
+  'id, org_scenario_id, organization_id, scenario_master_id, slug, status, participation_fee, participation_costs, gm_costs, gm_count, gm_assignments, extra_preparation_time, available_stores, available_gms, experienced_staff, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, production_cost, production_costs, depreciation_per_performance, play_count, notes, created_at, updated_at, title, author, author_email, author_id, key_visual_url, description, synopsis, caution, player_count_min, player_count_max, duration, genre, difficulty, has_pre_reading, release_date, official_site_url, required_props, master_status, is_shared, scenario_type, rating, kit_count' as const
+
 export const scenarioApi = {
   // 全シナリオを取得
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
   // skipOrgFilter: trueの場合、組織フィルタをスキップ（全組織のデータを取得）
   async getAll(organizationId?: string, skipOrgFilter?: boolean): Promise<Scenario[]> {
+    const tableName = USE_SCENARIOS_V2 ? 'scenarios_v2' : 'scenarios'
+    const selectFields = USE_SCENARIOS_V2 ? SCENARIOS_V2_SELECT_FIELDS : SCENARIO_SELECT_FIELDS
+    
     let query = supabase
-      .from('scenarios')
-      .select(SCENARIO_SELECT_FIELDS)
+      .from(tableName)
+      .select(selectFields)
     
     // 組織フィルタリング
     if (!skipOrgFilter) {
