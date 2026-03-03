@@ -345,6 +345,7 @@ interface RawEventData {
   store_id: string
   scenario?: string
   scenarios?: { id: string; title: string; player_count_max?: number } | null
+  scenario_masters?: { id: string; title: string; player_count_max?: number } | null
   gms: string[]
   gm_roles?: Record<string, string> // 追加
   start_time: string
@@ -704,12 +705,14 @@ export function useScheduleData(currentDate: Date) {
       // Supabaseのデータを内部形式に変換
       // 拡張プロパティ（scenarios, gm_roles, timeSlot等）を含むため型アサーションを使用
       const formattedEvents = data.map((event: RawEventData) => {
-        const scenarioTitle = event.scenarios?.title || event.scenario || ''
-        // scenariosが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
-        const isValidScenario = event.scenarios && event.scenarios.id
-        // scenariosが無効な場合はシナリオリストからタイトルで検索（略称マッピング対応）
+        // scenario_masters（新）または scenarios（旧）からシナリオ情報を取得
+        const scenarioData = event.scenario_masters || event.scenarios
+        const scenarioTitle = scenarioData?.title || event.scenario || ''
+        // シナリオデータが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
+        const isValidScenario = scenarioData && scenarioData.id
+        // シナリオデータが無効な場合はシナリオリストからタイトルで検索（略称マッピング対応）
         const scenarioInfo = isValidScenario 
-          ? event.scenarios 
+          ? scenarioData 
           : (scenarioTitle ? findScenario(scenarioTitle) : null)
         
         return {
@@ -1082,12 +1085,14 @@ export function useScheduleData(currentDate: Date) {
       // Supabaseのデータを内部形式に変換
       // 拡張プロパティ（scenarios, gm_roles, timeSlot等）を含むため型アサーションを使用
       const formattedEvents = data.map((event: RawEventData) => {
-        const scenarioTitle = event.scenarios?.title || event.scenario || ''
-        // scenariosが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
-        const isValidScenario = event.scenarios && event.scenarios.id
-        // scenariosが無効な場合はシナリオリストからタイトルで検索（略称マッピング対応）
+        // scenario_masters（新）または scenarios（旧）からシナリオ情報を取得
+        const scenarioData = event.scenario_masters || event.scenarios
+        const scenarioTitle = scenarioData?.title || event.scenario || ''
+        // シナリオデータが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
+        const isValidScenario = scenarioData && scenarioData.id
+        // シナリオデータが無効な場合はシナリオリストからタイトルで検索（略称マッピング対応）
         const scenarioInfo = isValidScenario 
-          ? event.scenarios 
+          ? scenarioData 
           : (scenarioTitle ? findScenario2(scenarioTitle) : null)
         
         return {

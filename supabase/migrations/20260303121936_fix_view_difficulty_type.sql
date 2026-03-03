@@ -1,22 +1,17 @@
--- organization_scenarios_with_master ビューを更新
--- 作成日: 2026-03-02
--- 概要: Scenario型と互換性のある全カラムを含むビューに更新
+-- organization_scenarios_with_master ビューを修正
+-- difficultyカラムを INTEGER にキャストしていたが、実際は TEXT 型
+-- 作成日: 2026-03-03
 
 DROP VIEW IF EXISTS public.organization_scenarios_with_master;
 
-CREATE OR REPLACE VIEW public.organization_scenarios_with_master AS
+CREATE VIEW public.organization_scenarios_with_master AS
 SELECT
-  -- IDはscenario_master_idを使用（scenarios.idの代わり）
   os.scenario_master_id AS id,
   os.id AS org_scenario_id,
   os.organization_id,
   os.scenario_master_id,
   os.slug,
-  
-  -- ステータス
   os.org_status AS status,
-  
-  -- マスタ情報（組織設定があればそちらを優先）
   COALESCE(os.override_title, sm.title) AS title,
   COALESCE(os.override_author, sm.author) AS author,
   sm.author_email,
@@ -35,8 +30,6 @@ SELECT
   sm.release_date,
   sm.official_site_url,
   sm.required_items AS required_props,
-  
-  -- 組織固有設定
   os.participation_fee,
   os.gm_test_participation_fee,
   os.participation_costs,
@@ -58,32 +51,16 @@ SELECT
   os.extra_preparation_time,
   os.play_count,
   os.notes,
-  
-  -- メタ情報
   os.created_at,
   os.updated_at,
-  
-  -- マスタステータス
   sm.master_status,
-  
-  -- 互換性フィールド
   TRUE AS is_shared,
   'normal'::TEXT AS scenario_type,
   0::DECIMAL AS rating,
   1 AS kit_count,
   '[]'::JSONB AS license_rewards
-
 FROM public.organization_scenarios os
 JOIN public.scenario_masters sm ON sm.id = os.scenario_master_id;
 
 COMMENT ON VIEW public.organization_scenarios_with_master IS 
-  '組織シナリオとマスタを結合したビュー。Scenario型と互換性あり';
-
--- 確認
-DO $$
-DECLARE
-  view_count INTEGER;
-BEGIN
-  SELECT COUNT(*) INTO view_count FROM organization_scenarios_with_master;
-  RAISE NOTICE 'organization_scenarios_with_master ビュー更新完了: %件', view_count;
-END $$;
+  '組織シナリオとマスタを結合したビュー。Scenario型と互換性あり（difficulty修正済み）';
