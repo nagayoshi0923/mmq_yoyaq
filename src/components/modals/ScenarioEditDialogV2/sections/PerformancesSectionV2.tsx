@@ -38,6 +38,8 @@ interface PerformancesSectionV2Props {
   totalStaffParticipants?: number  // 累計スタッフ参加者数
   totalRevenue?: number  // 累計売上（API側で計算）
   scenarioTitle?: string  // シナリオタイトル（ダウンロードファイル名用）
+  futurePerformanceCount?: number  // 将来の公演予定数
+  futureReservationCount?: number  // 将来の貸切予約数
 }
 
 // カテゴリの日本語表示
@@ -73,7 +75,9 @@ export function PerformancesSectionV2({
   totalParticipants: apiTotalParticipants = 0,
   totalStaffParticipants: apiTotalStaffParticipants = 0,
   totalRevenue: apiTotalRevenue = 0,
-  scenarioTitle = 'シナリオ'
+  scenarioTitle = 'シナリオ',
+  futurePerformanceCount = 0,
+  futureReservationCount = 0
 }: PerformancesSectionV2Props) {
   const [stores, setStores] = useState<Store[]>([])
   const [includeParticipants, setIncludeParticipants] = useState(true)
@@ -379,6 +383,11 @@ export function PerformancesSectionV2({
               {performanceDates.length !== activePerformances.length && (
                 <span className="text-xs text-muted-foreground">
                   （中止{performanceDates.length - activePerformances.length}回）
+                </span>
+              )}
+              {(futurePerformanceCount > 0 || futureReservationCount > 0) && (
+                <span className="text-xs text-blue-600">
+                  （予定{futurePerformanceCount + futureReservationCount}回）
                 </span>
               )}
             </div>

@@ -540,6 +540,8 @@ export const scenarioApi = {
     totalLicenseCost: number
     firstPerformanceDate: string | null
     performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null; isCancelled: boolean }>
+    futurePerformanceCount: number  // 将来の公演予定数
+    futureReservationCount: number  // 将来の貸切予約数（公演に紐付いていない）
   }> {
     // 今日の日付（YYYY-MM-DD形式）
     const today = new Date().toISOString().split('T')[0]
@@ -743,12 +745,43 @@ export const scenarioApi = {
       })
     })
 
+    // 将来の公演予定数（明日以降、出張公演除外、中止除外）
+    let futurePerfQuery = supabase
+      .from('schedule_events')
+      .select('*', { count: 'exact', head: true })
+      .eq('scenario_master_id', scenarioId)
+      .gt('date', today)
+      .neq('category', 'offsite')
+      .neq('is_cancelled', true)
+    
+    if (orgId) {
+      futurePerfQuery = futurePerfQuery.eq('organization_id', orgId)
+    }
+    
+    const { count: futurePerformanceCount } = await futurePerfQuery
+
+    // 将来の貸切予約数（公演に紐付いていない、確定済み）
+    let futureResQuery = supabase
+      .from('reservations')
+      .select('*', { count: 'exact', head: true })
+      .eq('scenario_master_id', scenarioId)
+      .is('schedule_event_id', null)
+      .in('status', ['confirmed', 'gm_confirmed', 'pending'])
+    
+    if (orgId) {
+      futureResQuery = futureResQuery.eq('organization_id', orgId)
+    }
+    
+    const { count: futureReservationCount } = await futureResQuery
+
     // デバッグログ（本番では削除可）
     logger.log('📊 シナリオ統計:', {
       scenarioId,
       maxParticipants,
       performanceCount: performanceCount || 0,
       totalParticipants,
+      futurePerformanceCount: futurePerformanceCount || 0,
+      futureReservationCount: futureReservationCount || 0,
     })
 
     return {
@@ -760,7 +793,9 @@ export const scenarioApi = {
       totalGmCost,
       totalLicenseCost,
       firstPerformanceDate,
-      performanceDates
+      performanceDates,
+      futurePerformanceCount: futurePerformanceCount || 0,
+      futureReservationCount: futureReservationCount || 0
     }
   },
 

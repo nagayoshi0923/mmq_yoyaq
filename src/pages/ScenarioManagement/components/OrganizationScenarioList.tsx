@@ -251,8 +251,16 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
 
       // デバッグ: play_count の確認
       if (scenariosWithAssignments.length > 0) {
+        // 生データの play_count を確認
+        const rawPlayCounts = (data || []).slice(0, 5).map(s => ({
+          title: s.title,
+          play_count: s.play_count,
+          play_count_type: typeof s.play_count
+        }))
+        console.log('🎯 raw data play_count (最初の5件):', rawPlayCounts)
+        
         const withPlayCount = scenariosWithAssignments.filter(s => s.play_count != null && s.play_count > 0)
-        console.log('🎯 play_count > 0 のシナリオ数:', withPlayCount.length)
+        console.log('🎯 play_count > 0 のシナリオ数:', withPlayCount.length, '/', scenariosWithAssignments.length)
         if (withPlayCount.length > 0) {
           console.log('🎯 play_count トップ3:', withPlayCount.slice(0, 3).map(s => ({
             title: s.title,

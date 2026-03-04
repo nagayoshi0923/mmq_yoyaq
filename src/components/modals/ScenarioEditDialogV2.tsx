@@ -372,7 +372,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     totalGmCost: 0,
     totalLicenseCost: 0,
     firstPerformanceDate: null as string | null,
-    performanceDates: [] as Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null; isCancelled: boolean }>
+    performanceDates: [] as Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null; isCancelled: boolean }>,
+    futurePerformanceCount: 0,
+    futureReservationCount: 0
   })
 
   // 担当GMのメイン/サブ設定を更新するハンドラ
@@ -431,7 +433,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           totalGmCost: 0,
           totalLicenseCost: 0,
           firstPerformanceDate: null,
-          performanceDates: []
+          performanceDates: [],
+          futurePerformanceCount: 0,
+          futureReservationCount: 0
         })
         return
       }
@@ -1119,6 +1123,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             totalStaffParticipants={scenarioStats.totalStaffParticipants}
             totalRevenue={scenarioStats.totalRevenue}
             scenarioTitle={formData.title || 'シナリオ'}
+            futurePerformanceCount={scenarioStats.futurePerformanceCount}
+            futureReservationCount={scenarioStats.futureReservationCount}
           />
         )
       default:
