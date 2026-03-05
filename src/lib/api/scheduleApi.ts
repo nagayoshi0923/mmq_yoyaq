@@ -641,7 +641,9 @@ export const scheduleApi = {
         start_time,
         end_time,
         category,
-        is_cancelled
+        is_cancelled,
+        current_participants,
+        capacity
       `)
       .gte('date', startDate)
       .lte('date', endDate)

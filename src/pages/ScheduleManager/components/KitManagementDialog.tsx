@@ -89,6 +89,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     store_id: string
     scenario_id: string
     is_cancelled?: boolean
+    current_participants?: number
+    capacity?: number
   }>>([])
 
   // UI状態
@@ -806,12 +808,14 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       })
       
       // scenario_master_id を優先して使用（scenarioMap との整合性のため）
-      // is_cancelled も含めて保持
+      // is_cancelled, current_participants, capacity も含めて保持
       const processedEvents = eventsData.map(e => ({
         date: e.date,
         store_id: e.store_id || e.venue,
         scenario_id: e.scenario_master_id || e.scenario_id || '',
-        is_cancelled: e.is_cancelled || false
+        is_cancelled: e.is_cancelled || false,
+        current_participants: e.current_participants || 0,
+        capacity: e.capacity || 0
       })).filter(e => e.scenario_id)
       
       console.log('📅 処理後のイベント:', {
@@ -2348,14 +2352,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                               </div>
                                               <div className="space-y-1">
                                                 {route.items.map((suggestion, index) => {
-                                                  // 移動先店舗（グループ含む）でこのシナリオが使われる全ての日付を取得
+                                                  // 移動先店舗（グループ含む）でこのシナリオが使われる全ての日付とイベント情報を取得
                                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
-                                                  const allDatesForScenario = scheduleEvents
+                                                  const matchingEvents = scheduleEvents
                                                     .filter(event => 
                                                       event.scenario_id === suggestion.scenario_id &&
                                                       getStoreGroupId(event.store_id) === toGroupId &&
-                                                      demandDates.includes(event.date)
+                                                      demandDates.includes(event.date) &&
+                                                      !event.is_cancelled
                                                     )
+                                                  const allDatesForScenario = matchingEvents
                                                     .map(event => event.date)
                                                     .filter((date, idx, arr) => arr.indexOf(date) === idx) // 重複排除
                                                     .sort()
@@ -2365,6 +2371,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                         return `${date.getMonth() + 1}/${date.getDate()}`
                                                       }).join(', ')
                                                     : `${parseLocalDate(suggestion.performance_date).getMonth() + 1}/${parseLocalDate(suggestion.performance_date).getDate()}`
+                                                  
+                                                  // 空席情報を計算（全イベントの合計）
+                                                  const totalCapacity = matchingEvents.reduce((sum, e) => sum + (e.capacity || 0), 0)
+                                                  const totalParticipants = matchingEvents.reduce((sum, e) => sum + (e.current_participants || 0), 0)
+                                                  const remainingSeats = totalCapacity - totalParticipants
                                                   
                                                   const pickedUp = isPickedUp(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
@@ -2399,6 +2410,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
+                                                      {/* 空席数表示 */}
+                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && (
+                                                        <span className={`text-[10px] font-medium ${remainingSeats <= 0 ? 'text-green-600' : remainingSeats <= 2 ? 'text-orange-500' : 'text-muted-foreground'}`}>
+                                                          {remainingSeats <= 0 ? '満席' : `残${remainingSeats}`}
+                                                        </span>
+                                                      )}
                                                       {isTransferCancelled && (
                                                         <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
                                                           公演中止・移動不要
@@ -2443,14 +2460,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                               {/* キット一覧 */}
                                               <div className="space-y-1">
                                                 {route.items.map((suggestion, index) => {
-                                                  // 移動先店舗（グループ含む）でこのシナリオが使われる全ての日付を取得
+                                                  // 移動先店舗（グループ含む）でこのシナリオが使われる全ての日付とイベント情報を取得
                                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
-                                                  const allDatesForScenario = scheduleEvents
+                                                  const matchingEvents = scheduleEvents
                                                     .filter(event => 
                                                       event.scenario_id === suggestion.scenario_id &&
                                                       getStoreGroupId(event.store_id) === toGroupId &&
-                                                      demandDates.includes(event.date)
+                                                      demandDates.includes(event.date) &&
+                                                      !event.is_cancelled
                                                     )
+                                                  const allDatesForScenario = matchingEvents
                                                     .map(event => event.date)
                                                     .filter((date, idx, arr) => arr.indexOf(date) === idx) // 重複排除
                                                     .sort()
@@ -2460,6 +2479,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                         return `${date.getMonth() + 1}/${date.getDate()}`
                                                       }).join(', ')
                                                     : `${parseLocalDate(suggestion.performance_date).getMonth() + 1}/${parseLocalDate(suggestion.performance_date).getDate()}`
+                                                  
+                                                  // 空席情報を計算（全イベントの合計）
+                                                  const totalCapacity = matchingEvents.reduce((sum, e) => sum + (e.capacity || 0), 0)
+                                                  const totalParticipants = matchingEvents.reduce((sum, e) => sum + (e.current_participants || 0), 0)
+                                                  const remainingSeats = totalCapacity - totalParticipants
                                                   
                                                   const pickedUp = isPickedUp(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
@@ -2494,6 +2518,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
+                                                      {/* 空席数表示 */}
+                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && (
+                                                        <span className={`text-[10px] font-medium ${remainingSeats <= 0 ? 'text-green-600' : remainingSeats <= 2 ? 'text-orange-500' : 'text-muted-foreground'}`}>
+                                                          {remainingSeats <= 0 ? '満席' : `残${remainingSeats}`}
+                                                        </span>
+                                                      )}
                                                       {isTransferCancelled && (
                                                         <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
                                                           公演中止・移動不要
