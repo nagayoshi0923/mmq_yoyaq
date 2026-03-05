@@ -864,6 +864,13 @@ export default function MyPage() {
                                 <span>•</span>
                                 <Users className="w-3 h-3" />
                                 <span>{reservation.participant_count}名</span>
+                                <span>•</span>
+                                <span>
+                                  {(() => {
+                                    const d = new Date(reservation.created_at)
+                                    return `${d.getMonth() + 1}/${d.getDate()} 申込`
+                                  })()}
+                                </span>
                               </div>
                             </div>
                             
