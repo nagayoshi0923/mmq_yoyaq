@@ -608,10 +608,15 @@ export default function MyPage() {
   const pastReservations = reservations.filter(
     r => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed'
   )
+  // 調整中の貸切申込み（pending, pending_gm, gm_confirmed, pending_store）
+  const pendingPrivateBookings = reservations.filter(
+    r => r.reservation_source === 'web_private' && 
+         ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)
+  )
 
   // タブごとのカウント
   const getCounts = () => ({
-    reservations: upcomingReservations.length,
+    reservations: upcomingReservations.length + pendingPrivateBookings.length,
     album: playedScenarios.length,
     wishlist: 0,
     settings: null
@@ -735,6 +740,125 @@ export default function MyPage() {
           <>
             {activeTab === 'reservations' && (
               <div className="space-y-4">
+                {/* 調整中の貸切申込み */}
+                {pendingPrivateBookings.length > 0 && (
+                  <>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      <h3 className="text-sm font-bold text-gray-700">日程調整中の貸切申込み</h3>
+                    </div>
+                    {pendingPrivateBookings.map((reservation) => {
+                      const imageUrl = reservation.scenario_id ? scenarioImages[reservation.scenario_id] : null
+                      const candidateDatetimes = reservation.candidate_datetimes as {
+                        candidates?: Array<{ date: string; time_slot: string }>
+                        confirmedStore?: { storeId: string; storeName?: string }
+                        confirmedDateTime?: { date: string; time_slot: string }
+                        requestedStores?: string[]
+                      } | null
+                      
+                      const getStatusLabel = (status: string) => {
+                        switch (status) {
+                          case 'pending':
+                          case 'pending_gm':
+                            return { label: 'GM回答待ち', color: 'bg-amber-100 text-amber-700' }
+                          case 'gm_confirmed':
+                          case 'pending_store':
+                            return { label: '店舗確認中', color: 'bg-blue-100 text-blue-700' }
+                          default:
+                            return { label: '調整中', color: 'bg-gray-100 text-gray-700' }
+                        }
+                      }
+                      const statusInfo = getStatusLabel(reservation.status)
+                      
+                      const requestedStoreId = candidateDatetimes?.requestedStores?.[0]
+                      const confirmedStoreId = candidateDatetimes?.confirmedStore?.storeId
+                      const store = confirmedStoreId ? stores[confirmedStoreId] : (requestedStoreId ? stores[requestedStoreId] : null)
+                      const candidateCount = candidateDatetimes?.candidates?.length || 0
+                      
+                      return (
+                        <div 
+                          key={reservation.id}
+                          className="bg-white border border-amber-200 hover:border-amber-300 hover:shadow-md transition-all cursor-pointer"
+                          style={{ borderRadius: 0 }}
+                          onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
+                        >
+                          <div 
+                            className="px-3 py-1.5 text-amber-800 text-sm font-bold flex items-center gap-2"
+                            style={{ backgroundColor: '#fef3c7' }}
+                          >
+                            <Clock className="w-4 h-4" />
+                            日程調整中
+                          </div>
+                          
+                          <div className="p-3 flex gap-3">
+                            <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden" style={{ borderRadius: 0 }}>
+                              {imageUrl ? (
+                                <>
+                                  <div 
+                                    className="absolute inset-0 scale-110"
+                                    style={{
+                                      backgroundImage: `url(${imageUrl})`,
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center',
+                                      filter: 'blur(8px) brightness(0.6)',
+                                    }}
+                                  />
+                                  <img
+                                    src={imageUrl}
+                                    alt={reservation.title}
+                                    className="relative w-full h-full object-contain"
+                                    loading="lazy"
+                                  />
+                                </>
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <span className="text-xl opacity-40">🎭</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1">
+                                {cleanTitle(reservation.title)}
+                              </h3>
+                              
+                              <p className="text-sm text-amber-700 mt-1 flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5" />
+                                候補日：{candidateCount}件
+                              </p>
+                              
+                              {store && (
+                                <div className="mt-1 text-xs text-gray-600">
+                                  <p className="font-medium flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {store.name}
+                                  </p>
+                                </div>
+                              )}
+                              
+                              <div className="mt-1.5">
+                                <span className={`text-xs px-2 py-0.5 rounded ${statusInfo.color}`}>
+                                  {statusInfo.label}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs text-gray-500">
+                                <span className="font-mono">{reservation.reservation_number}</span>
+                                <span>•</span>
+                                <span>{reservation.participant_count}名</span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center">
+                              <ChevronRight className="w-5 h-5 text-gray-400" />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
+
                 {/* 予約一覧 */}
                 {upcomingReservations.length > 0 ? (
                   <>
@@ -869,7 +993,7 @@ export default function MyPage() {
                       )
                     })}
                   </>
-                ) : (
+                ) : pendingPrivateBookings.length === 0 ? (
                   <div className="bg-white border border-gray-200 p-8 text-center" style={{ borderRadius: 0 }}>
                     <div 
                       className="w-14 h-14 flex items-center justify-center mx-auto mb-3"
@@ -888,7 +1012,7 @@ export default function MyPage() {
                       公演を探す
                     </Button>
                   </div>
-                )}
+                ) : null}
 
                 {/* 参加履歴へのリンク */}
                 {pastReservations.length > 0 && (

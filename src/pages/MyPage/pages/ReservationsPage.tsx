@@ -860,9 +860,133 @@ export function ReservationsPage() {
     (r) => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed'
   )
   const cancelledReservations = reservations.filter((r) => r.status === 'cancelled')
+  const pendingPrivateBookings = reservations.filter(
+    (r) => r.reservation_source === 'web_private' && 
+           ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)
+  )
+
+  const getPrivateBookingStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending':
+      case 'pending_gm':
+        return { label: 'GM回答待ち', color: 'bg-amber-100 text-amber-800' }
+      case 'gm_confirmed':
+      case 'pending_store':
+        return { label: '店舗確認中', color: 'bg-blue-100 text-blue-800' }
+      default:
+        return { label: '調整中', color: 'bg-gray-100 text-gray-800' }
+    }
+  }
 
   return (
     <div className="space-y-6">
+      {/* 調整中の貸切申込み */}
+      {pendingPrivateBookings.length > 0 && (
+        <Card className="shadow-none border border-amber-200">
+          <CardHeader className="bg-amber-50">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
+              日程調整中の貸切申込み ({pendingPrivateBookings.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="space-y-3">
+              {pendingPrivateBookings.map((reservation) => {
+                const storeInfo = getStoreInfo(reservation)
+                const statusInfo = getPrivateBookingStatusLabel(reservation.status)
+                const candidateDatetimes = reservation.candidate_datetimes as {
+                  candidates?: Array<{ date: string; time_slot: string }>
+                  confirmedDateTime?: { date: string; time_slot: string }
+                } | null
+                const candidateCount = candidateDatetimes?.candidates?.length || 0
+                const confirmedDate = candidateDatetimes?.confirmedDateTime
+                
+                return (
+                  <div
+                    key={reservation.id}
+                    className="p-4 border border-amber-200 rounded-lg hover:bg-amber-50/50 transition-colors"
+                  >
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
+                        {(() => {
+                          const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+                          return scenarioMasterId && scenarioImages[scenarioMasterId] ? (
+                            <OptimizedImage
+                              src={scenarioImages[scenarioMasterId]}
+                              alt={reservation.title}
+                              className="w-full h-full object-cover"
+                              responsive={true}
+                              srcSetSizes={[48, 96, 192]}
+                              breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
+                              useWebP={true}
+                              quality={85}
+                              fallback={
+                                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                  No Image
+                                </div>
+                              }
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                              No Image
+                            </div>
+                          )
+                        })()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <Badge className={statusInfo.color}>
+                            {statusInfo.label}
+                          </Badge>
+                        </div>
+                        <h4 className="font-medium text-sm truncate">{formatTitle(reservation.title)}</h4>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-0.5">希望日</div>
+                        <div className="text-sm font-medium">
+                          {confirmedDate ? (
+                            `${confirmedDate.date} ${confirmedDate.time_slot}`
+                          ) : (
+                            `候補${candidateCount}件`
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-0.5">人数</div>
+                        <div className="text-sm font-medium">{reservation.participant_count}名</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-0.5">金額</div>
+                        <div className="text-sm font-medium">{formatCurrency(reservation.final_price)}</div>
+                      </div>
+                    </div>
+
+                    {storeInfo && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="text-xs text-muted-foreground mb-1">希望会場</div>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: storeInfo.color || undefined }} />
+                          <span className="text-sm font-medium" style={{ color: storeInfo.color || undefined }}>
+                            {storeInfo.name}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
+                      予約番号: {reservation.reservation_number}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 参加予定の予約 */}
       <Card className="shadow-none border">
         <CardHeader>
