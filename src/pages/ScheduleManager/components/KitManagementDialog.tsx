@@ -786,10 +786,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         }))
       })
       
+      // scenario_master_id を優先して使用（scenarioMap との整合性のため）
       setScheduleEvents(eventsData.map(e => ({
         date: e.date,
         store_id: e.store_id || e.venue,
-        scenario_id: e.scenario_id || ''
+        scenario_id: e.scenario_master_id || e.scenario_id || ''
       })).filter(e => e.scenario_id))
 
       // 移動イベントを取得（週の範囲内のみ）
