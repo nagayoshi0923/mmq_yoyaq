@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -159,6 +159,101 @@ export function PerformanceModal({
     // 選択中の店舗がavailable_storesに含まれているかチェック
     return scenario.available_stores.includes(formData.venue)
   }
+
+  // シナリオ選択用オプションをメモ化（検索パフォーマンス改善）
+  const scenarioOptions = useMemo(() => {
+    return scenarios.map(scenario => {
+      // この店舗で公演可能かチェック
+      const isAvailableAtCurrentVenue = !formData.venue || 
+        !scenario.available_stores || 
+        scenario.available_stores.length === 0 ||
+        scenario.available_stores.includes(formData.venue)
+      
+      // このシナリオの担当GM全員を取得（special_scenarios は scenario_master_id を格納）
+      const isAssignedGM = (gm: StaffType) => {
+        const specialScenarios = gm.special_scenarios || []
+        return specialScenarios.includes(scenario.scenario_master_id || scenario.id) || 
+               specialScenarios.includes(scenario.id) ||
+               specialScenarios.includes(scenario.title)
+      }
+      
+      // 出勤中かどうかをチェック
+      const isAvailableGM = (gm: StaffType) => allAvailableStaff.some(a => a.id === gm.id)
+      
+      // 担当または出勤のスタッフのみ表示（その他は除外）
+      const filteredDisplayGMs = staff
+        .filter(gm => gm.status === 'active')
+        .map(gm => ({
+          gm,
+          isAssigned: isAssignedGM(gm),
+          isAvailable: isAvailableGM(gm)
+        }))
+        // 担当または出勤のみ表示
+        .filter(({ isAssigned, isAvailable }) => isAssigned || isAvailable)
+        // ソート: 担当+出勤 > 担当のみ > 出勤のみ
+        .sort((a, b) => {
+          const scoreA = (a.isAssigned ? 2 : 0) + (a.isAvailable ? 1 : 0)
+          const scoreB = (b.isAssigned ? 2 : 0) + (b.isAvailable ? 1 : 0)
+          return scoreB - scoreA
+        })
+      
+      return {
+        value: scenario.title,
+        label: scenario.title + (!isAvailableAtCurrentVenue ? ' [公演不可]' : ''),
+        renderContent: !isAvailableAtCurrentVenue ? () => (
+          <span className="flex items-center gap-1">
+            {scenario.title}
+            <span className="inline-flex items-center px-1 py-0 rounded text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300">
+              公演不可
+            </span>
+          </span>
+        ) : undefined,
+        displayInfo: filteredDisplayGMs.length > 0 
+          ? (
+              <span className="flex flex-wrap gap-0.5 items-center">
+                {filteredDisplayGMs.map(({ gm, isAssigned, isAvailable }) => {
+                  // 担当かつ出勤 → 緑背景
+                  if (isAssigned && isAvailable) {
+                    return (
+                      <span 
+                        key={gm.id}
+                        className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-green-100 text-green-800 border border-green-300"
+                      >
+                        {gm.name}
+                      </span>
+                    )
+                  }
+                  // 担当だが出勤なし → 青背景
+                  if (isAssigned && !isAvailable) {
+                    return (
+                      <span 
+                        key={gm.id}
+                        className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-blue-100 text-blue-700 border border-blue-300"
+                      >
+                        {gm.name}
+                      </span>
+                    )
+                  }
+                  // 担当でないが出勤中 → 白背景・灰色文字
+                  return (
+                    <span 
+                      key={gm.id}
+                      className="inline-flex items-center px-1 py-0 rounded text-[11px] bg-white text-gray-400 border border-gray-200"
+                    >
+                      {gm.name}
+                    </span>
+                  )
+                })}
+              </span>
+            )
+          : undefined,
+        // 検索用テキストは「出勤かつ担当」のGMのみ
+        displayInfoSearchText: filteredDisplayGMs
+          .filter(({ isAssigned, isAvailable }) => isAssigned && isAvailable)
+          .map(({ gm }) => gm.name).join(', ')
+      }
+    })
+  }, [scenarios, formData.venue, staff, allAvailableStaff])
 
   // 閉店時刻選択肢（開始時刻より後の時間のみ）
   const getEndTimeOptions = (startTime: string) => {
@@ -688,108 +783,7 @@ export function PerformanceModal({
                   }))
                 }
               }}
-              options={scenarios.map(scenario => {
-                // この店舗で公演可能かチェック
-                const isAvailableAtCurrentVenue = isScenarioAvailableAtVenue(scenario)
-                
-                // このシナリオの担当GM全員を取得（special_scenarios は scenario_master_id を格納）
-                const isAssignedGM = (gm: StaffType) => {
-                  const specialScenarios = gm.special_scenarios || []
-                  return specialScenarios.includes(scenario.scenario_master_id || scenario.id) || 
-                         specialScenarios.includes(scenario.id) ||
-                         specialScenarios.includes(scenario.title)
-                }
-                
-                // 出勤中かどうかをチェック
-                const isAvailableGM = (gm: StaffType) => allAvailableStaff.some(a => a.id === gm.id)
-                
-                // 担当GMを取得
-                const scenarioAssignedGMs = staff.filter(gm => gm.status === 'active' && isAssignedGM(gm))
-                
-                // 出勤中だが担当でないGM（シナリオ習得の可能性あり）
-                const availableNonAssignedGMs = allAvailableStaff.filter(gm => 
-                  gm.status === 'active' && !isAssignedGM(gm)
-                )
-                
-                // 表示用にマージ：担当GMを先に、次に出勤中の非担当GM
-                const displayGMs = [
-                  ...scenarioAssignedGMs.map(gm => ({ gm, isAssigned: true, isAvailable: isAvailableGM(gm) })),
-                  ...availableNonAssignedGMs.map(gm => ({ gm, isAssigned: false, isAvailable: true }))
-                ]
-                
-                // 担当または出勤のスタッフのみ表示（その他は除外）
-                const filteredDisplayGMs = staff
-                  .filter(gm => gm.status === 'active')
-                  .map(gm => ({
-                    gm,
-                    isAssigned: isAssignedGM(gm),
-                    isAvailable: isAvailableGM(gm)
-                  }))
-                  // 担当または出勤のみ表示
-                  .filter(({ isAssigned, isAvailable }) => isAssigned || isAvailable)
-                  // ソート: 担当+出勤 > 担当のみ > 出勤のみ
-                  .sort((a, b) => {
-                    const scoreA = (a.isAssigned ? 2 : 0) + (a.isAvailable ? 1 : 0)
-                    const scoreB = (b.isAssigned ? 2 : 0) + (b.isAvailable ? 1 : 0)
-                    return scoreB - scoreA
-                  })
-                
-                return {
-                  value: scenario.title,
-                  label: scenario.title + (!isAvailableAtCurrentVenue ? ' [公演不可]' : ''),
-                  renderContent: !isAvailableAtCurrentVenue ? () => (
-                    <span className="flex items-center gap-1">
-                      {scenario.title}
-                      <span className="inline-flex items-center px-1 py-0 rounded text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300">
-                        公演不可
-                      </span>
-                    </span>
-                  ) : undefined,
-                  displayInfo: filteredDisplayGMs.length > 0 
-                    ? (
-                        <span className="flex flex-wrap gap-0.5 items-center">
-                          {filteredDisplayGMs.map(({ gm, isAssigned, isAvailable }) => {
-                            // 担当かつ出勤 → 緑背景
-                            if (isAssigned && isAvailable) {
-                              return (
-                                <span 
-                                  key={gm.id}
-                                  className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-green-100 text-green-800 border border-green-300"
-                                >
-                                  {gm.name}
-                                </span>
-                              )
-                            }
-                            // 担当だが出勤なし → 青背景
-                            if (isAssigned && !isAvailable) {
-                              return (
-                                <span 
-                                  key={gm.id}
-                                  className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-blue-100 text-blue-700 border border-blue-300"
-                                >
-                                  {gm.name}
-                                </span>
-                              )
-                            }
-                            // 担当でないが出勤中 → 白背景・灰色文字
-                            return (
-                              <span 
-                                key={gm.id}
-                                className="inline-flex items-center px-1 py-0 rounded text-[11px] bg-white text-gray-400 border border-gray-200"
-                              >
-                                {gm.name}
-                              </span>
-                            )
-                          })}
-                        </span>
-                      )
-                    : undefined,
-                  // 検索用テキストは「出勤かつ担当」のGMのみ
-                  displayInfoSearchText: filteredDisplayGMs
-                    .filter(({ isAssigned, isAvailable }) => isAssigned && isAvailable)
-                    .map(({ gm }) => gm.name).join(', ')
-                }
-              })}
+              options={scenarioOptions}
               placeholder="シナリオ"
               searchPlaceholder="検索..."
               emptyText="シナリオが見つかりません"

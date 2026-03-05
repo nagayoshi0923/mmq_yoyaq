@@ -6,6 +6,69 @@
 
 import type { Scenario, Store, KitTransferSuggestion } from '@/types'
 
+// 日本の都道府県リスト（住所から抽出用）
+const PREFECTURES = [
+  '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+  '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+  '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
+  '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
+  '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+  '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
+  '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
+]
+
+/**
+ * 住所から都道府県を抽出
+ */
+function extractPrefecture(address: string): string {
+  for (const pref of PREFECTURES) {
+    if (address.startsWith(pref)) {
+      return pref
+    }
+  }
+  return ''
+}
+
+/**
+ * 住所から市区町村を抽出（都道府県の後から「市」「区」「町」「村」まで）
+ */
+function extractCity(address: string): string {
+  const prefecture = extractPrefecture(address)
+  const afterPref = address.slice(prefecture.length)
+  
+  // 「市」「区」「町」「村」「郡」で終わる部分を抽出
+  const match = afterPref.match(/^(.+?[市区町村郡])/)
+  return match ? match[1] : ''
+}
+
+/**
+ * 2つの住所間の「近さスコア」を計算（高いほど近い）
+ * - 同じ市区町村: 3
+ * - 同じ都道府県: 2
+ * - それ以外: 0
+ */
+function calculateAddressProximity(address1: string, address2: string): number {
+  if (!address1 || !address2) return 0
+  
+  const pref1 = extractPrefecture(address1)
+  const pref2 = extractPrefecture(address2)
+  
+  if (!pref1 || !pref2) return 0
+  
+  // 同じ都道府県かチェック
+  if (pref1 !== pref2) return 0
+  
+  // 同じ市区町村かチェック
+  const city1 = extractCity(address1)
+  const city2 = extractCity(address2)
+  
+  if (city1 && city2 && city1 === city2) {
+    return 3
+  }
+  
+  return 2
+}
+
 // キット状態: scenario_id -> { kit_number -> store_id }
 export type KitState = Record<string, Record<number, string>>
 
@@ -167,22 +230,38 @@ export function calculateKitTransfers(
           // 現在位置が不明なため、移動計画の候補に含めない。
           // 未配置キットがある場合は、先にキット管理画面で初期位置を登録する必要がある。
           
-          // 同じ地域の店舗からの移動を優先（距離が近いほうが移動コストが低い）
+          // 住所が近い店舗からの移動を優先
+          // 優先順位:
+          // 1. 同じ region（地域グループ）
+          // 2. 同じ市区町村（住所から抽出）
+          // 3. 同じ都道府県
           const destinationRegion = store.region || ''
+          const destinationAddress = store.address || ''
+          
           otherKits.sort((a, b) => {
             const storeA = storeMap.get(a.fromStoreId)
             const storeB = storeMap.get(b.fromStoreId)
             const regionA = storeA?.region || ''
             const regionB = storeB?.region || ''
+            const addressA = storeA?.address || ''
+            const addressB = storeB?.address || ''
             
-            // 同じ地域のキットを優先
+            // 1. 同じ地域（region）のキットを最優先
             const aIsSameRegion = regionA === destinationRegion && destinationRegion !== ''
             const bIsSameRegion = regionB === destinationRegion && destinationRegion !== ''
             
             if (aIsSameRegion && !bIsSameRegion) return -1
             if (!aIsSameRegion && bIsSameRegion) return 1
             
-            // 同じ地域でない場合は、空文字（未設定）でないほうを優先
+            // 2. 住所の近さで比較（同じ市区町村 > 同じ都道府県）
+            const proximityA = calculateAddressProximity(addressA, destinationAddress)
+            const proximityB = calculateAddressProximity(addressB, destinationAddress)
+            
+            if (proximityA !== proximityB) {
+              return proximityB - proximityA
+            }
+            
+            // 3. 同じ地域でない場合は、region が設定されているほうを優先
             if (regionA && !regionB) return -1
             if (!regionA && regionB) return 1
             
