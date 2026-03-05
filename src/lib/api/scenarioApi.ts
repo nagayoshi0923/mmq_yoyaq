@@ -43,6 +43,24 @@ export const scenarioApi = {
     return (data || []) as unknown as Scenario[]
   },
 
+  // 旧scenarios テーブルから全シナリオを取得（キット管理等レガシー機能用）
+  // NOTE: scenarios テーブル廃止後は削除予定
+  async getAllLegacy(organizationId?: string): Promise<Scenario[]> {
+    let query = supabase
+      .from('scenarios')
+      .select(SCENARIO_SELECT_FIELDS)
+    
+    const orgId = organizationId || await getCurrentOrganizationId()
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query.order('title', { ascending: true })
+    
+    if (error) throw error
+    return (data || []) as Scenario[]
+  },
+
   // 公開用シナリオを取得（status='available'のみ、必要なフィールドのみ）
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
   async getPublic(organizationId?: string): Promise<Partial<Scenario>[]> {

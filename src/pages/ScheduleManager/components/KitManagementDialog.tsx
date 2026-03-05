@@ -724,7 +724,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const [locationsData, storesData, scenariosData] = await Promise.all([
         kitApi.getKitLocations(),
         storeApi.getAll(),
-        scenarioApi.getAll()
+        scenarioApi.getAllLegacy()
       ])
       setKitLocations(locationsData)
       setStores(storesData)
