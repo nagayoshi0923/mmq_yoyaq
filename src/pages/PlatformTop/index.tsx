@@ -184,15 +184,16 @@ export function PlatformTop() {
         const scenarioMap: Record<string, ScenarioWithEvents> = {}
         
         eventData.forEach(e => {
-          const scenarioArr = e.scenario_masters as unknown as Array<{ 
+          // scenario_masters は !inner JOIN なのでオブジェクトとして返される（配列ではない）
+          const scenarioData = e.scenario_masters as unknown as { 
             id: string; title: string; 
             key_visual_url?: string | null; genre?: string[];
             author?: string; player_count_min: number; player_count_max: number;
             official_duration: number
-          }> | null
-          const scenario = scenarioArr && scenarioArr[0] ? {
-            ...scenarioArr[0],
-            duration: scenarioArr[0].official_duration,
+          } | null
+          const scenario = scenarioData ? {
+            ...scenarioData,
+            duration: scenarioData.official_duration,
             status: 'available' as const,
             organization_id: e.organization_id || ''
           } : null
