@@ -43,12 +43,13 @@ export const kitApi = {
     }
 
     // org_scenario または legacy_scenario から scenario 形式に変換
+    // scenario.id は scenario_master_id を使用（scenarioApi.getAll() との整合性のため）
     const transformed = (data || []).map(item => {
       if (item.org_scenario) {
         return {
           ...item,
           scenario: {
-            id: item.org_scenario.id,
+            id: item.org_scenario.scenario_master_id,  // scenario_master_id を使用
             title: item.org_scenario.scenario_masters?.title || '',
             kit_count: 1
           }

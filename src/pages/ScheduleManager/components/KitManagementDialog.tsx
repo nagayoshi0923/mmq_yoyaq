@@ -1386,29 +1386,25 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 <div className="grid gap-3">
                   {scenariosWithKits.map((scenario, idx) => {
                     const kitCount = scenario.kit_count || 1
-                    // org_scenario_id または scenario_id で比較（移行期間中の互換性対応）
-                    const orgScenarioId = (scenario as { org_scenario_id?: string }).org_scenario_id
-                    const locations = kitLocations.filter(l => 
-                      (orgScenarioId && l.org_scenario_id === orgScenarioId) ||
-                      l.scenario_id === scenario.id ||
-                      l.scenario?.id === scenario.id ||
-                      l.scenario?.id === orgScenarioId
-                    )
+                    // scenario.id (= scenario_master_id) で比較
+                    const locations = kitLocations.filter(l => l.scenario?.id === scenario.id)
                     
                     // デバッグ: 最初の3件のみログ出力
                     if (idx < 3) {
                       console.log(`🔍 シナリオ[${scenario.title}]`, {
                         scenarioId: scenario.id,
-                        orgScenarioId,
                         kitCount,
                         locationsFound: locations.length,
-                        allLocations: kitLocations.slice(0, 5).map(l => ({
-                          org_scenario_id: l.org_scenario_id,
-                          scenario_id: l.scenario_id,
-                          scenario_title: l.scenario?.title
+                        matchingLocations: locations.map(l => ({
+                          scenario_id: l.scenario?.id,
+                          title: l.scenario?.title,
+                          store_id: l.store_id
                         }))
                       })
                     }
+                    
+                    // org_scenario_id（API用）
+                    const orgScenarioId = (scenario as { org_scenario_id?: string }).org_scenario_id
                     
                     return (
                       <div key={scenario.id} className="border rounded-lg p-3">
@@ -1513,13 +1509,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                     onChange={(e) => {
                                       // ローカル状態を即座に更新（デバウンス用）
                                       const newNotes = e.target.value
-                                      setKitLocations(prev => prev.map(loc => {
-                                        const matches = (orgScenarioId && loc.org_scenario_id === orgScenarioId) ||
-                                          loc.scenario_id === scenario.id
-                                        return matches && loc.kit_number === kitNum
+                                      setKitLocations(prev => prev.map(loc => 
+                                        loc.scenario?.id === scenario.id && loc.kit_number === kitNum
                                           ? { ...loc, condition_notes: newNotes }
                                           : loc
-                                      }))
+                                      ))
                                     }}
                                     onBlur={(e) => {
                                       // フォーカスが外れたら保存
@@ -1748,10 +1742,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                       const count = storeEvents.filter(e => e.scenario_id === sid).length
                                       
                                       // この店舗（または同じグループの店舗）にあるキット数をチェック
-                                      const kitsAtStore = kitLocations.filter(loc => {
-                                        const scenarioMatch = loc.org_scenario_id === sid || loc.scenario_id === sid
-                                        return scenarioMatch && isSameStoreGroup(loc.store_id, store.id)
-                                      }).length
+                                      const kitsAtStore = kitLocations.filter(loc => 
+                                        loc.scenario?.id === sid && isSameStoreGroup(loc.store_id, store.id)
+                                      ).length
                                       
                                       // キット不足チェック
                                       const shortage = kitShortages.find(
