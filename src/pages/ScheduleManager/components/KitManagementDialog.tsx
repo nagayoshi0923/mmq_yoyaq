@@ -307,13 +307,17 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     
     // キット位置情報を集約
     for (const loc of kitLocations) {
-      const scenario = scenarioMap.get(loc.scenario_id)
+      // scenario.id (= scenario_master_id) を使用
+      const scenarioId = loc.scenario?.id
+      if (!scenarioId) continue
+      
+      const scenario = scenarioMap.get(scenarioId)
       if (!scenario) continue
       
       const storeKits = inventory.get(loc.store_id)
       if (!storeKits) continue
       
-      const existing = storeKits.find(s => s.scenario.id === loc.scenario_id)
+      const existing = storeKits.find(s => s.scenario.id === scenarioId)
       const kitInfo = {
         kitNumber: loc.kit_number,
         condition: (loc.condition || 'good') as KitCondition,
@@ -343,7 +347,10 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     // 現在のキット状態をシミュレート
     const currentState = new Map<string, string>() // `${scenario_id}-${kit_number}` -> store_id
     for (const loc of kitLocations) {
-      currentState.set(`${loc.scenario_id}-${loc.kit_number}`, loc.store_id)
+      const scenarioId = loc.scenario?.id
+      if (scenarioId) {
+        currentState.set(`${scenarioId}-${loc.kit_number}`, loc.store_id)
+      }
     }
     
     // 日付順に需要をチェック（公演期間 = demandDates）
@@ -985,10 +992,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         if (!USABLE_CONDITIONS.includes(loc.condition)) {
           continue
         }
-        if (!kitState[loc.scenario_id]) {
-          kitState[loc.scenario_id] = {}
+        const scenarioId = loc.scenario?.id
+        if (!scenarioId) continue
+        if (!kitState[scenarioId]) {
+          kitState[scenarioId] = {}
         }
-        kitState[loc.scenario_id][loc.kit_number] = loc.store_id
+        kitState[scenarioId][loc.kit_number] = loc.store_id
       }
 
       // 週間需要を構築（scenario_idがあるイベントのみ）
@@ -1963,7 +1972,10 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       // キットの現在位置マップを作成
                       const kitCurrentLocationMap = new Map<string, string>()
                       for (const loc of kitLocations) {
-                        kitCurrentLocationMap.set(`${loc.scenario_id}-${loc.kit_number}`, loc.store_id)
+                        const scenarioId = loc.scenario?.id
+                        if (scenarioId) {
+                          kitCurrentLocationMap.set(`${scenarioId}-${loc.kit_number}`, loc.store_id)
+                        }
                       }
                       
                       // 各アイテムを個別に処理
