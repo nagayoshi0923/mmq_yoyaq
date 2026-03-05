@@ -608,11 +608,13 @@ export default function MyPage() {
   const pastReservations = reservations.filter(
     r => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed'
   )
-  // 調整中の貸切申込み（pending, pending_gm, gm_confirmed, pending_store）
-  const pendingPrivateBookings = reservations.filter(
-    r => r.reservation_source === 'web_private' && 
-         ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)
-  )
+  // 調整中の貸切申込み（pending, pending_gm, gm_confirmed, pending_store）- 申込順（新しい順）
+  const pendingPrivateBookings = reservations
+    .filter(
+      r => r.reservation_source === 'web_private' && 
+           ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)
+    )
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   // タブごとのカウント
   const getCounts = () => ({
