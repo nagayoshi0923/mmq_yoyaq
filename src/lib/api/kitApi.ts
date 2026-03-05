@@ -24,11 +24,16 @@ export const kitApi = {
       .from('scenario_kit_locations')
       .select(`
         *,
-        scenario:scenarios(id, title, kit_count),
+        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
+          id,
+          scenario_master_id,
+          scenario_masters(id, title)
+        ),
         store:stores(id, name, short_name)
       `)
       .eq('organization_id', orgId)
-      .order('scenario_id')
+      .not('org_scenario_id', 'is', null)
+      .order('org_scenario_id')
       .order('kit_number')
 
     if (error) {
@@ -36,11 +41,22 @@ export const kitApi = {
       throw error
     }
 
-    return data || []
+    // org_scenario から scenario 形式に変換
+    const transformed = (data || []).map(item => ({
+      ...item,
+      scenario: item.org_scenario ? {
+        id: item.org_scenario.id,
+        title: item.org_scenario.scenario_masters?.title || '',
+        kit_count: 1
+      } : null
+    }))
+
+    return transformed as KitLocation[]
   },
 
   /**
    * 特定シナリオのキット位置を取得
+   * scenarioId: organization_scenarios.id（org_scenario_id）
    */
   async getKitLocationsByScenario(scenarioId: string): Promise<KitLocation[]> {
     const orgId = await getCurrentOrganizationId()
@@ -50,11 +66,15 @@ export const kitApi = {
       .from('scenario_kit_locations')
       .select(`
         *,
-        scenario:scenarios(id, title, kit_count),
+        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
+          id,
+          scenario_master_id,
+          scenario_masters(id, title)
+        ),
         store:stores(id, name, short_name)
       `)
       .eq('organization_id', orgId)
-      .eq('scenario_id', scenarioId)
+      .eq('org_scenario_id', scenarioId)
       .order('kit_number')
 
     if (error) {
@@ -62,11 +82,21 @@ export const kitApi = {
       throw error
     }
 
-    return data || []
+    const transformed = (data || []).map(item => ({
+      ...item,
+      scenario: item.org_scenario ? {
+        id: item.org_scenario.id,
+        title: item.org_scenario.scenario_masters?.title || '',
+        kit_count: 1
+      } : null
+    }))
+
+    return transformed as KitLocation[]
   },
 
   /**
    * キット位置を設定（初期設定または更新）
+   * scenarioId: organization_scenarios.id（org_scenario_id）
    */
   async setKitLocation(
     scenarioId: string,
@@ -80,15 +110,19 @@ export const kitApi = {
       .from('scenario_kit_locations')
       .upsert({
         organization_id: orgId,
-        scenario_id: scenarioId,
+        org_scenario_id: scenarioId,
         kit_number: kitNumber,
         store_id: storeId
       }, {
-        onConflict: 'organization_id,scenario_id,kit_number'
+        onConflict: 'organization_id,org_scenario_id,kit_number'
       })
       .select(`
         *,
-        scenario:scenarios(id, title, kit_count),
+        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
+          id,
+          scenario_master_id,
+          scenario_masters(id, title)
+        ),
         store:stores(id, name, short_name)
       `)
       .single()
@@ -98,11 +132,21 @@ export const kitApi = {
       throw error
     }
 
-    return data
+    const transformed = {
+      ...data,
+      scenario: data.org_scenario ? {
+        id: data.org_scenario.id,
+        title: data.org_scenario.scenario_masters?.title || '',
+        kit_count: 1
+      } : null
+    }
+
+    return transformed as KitLocation
   },
 
   /**
    * キットの状態を更新
+   * scenarioId: organization_scenarios.id（org_scenario_id）
    */
   async updateKitCondition(
     scenarioId: string,
@@ -120,11 +164,15 @@ export const kitApi = {
         condition_notes: conditionNotes
       })
       .eq('organization_id', orgId)
-      .eq('scenario_id', scenarioId)
+      .eq('org_scenario_id', scenarioId)
       .eq('kit_number', kitNumber)
       .select(`
         *,
-        scenario:scenarios(id, title, kit_count),
+        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
+          id,
+          scenario_master_id,
+          scenario_masters(id, title)
+        ),
         store:stores(id, name, short_name)
       `)
       .single()
@@ -134,11 +182,21 @@ export const kitApi = {
       throw error
     }
 
-    return data
+    const transformed = {
+      ...data,
+      scenario: data.org_scenario ? {
+        id: data.org_scenario.id,
+        title: data.org_scenario.scenario_masters?.title || '',
+        kit_count: 1
+      } : null
+    }
+
+    return transformed as KitLocation
   },
 
   /**
    * シナリオの全キット位置を一括設定
+   * scenarioId: organization_scenarios.id（org_scenario_id）
    */
   async setAllKitLocations(
     scenarioId: string,
@@ -149,7 +207,7 @@ export const kitApi = {
 
     const records = storeIds.map((storeId, index) => ({
       organization_id: orgId,
-      scenario_id: scenarioId,
+      org_scenario_id: scenarioId,
       kit_number: index + 1,
       store_id: storeId
     }))
@@ -157,11 +215,15 @@ export const kitApi = {
     const { data, error } = await supabase
       .from('scenario_kit_locations')
       .upsert(records, {
-        onConflict: 'organization_id,scenario_id,kit_number'
+        onConflict: 'organization_id,org_scenario_id,kit_number'
       })
       .select(`
         *,
-        scenario:scenarios(id, title, kit_count),
+        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
+          id,
+          scenario_master_id,
+          scenario_masters(id, title)
+        ),
         store:stores(id, name, short_name)
       `)
 
@@ -170,7 +232,16 @@ export const kitApi = {
       throw error
     }
 
-    return data || []
+    const transformed = (data || []).map(item => ({
+      ...item,
+      scenario: item.org_scenario ? {
+        id: item.org_scenario.id,
+        title: item.org_scenario.scenario_masters?.title || '',
+        kit_count: 1
+      } : null
+    }))
+
+    return transformed as KitLocation[]
   },
 
   // ============================================
@@ -191,7 +262,11 @@ export const kitApi = {
       .from('kit_transfer_events')
       .select(`
         *,
-        scenario:scenarios(id, title),
+        org_scenario:organization_scenarios!kit_transfer_events_org_scenario_id_fkey(
+          id,
+          scenario_master_id,
+          scenario_masters(id, title)
+        ),
         from_store:stores!kit_transfer_events_from_store_id_fkey(id, name, short_name),
         to_store:stores!kit_transfer_events_to_store_id_fkey(id, name, short_name)
       `)
@@ -199,18 +274,27 @@ export const kitApi = {
       .gte('transfer_date', startDate)
       .lte('transfer_date', endDate)
       .order('transfer_date')
-      .order('scenario_id')
+      .order('org_scenario_id')
 
     if (error) {
       console.error('Failed to fetch transfer events:', error)
       throw error
     }
 
-    return data || []
+    const transformed = (data || []).map(item => ({
+      ...item,
+      scenario: item.org_scenario ? {
+        id: item.org_scenario.id,
+        title: item.org_scenario.scenario_masters?.title || ''
+      } : null
+    }))
+
+    return transformed as KitTransferEvent[]
   },
 
   /**
    * 移動イベントを作成
+   * event.org_scenario_id: organization_scenarios.id
    */
   async createTransferEvent(
     event: Omit<KitTransferEvent, 'id' | 'organization_id' | 'created_at' | 'updated_at' | 'scenario' | 'from_store' | 'to_store'>
@@ -229,7 +313,11 @@ export const kitApi = {
       })
       .select(`
         *,
-        scenario:scenarios(id, title),
+        org_scenario:organization_scenarios!kit_transfer_events_org_scenario_id_fkey(
+          id,
+          scenario_master_id,
+          scenario_masters(id, title)
+        ),
         from_store:stores!kit_transfer_events_from_store_id_fkey(id, name, short_name),
         to_store:stores!kit_transfer_events_to_store_id_fkey(id, name, short_name)
       `)
@@ -240,11 +328,20 @@ export const kitApi = {
       throw error
     }
 
-    return data
+    const transformed = {
+      ...data,
+      scenario: data.org_scenario ? {
+        id: data.org_scenario.id,
+        title: data.org_scenario.scenario_masters?.title || ''
+      } : null
+    }
+
+    return transformed as KitTransferEvent
   },
 
   /**
    * 移動イベントを一括作成
+   * events[].org_scenario_id: organization_scenarios.id
    */
   async createTransferEvents(
     events: Array<Omit<KitTransferEvent, 'id' | 'organization_id' | 'created_at' | 'updated_at' | 'scenario' | 'from_store' | 'to_store'>>
@@ -265,7 +362,11 @@ export const kitApi = {
       .insert(records)
       .select(`
         *,
-        scenario:scenarios(id, title),
+        org_scenario:organization_scenarios!kit_transfer_events_org_scenario_id_fkey(
+          id,
+          scenario_master_id,
+          scenario_masters(id, title)
+        ),
         from_store:stores!kit_transfer_events_from_store_id_fkey(id, name, short_name),
         to_store:stores!kit_transfer_events_to_store_id_fkey(id, name, short_name)
       `)
@@ -275,7 +376,15 @@ export const kitApi = {
       throw error
     }
 
-    return data || []
+    const transformed = (data || []).map(item => ({
+      ...item,
+      scenario: item.org_scenario ? {
+        id: item.org_scenario.id,
+        title: item.org_scenario.scenario_masters?.title || ''
+      } : null
+    }))
+
+    return transformed as KitTransferEvent[]
   },
 
   /**
@@ -291,7 +400,11 @@ export const kitApi = {
       .eq('id', eventId)
       .select(`
         *,
-        scenario:scenarios(id, title),
+        org_scenario:organization_scenarios!kit_transfer_events_org_scenario_id_fkey(
+          id,
+          scenario_master_id,
+          scenario_masters(id, title)
+        ),
         from_store:stores!kit_transfer_events_from_store_id_fkey(id, name, short_name),
         to_store:stores!kit_transfer_events_to_store_id_fkey(id, name, short_name)
       `)
@@ -302,7 +415,15 @@ export const kitApi = {
       throw error
     }
 
-    return data
+    const transformed = {
+      ...data,
+      scenario: data.org_scenario ? {
+        id: data.org_scenario.id,
+        title: data.org_scenario.scenario_masters?.title || ''
+      } : null
+    }
+
+    return transformed as KitTransferEvent
   },
 
   /**
@@ -382,6 +503,7 @@ export const kitApi = {
 
   /**
    * 回収完了をマーク
+   * scenarioId: organization_scenarios.id（org_scenario_id）
    */
   async markPickedUp(
     scenarioId: string,
@@ -398,7 +520,7 @@ export const kitApi = {
       .from('kit_transfer_completions')
       .upsert({
         organization_id: orgId,
-        scenario_id: scenarioId,
+        org_scenario_id: scenarioId,
         kit_number: kitNumber,
         performance_date: performanceDate,
         from_store_id: fromStoreId,
@@ -406,7 +528,7 @@ export const kitApi = {
         picked_up_at: new Date().toISOString(),
         picked_up_by: staffId
       }, {
-        onConflict: 'organization_id,scenario_id,kit_number,performance_date,to_store_id'
+        onConflict: 'organization_id,org_scenario_id,kit_number,performance_date,to_store_id'
       })
       .select(`
         *,
@@ -425,6 +547,7 @@ export const kitApi = {
 
   /**
    * 回収完了を解除
+   * scenarioId: organization_scenarios.id（org_scenario_id）
    */
   async unmarkPickedUp(
     scenarioId: string,
@@ -444,7 +567,7 @@ export const kitApi = {
         delivered_by: null
       })
       .eq('organization_id', orgId)
-      .eq('scenario_id', scenarioId)
+      .eq('org_scenario_id', scenarioId)
       .eq('kit_number', kitNumber)
       .eq('performance_date', performanceDate)
       .eq('to_store_id', toStoreId)
@@ -458,6 +581,7 @@ export const kitApi = {
   /**
    * 設置完了をマーク
    * キットの所在地も移動先店舗に更新する
+   * scenarioId: organization_scenarios.id（org_scenario_id）
    */
   async markDelivered(
     scenarioId: string,
@@ -477,7 +601,7 @@ export const kitApi = {
         delivered_by: staffId
       })
       .eq('organization_id', orgId)
-      .eq('scenario_id', scenarioId)
+      .eq('org_scenario_id', scenarioId)
       .eq('kit_number', kitNumber)
       .eq('performance_date', performanceDate)
       .eq('to_store_id', toStoreId)
@@ -501,7 +625,7 @@ export const kitApi = {
         updated_at: new Date().toISOString()
       })
       .eq('organization_id', orgId)
-      .eq('scenario_id', scenarioId)
+      .eq('org_scenario_id', scenarioId)
       .eq('kit_number', kitNumber)
 
     if (locationError) {
@@ -514,6 +638,7 @@ export const kitApi = {
 
   /**
    * 設置完了を解除
+   * scenarioId: organization_scenarios.id（org_scenario_id）
    */
   async unmarkDelivered(
     scenarioId: string,
@@ -531,7 +656,7 @@ export const kitApi = {
         delivered_by: null
       })
       .eq('organization_id', orgId)
-      .eq('scenario_id', scenarioId)
+      .eq('org_scenario_id', scenarioId)
       .eq('kit_number', kitNumber)
       .eq('performance_date', performanceDate)
       .eq('to_store_id', toStoreId)
