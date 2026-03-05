@@ -1364,7 +1364,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
               ) : (
                 <>
                 <div className="grid gap-3">
-                  {scenariosWithKits.map(scenario => {
+                  {scenariosWithKits.map((scenario, idx) => {
                     const kitCount = scenario.kit_count || 1
                     // org_scenario_id または scenario_id で比較（移行期間中の互換性対応）
                     const orgScenarioId = (scenario as { org_scenario_id?: string }).org_scenario_id
@@ -1374,6 +1374,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       l.scenario?.id === scenario.id ||
                       l.scenario?.id === orgScenarioId
                     )
+                    
+                    // デバッグ: 最初の3件のみログ出力
+                    if (idx < 3) {
+                      console.log(`🔍 シナリオ[${scenario.title}]`, {
+                        scenarioId: scenario.id,
+                        orgScenarioId,
+                        kitCount,
+                        locationsFound: locations.length,
+                        allLocations: kitLocations.slice(0, 5).map(l => ({
+                          org_scenario_id: l.org_scenario_id,
+                          scenario_id: l.scenario_id,
+                          scenario_title: l.scenario?.title
+                        }))
+                      })
+                    }
                     
                     return (
                       <div key={scenario.id} className="border rounded-lg p-3">
