@@ -750,10 +750,10 @@ export default function MyPage() {
                     {pendingPrivateBookings.map((reservation) => {
                       const imageUrl = reservation.scenario_id ? scenarioImages[reservation.scenario_id] : null
                       const candidateDatetimes = reservation.candidate_datetimes as {
-                        candidates?: Array<{ date: string; time_slot: string }>
+                        candidates?: Array<{ order: number; date: string; timeSlot: string; startTime: string; endTime: string; status: string }>
                         confirmedStore?: { storeId: string; storeName?: string }
-                        confirmedDateTime?: { date: string; time_slot: string }
-                        requestedStores?: string[]
+                        confirmedDateTime?: { date: string; timeSlot: string }
+                        requestedStores?: Array<{ storeId: string; storeName: string; storeShortName?: string }>
                       } | null
                       
                       const getStatusLabel = (status: string) => {
@@ -770,10 +770,19 @@ export default function MyPage() {
                       }
                       const statusInfo = getStatusLabel(reservation.status)
                       
-                      const requestedStoreId = candidateDatetimes?.requestedStores?.[0]
-                      const confirmedStoreId = candidateDatetimes?.confirmedStore?.storeId
-                      const store = confirmedStoreId ? stores[confirmedStoreId] : (requestedStoreId ? stores[requestedStoreId] : null)
-                      const candidateCount = candidateDatetimes?.candidates?.length || 0
+                      // 候補日をフォーマット（最初の3件まで表示）
+                      const formatCandidateDate = (date: string, timeSlot: string) => {
+                        const d = new Date(date)
+                        const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+                        return `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]}) ${timeSlot}`
+                      }
+                      const candidates = candidateDatetimes?.candidates || []
+                      const displayCandidates = candidates.slice(0, 3)
+                      const remainingCount = candidates.length - 3
+                      
+                      // 希望店舗
+                      const requestedStores = candidateDatetimes?.requestedStores || []
+                      const storeNames = requestedStores.map(s => s.storeShortName || s.storeName).filter(Boolean)
                       
                       return (
                         <div 
@@ -783,11 +792,16 @@ export default function MyPage() {
                           onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
                         >
                           <div 
-                            className="px-3 py-1.5 text-amber-800 text-sm font-bold flex items-center gap-2"
+                            className="px-3 py-1.5 text-amber-800 text-sm font-bold flex items-center justify-between"
                             style={{ backgroundColor: '#fef3c7' }}
                           >
-                            <Clock className="w-4 h-4" />
-                            日程調整中
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-4 h-4" />
+                              日程調整中
+                            </div>
+                            <span className={`text-xs px-2 py-0.5 rounded ${statusInfo.color}`}>
+                              {statusInfo.label}
+                            </span>
                           </div>
                           
                           <div className="p-3 flex gap-3">
@@ -822,29 +836,33 @@ export default function MyPage() {
                                 {cleanTitle(reservation.title)}
                               </h3>
                               
-                              <p className="text-sm text-amber-700 mt-1 flex items-center gap-1">
-                                <Calendar className="w-3.5 h-3.5" />
-                                候補日：{candidateCount}件
-                              </p>
-                              
-                              {store && (
-                                <div className="mt-1 text-xs text-gray-600">
-                                  <p className="font-medium flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" />
-                                    {store.name}
+                              {/* 候補日一覧 */}
+                              <div className="mt-1.5 space-y-0.5">
+                                {displayCandidates.map((c, i) => (
+                                  <p key={i} className="text-xs text-gray-600 flex items-center gap-1">
+                                    <Calendar className="w-3 h-3 text-amber-600 flex-shrink-0" />
+                                    <span className="font-medium">{formatCandidateDate(c.date, c.timeSlot)}</span>
                                   </p>
-                                </div>
-                              )}
-                              
-                              <div className="mt-1.5">
-                                <span className={`text-xs px-2 py-0.5 rounded ${statusInfo.color}`}>
-                                  {statusInfo.label}
-                                </span>
+                                ))}
+                                {remainingCount > 0 && (
+                                  <p className="text-xs text-gray-400">
+                                    他{remainingCount}件の候補日
+                                  </p>
+                                )}
                               </div>
+                              
+                              {/* 希望店舗 */}
+                              {storeNames.length > 0 && (
+                                <p className="mt-1 text-xs text-gray-500 flex items-center gap-1">
+                                  <MapPin className="w-3 h-3 flex-shrink-0" />
+                                  {storeNames.join('・')}
+                                </p>
+                              )}
 
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs text-gray-500">
                                 <span className="font-mono">{reservation.reservation_number}</span>
                                 <span>•</span>
+                                <Users className="w-3 h-3" />
                                 <span>{reservation.participant_count}名</span>
                               </div>
                             </div>
