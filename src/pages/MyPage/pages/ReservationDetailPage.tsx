@@ -42,13 +42,35 @@ const THEME = {
 
 const DEFAULT_CANCEL_DEADLINE_HOURS = 24
 
+interface CandidateDateTime {
+  order: number
+  date: string
+  timeSlot: string
+  startTime: string
+  endTime: string
+  status: string
+}
+
+interface RequestedStore {
+  storeId: string
+  storeName: string
+  storeShortName?: string
+}
+
+interface CandidateDatetimes {
+  candidates?: CandidateDateTime[]
+  requestedStores?: RequestedStore[]
+  confirmedStore?: { storeId: string; storeName?: string }
+  confirmedDateTime?: { date: string; timeSlot: string }
+}
+
 interface ReservationDetail {
   id: string
   reservation_number: string
   title: string
   requested_datetime: string
   participant_count: number
-  unit_price: number | null  // 予約時の1人あたり料金
+  unit_price: number | null
   final_price: number
   status: string
   payment_status: string
@@ -58,6 +80,11 @@ interface ReservationDetail {
   organization_id: string | null
   created_at: string
   schedule_event_id?: string | null
+  reservation_source?: string | null
+  candidate_datetimes?: CandidateDatetimes | null
+  customer_name?: string | null
+  customer_email?: string | null
+  customer_phone?: string | null
   schedule_events?: {
     date: string
     start_time: string
@@ -124,10 +151,10 @@ export function ReservationDetailPage() {
         .select(`
           id, reservation_number, title, requested_datetime, 
           participant_count, unit_price, final_price, status, payment_status, 
-          notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id
+          notes, scenario_id, scenario_master_id, store_id, organization_id, created_at, schedule_event_id,
+          reservation_source, candidate_datetimes, customer_name, customer_email, customer_phone
         `)
         .eq('id', reservationId)
-        // RLSにより「存在しない」と同様に扱われるケースもあるためmaybeSingleで統一
         .maybeSingle()
       
       // 列挙ノイズ対策: 存在しない/権限なし/取得失敗を区別せず同じUXに寄せる
@@ -288,7 +315,18 @@ export function ReservationDetailPage() {
   }
 
   // ステータス表示
-  const getStatusDisplay = (status: string) => {
+  const getStatusDisplay = (status: string, isPrivateBooking: boolean = false) => {
+    if (isPrivateBooking) {
+      const privateStatusMap: Record<string, { label: string; color: string; bg: string }> = {
+        'pending': { label: 'GM回答待ち', color: '#d97706', bg: '#fffbeb' },
+        'pending_gm': { label: 'GM回答待ち', color: '#d97706', bg: '#fffbeb' },
+        'gm_confirmed': { label: '店舗確認中', color: '#2563eb', bg: '#eff6ff' },
+        'pending_store': { label: '店舗確認中', color: '#2563eb', bg: '#eff6ff' },
+        'confirmed': { label: '日程確定', color: '#16a34a', bg: '#f0fdf4' },
+        'cancelled': { label: 'キャンセル済み', color: '#dc2626', bg: '#fef2f2' },
+      }
+      return privateStatusMap[status] || { label: status, color: '#6b7280', bg: '#f3f4f6' }
+    }
     const statusMap: Record<string, { label: string; color: string; bg: string }> = {
       'confirmed': { label: '予約確定', color: '#16a34a', bg: '#f0fdf4' },
       'pending': { label: '確認中', color: '#ca8a04', bg: '#fefce8' },
@@ -329,7 +367,9 @@ export function ReservationDetailPage() {
   }
 
   const perf = getPerformanceDateTime()
-  const statusDisplay = getStatusDisplay(reservation.status)
+  const isPrivateBookingRequest = reservation.reservation_source === 'web_private'
+  const isPendingPrivate = isPrivateBookingRequest && ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(reservation.status)
+  const statusDisplay = getStatusDisplay(reservation.status, isPrivateBookingRequest)
   const paymentDisplay = getPaymentStatusDisplay(reservation.payment_status)
   const canCancel = (() => {
     if (!user || reservation.status !== 'confirmed') return false
@@ -597,7 +637,7 @@ export function ReservationDetailPage() {
               {statusDisplay.label}
             </span>
             {/* 支払い済みまたは返金済みの場合のみ表示（pendingは現地払いなので非表示） */}
-            {reservation.payment_status !== 'pending' && (
+            {reservation.payment_status !== 'pending' && !isPendingPrivate && (
               <span 
                 className="px-3 py-1 text-sm font-medium"
                 style={{ backgroundColor: paymentDisplay.bg, color: paymentDisplay.color, borderRadius: 0 }}
@@ -608,30 +648,123 @@ export function ReservationDetailPage() {
           </div>
         </div>
 
-
-        {/* 公演日時 */}
-        <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
-          <div className="flex items-start gap-3">
-            <div 
-              className="w-10 h-10 flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
-            >
-              <Calendar className="w-5 h-5" style={{ color: THEME.primary }} />
+        {/* 貸切申込み：候補日・希望店舗セクション */}
+        {isPendingPrivate && reservation.candidate_datetimes && (
+          <div className="bg-amber-50 border border-amber-200 p-4 space-y-4" style={{ borderRadius: 0 }}>
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-600" />
+              <h3 className="font-bold text-amber-800">貸切申込み内容</h3>
             </div>
-            <div>
-              <p className="text-xs text-gray-500 mb-1">公演日時</p>
-              <p className="text-lg font-bold text-gray-900">{formatDate(perf.date)}</p>
-              {perf.time && (
-                <p className="text-base font-medium" style={{ color: THEME.primary }}>
-                  {perf.time.slice(0, 5)} 開演
-                </p>
+            
+            {/* 候補日一覧 */}
+            {reservation.candidate_datetimes.candidates && reservation.candidate_datetimes.candidates.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-amber-700 mb-2">希望日時（{reservation.candidate_datetimes.candidates.length}件）</p>
+                <div className="space-y-2">
+                  {reservation.candidate_datetimes.candidates.map((candidate, index) => {
+                    const d = new Date(candidate.date)
+                    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+                    const dateStr = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${weekdays[d.getDay()]}）`
+                    return (
+                      <div 
+                        key={index}
+                        className="flex items-center gap-3 bg-white p-3 border border-amber-100"
+                        style={{ borderRadius: 0 }}
+                      >
+                        <span className="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-700 text-sm font-bold" style={{ borderRadius: 0 }}>
+                          {candidate.order || index + 1}
+                        </span>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{dateStr}</p>
+                          <p className="text-sm text-gray-600">{candidate.timeSlot}（{candidate.startTime}〜{candidate.endTime}）</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            
+            {/* 希望店舗一覧 */}
+            {reservation.candidate_datetimes.requestedStores && reservation.candidate_datetimes.requestedStores.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-amber-700 mb-2">希望店舗</p>
+                <div className="flex flex-wrap gap-2">
+                  {reservation.candidate_datetimes.requestedStores.map((store, index) => (
+                    <span 
+                      key={index}
+                      className="px-3 py-1.5 bg-white border border-amber-200 text-sm text-gray-700"
+                      style={{ borderRadius: 0 }}
+                    >
+                      <MapPin className="w-3.5 h-3.5 inline-block mr-1 text-amber-600" />
+                      {store.storeName}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* 申込情報 */}
+            <div className="pt-3 border-t border-amber-200 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-amber-700">参加人数</span>
+                <span className="font-medium text-gray-900">{reservation.participant_count}名</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-amber-700">申込日時</span>
+                <span className="text-gray-600">
+                  {new Date(reservation.created_at).toLocaleString('ja-JP', { 
+                    year: 'numeric', month: 'numeric', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                  })}
+                </span>
+              </div>
+              {reservation.customer_name && (
+                <div className="flex justify-between">
+                  <span className="text-amber-700">申込者名</span>
+                  <span className="text-gray-900">{reservation.customer_name}</span>
+                </div>
               )}
             </div>
+            
+            {/* 進捗説明 */}
+            <div className="pt-3 border-t border-amber-200">
+              <p className="text-xs text-amber-600">
+                {reservation.status === 'pending' || reservation.status === 'pending_gm' 
+                  ? '担当GMの空き状況を確認中です。確定次第ご連絡いたします。'
+                  : reservation.status === 'gm_confirmed' || reservation.status === 'pending_store'
+                  ? 'GMの確認が完了しました。店舗・日程の最終確認中です。'
+                  : ''}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* 会場 */}
-        {store && (
+        {/* 公演日時（貸切調整中の場合は非表示） */}
+        {!isPendingPrivate && (
+          <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
+            <div className="flex items-start gap-3">
+              <div 
+                className="w-10 h-10 flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
+              >
+                <Calendar className="w-5 h-5" style={{ color: THEME.primary }} />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">公演日時</p>
+                <p className="text-lg font-bold text-gray-900">{formatDate(perf.date)}</p>
+                {perf.time && (
+                  <p className="text-base font-medium" style={{ color: THEME.primary }}>
+                    {perf.time.slice(0, 5)} 開演
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 会場（貸切調整中の場合は非表示） */}
+        {!isPendingPrivate && store && (
           <div className="bg-white border border-gray-200 p-4" style={{ borderRadius: 0 }}>
             <div className="flex items-start gap-3">
               <div 
@@ -663,73 +796,74 @@ export function ReservationDetailPage() {
           </div>
         )}
 
-        {/* 予約情報 */}
-        <div className="bg-white border border-gray-200 p-4 space-y-4" style={{ borderRadius: 0 }}>
-          <h3 className="font-bold text-gray-900">予約情報</h3>
-          
-          <div className="space-y-3">
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <span className="text-sm text-gray-500 flex items-center gap-2">
-                <Ticket className="w-4 h-4" />
-                シナリオ
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="font-bold">
-                  {scenario?.title || reservation.title}
-                </span>
-                {scenario?.id && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => navigate(organization?.slug ? `/${organization.slug}/scenario/${scenario.slug || scenario.id}` : `/scenario/${scenario.slug || scenario.id}`)}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    詳細
-                  </Button>
-                )}
-              </div>
-            </div>
-            {scenario?.id && (
-              <button
-                type="button"
-                className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
-                onClick={() => navigate(organization?.slug ? `/${organization.slug}/scenario/${scenario.slug || scenario.id}` : `/scenario/${scenario.slug || scenario.id}`)}
-              >
-                <ExternalLink className="h-3 w-3" />
-                シナリオ詳細ページを開く
-              </button>
-            )}
-
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <span className="text-sm text-gray-500 flex items-center gap-2">
-                <Ticket className="w-4 h-4" />
-                予約番号
-              </span>
-              <span className="font-mono font-bold">{reservation.reservation_number}</span>
-            </div>
+        {/* 予約情報（貸切調整中は簡略表示） */}
+        {!isPendingPrivate && (
+          <div className="bg-white border border-gray-200 p-4 space-y-4" style={{ borderRadius: 0 }}>
+            <h3 className="font-bold text-gray-900">予約情報</h3>
             
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <span className="text-sm text-gray-500 flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                参加人数
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="font-bold">{reservation.participant_count}名</span>
-                {reservation.status === 'confirmed' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={handleEditClick}
-                    disabled={!canEdit}
-                  >
-                    <Pencil className="h-3 w-3 mr-1" />
-                    変更
-                  </Button>
-                )}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-500 flex items-center gap-2">
+                  <Ticket className="w-4 h-4" />
+                  シナリオ
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">
+                    {scenario?.title || reservation.title}
+                  </span>
+                  {scenario?.id && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => navigate(organization?.slug ? `/${organization.slug}/scenario/${scenario.slug || scenario.id}` : `/scenario/${scenario.slug || scenario.id}`)}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      詳細
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
+              {scenario?.id && (
+                <button
+                  type="button"
+                  className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+                  onClick={() => navigate(organization?.slug ? `/${organization.slug}/scenario/${scenario.slug || scenario.id}` : `/scenario/${scenario.slug || scenario.id}`)}
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  シナリオ詳細ページを開く
+                </button>
+              )}
+
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-500 flex items-center gap-2">
+                  <Ticket className="w-4 h-4" />
+                  予約番号
+                </span>
+                <span className="font-mono font-bold">{reservation.reservation_number}</span>
+              </div>
+              
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-500 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  参加人数
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">{reservation.participant_count}名</span>
+                  {reservation.status === 'confirmed' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={handleEditClick}
+                      disabled={!canEdit}
+                    >
+                      <Pencil className="h-3 w-3 mr-1" />
+                      変更
+                    </Button>
+                  )}
+                </div>
+              </div>
             
             {reservation.schedule_events?.is_private_booking ? (
               // 貸切公演の場合：合計金額を表示
@@ -806,8 +940,9 @@ export function ReservationDetailPage() {
                 </div>
               </div>
             )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 備考 */}
         {reservation.notes && (
