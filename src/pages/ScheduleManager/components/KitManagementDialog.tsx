@@ -1086,33 +1086,49 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     
     try {
       // キット数を減らす場合、超過するkit_locationレコードを削除
-      const currentScenario = scenarios.find(s => s.id === scenarioId)
+      // scenarioId は org_scenario_id または scenario.id
+      const currentScenario = scenarios.find(s => {
+        const orgScenarioId = (s as { org_scenario_id?: string }).org_scenario_id
+        return orgScenarioId === scenarioId || s.id === scenarioId
+      })
       const currentCount = currentScenario?.kit_count || 0
       
       if (newCount < currentCount) {
         // 超過するキット位置レコードを削除
         const orgId = await getCurrentOrganizationId()
         if (orgId) {
+          // org_scenario_id で削除を試みる
           const { error: deleteError } = await supabase
             .from('scenario_kit_locations')
             .delete()
             .eq('organization_id', orgId)
-            .eq('scenario_id', scenarioId)
+            .eq('org_scenario_id', scenarioId)
             .gt('kit_number', newCount)
           
           if (deleteError) {
-            console.error('Failed to delete excess kit locations:', deleteError)
+            // フォールバック: scenario_id で削除
+            await supabase
+              .from('scenario_kit_locations')
+              .delete()
+              .eq('organization_id', orgId)
+              .eq('scenario_id', scenarioId)
+              .gt('kit_number', newCount)
           }
         }
       }
       
-      await scenarioApi.update(scenarioId, { kit_count: newCount })
+      // scenarioApi.update は scenario_master_id (= scenario.id) を期待
+      const updateId = currentScenario?.id || scenarioId
+      await scenarioApi.update(updateId, { kit_count: newCount })
       showToast.success(`キット数を${newCount}に変更しました`)
       
       // シナリオリストを更新
-      setScenarios(prev => prev.map(s => 
-        s.id === scenarioId ? { ...s, kit_count: newCount } : s
-      ))
+      setScenarios(prev => prev.map(s => {
+        const orgScenarioId = (s as { org_scenario_id?: string }).org_scenario_id
+        return (orgScenarioId === scenarioId || s.id === scenarioId) 
+          ? { ...s, kit_count: newCount } 
+          : s
+      }))
       
       // キット位置も再取得して同期
       const locationsData = await kitApi.getKitLocations()
@@ -1350,7 +1366,14 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                 <div className="grid gap-3">
                   {scenariosWithKits.map(scenario => {
                     const kitCount = scenario.kit_count || 1
-                    const locations = kitLocations.filter(l => l.scenario_id === scenario.id)
+                    // org_scenario_id または scenario_id で比較（移行期間中の互換性対応）
+                    const orgScenarioId = (scenario as { org_scenario_id?: string }).org_scenario_id
+                    const locations = kitLocations.filter(l => 
+                      (orgScenarioId && l.org_scenario_id === orgScenarioId) ||
+                      l.scenario_id === scenario.id ||
+                      l.scenario?.id === scenario.id ||
+                      l.scenario?.id === orgScenarioId
+                    )
                     
                     return (
                       <div key={scenario.id} className="border rounded-lg p-3">
@@ -1361,7 +1384,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                               variant="outline"
                               size="icon"
                               className="h-6 w-6"
-                              onClick={() => handleChangeKitCount(scenario.id, kitCount - 1)}
+                              onClick={() => handleChangeKitCount(orgScenarioId || scenario.id, kitCount - 1)}
                               disabled={kitCount <= 1}
                             >
                               <Minus className="h-3 w-3" />
@@ -1373,7 +1396,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                               variant="outline"
                               size="icon"
                               className="h-6 w-6"
-                              onClick={() => handleChangeKitCount(scenario.id, kitCount + 1)}
+                              onClick={() => handleChangeKitCount(orgScenarioId || scenario.id, kitCount + 1)}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
@@ -1403,7 +1426,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                   </span>
                                   <Select
                                     value={location?.store_id || ''}
-                                    onValueChange={(value) => handleSetKitLocation(scenario.id, kitNum, value)}
+                                    onValueChange={(value) => handleSetKitLocation(orgScenarioId || scenario.id, kitNum, value)}
                                   >
                                     <SelectTrigger className="flex-1 h-7 text-xs">
                                       <SelectValue placeholder="店舗を選択">
@@ -1425,7 +1448,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                   <Select
                                     value={condition}
                                     onValueChange={(value) => handleUpdateCondition(
-                                      scenario.id,
+                                      orgScenarioId || scenario.id,
                                       kitNum,
                                       value as KitCondition,
                                       conditionNotes
@@ -1455,16 +1478,18 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                     onChange={(e) => {
                                       // ローカル状態を即座に更新（デバウンス用）
                                       const newNotes = e.target.value
-                                      setKitLocations(prev => prev.map(loc =>
-                                        loc.scenario_id === scenario.id && loc.kit_number === kitNum
+                                      setKitLocations(prev => prev.map(loc => {
+                                        const matches = (orgScenarioId && loc.org_scenario_id === orgScenarioId) ||
+                                          loc.scenario_id === scenario.id
+                                        return matches && loc.kit_number === kitNum
                                           ? { ...loc, condition_notes: newNotes }
                                           : loc
-                                      ))
+                                      }))
                                     }}
                                     onBlur={(e) => {
                                       // フォーカスが外れたら保存
                                       if (location && e.target.value !== (location.condition_notes || '')) {
-                                        handleUpdateCondition(scenario.id, kitNum, condition as KitCondition, e.target.value || null)
+                                        handleUpdateCondition(orgScenarioId || scenario.id, kitNum, condition as KitCondition, e.target.value || null)
                                       }
                                     }}
                                     className="h-6 text-[10px] flex-1"
@@ -1494,18 +1519,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       キット未設定のシナリオ（クリックでキット管理を有効化）
                     </h4>
                     <div className="flex flex-wrap gap-2">
-                      {scenariosWithoutKits.slice(0, 20).map(scenario => (
+                      {scenariosWithoutKits.slice(0, 20).map(scenario => {
+                        const orgScenarioId = (scenario as { org_scenario_id?: string }).org_scenario_id
+                        return (
                         <Button
-                          key={scenario.id}
+                          key={orgScenarioId || scenario.id}
                           variant="outline"
                           size="sm"
                           className="h-7 text-xs"
-                          onClick={() => handleChangeKitCount(scenario.id, 1)}
+                          onClick={() => handleChangeKitCount(orgScenarioId || scenario.id, 1)}
                         >
                           <Plus className="h-3 w-3 mr-1" />
                           {scenario.title.slice(0, 15)}{scenario.title.length > 15 ? '...' : ''}
                         </Button>
-                      ))}
+                        )
+                      })}
                       {scenariosWithoutKits.length > 20 && (
                         <span className="text-xs text-muted-foreground self-center">
                           他 {scenariosWithoutKits.length - 20} 件
@@ -1685,9 +1713,10 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                       const count = storeEvents.filter(e => e.scenario_id === sid).length
                                       
                                       // この店舗（または同じグループの店舗）にあるキット数をチェック
-                                      const kitsAtStore = kitLocations.filter(
-                                        loc => loc.scenario_id === sid && isSameStoreGroup(loc.store_id, store.id)
-                                      ).length
+                                      const kitsAtStore = kitLocations.filter(loc => {
+                                        const scenarioMatch = loc.org_scenario_id === sid || loc.scenario_id === sid
+                                        return scenarioMatch && isSameStoreGroup(loc.store_id, store.id)
+                                      }).length
                                       
                                       // キット不足チェック
                                       const shortage = kitShortages.find(

@@ -711,6 +711,7 @@ export interface KitLocation {
   id: string
   organization_id: string
   scenario_id: string
+  org_scenario_id?: string | null  // organization_scenarios.id（新規参照先）
   kit_number: number  // 1から始まるキット番号
   store_id: string
   condition: KitCondition  // キットの状態
@@ -727,6 +728,7 @@ export interface KitTransferEvent {
   id: string
   organization_id: string
   scenario_id: string
+  org_scenario_id?: string | null  // organization_scenarios.id（新規参照先）
   kit_number: number
   from_store_id: string
   to_store_id: string
