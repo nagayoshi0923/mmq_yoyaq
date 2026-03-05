@@ -29,11 +29,12 @@ export const kitApi = {
           scenario_master_id,
           scenario_masters(id, title)
         ),
+        legacy_scenario:scenarios!scenario_kit_locations_scenario_id_fkey(id, title, kit_count),
         store:stores(id, name, short_name)
       `)
       .eq('organization_id', orgId)
-      .not('org_scenario_id', 'is', null)
-      .order('org_scenario_id')
+      .order('org_scenario_id', { nullsFirst: false })
+      .order('scenario_id', { nullsFirst: false })
       .order('kit_number')
 
     if (error) {
@@ -41,28 +42,43 @@ export const kitApi = {
       throw error
     }
 
-    // org_scenario から scenario 形式に変換
-    const transformed = (data || []).map(item => ({
-      ...item,
-      scenario: item.org_scenario ? {
-        id: item.org_scenario.id,
-        title: item.org_scenario.scenario_masters?.title || '',
-        kit_count: 1
-      } : null
-    }))
+    // org_scenario または legacy_scenario から scenario 形式に変換
+    const transformed = (data || []).map(item => {
+      if (item.org_scenario) {
+        return {
+          ...item,
+          scenario: {
+            id: item.org_scenario.id,
+            title: item.org_scenario.scenario_masters?.title || '',
+            kit_count: 1
+          }
+        }
+      } else if (item.legacy_scenario) {
+        return {
+          ...item,
+          scenario: {
+            id: item.legacy_scenario.id,
+            title: item.legacy_scenario.title || '',
+            kit_count: item.legacy_scenario.kit_count || 1
+          }
+        }
+      }
+      return { ...item, scenario: null }
+    })
 
     return transformed as KitLocation[]
   },
 
   /**
    * 特定シナリオのキット位置を取得
-   * scenarioId: organization_scenarios.id（org_scenario_id）
+   * scenarioId: organization_scenarios.id または scenarios.id
    */
   async getKitLocationsByScenario(scenarioId: string): Promise<KitLocation[]> {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) return []
 
-    const { data, error } = await supabase
+    // まず org_scenario_id で検索
+    let { data, error } = await supabase
       .from('scenario_kit_locations')
       .select(`
         *,
@@ -71,25 +87,62 @@ export const kitApi = {
           scenario_master_id,
           scenario_masters(id, title)
         ),
+        legacy_scenario:scenarios!scenario_kit_locations_scenario_id_fkey(id, title, kit_count),
         store:stores(id, name, short_name)
       `)
       .eq('organization_id', orgId)
       .eq('org_scenario_id', scenarioId)
       .order('kit_number')
 
+    // 結果がなければ legacy scenario_id で検索
+    if (!data || data.length === 0) {
+      const legacyResult = await supabase
+        .from('scenario_kit_locations')
+        .select(`
+          *,
+          org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
+            id,
+            scenario_master_id,
+            scenario_masters(id, title)
+          ),
+          legacy_scenario:scenarios!scenario_kit_locations_scenario_id_fkey(id, title, kit_count),
+          store:stores(id, name, short_name)
+        `)
+        .eq('organization_id', orgId)
+        .eq('scenario_id', scenarioId)
+        .order('kit_number')
+      
+      data = legacyResult.data
+      error = legacyResult.error
+    }
+
     if (error) {
       console.error('Failed to fetch kit locations by scenario:', error)
       throw error
     }
 
-    const transformed = (data || []).map(item => ({
-      ...item,
-      scenario: item.org_scenario ? {
-        id: item.org_scenario.id,
-        title: item.org_scenario.scenario_masters?.title || '',
-        kit_count: 1
-      } : null
-    }))
+    const transformed = (data || []).map(item => {
+      if (item.org_scenario) {
+        return {
+          ...item,
+          scenario: {
+            id: item.org_scenario.id,
+            title: item.org_scenario.scenario_masters?.title || '',
+            kit_count: 1
+          }
+        }
+      } else if (item.legacy_scenario) {
+        return {
+          ...item,
+          scenario: {
+            id: item.legacy_scenario.id,
+            title: item.legacy_scenario.title || '',
+            kit_count: item.legacy_scenario.kit_count || 1
+          }
+        }
+      }
+      return { ...item, scenario: null }
+    })
 
     return transformed as KitLocation[]
   },
