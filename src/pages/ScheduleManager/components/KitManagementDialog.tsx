@@ -726,6 +726,26 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         storeApi.getAll(),
         scenarioApi.getAll()
       ])
+      
+      // デバッグ: データ取得結果
+      console.log('🔧 キット管理データ取得:', {
+        locationsCount: locationsData.length,
+        scenariosCount: scenariosData.length,
+        sampleLocations: locationsData.slice(0, 5).map(l => ({
+          id: l.id,
+          org_scenario_id: l.org_scenario_id,
+          scenario_id: l.scenario_id,
+          scenario_title: l.scenario?.title,
+          store_id: l.store_id
+        })),
+        sampleScenarios: scenariosData.slice(0, 5).map(s => ({
+          id: s.id,
+          org_scenario_id: (s as { org_scenario_id?: string }).org_scenario_id,
+          title: s.title,
+          kit_count: s.kit_count
+        }))
+      })
+      
       setKitLocations(locationsData)
       setStores(storesData)
       setScenarios(scenariosData)
