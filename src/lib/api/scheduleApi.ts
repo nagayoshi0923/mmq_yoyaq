@@ -625,7 +625,7 @@ export const scheduleApi = {
   },
 
   // 日付範囲でスケジュールを取得（キット管理用）
-  async getByDateRange(startDate: string, endDate: string, organizationId?: string) {
+  async getByDateRange(startDate: string, endDate: string, organizationId?: string, includeCancelled = false) {
     const orgId = organizationId || await getCurrentOrganizationId()
     
     let query = supabase
@@ -645,9 +645,12 @@ export const scheduleApi = {
       `)
       .gte('date', startDate)
       .lte('date', endDate)
-      .eq('is_cancelled', false)
       .order('date')
       .order('start_time')
+    
+    if (!includeCancelled) {
+      query = query.eq('is_cancelled', false)
+    }
     
     if (orgId) {
       query = query.eq('organization_id', orgId)

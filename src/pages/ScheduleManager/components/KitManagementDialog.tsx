@@ -88,6 +88,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     date: string
     store_id: string
     scenario_id: string
+    is_cancelled?: boolean
   }>>([])
 
   // UI状態
@@ -623,6 +624,19 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return completion
   }, [completionMapFull, completionMapLoose, getCompletionKeyFull, getCompletionKeyLoose])
   
+  // 公演がキャンセルされたかチェック
+  const isPerformanceCancelled = useCallback((scenarioId: string, performanceDate: string, storeId: string): boolean => {
+    const toGroupId = getStoreGroupId(storeId)
+    const matchingEvents = scheduleEvents.filter(event => 
+      event.scenario_id === scenarioId &&
+      event.date === performanceDate &&
+      getStoreGroupId(event.store_id) === toGroupId
+    )
+    // 該当イベントがすべてキャンセル、または該当イベントがない場合はキャンセル扱い
+    if (matchingEvents.length === 0) return false // イベント自体がなければ不明なのでfalse
+    return matchingEvents.every(event => event.is_cancelled)
+  }, [scheduleEvents, getStoreGroupId])
+  
   // 提案と完了記録をマージ（過去の完了記録をオプティマイザ提案に追加）
   const mergedSuggestions = useMemo(() => {
     // 設置完了済みのキーを記録（カウント用）
@@ -763,7 +777,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const endDateObj = new Date(weekDates[6])
       endDateObj.setDate(endDateObj.getDate() + 3) // 週末+3日（翌週の水曜まで）
       const endDate = endDateObj.toISOString().split('T')[0]
-      const eventsData = await scheduleApi.getByDateRange(startDate, endDate)
+      // キャンセルも含めて取得（キャンセル時に「移動中止」表示するため）
+      const eventsData = await scheduleApi.getByDateRange(startDate, endDate, undefined, true)
       
       // 完了状態を取得（週の開始の1週間前から取得して、前週の公演で今週移動したものも含める）
       const completionsStartDateObj = new Date(weekDates[0])
@@ -779,24 +794,29 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         totalEvents: eventsData.length,
         eventsWithScenarioId: eventsData.filter(e => e.scenario_id).length,
         eventsWithScenarioMasterId: eventsData.filter(e => e.scenario_master_id).length,
+        cancelledEvents: eventsData.filter(e => e.is_cancelled).length,
         sampleEvents: eventsData.slice(0, 5).map(e => ({
           date: e.date,
           scenario: e.scenario,
           scenario_id: e.scenario_id,
           scenario_master_id: e.scenario_master_id,
-          store_id: e.store_id
+          store_id: e.store_id,
+          is_cancelled: e.is_cancelled
         }))
       })
       
       // scenario_master_id を優先して使用（scenarioMap との整合性のため）
+      // is_cancelled も含めて保持
       const processedEvents = eventsData.map(e => ({
         date: e.date,
         store_id: e.store_id || e.venue,
-        scenario_id: e.scenario_master_id || e.scenario_id || ''
+        scenario_id: e.scenario_master_id || e.scenario_id || '',
+        is_cancelled: e.is_cancelled || false
       })).filter(e => e.scenario_id)
       
       console.log('📅 処理後のイベント:', {
         total: processedEvents.length,
+        cancelled: processedEvents.filter(e => e.is_cancelled).length,
         sample: processedEvents.slice(0, 5)
       })
       
@@ -2350,30 +2370,46 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const completion = getCompletion(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   
+                                                  // 公演がキャンセルされたかチェック
+                                                  const isCancelled = isPerformanceCancelled(suggestion.scenario_id, suggestion.performance_date, suggestion.to_store_id)
+                                                  // 移動日が過去かつ公演キャンセル → 移動中止
+                                                  const isTransferCancelled = isPastTransferDate && isCancelled && !pickedUp && !delivered
+                                                  
                                                   // 誰が設置したか
                                                   const deliveredByName = completion?.delivered_by_staff?.name
                                                   
                                                   return (
-                                                    <div key={index} className={`flex items-center gap-2 py-1 ${delivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10 rounded' : ''}`}>
-                                                      {/* 設置チェックボックス */}
-                                                      <div 
-                                                        className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${pickedUp ? 'cursor-pointer active:scale-95 hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${delivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
-                                                        onClick={() => handleToggleDelivery(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id, suggestion.scenario_title)}
-                                                        title={pickedUp ? '設置完了' : '回収してから設置できます'}
-                                                      >
-                                                        {delivered && <Check className="h-3 w-3 text-white" />}
-                                                      </div>
-                                                      <Badge variant="outline" className="text-[9px] px-1 py-0">
+                                                    <div key={index} className={`flex items-center gap-2 py-1 ${isTransferCancelled ? 'opacity-50 bg-gray-100 dark:bg-gray-800/50 rounded' : ''} ${delivered ? 'opacity-40 bg-green-50 dark:bg-green-900/10 rounded' : ''}`}>
+                                                      {/* 設置チェックボックス - キャンセル時は×アイコン */}
+                                                      {isTransferCancelled ? (
+                                                        <div className="w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 bg-gray-300 border-gray-400 dark:bg-gray-600 dark:border-gray-500" title="公演中止のため移動不要">
+                                                          <X className="h-3 w-3 text-gray-600 dark:text-gray-300" />
+                                                        </div>
+                                                      ) : (
+                                                        <div 
+                                                          className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${pickedUp ? 'cursor-pointer active:scale-95 hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${delivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
+                                                          onClick={() => handleToggleDelivery(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id, suggestion.scenario_title)}
+                                                          title={pickedUp ? '設置完了' : '回収してから設置できます'}
+                                                        >
+                                                          {delivered && <Check className="h-3 w-3 text-white" />}
+                                                        </div>
+                                                      )}
+                                                      <Badge variant="outline" className={`text-[9px] px-1 py-0 ${isCancelled ? 'line-through text-gray-400' : ''}`}>
                                                         {allDatesStr}
                                                       </Badge>
-                                                      <span className={`text-xs truncate ${delivered ? 'line-through' : ''}`}>{suggestion.scenario_title}</span>
+                                                      <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
+                                                      {isTransferCancelled && (
+                                                        <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                          公演中止・移動不要
+                                                        </Badge>
+                                                      )}
                                                       {delivered && deliveredByName && (
                                                         <span className="text-[10px] text-green-600 font-medium">
                                                           {deliveredByName}設置 {formatCompletionDate(completion?.delivered_at || null)}
                                                         </span>
                                                       )}
-                                                      {!pickedUp && (
+                                                      {!pickedUp && !isTransferCancelled && (
                                                         <span className="text-[10px] text-orange-500">未回収</span>
                                                       )}
                                                     </div>
@@ -2429,24 +2465,40 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const completion = getCompletion(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   
+                                                  // 公演がキャンセルされたかチェック
+                                                  const isCancelled = isPerformanceCancelled(suggestion.scenario_id, suggestion.performance_date, suggestion.to_store_id)
+                                                  // 移動日が過去かつ公演キャンセル → 移動中止
+                                                  const isTransferCancelled = isPastTransferDate && isCancelled && !pickedUp && !delivered
+                                                  
                                                   // 誰が回収したか
                                                   const pickedUpByName = completion?.picked_up_by_staff?.name
                                                   
                                                   return (
-                                                    <div key={index} className={`flex items-center gap-2 py-1 ${pickedUp ? 'bg-blue-50 dark:bg-blue-900/10 rounded' : ''} ${delivered ? 'opacity-40' : ''}`}>
-                                                      {/* 回収チェックボックス */}
-                                                      <div 
-                                                        className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 cursor-pointer active:scale-95 hover:border-blue-400 ${pickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
-                                                        onClick={() => handleTogglePickup(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.from_store_id, suggestion.to_store_id)}
-                                                        title="回収"
-                                                      >
-                                                        {pickedUp && <Check className="h-3 w-3 text-white" />}
-                                                      </div>
-                                                      <Badge variant="outline" className="text-[9px] px-1 py-0">
+                                                    <div key={index} className={`flex items-center gap-2 py-1 ${isTransferCancelled ? 'opacity-50 bg-gray-100 dark:bg-gray-800/50 rounded' : ''} ${pickedUp ? 'bg-blue-50 dark:bg-blue-900/10 rounded' : ''} ${delivered ? 'opacity-40' : ''}`}>
+                                                      {/* 回収チェックボックス - キャンセル時は×アイコン */}
+                                                      {isTransferCancelled ? (
+                                                        <div className="w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 bg-gray-300 border-gray-400 dark:bg-gray-600 dark:border-gray-500" title="公演中止のため移動不要">
+                                                          <X className="h-3 w-3 text-gray-600 dark:text-gray-300" />
+                                                        </div>
+                                                      ) : (
+                                                        <div 
+                                                          className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 cursor-pointer active:scale-95 hover:border-blue-400 ${pickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
+                                                          onClick={() => handleTogglePickup(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.from_store_id, suggestion.to_store_id)}
+                                                          title="回収"
+                                                        >
+                                                          {pickedUp && <Check className="h-3 w-3 text-white" />}
+                                                        </div>
+                                                      )}
+                                                      <Badge variant="outline" className={`text-[9px] px-1 py-0 ${isCancelled ? 'line-through text-gray-400' : ''}`}>
                                                         {allDatesStr}
                                                       </Badge>
-                                                      <span className={`text-xs truncate ${delivered ? 'line-through' : ''}`}>{suggestion.scenario_title}</span>
+                                                      <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
+                                                      {isTransferCancelled && (
+                                                        <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                          公演中止・移動不要
+                                                        </Badge>
+                                                      )}
                                                       {pickedUp && pickedUpByName && (
                                                         <span className="text-[10px] text-blue-600 font-medium">
                                                           {pickedUpByName}回収 {formatCompletionDate(completion?.picked_up_at || null)}
