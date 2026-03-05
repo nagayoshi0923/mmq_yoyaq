@@ -772,26 +772,35 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const completionsData = await kitApi.getTransferCompletions(completionsStartDate, endDate)
       setCompletions(completionsData)
       
-      // デバッグログ
+      // デバッグログ - scenario_master_id の有無を確認
       console.log('📅 スケジュール取得:', {
         startDate,
         endDate,
         totalEvents: eventsData.length,
         eventsWithScenarioId: eventsData.filter(e => e.scenario_id).length,
-        sampleEvents: eventsData.slice(0, 3).map(e => ({
+        eventsWithScenarioMasterId: eventsData.filter(e => e.scenario_master_id).length,
+        sampleEvents: eventsData.slice(0, 5).map(e => ({
           date: e.date,
           scenario: e.scenario,
           scenario_id: e.scenario_id,
+          scenario_master_id: e.scenario_master_id,
           store_id: e.store_id
         }))
       })
       
       // scenario_master_id を優先して使用（scenarioMap との整合性のため）
-      setScheduleEvents(eventsData.map(e => ({
+      const processedEvents = eventsData.map(e => ({
         date: e.date,
         store_id: e.store_id || e.venue,
         scenario_id: e.scenario_master_id || e.scenario_id || ''
-      })).filter(e => e.scenario_id))
+      })).filter(e => e.scenario_id)
+      
+      console.log('📅 処理後のイベント:', {
+        total: processedEvents.length,
+        sample: processedEvents.slice(0, 5)
+      })
+      
+      setScheduleEvents(processedEvents)
 
       // 移動イベントを取得（週の範囲内のみ）
       const transfersData = await kitApi.getTransferEvents(weekDates[0], weekDates[6])

@@ -637,6 +637,7 @@ export const scheduleApi = {
         store_id,
         scenario,
         scenario_id,
+        scenario_master_id,
         start_time,
         end_time,
         category,
