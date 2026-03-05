@@ -66,6 +66,7 @@ export default function MyPage() {
   const [scenarioSlugs, setScenarioSlugs] = useState<Record<string, string>>({})
   const [scenarioInfo, setScenarioInfo] = useState<Record<string, { min: number; max: number }>>({})
   const [orgSlugs, setOrgSlugs] = useState<Record<string, string>>({})
+  const [orgNames, setOrgNames] = useState<Record<string, string>>({})
   const [stores, setStores] = useState<Record<string, Store>>({})
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
   const [loading, setLoading] = useState(true)
@@ -323,14 +324,17 @@ export default function MyPage() {
         if (orgIds.length > 0) {
           const { data: orgs } = await supabase
             .from('organizations')
-            .select('id, slug')
+            .select('id, slug, name')
             .in('id', orgIds)
           
           if (orgs) {
+            const orgNameMap: Record<string, string> = {}
             orgs.forEach(o => {
               if (o.slug) orgSlugMap[o.id] = o.slug
+              if (o.name) orgNameMap[o.id] = o.name
             })
             setOrgSlugs(orgSlugMap)
+            setOrgNames(orgNameMap)
           }
         }
 
@@ -862,6 +866,12 @@ export default function MyPage() {
                               )}
 
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs text-gray-500">
+                                {reservation.organization_id && orgNames[reservation.organization_id] && (
+                                  <>
+                                    <span>{orgNames[reservation.organization_id]}</span>
+                                    <span>•</span>
+                                  </>
+                                )}
                                 <span className="font-mono">{reservation.reservation_number}</span>
                                 <span>•</span>
                                 <Users className="w-3 h-3" />
