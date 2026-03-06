@@ -2074,8 +2074,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         // キットが既に目的地にある場合はスキップ（移動不要）
                         // ただし回収済み or 設置完了済みはチェック状態表示のため残す
                         const currentLocation = kitCurrentLocationMap.get(`${item.scenario_id}-${item.kit_number}`)
-                        const itemPickedUp = isPickedUp(item.scenario_id, item.kit_number, item.performance_date, item.to_store_id)
-                        const itemDelivered = isDelivered(item.scenario_id, item.kit_number, item.performance_date, item.to_store_id)
+                        const itemLookupScenarioId = item.org_scenario_id || item.scenario_id
+                        const itemPickedUp = isPickedUp(itemLookupScenarioId, item.kit_number, item.performance_date, item.to_store_id)
+                        const itemDelivered = isDelivered(itemLookupScenarioId, item.kit_number, item.performance_date, item.to_store_id)
                         if (currentLocation === item.to_store_id && !itemPickedUp && !itemDelivered) {
                           continue
                         }
@@ -2432,11 +2433,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const totalParticipants = matchingEvents.reduce((sum, e) => sum + (e.current_participants || 0), 0)
                                                   const remainingSeats = totalCapacity - totalParticipants
                                                   
-                                                  const pickedUp = isPickedUp(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
-                                                  const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
-                                                  const completion = getCompletion(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
+                                                  // ルックアップには org_scenario_id を優先して使用（DBに保存されるID）
+                                                  const lookupScenarioId = suggestion.org_scenario_id || suggestion.scenario_id
+                                                  const pickedUp = isPickedUp(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
+                                                  const delivered = isDelivered(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
+                                                  const completion = getCompletion(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   
-                                                  // 公演がキャンセルされたかチェック
+                                                  // 公演がキャンセルされたかチェック（scheduleEventsはscenario_master_idを使用）
                                                   const isCancelled = isPerformanceCancelled(suggestion.scenario_id, suggestion.performance_date, suggestion.to_store_id)
                                                   // 移動日が過去かつ公演キャンセル → 移動中止
                                                   const isTransferCancelled = isPastTransferDate && isCancelled && !pickedUp && !delivered
@@ -2540,11 +2543,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const totalParticipants = matchingEvents.reduce((sum, e) => sum + (e.current_participants || 0), 0)
                                                   const remainingSeats = totalCapacity - totalParticipants
                                                   
-                                                  const pickedUp = isPickedUp(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
-                                                  const delivered = isDelivered(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
-                                                  const completion = getCompletion(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
+                                                  // ルックアップには org_scenario_id を優先して使用（DBに保存されるID）
+                                                  const lookupScenarioId = suggestion.org_scenario_id || suggestion.scenario_id
+                                                  const pickedUp = isPickedUp(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
+                                                  const delivered = isDelivered(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
+                                                  const completion = getCompletion(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   
-                                                  // 公演がキャンセルされたかチェック
+                                                  // 公演がキャンセルされたかチェック（scheduleEventsはscenario_master_idを使用）
                                                   const isCancelled = isPerformanceCancelled(suggestion.scenario_id, suggestion.performance_date, suggestion.to_store_id)
                                                   // 移動日が過去かつ公演キャンセル → 移動中止
                                                   const isTransferCancelled = isPastTransferDate && isCancelled && !pickedUp && !delivered
