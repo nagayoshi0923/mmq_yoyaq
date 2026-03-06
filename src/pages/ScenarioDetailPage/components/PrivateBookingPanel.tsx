@@ -1,6 +1,8 @@
 import { memo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Users } from 'lucide-react'
 import { BookingNotice } from './BookingNotice'
 
 interface PrivateBookingPanelProps {
@@ -11,6 +13,8 @@ interface PrivateBookingPanelProps {
   onRequestBooking: () => void
   reservationDeadlineHours?: number
   hasPreReading?: boolean
+  scenarioId?: string
+  organizationSlug?: string
 }
 
 export const PrivateBookingPanel = memo(function PrivateBookingPanel({
@@ -20,8 +24,19 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   isLoggedIn,
   onRequestBooking,
   reservationDeadlineHours,
-  hasPreReading
+  hasPreReading,
+  scenarioId,
+  organizationSlug
 }: PrivateBookingPanelProps) {
+  const navigate = useNavigate()
+
+  const handleCreateGroup = () => {
+    const params = new URLSearchParams()
+    if (scenarioId) params.set('scenarioId', scenarioId)
+    if (organizationSlug) params.set('org', organizationSlug)
+    navigate(`/group/create?${params.toString()}`)
+  }
+
   return (
     <div className="space-y-6">
       {/* 貸切料金情報 */}
@@ -67,6 +82,23 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
       >
         {!isLoggedIn ? 'ログインして貸切リクエスト' : selectedTimeSlotsCount === 0 ? '候補日時を選択してください' : `貸切リクエスト確認へ (${selectedTimeSlotsCount}件)`}
       </Button>
+
+      {/* 貸切グループを作成ボタン */}
+      {isLoggedIn && scenarioId && (
+        <div className="pt-2 border-t">
+          <p className="text-xs text-muted-foreground mb-2 text-center">
+            まだメンバーが決まっていない場合
+          </p>
+          <Button 
+            variant="outline"
+            className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+            onClick={handleCreateGroup}
+          >
+            <Users className="w-4 h-4" />
+            貸切グループを作成して友達を誘う
+          </Button>
+        </div>
+      )}
     </div>
   )
 })

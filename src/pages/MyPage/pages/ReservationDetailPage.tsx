@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, Calendar, MapPin, Users, Clock, CreditCard, Ticket, ExternalLink } from 'lucide-react'
+import { ChevronLeft, Calendar, MapPin, Users, Clock, CreditCard, Ticket, ExternalLink, Share2 } from 'lucide-react'
+import { InviteShareButton } from '@/components/InviteShareButton'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -963,6 +964,23 @@ export function ReservationDetailPage() {
             シナリオ詳細を見る
             <ExternalLink className="w-4 h-4 ml-2" />
           </Button>
+        )}
+
+        {/* 友達を誘うボタン */}
+        {scenario && reservation?.status !== 'cancelled' && (
+          <div className="mt-4">
+            <InviteShareButton
+              scenarioTitle={scenario.title}
+              scenarioId={scenario.scenario_master_id || scenario.id}
+              scenarioSlug={scenario.slug}
+              eventDate={reservation?.schedule_events?.date ? new Date(reservation.schedule_events.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP') : undefined}
+              eventTime={reservation?.schedule_events?.start_time || undefined}
+              storeName={store?.name}
+              organizationSlug={organization?.slug}
+              reservationId={reservation?.id}
+              className="w-full"
+            />
+          </div>
         )}
       </div>
 

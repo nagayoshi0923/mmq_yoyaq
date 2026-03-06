@@ -840,3 +840,80 @@ export interface CouponUsage {
   customer_coupons?: CustomerCoupon | null
   reservations?: Reservation | null
 }
+
+// ================================================
+// 貸切グループ関連の型定義
+// ================================================
+
+// グループのステータス
+export type PrivateGroupStatus = 'gathering' | 'booking_requested' | 'confirmed' | 'cancelled'
+
+// メンバーのステータス
+export type PrivateGroupMemberStatus = 'pending' | 'joined' | 'declined'
+
+// 日程回答
+export type DateResponse = 'ok' | 'ng' | 'maybe'
+
+// 貸切グループ
+export interface PrivateGroup {
+  id: string
+  organization_id: string
+  scenario_id: string | null
+  organizer_id: string
+  name: string | null
+  invite_code: string
+  status: PrivateGroupStatus
+  reservation_id: string | null
+  target_participant_count: number | null
+  preferred_store_ids: string[]
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // JOIN時の拡張フィールド
+  scenario_masters?: { id: string; title: string; key_visual_url: string | null } | null
+  organizer?: { id: string; email: string } | null
+  members?: PrivateGroupMember[]
+  candidate_dates?: PrivateGroupCandidateDate[]
+}
+
+// グループメンバー
+export interface PrivateGroupMember {
+  id: string
+  group_id: string
+  user_id: string | null
+  guest_name: string | null
+  guest_email: string | null
+  guest_phone: string | null
+  is_organizer: boolean
+  status: PrivateGroupMemberStatus
+  joined_at: string | null
+  created_at: string
+  // JOIN時の拡張フィールド
+  users?: { id: string; email: string } | null
+  date_responses?: PrivateGroupDateResponse[]
+}
+
+// 候補日時
+export interface PrivateGroupCandidateDate {
+  id: string
+  group_id: string
+  date: string
+  time_slot: '午前' | '午後' | '夜間'
+  start_time: string
+  end_time: string
+  order_num: number
+  created_at: string
+  // JOIN時の拡張フィールド
+  responses?: PrivateGroupDateResponse[]
+}
+
+// 日程回答
+export interface PrivateGroupDateResponse {
+  id: string
+  group_id: string
+  member_id: string
+  candidate_date_id: string
+  response: DateResponse
+  created_at: string
+  updated_at: string
+}

@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, ExternalLink, AlertTriangle, Bell, Ticket, X } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, ExternalLink, AlertTriangle, Bell, Ticket, X, Share2 } from 'lucide-react'
+import { InviteShareButton } from '@/components/InviteShareButton'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
@@ -472,6 +473,20 @@ export function BookingConfirmation({
                 >
                   他のシナリオを見る
                 </Button>
+              </div>
+
+              {/* 友達を誘うボタン */}
+              <div className="pt-4 border-t border-green-200 mt-4">
+                <p className="text-xs text-green-600 mb-3">一緒に参加する友達を誘いましょう</p>
+                <InviteShareButton
+                  scenarioTitle={scenarioTitle}
+                  scenarioId={scenarioId}
+                  eventDate={formatDate(eventDate)}
+                  eventTime={formatTime(startTime)}
+                  storeName={storeName}
+                  organizationSlug={organizationSlug}
+                  className="border-green-600 text-green-700 hover:bg-green-50"
+                />
               </div>
             </CardContent>
           </Card>

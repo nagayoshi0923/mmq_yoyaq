@@ -64,6 +64,9 @@ const PlatformTop = lazyWithRetry(() => import('./PlatformTop').then(m => ({ def
 const DesignPreview = lazyWithRetry(() => import('./dev/DesignPreview').then(m => ({ default: m.DesignPreview })))
 const ComponentGallery = lazyWithRetry(() => import('./dev/ComponentGallery').then(m => ({ default: m.ComponentGallery })))
 const NotFoundPage = lazyWithRetry(() => import('./NotFoundPage').then(m => ({ default: m.NotFoundPage })))
+const PrivateGroupCreate = lazyWithRetry(() => import('./PrivateGroupCreate').then(m => ({ default: m.PrivateGroupCreate })))
+const PrivateGroupInvite = lazyWithRetry(() => import('./PrivateGroupInvite').then(m => ({ default: m.PrivateGroupInvite })))
+const PrivateGroupManage = lazyWithRetry(() => import('./PrivateGroupManage').then(m => ({ default: m.PrivateGroupManage })))
 
 function ScenarioEditRedirect({ organizationSlug, scenarioId }: { organizationSlug: string; scenarioId: string | null }) {
   const navigate = useNavigate()
@@ -124,6 +127,21 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   // /mypage/reservation/{reservationId} - マイページ予約詳細
   if (segments[0] === 'mypage' && segments[1] === 'reservation' && segments[2]) {
     return { page: 'mypage-reservation-detail', scenarioId: segments[2], organizationSlug: null }
+  }
+  
+  // /group/create - 貸切グループ作成
+  if (segments[0] === 'group' && segments[1] === 'create') {
+    return { page: 'group-create', scenarioId: null, organizationSlug: null }
+  }
+  
+  // /group/invite/{code} - 貸切グループ招待
+  if (segments[0] === 'group' && segments[1] === 'invite' && segments[2]) {
+    return { page: 'group-invite', scenarioId: segments[2], organizationSlug: null }
+  }
+  
+  // /group/manage/{id} - 貸切グループ管理
+  if (segments[0] === 'group' && segments[1] === 'manage' && segments[2]) {
+    return { page: 'group-manage', scenarioId: segments[2], organizationSlug: null }
   }
   
   // 特殊ページのチェック（組織スラッグなし）
@@ -503,6 +521,33 @@ export function AdminDashboard() {
           <ReservationDetailPage />
         </Suspense>
       </div>
+    )
+  }
+
+  // 貸切グループ作成
+  if (currentPage === 'group-create') {
+    return (
+      <Suspense fallback={<LoadingScreen message="グループ作成を読み込み中..." />}>
+        <PrivateGroupCreate />
+      </Suspense>
+    )
+  }
+
+  // 貸切グループ招待（招待コードはcurrentScenarioIdに格納）
+  if (currentPage === 'group-invite') {
+    return (
+      <Suspense fallback={<LoadingScreen message="グループ招待を読み込み中..." />}>
+        <PrivateGroupInvite />
+      </Suspense>
+    )
+  }
+
+  // 貸切グループ管理（グループIDはcurrentScenarioIdに格納）
+  if (currentPage === 'group-manage') {
+    return (
+      <Suspense fallback={<LoadingScreen message="グループ管理を読み込み中..." />}>
+        <PrivateGroupManage />
+      </Suspense>
     )
   }
 

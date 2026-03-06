@@ -558,6 +558,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       onRequestBooking={() => handlePrivateBookingRequest(!!user)}
                       reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
                       hasPreReading={scenario.has_pre_reading}
+                      scenarioId={scenario.scenario_master_id || scenario.id}
+                      organizationSlug={organizationSlug}
                     />
                   </div>
                 )}
