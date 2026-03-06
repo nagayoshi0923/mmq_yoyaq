@@ -907,11 +907,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       return
     }
     
-    // API呼び出しには org_scenario_id を使用（なければ scenarioId をフォールバック）
+    // API呼び出しとルックアップには org_scenario_id を使用（なければ scenarioId をフォールバック）
     const apiScenarioId = orgScenarioId || scenarioId
     console.log('📌 Using apiScenarioId:', apiScenarioId)
     
-    const currentlyPickedUp = isPickedUp(scenarioId, kitNumber, performanceDate, toStoreId)
+    // ルックアップにも apiScenarioId を使用（DBに保存されているID）
+    const currentlyPickedUp = isPickedUp(apiScenarioId, kitNumber, performanceDate, toStoreId)
     console.log('📌 currentlyPickedUp:', currentlyPickedUp)
     
     try {
@@ -956,12 +957,15 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       return
     }
     
+    // ルックアップには org_scenario_id を優先して使用（DBに保存されているID）
+    const lookupScenarioId = orgScenarioId || scenarioId
+    
     // 回収されていない場合は設置できない
-    if (!isPickedUp(scenarioId, kitNumber, performanceDate, toStoreId)) {
+    if (!isPickedUp(lookupScenarioId, kitNumber, performanceDate, toStoreId)) {
       return
     }
     
-    const currentlyDelivered = isDelivered(scenarioId, kitNumber, performanceDate, toStoreId)
+    const currentlyDelivered = isDelivered(lookupScenarioId, kitNumber, performanceDate, toStoreId)
     
     if (currentlyDelivered) {
       // 設置解除は確認なしで実行
