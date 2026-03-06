@@ -160,26 +160,63 @@ export const kitApi = {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) throw new Error('Organization ID not found')
 
-    const { data, error } = await supabase
+    // 既存レコードを検索（org_scenario_id または scenario_id で）
+    const { data: existing } = await supabase
       .from('scenario_kit_locations')
-      .upsert({
-        organization_id: orgId,
-        org_scenario_id: scenarioId,
-        kit_number: kitNumber,
-        store_id: storeId
-      }, {
-        onConflict: 'organization_id,org_scenario_id,kit_number'
-      })
-      .select(`
-        *,
-        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        store:stores(id, name, short_name)
-      `)
-      .single()
+      .select('id, org_scenario_id, scenario_id')
+      .eq('organization_id', orgId)
+      .eq('kit_number', kitNumber)
+      .or(`org_scenario_id.eq.${scenarioId},scenario_id.eq.${scenarioId}`)
+      .maybeSingle()
+
+    let data
+    let error
+
+    if (existing) {
+      // 既存レコードを更新
+      const result = await supabase
+        .from('scenario_kit_locations')
+        .update({
+          store_id: storeId,
+          org_scenario_id: scenarioId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id)
+        .select(`
+          *,
+          org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
+            id,
+            scenario_master_id,
+            scenario_masters(id, title)
+          ),
+          store:stores(id, name, short_name)
+        `)
+        .single()
+      data = result.data
+      error = result.error
+    } else {
+      // 新規レコードを挿入
+      const result = await supabase
+        .from('scenario_kit_locations')
+        .insert({
+          organization_id: orgId,
+          org_scenario_id: scenarioId,
+          kit_number: kitNumber,
+          store_id: storeId
+        })
+        .select(`
+          *,
+          org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
+            id,
+            scenario_master_id,
+            scenario_masters(id, title)
+          ),
+          store:stores(id, name, short_name)
+        `)
+        .single()
+      data = result.data
+      error = result.error
+    }
 
     if (error) {
       console.error('Failed to set kit location:', error)
