@@ -838,8 +838,14 @@ export default function MyPage() {
                             </div>
                             
                             <div className="flex-1 min-w-0">
+                              {/* 組織名 */}
+                              {reservation.organization_id && orgNames[reservation.organization_id] && (
+                                <p className="text-xs text-gray-500 mb-0.5">
+                                  {orgNames[reservation.organization_id]}
+                                </p>
+                              )}
                               <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1">
-                                {cleanTitle(reservation.title)}
+                                【貸切】{cleanTitle(reservation.title)}
                               </h3>
                               
                               {/* 候補日一覧 */}
@@ -866,12 +872,6 @@ export default function MyPage() {
                               )}
 
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs text-gray-500">
-                                {reservation.organization_id && orgNames[reservation.organization_id] && (
-                                  <>
-                                    <span>{orgNames[reservation.organization_id]}</span>
-                                    <span>•</span>
-                                  </>
-                                )}
                                 <span className="font-mono">{reservation.reservation_number}</span>
                                 <span>•</span>
                                 <Users className="w-3 h-3" />
