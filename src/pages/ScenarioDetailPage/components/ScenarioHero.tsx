@@ -1,9 +1,11 @@
 import { memo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
-import { Clock, Users, ExternalLink, Star, Share2, Heart } from 'lucide-react'
+import { Clock, Users, ExternalLink, Star, Share2, Heart, UserPlus } from 'lucide-react'
 import { useFavorites } from '@/hooks/useFavorites'
+import { useAuth } from '@/contexts/AuthContext'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
 
@@ -19,17 +21,27 @@ const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
 interface ScenarioHeroProps {
   scenario: ScenarioDetail
   events?: EventSchedule[]
+  organizationSlug?: string
 }
 
 /**
  * シナリオヒーローセクション（キービジュアル + タイトル + 基本情報）
  */
-export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }: ScenarioHeroProps) {
+export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], organizationSlug }: ScenarioHeroProps) {
+  const navigate = useNavigate()
+  const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
   const scenarioIsFavorite = isFavorite(scenario.scenario_id)
   
   const handleFavoriteClick = () => {
     toggleFavorite(scenario.scenario_id)
+  }
+
+  const handleCreateGroup = () => {
+    const params = new URLSearchParams()
+    params.set('scenarioId', scenario.scenario_id)
+    if (organizationSlug) params.set('org', organizationSlug)
+    navigate(`/group/create?${params.toString()}`)
   }
 
   return (
@@ -146,6 +158,15 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
                 <Share2 className="w-3.5 h-3.5" />
                 シェア
               </button>
+              {user && (
+                <button
+                  className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 transition-colors"
+                  onClick={handleCreateGroup}
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  グループを作成
+                </button>
+              )}
             </div>
           </div>
         </div>

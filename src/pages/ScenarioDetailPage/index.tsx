@@ -408,7 +408,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* メインエリア - 詳細情報 */}
           <div className="md:col-span-7 space-y-4">
-            <ScenarioHero scenario={scenario} events={events} />
+            <ScenarioHero scenario={scenario} events={events} organizationSlug={organizationSlug} />
             
             {/* あらすじ・シナリオ情報 */}
             <ScenarioAbout scenario={scenario} stores={stores} />
