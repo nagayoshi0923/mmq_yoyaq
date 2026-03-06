@@ -640,7 +640,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     )
     // 該当イベントがすべてキャンセル、または該当イベントがない場合はキャンセル扱い
     if (matchingEvents.length === 0) return false // イベント自体がなければ不明なのでfalse
-    return matchingEvents.every(event => event.is_cancelled)
+    const allCancelled = matchingEvents.every(event => event.is_cancelled)
+    if (allCancelled) {
+      console.log('⚠️ 公演キャンセル判定:', { scenarioId, performanceDate, storeId, matchingEvents: matchingEvents.length, allCancelled })
+    }
+    return allCancelled
   }, [scheduleEvents, getStoreGroupId])
   
   // 提案と完了記録をマージ（過去の完了記録をオプティマイザ提案に追加）
