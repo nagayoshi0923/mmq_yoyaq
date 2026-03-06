@@ -803,7 +803,12 @@ export default function MyPage() {
                           >
                             <div className="flex items-center gap-2">
                               <Clock className="w-4 h-4" />
-                              日程調整中
+                              <span>日程調整中</span>
+                              {reservation.organization_id && orgNames[reservation.organization_id] && (
+                                <span className="text-xs font-normal text-amber-700">
+                                  （{orgNames[reservation.organization_id]}）
+                                </span>
+                              )}
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded ${statusInfo.color}`}>
                               {statusInfo.label}
@@ -838,14 +843,8 @@ export default function MyPage() {
                             </div>
                             
                             <div className="flex-1 min-w-0">
-                              {/* 組織名 */}
-                              {reservation.organization_id && orgNames[reservation.organization_id] && (
-                                <p className="text-xs text-gray-500 mb-0.5">
-                                  {orgNames[reservation.organization_id]}
-                                </p>
-                              )}
                               <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1">
-                                【貸切】{cleanTitle(reservation.title)}
+                                {cleanTitle(reservation.title)}
                               </h3>
                               
                               {/* 候補日一覧 */}
