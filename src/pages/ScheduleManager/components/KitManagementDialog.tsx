@@ -137,6 +137,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     toStoreId: string
     scenarioTitle: string
     toStoreName: string
+    orgScenarioId?: string
   } | null>(null)
   
   // ヘルプダイアログ
@@ -542,10 +543,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   }, [])
   
   // 完了状態のマップ（高速ルックアップ用）- フルキーとルーズキーの両方で登録
+  // org_scenario_id を優先、なければ scenario_id を使用
   const completionMapFull = useMemo(() => {
     const map = new Map<string, KitTransferCompletion>()
     for (const c of completions) {
-      const key = getCompletionKeyFull(c.scenario_id, c.kit_number, c.performance_date, c.to_store_id)
+      const scenarioId = c.org_scenario_id || c.scenario_id
+      const key = getCompletionKeyFull(scenarioId, c.kit_number, c.performance_date, c.to_store_id)
       map.set(key, c)
     }
     return map
@@ -559,7 +562,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       (a.performance_date || '').localeCompare(b.performance_date || '')
     )
     for (const c of sorted) {
-      const key = getCompletionKeyLoose(c.scenario_id, c.kit_number, c.to_store_id)
+      const scenarioId = c.org_scenario_id || c.scenario_id
+      const key = getCompletionKeyLoose(scenarioId, c.kit_number, c.to_store_id)
       // 後のエントリが上書きするので、最新の日付のものが残る
       map.set(key, c)
     }
@@ -875,27 +879,32 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   }, [isOpen, weekDates])
   
   // 回収完了をトグル
+  // orgScenarioId: organization_scenarios.id（API用）、scenarioId: scenario_master_id（表示・マッチング用）
   const handleTogglePickup = async (
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
     fromStoreId: string,
-    toStoreId: string
+    toStoreId: string,
+    orgScenarioId?: string
   ) => {
     if (!currentStaffId) {
       showToast.error('スタッフ情報が取得できません')
       return
     }
     
+    // API呼び出しには org_scenario_id を使用（なければ scenarioId をフォールバック）
+    const apiScenarioId = orgScenarioId || scenarioId
+    
     const currentlyPickedUp = isPickedUp(scenarioId, kitNumber, performanceDate, toStoreId)
     
     try {
       if (currentlyPickedUp) {
         // 回収解除（設置も解除される）
-        await kitApi.unmarkPickedUp(scenarioId, kitNumber, performanceDate, toStoreId)
+        await kitApi.unmarkPickedUp(apiScenarioId, kitNumber, performanceDate, toStoreId)
       } else {
         // 回収完了
-        await kitApi.markPickedUp(scenarioId, kitNumber, performanceDate, fromStoreId, toStoreId, currentStaffId)
+        await kitApi.markPickedUp(apiScenarioId, kitNumber, performanceDate, fromStoreId, toStoreId, currentStaffId)
       }
       // 完了状態を手動で再取得（リアルタイム購読のバックアップ）
       const startDate = weekDates[0]
@@ -911,12 +920,14 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   }
   
   // 設置完了をトグル（確認ダイアログを表示）
+  // orgScenarioId: organization_scenarios.id（API用）
   const handleToggleDelivery = (
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
     toStoreId: string,
-    scenarioTitle?: string
+    scenarioTitle?: string,
+    orgScenarioId?: string
   ) => {
     if (!currentStaffId) {
       showToast.error('スタッフ情報が取得できません')
@@ -932,7 +943,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     
     if (currentlyDelivered) {
       // 設置解除は確認なしで実行
-      executeDeliveryToggle(scenarioId, kitNumber, performanceDate, toStoreId, true)
+      executeDeliveryToggle(scenarioId, kitNumber, performanceDate, toStoreId, true, orgScenarioId)
     } else {
       // 設置完了時は確認ダイアログを表示
       const toStore = storeMap.get(toStoreId)
@@ -943,30 +954,36 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         performanceDate,
         toStoreId,
         scenarioTitle: scenarioTitle || 'このキット',
-        toStoreName
+        toStoreName,
+        orgScenarioId
       })
     }
   }
   
   // 設置完了/解除を実行
+  // orgScenarioId: organization_scenarios.id（API用）
   const executeDeliveryToggle = async (
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
     toStoreId: string,
-    isUnmark: boolean
+    isUnmark: boolean,
+    orgScenarioId?: string
   ) => {
     if (!currentStaffId) return
+    
+    // API呼び出しには org_scenario_id を使用（なければ scenarioId をフォールバック）
+    const apiScenarioId = orgScenarioId || scenarioId
     
     try {
       if (isUnmark) {
         // 設置解除（キット位置は戻さない - 手動で戻す必要あり）
-        await kitApi.unmarkDelivered(scenarioId, kitNumber, performanceDate, toStoreId)
+        await kitApi.unmarkDelivered(apiScenarioId, kitNumber, performanceDate, toStoreId)
       } else {
         // 設置完了
-        await kitApi.markDelivered(scenarioId, kitNumber, performanceDate, toStoreId, currentStaffId)
+        await kitApi.markDelivered(apiScenarioId, kitNumber, performanceDate, toStoreId, currentStaffId)
         // キットの登録場所も移動先に更新
-        await kitApi.setKitLocation(scenarioId, kitNumber, toStoreId)
+        await kitApi.setKitLocation(apiScenarioId, kitNumber, toStoreId)
       }
       // リアルタイム購読で更新されるので手動更新不要
       // ただしキット位置変更は再取得が必要
@@ -985,7 +1002,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         deliveryConfirm.kitNumber,
         deliveryConfirm.performanceDate,
         deliveryConfirm.toStoreId,
-        false
+        false,
+        deliveryConfirm.orgScenarioId
       )
       setDeliveryConfirm(null)
     }
@@ -1075,6 +1093,15 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         console.warn('⚠️ 週間需要が0件です。スケジュールにシナリオが設定されていない可能性があります。')
       }
 
+      // scenario_master_id → org_scenario_id のマッピングを作成
+      // kitLocations から、scenario.id（= scenario_master_id）と org_scenario_id の対応を取得
+      const scenarioIdToOrgScenarioId = new Map<string, string>()
+      for (const loc of kitLocations) {
+        if (loc.scenario?.id && loc.org_scenario_id) {
+          scenarioIdToOrgScenarioId.set(loc.scenario.id, loc.org_scenario_id)
+        }
+      }
+
       // 移動計画を計算
       const result = calculateKitTransfers(
         kitState,
@@ -1084,8 +1111,14 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         transferDaysOfWeek
       )
 
-      console.log('📦 移動計算結果:', result)
-      setSuggestions(result)
+      // 結果に org_scenario_id を付加（API呼び出し用）
+      const resultWithOrgScenarioId = result.map(suggestion => ({
+        ...suggestion,
+        org_scenario_id: scenarioIdToOrgScenarioId.get(suggestion.scenario_id) || suggestion.scenario_id
+      }))
+
+      console.log('📦 移動計算結果:', resultWithOrgScenarioId)
+      setSuggestions(resultWithOrgScenarioId)
       
       // 手動実行時のみトースト表示
       if (showNotification) {
@@ -2399,7 +2432,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       ) : (
                                                         <div 
                                                           className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${pickedUp ? 'cursor-pointer active:scale-95 hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${delivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
-                                                          onClick={() => handleToggleDelivery(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id, suggestion.scenario_title)}
+                                                          onClick={() => handleToggleDelivery(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id, suggestion.scenario_title, suggestion.org_scenario_id)}
                                                           title={pickedUp ? '設置完了' : '回収してから設置できます'}
                                                         >
                                                           {delivered && <Check className="h-3 w-3 text-white" />}
@@ -2507,7 +2540,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       ) : (
                                                         <div 
                                                           className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 cursor-pointer active:scale-95 hover:border-blue-400 ${pickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
-                                                          onClick={() => handleTogglePickup(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.from_store_id, suggestion.to_store_id)}
+                                                          onClick={() => handleTogglePickup(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.from_store_id, suggestion.to_store_id, suggestion.org_scenario_id)}
                                                           title="回収"
                                                         >
                                                           {pickedUp && <Check className="h-3 w-3 text-white" />}

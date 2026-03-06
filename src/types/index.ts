@@ -746,7 +746,8 @@ export interface KitTransferEvent {
 
 // キット移動提案（最適化アルゴリズムの出力）
 export interface KitTransferSuggestion {
-  scenario_id: string
+  scenario_id: string  // scenario_master_id（需要マッチング用）
+  org_scenario_id?: string  // organization_scenarios.id（API呼び出し用）
   scenario_title: string
   kit_number: number
   from_store_id: string
@@ -772,7 +773,8 @@ export interface KitDemand {
 export interface KitTransferCompletion {
   id: string
   organization_id: string
-  scenario_id: string
+  scenario_id: string  // 旧: scenarios.id（後方互換性のため残す）
+  org_scenario_id?: string  // 新: organization_scenarios.id
   kit_number: number
   performance_date: string  // YYYY-MM-DD形式
   from_store_id: string
