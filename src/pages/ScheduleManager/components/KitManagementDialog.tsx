@@ -888,6 +888,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     toStoreId: string,
     orgScenarioId?: string
   ) => {
+    console.log('📌 handleTogglePickup called:', {
+      scenarioId,
+      orgScenarioId,
+      kitNumber,
+      performanceDate,
+      fromStoreId,
+      toStoreId,
+      currentStaffId
+    })
+    
     if (!currentStaffId) {
       showToast.error('スタッフ情報が取得できません')
       return
@@ -895,26 +905,34 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     
     // API呼び出しには org_scenario_id を使用（なければ scenarioId をフォールバック）
     const apiScenarioId = orgScenarioId || scenarioId
+    console.log('📌 Using apiScenarioId:', apiScenarioId)
     
     const currentlyPickedUp = isPickedUp(scenarioId, kitNumber, performanceDate, toStoreId)
+    console.log('📌 currentlyPickedUp:', currentlyPickedUp)
     
     try {
       if (currentlyPickedUp) {
         // 回収解除（設置も解除される）
+        console.log('📌 Calling unmarkPickedUp...')
         await kitApi.unmarkPickedUp(apiScenarioId, kitNumber, performanceDate, toStoreId)
+        console.log('📌 unmarkPickedUp completed')
       } else {
         // 回収完了
-        await kitApi.markPickedUp(apiScenarioId, kitNumber, performanceDate, fromStoreId, toStoreId, currentStaffId)
+        console.log('📌 Calling markPickedUp...')
+        const result = await kitApi.markPickedUp(apiScenarioId, kitNumber, performanceDate, fromStoreId, toStoreId, currentStaffId)
+        console.log('📌 markPickedUp completed:', result)
       }
       // 完了状態を手動で再取得（リアルタイム購読のバックアップ）
       const startDate = weekDates[0]
       const endDateObj = new Date(weekDates[6])
       endDateObj.setDate(endDateObj.getDate() + 3)
       const endDate = endDateObj.toISOString().split('T')[0]
+      console.log('📌 Fetching completions:', startDate, endDate)
       const completionsData = await kitApi.getTransferCompletions(startDate, endDate)
+      console.log('📌 Completions fetched:', completionsData.length)
       setCompletions(completionsData)
     } catch (error) {
-      console.error('Failed to toggle pickup:', error)
+      console.error('❌ Failed to toggle pickup:', error)
       showToast.error('操作に失敗しました')
     }
   }

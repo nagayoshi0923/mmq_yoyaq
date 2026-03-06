@@ -41,8 +41,9 @@ async function getOrgIdForBooking(booking: any): Promise<string | null> {
     if (data?.organization_id) return data.organization_id
   }
   if (booking?.scenario_id) {
+    // booking.scenario_id は scenario_master_id なので organization_scenarios_with_master を参照
     const { data } = await supabase
-      .from('scenarios')
+      .from('organization_scenarios_with_master')
       .select('organization_id')
       .eq('id', booking.scenario_id)
       .maybeSingle()
@@ -122,13 +123,14 @@ interface PrivateBookingNotification {
 }
 
 // シナリオタイトルを取得する関数
+// scenarioId は scenario_master_id（organization_scenarios_with_master.id）
 async function fetchScenarioTitle(scenarioId: string): Promise<string | null> {
   try {
     const { data, error } = await supabase
-      .from('scenarios')
+      .from('organization_scenarios_with_master')
       .select('title')
       .eq('id', scenarioId)
-      .single()
+      .maybeSingle()
     
     if (error) {
       console.error('❌ Error fetching scenario title:', error)
@@ -146,22 +148,12 @@ async function sendNotificationToGMChannels(booking: any) {
   console.log('📤 Sending notifications to individual GM channels...')
   console.log(`📋 Scenario ID: ${booking.scenario_id}`)
   
-  // scenarios テーブルから scenario_master_id を取得
-  // staff_scenario_assignments は scenario_master_id で保存されているため
-  const { data: scenarioData, error: scenarioError } = await supabase
-    .from('scenarios')
-    .select('scenario_master_id')
-    .eq('id', booking.scenario_id)
-    .maybeSingle()
-  
-  if (scenarioError) {
-    console.error('❌ Error fetching scenario:', scenarioError)
-    return
-  }
-  
-  const scenarioMasterId = scenarioData?.scenario_master_id
+  // reservations.scenario_id には scenario_master_id が格納されている
+  // （create_private_booking_request RPC で organization_scenarios_with_master.id を保存）
+  // staff_scenario_assignments.scenario_id も scenario_master_id で保存されている
+  const scenarioMasterId = booking.scenario_id
   if (!scenarioMasterId) {
-    console.log('⚠️ scenario_master_id not found for scenario:', booking.scenario_id)
+    console.log('⚠️ scenario_id (scenario_master_id) not found in booking')
     return
   }
   
@@ -443,13 +435,14 @@ serve(async (req) => {
     }
 
     // 組織IDを取得（payloadまたはシナリオから）
+    // booking.scenario_id は scenario_master_id なので organization_scenarios_with_master を参照
     let organizationId = booking.organization_id
     if (!organizationId && booking.scenario_id) {
       const { data: scenario } = await supabase
-        .from('scenarios')
+        .from('organization_scenarios_with_master')
         .select('organization_id')
         .eq('id', booking.scenario_id)
-        .single()
+        .maybeSingle()
       organizationId = scenario?.organization_id
     }
     
