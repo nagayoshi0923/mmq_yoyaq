@@ -570,26 +570,60 @@ export const kitApi = {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) throw new Error('Organization ID not found')
 
-    const { data, error } = await supabase
+    // まず既存レコードを検索
+    const { data: existing } = await supabase
       .from('kit_transfer_completions')
-      .upsert({
-        organization_id: orgId,
-        org_scenario_id: scenarioId,
-        kit_number: kitNumber,
-        performance_date: performanceDate,
-        from_store_id: fromStoreId,
-        to_store_id: toStoreId,
-        picked_up_at: new Date().toISOString(),
-        picked_up_by: staffId
-      }, {
-        onConflict: 'organization_id,org_scenario_id,kit_number,performance_date,to_store_id'
-      })
-      .select(`
-        *,
-        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, name),
-        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, name)
-      `)
-      .single()
+      .select('id')
+      .eq('organization_id', orgId)
+      .eq('org_scenario_id', scenarioId)
+      .eq('kit_number', kitNumber)
+      .eq('performance_date', performanceDate)
+      .eq('to_store_id', toStoreId)
+      .maybeSingle()
+
+    let data, error
+
+    if (existing) {
+      // 既存レコードがあれば更新
+      const result = await supabase
+        .from('kit_transfer_completions')
+        .update({
+          from_store_id: fromStoreId,
+          picked_up_at: new Date().toISOString(),
+          picked_up_by: staffId
+        })
+        .eq('id', existing.id)
+        .select(`
+          *,
+          picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, name),
+          delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, name)
+        `)
+        .single()
+      data = result.data
+      error = result.error
+    } else {
+      // 新規レコードを挿入
+      const result = await supabase
+        .from('kit_transfer_completions')
+        .insert({
+          organization_id: orgId,
+          org_scenario_id: scenarioId,
+          kit_number: kitNumber,
+          performance_date: performanceDate,
+          from_store_id: fromStoreId,
+          to_store_id: toStoreId,
+          picked_up_at: new Date().toISOString(),
+          picked_up_by: staffId
+        })
+        .select(`
+          *,
+          picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, name),
+          delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, name)
+        `)
+        .single()
+      data = result.data
+      error = result.error
+    }
 
     if (error) {
       console.error('Failed to mark picked up:', error)
