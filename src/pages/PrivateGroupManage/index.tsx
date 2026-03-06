@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import {
@@ -20,10 +21,13 @@ import {
   Copy,
   ExternalLink,
   Check,
+  MessageCircle,
+  UserPlus,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup, usePrivateGroupData } from '@/hooks/usePrivateGroup'
-import { supabase } from '@/lib/supabase'
+import { GroupChat } from './components/GroupChat'
+import { UserSearchInvite } from './components/UserSearchInvite'
 import { logger } from '@/utils/logger'
 
 export function PrivateGroupManage() {
@@ -252,147 +256,191 @@ export function PrivateGroupManage() {
               </CardContent>
             </Card>
 
-            {/* 招待リンク */}
-            {group.status === 'gathering' && (
-              <Card>
-                <CardContent className="p-4 space-y-3">
-                  <h3 className="font-semibold">招待リンク</h3>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={getInviteUrl()}
-                      readOnly
-                      className="text-sm"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={handleCopyLink}
-                      className="shrink-0"
-                    >
-                      {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={handleShareLine}
-                    >
-                      <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
-                        <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
-                      </svg>
-                      LINEで共有
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* タブ化されたコンテンツ */}
+            <Tabs defaultValue="members" className="w-full">
+              <TabsList className="w-full rounded-lg">
+                <TabsTrigger value="members" className="flex-1 gap-1.5 rounded-md">
+                  <Users className="w-4 h-4" />
+                  メンバー・日程
+                </TabsTrigger>
+                <TabsTrigger value="chat" className="flex-1 gap-1.5 rounded-md">
+                  <MessageCircle className="w-4 h-4" />
+                  チャット
+                </TabsTrigger>
+                {group.status === 'gathering' && (
+                  <TabsTrigger value="invite" className="flex-1 gap-1.5 rounded-md">
+                    <UserPlus className="w-4 h-4" />
+                    招待
+                  </TabsTrigger>
+                )}
+              </TabsList>
 
-            {/* メンバー一覧 */}
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <h3 className="font-semibold">メンバー（{joinedMembers.length}名）</h3>
-                <div className="space-y-2">
-                  {joinedMembers.map(member => {
-                    const hasResponded = group.candidate_dates?.every(cd =>
-                      cd.responses?.some(r => r.member_id === member.id)
-                    )
-                    return (
-                      <div
-                        key={member.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">
-                            {member.guest_name || member.users?.email || 'メンバー'}
-                          </span>
-                          {member.is_organizer && (
-                            <Badge variant="outline" className="text-xs">主催者</Badge>
-                          )}
-                        </div>
-                        <Badge
+              {/* メンバー・日程タブ */}
+              <TabsContent value="members" className="space-y-6 mt-4">
+                {/* 招待リンク (簡易版) */}
+                {group.status === 'gathering' && (
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <h3 className="font-semibold">招待リンク</h3>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={getInviteUrl()}
+                          readOnly
+                          className="text-sm"
+                        />
+                        <Button
                           variant="outline"
-                          className={hasResponded
-                            ? 'bg-green-100 text-green-800 border-green-200 text-xs'
-                            : 'bg-amber-100 text-amber-800 border-amber-200 text-xs'
-                          }
+                          size="icon"
+                          onClick={handleCopyLink}
+                          className="shrink-0"
                         >
-                          {hasResponded ? '回答済' : '未回答'}
-                        </Badge>
+                          {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                        </Button>
                       </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={handleShareLine}
+                        >
+                          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                            <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
+                          </svg>
+                          LINEで共有
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-            {/* 日程調整結果 */}
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <h3 className="font-semibold">日程調整結果</h3>
-                <div className="space-y-2">
-                  {responseSummary.map((summary, index) => {
-                    const cd = summary.candidateDate
-                    const isRecommended = summary.isViable && summary.okCount >= (group.target_participant_count || 1)
-                    return (
-                      <div
-                        key={cd.id}
-                        className={`p-3 rounded-lg border ${
-                          isRecommended
-                            ? 'border-green-300 bg-green-50'
-                            : summary.isViable
-                            ? 'border-gray-200 bg-gray-50'
-                            : 'border-red-200 bg-red-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                                候補 {index + 1}
-                              </Badge>
-                              <Calendar className="w-4 h-4 text-muted-foreground" />
-                              <span>{formatDate(cd.date)}</span>
+                {/* メンバー一覧 */}
+                <Card>
+                  <CardContent className="p-4 space-y-3">
+                    <h3 className="font-semibold">メンバー（{joinedMembers.length}名）</h3>
+                    <div className="space-y-2">
+                      {joinedMembers.map(member => {
+                        const hasResponded = group.candidate_dates?.every(cd =>
+                          cd.responses?.some(r => r.member_id === member.id)
+                        )
+                        return (
+                          <div
+                            key={member.id}
+                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">
+                                {member.guest_name || member.users?.email || 'メンバー'}
+                              </span>
+                              {member.is_organizer && (
+                                <Badge variant="outline" className="text-xs">主催者</Badge>
+                              )}
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Clock className="w-4 h-4" />
-                              <span>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
+                            <Badge
+                              variant="outline"
+                              className={hasResponded
+                                ? 'bg-green-100 text-green-800 border-green-200 text-xs'
+                                : 'bg-amber-100 text-amber-800 border-amber-200 text-xs'
+                              }
+                            >
+                              {hasResponded ? '回答済' : '未回答'}
+                            </Badge>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 日程調整結果 */}
+                <Card>
+                  <CardContent className="p-4 space-y-3">
+                    <h3 className="font-semibold">日程調整結果</h3>
+                    <div className="space-y-2">
+                      {responseSummary.map((summary, index) => {
+                        const cd = summary.candidateDate
+                        const isRecommended = summary.isViable && summary.okCount >= (group.target_participant_count || 1)
+                        return (
+                          <div
+                            key={cd.id}
+                            className={`p-3 rounded-lg border ${
+                              isRecommended
+                                ? 'border-green-300 bg-green-50'
+                                : summary.isViable
+                                ? 'border-gray-200 bg-gray-50'
+                                : 'border-red-200 bg-red-50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                                    候補 {index + 1}
+                                  </Badge>
+                                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                                  <span>{formatDate(cd.date)}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Clock className="w-4 h-4" />
+                                  <span>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1 text-sm">
+                                  <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                                    <Circle className="w-2.5 h-2.5 text-white" />
+                                  </div>
+                                  <span className="text-green-700 font-medium">{summary.okCount}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-sm">
+                                  <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
+                                    <HelpCircle className="w-2.5 h-2.5 text-white" />
+                                  </div>
+                                  <span className="text-amber-700 font-medium">{summary.maybeCount}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-sm">
+                                  <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+                                    <X className="w-2.5 h-2.5 text-white" />
+                                  </div>
+                                  <span className="text-red-700 font-medium">{summary.ngCount}</span>
+                                </div>
+                                {isRecommended && (
+                                  <Badge className="bg-green-600 text-white text-xs">おすすめ</Badge>
+                                )}
+                                {!summary.isViable && (
+                                  <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 text-xs">NG</Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1 text-sm">
-                              <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                                <Circle className="w-2.5 h-2.5 text-white" />
-                              </div>
-                              <span className="text-green-700 font-medium">{summary.okCount}</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-sm">
-                              <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
-                                <HelpCircle className="w-2.5 h-2.5 text-white" />
-                              </div>
-                              <span className="text-amber-700 font-medium">{summary.maybeCount}</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-sm">
-                              <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
-                                <X className="w-2.5 h-2.5 text-white" />
-                              </div>
-                              <span className="text-red-700 font-medium">{summary.ngCount}</span>
-                            </div>
-                            {isRecommended && (
-                              <Badge className="bg-green-600 text-white text-xs">おすすめ</Badge>
-                            )}
-                            {!summary.isViable && (
-                              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 text-xs">NG</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* チャットタブ */}
+              <TabsContent value="chat" className="mt-4">
+                <GroupChat
+                  groupId={group.id}
+                  currentMemberId={joinedMembers.find(m => m.user_id === user?.id)?.id || null}
+                  members={joinedMembers}
+                />
+              </TabsContent>
+
+              {/* 招待タブ */}
+              {group.status === 'gathering' && (
+                <TabsContent value="invite" className="mt-4">
+                  <UserSearchInvite
+                    groupId={group.id}
+                    inviteCode={group.invite_code}
+                    members={joinedMembers}
+                    onInvitationSent={refetch}
+                  />
+                </TabsContent>
+              )}
+            </Tabs>
           </div>
 
           {/* 右側サイドバー */}

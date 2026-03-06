@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Plus, X, Copy, Share2 } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Copy } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
+import { GroupCalendarSelector } from './components/GroupCalendarSelector'
 
 const MAX_TIME_SLOTS = 6
 
@@ -50,9 +51,6 @@ export function PrivateGroupCreate() {
   const [loadingData, setLoadingData] = useState(true)
 
   const [candidateDates, setCandidateDates] = useState<CandidateDate[]>([])
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [newDate, setNewDate] = useState('')
-  const [newSlotLabel, setNewSlotLabel] = useState<string>('')
 
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [targetParticipantCount, setTargetParticipantCount] = useState<number>(6)
@@ -106,32 +104,25 @@ export function PrivateGroupCreate() {
     fetchData()
   }, [scenarioId])
 
-  const dateRange = useMemo(() => {
-    const today = new Date()
-    const minDate = today.toISOString().split('T')[0]
-    const maxDate = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    return { minDate, maxDate }
+
+  const handleSlotToggle = useCallback((date: string, slot: TimeSlot) => {
+    setCandidateDates(prev => {
+      const existingIndex = prev.findIndex(
+        cd => cd.date === date && cd.slot.label === slot.label
+      )
+      if (existingIndex >= 0) {
+        return prev.filter((_, i) => i !== existingIndex)
+      }
+      if (prev.length >= MAX_TIME_SLOTS) {
+        return prev
+      }
+      return [...prev, { date, slot }].sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date)
+        const slotOrder = { '午前': 0, '午後': 1, '夜間': 2 }
+        return slotOrder[a.slot.label] - slotOrder[b.slot.label]
+      })
+    })
   }, [])
-
-  const handleAddTimeSlot = () => {
-    if (!newDate || !newSlotLabel) return
-    const slot = TIME_SLOT_OPTIONS.find(s => s.label === newSlotLabel)
-    if (!slot) return
-
-    const isDuplicate = candidateDates.some(
-      cd => cd.date === newDate && cd.slot.label === newSlotLabel
-    )
-    if (isDuplicate) return
-
-    setCandidateDates(prev => [...prev, { date: newDate, slot }])
-    setNewDate('')
-    setNewSlotLabel('')
-    setShowAddForm(false)
-  }
-
-  const handleRemoveTimeSlot = (index: number) => {
-    setCandidateDates(prev => prev.filter((_, i) => i !== index))
-  }
 
   const handleStoreToggle = (storeId: string) => {
     setSelectedStoreIds(prev =>
@@ -392,117 +383,39 @@ export function PrivateGroupCreate() {
               </Card>
             </div>
 
-            {/* 候補日時 */}
+            {/* 候補日時 - カレンダー選択 */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold">候補日時（{candidateDates.length}/{MAX_TIME_SLOTS}件）</h2>
-                {candidateDates.length < MAX_TIME_SLOTS && !showAddForm && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAddForm(true)}
-                    className="gap-1"
-                  >
-                    <Plus className="w-4 h-4" />
-                    追加
-                  </Button>
-                )}
-              </div>
+              <h2 className="text-base font-semibold mb-3">候補日時</h2>
+              <Card>
+                <CardContent className="p-4">
+                  <GroupCalendarSelector
+                    selectedSlots={candidateDates}
+                    onSlotToggle={handleSlotToggle}
+                    maxSelections={MAX_TIME_SLOTS}
+                  />
+                </CardContent>
+              </Card>
 
-              {showAddForm && (
-                <Card className="mb-3 border-purple-200 bg-purple-50">
-                  <CardContent className="p-4 space-y-3">
-                    <p className="text-sm font-medium text-purple-800">候補日時を追加</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs mb-1 block">日付</Label>
-                        <Input
-                          type="date"
-                          value={newDate}
-                          onChange={(e) => setNewDate(e.target.value)}
-                          min={dateRange.minDate}
-                          max={dateRange.maxDate}
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs mb-1 block">時間帯</Label>
-                        <Select value={newSlotLabel} onValueChange={setNewSlotLabel}>
-                          <SelectTrigger className="text-sm">
-                            <SelectValue placeholder="選択..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TIME_SLOT_OPTIONS.map((slot) => (
-                              <SelectItem key={slot.label} value={slot.label}>
-                                {slot.label}（{slot.startTime}〜{slot.endTime}）
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 justify-end">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setShowAddForm(false)
-                          setNewDate('')
-                          setNewSlotLabel('')
-                        }}
+              {/* 選択済み候補日の表示 */}
+              {candidateDates.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">選択中の候補日時:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {candidateDates.map((cd, index) => (
+                      <Badge
+                        key={`${cd.date}-${cd.slot.label}`}
+                        variant="outline"
+                        className="bg-purple-100 text-purple-800 border-purple-200 px-3 py-1.5 cursor-pointer hover:bg-purple-200"
+                        onClick={() => handleSlotToggle(cd.date, cd.slot)}
                       >
-                        キャンセル
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={handleAddTimeSlot}
-                        disabled={!newDate || !newSlotLabel}
-                        className="bg-purple-600 hover:bg-purple-700"
-                      >
-                        追加する
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                        <span className="mr-1">#{index + 1}</span>
+                        {formatDate(cd.date)} {cd.slot.label}
+                        <span className="ml-1 text-purple-400">×</span>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               )}
-
-              <div className="space-y-2">
-                {candidateDates.length === 0 ? (
-                  <Card className="border-dashed">
-                    <CardContent className="p-4 text-center text-muted-foreground text-sm">
-                      候補日時を追加してください
-                    </CardContent>
-                  </Card>
-                ) : (
-                  candidateDates.map((cd, index) => (
-                    <Card key={`${cd.date}-${cd.slot.label}`}>
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                              候補 {index + 1}
-                            </Badge>
-                            <Calendar className="w-4 h-4 text-muted-foreground" />
-                            <span>{formatDate(cd.date)}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Clock className="w-4 h-4" />
-                            <span>{cd.slot.label} {cd.slot.startTime} - {cd.slot.endTime}</span>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveTimeSlot(index)}
-                          className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1 h-auto"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
             </div>
 
             {/* 希望店舗 */}

@@ -917,3 +917,39 @@ export interface PrivateGroupDateResponse {
   created_at: string
   updated_at: string
 }
+
+// グループチャットメッセージ
+export interface PrivateGroupMessage {
+  id: string
+  group_id: string
+  member_id: string
+  message: string
+  created_at: string
+  // JOIN時の拡張フィールド
+  member?: PrivateGroupMember
+}
+
+// 招待ステータス
+export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'cancelled'
+
+// グループ招待
+export interface PrivateGroupInvitation {
+  id: string
+  group_id: string
+  invited_user_id: string | null
+  invited_email: string
+  invited_by: string
+  status: InvitationStatus
+  created_at: string
+  responded_at: string | null
+  // JOIN時の拡張フィールド
+  invited_user?: {
+    id: string
+    display_name: string | null
+    avatar_url: string | null
+  }
+  inviter?: {
+    id: string
+    display_name: string | null
+  }
+}
