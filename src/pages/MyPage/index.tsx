@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
@@ -37,6 +37,9 @@ interface PlayedScenario {
   scenario_slug?: string
   organization_slug?: string
   key_visual_url?: string
+  is_manual?: boolean
+  manual_id?: string
+  reservation_id?: string
 }
 
 const menuItems = [
@@ -426,6 +429,8 @@ export default function MyPage() {
             scenario_slug: scenarioInfo?.slug || undefined,
             organization_slug: reservation.organization_id ? orgSlugMap[reservation.organization_id] : undefined,
             key_visual_url: scenarioInfo?.key_visual_url || undefined,
+            is_manual: false,
+            reservation_id: reservation.id,
           }
         })
         
@@ -447,6 +452,8 @@ export default function MyPage() {
               scenario_slug: (item.scenario_master_id ?? item.scenario_id) || undefined,
               organization_slug: undefined,
               key_visual_url: master?.key_visual_url || undefined,
+              is_manual: true,
+              manual_id: item.id,
             })
           })
         }
@@ -516,6 +523,43 @@ export default function MyPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // 手動登録を削除
+  const handleDeleteManualHistory = async (manualId: string) => {
+    if (!confirm('この履歴を削除しますか？')) return
+
+    try {
+      const { error } = await supabase
+        .from('manual_play_history')
+        .delete()
+        .eq('id', manualId)
+
+      if (error) throw error
+
+      showToast.success('削除しました')
+      setPlayedScenarios(prev => prev.filter(p => p.manual_id !== manualId))
+    } catch (error) {
+      logger.error('手動履歴削除エラー:', error)
+      showToast.error('削除に失敗しました')
+    }
+  }
+
+  // アルバムから非表示（予約ベースのプレイ履歴はローカルで非表示）
+  const [hiddenPlays, setHiddenPlays] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('hidden_played_scenarios')
+    return saved ? new Set(JSON.parse(saved)) : new Set()
+  })
+
+  const handleHideFromAlbum = (scenario: PlayedScenario) => {
+    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    setHiddenPlays(prev => {
+      const newSet = new Set(prev)
+      newSet.add(key)
+      localStorage.setItem('hidden_played_scenarios', JSON.stringify(Array.from(newSet)))
+      return newSet
+    })
+    showToast.success('アルバムから非表示にしました')
   }
 
   // 日付フォーマット
@@ -1077,7 +1121,10 @@ export default function MyPage() {
                 <div className="bg-white shadow-sm p-6 border border-gray-200" style={{ borderRadius: 0 }}>
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-bold text-gray-900">プレイ済みシナリオ</h2>
-                    <span className="text-2xl font-bold" style={{ color: THEME.primary }}>{playedScenarios.length}作品</span>
+                    <span className="text-2xl font-bold" style={{ color: THEME.primary }}>{playedScenarios.filter(s => {
+                      const key = s.reservation_id || `${s.scenario}-${s.date}`
+                      return !hiddenPlays.has(key)
+                    }).length}作品</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-gray-500">
@@ -1164,7 +1211,10 @@ export default function MyPage() {
                 </div>
 
                 {/* シナリオグリッド */}
-                {playedScenarios.length > 0 ? (
+                {playedScenarios.filter(s => {
+                  const key = s.reservation_id || `${s.scenario}-${s.date}`
+                  return !hiddenPlays.has(key)
+                }).length > 0 ? (
                   <div>
                     <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                       <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
@@ -1172,24 +1222,31 @@ export default function MyPage() {
                     </h2>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                      {playedScenarios.map((scenario, index) => (
+                      {playedScenarios
+                        .filter(s => {
+                          const key = s.reservation_id || `${s.scenario}-${s.date}`
+                          return !hiddenPlays.has(key)
+                        })
+                        .map((scenario, index) => (
                         <div
                           key={index}
-                          className="overflow-hidden cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-lg hover:scale-[1.02] border border-gray-200 hover:border-gray-300"
+                          className="overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative"
                           style={{ borderRadius: 0 }}
-                          onClick={() => {
-                            if (scenario.scenario_id) {
-                              const scenarioSlug = scenario.scenario_slug || scenario.scenario_id
-                              if (scenario.organization_slug) {
-                                navigate(`/${scenario.organization_slug}/scenario/${scenarioSlug}`)
-                              } else {
-                                navigate(`/scenario/${scenarioSlug}`)
-                              }
-                            }
-                          }}
                         >
                           {/* 画像部分 */}
-                          <div className="aspect-[4/3] relative bg-gray-100">
+                          <div 
+                            className="aspect-[4/3] relative bg-gray-100 cursor-pointer"
+                            onClick={() => {
+                              if (scenario.scenario_id) {
+                                const scenarioSlug = scenario.scenario_slug || scenario.scenario_id
+                                if (scenario.organization_slug) {
+                                  navigate(`/${scenario.organization_slug}/scenario/${scenarioSlug}`)
+                                } else {
+                                  navigate(`/scenario/${scenarioSlug}`)
+                                }
+                              }
+                            }}
+                          >
                             {scenario.key_visual_url ? (
                               <>
                                 <div 
@@ -1213,27 +1270,43 @@ export default function MyPage() {
                                 <span className="text-4xl opacity-30">🎭</span>
                               </div>
                             )}
-                            {/* プレイ済みバッジ */}
-                            <div className="absolute top-2 right-2">
-                              <div 
-                                className="w-6 h-6 flex items-center justify-center shadow-lg"
-                                style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
-                              >
-                                <span className="text-white text-xs">✓</span>
-                              </div>
-                            </div>
                           </div>
                           {/* タイトル・日付部分 */}
                           <div className="p-3">
-                            <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-1" title={scenario.scenario}>
-                              {scenario.scenario || '（タイトル不明）'}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {scenario.date ? new Date(scenario.date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }) : '日付不明'}
-                            </p>
-                            {scenario.venue && scenario.venue !== '店舗情報なし' && (
-                              <p className="text-xs text-gray-400 mt-0.5 truncate">{scenario.venue}</p>
-                            )}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-1" title={scenario.scenario}>
+                                  {scenario.scenario || '（タイトル不明）'}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {scenario.date ? new Date(scenario.date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }) : '日付不明'}
+                                </p>
+                                {scenario.venue && scenario.venue !== '店舗情報なし' && (
+                                  <p className="text-xs text-gray-400 mt-0.5 truncate">{scenario.venue}</p>
+                                )}
+                              </div>
+                              {/* 削除/非表示ボタン */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (scenario.is_manual && scenario.manual_id) {
+                                    handleDeleteManualHistory(scenario.manual_id)
+                                  } else {
+                                    handleHideFromAlbum(scenario)
+                                  }
+                                }}
+                                title={scenario.is_manual ? '削除' : '非表示にする'}
+                              >
+                                {scenario.is_manual ? (
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                ) : (
+                                  <EyeOff className="h-4 w-4 text-gray-500" />
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}
