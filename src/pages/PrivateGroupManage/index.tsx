@@ -23,11 +23,13 @@ import {
   Check,
   MessageCircle,
   UserPlus,
+  Share2,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup, usePrivateGroupData } from '@/hooks/usePrivateGroup'
 import { GroupChat } from './components/GroupChat'
 import { UserSearchInvite } from './components/UserSearchInvite'
+import { AddCandidateDates } from './components/AddCandidateDates'
 import { logger } from '@/utils/logger'
 
 export function PrivateGroupManage() {
@@ -38,6 +40,7 @@ export function PrivateGroupManage() {
   const { updateGroupStatus, getDateResponsesSummary, loading: actionLoading } = usePrivateGroup()
 
   const [copied, setCopied] = useState(false)
+  const [progressCopied, setProgressCopied] = useState(false)
   const [cancelling, setCancelling] = useState(false)
 
   const formatDate = (dateStr: string) => {
@@ -67,6 +70,38 @@ export function PrivateGroupManage() {
     const text = `貸切マーダーミステリーに参加しませんか？\n\n🎭 ${scenario?.title || 'シナリオ'}\n👥 ${group.target_participant_count}名で貸切\n\n以下のリンクから参加・日程回答をお願いします👇`
     const url = getInviteUrl()
     window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
+  }
+
+  const handleShareProgress = async () => {
+    if (!group) return
+    const scenario = group.scenario_masters
+    const candidateDates = group.candidate_dates || []
+
+    let progressText = `📊 貸切グループ進捗状況\n\n`
+    progressText += `🎭 ${scenario?.title || 'シナリオ'}\n`
+    progressText += `👥 メンバー: ${joinedMembers.length}/${group.target_participant_count}名\n\n`
+
+    if (candidateDates.length > 0) {
+      progressText += `📅 候補日の回答状況:\n`
+      responseSummary.forEach((summary, index) => {
+        const cd = summary.candidateDate
+        const okIcon = summary.okCount > 0 ? '🟢' : '⚪'
+        progressText += `${index + 1}. ${formatDate(cd.date)} ${cd.time_slot}\n`
+        progressText += `   ${okIcon} OK:${summary.okCount} / △:${summary.maybeCount} / NG:${summary.ngCount}\n`
+      })
+    } else {
+      progressText += `📅 候補日: まだ設定されていません\n`
+    }
+
+    progressText += `\n📎 ${getInviteUrl()}`
+
+    try {
+      await navigator.clipboard.writeText(progressText)
+      setProgressCopied(true)
+      setTimeout(() => setProgressCopied(false), 2000)
+    } catch {
+      logger.error('Failed to copy progress')
+    }
   }
 
   const handleProceedToBooking = () => {
@@ -355,67 +390,89 @@ export function PrivateGroupManage() {
                 {/* 日程調整結果 */}
                 <Card>
                   <CardContent className="p-4 space-y-3">
-                    <h3 className="font-semibold">日程調整結果</h3>
-                    <div className="space-y-2">
-                      {responseSummary.map((summary, index) => {
-                        const cd = summary.candidateDate
-                        const isRecommended = summary.isViable && summary.okCount >= (group.target_participant_count || 1)
-                        return (
-                          <div
-                            key={cd.id}
-                            className={`p-3 rounded-lg border ${
-                              isRecommended
-                                ? 'border-green-300 bg-green-50'
-                                : summary.isViable
-                                ? 'border-gray-200 bg-gray-50'
-                                : 'border-red-200 bg-red-50'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2 text-sm">
-                                  <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                                    候補 {index + 1}
-                                  </Badge>
-                                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                                  <span>{formatDate(cd.date)}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <Clock className="w-4 h-4" />
-                                  <span>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-1 text-sm">
-                                  <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                                    <Circle className="w-2.5 h-2.5 text-white" />
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold">候補日時（{group.candidate_dates?.length || 0}件）</h3>
+                      {isOrganizer && group.status === 'gathering' && (
+                        <AddCandidateDates
+                          groupId={group.id}
+                          scenarioId={group.scenario_id || ''}
+                          storeIds={group.preferred_store_ids || []}
+                          existingDates={group.candidate_dates || []}
+                          onDatesAdded={refetch}
+                        />
+                      )}
+                    </div>
+
+                    {(!group.candidate_dates || group.candidate_dates.length === 0) ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">候補日時がまだ設定されていません</p>
+                        {isOrganizer && (
+                          <p className="text-xs mt-1">「候補日を追加」から日時を設定してください</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {responseSummary.map((summary, index) => {
+                          const cd = summary.candidateDate
+                          const isRecommended = summary.isViable && summary.okCount >= (group.target_participant_count || 1)
+                          return (
+                            <div
+                              key={cd.id}
+                              className={`p-3 rounded-lg border ${
+                                isRecommended
+                                  ? 'border-green-300 bg-green-50'
+                                  : summary.isViable
+                                  ? 'border-gray-200 bg-gray-50'
+                                  : 'border-red-200 bg-red-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                                      候補 {index + 1}
+                                    </Badge>
+                                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                                    <span>{formatDate(cd.date)}</span>
                                   </div>
-                                  <span className="text-green-700 font-medium">{summary.okCount}</span>
-                                </div>
-                                <div className="flex items-center gap-1 text-sm">
-                                  <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
-                                    <HelpCircle className="w-2.5 h-2.5 text-white" />
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Clock className="w-4 h-4" />
+                                    <span>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
                                   </div>
-                                  <span className="text-amber-700 font-medium">{summary.maybeCount}</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-sm">
-                                  <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
-                                    <X className="w-2.5 h-2.5 text-white" />
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-1 text-sm">
+                                    <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                                      <Circle className="w-2.5 h-2.5 text-white" />
+                                    </div>
+                                    <span className="text-green-700 font-medium">{summary.okCount}</span>
                                   </div>
-                                  <span className="text-red-700 font-medium">{summary.ngCount}</span>
+                                  <div className="flex items-center gap-1 text-sm">
+                                    <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center">
+                                      <HelpCircle className="w-2.5 h-2.5 text-white" />
+                                    </div>
+                                    <span className="text-amber-700 font-medium">{summary.maybeCount}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-sm">
+                                    <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+                                      <X className="w-2.5 h-2.5 text-white" />
+                                    </div>
+                                    <span className="text-red-700 font-medium">{summary.ngCount}</span>
+                                  </div>
+                                  {isRecommended && (
+                                    <Badge className="bg-green-600 text-white text-xs">おすすめ</Badge>
+                                  )}
+                                  {!summary.isViable && (
+                                    <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 text-xs">NG</Badge>
+                                  )}
                                 </div>
-                                {isRecommended && (
-                                  <Badge className="bg-green-600 text-white text-xs">おすすめ</Badge>
-                                )}
-                                {!summary.isViable && (
-                                  <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 text-xs">NG</Badge>
-                                )}
                               </div>
                             </div>
-                          </div>
-                        )
-                      })}
-                    </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -482,9 +539,29 @@ export function PrivateGroupManage() {
                       </div>
                     </div>
 
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleShareProgress}
+                        className="flex-1 gap-2"
+                      >
+                        {progressCopied ? (
+                          <>
+                            <Check className="w-4 h-4 text-green-600" />
+                            コピーしました
+                          </>
+                        ) : (
+                          <>
+                            <Share2 className="w-4 h-4" />
+                            進捗を共有
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
                     <Button
                       onClick={handleProceedToBooking}
-                      disabled={!targetReached || !allMembersResponded}
+                      disabled={!targetReached || !allMembersResponded || (group.candidate_dates?.length || 0) === 0}
                       className="w-full bg-purple-600 hover:bg-purple-700"
                     >
                       貸切を申し込む

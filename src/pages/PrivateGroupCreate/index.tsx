@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,32 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Copy } from 'lucide-react'
+import { Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Copy } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
-import { GroupCalendarSelector } from './components/GroupCalendarSelector'
-
-const MAX_TIME_SLOTS = 6
-
-interface TimeSlot {
-  label: '午前' | '午後' | '夜間'
-  startTime: string
-  endTime: string
-}
-
-const TIME_SLOT_OPTIONS: TimeSlot[] = [
-  { label: '午前', startTime: '09:00', endTime: '12:00' },
-  { label: '午後', startTime: '12:00', endTime: '17:00' },
-  { label: '夜間', startTime: '17:00', endTime: '22:00' }
-]
-
-interface CandidateDate {
-  date: string
-  slot: TimeSlot
-}
 
 export function PrivateGroupCreate() {
   const navigate = useNavigate()
@@ -49,8 +29,6 @@ export function PrivateGroupCreate() {
   const [scenario, setScenario] = useState<any>(null)
   const [stores, setStores] = useState<any[]>([])
   const [loadingData, setLoadingData] = useState(true)
-
-  const [candidateDates, setCandidateDates] = useState<CandidateDate[]>([])
 
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [targetParticipantCount, setTargetParticipantCount] = useState<number>(6)
@@ -105,37 +83,12 @@ export function PrivateGroupCreate() {
   }, [scenarioId])
 
 
-  const handleSlotToggle = useCallback((date: string, slot: TimeSlot) => {
-    setCandidateDates(prev => {
-      const existingIndex = prev.findIndex(
-        cd => cd.date === date && cd.slot.label === slot.label
-      )
-      if (existingIndex >= 0) {
-        return prev.filter((_, i) => i !== existingIndex)
-      }
-      if (prev.length >= MAX_TIME_SLOTS) {
-        return prev
-      }
-      return [...prev, { date, slot }].sort((a, b) => {
-        if (a.date !== b.date) return a.date.localeCompare(b.date)
-        const slotOrder = { '午前': 0, '午後': 1, '夜間': 2 }
-        return slotOrder[a.slot.label] - slotOrder[b.slot.label]
-      })
-    })
-  }, [])
-
   const handleStoreToggle = (storeId: string) => {
     setSelectedStoreIds(prev =>
       prev.includes(storeId)
         ? prev.filter(id => id !== storeId)
         : [...prev, storeId]
     )
-  }
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00+09:00')
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
   }
 
   const handleSubmit = async () => {
@@ -151,11 +104,6 @@ export function PrivateGroupCreate() {
       return
     }
 
-    if (candidateDates.length === 0) {
-      setError('候補日時を1件以上設定してください')
-      return
-    }
-
     if (selectedStoreIds.length === 0) {
       setError('希望店舗を1つ以上選択してください')
       return
@@ -167,13 +115,7 @@ export function PrivateGroupCreate() {
         name: groupName || undefined,
         targetParticipantCount,
         preferredStoreIds: selectedStoreIds,
-        candidateDates: candidateDates.map((cd, index) => ({
-          date: cd.date,
-          time_slot: cd.slot.label,
-          start_time: cd.slot.startTime,
-          end_time: cd.slot.endTime,
-          order_num: index + 1,
-        })),
+        candidateDates: [],
         notes: notes || undefined,
       })
 
@@ -274,7 +216,7 @@ export function PrivateGroupCreate() {
               <div>
                 <h2 className="text-lg text-purple-800 font-medium">グループを作成しました！</h2>
                 <p className="text-sm text-purple-700 mt-2">
-                  以下のリンクを友達に共有して、参加と日程回答をお願いしましょう
+                  グループ管理画面で候補日時を追加し、招待リンクを友達に共有しましょう
                 </p>
               </div>
 
@@ -383,41 +325,6 @@ export function PrivateGroupCreate() {
               </Card>
             </div>
 
-            {/* 候補日時 - カレンダー選択 */}
-            <div>
-              <h2 className="text-base font-semibold mb-3">候補日時</h2>
-              <Card>
-                <CardContent className="p-4">
-                  <GroupCalendarSelector
-                    selectedSlots={candidateDates}
-                    onSlotToggle={handleSlotToggle}
-                    maxSelections={MAX_TIME_SLOTS}
-                  />
-                </CardContent>
-              </Card>
-
-              {/* 選択済み候補日の表示 */}
-              {candidateDates.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">選択中の候補日時:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {candidateDates.map((cd, index) => (
-                      <Badge
-                        key={`${cd.date}-${cd.slot.label}`}
-                        variant="outline"
-                        className="bg-purple-100 text-purple-800 border-purple-200 px-3 py-1.5 cursor-pointer hover:bg-purple-200"
-                        onClick={() => handleSlotToggle(cd.date, cd.slot)}
-                      >
-                        <span className="mr-1">#{index + 1}</span>
-                        {formatDate(cd.date)} {cd.slot.label}
-                        <span className="ml-1 text-purple-400">×</span>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* 希望店舗 */}
             <div>
               <h2 className="text-base font-semibold mb-3">希望店舗</h2>
@@ -515,25 +422,29 @@ export function PrivateGroupCreate() {
                 <ol className="text-sm text-muted-foreground space-y-2">
                   <li className="flex gap-2">
                     <span className="bg-purple-100 text-purple-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium shrink-0">1</span>
-                    候補日時・店舗を設定
+                    グループを作成
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-purple-100 text-purple-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium shrink-0">2</span>
-                    招待リンクを友達に共有
+                    候補日時を追加
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-purple-100 text-purple-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium shrink-0">3</span>
-                    友達が参加・日程回答
+                    招待リンクを友達に共有
                   </li>
                   <li className="flex gap-2">
                     <span className="bg-purple-100 text-purple-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium shrink-0">4</span>
-                    全員揃ったら貸切申込へ
+                    メンバーが日程に回答
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="bg-purple-100 text-purple-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium shrink-0">5</span>
+                    貸切を申込
                   </li>
                 </ol>
 
                 <Button
                   onClick={handleSubmit}
-                  disabled={groupLoading || candidateDates.length === 0 || selectedStoreIds.length === 0}
+                  disabled={groupLoading || selectedStoreIds.length === 0}
                   className="w-full bg-purple-600 hover:bg-purple-700"
                 >
                   {groupLoading ? '作成中...' : 'グループを作成'}
