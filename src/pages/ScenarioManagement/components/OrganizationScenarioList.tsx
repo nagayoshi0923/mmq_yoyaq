@@ -328,8 +328,13 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
             bVal = b.duration
             break
           case 'player_count':
+          case 'player_count_min':
             aVal = a.player_count_min
             bVal = b.player_count_min
+            break
+          case 'player_count_max':
+            aVal = a.player_count_max
+            bVal = b.player_count_max
             break
           case 'participation_fee':
             aVal = a.participation_fee || 0
@@ -338,6 +343,16 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           case 'org_status':
             aVal = a.org_status
             bVal = b.org_status
+            break
+          case 'available_gms':
+            // 担当スタッフ数でソート
+            aVal = Array.isArray(a.available_gms) ? a.available_gms.length : 0
+            bVal = Array.isArray(b.available_gms) ? b.available_gms.length : 0
+            break
+          case 'experienced_staff':
+            // 体験済みスタッフ数でソート
+            aVal = Array.isArray(a.experienced_staff) ? a.experienced_staff.length : 0
+            bVal = Array.isArray(b.experienced_staff) ? b.experienced_staff.length : 0
             break
           default:
             aVal = (a as unknown as Record<string, unknown>)[sortState.field]
