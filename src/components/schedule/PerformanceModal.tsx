@@ -197,56 +197,67 @@ export function PerformanceModal({
           return scoreB - scoreA
         })
       
-      return {
-        value: scenario.title,
-        label: scenario.title + (!isAvailableAtCurrentVenue ? ' [公演不可]' : ''),
-        renderContent: !isAvailableAtCurrentVenue ? () => (
-          <span className="flex items-center gap-1">
-            {scenario.title}
-            <span className="inline-flex items-center px-1 py-0 rounded text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300">
-              公演不可
-            </span>
-          </span>
-        ) : undefined,
-        displayInfo: filteredDisplayGMs.length > 0 
-          ? (
-              <span className="flex flex-wrap gap-0.5 items-center">
-                {filteredDisplayGMs.map(({ gm, isAssigned, isAvailable }) => {
-                  // 担当かつ出勤 → 緑背景
-                  if (isAssigned && isAvailable) {
-                    return (
-                      <span 
-                        key={gm.id}
-                        className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-green-100 text-green-800 border border-green-300"
-                      >
-                        {gm.name}
-                      </span>
-                    )
-                  }
-                  // 担当だが出勤なし → 青背景
-                  if (isAssigned && !isAvailable) {
-                    return (
-                      <span 
-                        key={gm.id}
-                        className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-blue-100 text-blue-700 border border-blue-300"
-                      >
-                        {gm.name}
-                      </span>
-                    )
-                  }
-                  // 担当でないが出勤中 → 白背景・灰色文字
+      // 担当GM情報のJSX
+      const gmDisplayInfo = filteredDisplayGMs.length > 0 
+        ? (
+            <span className="flex flex-wrap gap-0.5 items-center">
+              {filteredDisplayGMs.map(({ gm, isAssigned, isAvailable }) => {
+                // 担当かつ出勤 → 緑背景
+                if (isAssigned && isAvailable) {
                   return (
                     <span 
                       key={gm.id}
-                      className="inline-flex items-center px-1 py-0 rounded text-[11px] bg-white text-gray-400 border border-gray-200"
+                      className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-green-100 text-green-800 border border-green-300"
                     >
                       {gm.name}
                     </span>
                   )
-                })}
+                }
+                // 担当だが出勤なし → 青背景
+                if (isAssigned && !isAvailable) {
+                  return (
+                    <span 
+                      key={gm.id}
+                      className="inline-flex items-center px-1 py-0 rounded text-[11px] font-medium bg-blue-100 text-blue-700 border border-blue-300"
+                    >
+                      {gm.name}
+                    </span>
+                  )
+                }
+                // 担当でないが出勤中 → 白背景・灰色文字
+                return (
+                  <span 
+                    key={gm.id}
+                    className="inline-flex items-center px-1 py-0 rounded text-[11px] bg-white text-gray-400 border border-gray-200"
+                  >
+                    {gm.name}
+                  </span>
+                )
+              })}
+            </span>
+          )
+        : null
+      
+      return {
+        value: scenario.title,
+        label: scenario.title + (!isAvailableAtCurrentVenue ? ' [公演不可]' : ''),
+        // renderContentを使わず、常にdisplayInfoを使用（公演不可バッジはlabelに含める）
+        renderContent: !isAvailableAtCurrentVenue ? () => (
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1">
+              <span className="truncate">{scenario.title}</span>
+              <span className="inline-flex items-center px-1 py-0 rounded text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300 flex-shrink-0">
+                公演不可
               </span>
-            )
-          : undefined,
+            </div>
+            {gmDisplayInfo && (
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {gmDisplayInfo}
+              </div>
+            )}
+          </div>
+        ) : undefined,
+        displayInfo: gmDisplayInfo,
         // 検索用テキストは「出勤かつ担当」のGMのみ
         displayInfoSearchText: filteredDisplayGMs
           .filter(({ isAssigned, isAvailable }) => isAssigned && isAvailable)
