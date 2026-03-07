@@ -400,16 +400,25 @@ export default function MyPage() {
         )
         
         // 追加のシナリオ情報を取得
+        logger.log('📸 予約データ（scenario_master_id確認）:', pastReservations.map(r => ({
+          title: r.title,
+          scenario_id: r.scenario_id,
+          scenario_master_id: (r as { scenario_master_id?: string | null }).scenario_master_id,
+        })))
         const pastScenarioMasterIds = pastReservations
           .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
           .filter((id): id is string => id !== null && id !== undefined)
+        logger.log('📸 取得対象のシナリオマスターID:', pastScenarioMasterIds)
         
         const additionalScenarioData: Record<string, { key_visual_url?: string, slug?: string }> = {}
         if (pastScenarioMasterIds.length > 0) {
-          const { data: pastScenarios } = await supabase
+          logger.log('📸 scenario_masters クエリ開始:', { ids: pastScenarioMasterIds })
+          const { data: pastScenarios, error: scenarioError } = await supabase
             .from('scenario_masters')
             .select('id, key_visual_url')
             .in('id', pastScenarioMasterIds)
+          
+          logger.log('📸 scenario_masters 結果:', { data: pastScenarios, error: scenarioError })
           
           if (pastScenarios) {
             pastScenarios.forEach(s => {
