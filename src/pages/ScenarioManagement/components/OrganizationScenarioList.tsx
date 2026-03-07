@@ -1121,6 +1121,10 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
               <SelectItem value="150">150分以内</SelectItem>
               <SelectItem value="180">180分以内</SelectItem>
               <SelectItem value="240">240分以内</SelectItem>
+              <SelectItem value="300">300分以内</SelectItem>
+              <SelectItem value="360">360分以内</SelectItem>
+              <SelectItem value="480">480分以内</SelectItem>
+              <SelectItem value="600">600分以内</SelectItem>
             </SelectContent>
           </Select>
 
