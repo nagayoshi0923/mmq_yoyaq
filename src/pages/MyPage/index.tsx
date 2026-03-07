@@ -1171,11 +1171,11 @@ export default function MyPage() {
                       プレイ済みシナリオ
                     </h2>
                     
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       {playedScenarios.map((scenario, index) => (
                         <div
                           key={index}
-                          className="aspect-[3/4] overflow-hidden relative group cursor-pointer transition-all duration-300 bg-gray-900 shadow-sm hover:shadow-lg hover:scale-[1.02] border border-gray-200 hover:border-gray-300"
+                          className="overflow-hidden cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-lg hover:scale-[1.02] border border-gray-200 hover:border-gray-300"
                           style={{ borderRadius: 0 }}
                           onClick={() => {
                             if (scenario.scenario_id) {
@@ -1188,42 +1188,52 @@ export default function MyPage() {
                             }
                           }}
                         >
-                          {scenario.key_visual_url ? (
-                            <>
-                              {/* 背景：ぼかした画像で余白を埋める */}
+                          {/* 画像部分 */}
+                          <div className="aspect-[4/3] relative bg-gray-100">
+                            {scenario.key_visual_url ? (
+                              <>
+                                <div 
+                                  className="absolute inset-0 scale-110"
+                                  style={{
+                                    backgroundImage: `url(${scenario.key_visual_url})`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                    filter: 'blur(10px) brightness(0.7)',
+                                  }}
+                                />
+                                <img
+                                  src={scenario.key_visual_url}
+                                  alt={scenario.scenario}
+                                  className="relative w-full h-full object-contain"
+                                  loading="lazy"
+                                />
+                              </>
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                                <span className="text-4xl opacity-30">🎭</span>
+                              </div>
+                            )}
+                            {/* プレイ済みバッジ */}
+                            <div className="absolute top-2 right-2">
                               <div 
-                                className="absolute inset-0 scale-110"
-                                style={{
-                                  backgroundImage: `url(${scenario.key_visual_url})`,
-                                  backgroundSize: 'cover',
-                                  backgroundPosition: 'center',
-                                  filter: 'blur(10px) brightness(0.7)',
-                                }}
-                              />
-                              {/* メイン画像：全体を表示 */}
-                              <img
-                                src={scenario.key_visual_url}
-                                alt={scenario.scenario}
-                                className="relative w-full h-full object-contain"
-                                loading="lazy"
-                              />
-                            </>
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                              <span className="text-3xl opacity-30">🎭</span>
+                                className="w-6 h-6 flex items-center justify-center shadow-lg"
+                                style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
+                              >
+                                <span className="text-white text-xs">✓</span>
+                              </div>
                             </div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                          <div className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <p className="text-xs text-white font-medium truncate">{scenario.scenario}</p>
                           </div>
-                          <div className="absolute top-2 right-2">
-                            <div 
-                              className="w-6 h-6 flex items-center justify-center shadow-lg"
-                              style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
-                            >
-                              <span className="text-white text-xs">✓</span>
-                            </div>
+                          {/* タイトル・日付部分 */}
+                          <div className="p-3">
+                            <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-1" title={scenario.scenario}>
+                              {scenario.scenario || '（タイトル不明）'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {scenario.date ? new Date(scenario.date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }) : '日付不明'}
+                            </p>
+                            {scenario.venue && scenario.venue !== '店舗情報なし' && (
+                              <p className="text-xs text-gray-400 mt-0.5 truncate">{scenario.venue}</p>
+                            )}
                           </div>
                         </div>
                       ))}
