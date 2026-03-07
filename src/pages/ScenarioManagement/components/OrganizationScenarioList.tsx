@@ -16,8 +16,15 @@ import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import {
   Search, Plus, Edit, Trash2, Clock, Users, JapaneseYen, 
-  AlertTriangle, RefreshCw
+  AlertTriangle, RefreshCw, Filter, X
 } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { AddFromMasterDialog } from '@/components/modals/AddFromMasterDialog'
 import { ConfirmModal } from '@/components/patterns/modal'
@@ -95,6 +102,12 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [organizationName, setOrganizationName] = useState<string>('')
   const [sortState, setSortState] = useState<{ field: string; direction: 'asc' | 'desc' } | undefined>({ field: 'title', direction: 'asc' })
+  
+  // 追加フィルタ
+  const [gmFilter, setGmFilter] = useState<string>('all')
+  const [experiencedFilter, setExperiencedFilter] = useState<string>('all')
+  const [playerCountFilter, setPlayerCountFilter] = useState<string>('all')
+  const [durationFilter, setDurationFilter] = useState<string>('all')
   const [storeMap, setStoreMap] = useState<Map<string, StoreInfo>>(new Map())
 
   // マスタ追加ダイアログ
@@ -299,6 +312,23 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
     return () => window.removeEventListener('scenario-data-updated', handler)
   }, [fetchScenarios])
 
+  // フィルタ用のスタッフ名一覧を抽出
+  const gmNames = useMemo(() => {
+    const names = new Set<string>()
+    scenarios.forEach(s => {
+      (s.available_gms || []).forEach(name => names.add(name))
+    })
+    return Array.from(names).sort()
+  }, [scenarios])
+
+  const experiencedStaffNames = useMemo(() => {
+    const names = new Set<string>()
+    scenarios.forEach(s => {
+      (s.experienced_staff || []).forEach(name => names.add(name))
+    })
+    return Array.from(names).sort()
+  }, [scenarios])
+
   // フィルタリング
   const filteredScenarios = useMemo(() => {
     let result = scenarios.filter(s => {
@@ -306,7 +336,30 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (s.author && s.author.toLowerCase().includes(searchTerm.toLowerCase()))
       const matchesStatus = statusFilter === 'all' || s.org_status === statusFilter
-      return matchesSearch && matchesStatus
+      
+      // 担当GMフィルタ
+      const matchesGm = gmFilter === 'all' || 
+        (gmFilter === 'none' ? (s.available_gms || []).length === 0 : (s.available_gms || []).includes(gmFilter))
+      
+      // 体験済みスタッフフィルタ
+      const matchesExperienced = experiencedFilter === 'all' || 
+        (experiencedFilter === 'none' ? (s.experienced_staff || []).length === 0 : (s.experienced_staff || []).includes(experiencedFilter))
+      
+      // 人数フィルタ（指定人数でプレイ可能か）
+      let matchesPlayerCount = true
+      if (playerCountFilter !== 'all') {
+        const count = parseInt(playerCountFilter)
+        matchesPlayerCount = s.player_count_min <= count && s.player_count_max >= count
+      }
+      
+      // 時間フィルタ（指定時間以内か）
+      let matchesDuration = true
+      if (durationFilter !== 'all') {
+        const maxDuration = parseInt(durationFilter)
+        matchesDuration = s.duration <= maxDuration
+      }
+      
+      return matchesSearch && matchesStatus && matchesGm && matchesExperienced && matchesPlayerCount && matchesDuration
     })
 
     // ソート適用
@@ -367,7 +420,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
     }
 
     return result
-  }, [scenarios, searchTerm, statusFilter, sortState])
+  }, [scenarios, searchTerm, statusFilter, sortState, gmFilter, experiencedFilter, playerCountFilter, durationFilter])
 
   // 既に追加済みのマスタIDリスト
   const existingMasterIds = useMemo(() => scenarios.map(s => s.scenario_master_id), [scenarios])
@@ -972,40 +1025,122 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       </div>
 
       {/* 検索・フィルター・アクション */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-        <div className="flex items-center gap-2 flex-1">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="タイトル・作者で検索..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+          <div className="flex items-center gap-2 flex-1">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="タイトル・作者で検索..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              {['all', 'available', 'coming_soon', 'unavailable'].map((status) => (
+                <Button
+                  key={status}
+                  variant={statusFilter === status ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatusFilter(status)}
+                  className="text-xs"
+                >
+                  {status === 'all' ? '全て' : STATUS_LABELS[status as keyof typeof STATUS_LABELS]?.label}
+                </Button>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            {['all', 'available', 'coming_soon', 'unavailable'].map((status) => (
-              <Button
-                key={status}
-                variant={statusFilter === status ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter(status)}
-                className="text-xs"
-              >
-                {status === 'all' ? '全て' : STATUS_LABELS[status as keyof typeof STATUS_LABELS]?.label}
-              </Button>
-            ))}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => fetchScenarios(true)}>
+              <RefreshCw className="w-4 h-4 mr-1" />
+              更新
+            </Button>
+            <Button size="sm" onClick={() => setAddDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-1" />
+              マスタから追加
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => fetchScenarios(true)}>
-            <RefreshCw className="w-4 h-4 mr-1" />
-            更新
-          </Button>
-          <Button size="sm" onClick={() => setAddDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-1" />
-            マスタから追加
-          </Button>
+
+        {/* 追加フィルター */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          
+          {/* 担当GM */}
+          <Select value={gmFilter} onValueChange={setGmFilter}>
+            <SelectTrigger className="w-[140px] h-8 text-xs">
+              <SelectValue placeholder="担当GM" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">担当GM: 全て</SelectItem>
+              <SelectItem value="none">担当なし</SelectItem>
+              {gmNames.map(name => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* 体験済みスタッフ */}
+          <Select value={experiencedFilter} onValueChange={setExperiencedFilter}>
+            <SelectTrigger className="w-[150px] h-8 text-xs">
+              <SelectValue placeholder="体験済み" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">体験済み: 全て</SelectItem>
+              <SelectItem value="none">体験済みなし</SelectItem>
+              {experiencedStaffNames.map(name => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* 人数 */}
+          <Select value={playerCountFilter} onValueChange={setPlayerCountFilter}>
+            <SelectTrigger className="w-[100px] h-8 text-xs">
+              <SelectValue placeholder="人数" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">人数: 全て</SelectItem>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                <SelectItem key={n} value={String(n)}>{n}名可</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* 所要時間 */}
+          <Select value={durationFilter} onValueChange={setDurationFilter}>
+            <SelectTrigger className="w-[120px] h-8 text-xs">
+              <SelectValue placeholder="時間" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">時間: 全て</SelectItem>
+              <SelectItem value="60">60分以内</SelectItem>
+              <SelectItem value="90">90分以内</SelectItem>
+              <SelectItem value="120">120分以内</SelectItem>
+              <SelectItem value="150">150分以内</SelectItem>
+              <SelectItem value="180">180分以内</SelectItem>
+              <SelectItem value="240">240分以内</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* フィルタリセット */}
+          {(gmFilter !== 'all' || experiencedFilter !== 'all' || playerCountFilter !== 'all' || durationFilter !== 'all') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs text-muted-foreground"
+              onClick={() => {
+                setGmFilter('all')
+                setExperiencedFilter('all')
+                setPlayerCountFilter('all')
+                setDurationFilter('all')
+              }}
+            >
+              <X className="w-3 h-3 mr-1" />
+              リセット
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1013,11 +1148,11 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       {filteredScenarios.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border">
           <p className="text-gray-500 mb-4">
-            {searchTerm || statusFilter !== 'all'
+            {searchTerm || statusFilter !== 'all' || gmFilter !== 'all' || experiencedFilter !== 'all' || playerCountFilter !== 'all' || durationFilter !== 'all'
               ? '検索条件に一致するシナリオがありません'
               : 'シナリオがありません'}
           </p>
-          {!searchTerm && statusFilter === 'all' && (
+          {!searchTerm && statusFilter === 'all' && gmFilter === 'all' && experiencedFilter === 'all' && playerCountFilter === 'all' && durationFilter === 'all' && (
             <Button onClick={() => setAddDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-1" />
               マスタからシナリオを追加
@@ -1037,7 +1172,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
               enableColumnReorder={true}
               columnOrderKey="org-scenario-list"
               emptyMessage={
-                searchTerm || statusFilter !== 'all' 
+                searchTerm || statusFilter !== 'all' || gmFilter !== 'all' || experiencedFilter !== 'all' || playerCountFilter !== 'all' || durationFilter !== 'all'
                   ? '検索条件に一致するシナリオが見つかりません' 
                   : 'シナリオが登録されていません'
               }
