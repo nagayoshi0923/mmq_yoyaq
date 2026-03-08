@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -34,7 +34,17 @@ import { logger } from '@/utils/logger'
 
 export function PrivateGroupManage() {
   const navigate = useNavigate()
-  const { id } = useParams<{ id: string }>()
+  const location = useLocation()
+  
+  // URLからグループIDを抽出: /group/manage/{id}
+  const id = useMemo(() => {
+    const segments = location.pathname.split('/').filter(Boolean)
+    if (segments[0] === 'group' && segments[1] === 'manage' && segments[2]) {
+      return segments[2]
+    }
+    return null
+  }, [location.pathname])
+  
   const { user } = useAuth()
   const { group, loading: groupLoading, error: groupError, refetch } = usePrivateGroupData(id || null)
   const { updateGroupStatus, getDateResponsesSummary, loading: actionLoading } = usePrivateGroup()

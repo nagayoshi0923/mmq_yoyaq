@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,17 @@ type ResponseValue = DateResponse | null
 
 export function PrivateGroupInvite() {
   const navigate = useNavigate()
-  const { code } = useParams<{ code: string }>()
+  const location = useLocation()
+  
+  // URLから招待コードを抽出: /group/invite/{code}
+  const code = useMemo(() => {
+    const segments = location.pathname.split('/').filter(Boolean)
+    if (segments[0] === 'group' && segments[1] === 'invite' && segments[2]) {
+      return segments[2]
+    }
+    return null
+  }, [location.pathname])
+  
   const { user } = useAuth()
   const { group, loading: groupLoading, error: groupError, refetch } = usePrivateGroupByInviteCode(code || null)
   const { joinGroup, submitDateResponses, loading: actionLoading } = usePrivateGroup()
