@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
@@ -42,6 +42,19 @@ interface PlayedScenario {
   reservation_id?: string
 }
 
+interface PrivateGroupSummary {
+  id: string
+  name: string | null
+  invite_code: string
+  status: string
+  target_participant_count: number | null
+  scenario_title: string | null
+  scenario_image: string | null
+  member_count: number
+  is_organizer: boolean
+  created_at: string
+}
+
 const menuItems = [
   { id: 'reservations', label: '予約', icon: Calendar },
   { id: 'coupons', label: 'クーポン', icon: Ticket },
@@ -72,6 +85,7 @@ export default function MyPage() {
   const [orgNames, setOrgNames] = useState<Record<string, string>>({})
   const [stores, setStores] = useState<Record<string, Store>>({})
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
+  const [privateGroups, setPrivateGroups] = useState<PrivateGroupSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ participationCount: 0, points: 0 })
   const [customerInfo, setCustomerInfo] = useState<{ name?: string; nickname?: string } | null>(null)
@@ -482,6 +496,61 @@ export default function MyPage() {
         setPlayedScenarios(uniquePlayed)
       }
 
+      // 貸切グループを取得（主催または参加しているもの）
+      const { data: memberRecords } = await supabase
+        .from('private_group_members')
+        .select(`
+          id,
+          is_organizer,
+          status,
+          group_id,
+          private_groups:group_id (
+            id,
+            name,
+            invite_code,
+            status,
+            target_participant_count,
+            created_at,
+            scenario_masters:scenario_id (id, title, key_visual_url)
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'joined')
+
+      if (memberRecords && memberRecords.length > 0) {
+        const groups: PrivateGroupSummary[] = []
+        
+        for (const record of memberRecords) {
+          const group = record.private_groups as any
+          if (!group || group.status === 'cancelled') continue
+          
+          // メンバー数を取得
+          const { count } = await supabase
+            .from('private_group_members')
+            .select('id', { count: 'exact', head: true })
+            .eq('group_id', group.id)
+            .eq('status', 'joined')
+          
+          const scenario = group.scenario_masters as any
+          groups.push({
+            id: group.id,
+            name: group.name,
+            invite_code: group.invite_code,
+            status: group.status,
+            target_participant_count: group.target_participant_count,
+            scenario_title: scenario?.title || null,
+            scenario_image: scenario?.key_visual_url || null,
+            member_count: count || 0,
+            is_organizer: record.is_organizer,
+            created_at: group.created_at,
+          })
+        }
+        
+        // 作成日順（新しい順）でソート
+        groups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        setPrivateGroups(groups)
+      }
+
     } catch (error) {
       logger.error('データ取得エラー:', error)
     } finally {
@@ -674,8 +743,9 @@ export default function MyPage() {
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   // タブごとのカウント
+  const activePrivateGroups = privateGroups.filter(g => g.status === 'gathering')
   const getCounts = () => ({
-    reservations: upcomingReservations.length + pendingPrivateBookings.length,
+    reservations: upcomingReservations.length + pendingPrivateBookings.length + activePrivateGroups.length,
     album: playedScenarios.length,
     wishlist: 0,
     settings: null
@@ -799,6 +869,88 @@ export default function MyPage() {
           <>
             {activeTab === 'reservations' && (
               <div className="space-y-4">
+                {/* 貸切グループ（日程調整中） */}
+                {privateGroups.filter(g => g.status === 'gathering').length > 0 && (
+                  <>
+                    <div className="flex items-center gap-2 mb-2">
+                      <UserPlus className="w-4 h-4 text-purple-600" />
+                      <h3 className="text-sm font-bold text-gray-700">貸切グループ（メンバー募集中）</h3>
+                    </div>
+                    {privateGroups.filter(g => g.status === 'gathering').map((group) => (
+                      <div 
+                        key={group.id}
+                        className="bg-white border border-purple-200 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer"
+                        style={{ borderRadius: 0 }}
+                        onClick={() => navigate(`/group/manage/${group.id}`)}
+                      >
+                        <div 
+                          className="px-3 py-1.5 text-purple-800 text-sm font-bold flex items-center justify-between"
+                          style={{ backgroundColor: '#f3e8ff' }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <UserPlus className="w-4 h-4" />
+                            <span>メンバー募集中</span>
+                            {group.is_organizer && (
+                              <Badge variant="outline" className="text-xs bg-white">主催者</Badge>
+                            )}
+                          </div>
+                          <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700">
+                            {group.member_count}/{group.target_participant_count || '?'}名
+                          </span>
+                        </div>
+                        
+                        <div className="p-3 flex gap-3">
+                          <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden" style={{ borderRadius: 0 }}>
+                            {group.scenario_image ? (
+                              <>
+                                <div 
+                                  className="absolute inset-0 scale-110"
+                                  style={{
+                                    backgroundImage: `url(${group.scenario_image})`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                    filter: 'blur(8px) brightness(0.6)',
+                                  }}
+                                />
+                                <img
+                                  src={group.scenario_image}
+                                  alt={group.scenario_title || ''}
+                                  className="relative w-full h-full object-contain"
+                                  loading="lazy"
+                                />
+                              </>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className="text-xl opacity-40">🎭</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1">
+                              {group.scenario_title || 'シナリオ未設定'}
+                            </h3>
+                            {group.name && (
+                              <p className="text-xs text-gray-500 mt-0.5">{group.name}</p>
+                            )}
+                            
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-2 text-xs text-gray-500">
+                              <Users className="w-3 h-3" />
+                              <span>{group.member_count}名参加中</span>
+                              <span>•</span>
+                              <span>コード: {group.invite_code}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center">
+                            <ChevronRight className="w-5 h-5 text-gray-400" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+
                 {/* 調整中の貸切申込み */}
                 {pendingPrivateBookings.length > 0 && (
                   <>
