@@ -1369,6 +1369,12 @@ ${content.organizationName || '店舗'}
                                 </div>
                               </div>
                             </div>
+                            {reservation.customer_email && (
+                              <div className="mt-3">
+                                <Label className="text-xs text-muted-foreground">メールアドレス</Label>
+                                <div className="text-sm mt-1 text-blue-600">{reservation.customer_email}</div>
+                              </div>
+                            )}
                             {reservation.customer_notes && (
                               <div className="mt-3">
                                 <Label className="text-xs text-muted-foreground">備考</Label>
