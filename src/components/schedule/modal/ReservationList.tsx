@@ -1369,14 +1369,18 @@ ${content.organizationName || '店舗'}
                                 </div>
                               </div>
                             </div>
-                            {(reservation.customer_email || (reservation.customers as any)?.email) && (
-                              <div className="mt-3">
-                                <Label className="text-xs text-muted-foreground">メールアドレス</Label>
-                                <div className="text-sm mt-1 text-blue-600">
-                                  {reservation.customer_email || (reservation.customers as any)?.email}
+                            {(() => {
+                              const customer = reservation.customers as any
+                              const email = reservation.customer_email 
+                                || customer?.email 
+                                || customer?.user?.email
+                              return email ? (
+                                <div className="mt-3">
+                                  <Label className="text-xs text-muted-foreground">メールアドレス</Label>
+                                  <div className="text-sm mt-1 text-blue-600">{email}</div>
                                 </div>
-                              </div>
-                            )}
+                              ) : null
+                            })()}
                             {reservation.customer_notes && (
                               <div className="mt-3">
                                 <Label className="text-xs text-muted-foreground">備考</Label>
