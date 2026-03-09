@@ -1371,9 +1371,27 @@ ${content.organizationName || '店舗'}
                             </div>
                             {(() => {
                               const customer = reservation.customers as any
-                              const email = reservation.customer_email 
+                              // 1. 予約のcustomer_email
+                              // 2. customersテーブルのemail
+                              // 3. スタッフの名前からstaffテーブルを検索してemail
+                              let email = reservation.customer_email 
                                 || customer?.email 
                                 || customer?.user?.email
+                              
+                              // スタッフのメールアドレスを検索
+                              if (!email) {
+                                const participantName = reservation.participant_names?.[0] || reservation.customer_notes
+                                if (participantName) {
+                                  const matchedStaff = staff.find(s => 
+                                    s.name === participantName || 
+                                    s.display_name === participantName
+                                  )
+                                  if (matchedStaff?.email) {
+                                    email = matchedStaff.email
+                                  }
+                                }
+                              }
+                              
                               return email ? (
                                 <div className="mt-3">
                                   <Label className="text-xs text-muted-foreground">メールアドレス</Label>
