@@ -25,7 +25,7 @@ interface EventDetail {
   current_participants: number
   max_participants: number
   half_required?: number
-  result: 'confirmed' | 'extended' | 'cancelled'
+  result: 'confirmed' | 'extended' | 'cancelled' | 'already_extended'
   organization_id: string
   gms: string[]
 }
@@ -76,15 +76,28 @@ serve(async (req) => {
       details: EventDetail[]
     }
 
-    // RPC関数を実行
+    // RPC関数を実行（RETURNS TABLEは配列を返すため[0]で取得）
     if (check_type === 'day_before') {
       const { data, error } = await serviceClient.rpc('check_performances_day_before')
       if (error) throw error
-      result = data
+      const row = Array.isArray(data) ? data[0] : data
+      result = {
+        events_checked: row?.events_checked ?? 0,
+        events_confirmed: row?.events_confirmed ?? 0,
+        events_extended: row?.events_extended ?? 0,
+        events_cancelled: row?.events_cancelled ?? 0,
+        details: row?.details ?? []
+      }
     } else if (check_type === 'four_hours_before') {
       const { data, error } = await serviceClient.rpc('check_performances_four_hours_before')
       if (error) throw error
-      result = data
+      const row = Array.isArray(data) ? data[0] : data
+      result = {
+        events_checked: row?.events_checked ?? 0,
+        events_confirmed: row?.events_confirmed ?? 0,
+        events_cancelled: row?.events_cancelled ?? 0,
+        details: row?.details ?? []
+      }
     } else {
       throw new Error('Invalid check_type')
     }
@@ -106,15 +119,7 @@ serve(async (req) => {
           sendCancellationNotifications(serviceClient, event, check_type)
         )
       } else if (event.result === 'extended') {
-        // 延長フラグを更新
-        await serviceClient
-          .from('schedule_events')
-          .update({ 
-            is_extended: true, 
-            extended_at: new Date().toISOString() 
-          })
-          .eq('id', event.event_id)
-        
+        // RPC関数で既に is_recruitment_extended = true に更新済み
         // 延長通知を送信（メール + Discord）
         notifications.push(
           sendExtensionNotification(serviceClient, event)
@@ -123,6 +128,9 @@ serve(async (req) => {
     }
 
     await Promise.allSettled(notifications)
+
+    // 業務連絡チャンネルにサマリー通知を送信
+    await sendBusinessSummaryNotification(serviceClient, check_type, result)
 
     return new Response(
       JSON.stringify({
@@ -158,7 +166,7 @@ async function sendCancellationNotifications(
   // 1. 予約者一覧を取得（全ての基本変数に必要な情報を取得）
   const { data: reservations, error: resError } = await supabase
     .from('reservations')
-    .select('id, customer_name, customer_email, participant_count, reservation_number, total_price, scenario_title')
+    .select('id, customer_name, customer_email, participant_count, reservation_number, total_price, title')
     .eq('schedule_event_id', event.event_id)
     .in('status', ['pending', 'confirmed', 'gm_confirmed'])
 
@@ -175,15 +183,34 @@ async function sendCancellationNotifications(
   })
   const customTemplate = storeEmailSettings?.performance_cancellation_template
   
+  // 2.6. スタッフテーブルを取得（メールアドレスがない予約者のフォールバック用）
+  const { data: staffList } = await supabase
+    .from('staff')
+    .select('name, display_name, email')
+    .eq('organization_id', event.organization_id)
+  
   // 3. 各予約者にメール送信
   if (reservations && reservations.length > 0 && emailSettings.resendApiKey) {
     for (const reservation of reservations) {
-      if (!reservation.customer_email) continue
+      // メールアドレスを取得（customer_email → スタッフテーブルからの検索）
+      let emailToSend = reservation.customer_email
+      if (!emailToSend && reservation.customer_name && staffList) {
+        const normalizedName = reservation.customer_name.replace(/様$/, '').trim()
+        const matchedStaff = staffList.find(s => 
+          s.name === normalizedName || s.display_name === normalizedName
+        )
+        if (matchedStaff?.email) {
+          emailToSend = matchedStaff.email
+          console.log('📧 スタッフテーブルからメール取得:', normalizedName)
+        }
+      }
+      
+      if (!emailToSend) continue
 
       try {
         await sendCancellationEmail(
           emailSettings,
-          reservation.customer_email,
+          emailToSend,
           reservation.customer_name || 'お客様',
           event,
           customTemplate,
@@ -195,9 +222,9 @@ async function sendCancellationNotifications(
             companyEmail: storeEmailSettings?.company_email || ''
           }
         )
-        console.log('✅ 中止メール送信:', maskEmail(reservation.customer_email))
+        console.log('✅ 中止メール送信:', maskEmail(emailToSend))
       } catch (emailError) {
-        console.error('❌ メール送信エラー:', maskEmail(reservation.customer_email), emailError)
+        console.error('❌ メール送信エラー:', maskEmail(emailToSend), emailError)
       }
     }
 
@@ -230,8 +257,8 @@ async function sendCancellationNotifications(
     console.log('✅ イベント中止フラグ更新完了:', event.event_id)
   }
 
-  // 4. Discord通知（GMメンション付き）
-  await sendDiscordCancellationNotification(supabase, event, checkType, reservations?.length || 0)
+  // 4. Discord個別通知は廃止（サマリー通知に統一）
+  // 以前: await sendDiscordCancellationNotification(supabase, event, checkType, reservations?.length || 0)
 
   // 5. ログを更新
   await supabase
@@ -560,15 +587,34 @@ async function sendExtensionNotification(
   })
   const customTemplate = storeEmailSettings?.performance_extension_template
 
+  // 2.6. スタッフテーブルを取得（メールアドレスがない予約者のフォールバック用）
+  const { data: staffList } = await supabase
+    .from('staff')
+    .select('name, display_name, email')
+    .eq('organization_id', event.organization_id)
+
   // 3. 各予約者にメール送信
   if (reservations && reservations.length > 0 && emailSettings.resendApiKey) {
     for (const reservation of reservations) {
-      if (!reservation.customer_email) continue
+      // メールアドレスを取得（customer_email → スタッフテーブルからの検索）
+      let emailToSend = reservation.customer_email
+      if (!emailToSend && reservation.customer_name && staffList) {
+        const normalizedName = reservation.customer_name.replace(/様$/, '').trim()
+        const matchedStaff = staffList.find(s => 
+          s.name === normalizedName || s.display_name === normalizedName
+        )
+        if (matchedStaff?.email) {
+          emailToSend = matchedStaff.email
+          console.log('📧 スタッフテーブルからメール取得:', normalizedName)
+        }
+      }
+      
+      if (!emailToSend) continue
 
       try {
         await sendExtensionEmail(
           emailSettings,
-          reservation.customer_email,
+          emailToSend,
           reservation.customer_name || 'お客様',
           event,
           customTemplate,
@@ -580,93 +626,15 @@ async function sendExtensionNotification(
             companyEmail: storeEmailSettings?.company_email || ''
           }
         )
-        console.log('✅ 延長通知メール送信:', maskEmail(reservation.customer_email))
+        console.log('✅ 延長通知メール送信:', maskEmail(emailToSend))
       } catch (emailError) {
-        console.error('❌ メール送信エラー:', maskEmail(reservation.customer_email), emailError)
+        console.error('❌ メール送信エラー:', maskEmail(emailToSend), emailError)
       }
     }
   }
 
-  // 4. Discord通知
-  const discordSettings = await getDiscordSettings(supabase, event.organization_id)
-  
-  if (!discordSettings.webhookUrl) {
-    console.log('Discord Webhook未設定、通知スキップ')
-    return
-  }
-
-  // GMのDiscord IDを取得してメンション文字列を作成
-  let gmMentions = ''
-  if (event.gms && event.gms.length > 0) {
-    const { data: staffList } = await supabase
-      .from('staff')
-      .select('name, discord_user_id')
-      .in('name', event.gms)
-      .eq('organization_id', event.organization_id)
-
-    if (staffList && staffList.length > 0) {
-      const mentions = staffList
-        .filter(s => s.discord_user_id)
-        .map(s => `<@${s.discord_user_id}>`)
-      gmMentions = mentions.join(' ')
-    }
-  }
-
-  const message = {
-    content: gmMentions || undefined,
-    embeds: [{
-      title: '⏰ 募集延長',
-      color: 0xf59e0b, // オレンジ
-      description: '過半数に達しているため、公演4時間前まで募集を延長します。',
-      fields: [
-        {
-          name: 'シナリオ',
-          value: event.scenario || '未設定',
-          inline: true
-        },
-        {
-          name: '日時',
-          value: `${event.date} ${event.start_time?.slice(0, 5) || ''}`,
-          inline: true
-        },
-        {
-          name: '会場',
-          value: event.store_name || '未定',
-          inline: true
-        },
-        {
-          name: '現在の参加者',
-          value: `${event.current_participants}/${event.max_participants}名`,
-          inline: true
-        },
-        {
-          name: '必要人数',
-          value: `あと${event.max_participants - event.current_participants}名`,
-          inline: true
-        }
-      ],
-      footer: {
-        text: '公演4時間前に最終判定を行います'
-      },
-      timestamp: new Date().toISOString()
-    }]
-  }
-
-  // リトライ機能付きで送信
-  const success = await sendDiscordNotificationWithRetry(
-    supabase,
-    discordSettings.webhookUrl,
-    message,
-    event.organization_id,
-    'performance_extend',
-    event.event_id
-  )
-  
-  if (success) {
-    console.log('✅ Discord延長通知送信完了')
-  } else {
-    console.log('⚠️ Discord延長通知失敗、リトライキューに追加')
-  }
+  // 4. Discord個別通知は廃止（サマリー通知に統一）
+  console.log('✅ 募集延長処理完了（Discord通知はサマリーで送信）')
 }
 
 /**
@@ -889,6 +857,282 @@ ${emailSettings.senderName}
   if (!response.ok) {
     const errorData = await response.json()
     throw new Error(`Resend API error: ${JSON.stringify(errorData)}`)
+  }
+}
+
+/**
+ * 業務連絡チャンネルにサマリー通知を送信
+ */
+async function sendBusinessSummaryNotification(
+  supabase: ReturnType<typeof createClient>,
+  checkType: string,
+  result: {
+    events_checked: number
+    events_confirmed: number
+    events_extended?: number
+    events_cancelled: number
+    details: EventDetail[]
+  }
+): Promise<void> {
+  // 対象イベントがない場合でも通知（確認のため）
+  console.log('📢 業務連絡チャンネルへのサマリー通知開始')
+
+  // 全組織の設定を取得（業務チャンネルIDがあるもの）
+  const { data: orgSettings, error: orgError } = await supabase
+    .from('organization_settings')
+    .select('organization_id, discord_webhook_url, discord_business_channel_id')
+    .not('discord_business_channel_id', 'is', null)
+
+  if (orgError || !orgSettings || orgSettings.length === 0) {
+    console.log('業務連絡チャンネル未設定、サマリー通知スキップ')
+    return
+  }
+
+  const checkTypeLabel = checkType === 'day_before' ? '前日判定（23:59）' : '4時間前判定'
+  const now = new Date()
+  const jstDate = now.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
+  const jstTime = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
+  
+  // 対象日を計算（PostgreSQLのCURRENT_DATEと同じUTCベース）
+  // RPCは CURRENT_DATE + INTERVAL '1 day' を使用するため、UTCベースで計算
+  // 2026-03-10 修正: UTC日付を正しく計算
+  const getTargetDateUTC = (checkTypeArg: string): string => {
+    const currentTime = new Date()
+    const y = currentTime.getUTCFullYear()
+    const m = currentTime.getUTCMonth()
+    const d = currentTime.getUTCDate()
+    
+    console.log(`🕐 UTC計算: year=${y}, month=${m}, date=${d}, checkType=${checkTypeArg}`)
+    
+    if (checkTypeArg === 'day_before') {
+      // CURRENT_DATE + 1 day (UTC)
+      const targetDate = new Date(Date.UTC(y, m, d + 1))
+      const result = targetDate.toISOString().split('T')[0]
+      console.log(`📅 day_before計算結果: ${result}`)
+      return result
+    } else {
+      // CURRENT_DATE (UTC) - 4時間前判定は当日
+      const targetDate = new Date(Date.UTC(y, m, d))
+      const result = targetDate.toISOString().split('T')[0]
+      console.log(`📅 four_hours_before計算結果: ${result}`)
+      return result
+    }
+  }
+  
+  let targetDateForQuery: string
+  if (result.details.length > 0 && result.details[0].date) {
+    // 処理されたイベントがあればその日付を使用
+    targetDateForQuery = result.details[0].date
+  } else {
+    // RPCと同じ日付を計算（UTCベース）
+    targetDateForQuery = getTargetDateUTC(checkType)
+  }
+  
+  console.log(`📅 クエリ対象日: ${targetDateForQuery} (checkType: ${checkType})`)
+
+  // 既に延長済みのイベントを取得（今回の処理対象外だが通知には含める）
+  const processedEventIds = result.details.map(e => e.event_id)
+  const { data: alreadyExtendedEvents } = await supabase
+    .from('schedule_events')
+    .select(`
+      id,
+      date,
+      start_time,
+      scenario,
+      current_participants,
+      max_participants,
+      organization_id,
+      gms,
+      store_id,
+      stores!inner(name)
+    `)
+    .eq('date', targetDateForQuery)
+    .eq('is_recruitment_extended', true)
+    .eq('is_cancelled', false)
+    .eq('category', 'open')
+
+  // 今回処理されたイベントを除外した、既に延長済みのイベント
+  const alreadyExtendedDetails: EventDetail[] = (alreadyExtendedEvents || [])
+    .filter(e => !processedEventIds.includes(e.id))
+    .map(e => ({
+      event_id: e.id,
+      date: e.date,
+      start_time: e.start_time,
+      scenario: e.scenario,
+      store_name: (e.stores as { name: string })?.name || '',
+      current_participants: e.current_participants || 0,
+      max_participants: e.max_participants || 8,
+      result: 'already_extended' as const,
+      organization_id: e.organization_id,
+      gms: e.gms || []
+    })) as EventDetail[]
+
+  console.log(`📊 既に延長済みのイベント: ${alreadyExtendedDetails.length}件`)
+
+  // 対象日の表示文字列を計算（処理イベント→延長済みイベント→フォールバックの順で取得）
+  let targetDateStr: string
+  if (result.details.length > 0 && result.details[0].date) {
+    const eventDate = new Date(result.details[0].date + 'T00:00:00+09:00')
+    targetDateStr = eventDate.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
+  } else if (alreadyExtendedDetails.length > 0 && alreadyExtendedDetails[0].date) {
+    const eventDate = new Date(alreadyExtendedDetails[0].date + 'T00:00:00+09:00')
+    targetDateStr = eventDate.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
+  } else {
+    // フォールバック：クエリ用日付を使用
+    const eventDate = new Date(targetDateForQuery + 'T00:00:00+09:00')
+    targetDateStr = eventDate.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
+  }
+  
+  console.log(`📅 対象日: ${targetDateStr} (query: ${targetDateForQuery})`)
+
+  // 各組織の業務連絡チャンネルに通知
+  for (const org of orgSettings) {
+    // 業務チャンネルIDがない場合はスキップ
+    if (!org.discord_business_channel_id) continue
+
+    try {
+      // Bot APIを使用してチャンネルにメッセージを送信
+      const discordSettings = await getDiscordSettings(supabase, org.organization_id)
+      
+      // 今回処理したイベント + 既に延長済みイベントを結合
+      const allEvents = [...result.details, ...alreadyExtendedDetails]
+      
+      // GMのDiscord IDを取得してメンション用マップを作成
+      const allGMs = allEvents.flatMap(e => e.gms || [])
+      const uniqueGMs = [...new Set(allGMs)]
+      let gmMentionMap: Record<string, string> = {}
+      
+      if (uniqueGMs.length > 0) {
+        const { data: staffList } = await supabase
+          .from('staff')
+          .select('name, discord_user_id')
+          .in('name', uniqueGMs)
+          .eq('organization_id', org.organization_id)
+        
+        if (staffList) {
+          for (const staff of staffList) {
+            if (staff.discord_user_id) {
+              gmMentionMap[staff.name] = `<@${staff.discord_user_id}>`
+            }
+          }
+        }
+      }
+      
+      // GM情報をメンション付きでフォーマット
+      const formatGMsWithMention = (gms: string[] | undefined): string => {
+        if (!gms || gms.length === 0) return ''
+        const mentions = gms.map(gm => gmMentionMap[gm] || gm)
+        return mentions.join(', ')
+      }
+      
+      // 結果のラベルを取得
+      const getResultLabel = (r: string): string => {
+        if (r === 'cancelled') return '【中止】'
+        if (r === 'extended') return '【募集延長】'
+        if (r === 'already_extended') return '【延長中】'
+        if (r === 'confirmed') return '【開催決定】'
+        return '【不明】'
+      }
+      
+      // プレーンテキストメッセージを構築
+      const lines: string[] = []
+      
+      // ヘッダー
+      lines.push(`📋 **${targetDateStr} 公演中止判定結果** (${checkTypeLabel})`)
+      lines.push('')
+      
+      // サマリー（既に延長中のものも含める）
+      const alreadyExtendedCount = alreadyExtendedDetails.length
+      let summaryParts = [
+        `チェック対象: ${result.events_checked}件`,
+        `開催決定: ${result.events_confirmed}件`,
+        `募集延長: ${result.events_extended ?? 0}件`
+      ]
+      if (alreadyExtendedCount > 0) {
+        summaryParts.push(`延長中: ${alreadyExtendedCount}件`)
+      }
+      summaryParts.push(`中止: ${result.events_cancelled}件`)
+      lines.push(summaryParts.join(' | '))
+      lines.push('')
+      
+      if (allEvents.length === 0) {
+        lines.push('対象となるオープン公演はありませんでした。')
+      } else {
+        // 公演を時間順にソート
+        const sortedEvents = [...allEvents].sort((a, b) => {
+          const timeA = a.start_time || '00:00'
+          const timeB = b.start_time || '00:00'
+          return timeA.localeCompare(timeB)
+        })
+        
+        // 各公演を表示
+        for (const event of sortedEvents) {
+          const label = getResultLabel(event.result)
+          const time = event.start_time?.slice(0, 5) || '??:??'
+          const scenario = event.scenario || '未設定'
+          const participants = `${event.current_participants}/${event.max_participants}名`
+          const gms = formatGMsWithMention(event.gms)
+          const store = event.store_name || ''
+          
+          let line = `${label} ${time} **${scenario}** (${participants})`
+          if (store) line += ` @${store}`
+          if (gms) line += ` GM: ${gms}`
+          
+          lines.push(line)
+        }
+      }
+      
+      lines.push('')
+      lines.push(`_実行時刻: ${jstDate} ${jstTime}_`)
+      
+      const messageContent = lines.join('\n')
+      
+      // プレーンテキストメッセージを送信
+      const plainMessage = { 
+        content: messageContent,
+        username: 'MMQ 公演判定システム'
+      }
+      
+      console.log(`🔍 Discord設定: botToken=${discordSettings.botToken ? '✅設定あり' : '❌なし'}, businessChannelId=${org.discord_business_channel_id}, webhookUrl=${org.discord_webhook_url ? '✅設定あり' : '❌なし'}`)
+      
+      if (discordSettings.botToken) {
+        // Discord Bot APIでチャンネルにメッセージ送信（MMQとして送信）
+        const response = await fetch(`https://discord.com/api/v10/channels/${org.discord_business_channel_id}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bot ${discordSettings.botToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(plainMessage)
+        })
+
+        if (response.ok) {
+          console.log(`✅ 業務連絡通知送信完了: org=${org.organization_id}`)
+        } else {
+          const errorText = await response.text()
+          console.error(`❌ 業務連絡通知失敗: org=${org.organization_id}`, response.status, errorText)
+        }
+      } else if (org.discord_webhook_url) {
+        // Webhookを使用（フォールバック） - ⚠️ Botトークンがないため貸切予約botから送信される
+        console.log(`⚠️ Botトークンが未設定のためWebhookにフォールバック: org=${org.organization_id}`)
+        const success = await sendDiscordNotificationWithRetry(
+          supabase,
+          org.discord_webhook_url,
+          plainMessage,
+          org.organization_id,
+          'performance_check_summary',
+          undefined
+        )
+        
+        if (success) {
+          console.log(`✅ 業務連絡通知送信完了（Webhook）: org=${org.organization_id}`)
+        } else {
+          console.log(`⚠️ 業務連絡通知失敗、リトライキューに追加: org=${org.organization_id}`)
+        }
+      }
+    } catch (error) {
+      console.error(`❌ 業務連絡通知エラー: org=${org.organization_id}`, error)
+    }
   }
 }
 
