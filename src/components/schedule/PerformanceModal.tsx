@@ -161,6 +161,7 @@ export function PerformanceModal({
   }
 
   // シナリオ選択用オプションをメモ化（検索パフォーマンス改善）
+  // ソート順: 担当+出勤GM有 > 担当GM有 > 出勤GM有 > その他（タイトル順）
   const scenarioOptions = useMemo(() => {
     return scenarios.map(scenario => {
       // この店舗で公演可能かチェック
@@ -196,6 +197,17 @@ export function PerformanceModal({
           const scoreB = (b.isAssigned ? 2 : 0) + (b.isAvailable ? 1 : 0)
           return scoreB - scoreA
         })
+      
+      // シナリオのソート優先度を計算
+      // 担当かつ出勤のGMがいる: 最優先(0)、担当のみ: 次(1)、出勤のみ: その次(2)、なし: 最後(3)
+      const hasAssignedAndAvailable = filteredDisplayGMs.some(({ isAssigned, isAvailable }) => isAssigned && isAvailable)
+      const hasAssignedOnly = filteredDisplayGMs.some(({ isAssigned, isAvailable }) => isAssigned && !isAvailable)
+      const hasAvailableOnly = filteredDisplayGMs.some(({ isAssigned, isAvailable }) => !isAssigned && isAvailable)
+      
+      let sortPriority = 3
+      if (hasAssignedAndAvailable) sortPriority = 0
+      else if (hasAssignedOnly) sortPriority = 1
+      else if (hasAvailableOnly) sortPriority = 2
       
       // 担当GM情報のJSX
       const gmDisplayInfo = filteredDisplayGMs.length > 0 
@@ -261,9 +273,21 @@ export function PerformanceModal({
         // 検索用テキストは「出勤かつ担当」のGMのみ
         displayInfoSearchText: filteredDisplayGMs
           .filter(({ isAssigned, isAvailable }) => isAssigned && isAvailable)
-          .map(({ gm }) => gm.name).join(', ')
+          .map(({ gm }) => gm.name).join(', '),
+        // ソート用の優先度
+        sortPriority,
+        scenarioTitle: scenario.title
       }
     })
+    // ソート: 優先度順 → 同一優先度内はタイトル順
+    .sort((a, b) => {
+      if (a.sortPriority !== b.sortPriority) {
+        return a.sortPriority - b.sortPriority
+      }
+      return a.scenarioTitle.localeCompare(b.scenarioTitle, 'ja')
+    })
+    // ソート後、不要なプロパティを除去
+    .map(({ sortPriority, scenarioTitle, ...rest }) => rest)
   }, [scenarios, formData.venue, staff, allAvailableStaff])
 
   // 閉店時刻選択肢（開始時刻より後の時間のみ）
