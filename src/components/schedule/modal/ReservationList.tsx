@@ -364,23 +364,33 @@ ${content.organizationName || '店舗'}
           null) || 
         reservation.customer_notes
 
-      const customerEmail = reservation.customer_email || 
+      // 顧客・スタッフからメールアドレスを取得
+      let customerEmail = reservation.customer_email || 
         (reservation.customers ? 
           (Array.isArray(reservation.customers) ? reservation.customers[0]?.email : reservation.customers?.email) : 
           null)
 
-      // スタッフかどうかを名前から判定
+      // スタッフかどうかを名前から判定し、スタッフのメールアドレスも取得
       let isStaffByName = false
-      if (!customerEmail && customerName) {
+      let staffEmail: string | undefined
+      if (customerName) {
         const normalizedName = customerName.replace(/様$/, '').trim()
-        const staffMember = staff.find(s => s.name === normalizedName)
-        isStaffByName = !!staffMember
+        const staffMember = staff.find(s => s.name === normalizedName || s.display_name === normalizedName)
+        if (staffMember) {
+          isStaffByName = true
+          staffEmail = staffMember.email
+        }
       }
 
       const isStaff = isStaffReservation || isStaffByName
 
-      // スタッフの場合はシンプルな確認ダイアログを表示
-      if (isStaff) {
+      // スタッフの場合でもメールアドレスがあればメール送信可能
+      if (!customerEmail && staffEmail) {
+        customerEmail = staffEmail
+      }
+
+      // スタッフかつメールアドレスがない場合のみシンプルな確認ダイアログを表示
+      if (isStaff && !customerEmail) {
         setIsCancelDialogOpen(true)
         return
       }

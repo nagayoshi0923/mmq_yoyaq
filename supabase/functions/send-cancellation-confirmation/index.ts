@@ -61,8 +61,15 @@ serve(async (req) => {
       return errorResponse('予約が見つかりません', 404, corsHeaders)
     }
 
-    if (!reservation.customer_email || reservation.customer_email !== cancellationData.customerEmail) {
+    // スタッフ予約の場合、customer_emailがnullでも送信可能
+    // customer_emailがある場合は一致チェックを行う
+    if (reservation.customer_email && reservation.customer_email !== cancellationData.customerEmail) {
       return errorResponse('メールアドレスが一致しません', 403, corsHeaders)
+    }
+    
+    // 送信先メールアドレスがない場合はエラー
+    if (!cancellationData.customerEmail) {
+      return errorResponse('送信先メールアドレスが指定されていません', 400, corsHeaders)
     }
 
     if (cancellationData.organizationId && reservation.organization_id && cancellationData.organizationId !== reservation.organization_id) {
