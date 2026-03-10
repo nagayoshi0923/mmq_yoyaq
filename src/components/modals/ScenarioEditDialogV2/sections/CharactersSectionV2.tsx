@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Trash2, GripVertical, User, Upload, X } from 'lucide-react'
+import { Plus, Trash2, GripVertical, User, Upload, X, Copy } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { showToast } from '@/utils/toast'
@@ -90,6 +90,20 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
       ...prev,
       characters: (prev.characters || []).filter(char => char.id !== id),
     }))
+  }
+
+  const duplicateCharacter = (character: ScenarioCharacter) => {
+    const newCharacter: ScenarioCharacter = {
+      ...character,
+      id: generateId(),
+      name: `${character.name}（コピー）`,
+      sort_order: characters.length + 1,
+    }
+    setFormData(prev => ({
+      ...prev,
+      characters: [...(prev.characters || []), newCharacter],
+    }))
+    showToast.success('キャラクターを複製しました')
   }
 
   const moveCharacter = (index: number, direction: 'up' | 'down') => {
@@ -291,13 +305,23 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                     </div>
                   </div>
 
-                  {/* 削除ボタン */}
-                  <div className="flex items-start">
+                  {/* アクションボタン */}
+                  <div className="flex flex-col items-start gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-primary"
+                      onClick={() => duplicateCharacter(character)}
+                      title="複製"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-muted-foreground hover:text-destructive"
                       onClick={() => removeCharacter(character.id)}
+                      title="削除"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

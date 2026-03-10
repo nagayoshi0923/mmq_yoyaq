@@ -42,6 +42,7 @@ export function SurveyResponseForm({
   const [submitted, setSubmitted] = useState(false)
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null)
   const [isExpired, setIsExpired] = useState(false)
+  const [localCharacters, setLocalCharacters] = useState<Array<{ id: string; name: string; gender?: string }>>(characters)
 
   useEffect(() => {
     const loadSurveyData = async () => {
@@ -51,10 +52,10 @@ export function SurveyResponseForm({
       }
 
       try {
-        // organization_scenariosからorg_scenario_idとdeadline_daysを取得
+        // organization_scenariosからorg_scenario_idとdeadline_days、キャラクター情報を取得
         const { data: orgScenario } = await supabase
           .from('organization_scenarios')
-          .select('id, survey_enabled, survey_deadline_days')
+          .select('id, survey_enabled, survey_deadline_days, characters')
           .eq('scenario_master_id', scenarioId)
           .eq('organization_id', organizationId)
           .maybeSingle()
@@ -71,6 +72,19 @@ export function SurveyResponseForm({
           perfDate.setHours(23, 59, 59, 999)
           setDeadlineDate(perfDate)
           setIsExpired(new Date() > perfDate)
+        }
+
+        // キャラクター情報を設定（propsより優先）
+        if (orgScenario.characters && Array.isArray(orgScenario.characters)) {
+          const charData = orgScenario.characters.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            gender: c.gender,
+          }))
+          // 外部から渡されたcharactersが空の場合のみ上書き
+          if (characters.length === 0) {
+            setLocalCharacters(charData)
+          }
         }
 
         // 質問を取得
@@ -297,25 +311,31 @@ export function SurveyResponseForm({
               )}
 
               {question.question_type === 'character_selection' && (
-                <RadioGroup
-                  value={(responses[question.id] as string) || ''}
-                  onValueChange={(value) => handleSingleChoiceChange(question.id, value)}
-                  className="space-y-2"
-                >
-                  {characters.map((char) => (
-                    <div key={char.id} className="flex items-center gap-2">
-                      <RadioGroupItem value={char.id} id={`${question.id}-${char.id}`} />
-                      <Label htmlFor={`${question.id}-${char.id}`} className="text-sm cursor-pointer">
-                        {char.name}
-                        {char.gender && (
-                          <span className="text-xs text-muted-foreground ml-1">
-                            ({char.gender === 'male' ? '男性' : char.gender === 'female' ? '女性' : 'その他'})
-                          </span>
-                        )}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
+                localCharacters.length > 0 ? (
+                  <RadioGroup
+                    value={(responses[question.id] as string) || ''}
+                    onValueChange={(value) => handleSingleChoiceChange(question.id, value)}
+                    className="space-y-2"
+                  >
+                    {localCharacters.map((char) => (
+                      <div key={char.id} className="flex items-center gap-2">
+                        <RadioGroupItem value={char.id} id={`${question.id}-${char.id}`} />
+                        <Label htmlFor={`${question.id}-${char.id}`} className="text-sm cursor-pointer">
+                          {char.name}
+                          {char.gender && (
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ({char.gender === 'male' ? '男性' : char.gender === 'female' ? '女性' : 'その他'})
+                            </span>
+                          )}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    キャラクター情報が設定されていません
+                  </p>
+                )
               )}
             </div>
           ))}
