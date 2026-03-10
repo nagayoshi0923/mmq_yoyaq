@@ -313,7 +313,7 @@ export function PrivateGroupManage() {
                   <MessageCircle className="w-4 h-4" />
                   チャット
                 </TabsTrigger>
-                {group.status === 'gathering' && (
+                {group.status !== 'cancelled' && (
                   <TabsTrigger value="invite" className="flex-1 gap-1.5 rounded-md">
                     <UserPlus className="w-4 h-4" />
                     招待
@@ -324,7 +324,7 @@ export function PrivateGroupManage() {
               {/* メンバー・日程タブ */}
               <TabsContent value="members" className="space-y-6 mt-4">
                 {/* 招待リンク (簡易版) */}
-                {group.status === 'gathering' && (
+                {group.status !== 'cancelled' && (
                   <Card>
                     <CardContent className="p-4 space-y-3">
                       <h3 className="font-semibold">招待リンク</h3>
@@ -521,7 +521,7 @@ export function PrivateGroupManage() {
               </TabsContent>
 
               {/* 招待タブ */}
-              {group.status === 'gathering' && (
+              {group.status !== 'cancelled' && (
                 <TabsContent value="invite" className="mt-4">
                   <UserSearchInvite
                     groupId={group.id}
@@ -595,7 +595,7 @@ export function PrivateGroupManage() {
 
                     <Button
                       onClick={handleProceedToBooking}
-                      disabled={!targetReached || !allMembersResponded || (group.candidate_dates?.length || 0) === 0}
+                      disabled={(group.candidate_dates?.length || 0) === 0}
                       className="w-full bg-purple-600 hover:bg-purple-700"
                     >
                       貸切を申し込む
