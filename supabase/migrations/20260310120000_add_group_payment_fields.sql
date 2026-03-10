@@ -13,20 +13,22 @@ COMMENT ON COLUMN public.private_groups.total_price IS '貸切合計金額（円
 COMMENT ON COLUMN public.private_groups.per_person_price IS '1人あたりの参加費（円）= total_price / target_participant_count';
 
 -- =============================================================================
--- 2. private_group_members テーブルに支払い情報カラムを追加
+-- 2. private_group_members テーブルに支払い情報・アクセスPINカラムを追加
 -- =============================================================================
 ALTER TABLE public.private_group_members
 ADD COLUMN IF NOT EXISTS payment_amount INTEGER,
 ADD COLUMN IF NOT EXISTS coupon_id UUID REFERENCES public.coupons(id) ON DELETE SET NULL,
 ADD COLUMN IF NOT EXISTS coupon_discount INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS final_amount INTEGER,
-ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'refunded'));
+ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'refunded')),
+ADD COLUMN IF NOT EXISTS access_pin TEXT;
 
 COMMENT ON COLUMN public.private_group_members.payment_amount IS '支払い予定額（クーポン適用前）';
 COMMENT ON COLUMN public.private_group_members.coupon_id IS '適用したクーポンID';
 COMMENT ON COLUMN public.private_group_members.coupon_discount IS 'クーポン割引額（円）';
 COMMENT ON COLUMN public.private_group_members.final_amount IS '最終支払い額（クーポン適用後）';
 COMMENT ON COLUMN public.private_group_members.payment_status IS '支払い状況: pending=未払い, paid=支払い済み, refunded=返金済み';
+COMMENT ON COLUMN public.private_group_members.access_pin IS 'ゲストユーザー用アクセスPIN（4桁）';
 
 -- インデックス追加
 CREATE INDEX IF NOT EXISTS idx_private_group_members_coupon_id ON public.private_group_members(coupon_id);

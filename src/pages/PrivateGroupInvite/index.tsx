@@ -55,11 +55,58 @@ export function PrivateGroupInvite() {
   const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null)
   const [couponLoading, setCouponLoading] = useState(false)
 
+  // PIN認証関連
+  const [showPinAuth, setShowPinAuth] = useState(false)
+  const [pinEmail, setPinEmail] = useState('')
+  const [pinCode, setPinCode] = useState('')
+  const [pinError, setPinError] = useState<string | null>(null)
+  const [generatedPin, setGeneratedPin] = useState<string | null>(null)
+
+  // 4桁PINを生成
+  const generatePin = () => {
+    return String(Math.floor(1000 + Math.random() * 9000))
+  }
+
+  // PIN認証を実行
+  const handlePinAuth = async () => {
+    if (!group || !pinEmail || !pinCode) {
+      setPinError('メールアドレスとPINを入力してください')
+      return
+    }
+
+    setPinError(null)
+
+    // メールアドレスとPINでメンバーを検索
+    const matchingMember = group.members?.find(
+      m => m.guest_email?.toLowerCase() === pinEmail.toLowerCase() && 
+           (m as any).access_pin === pinCode &&
+           m.status === 'joined'
+    )
+
+    if (matchingMember) {
+      setExistingMemberId(matchingMember.id)
+      setGuestName(matchingMember.guest_name || '')
+      setGuestEmail(matchingMember.guest_email || '')
+      const existingResponses: Record<string, ResponseValue> = {}
+      matchingMember.date_responses?.forEach(r => {
+        existingResponses[r.candidate_date_id] = r.response
+      })
+      setResponses(existingResponses)
+      setShowPinAuth(false)
+    } else {
+      setPinError('メールアドレスまたはPINが正しくありません')
+    }
+  }
+
   useEffect(() => {
-    if (group && user) {
+    if (!group) return
+
+    // ログインユーザーの場合
+    if (user) {
       const existingMember = group.members?.find(m => m.user_id === user.id)
       if (existingMember) {
         setExistingMemberId(existingMember.id)
+        setGuestName(existingMember.guest_name || '')
         const existingResponses: Record<string, ResponseValue> = {}
         existingMember.date_responses?.forEach(r => {
           existingResponses[r.candidate_date_id] = r.response
@@ -182,6 +229,12 @@ export function PrivateGroupInvite() {
       return
     }
 
+    // ゲスト新規参加時はメールアドレス必須
+    if (!user && !existingMemberId && !guestEmail) {
+      setError('再訪問時の認証に必要なため、メールアドレスを入力してください')
+      return
+    }
+
     const allResponded = group.candidate_dates?.every(cd => responses[cd.id] != null)
     if (!allResponded) {
       setError('すべての候補日時に回答してください')
@@ -190,6 +243,7 @@ export function PrivateGroupInvite() {
 
     try {
       let memberId = existingMemberId
+      let newPin: string | null = null
 
       if (!memberId) {
         const member = await joinGroup({
@@ -200,6 +254,16 @@ export function PrivateGroupInvite() {
           guestPhone: user ? undefined : guestPhone || undefined,
         })
         memberId = member.id
+        
+        // ゲスト参加の場合、PINを生成して保存
+        if (!user && guestEmail) {
+          newPin = generatePin()
+          await supabase
+            .from('private_group_members')
+            .update({ access_pin: newPin })
+            .eq('id', memberId)
+          setGeneratedPin(newPin)
+        }
       }
 
       const responseData = Object.entries(responses)
@@ -300,25 +364,68 @@ export function PrivateGroupInvite() {
       <div className="min-h-screen bg-background">
         <Header />
         <NavigationBar currentPage="/" />
-        <div className="container mx-auto max-w-lg px-4 py-12">
+        <div className="container mx-auto max-w-lg px-4 py-12 space-y-4">
           <Card className="border-2 border-green-200 bg-green-50">
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
               <h2 className="text-lg text-green-800 font-medium">
-                {existingMemberId ? '回答を更新しました！' : '参加登録が完了しました！'}
+                {generatedPin ? '参加登録が完了しました！' : '回答を更新しました！'}
               </h2>
               <p className="text-sm text-green-700">
                 主催者が全員の回答を確認後、貸切予約を申し込みます。
                 <br />
                 予約確定後にご連絡いたします。
               </p>
-              <Button
-                variant="outline"
-                onClick={() => navigate('/')}
-                className="border-green-600 text-green-700"
-              >
-                トップへ戻る
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={() => {
+                    setSuccess(false)
+                    refetch()
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  グループページを見る
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/')}
+                  className="border-green-600 text-green-700"
+                >
+                  トップへ戻る
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* PIN表示（新規ゲスト参加時のみ） */}
+          {generatedPin && (
+            <Card className="border-2 border-red-300 bg-red-50">
+              <CardContent className="p-4 text-center space-y-3">
+                <p className="text-sm font-bold text-red-800">
+                  🔑 アクセスPINを控えてください
+                </p>
+                <div className="bg-white border-2 border-red-300 rounded-lg py-3 px-6 inline-block">
+                  <span className="text-3xl font-mono font-bold tracking-widest text-red-700">
+                    {generatedPin}
+                  </span>
+                </div>
+                <p className="text-xs text-red-700">
+                  次回このグループにアクセスする際に、<br />
+                  メールアドレス（{guestEmail}）とこのPINが必要です
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* ブックマーク案内 */}
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-4 text-center">
+              <p className="text-sm text-amber-800">
+                📌 <span className="font-medium">このページをブックマークしてください</span>
+              </p>
+              <p className="text-xs text-amber-700 mt-1">
+                グループの状況確認や回答変更にいつでもアクセスできます
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -567,7 +674,7 @@ export function PrivateGroupInvite() {
         )}
 
         {/* ゲスト情報（非ログイン時） */}
-        {!user && !existingMemberId && (
+        {!user && !existingMemberId && !showPinAuth && (
           <Card className="mb-6">
             <CardContent className="p-4 space-y-4">
               <div className="flex items-center justify-between">
@@ -591,7 +698,7 @@ export function PrivateGroupInvite() {
                 />
               </div>
               <div>
-                <Label className="text-sm font-medium mb-1.5 block">メールアドレス（任意）</Label>
+                <Label className="text-sm font-medium mb-1.5 block">メールアドレス *</Label>
                 <Input
                   type="email"
                   value={guestEmail}
@@ -600,9 +707,81 @@ export function PrivateGroupInvite() {
                   className="text-sm"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  予約確定時にご連絡します
+                  再訪問時の認証と予約確定のご連絡に使用します
                 </p>
               </div>
+              
+              {/* 既に参加済みの方向け */}
+              <div className="border-t pt-3">
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-gray-600 hover:text-gray-800 p-0 h-auto text-xs"
+                  onClick={() => setShowPinAuth(true)}
+                >
+                  既に参加済みの方はこちら（PIN認証）
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* PIN認証フォーム */}
+        {!user && !existingMemberId && showPinAuth && (
+          <Card className="mb-6 border-purple-200">
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold">PINで認証</h3>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-gray-500 hover:text-gray-700 p-0 h-auto text-xs"
+                  onClick={() => setShowPinAuth(false)}
+                >
+                  新規参加に戻る
+                </Button>
+              </div>
+              
+              <p className="text-sm text-muted-foreground">
+                以前参加登録した際のメールアドレスとPINを入力してください
+              </p>
+              
+              {pinError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-2 rounded">
+                  {pinError}
+                </div>
+              )}
+              
+              <div>
+                <Label className="text-sm font-medium mb-1.5 block">メールアドレス</Label>
+                <Input
+                  type="email"
+                  value={pinEmail}
+                  onChange={(e) => setPinEmail(e.target.value)}
+                  placeholder="example@example.com"
+                  className="text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium mb-1.5 block">PIN（4桁）</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={4}
+                  value={pinCode}
+                  onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="1234"
+                  className="text-sm text-center text-xl tracking-widest font-mono"
+                />
+              </div>
+              <Button
+                onClick={handlePinAuth}
+                className="w-full bg-purple-600 hover:bg-purple-700"
+                disabled={!pinEmail || pinCode.length !== 4}
+              >
+                認証する
+              </Button>
             </CardContent>
           </Card>
         )}
