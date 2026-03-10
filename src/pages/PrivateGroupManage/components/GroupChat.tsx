@@ -24,24 +24,47 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // メンバー情報を取得
-  useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('private_group_members')
-          .select('id, group_id, user_id, guest_name, guest_email, is_organizer, status, users(email)')
-          .eq('group_id', groupId)
-          .eq('status', 'joined')
+  const fetchMembers = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('private_group_members')
+        .select('id, group_id, user_id, guest_name, guest_email, is_organizer, status, users(email)')
+        .eq('group_id', groupId)
+        .eq('status', 'joined')
 
-        if (error) throw error
-        setMembers(data as PrivateGroupMember[] || initialMembers)
-      } catch (err) {
-        logger.error('Failed to fetch members for chat', err)
-      }
+      if (error) throw error
+      setMembers(data as PrivateGroupMember[] || initialMembers)
+    } catch (err) {
+      logger.error('Failed to fetch members for chat', err)
     }
-
-    fetchMembers()
   }, [groupId, initialMembers])
+
+  useEffect(() => {
+    fetchMembers()
+  }, [fetchMembers])
+
+  // メンバー変更をリアルタイム監視
+  useEffect(() => {
+    const channel = supabase
+      .channel(`group-members-${groupId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'private_group_members',
+          filter: `group_id=eq.${groupId}`,
+        },
+        () => {
+          fetchMembers()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [groupId, fetchMembers])
 
   const getMemberName = useCallback((memberId: string | null) => {
     if (!memberId) return '退出したメンバー'
