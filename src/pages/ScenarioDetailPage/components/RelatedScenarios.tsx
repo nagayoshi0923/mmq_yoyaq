@@ -40,15 +40,27 @@ export const RelatedScenarios = memo(function RelatedScenarios({
             className="cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => onScenarioClick(scenario.slug || scenario.id)}
           >
-            {/* キービジュアル - 最適化済み */}
-            <div className="aspect-[1/1.4] bg-gray-200 overflow-hidden mb-1">
+            {/* キービジュアル - 横長画像も全体表示 */}
+            <div className="aspect-[1/1.4] bg-gray-900 overflow-hidden mb-1 relative">
               {scenario.key_visual_url ? (
-                <img
-                  src={getOptimizedImageUrl(scenario.key_visual_url, { width: 150, format: 'webp', quality: 80 })}
-                  alt={scenario.title}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
+                <>
+                  {/* 背景ぼかし */}
+                  <div 
+                    className="absolute inset-0 scale-110"
+                    style={{
+                      backgroundImage: `url(${getOptimizedImageUrl(scenario.key_visual_url, { width: 50, format: 'webp', quality: 30 })})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(10px) brightness(0.5)',
+                    }}
+                  />
+                  <img
+                    src={getOptimizedImageUrl(scenario.key_visual_url, { width: 150, format: 'webp', quality: 80 })}
+                    alt={scenario.title}
+                    className="relative w-full h-full object-contain"
+                    loading="lazy"
+                  />
+                </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400 text-[10px]">
                   No Image
