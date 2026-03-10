@@ -67,6 +67,7 @@ const NotFoundPage = lazyWithRetry(() => import('./NotFoundPage').then(m => ({ d
 const PrivateGroupCreate = lazyWithRetry(() => import('./PrivateGroupCreate').then(m => ({ default: m.PrivateGroupCreate })))
 const PrivateGroupInvite = lazyWithRetry(() => import('./PrivateGroupInvite').then(m => ({ default: m.PrivateGroupInvite })))
 const PrivateGroupManage = lazyWithRetry(() => import('./PrivateGroupManage').then(m => ({ default: m.PrivateGroupManage })))
+const CouponManagement = lazyWithRetry(() => import('./CouponManagement').then(m => ({ default: m.CouponManagement })))
 
 function ScenarioEditRedirect({ organizationSlug, scenarioId }: { organizationSlug: string; scenarioId: string | null }) {
   const navigate = useNavigate()
@@ -100,7 +101,7 @@ const ADMIN_PATHS = [
   'schedule', 'shift-submission', 'gm-availability', 'private-booking-management',
   'reservations', 'accounts', 'sales', 'settings', 'manual', 'add-demo-participants',
   'scenario-matcher', 'organizations', 'external-reports', 'license-reports', 'license-management',
-  'customer-management', 'user-management'
+  'customer-management', 'user-management', 'coupons'
 ]
 
 // パスを解析してページ情報を返す
@@ -469,6 +470,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="アカウント管理を読み込み中..." />}>
         <AccountManagement />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'coupons') {
+    return (
+      <Suspense fallback={<LoadingScreen message="クーポン管理を読み込み中..." />}>
+        <CouponManagement />
       </Suspense>
     )
   }
