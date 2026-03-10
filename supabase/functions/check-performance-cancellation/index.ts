@@ -65,7 +65,18 @@ serve(async (req) => {
       getServiceRoleKey()
     )
 
-    const { check_type }: CheckRequest = await req.json()
+    const body = await req.json().catch(() => ({}))
+    let check_type = body.check_type as string | undefined
+    
+    // check_typeが未指定の場合、現在時刻に基づいてデフォルトを決定
+    if (!check_type || (check_type !== 'day_before' && check_type !== 'four_hours_before')) {
+      const now = new Date()
+      const jstHour = (now.getUTCHours() + 9) % 24
+      // JST 14:00-15:00 (UTC 5:00-6:00) の場合は day_before、それ以外は four_hours_before
+      check_type = (jstHour >= 23 || jstHour < 1) ? 'day_before' : 'four_hours_before'
+      console.log(`⚠️ check_type未指定/無効: デフォルト "${check_type}" を使用 (JST ${jstHour}時)`)
+    }
+    
     console.log('🔍 公演中止チェック開始:', check_type)
 
     let result: {
@@ -933,7 +944,6 @@ async function sendBusinessSummaryNotification(
   // 既に延長済みのイベントを取得（今回の処理対象外だが通知には含める）
   // 公演開始時刻を過ぎたイベントは除外
   const processedEventIds = result.details.map(e => e.event_id)
-  const now = new Date()
   const nowTimeStr = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
   console.log(`🕐 現在時刻(JST): ${nowTimeStr}`)
   

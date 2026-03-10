@@ -57,7 +57,29 @@ export function isCronOrServiceRoleCall(req: Request): boolean {
   const authHeader = (req.headers.get('Authorization') || '').trim()
   const bearer = authHeader.replace(/^Bearer\s+/i, '').trim()
   const serviceRoleKey = getServiceRoleKey().trim()
-  return !!serviceRoleKey && !!bearer && timingSafeEqualString(bearer, serviceRoleKey)
+  
+  // 1. キーが完全一致する場合（旧JWT形式）
+  if (serviceRoleKey && bearer && timingSafeEqualString(bearer, serviceRoleKey)) {
+    return true
+  }
+  
+  // 2. bearerがJWTの場合、デコードしてroleを確認
+  if (bearer && bearer.startsWith('eyJ')) {
+    try {
+      const parts = bearer.split('.')
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1]))
+        if (payload.role === 'service_role') {
+          console.log('✅ service_role JWT検証成功')
+          return true
+        }
+      }
+    } catch {
+      // JWT解析失敗は無視
+    }
+  }
+  
+  return false
 }
 
 // 許可するオリジン

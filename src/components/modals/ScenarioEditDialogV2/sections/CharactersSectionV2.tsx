@@ -44,7 +44,7 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
     setUploadingId(characterId)
     try {
       // 自動圧縮付きでアップロード（500KB以上は自動でリサイズ・圧縮される）
-      const result = await uploadImage(file, 'character-images', undefined, true)
+      const result = await uploadImage(file, 'key-visuals', 'characters', true)
       if (result) {
         updateCharacter(characterId, { image_url: result.url })
         showToast.success('画像をアップロードしました')

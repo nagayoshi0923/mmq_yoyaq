@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
+import { SurveyResponseForm } from './components/SurveyResponseForm'
 
 interface Coupon {
   id: string
@@ -796,6 +797,21 @@ export function PrivateGroupInvite() {
               </p>
             </CardContent>
           </Card>
+        )}
+
+        {/* 公演前アンケート（日程確定後、参加済みメンバーのみ表示） */}
+        {group.status === 'confirmed' && existingMemberId && group.scenario_id && (
+          <SurveyResponseForm
+            groupId={group.id}
+            memberId={existingMemberId}
+            scenarioId={group.scenario_id}
+            organizationId={group.organization_id}
+            performanceDate={group.candidate_dates?.find(cd => 
+              // 確定した候補日を探す（通常は reservation 経由で取得するが、ここでは最初の候補を使用）
+              cd.order_num === 1
+            )?.date}
+            characters={(group as any).scenario_characters || []}
+          />
         )}
 
         {/* 送信ボタン */}

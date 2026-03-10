@@ -1,0 +1,343 @@
+import { useState, useEffect, useCallback } from 'react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Badge } from '@/components/ui/badge'
+import { ClipboardList, Loader2, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
+import { toast } from 'sonner'
+import type { SurveyQuestion } from '@/types'
+
+interface SurveyResponseFormProps {
+  groupId: string
+  memberId: string
+  scenarioId: string
+  organizationId: string
+  performanceDate?: string
+  characters?: Array<{ id: string; name: string; gender?: string }>
+}
+
+interface FormResponse {
+  [questionId: string]: string | string[]
+}
+
+export function SurveyResponseForm({
+  groupId,
+  memberId,
+  scenarioId,
+  organizationId,
+  performanceDate,
+  characters = [],
+}: SurveyResponseFormProps) {
+  const [questions, setQuestions] = useState<SurveyQuestion[]>([])
+  const [responses, setResponses] = useState<FormResponse>({})
+  const [existingResponseId, setExistingResponseId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [deadlineDate, setDeadlineDate] = useState<Date | null>(null)
+  const [isExpired, setIsExpired] = useState(false)
+
+  useEffect(() => {
+    const loadSurveyData = async () => {
+      if (!scenarioId || !organizationId) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        // organization_scenariosからorg_scenario_idとdeadline_daysを取得
+        const { data: orgScenario } = await supabase
+          .from('organization_scenarios')
+          .select('id, survey_enabled, survey_deadline_days')
+          .eq('scenario_master_id', scenarioId)
+          .eq('organization_id', organizationId)
+          .maybeSingle()
+
+        if (!orgScenario?.survey_enabled || !orgScenario.id) {
+          setLoading(false)
+          return
+        }
+
+        // 期限を計算
+        if (performanceDate && orgScenario.survey_deadline_days !== undefined) {
+          const perfDate = new Date(performanceDate + 'T00:00:00+09:00')
+          perfDate.setDate(perfDate.getDate() - orgScenario.survey_deadline_days)
+          perfDate.setHours(23, 59, 59, 999)
+          setDeadlineDate(perfDate)
+          setIsExpired(new Date() > perfDate)
+        }
+
+        // 質問を取得
+        const { data: questionsData } = await supabase
+          .from('org_scenario_survey_questions')
+          .select('*')
+          .eq('org_scenario_id', orgScenario.id)
+          .order('order_num', { ascending: true })
+
+        if (questionsData && questionsData.length > 0) {
+          setQuestions(questionsData)
+        }
+
+        // 既存の回答を取得
+        const { data: existingResponse } = await supabase
+          .from('private_group_survey_responses')
+          .select('id, responses')
+          .eq('group_id', groupId)
+          .eq('member_id', memberId)
+          .maybeSingle()
+
+        if (existingResponse) {
+          setExistingResponseId(existingResponse.id)
+          setResponses(existingResponse.responses || {})
+          setSubmitted(true)
+        }
+      } catch (err) {
+        logger.error('アンケート読み込みエラー:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadSurveyData()
+  }, [groupId, memberId, scenarioId, organizationId, performanceDate])
+
+  const handleTextChange = useCallback((questionId: string, value: string) => {
+    setResponses(prev => ({ ...prev, [questionId]: value }))
+  }, [])
+
+  const handleSingleChoiceChange = useCallback((questionId: string, value: string) => {
+    setResponses(prev => ({ ...prev, [questionId]: value }))
+  }, [])
+
+  const handleMultipleChoiceChange = useCallback((questionId: string, value: string, checked: boolean) => {
+    setResponses(prev => {
+      const current = Array.isArray(prev[questionId]) ? prev[questionId] as string[] : []
+      if (checked) {
+        return { ...prev, [questionId]: [...current, value] }
+      } else {
+        return { ...prev, [questionId]: current.filter(v => v !== value) }
+      }
+    })
+  }, [])
+
+  const handleSubmit = useCallback(async () => {
+    // 必須項目のチェック
+    const missingRequired = questions.filter(
+      q => q.is_required && !responses[q.id]
+    )
+    if (missingRequired.length > 0) {
+      toast.error(`必須項目を入力してください: ${missingRequired.map(q => q.question_text).join(', ')}`)
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      if (existingResponseId) {
+        // 更新
+        const { error } = await supabase
+          .from('private_group_survey_responses')
+          .update({ responses, updated_at: new Date().toISOString() })
+          .eq('id', existingResponseId)
+
+        if (error) throw error
+        toast.success('回答を更新しました')
+      } else {
+        // 新規作成
+        const { data, error } = await supabase
+          .from('private_group_survey_responses')
+          .insert({
+            group_id: groupId,
+            member_id: memberId,
+            responses,
+          })
+          .select('id')
+          .single()
+
+        if (error) throw error
+        setExistingResponseId(data.id)
+        toast.success('回答を送信しました')
+      }
+      setSubmitted(true)
+    } catch (err) {
+      logger.error('アンケート送信エラー:', err)
+      toast.error('送信に失敗しました')
+    } finally {
+      setSubmitting(false)
+    }
+  }, [questions, responses, existingResponseId, groupId, memberId])
+
+  const formatDeadline = (date: Date) => {
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+    return `${month}/${day}(${weekdays[date.getDay()]})`
+  }
+
+  if (loading) {
+    return (
+      <Card className="mb-6">
+        <CardContent className="p-6 text-center">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+          <p className="text-sm text-muted-foreground mt-2">アンケートを読み込み中...</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (questions.length === 0) {
+    return null
+  }
+
+  if (isExpired) {
+    return (
+      <Card className="mb-6 border-gray-300 bg-gray-50">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <Clock className="w-5 h-5 text-gray-500" />
+            <div>
+              <p className="text-sm font-medium text-gray-700">アンケートの回答期限が過ぎました</p>
+              {submitted && (
+                <p className="text-xs text-gray-500 mt-1">
+                  回答済みの内容は保存されています
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="mb-6 border-purple-200">
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 text-purple-600" />
+            <h3 className="text-base font-semibold">公演前アンケート</h3>
+          </div>
+          {submitted && (
+            <Badge className="bg-green-100 text-green-800 border-green-200">
+              <CheckCircle2 className="w-3 h-3 mr-1" />
+              回答済み
+            </Badge>
+          )}
+        </div>
+
+        {deadlineDate && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="w-4 h-4" />
+            <span>回答期限: {formatDeadline(deadlineDate)}</span>
+          </div>
+        )}
+
+        <div className="space-y-4 pt-2">
+          {questions.map((question, index) => (
+            <div key={question.id} className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                Q{index + 1}. {question.question_text}
+                {question.is_required && (
+                  <span className="text-red-500 text-xs">*必須</span>
+                )}
+              </Label>
+
+              {question.question_type === 'text' && (
+                <Textarea
+                  value={(responses[question.id] as string) || ''}
+                  onChange={(e) => handleTextChange(question.id, e.target.value)}
+                  placeholder="回答を入力してください"
+                  rows={3}
+                  className="text-sm resize-none"
+                />
+              )}
+
+              {question.question_type === 'single_choice' && (
+                <RadioGroup
+                  value={(responses[question.id] as string) || ''}
+                  onValueChange={(value) => handleSingleChoiceChange(question.id, value)}
+                  className="space-y-2"
+                >
+                  {question.options.map((option) => (
+                    <div key={option.value} className="flex items-center gap-2">
+                      <RadioGroupItem value={option.value} id={`${question.id}-${option.value}`} />
+                      <Label htmlFor={`${question.id}-${option.value}`} className="text-sm cursor-pointer">
+                        {option.label}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              )}
+
+              {question.question_type === 'multiple_choice' && (
+                <div className="space-y-2">
+                  {question.options.map((option) => {
+                    const current = Array.isArray(responses[question.id]) ? responses[question.id] as string[] : []
+                    return (
+                      <div key={option.value} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`${question.id}-${option.value}`}
+                          checked={current.includes(option.value)}
+                          onCheckedChange={(checked) => 
+                            handleMultipleChoiceChange(question.id, option.value, checked === true)
+                          }
+                        />
+                        <Label htmlFor={`${question.id}-${option.value}`} className="text-sm cursor-pointer">
+                          {option.label}
+                        </Label>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {question.question_type === 'character_selection' && (
+                <RadioGroup
+                  value={(responses[question.id] as string) || ''}
+                  onValueChange={(value) => handleSingleChoiceChange(question.id, value)}
+                  className="space-y-2"
+                >
+                  {characters.map((char) => (
+                    <div key={char.id} className="flex items-center gap-2">
+                      <RadioGroupItem value={char.id} id={`${question.id}-${char.id}`} />
+                      <Label htmlFor={`${question.id}-${char.id}`} className="text-sm cursor-pointer">
+                        {char.name}
+                        {char.gender && (
+                          <span className="text-xs text-muted-foreground ml-1">
+                            ({char.gender === 'male' ? '男性' : char.gender === 'female' ? '女性' : 'その他'})
+                          </span>
+                        )}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="w-full bg-purple-600 hover:bg-purple-700"
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              送信中...
+            </>
+          ) : submitted ? (
+            '回答を更新する'
+          ) : (
+            '回答を送信する'
+          )}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}

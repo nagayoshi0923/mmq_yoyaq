@@ -31,6 +31,7 @@ import { BookingRequestCard } from './components/BookingRequestCard'
 import { CustomerInfo } from './components/CustomerInfo'
 import { CandidateDateSelector } from './components/CandidateDateSelector'
 import { ActionButtons } from './components/ActionButtons'
+import { SurveyResponsesView } from './components/SurveyResponsesView'
 
 // 分離されたフック
 import type { PrivateBookingRequest } from './hooks/usePrivateBookingData'
@@ -472,6 +473,12 @@ export function PrivateBookingManagement() {
             {selectedRequest && (
               <div className="space-y-3">
               <CustomerInfo request={selectedRequest} />
+              
+              {/* アンケート回答閲覧 */}
+              <SurveyResponsesView
+                reservationId={selectedRequest.id}
+                scenarioId={(selectedRequest as any).scenario_master_id || selectedRequest.scenario_id || ''}
+              />
               
               <CandidateDateSelector
                 candidates={selectedRequest.candidate_datetimes?.candidates || []}

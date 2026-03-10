@@ -652,12 +652,23 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               if (loadOrgId) {
                 const { data: osData } = await supabase
                   .from('organization_scenarios')
-                  .select('override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores, survey_url, survey_enabled, characters')
+                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores, survey_url, survey_enabled, survey_deadline_days, characters')
                   .eq('scenario_master_id', masterId)
                   .eq('organization_id', loadOrgId)
                   .maybeSingle()
                 
                 if (osData) {
+                  // アンケート質問を取得
+                  let surveyQuestions: any[] = []
+                  if (osData.id) {
+                    const { data: questionsData } = await supabase
+                      .from('org_scenario_survey_questions')
+                      .select('*')
+                      .eq('org_scenario_id', osData.id)
+                      .order('order_num', { ascending: true })
+                    surveyQuestions = questionsData || []
+                  }
+                  
                   setFormData(prev => ({
                     ...prev,
                     // override 値があればそちらを優先（なければ scenarios テーブルから読んだ値をそのまま使用）
@@ -677,6 +688,15 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     // アンケート設定
                     survey_url: osData.survey_url || null,
                     survey_enabled: osData.survey_enabled || false,
+                    survey_deadline_days: osData.survey_deadline_days ?? 1,
+                    survey_questions: surveyQuestions.map(q => ({
+                      id: q.id,
+                      question_text: q.question_text,
+                      question_type: q.question_type,
+                      options: q.options || [],
+                      is_required: q.is_required,
+                      order_num: q.order_num,
+                    })),
                     // キャラクター情報
                     characters: osData.characters || [],
                   }))
@@ -992,20 +1012,26 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               // アンケート設定
               survey_url: formData.survey_url || null,
               survey_enabled: formData.survey_enabled || false,
+              survey_deadline_days: formData.survey_deadline_days ?? 1,
               // キャラクター情報
               characters: formData.characters || [],
             }
 
+            let orgScenarioId: string | null = existingOrgScenario?.id || null
+
             if (!existingOrgScenario) {
               // organization_scenariosに登録
-              const { error: orgScenarioError } = await supabase
+              const { data: insertedData, error: orgScenarioError } = await supabase
                 .from('organization_scenarios')
                 .insert(orgScenarioPayload)
+                .select('id')
+                .single()
               
               if (orgScenarioError) {
                 logger.error('organization_scenarios登録エラー:', orgScenarioError)
               } else {
                 logger.log('organization_scenariosに登録しました')
+                orgScenarioId = insertedData?.id || null
               }
             } else {
               // 既存レコードがある場合は更新（organization_id, scenario_master_id は除く）
@@ -1024,6 +1050,54 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               } else {
                 logger.log('organization_scenariosを更新しました（override含む）')
                 console.log('✅ organization_scenarios保存成功 available_stores:', updatePayload.available_stores)
+              }
+            }
+
+            // アンケート質問を保存
+            if (orgScenarioId && formData.survey_enabled) {
+              try {
+                // 既存の質問を取得
+                const { data: existingQuestions } = await supabase
+                  .from('org_scenario_survey_questions')
+                  .select('id')
+                  .eq('org_scenario_id', orgScenarioId)
+
+                const existingIds = new Set((existingQuestions || []).map(q => q.id))
+                const newQuestionIds = new Set((formData.survey_questions || []).map(q => q.id))
+
+                // 削除された質問を削除
+                const toDelete = [...existingIds].filter(id => !newQuestionIds.has(id))
+                if (toDelete.length > 0) {
+                  await supabase
+                    .from('org_scenario_survey_questions')
+                    .delete()
+                    .in('id', toDelete)
+                }
+
+                // 新規・更新の質問をupsert
+                const questionsToUpsert = (formData.survey_questions || []).map(q => ({
+                  id: q.id,
+                  org_scenario_id: orgScenarioId,
+                  question_text: q.question_text,
+                  question_type: q.question_type,
+                  options: q.options,
+                  is_required: q.is_required,
+                  order_num: q.order_num,
+                }))
+
+                if (questionsToUpsert.length > 0) {
+                  const { error: upsertError } = await supabase
+                    .from('org_scenario_survey_questions')
+                    .upsert(questionsToUpsert, { onConflict: 'id' })
+
+                  if (upsertError) {
+                    logger.error('アンケート質問保存エラー:', upsertError)
+                  } else {
+                    logger.log('アンケート質問を保存しました:', questionsToUpsert.length, '件')
+                  }
+                }
+              } catch (surveyErr) {
+                logger.error('アンケート質問処理エラー:', surveyErr)
               }
             }
           }

@@ -80,7 +80,9 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
       const newIndex = direction === 'up' ? index - 1 : index + 1
       if (newIndex < 0 || newIndex >= questions.length) return prev
       
-      [questions[index], questions[newIndex]] = [questions[newIndex], questions[index]]
+      const temp = questions[index]
+      questions[index] = questions[newIndex]
+      questions[newIndex] = temp
       
       return {
         ...prev,
