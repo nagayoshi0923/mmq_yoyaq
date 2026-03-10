@@ -252,6 +252,25 @@ export function PrivateGroupInvite() {
           </CardContent>
         </Card>
 
+        {/* 新規登録特典案内 */}
+        {!user && (
+          <Card className="mb-6 border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
+                <span className="text-lg">🎁</span>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-800">
+                  新規会員登録で2,000円分クーポンプレゼント！
+                </p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  ログインして参加すると、次回予約で使えるクーポンがもらえます
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {error && (
           <Card className="mb-6 border-2 border-red-200 bg-red-50">
             <CardContent className="p-4 flex items-center gap-2 text-red-800 text-sm">
@@ -354,7 +373,17 @@ export function PrivateGroupInvite() {
         {!user && !existingMemberId && (
           <Card className="mb-6">
             <CardContent className="p-4 space-y-4">
-              <h3 className="text-base font-semibold">お名前を入力</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold">お名前を入力</h3>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-purple-600 hover:text-purple-700 p-0 h-auto"
+                  onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)}
+                >
+                  ログインして参加 →
+                </Button>
+              </div>
               <div>
                 <Label className="text-sm font-medium mb-1.5 block">お名前 *</Label>
                 <Input
