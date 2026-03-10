@@ -1053,14 +1053,26 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               }
             }
 
+            console.log('🔍 orgScenarioId 確認:', orgScenarioId)
+            
             // アンケート質問を保存
+            console.log('📝 アンケート質問保存チェック:', {
+              orgScenarioId,
+              survey_enabled: formData.survey_enabled,
+              questionsCount: formData.survey_questions?.length || 0,
+            })
+            
             if (orgScenarioId && formData.survey_enabled) {
               try {
                 // 既存の質問を取得
-                const { data: existingQuestions } = await supabase
+                const { data: existingQuestions, error: fetchError } = await supabase
                   .from('org_scenario_survey_questions')
                   .select('id')
                   .eq('org_scenario_id', orgScenarioId)
+
+                if (fetchError) {
+                  console.error('🚨 既存質問取得エラー:', fetchError)
+                }
 
                 const existingIds = new Set((existingQuestions || []).map(q => q.id))
                 const newQuestionIds = new Set((formData.survey_questions || []).map(q => q.id))
@@ -1068,10 +1080,14 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 // 削除された質問を削除
                 const toDelete = [...existingIds].filter(id => !newQuestionIds.has(id))
                 if (toDelete.length > 0) {
-                  await supabase
+                  const { error: deleteError } = await supabase
                     .from('org_scenario_survey_questions')
                     .delete()
                     .in('id', toDelete)
+                  
+                  if (deleteError) {
+                    console.error('🚨 質問削除エラー:', deleteError)
+                  }
                 }
 
                 // 新規・更新の質問をupsert
@@ -1085,20 +1101,30 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   order_num: q.order_num,
                 }))
 
+                console.log('📝 保存する質問データ:', questionsToUpsert)
+
                 if (questionsToUpsert.length > 0) {
                   const { error: upsertError } = await supabase
                     .from('org_scenario_survey_questions')
                     .upsert(questionsToUpsert, { onConflict: 'id' })
 
                   if (upsertError) {
+                    console.error('🚨 アンケート質問upsertエラー:', upsertError)
                     logger.error('アンケート質問保存エラー:', upsertError)
                   } else {
+                    console.log('✅ アンケート質問保存成功:', questionsToUpsert.length, '件')
                     logger.log('アンケート質問を保存しました:', questionsToUpsert.length, '件')
                   }
                 }
               } catch (surveyErr) {
+                console.error('🚨 アンケート質問処理例外:', surveyErr)
                 logger.error('アンケート質問処理エラー:', surveyErr)
               }
+            } else {
+              console.log('⚠️ アンケート質問保存スキップ:', {
+                orgScenarioId: !!orgScenarioId,
+                survey_enabled: formData.survey_enabled,
+              })
             }
           }
         } catch (orgErr) {

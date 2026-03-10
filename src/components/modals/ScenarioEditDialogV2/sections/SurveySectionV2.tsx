@@ -235,6 +235,7 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
                         isFirst={index === 0}
                         isLast={index === questions.length - 1}
                         hasCharacters={(formData.characters?.length || 0) > 0}
+                        characters={formData.characters}
                       />
                     ))}
                   </div>
@@ -273,6 +274,7 @@ interface QuestionCardProps {
   isFirst: boolean
   isLast: boolean
   hasCharacters: boolean
+  characters?: Array<{ id: string; name: string }>
 }
 
 function QuestionCard({
@@ -290,6 +292,7 @@ function QuestionCard({
   isFirst,
   isLast,
   hasCharacters,
+  characters = [],
 }: QuestionCardProps) {
   const needsOptions = question.question_type === 'single_choice' || question.question_type === 'multiple_choice'
   const isCharacterSelection = question.question_type === 'character_selection'
@@ -386,10 +389,16 @@ function QuestionCard({
           </div>
 
           {isCharacterSelection && (
-            <div className="p-3 bg-purple-50 rounded-lg">
+            <div className="p-3 bg-purple-50 rounded-lg space-y-2">
               <p className="text-xs text-purple-700">
                 💡 「キャラクター」タブで設定したキャラクター一覧から選択できます
               </p>
+              {hasCharacters && characters && characters.length > 0 && (
+                <div className="text-xs text-purple-600">
+                  <span className="font-medium">設定済み: </span>
+                  {characters.map(c => c.name).join('、')}
+                </div>
+              )}
             </div>
           )}
 
