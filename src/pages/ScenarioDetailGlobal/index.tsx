@@ -372,12 +372,14 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       setAvailableOrganizations(availableOrgs)
       setFavoriteScenarioId(favoriteId)
       
+      // 公演データを取得（組織情報も含めてJOIN）
       const { data: eventData, error: eventError } = await supabase
         .from('schedule_events')
         .select(`
           id, date, start_time, time_slot, current_participants, category, is_cancelled, organization_id,
           scenario_masters:scenario_master_id (id, title, player_count_max),
-          stores:store_id (id, name, short_name, color, region)
+          stores:store_id (id, name, short_name, color, region),
+          organizations:organization_id (id, slug, name)
         `)
         .eq('scenario_master_id', masterId)
         .gte('date', today)
@@ -394,7 +396,9 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       const formattedEvents: EventWithOrg[] = (eventData || []).map((e: any) => {
         const scenario = e.scenario_masters
         const store = e.stores
-        const org = e.organization_id ? orgMap[e.organization_id] : null
+        // 直接JOINした組織情報を優先、なければorgMapから取得
+        const orgFromJoin = e.organizations
+        const org = orgFromJoin || (e.organization_id ? orgMap[e.organization_id] : null)
 
         return {
           id: e.id,
@@ -414,6 +418,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         }
       })
       
+      // organization_slugがあるイベントのみ表示（is_activeな組織のみ）
       const filteredEvents = formattedEvents.filter((e: EventWithOrg) => e.organization_slug)
 
       setEvents(filteredEvents)
