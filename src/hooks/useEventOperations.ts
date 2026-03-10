@@ -1570,6 +1570,10 @@ export function useEventOperations({
   // 公演をキャンセル解除
   const handleUncancelPerformance = useCallback(async (event: ScheduleEvent) => {
     try {
+      // schedule_events.is_cancelled を必ず false に更新
+      await scheduleApi.toggleCancel(event.id, false)
+      
+      // 貸切予約の場合は予約ステータスも更新
       if (event.is_private_request && event.reservation_id) {
         const { error } = await supabase.rpc('admin_update_reservation_fields', {
           p_reservation_id: event.reservation_id,
@@ -1578,37 +1582,44 @@ export function useEventOperations({
           }
         })
         
-        if (error) throw error
-        
-        setEvents(prev => prev.map(e => 
-          e.reservation_id === event.reservation_id ? { ...e, is_cancelled: false } : e
-        ))
-      } else {
-        await scheduleApi.toggleCancel(event.id, false)
-        setEvents(prev => prev.map(e => 
-          e.id === event.id ? { ...e, is_cancelled: false } : e
-        ))
-        
-        // 履歴を記録（復活）
-        if (organizationId) {
-          try {
-            await createEventHistory(
-              event.id,
-              organizationId,
-              'restore',
-              { is_cancelled: true },
-              { is_cancelled: false },
-              {
-                date: event.date,
-                storeId: event.venue,
-                timeSlot: event.time_slot || null
-              }
-            )
-          } catch (historyError) {
-            logger.error('履歴記録エラー（復活）:', historyError)
-          }
+        if (error) {
+          logger.error('予約ステータス更新エラー:', error)
+          // エラーでも公演自体は復活済みなので続行
         }
       }
+      
+      // ローカル状態を更新
+      setEvents(prev => prev.map(e => {
+        if (event.reservation_id && e.reservation_id === event.reservation_id) {
+          return { ...e, is_cancelled: false }
+        }
+        if (e.id === event.id) {
+          return { ...e, is_cancelled: false }
+        }
+        return e
+      }))
+      
+      // 履歴を記録（復活）
+      if (organizationId) {
+        try {
+          await createEventHistory(
+            event.id,
+            organizationId,
+            'restore',
+            { is_cancelled: true },
+            { is_cancelled: false },
+            {
+              date: event.date,
+              storeId: event.venue,
+              timeSlot: event.time_slot || null
+            }
+          )
+        } catch (historyError) {
+          logger.error('履歴記録エラー（復活）:', historyError)
+        }
+      }
+      
+      showToast.success('公演を復活しました')
     } catch (error) {
       logger.error('公演キャンセル解除エラー:', error)
       showToast.error('公演のキャンセル解除処理に失敗しました')

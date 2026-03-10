@@ -321,17 +321,39 @@ export const scheduleApi = {
     const lastDay = new Date(year, month, 0).getDate()
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     
-    // 通常公演を取得
+    // 通常公演を取得（必要なカラムのみ選択してパフォーマンス向上）
     let query = supabase
       .from('schedule_events')
       .select(`
-        *,
+        id,
+        date,
+        start_time,
+        end_time,
+        venue,
+        store_id,
+        scenario,
+        scenario_id,
+        scenario_master_id,
+        organization_scenario_id,
+        category,
+        is_cancelled,
+        is_reservation_enabled,
+        is_tentative,
+        is_recruitment_extended,
+        current_participants,
+        max_participants,
+        capacity,
+        gms,
+        gm_roles,
+        notes,
+        time_slot,
+        organization_id,
+        updated_at,
         stores:store_id (
           id,
           name,
           short_name,
-          color,
-          address
+          color
         ),
         scenario_masters:scenario_master_id (
           id,

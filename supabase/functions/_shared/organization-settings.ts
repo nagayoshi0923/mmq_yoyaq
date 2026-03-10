@@ -30,6 +30,7 @@ export interface OrganizationSettings {
   discord_channel_id: string | null
   discord_private_booking_channel_id: string | null
   discord_shift_channel_id: string | null
+  discord_business_channel_id: string | null
   discord_public_key: string | null
   
   // メール設定
@@ -71,6 +72,7 @@ export async function getOrganizationSettings(
       'discord_channel_id',
       'discord_private_booking_channel_id',
       'discord_shift_channel_id',
+      'discord_business_channel_id',
       'discord_public_key',
       'resend_api_key',
       'sender_email',
@@ -103,6 +105,7 @@ export async function getDiscordSettings(
   channelId: string | null
   privateBookingChannelId: string | null
   shiftChannelId: string | null
+  businessChannelId: string | null
   publicKey: string | null
 }> {
   const settings = await getOrganizationSettings(supabase, organizationId)
@@ -113,6 +116,7 @@ export async function getDiscordSettings(
     channelId: settings?.discord_channel_id || Deno.env.get('DISCORD_CHANNEL_ID') || null,
     privateBookingChannelId: settings?.discord_private_booking_channel_id || Deno.env.get('DISCORD_PRIVATE_BOOKING_CHANNEL_ID') || null,
     shiftChannelId: settings?.discord_shift_channel_id || Deno.env.get('DISCORD_SHIFT_CHANNEL_ID') || null,
+    businessChannelId: settings?.discord_business_channel_id || Deno.env.get('DISCORD_BUSINESS_CHANNEL_ID') || null,
     publicKey: settings?.discord_public_key || Deno.env.get('DISCORD_PUBLIC_KEY') || null,
   }
 }
