@@ -92,16 +92,54 @@ export function PlatformTop() {
     try {
       setLoading(true)
 
-      // 組織一覧を取得
-      const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .select('id, slug, name, logo_url')
-        .eq('is_active', true)
-        .order('name')
-      
-      if (orgError) {
-        logger.error('組織取得エラー:', orgError)
-      }
+      const today = formatDateJST(new Date())
+
+      // 🚀 パフォーマンス最適化: 4つのクエリを並列実行
+      const [orgResult, storeResult, masterResult, eventResult] = await Promise.all([
+        // 組織一覧
+        supabase
+          .from('organizations')
+          .select('id, slug, name, logo_url')
+          .eq('is_active', true)
+          .order('name'),
+        // 店舗一覧（臨時会場とオフィスを除く）
+        supabase
+          .from('stores')
+          .select('id, name, short_name, region, address, organization_id')
+          .eq('status', 'active')
+          .or('is_temporary.is.null,is_temporary.eq.false')
+          .neq('ownership_type', 'office')
+          .order('region', { ascending: true })
+          .order('name', { ascending: true }),
+        // 承認済みマスタのID
+        supabase
+          .from('scenario_masters')
+          .select('id')
+          .eq('master_status', 'approved'),
+        // 今日以降のイベント（オープン公演のみ、上限200件に削減）
+        supabase
+          .from('schedule_events')
+          .select(`
+            id, date, start_time, current_participants, organization_id,
+            scenario_masters:scenario_master_id!inner (id, title, key_visual_url, player_count_min, player_count_max, official_duration, author),
+            stores:store_id (id, name, short_name, color, region)
+          `)
+          .gte('date', today)
+          .eq('category', 'open')
+          .eq('is_cancelled', false)
+          .eq('is_reservation_enabled', true)
+          .order('date', { ascending: true })
+          .limit(200)
+      ])
+
+      const { data: orgData, error: orgError } = orgResult
+      const { data: storeData, error: storeError } = storeResult
+      const { data: approvedMasters, error: masterError } = masterResult
+      const { data: eventData, error: eventError } = eventResult
+
+      if (orgError) logger.error('組織取得エラー:', orgError)
+      if (storeError) logger.error('店舗取得エラー:', storeError)
+      if (masterError) logger.error('マスタ取得エラー:', masterError)
 
       const orgMap: Record<string, { slug: string, name: string }> = {}
       if (orgData) {
@@ -114,65 +152,20 @@ export function PlatformTop() {
           display_name: o.name,
           logo_url: o.logo_url || undefined
         })))
-        logger.log('🏢 組織データ:', orgData.length, '件')
       }
 
-      // 店舗一覧を取得（全組織、臨時会場とオフィスを除く）
-      const { data: storeData, error: storeError } = await supabase
-        .from('stores')
-        .select('id, name, short_name, region, address, organization_id')
-        .eq('status', 'active')
-        .or('is_temporary.is.null,is_temporary.eq.false')
-        .neq('ownership_type', 'office')
-        .order('region', { ascending: true })
-        .order('name', { ascending: true })
-      
-      if (storeError) {
-        logger.error('店舗取得エラー:', storeError)
-      }
-      
       if (storeData) {
-        // 組織情報を紐づけ
         const storesWithOrg = storeData
-          .filter(s => s.organization_id && orgMap[s.organization_id]) // アクティブな組織の店舗のみ
+          .filter(s => s.organization_id && orgMap[s.organization_id])
           .map(s => ({
             ...s,
             organization_slug: orgMap[s.organization_id!]?.slug,
             organization_name: orgMap[s.organization_id!]?.name
           }))
         setStores(storesWithOrg)
-        logger.log('🏪 店舗データ:', storesWithOrg.length, '件')
       }
 
-      // 🔐 承認済みマスタのIDセットを取得
-      // MMQトップには承認済みマスタに紐づくシナリオのみ表示
-      const { data: approvedMasters, error: masterError } = await supabase
-        .from('scenario_masters')
-        .select('id')
-        .eq('master_status', 'approved')
-      
-      if (masterError) {
-        logger.error('マスタ取得エラー:', masterError)
-      }
-      
       const approvedMasterIds = new Set(approvedMasters?.map(m => m.id) || [])
-      logger.log('✅ 承認済みマスタ:', approvedMasterIds.size, '件')
-
-      // 今日以降のイベントを取得（店舗の地域情報も含む）
-      // 貸切公演は除外、オープン公演のみ
-      const today = formatDateJST(new Date())
-      const { data: eventData, error: eventError } = await supabase
-        .from('schedule_events')
-        .select(`
-          id, date, time_slot, current_participants, start_time, category, is_reservation_enabled, is_cancelled, organization_id,
-          scenario_masters:scenario_master_id!inner (id, title, key_visual_url, player_count_min, player_count_max, official_duration, author, genre),
-          stores:store_id (id, name, short_name, color, region)
-        `)
-        .gte('date', today)
-        .eq('category', 'open')  // オープン公演のみ
-        .eq('is_cancelled', false)  // キャンセルされていない
-        .order('date', { ascending: true })
-        .limit(500)
 
       logger.log('📆 イベントデータ:', eventData?.length, '件', eventError ? `エラー: ${JSON.stringify(eventError)}` : '')
       if (eventData && eventData.length > 0) {
