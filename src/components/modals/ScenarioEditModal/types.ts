@@ -108,5 +108,19 @@ export interface ScenarioFormData {
   // アンケート設定
   survey_url?: string | null
   survey_enabled?: boolean
+  // キャラクター情報
+  characters?: ScenarioCharacter[]
+}
+
+// キャラクター情報の型
+export interface ScenarioCharacter {
+  id: string  // UUID（フロントエンド生成）
+  name: string  // キャラクター名（必須）
+  gender: 'male' | 'female' | 'other' | 'unknown'  // 性別
+  age?: string | null  // 年齢（空白の場合は非表示）
+  occupation?: string | null  // 職業（空白の場合は非表示）
+  description?: string | null  // 説明文（空白の場合は非表示）
+  image_url?: string | null  // キャラクター画像URL
+  sort_order: number  // 表示順
 }
 

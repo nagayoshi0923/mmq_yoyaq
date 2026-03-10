@@ -2,6 +2,18 @@
  * ScenarioDetailPage - 型定義
  */
 
+// キャラクター情報
+export interface ScenarioCharacter {
+  id: string
+  name: string
+  gender: 'male' | 'female' | 'other' | 'unknown'
+  age?: string | null
+  occupation?: string | null
+  description?: string | null
+  image_url?: string | null
+  sort_order: number
+}
+
 export interface ScenarioDetail {
   scenario_id: string
   scenario_title: string
@@ -33,6 +45,7 @@ export interface ScenarioDetail {
   available_stores?: string[]  // 公演可能店舗IDリスト
   extra_preparation_time?: number  // 追加準備時間（分）
   private_booking_time_slots?: string[]  // 貸切受付可能時間枠
+  characters?: ScenarioCharacter[]  // キャラクター情報
 }
 
 export interface EventSchedule {

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp, ExternalLink, ClipboardList } from 'lucide-react'
+import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp, ExternalLink, ClipboardList, UserCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { ScenarioMasterEditDialog } from './ScenarioMasterEditDialog'
 import { MasterSelectDialog } from './MasterSelectDialog'
@@ -18,6 +18,7 @@ import { GmSettingsSectionV2 } from './ScenarioEditDialogV2/sections/GmSettingsS
 import { CostsPropsSectionV2 } from './ScenarioEditDialogV2/sections/CostsPropsSectionV2'
 import { PerformancesSectionV2 } from './ScenarioEditDialogV2/sections/PerformancesSectionV2'
 import { SurveySectionV2 } from './ScenarioEditDialogV2/sections/SurveySectionV2'
+import { CharactersSectionV2 } from './ScenarioEditDialogV2/sections/CharactersSectionV2'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
@@ -44,6 +45,7 @@ interface ScenarioEditDialogV2Props {
 const TABS = [
   { id: 'basic', label: '基本情報', icon: FileText },
   { id: 'game', label: 'ゲーム設定', icon: Gamepad2 },
+  { id: 'characters', label: 'キャラクター', icon: UserCircle },
   { id: 'pricing', label: '料金', icon: Coins },
   { id: 'gm', label: 'GM', icon: Users },
   { id: 'costs', label: '売上', icon: TrendingUp },
@@ -56,7 +58,7 @@ type TabId = typeof TABS[number]['id']
 // localStorageからタブを取得する関数
 const getSavedTab = (): TabId => {
   const saved = localStorage.getItem('scenarioEditDialogTab')
-  if (saved && ['basic', 'game', 'pricing', 'gm', 'costs', 'performances', 'survey'].includes(saved)) {
+  if (saved && ['basic', 'game', 'characters', 'pricing', 'gm', 'costs', 'performances', 'survey'].includes(saved)) {
     return saved as TabId
   }
   return 'basic'
@@ -648,7 +650,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               if (loadOrgId) {
                 const { data: osData } = await supabase
                   .from('organization_scenarios')
-                  .select('override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores, survey_url, survey_enabled')
+                  .select('override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores, survey_url, survey_enabled, characters')
                   .eq('scenario_master_id', masterId)
                   .eq('organization_id', loadOrgId)
                   .maybeSingle()
@@ -673,6 +675,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     // アンケート設定
                     survey_url: osData.survey_url || null,
                     survey_enabled: osData.survey_enabled || false,
+                    // キャラクター情報
+                    characters: osData.characters || [],
                   }))
                 } else {
                   // organization_scenarios がなければ scenario_masters.caution を取得
@@ -985,6 +989,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               // アンケート設定
               survey_url: formData.survey_url || null,
               survey_enabled: formData.survey_enabled || false,
+              // キャラクター情報
+              characters: formData.characters || [],
             }
 
             if (!existingOrgScenario) {
@@ -1104,6 +1110,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={handleDelete} />
       case 'game':
         return <GameInfoSectionV2 formData={formData} setFormData={setFormData} />
+      case 'characters':
+        return <CharactersSectionV2 formData={formData} setFormData={setFormData} />
       case 'pricing':
         return <PricingSectionV2 formData={formData} setFormData={setFormData} />
       case 'gm':

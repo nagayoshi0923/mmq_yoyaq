@@ -1,10 +1,11 @@
 import { memo, useState, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Clock, Users, ChevronDown, BookOpen, AlertTriangle, UserCircle, Building2 } from 'lucide-react'
-import type { ScenarioDetail } from '../utils/types'
+import { Clock, Users, ChevronDown, BookOpen, AlertTriangle, UserCircle, Building2, User } from 'lucide-react'
+import type { ScenarioDetail, ScenarioCharacter } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface Store {
   id: string
@@ -24,6 +25,60 @@ function formatGenderRatio(male?: number | null, female?: number | null, other?:
   if (female != null) parts.push(`女性${female}人`)
   if (other != null) parts.push(`その他${other}人`)
   return parts.length > 0 ? parts.join(' / ') : null
+}
+
+// 性別の表示ラベル
+const genderLabel: Record<ScenarioCharacter['gender'], string> = {
+  male: '男性',
+  female: '女性',
+  other: 'その他',
+  unknown: '',
+}
+
+// キャラクターカード
+function CharacterCard({ character }: { character: ScenarioCharacter }) {
+  return (
+    <div className="bg-gray-50 rounded-lg p-3 text-center">
+      {/* キャラクター画像 */}
+      {character.image_url ? (
+        <div className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden border-2 border-gray-200">
+          <OptimizedImage
+            src={character.image_url}
+            alt={character.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      ) : (
+        <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-gray-200 flex items-center justify-center">
+          <User className="w-8 h-8 text-gray-400" />
+        </div>
+      )}
+      
+      {/* 名前 */}
+      <p className="font-semibold text-gray-900 text-sm">{character.name}</p>
+      
+      {/* 性別・年齢・職業（空白でない場合のみ表示） */}
+      <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+        {(character.gender !== 'unknown' || character.age) && (
+          <p>
+            {genderLabel[character.gender]}
+            {character.gender !== 'unknown' && character.age && ' / '}
+            {character.age}
+          </p>
+        )}
+        {character.occupation && (
+          <p>{character.occupation}</p>
+        )}
+      </div>
+      
+      {/* 説明（空白でない場合のみ表示） */}
+      {character.description && (
+        <p className="text-xs text-gray-600 mt-2 text-left leading-relaxed">
+          {character.description}
+        </p>
+      )}
+    </div>
+  )
 }
 
 export const ScenarioAbout = memo(function ScenarioAbout({ scenario, stores = [] }: ScenarioAboutProps) {
@@ -76,6 +131,28 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario, stores = []
                 <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* キャラクターセクション */}
+      {scenario.characters && scenario.characters.length > 0 && (
+        <div className="bg-white border border-gray-200">
+          <div 
+            className="px-4 py-3 border-b border-gray-200 flex items-center gap-2"
+            style={{ backgroundColor: THEME.primary }}
+          >
+            <Users className="w-4 h-4 text-white" />
+            <h3 className="font-semibold text-white text-sm">キャラクター</h3>
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {scenario.characters
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map((character) => (
+                  <CharacterCard key={character.id} character={character} />
+                ))}
+            </div>
           </div>
         </div>
       )}

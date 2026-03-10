@@ -125,37 +125,40 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
       }
     })
   
-  // Step 4: 注意事項と関連シナリオを並列取得（シナリオデータが必要なため）
-  const [cautionResult, relatedScenariosResult] = await Promise.all([
-    // 注意事項を取得
+  // Step 4: 注意事項・キャラクター・関連シナリオを並列取得（シナリオデータが必要なため）
+  const [orgScenarioResult, masterCautionResult, relatedScenariosResult] = await Promise.all([
+    // organization_scenarios からカスタム注意事項とキャラクターを取得
     (async () => {
-      if (!scenarioData.scenario_master_id) return undefined
+      if (!scenarioData.scenario_master_id || !orgId) return null
       
       try {
-        // まず organization_scenarios のカスタム注意事項を取得
-        if (orgId) {
-          const { data: orgScenarioData } = await supabase
-            .from('organization_scenarios')
-            .select('custom_caution')
-            .eq('scenario_master_id', scenarioData.scenario_master_id)
-            .eq('organization_id', orgId)
-            .maybeSingle()
-          if (orgScenarioData?.custom_caution) {
-            return orgScenarioData.custom_caution
-          }
-        }
-        
-        // カスタム注意事項がない場合、scenario_masters からデフォルトを取得
+        const { data: orgScenarioData } = await supabase
+          .from('organization_scenarios')
+          .select('custom_caution, characters')
+          .eq('scenario_master_id', scenarioData.scenario_master_id)
+          .eq('organization_id', orgId)
+          .maybeSingle()
+        return orgScenarioData
+      } catch (e) {
+        logger.error('organization_scenarios取得エラー:', e)
+        return null
+      }
+    })(),
+    
+    // scenario_masters からデフォルト注意事項を取得
+    (async () => {
+      if (!scenarioData.scenario_master_id) return null
+      
+      try {
         const { data: masterData } = await supabase
           .from('scenario_masters')
           .select('caution')
           .eq('id', scenarioData.scenario_master_id)
           .maybeSingle()
-        
         return masterData?.caution
       } catch (e) {
-        logger.error('注意事項の取得エラー:', e)
-        return undefined
+        logger.error('マスター注意事項の取得エラー:', e)
+        return null
       }
     })(),
     
@@ -183,6 +186,12 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     })()
   ])
   
+  // 注意事項: organization_scenariosのカスタム注意事項を優先、なければマスターから
+  const cautionResult = orgScenarioResult?.custom_caution || masterCautionResult
+  
+  // キャラクター: organization_scenariosから取得
+  const charactersResult = orgScenarioResult?.characters || []
+  
   const scenario: ScenarioDetail = {
     scenario_id: scenarioData.id,
     scenario_title: scenarioData.title,
@@ -203,7 +212,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     participation_costs: scenarioData.participation_costs || undefined,
     available_stores: scenarioData.available_stores || [],
     extra_preparation_time: scenarioData.extra_preparation_time || 0,
-    private_booking_time_slots: scenarioData.private_booking_time_slots || undefined
+    private_booking_time_slots: scenarioData.private_booking_time_slots || undefined,
+    characters: charactersResult
   }
   
   return {
