@@ -43,6 +43,9 @@ export function CouponManagement() {
     try {
       const data = await getCampaigns()
       setCampaigns(data)
+    } catch (error) {
+      console.error('キャンペーン取得エラー:', error)
+      toast.error('キャンペーンの取得に失敗しました')
     } finally {
       setIsLoading(false)
     }
