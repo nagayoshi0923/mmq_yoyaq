@@ -19,8 +19,11 @@ import {
   Users,
   CheckCircle,
   Clock,
-  RefreshCw
+  RefreshCw,
+  ClipboardList,
+  ExternalLink
 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
 import { getInvitationsByOrganization, resendInvitation, deleteInvitation } from '@/lib/api/invitationsApi'
@@ -38,6 +41,8 @@ export function OrganizationInfoSettings() {
     contact_name: '',
     contact_email: '',
     notes: '',
+    post_performance_survey_url: '',
+    post_performance_survey_enabled: false,
   })
 
   // 組織情報をフォームに反映
@@ -48,6 +53,8 @@ export function OrganizationInfoSettings() {
         contact_name: organization.contact_name || '',
         contact_email: organization.contact_email || '',
         notes: organization.notes || '',
+        post_performance_survey_url: organization.post_performance_survey_url || '',
+        post_performance_survey_enabled: organization.post_performance_survey_enabled || false,
       })
     }
   }, [organization])
@@ -77,6 +84,8 @@ export function OrganizationInfoSettings() {
         contact_name: formData.contact_name.trim() || null,
         contact_email: formData.contact_email.trim() || null,
         notes: formData.notes.trim() || null,
+        post_performance_survey_url: formData.post_performance_survey_url.trim() || null,
+        post_performance_survey_enabled: formData.post_performance_survey_enabled,
       })
 
       if (result) {
@@ -233,6 +242,68 @@ export function OrganizationInfoSettings() {
             <span className="text-sm text-muted-foreground">
               プランの変更は管理者にお問い合わせください
             </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 公演後アンケート設定 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <ClipboardList className="w-5 h-5" />
+            公演後アンケート
+          </CardTitle>
+          <CardDescription>
+            すべての公演終了後にお客様へ案内するアンケートを設定します
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="post_survey_enabled"
+              checked={formData.post_performance_survey_enabled}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, post_performance_survey_enabled: checked }))}
+            />
+            <Label htmlFor="post_survey_enabled" className="font-medium cursor-pointer">
+              公演後アンケートを有効にする
+            </Label>
+          </div>
+          
+          {formData.post_performance_survey_enabled && (
+            <div className="space-y-2">
+              <Label htmlFor="post_survey_url">アンケートURL</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="post_survey_url"
+                  value={formData.post_performance_survey_url}
+                  onChange={(e) => setFormData(prev => ({ ...prev, post_performance_survey_url: e.target.value }))}
+                  placeholder="https://forms.google.com/..."
+                  className="flex-1"
+                />
+                {formData.post_performance_survey_url && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => window.open(formData.post_performance_survey_url, '_blank')}
+                    title="アンケートを開く"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Google Forms等のURLを設定すると、公演後にお客様へ案内されます
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <Button onClick={handleSave} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              <Save className="w-4 h-4 mr-2" />
+              保存
+            </Button>
           </div>
         </CardContent>
       </Card>

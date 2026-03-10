@@ -454,12 +454,12 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
         </CardContent>
       </Card>
 
-      {/* アンケート設定 */}
+      {/* 公演前アンケート設定（シナリオ別） */}
       <Card>
         <CardContent className="p-2 space-y-2">
           <div className="flex items-center gap-2">
             <ClipboardList className="h-4 w-4 text-muted-foreground" />
-            <Label className={labelStyle}>公演後アンケート</Label>
+            <Label className={labelStyle}>公演前アンケート</Label>
           </div>
           
           <div className="flex items-center gap-2">
@@ -497,7 +497,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                   </Button>
                 )}
               </div>
-              <p className={hintStyle}>Google Forms等のURLを設定すると、公演後にお客様へ案内されます</p>
+              <p className={hintStyle}>Google Forms等のURLを設定すると、公演前にお客様へ案内されます</p>
             </div>
           )}
         </CardContent>
