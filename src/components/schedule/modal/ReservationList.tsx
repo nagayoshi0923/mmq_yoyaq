@@ -921,10 +921,11 @@ ${content.organizationName || '店舗'}
                   onClick={async () => {
                     if (!event?.id) return
                     try {
+                      const organizationId = await getCurrentOrganizationId()
+                      
                       // デモ顧客を取得
                       let customerId: string | null = null
                       try {
-                        const organizationId = await getCurrentOrganizationId()
                         let query = supabase
                           .from('customers')
                           .select('id')
@@ -940,23 +941,54 @@ ${content.organizationName || '店舗'}
                         // デモ顧客が見つからなくても続行
                       }
                       
-                      // reservationApi.createが期待するパラメータのみ渡す
-                      await reservationApi.create({
-                        schedule_event_id: event.id,
-                        participant_count: 1,
-                        customer_id: customerId,
-                        customer_name: 'デモ参加者',
-                        customer_notes: 'デモ参加者'
-                      })
+                      // 予約番号を生成
+                      const now = new Date()
+                      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+                      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+                      const reservationNumber = `${dateStr}-${randomStr}`
+                      
+                      // シナリオ情報を取得
+                      const scenarioObj = scenarios.find(s => s.title === currentEventData.scenario)
+                      const storeObj = stores.find(s => s.id === currentEventData.venue)
+                      const participationFee = scenarioObj?.participation_fee || 0
+                      
+                      // 直接INSERTでデモ参加者を追加（キャンセル済み公演でも追加可能）
+                      const { error: insertError } = await supabase
+                        .from('reservations')
+                        .insert({
+                          schedule_event_id: event.id,
+                          organization_id: organizationId,
+                          scenario_id: scenarioObj?.id || null,
+                          store_id: storeObj?.id || null,
+                          customer_id: customerId,
+                          customer_notes: 'デモ参加者',
+                          participant_count: 1,
+                          participant_names: ['デモ参加者'],
+                          reservation_number: reservationNumber,
+                          requested_datetime: `${currentEventData.date}T${currentEventData.start_time}+09:00`,
+                          title: currentEventData.scenario || '',
+                          base_price: participationFee,
+                          total_price: participationFee,
+                          final_price: participationFee,
+                          unit_price: participationFee,
+                          payment_method: 'onsite',
+                          payment_status: 'paid',
+                          status: 'confirmed',
+                          reservation_source: 'walk_in'
+                        })
+                      
+                      if (insertError) {
+                        throw insertError
+                      }
                       
                       // 参加者数を再計算
-                      const { data: updatedReservations } = await supabase
+                      const { data: updatedReservationsData } = await supabase
                         .from('reservations')
                         .select('participant_count')
                         .eq('schedule_event_id', event.id)
                         .in('status', ['pending', 'confirmed', 'gm_confirmed'])
                       
-                      const totalParticipants = updatedReservations?.reduce((sum, r) => sum + (r.participant_count || 0), 0) || 0
+                      const totalParticipants = updatedReservationsData?.reduce((sum, r) => sum + (r.participant_count || 0), 0) || 0
                       
                       await supabase
                         .from('schedule_events')
