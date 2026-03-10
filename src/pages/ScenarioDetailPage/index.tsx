@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { BookingConfirmation } from '../BookingConfirmation/index'
 import { PrivateBookingRequest } from '../PrivateBookingRequest/index'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
 // 分離された型定義
 import { TIME_SLOTS } from './utils/types'
@@ -372,13 +373,14 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
             }`}
           >
             <div className="flex items-center gap-3 pb-2 border-t pt-2">
-              {/* キービジュアル（縦80px） */}
+              {/* キービジュアル（縦80px）- 最適化済み */}
               {scenario.key_visual_url && (
                 <div className="flex-shrink-0 h-[80px] aspect-[1/1.4] bg-gray-200 overflow-hidden">
                   <img
-                    src={scenario.key_visual_url}
+                    src={getOptimizedImageUrl(scenario.key_visual_url, { width: 100, format: 'webp', quality: 80 })}
                     alt={scenario.scenario_title}
                     className="w-full h-full object-cover"
+                    loading="lazy"
                   />
                 </div>
               )}

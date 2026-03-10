@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Users, Clock } from 'lucide-react'
+import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
 interface RelatedScenario {
   id: string
@@ -39,11 +40,11 @@ export const RelatedScenarios = memo(function RelatedScenarios({
             className="cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => onScenarioClick(scenario.slug || scenario.id)}
           >
-            {/* キービジュアル */}
+            {/* キービジュアル - 最適化済み */}
             <div className="aspect-[1/1.4] bg-gray-200 overflow-hidden mb-1">
               {scenario.key_visual_url ? (
                 <img
-                  src={scenario.key_visual_url}
+                  src={getOptimizedImageUrl(scenario.key_visual_url, { width: 150, format: 'webp', quality: 80 })}
                   alt={scenario.title}
                   className="w-full h-full object-cover"
                   loading="lazy"

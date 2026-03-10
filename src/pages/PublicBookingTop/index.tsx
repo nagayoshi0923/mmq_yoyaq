@@ -21,6 +21,7 @@ import { CalendarView } from './components/CalendarView'
 import { ListView } from './components/ListView'
 import { Footer } from '@/components/layout/Footer'
 import { HowToUseGuide, HowToUseButton, useHowToUseGuide } from './components/HowToUseGuide'
+import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
 interface PublicBookingTopProps {
   onScenarioSelect?: (scenarioId: string) => void
@@ -311,12 +312,12 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
       )}
 
-      {/* 組織ヘッダー画像 */}
+      {/* 組織ヘッダー画像 - 最適化済み */}
       {organizationHeaderImageUrl && (
         <section className="relative">
           <div className="relative h-40 md:h-56 overflow-hidden">
             <img 
-              src={organizationHeaderImageUrl} 
+              src={getOptimizedImageUrl(organizationHeaderImageUrl, { width: 1200, format: 'webp', quality: 80 }) || organizationHeaderImageUrl} 
               alt={organizationName || ''}
               className="w-full h-full object-cover"
             />

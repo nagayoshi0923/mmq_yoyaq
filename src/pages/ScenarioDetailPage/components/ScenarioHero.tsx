@@ -8,6 +8,7 @@ import { useFavorites } from '@/hooks/useFavorites'
 import { useAuth } from '@/contexts/AuthContext'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
+import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
 // 難易度ラベル
 const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
@@ -51,12 +52,12 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           {/* キービジュアル */}
           <div className="md:col-span-4">
             <div className="relative aspect-[3/4] bg-gray-900 overflow-hidden">
-              {/* 背景：ぼかした画像で余白を埋める */}
+              {/* 背景：ぼかした画像で余白を埋める - 最適化済み */}
               {scenario.key_visual_url && (
                 <div 
                   className="absolute inset-0 scale-110"
                   style={{
-                    backgroundImage: `url(${scenario.key_visual_url})`,
+                    backgroundImage: `url(${getOptimizedImageUrl(scenario.key_visual_url, { width: 100, format: 'webp', quality: 50 })})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     filter: 'blur(20px) brightness(0.5)',

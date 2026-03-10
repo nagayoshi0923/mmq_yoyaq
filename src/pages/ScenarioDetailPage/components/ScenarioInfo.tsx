@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Clock, Users, Star, ExternalLink } from 'lucide-react'
 import type { ScenarioDetail } from '../utils/types'
 import { formatDuration, formatPlayerCount, formatParticipationFee, getDifficultyStars } from '../utils/formatters'
+import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
 interface ScenarioInfoProps {
   scenario: ScenarioDetail
@@ -29,13 +30,14 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario, organizati
     <Card>
       <CardContent className="pt-6">
         <div className="space-y-6">
-          {/* キービジュアル */}
+          {/* キービジュアル - 最適化済み */}
           {scenario.key_visual_url && (
             <div className="aspect-video bg-gray-100 overflow-hidden">
               <img 
-                src={scenario.key_visual_url} 
+                src={getOptimizedImageUrl(scenario.key_visual_url, { width: 800, format: 'webp', quality: 80 })} 
                 alt={scenario.scenario_title}
                 className="w-full h-full object-cover"
+                loading="lazy"
               />
             </div>
           )}
