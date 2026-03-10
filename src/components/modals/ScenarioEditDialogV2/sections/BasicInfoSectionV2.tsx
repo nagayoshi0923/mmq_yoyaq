@@ -108,7 +108,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
     const file = event.target.files?.[0]
     if (!file) return
 
-    const validation = validateImageFile(file, 5)
+    // サイズ制限を緩和（20MBまで、大きな画像は自動圧縮される）
+    const validation = validateImageFile(file, 20)
     if (!validation.valid) {
       showToast.error(validation.error || 'ファイルバリデーションエラー')
       return

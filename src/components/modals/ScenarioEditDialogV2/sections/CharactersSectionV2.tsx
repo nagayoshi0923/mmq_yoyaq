@@ -34,7 +34,8 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   const handleImageUpload = async (characterId: string, file: File) => {
-    const validation = validateImageFile(file, 2)
+    // ファイルタイプのみチェック（サイズは自動圧縮されるので制限緩和: 20MBまで）
+    const validation = validateImageFile(file, 20)
     if (!validation.valid) {
       showToast.error(validation.error || 'ファイルバリデーションエラー')
       return
@@ -42,7 +43,8 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
 
     setUploadingId(characterId)
     try {
-      const result = await uploadImage(file, 'character-images')
+      // 自動圧縮付きでアップロード（500KB以上は自動でリサイズ・圧縮される）
+      const result = await uploadImage(file, 'character-images', undefined, true)
       if (result) {
         updateCharacter(characterId, { image_url: result.url })
         showToast.success('画像をアップロードしました')
