@@ -520,12 +520,13 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                       }
                       return null
                     })()}
-                    {/* 体験済みマーク */}
-                    {isPlayed(scenario.id) && (
-                      <div className="absolute top-1 right-1 bg-green-500 rounded-full p-1 shadow-md" title="体験済み">
-                        <Check className="w-3 h-3 text-white" />
-                      </div>
-                    )}
+                    {/* 体験済みマーク（常に表示、体験前はグレー） */}
+                    <div 
+                      className={`absolute top-1 right-1 rounded-full p-1 shadow-md ${isPlayed(scenario.id) ? 'bg-green-500' : 'bg-gray-400/70'}`} 
+                      title={isPlayed(scenario.id) ? '体験済み' : '未体験'}
+                    >
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
                   </div>
 
                   {/* コンテンツ */}

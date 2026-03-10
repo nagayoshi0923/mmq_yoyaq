@@ -164,12 +164,13 @@ export const ScenarioCard = memo(function ScenarioCard({
             alt={scenario.scenario_title}
             className="w-full h-full"
           />
-          {/* 体験済みマーク */}
-          {isPlayed && (
-            <div className="absolute top-1 right-1 bg-green-500 rounded-full p-1 shadow-md" title="体験済み">
-              <Check className="w-3 h-3 text-white" />
-            </div>
-          )}
+          {/* 体験済みマーク（常に表示、体験前はグレー） */}
+          <div 
+            className={`absolute top-1 right-1 rounded-full p-1 shadow-md ${isPlayed ? 'bg-green-500' : 'bg-gray-400/70'}`} 
+            title={isPlayed ? '体験済み' : '未体験'}
+          >
+            <Check className="w-3 h-3 text-white" />
+          </div>
           {/* バッジ表示: 成立間近 > 募集延長中 > おすすめ > ロングセラー > 人気 */}
           {(() => {
             const nextEvent = scenario.next_events?.[0]
