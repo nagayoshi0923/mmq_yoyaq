@@ -70,9 +70,10 @@ export function useUserPreference<T>(
 
 /**
  * 店舗フィルター専用のフック（複数選択対応）
+ * v3: 全店舗をデフォルトに変更（2026-03-10）
  */
 export function useStoreFilterPreference(defaultStoreIds: string[] = []) {
-  return useUserPreference<string[]>('booking_store_filter_v2', defaultStoreIds)
+  return useUserPreference<string[]>('booking_store_filter_v3', defaultStoreIds)
 }
 
 /**
