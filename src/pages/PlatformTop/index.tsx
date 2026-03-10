@@ -15,6 +15,7 @@ import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Cale
 import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
+import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { ScenarioCard, type ScenarioCardData } from '@/pages/PublicBookingTop/components/ScenarioCard'
@@ -71,6 +72,7 @@ export function PlatformTop() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { favorites, toggleFavorite } = useFavorites()
+  const { isPlayed } = usePlayedScenarios()
   const [scenariosWithEvents, setScenariosWithEvents] = useState<ScenarioWithEvents[]>([])
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [stores, setStores] = useState<StoreWithOrg[]>([])
@@ -486,6 +488,7 @@ export function PlatformTop() {
                       scenario={scenario}
                       onClick={handleScenarioClick}
                       isFavorite={favorites.has(scenario.scenario_id)}
+                      isPlayed={isPlayed(scenario.scenario_id)}
                       onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
                       organizationName={scenario.organization_name}
                     />
@@ -528,6 +531,7 @@ export function PlatformTop() {
                         scenario={scenario}
                         onClick={handleScenarioClick}
                         isFavorite={favorites.has(scenario.scenario_id)}
+                        isPlayed={isPlayed(scenario.scenario_id)}
                         onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
                         organizationName={scenario.organization_name}
                       />

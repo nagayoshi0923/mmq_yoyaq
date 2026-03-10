@@ -11,8 +11,9 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { scenarioApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { useFavorites } from '@/hooks/useFavorites'
+import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen } from 'lucide-react'
+import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, Check } from 'lucide-react'
 import { logger } from '@/utils/logger'
 
 interface ScenarioData {
@@ -95,6 +96,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   })
   
   const { isFavorite, toggleFavorite } = useFavorites()
+  const { isPlayed } = usePlayedScenarios()
 
   // ジャンル変更時にURLを更新
   useEffect(() => {
@@ -518,6 +520,12 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                       }
                       return null
                     })()}
+                    {/* 体験済みマーク */}
+                    {isPlayed(scenario.id) && (
+                      <div className="absolute top-1 right-1 bg-green-500 rounded-full p-1 shadow-md" title="体験済み">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
                   </div>
 
                   {/* コンテンツ */}
