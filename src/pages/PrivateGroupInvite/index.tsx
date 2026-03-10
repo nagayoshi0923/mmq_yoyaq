@@ -255,17 +255,34 @@ export function PrivateGroupInvite() {
         {/* 新規登録特典案内 */}
         {!user && (
           <Card className="mb-6 border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
-                <span className="text-lg">🎁</span>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
+                  <span className="text-lg">🎁</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-amber-800">
+                    新規会員登録で2,000円分クーポンプレゼント！
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    ログインして参加すると、次回予約で使えるクーポンがもらえます
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-bold text-amber-800">
-                  新規会員登録で2,000円分クーポンプレゼント！
-                </p>
-                <p className="text-xs text-amber-700 mt-0.5">
-                  ログインして参加すると、次回予約で使えるクーポンがもらえます
-                </p>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+                  onClick={() => navigate(`/signup?redirect=${encodeURIComponent(location.pathname)}`)}
+                >
+                  新規登録
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-amber-500 text-amber-700 hover:bg-amber-100"
+                  onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)}
+                >
+                  ログイン
+                </Button>
               </div>
             </CardContent>
           </Card>
