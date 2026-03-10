@@ -97,6 +97,8 @@ export function CampaignDialog({
       }
       await onSubmit(submitData)
       onOpenChange(false)
+    } catch (error) {
+      console.error('キャンペーン保存エラー:', error)
     } finally {
       setIsSubmitting(false)
     }

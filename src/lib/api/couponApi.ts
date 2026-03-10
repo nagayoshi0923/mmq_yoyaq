@@ -416,17 +416,26 @@ export async function updateCampaign(
     return { success: false, error: '組織IDが取得できません' }
   }
 
-  const { error } = await supabase
+  logger.log('キャンペーン更新:', { id, orgId, formData })
+
+  const { data, error, count } = await supabase
     .from('coupon_campaigns')
     .update(formData)
     .eq('id', id)
     .eq('organization_id', orgId)
+    .select()
 
   if (error) {
     logger.error('キャンペーン更新エラー:', error)
     return { success: false, error: error.message }
   }
 
+  if (!data || data.length === 0) {
+    logger.error('キャンペーン更新: 対象レコードなし', { id, orgId })
+    return { success: false, error: 'キャンペーンが見つかりません（権限不足の可能性）' }
+  }
+
+  logger.log('キャンペーン更新成功:', data)
   return { success: true }
 }
 
