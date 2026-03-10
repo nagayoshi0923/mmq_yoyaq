@@ -246,18 +246,27 @@ export const ScenarioCard = memo(function ScenarioCard({
             {scenario.author && (
               <p className="text-xs text-gray-500" {...devDb('scenarios.author')}>{scenario.author}</p>
             )}
-            <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-0.5">
               {/* 体験済みマーク */}
-              <div 
+              <button 
+                type="button"
+                onClick={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
                 className="flex-shrink-0 p-1 cursor-default"
                 title={isPlayed ? '体験済み' : '未体験'}
               >
                 <CheckCheck className={`h-4 w-4 ${isPlayed ? 'text-green-500' : 'text-gray-300'}`} />
-              </div>
+              </button>
               {/* お気に入りボタン */}
               {onToggleFavorite && (
                 <button
-                  onClick={handleFavoriteClick}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onToggleFavorite(scenario.scenario_id, e)
+                  }}
+                  onTouchEnd={(e) => e.stopPropagation()}
                   className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
                 >
                   <Heart className={`h-4 w-4 fill-current text-red-500 ${

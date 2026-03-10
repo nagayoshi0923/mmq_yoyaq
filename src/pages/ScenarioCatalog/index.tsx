@@ -527,17 +527,26 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                     {/* 著者 + 体験済み・お気に入りボタン */}
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-xs text-gray-500">{scenario.author}</p>
-                      <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-0.5">
                         {/* 体験済みマーク */}
-                        <div 
+                        <button 
+                          type="button"
+                          onClick={(e) => e.stopPropagation()}
+                          onTouchEnd={(e) => e.stopPropagation()}
                           className="flex-shrink-0 p-1 cursor-default"
                           title={isPlayed(scenario.id) ? '体験済み' : '未体験'}
                         >
                           <CheckCheck className={`h-4 w-4 ${isPlayed(scenario.id) ? 'text-green-500' : 'text-gray-300'}`} />
-                        </div>
+                        </button>
                         {/* お気に入りボタン */}
                         <button
-                          onClick={(e) => handleToggleFavorite(scenario.id, e)}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            e.preventDefault()
+                            toggleFavorite(scenario.id)
+                          }}
+                          onTouchEnd={(e) => e.stopPropagation()}
                           className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
                         >
                           <Heart className={`h-4 w-4 fill-current text-red-500 ${
