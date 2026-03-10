@@ -1,11 +1,17 @@
-import { memo } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
-import { Clock, Users, ExternalLink, Star, Share2, Heart, UserPlus } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { SingleDatePopover } from '@/components/ui/single-date-popover'
+import { Label } from '@/components/ui/label'
+import { Clock, Users, ExternalLink, Star, Share2, Heart, UserPlus, Check } from 'lucide-react'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
+import { showToast } from '@/utils/toast'
+import { logger } from '@/utils/logger'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
@@ -34,6 +40,63 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
   const { isFavorite, toggleFavorite } = useFavorites()
   const scenarioIsFavorite = isFavorite(scenario.scenario_id)
   
+  // 体験済み登録用ステート
+  const [isPlayed, setIsPlayed] = useState(false)
+  const [isPlayedDialogOpen, setIsPlayedDialogOpen] = useState(false)
+  const [playedDate, setPlayedDate] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // 体験済みかどうかチェック
+  useEffect(() => {
+    const checkPlayed = async () => {
+      if (!user?.email) return
+      
+      try {
+        // 顧客IDを取得
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('email', user.email)
+          .maybeSingle()
+        
+        if (!customer) return
+        
+        // 予約から体験済みか確認
+        const { data: reservation } = await supabase
+          .from('reservations')
+          .select('id')
+          .eq('customer_id', customer.id)
+          .eq('scenario_master_id', scenario.scenario_id)
+          .in('status', ['confirmed', 'gm_confirmed'])
+          .lte('requested_datetime', new Date().toISOString())
+          .limit(1)
+          .maybeSingle()
+        
+        if (reservation) {
+          setIsPlayed(true)
+          return
+        }
+        
+        // 手動登録から体験済みか確認
+        const { data: manual } = await supabase
+          .from('manual_play_history')
+          .select('id')
+          .eq('customer_id', customer.id)
+          .eq('scenario_master_id', scenario.scenario_id)
+          .limit(1)
+          .maybeSingle()
+        
+        if (manual) {
+          setIsPlayed(true)
+        }
+      } catch (error) {
+        logger.error('体験済みチェックエラー:', error)
+      }
+    }
+    
+    checkPlayed()
+  }, [user, scenario.scenario_id])
+  
   const handleFavoriteClick = () => {
     toggleFavorite(scenario.scenario_id)
   }
@@ -43,6 +106,60 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
     params.set('scenarioId', scenario.scenario_id)
     if (organizationSlug) params.set('org', organizationSlug)
     navigate(`/group/create?${params.toString()}`)
+  }
+  
+  const handlePlayedClick = () => {
+    if (!user) {
+      showToast.error('ログインが必要です')
+      return
+    }
+    if (isPlayed) {
+      showToast.info('既に体験済みとして登録されています')
+      return
+    }
+    setPlayedDate(new Date().toISOString().split('T')[0])
+    setIsPlayedDialogOpen(true)
+  }
+  
+  const handleSubmitPlayed = async () => {
+    if (!user?.email || !playedDate) return
+    
+    setIsSubmitting(true)
+    try {
+      // 顧客IDを取得
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('email', user.email)
+        .maybeSingle()
+      
+      if (!customer) {
+        showToast.error('顧客情報が見つかりません')
+        return
+      }
+      
+      // manual_play_historyに追加
+      const { error } = await supabase
+        .from('manual_play_history')
+        .insert({
+          customer_id: customer.id,
+          scenario_title: scenario.scenario_title,
+          scenario_master_id: scenario.scenario_id,
+          played_at: playedDate,
+          venue: null,
+        })
+      
+      if (error) throw error
+      
+      setIsPlayed(true)
+      setIsPlayedDialogOpen(false)
+      showToast.success('体験済みに登録しました')
+    } catch (error) {
+      logger.error('体験済み登録エラー:', error)
+      showToast.error('登録に失敗しました')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -90,17 +207,30 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
             <div>
               <div className="flex items-center justify-between mb-1">
                 <p className="text-xs opacity-80">{scenario.author}</p>
-                {/* お気に入りボタン */}
-                <button
-                  onClick={handleFavoriteClick}
-                  className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-white/10 rounded"
-                  title={scenarioIsFavorite ? 'お気に入りから削除' : 'お気に入りに追加'}
-                >
-                  <Heart className={`w-4 h-4 fill-current text-red-400 ${scenarioIsFavorite ? 'opacity-100' : 'opacity-40 hover:opacity-60'}`} />
-                  <span className="text-xs text-white/70">
-                    {scenarioIsFavorite ? '登録済み' : '遊びたい'}
-                  </span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* 体験済みボタン */}
+                  <button
+                    onClick={handlePlayedClick}
+                    className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-white/10 rounded"
+                    title={isPlayed ? '体験済み' : '体験済みに登録'}
+                  >
+                    <Check className={`w-4 h-4 ${isPlayed ? 'text-green-400' : 'text-white/40 hover:text-white/60'}`} />
+                    <span className="text-xs text-white/70">
+                      {isPlayed ? '体験済み' : '体験した'}
+                    </span>
+                  </button>
+                  {/* お気に入りボタン */}
+                  <button
+                    onClick={handleFavoriteClick}
+                    className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-white/10 rounded"
+                    title={scenarioIsFavorite ? 'お気に入りから削除' : 'お気に入りに追加'}
+                  >
+                    <Heart className={`w-4 h-4 fill-current text-red-400 ${scenarioIsFavorite ? 'opacity-100' : 'opacity-40 hover:opacity-60'}`} />
+                    <span className="text-xs text-white/70">
+                      {scenarioIsFavorite ? '登録済み' : '遊びたい'}
+                    </span>
+                  </button>
+                </div>
               </div>
               <h1 className="text-lg md:text-xl font-bold mb-2">{scenario.scenario_title}</h1>
               
@@ -172,6 +302,35 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           </div>
         </div>
       </div>
+      
+      {/* 体験済み登録ダイアログ */}
+      <Dialog open={isPlayedDialogOpen} onOpenChange={setIsPlayedDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>体験済みに登録</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="text-sm text-muted-foreground">
+              「{scenario.scenario_title}」を体験済みに登録します。
+            </div>
+            <div className="space-y-2">
+              <Label>体験日</Label>
+              <SingleDatePopover
+                date={playedDate}
+                onDateChange={(date) => setPlayedDate(date || '')}
+                placeholder="日付を選択"
+              />
+            </div>
+            <Button 
+              onClick={handleSubmitPlayed} 
+              disabled={isSubmitting || !playedDate}
+              className="w-full"
+            >
+              {isSubmitting ? '登録中...' : '登録する'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 })
