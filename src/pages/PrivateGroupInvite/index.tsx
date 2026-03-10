@@ -277,6 +277,9 @@ export function PrivateGroupInvite() {
         })
         memberId = member.id
         
+        // 新規参加後、existingMemberIdをセットして再度フォームを表示しないようにする
+        setExistingMemberId(memberId)
+        
         // ゲスト参加の場合、PINを生成して保存・メール送信
         if (!user && guestEmail) {
           newPin = generatePin()
