@@ -931,7 +931,12 @@ async function sendBusinessSummaryNotification(
   console.log(`📅 クエリ対象日: ${targetDateForQuery} (checkType: ${checkType})`)
 
   // 既に延長済みのイベントを取得（今回の処理対象外だが通知には含める）
+  // 公演開始時刻を過ぎたイベントは除外
   const processedEventIds = result.details.map(e => e.event_id)
+  const now = new Date()
+  const nowTimeStr = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  console.log(`🕐 現在時刻(JST): ${nowTimeStr}`)
+  
   const { data: alreadyExtendedEvents } = await supabase
     .from('schedule_events')
     .select(`
@@ -950,6 +955,7 @@ async function sendBusinessSummaryNotification(
     .eq('is_recruitment_extended', true)
     .eq('is_cancelled', false)
     .eq('category', 'open')
+    .gt('start_time', nowTimeStr)
 
   // 今回処理されたイベントを除外した、既に延長済みのイベント
   const alreadyExtendedDetails: EventDetail[] = (alreadyExtendedEvents || [])
