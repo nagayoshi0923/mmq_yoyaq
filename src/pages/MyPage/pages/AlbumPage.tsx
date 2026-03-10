@@ -321,14 +321,14 @@ export function AlbumPage() {
       const selectedStore = storeOptions.find(s => s.id === newStoreId)
       const storeName = selectedStore?.name || null
 
-      // NOTE: scenario_idはscenariosテーブル参照だが、scenario_mastersからの選択なのでnullにする
-      // タイトルは保持されるので、表示には問題なし
+      // scenario_master_id を設定して画像を取得できるようにする
       const { error } = await supabase
         .from('manual_play_history')
         .insert({
           customer_id: customerId,
           scenario_title: scenarioTitle,
           scenario_id: null,
+          scenario_master_id: newScenarioId,
           played_at: newPlayedAt,
           venue: storeName,
         })
