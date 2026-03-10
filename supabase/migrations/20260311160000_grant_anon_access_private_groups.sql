@@ -12,7 +12,15 @@ GRANT SELECT ON public.private_group_candidate_dates TO anon;
 -- private_group_date_responses テーブル
 GRANT SELECT, INSERT, UPDATE ON public.private_group_date_responses TO anon;
 
--- group_chat_messages テーブル（存在する場合）
+-- private_group_messages テーブル（チャット）
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'private_group_messages' AND table_schema = 'public') THEN
+    EXECUTE 'GRANT SELECT, INSERT ON public.private_group_messages TO anon';
+  END IF;
+END $$;
+
+-- group_chat_messages テーブル（旧名、存在する場合）
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'group_chat_messages' AND table_schema = 'public') THEN
