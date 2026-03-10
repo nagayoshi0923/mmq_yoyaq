@@ -14,17 +14,38 @@ interface GroupChatProps {
   members: PrivateGroupMember[]
 }
 
-export function GroupChat({ groupId, currentMemberId, members }: GroupChatProps) {
+export function GroupChat({ groupId, currentMemberId, members: initialMembers }: GroupChatProps) {
   const { user } = useAuth()
   const [messages, setMessages] = useState<PrivateGroupMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [members, setMembers] = useState<PrivateGroupMember[]>(initialMembers)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // メンバー情報を取得
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('private_group_members')
+          .select('id, group_id, user_id, guest_name, guest_email, is_organizer, status, users(email)')
+          .eq('group_id', groupId)
+          .eq('status', 'joined')
+
+        if (error) throw error
+        setMembers(data as PrivateGroupMember[] || initialMembers)
+      } catch (err) {
+        logger.error('Failed to fetch members for chat', err)
+      }
+    }
+
+    fetchMembers()
+  }, [groupId, initialMembers])
 
   const getMemberName = useCallback((memberId: string) => {
     const member = members.find(m => m.id === memberId)
-    if (!member) return '不明'
+    if (!member) return 'メンバー'
     return member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'
   }, [members])
 
@@ -156,7 +177,8 @@ export function GroupChat({ groupId, currentMemberId, members }: GroupChatProps)
   }
 
   const messageGroups = groupMessagesByDate(messages)
-  const currentUserMemberId = members.find(m => m.user_id === user?.id)?.id
+  // ゲストユーザーの場合はcurrentMemberIdを使用、ログインユーザーの場合はuser_idで検索
+  const effectiveMemberId = currentMemberId || members.find(m => m.user_id === user?.id)?.id
 
   return (
     <Card className="flex flex-col h-[500px]">
@@ -176,7 +198,7 @@ export function GroupChat({ groupId, currentMemberId, members }: GroupChatProps)
                   </span>
                 </div>
                 {group.messages.map((msg) => {
-                  const isOwnMessage = msg.member_id === currentUserMemberId
+                  const isOwnMessage = msg.member_id === effectiveMemberId
                   return (
                     <div
                       key={msg.id}
