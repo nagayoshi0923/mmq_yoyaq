@@ -4,6 +4,30 @@ import './index.css'
 import { initSentry } from '@/lib/sentry'
 import { initVersionCheck, clearChunkReloadFlag } from '@/utils/lazyWithRetry'
 
+// パッシブイベントリスナーの警告を抑制
+// UIライブラリ（Radix UI等）がtouchstartにpassive: falseを使用するため
+if (typeof window !== 'undefined') {
+  const originalAddEventListener = EventTarget.prototype.addEventListener
+  EventTarget.prototype.addEventListener = function(
+    type: string,
+    listener: EventListenerOrEventListenerObject | null,
+    options?: boolean | AddEventListenerOptions
+  ) {
+    if (type === 'touchstart' || type === 'touchmove' || type === 'wheel') {
+      if (typeof options === 'boolean') {
+        options = { capture: options, passive: true }
+      } else if (typeof options === 'object' && options !== null) {
+        if (options.passive === undefined) {
+          options = { ...options, passive: true }
+        }
+      } else {
+        options = { passive: true }
+      }
+    }
+    return originalAddEventListener.call(this, type, listener, options)
+  }
+}
+
 // Sentry エラー監視を初期化（VITE_SENTRY_DSN が設定されている場合のみ有効）
 initSentry()
 
