@@ -24,6 +24,7 @@ import {
   MessageCircle,
   UserPlus,
   Share2,
+  UserMinus,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup, usePrivateGroupData } from '@/hooks/usePrivateGroup'
@@ -47,7 +48,7 @@ export function PrivateGroupManage() {
   
   const { user } = useAuth()
   const { group, loading: groupLoading, error: groupError, refetch } = usePrivateGroupData(id || null)
-  const { updateGroupStatus, getDateResponsesSummary, loading: actionLoading } = usePrivateGroup()
+  const { updateGroupStatus, getDateResponsesSummary, removeMember, loading: actionLoading } = usePrivateGroup()
 
   const [copied, setCopied] = useState(false)
   const [progressCopied, setProgressCopied] = useState(false)
@@ -368,6 +369,15 @@ export function PrivateGroupManage() {
                         const hasResponded = group.candidate_dates?.every(cd =>
                           cd.responses?.some(r => r.member_id === member.id)
                         )
+                        const handleRemoveMember = async () => {
+                          if (!confirm(`${member.guest_name || member.users?.email || 'このメンバー'}を削除しますか？`)) return
+                          try {
+                            await removeMember(member.id)
+                            refetch()
+                          } catch (err) {
+                            logger.error('Failed to remove member', err)
+                          }
+                        }
                         return (
                           <div
                             key={member.id}
@@ -381,15 +391,29 @@ export function PrivateGroupManage() {
                                 <Badge variant="outline" className="text-xs">主催者</Badge>
                               )}
                             </div>
-                            <Badge
-                              variant="outline"
-                              className={hasResponded
-                                ? 'bg-green-100 text-green-800 border-green-200 text-xs'
-                                : 'bg-amber-100 text-amber-800 border-amber-200 text-xs'
-                              }
-                            >
-                              {hasResponded ? '回答済' : '未回答'}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className={hasResponded
+                                  ? 'bg-green-100 text-green-800 border-green-200 text-xs'
+                                  : 'bg-amber-100 text-amber-800 border-amber-200 text-xs'
+                                }
+                              >
+                                {hasResponded ? '回答済' : '未回答'}
+                              </Badge>
+                              {/* 主催者以外は削除可能 */}
+                              {!member.is_organizer && group.status === 'gathering' && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                  onClick={handleRemoveMember}
+                                  disabled={actionLoading}
+                                >
+                                  <UserMinus className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         )
                       })}

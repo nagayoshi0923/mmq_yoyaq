@@ -390,6 +390,50 @@ export function usePrivateGroup() {
     })
   }
 
+  // メンバーを削除（主催者用）
+  const removeMember = async (memberId: string): Promise<void> => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const { error } = await supabase
+        .from('private_group_members')
+        .delete()
+        .eq('id', memberId)
+
+      if (error) throw error
+    } catch (err: any) {
+      setError(err.message)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // グループから退出（メンバー用）
+  const leaveGroup = async (groupId: string): Promise<void> => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('ログインが必要です')
+
+      const { error } = await supabase
+        .from('private_group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', user.id)
+
+      if (error) throw error
+    } catch (err: any) {
+      setError(err.message)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return {
     loading,
     error,
@@ -401,6 +445,8 @@ export function usePrivateGroup() {
     submitDateResponses,
     updateGroupStatus,
     getDateResponsesSummary,
+    removeMember,
+    leaveGroup,
   }
 }
 

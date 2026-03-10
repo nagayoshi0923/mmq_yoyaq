@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard } from 'lucide-react'
+import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup, usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroup'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
@@ -40,7 +41,7 @@ export function PrivateGroupInvite() {
   
   const { user } = useAuth()
   const { group, loading: groupLoading, error: groupError, refetch } = usePrivateGroupByInviteCode(code || null)
-  const { joinGroup, submitDateResponses, loading: actionLoading } = usePrivateGroup()
+  const { joinGroup, submitDateResponses, leaveGroup, loading: actionLoading } = usePrivateGroup()
 
   const [guestName, setGuestName] = useState('')
   const [guestEmail, setGuestEmail] = useState('')
@@ -814,6 +815,39 @@ export function PrivateGroupInvite() {
             '参加する'
           )}
         </Button>
+
+        {/* 退出ボタン（参加済みメンバー用、主催者以外） */}
+        {(existingMemberId || (user && group?.members?.some(m => m.user_id === user.id && !m.is_organizer))) && (
+          <Button
+            variant="outline"
+            onClick={async () => {
+              if (!confirm('本当にこのグループから退出しますか？')) return
+              try {
+                if (existingMemberId) {
+                  await supabase
+                    .from('private_group_members')
+                    .delete()
+                    .eq('id', existingMemberId)
+                  toast.success('グループから退出しました')
+                  setExistingMemberId(null)
+                  refetch()
+                } else if (user && group) {
+                  await leaveGroup(group.id)
+                  toast.success('グループから退出しました')
+                  navigate('/mypage')
+                }
+              } catch (err) {
+                logger.error('Failed to leave group', err)
+                toast.error('退出に失敗しました')
+              }
+            }}
+            disabled={actionLoading}
+            className="w-full mt-2 text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            このグループから退出する
+          </Button>
+        )}
       </div>
     </div>
   )
