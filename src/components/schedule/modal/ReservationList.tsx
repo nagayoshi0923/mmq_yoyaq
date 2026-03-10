@@ -910,12 +910,93 @@ ${content.organizationName || '店舗'}
         <div>
           <div className="mb-4">
             {!isAddingParticipant ? (
-              <Button
-                onClick={() => setIsAddingParticipant(true)}
-                size="sm"
-              >
-                + 参加者を追加
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsAddingParticipant(true)}
+                  size="sm"
+                >
+                  + 参加者を追加
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!event?.id) return
+                    try {
+                      const scenarioObj = scenarios.find(s => s.title === currentEventData.scenario)
+                      const storeObj = stores.find(s => s.id === currentEventData.venue)
+                      const participationFee = scenarioObj?.participation_fee || 0
+                      
+                      // デモ顧客を取得
+                      let customerId: string | null = null
+                      try {
+                        const organizationId = await getCurrentOrganizationId()
+                        let query = supabase
+                          .from('customers')
+                          .select('id')
+                          .or('name.ilike.%デモ%,email.ilike.%demo%')
+                        if (organizationId) {
+                          query = query.eq('organization_id', organizationId)
+                        }
+                        const { data: demoCustomer } = await query.limit(1).single()
+                        if (demoCustomer) {
+                          customerId = demoCustomer.id
+                        }
+                      } catch {
+                        // デモ顧客が見つからなくても続行
+                      }
+                      
+                      const reservation: Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'> = {
+                        schedule_event_id: event.id,
+                        title: currentEventData.scenario || '',
+                        scenario_id: scenarioObj?.id || null,
+                        store_id: storeObj?.id || null,
+                        customer_id: customerId,
+                        customer_notes: 'デモ参加者',
+                        requested_datetime: `${currentEventData.date}T${currentEventData.start_time}+09:00`,
+                        duration: scenarioObj?.duration || 120,
+                        participant_count: 1,
+                        participant_names: ['デモ参加者'],
+                        assigned_staff: currentEventData.gms || [],
+                        base_price: participationFee,
+                        options_price: 0,
+                        total_price: participationFee,
+                        discount_amount: 0,
+                        final_price: participationFee,
+                        unit_price: participationFee,
+                        payment_method: 'onsite',
+                        payment_status: 'paid',
+                        status: 'confirmed' as const,
+                        reservation_source: 'walk_in'
+                      }
+                      
+                      await reservationApi.create(reservation)
+                      
+                      // 参加者数を再計算
+                      const { data: updatedReservations } = await supabase
+                        .from('reservations')
+                        .select('participant_count')
+                        .eq('schedule_event_id', event.id)
+                        .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+                      
+                      const totalParticipants = updatedReservations?.reduce((sum, r) => sum + (r.participant_count || 0), 0) || 0
+                      
+                      await supabase
+                        .from('schedule_events')
+                        .update({ current_participants: totalParticipants })
+                        .eq('id', event.id)
+                      
+                      showToast.success('デモ参加者を追加しました')
+                      onReservationsChange?.()
+                    } catch (error) {
+                      logger.error('デモ参加者追加エラー:', error)
+                      showToast.error('デモ参加者の追加に失敗しました')
+                    }
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  + デモ追加
+                </Button>
+              </div>
             ) : (
               <div className="border rounded-lg p-4 bg-muted/30">
                 <h4 className="font-medium mb-3">新しい参加者を追加</h4>
