@@ -573,64 +573,66 @@ ${inviteUrl}
           </CardContent>
         </Card>
 
-        {/* 日程回答 */}
-        <div className="mb-6">
-          <h3 className="text-base font-semibold mb-3">参加可能な日時を選んでください</h3>
-          <div className="space-y-3">
-            {group.candidate_dates?.map((cd, index) => (
-              <Card key={cd.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                          候補 {index + 1}
-                        </Badge>
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span>{formatDate(cd.date)}</span>
+        {/* 日程回答（既存メンバーのみ表示） */}
+        {existingMemberId && (
+          <div className="mb-6">
+            <h3 className="text-base font-semibold mb-3">参加可能な日時を選んでください</h3>
+            <div className="space-y-3">
+              {group.candidate_dates?.map((cd, index) => (
+                <Card key={cd.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                            候補 {index + 1}
+                          </Badge>
+                          <Calendar className="w-4 h-4 text-muted-foreground" />
+                          <span>{formatDate(cd.date)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Clock className="w-4 h-4" />
+                          <span>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock className="w-4 h-4" />
-                        <span>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
+                      <div className="flex gap-2">
+                        <div onClick={() => handleResponseChange(cd.id, 'ok')}>
+                          {getResponseIcon(responses[cd.id], 'ok')}
+                        </div>
+                        <div onClick={() => handleResponseChange(cd.id, 'maybe')}>
+                          {getResponseIcon(responses[cd.id], 'maybe')}
+                        </div>
+                        <div onClick={() => handleResponseChange(cd.id, 'ng')}>
+                          {getResponseIcon(responses[cd.id], 'ng')}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <div onClick={() => handleResponseChange(cd.id, 'ok')}>
-                        {getResponseIcon(responses[cd.id], 'ok')}
-                      </div>
-                      <div onClick={() => handleResponseChange(cd.id, 'maybe')}>
-                        {getResponseIcon(responses[cd.id], 'maybe')}
-                      </div>
-                      <div onClick={() => handleResponseChange(cd.id, 'ng')}>
-                        {getResponseIcon(responses[cd.id], 'ng')}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <div className="flex justify-center gap-6 mt-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-                <Circle className="w-2 h-2 text-white" />
-              </div>
-              参加可能
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            <div className="flex items-center gap-1">
-              <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
-                <HelpCircle className="w-2 h-2 text-white" />
+            <div className="flex justify-center gap-6 mt-3 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
+                  <Circle className="w-2 h-2 text-white" />
+                </div>
+                参加可能
               </div>
-              未定
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                <X className="w-2 h-2 text-white" />
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
+                  <HelpCircle className="w-2 h-2 text-white" />
+                </div>
+                未定
               </div>
-              不可
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+                  <X className="w-2 h-2 text-white" />
+                </div>
+                不可
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* 参加費・クーポン */}
         {perPersonPrice > 0 && (
