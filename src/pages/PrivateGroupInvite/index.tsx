@@ -17,7 +17,6 @@ import { logger } from '@/utils/logger'
 import { sendEmail } from '@/lib/emailApi'
 import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
 import { SurveyResponseForm } from './components/SurveyResponseForm'
-import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 
 interface Coupon {
   id: string
@@ -425,10 +424,7 @@ ${inviteUrl}
               </p>
               <div className="flex flex-col gap-2">
                 <Button
-                  onClick={() => {
-                    setSuccess(false)
-                    refetch()
-                  }}
+                  onClick={() => navigate(`/group/manage/${group.id}`)}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   グループページを見る
@@ -859,22 +855,6 @@ ${inviteUrl}
             )?.date}
             characters={(group as any).scenario_characters || []}
           />
-        )}
-
-        {/* チャット（参加済みメンバーのみ） */}
-        {existingMemberId && group.members && (
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
-                💬 グループチャット
-              </h3>
-              <GroupChat
-                groupId={group.id}
-                currentMemberId={existingMemberId}
-                members={group.members}
-              />
-            </CardContent>
-          </Card>
         )}
 
         {/* 送信ボタン */}
