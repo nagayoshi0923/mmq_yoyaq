@@ -998,11 +998,11 @@ ${content.organizationName || '店舗'}
                 </Button>
               </div>
             ) : (
-              <div className="border rounded-lg p-4 bg-muted/30">
-                <h4 className="font-medium mb-3">新しい参加者を追加</h4>
-                <div className="space-y-3">
+              <div className="border rounded-lg p-3 bg-muted/30">
+                <h4 className="font-medium mb-2 text-sm">新しい参加者を追加</h4>
+                <div className="space-y-2">
                   <div>
-                    <Label htmlFor="customer_name">参加者名 *</Label>
+                    <Label htmlFor="customer_name" className="text-xs">参加者名 *</Label>
                     <AutocompleteInput
                       value={newParticipant.customer_name}
                       onChange={(value) => {
@@ -1026,19 +1026,20 @@ ${content.organizationName || '店舗'}
                       </p>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <Label htmlFor="participant_count">人数</Label>
+                      <Label htmlFor="participant_count" className="text-xs">人数</Label>
                       <Input
                         id="participant_count"
                         type="number"
                         min="1"
+                        className="h-8"
                         value={newParticipant.participant_count}
                         onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_count: parseInt(e.target.value) || 1 }))}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="payment_method">支払い方法</Label>
+                      <Label htmlFor="payment_method" className="text-xs">支払い方法</Label>
                       <Select
                         value={newParticipant.payment_method}
                         onValueChange={(value: 'onsite' | 'online' | 'staff') => setNewParticipant(prev => ({ ...prev, payment_method: value }))}
@@ -1055,16 +1056,17 @@ ${content.organizationName || '店舗'}
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="notes">メモ</Label>
+                    <Label htmlFor="notes" className="text-xs">メモ</Label>
                     <Textarea
                       id="notes"
                       value={newParticipant.notes}
                       onChange={(e) => setNewParticipant(prev => ({ ...prev, notes: e.target.value }))}
                       placeholder="特記事項があれば入力"
-                      rows={2}
+                      rows={1}
+                      className="min-h-[32px]"
                     />
                   </div>
-                  <div className="flex gap-2 justify-end">
+                  <div className="flex gap-2 justify-end pt-1">
                     <Button
                       variant="outline"
                       size="sm"
