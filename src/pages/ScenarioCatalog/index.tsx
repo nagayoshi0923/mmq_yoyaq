@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase'
 import { useFavorites } from '@/hooks/useFavorites'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, Check } from 'lucide-react'
+import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, CheckCheck } from 'lucide-react'
 import { logger } from '@/utils/logger'
 
 interface ScenarioData {
@@ -520,28 +520,31 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                       }
                       return null
                     })()}
-                    {/* 体験済みマーク（常に表示、体験前はグレー） */}
-                    <div 
-                      className={`absolute top-1 right-1 rounded-full p-1 shadow-md ${isPlayed(scenario.id) ? 'bg-green-500' : 'bg-gray-400/70'}`} 
-                      title={isPlayed(scenario.id) ? '体験済み' : '未体験'}
-                    >
-                      <Check className="w-3 h-3 text-white" />
-                    </div>
                   </div>
 
                   {/* コンテンツ */}
                   <div className="p-2 sm:p-3 flex-1 min-w-0">
-                    {/* 著者 + お気に入りボタン */}
+                    {/* 著者 + 体験済み・お気に入りボタン */}
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-xs text-gray-500">{scenario.author}</p>
-                      <button
-                        onClick={(e) => handleToggleFavorite(scenario.id, e)}
-                        className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
-                      >
-                        <Heart className={`h-4 w-4 fill-current text-red-500 ${
-                          isFavorite(scenario.id) ? 'opacity-100' : 'opacity-30 hover:opacity-50'
-                        }`} />
-                      </button>
+                      <div className="flex items-center gap-0.5">
+                        {/* 体験済みマーク */}
+                        <div 
+                          className="flex-shrink-0 p-1"
+                          title={isPlayed(scenario.id) ? '体験済み' : '未体験'}
+                        >
+                          <CheckCheck className={`h-4 w-4 ${isPlayed(scenario.id) ? 'text-green-500' : 'text-gray-300'}`} />
+                        </div>
+                        {/* お気に入りボタン */}
+                        <button
+                          onClick={(e) => handleToggleFavorite(scenario.id, e)}
+                          className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
+                        >
+                          <Heart className={`h-4 w-4 fill-current text-red-500 ${
+                            isFavorite(scenario.id) ? 'opacity-100' : 'opacity-30 hover:opacity-50'
+                          }`} />
+                        </button>
+                      </div>
                     </div>
                     
                     {/* タイトル */}

@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect } from 'react'
-import { Clock, Users, Heart, Sparkles, Check } from 'lucide-react'
+import { Clock, Users, Heart, Sparkles, CheckCheck } from 'lucide-react'
 import { usePrefetch } from '@/hooks/usePrefetch'
 import { getColorFromName } from '@/lib/utils'
 import { devDb } from '@/components/ui/DevField'
@@ -164,13 +164,6 @@ export const ScenarioCard = memo(function ScenarioCard({
             alt={scenario.scenario_title}
             className="w-full h-full"
           />
-          {/* 体験済みマーク（常に表示、体験前はグレー） */}
-          <div 
-            className={`absolute top-1 right-1 rounded-full p-1 shadow-md ${isPlayed ? 'bg-green-500' : 'bg-gray-400/70'}`} 
-            title={isPlayed ? '体験済み' : '未体験'}
-          >
-            <Check className="w-3 h-3 text-white" />
-          </div>
           {/* バッジ表示: 成立間近 > 募集延長中 > おすすめ > ロングセラー > 人気 */}
           {(() => {
             const nextEvent = scenario.next_events?.[0]
@@ -248,21 +241,31 @@ export const ScenarioCard = memo(function ScenarioCard({
 
         {/* コンテンツ */}
         <div className="p-2 sm:p-3 flex-1 min-w-0">
-          {/* 著者 + お気に入りボタン */}
+          {/* 著者 + 体験済み・お気に入りボタン */}
           <div className="flex items-center justify-between mb-1">
             {scenario.author && (
               <p className="text-xs text-gray-500" {...devDb('scenarios.author')}>{scenario.author}</p>
             )}
-            {onToggleFavorite && (
-              <button
-                onClick={handleFavoriteClick}
-                className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
+            <div className="flex items-center gap-0.5">
+              {/* 体験済みマーク */}
+              <div 
+                className="flex-shrink-0 p-1"
+                title={isPlayed ? '体験済み' : '未体験'}
               >
-                <Heart className={`h-4 w-4 fill-current text-red-500 ${
-                  isFavorite ? 'opacity-100' : 'opacity-30 hover:opacity-50'
-                }`} />
-              </button>
-            )}
+                <CheckCheck className={`h-4 w-4 ${isPlayed ? 'text-green-500' : 'text-gray-300'}`} />
+              </div>
+              {/* お気に入りボタン */}
+              {onToggleFavorite && (
+                <button
+                  onClick={handleFavoriteClick}
+                  className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
+                >
+                  <Heart className={`h-4 w-4 fill-current text-red-500 ${
+                    isFavorite ? 'opacity-100' : 'opacity-30 hover:opacity-50'
+                  }`} />
+                </button>
+              )}
+            </div>
           </div>
           
           {/* タイトル */}

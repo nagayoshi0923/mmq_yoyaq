@@ -6,7 +6,7 @@ import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { Label } from '@/components/ui/label'
-import { Clock, Users, ExternalLink, Star, Share2, Heart, UserPlus, Check } from 'lucide-react'
+import { Clock, Users, ExternalLink, Star, Share2, Heart, UserPlus, CheckCheck } from 'lucide-react'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -214,7 +214,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
                     className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-white/10 rounded"
                     title={isPlayed ? '体験済み' : '体験済みに登録'}
                   >
-                    <Check className={`w-4 h-4 ${isPlayed ? 'text-green-400' : 'text-white/40 hover:text-white/60'}`} />
+                    <CheckCheck className={`w-4 h-4 ${isPlayed ? 'text-green-400' : 'text-white/40 hover:text-white/60'}`} />
                     <span className="text-xs text-white/70">
                       {isPlayed ? '体験済み' : '体験した'}
                     </span>
