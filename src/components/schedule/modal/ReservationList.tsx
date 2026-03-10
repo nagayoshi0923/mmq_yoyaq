@@ -921,10 +921,6 @@ ${content.organizationName || '店舗'}
                   onClick={async () => {
                     if (!event?.id) return
                     try {
-                      const scenarioObj = scenarios.find(s => s.title === currentEventData.scenario)
-                      const storeObj = stores.find(s => s.id === currentEventData.venue)
-                      const participationFee = scenarioObj?.participation_fee || 0
-                      
                       // デモ顧客を取得
                       let customerId: string | null = null
                       try {
@@ -944,31 +940,14 @@ ${content.organizationName || '店舗'}
                         // デモ顧客が見つからなくても続行
                       }
                       
-                      const reservation: Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'> = {
+                      // reservationApi.createが期待するパラメータのみ渡す
+                      await reservationApi.create({
                         schedule_event_id: event.id,
-                        title: currentEventData.scenario || '',
-                        scenario_id: scenarioObj?.id || null,
-                        store_id: storeObj?.id || null,
-                        customer_id: customerId,
-                        customer_notes: 'デモ参加者',
-                        requested_datetime: `${currentEventData.date}T${currentEventData.start_time}+09:00`,
-                        duration: scenarioObj?.duration || 120,
                         participant_count: 1,
-                        participant_names: ['デモ参加者'],
-                        assigned_staff: currentEventData.gms || [],
-                        base_price: participationFee,
-                        options_price: 0,
-                        total_price: participationFee,
-                        discount_amount: 0,
-                        final_price: participationFee,
-                        unit_price: participationFee,
-                        payment_method: 'onsite',
-                        payment_status: 'paid',
-                        status: 'confirmed' as const,
-                        reservation_source: 'walk_in'
-                      }
-                      
-                      await reservationApi.create(reservation)
+                        customer_id: customerId,
+                        customer_name: 'デモ参加者',
+                        customer_notes: 'デモ参加者'
+                      })
                       
                       // 参加者数を再計算
                       const { data: updatedReservations } = await supabase
