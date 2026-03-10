@@ -924,7 +924,7 @@ export interface PrivateGroupDateResponse {
 export interface PrivateGroupMessage {
   id: string
   group_id: string
-  member_id: string
+  member_id: string | null  // NULLの場合は退出したメンバー
   message: string
   created_at: string
   // JOIN時の拡張フィールド

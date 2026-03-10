@@ -43,9 +43,10 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
     fetchMembers()
   }, [groupId, initialMembers])
 
-  const getMemberName = useCallback((memberId: string) => {
+  const getMemberName = useCallback((memberId: string | null) => {
+    if (!memberId) return '退出したメンバー'
     const member = members.find(m => m.id === memberId)
-    if (!member) return 'メンバー'
+    if (!member) return '退出したメンバー'
     return member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'
   }, [members])
 
