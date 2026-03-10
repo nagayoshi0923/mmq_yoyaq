@@ -8,7 +8,9 @@ import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut } from 'lucide-react'
+import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup, usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroup'
 import { toast } from 'sonner'
@@ -424,7 +426,10 @@ ${inviteUrl}
               </p>
               <div className="flex flex-col gap-2">
                 <Button
-                  onClick={() => navigate(`/group/manage/${group.id}`)}
+                  onClick={() => {
+                    setSuccess(false)
+                    refetch()
+                  }}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   グループページを見る
@@ -570,65 +575,135 @@ ${inviteUrl}
           </CardContent>
         </Card>
 
-        {/* 日程回答（既存メンバーのみ表示） */}
-        {existingMemberId && (
-          <div className="mb-6">
-            <h3 className="text-base font-semibold mb-3">参加可能な日時を選んでください</h3>
-            <div className="space-y-3">
-              {group.candidate_dates?.map((cd, index) => (
-                <Card key={cd.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                            候補 {index + 1}
-                          </Badge>
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span>{formatDate(cd.date)}</span>
+        {/* 参加済みメンバー向けタブ */}
+        {existingMemberId && group.members && (
+          <Tabs defaultValue="schedule" className="mb-6">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsTrigger value="schedule" className="gap-1.5">
+                <Calendar className="w-4 h-4" />
+                日程
+              </TabsTrigger>
+              <TabsTrigger value="chat" className="gap-1.5">
+                <MessageCircle className="w-4 h-4" />
+                チャット
+              </TabsTrigger>
+              <TabsTrigger value="members" className="gap-1.5">
+                <Users className="w-4 h-4" />
+                メンバー
+              </TabsTrigger>
+            </TabsList>
+
+            {/* 日程タブ */}
+            <TabsContent value="schedule">
+              <div className="space-y-3">
+                <h3 className="text-base font-semibold">参加可能な日時を選んでください</h3>
+                {group.candidate_dates?.map((cd, index) => (
+                  <Card key={cd.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                              候補 {index + 1}
+                            </Badge>
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <span>{formatDate(cd.date)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Clock className="w-4 h-4" />
+                            <span>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Clock className="w-4 h-4" />
-                          <span>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
+                        <div className="flex gap-2">
+                          <div onClick={() => handleResponseChange(cd.id, 'ok')}>
+                            {getResponseIcon(responses[cd.id], 'ok')}
+                          </div>
+                          <div onClick={() => handleResponseChange(cd.id, 'maybe')}>
+                            {getResponseIcon(responses[cd.id], 'maybe')}
+                          </div>
+                          <div onClick={() => handleResponseChange(cd.id, 'ng')}>
+                            {getResponseIcon(responses[cd.id], 'ng')}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <div onClick={() => handleResponseChange(cd.id, 'ok')}>
-                          {getResponseIcon(responses[cd.id], 'ok')}
-                        </div>
-                        <div onClick={() => handleResponseChange(cd.id, 'maybe')}>
-                          {getResponseIcon(responses[cd.id], 'maybe')}
-                        </div>
-                        <div onClick={() => handleResponseChange(cd.id, 'ng')}>
-                          {getResponseIcon(responses[cd.id], 'ng')}
-                        </div>
-                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                <div className="flex justify-center gap-6 mt-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
+                      <Circle className="w-2 h-2 text-white" />
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <div className="flex justify-center gap-6 mt-3 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-                  <Circle className="w-2 h-2 text-white" />
+                    参加可能
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
+                      <HelpCircle className="w-2 h-2 text-white" />
+                    </div>
+                    未定
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+                      <X className="w-2 h-2 text-white" />
+                    </div>
+                    不可
+                  </div>
                 </div>
-                参加可能
+                <Button
+                  onClick={handleSubmit}
+                  disabled={actionLoading}
+                  className="w-full bg-purple-600 hover:bg-purple-700 mt-4"
+                >
+                  {actionLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      送信中...
+                    </>
+                  ) : '回答を更新する'}
+                </Button>
               </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
-                  <HelpCircle className="w-2 h-2 text-white" />
-                </div>
-                未定
+            </TabsContent>
+
+            {/* チャットタブ */}
+            <TabsContent value="chat">
+              <GroupChat
+                groupId={group.id}
+                currentMemberId={existingMemberId}
+                members={group.members}
+              />
+            </TabsContent>
+
+            {/* メンバータブ */}
+            <TabsContent value="members">
+              <div className="space-y-3">
+                <h3 className="text-base font-semibold">参加メンバー（{group.members.filter(m => m.status === 'joined').length}名）</h3>
+                {group.members.filter(m => m.status === 'joined').map(member => (
+                  <Card key={member.id}>
+                    <CardContent className="p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                          <Users className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'}
+                          </p>
+                          {member.is_organizer && (
+                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                              主催者
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {member.id === existingMemberId && (
+                        <Badge variant="outline" className="text-xs">あなた</Badge>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                  <X className="w-2 h-2 text-white" />
-                </div>
-                不可
-              </div>
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         )}
 
         {/* 参加費・クーポン */}
@@ -857,23 +932,23 @@ ${inviteUrl}
           />
         )}
 
-        {/* 送信ボタン */}
-        <Button
-          onClick={handleSubmit}
-          disabled={actionLoading}
-          className="w-full bg-purple-600 hover:bg-purple-700"
-        >
-          {actionLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              送信中...
-            </>
-          ) : existingMemberId ? (
-            '回答を更新する'
-          ) : (
-            '参加する'
-          )}
-        </Button>
+        {/* 送信ボタン（新規参加時のみ表示） */}
+        {!existingMemberId && (
+          <Button
+            onClick={handleSubmit}
+            disabled={actionLoading}
+            className="w-full bg-purple-600 hover:bg-purple-700"
+          >
+            {actionLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                送信中...
+              </>
+            ) : (
+              '参加する'
+            )}
+          </Button>
+        )}
 
         {/* 退出ボタン（参加済みメンバー用、主催者以外） */}
         {(existingMemberId || (user && group?.members?.some(m => m.user_id === user.id && !m.is_organizer))) && (
