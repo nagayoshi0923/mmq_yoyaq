@@ -408,9 +408,9 @@ export default function MyPage() {
           }
         }
 
-        // プレイ済みシナリオを取得
+        // プレイ済みシナリオを取得（確定済み・GM確認済みの全カテゴリの公演）
         const pastReservations = reservationData.filter(
-          r => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed'
+          r => new Date(r.requested_datetime) < new Date() && (r.status === 'confirmed' || r.status === 'gm_confirmed')
         )
         
         // 追加のシナリオ情報を取得

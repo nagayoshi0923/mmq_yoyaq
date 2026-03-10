@@ -201,12 +201,12 @@ export function AlbumPage() {
         setLikedScenariosList([])
       }
 
-      // 予約を取得
+      // 予約を取得（確定済み・GM確認済みの全カテゴリの公演）
       const { data: reservations, error: reservationsError } = await supabase
         .from('reservations')
-        .select('requested_datetime, title, scenario_id, scenario_master_id')
+        .select('requested_datetime, title, scenario_id, scenario_master_id, duration')
         .eq('customer_id', customer.id)
-        .eq('status', 'confirmed')
+        .in('status', ['confirmed', 'gm_confirmed'])
         .lte('requested_datetime', new Date().toISOString())
         .order('requested_datetime', { ascending: false })
 
