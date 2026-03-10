@@ -4,6 +4,7 @@ import { usePrefetch } from '@/hooks/usePrefetch'
 import { getColorFromName } from '@/lib/utils'
 import { devDb } from '@/components/ui/DevField'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
 /**
  * シナリオカード用の汎用型定義
@@ -39,6 +40,7 @@ export interface ScenarioCardData {
 
 // 画像コンポーネントをインライン化して最適化
 // 背景にぼかした画像を表示し、メインはobject-containで全体表示
+// 🚀 パフォーマンス最適化: WebP変換 + サイズ縮小
 const LazyImage = ({ src, alt, className }: { src?: string, alt: string, className?: string }) => {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isInView, setIsInView] = useState(false)
@@ -62,6 +64,11 @@ const LazyImage = ({ src, alt, className }: { src?: string, alt: string, classNa
     return () => observer.disconnect()
   }, [])
 
+  // 最適化された画像URL（WebP + 幅400px + 品質80%）
+  const optimizedSrc = getOptimizedImageUrl(src, { width: 400, format: 'webp', quality: 80 })
+  // 背景用（さらに小さく、低品質でOK）
+  const bgSrc = getOptimizedImageUrl(src, { width: 100, format: 'webp', quality: 50 })
+
   return (
     <div ref={imgRef} className={`relative w-full h-full bg-gray-900 overflow-hidden ${className}`}>
       {!isLoaded && (
@@ -69,21 +76,21 @@ const LazyImage = ({ src, alt, className }: { src?: string, alt: string, classNa
           <div className="w-8 h-8 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
-      {isInView && src ? (
+      {isInView && optimizedSrc ? (
         <>
-          {/* 背景：ぼかした画像で余白を埋める */}
+          {/* 背景：ぼかした画像で余白を埋める（低品質でOK） */}
           <div 
             className="absolute inset-0 scale-110"
             style={{
-              backgroundImage: `url(${src})`,
+              backgroundImage: `url(${bgSrc})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               filter: 'blur(20px) brightness(0.7)',
             }}
           />
-          {/* メイン画像：全体を表示 */}
+          {/* メイン画像：全体を表示（WebP + リサイズ済み） */}
           <img
-            src={src}
+            src={optimizedSrc}
             alt={alt}
             className={`relative w-full h-full object-contain transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setIsLoaded(true)}
