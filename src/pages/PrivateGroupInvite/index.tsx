@@ -257,11 +257,7 @@ export function PrivateGroupInvite() {
       return
     }
 
-    const allResponded = group.candidate_dates?.every(cd => responses[cd.id] != null)
-    if (!allResponded) {
-      setError('すべての候補日時に回答してください')
-      return
-    }
+    // 候補日への回答は任意（後から回答可能）
 
     try {
       let memberId = existingMemberId
