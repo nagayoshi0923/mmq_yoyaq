@@ -92,7 +92,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
       const adminSuffixes = ['/dashboard', '/stores', '/staff', '/scenarios', '/schedule', 
         '/shift-submission', '/gm-availability', '/private-booking-management', '/reservations',
         '/accounts', '/sales', '/settings', '/manual', '/staff-profile', '/license-management',
-        '/catalog', '/private-booking-select', '/private-booking-request']
+        '/catalog', '/private-booking-select', '/private-booking-request', '/coupons']
       const isAdminPage = adminSuffixes.some(suffix => pathname.includes(suffix))
       return pathname === `/${bookingSlug}` || (pathname.startsWith(`/${bookingSlug}/`) && !isAdminPage)
     }
