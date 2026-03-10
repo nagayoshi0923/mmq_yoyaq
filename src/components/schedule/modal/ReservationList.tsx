@@ -964,7 +964,16 @@ ${content.organizationName || '店舗'}
                         .eq('id', event.id)
                       
                       showToast.success('デモ参加者を追加しました')
-                      onReservationsChange?.()
+                      
+                      // 予約リストを再取得
+                      const eventOrgId = (event as any)?.organization_id || null
+                      const updatedReservationList = await reservationApi.getByScheduleEvent(event.id, eventOrgId)
+                      setReservations(updatedReservationList)
+                      
+                      // 参加者数を親に通知
+                      if (onParticipantChange) {
+                        onParticipantChange(event.id, totalParticipants)
+                      }
                     } catch (error) {
                       logger.error('デモ参加者追加エラー:', error)
                       showToast.error('デモ参加者の追加に失敗しました')
