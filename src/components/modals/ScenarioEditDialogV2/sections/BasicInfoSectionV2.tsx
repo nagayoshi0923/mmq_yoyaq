@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Upload, X, Trash2, Wand2 } from 'lucide-react'
+import { Upload, X, Trash2, Wand2, ClipboardList, ExternalLink } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
@@ -451,6 +451,55 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
               })}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* アンケート設定 */}
+      <Card>
+        <CardContent className="p-2 space-y-2">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+            <Label className={labelStyle}>公演後アンケート</Label>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Switch
+              id="survey_enabled"
+              checked={formData.survey_enabled || false}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, survey_enabled: checked }))}
+              className="h-4 w-7"
+            />
+            <Label htmlFor="survey_enabled" className="text-[11px] font-medium cursor-pointer">
+              アンケートを有効にする
+            </Label>
+          </div>
+          
+          {formData.survey_enabled && (
+            <div className="space-y-1">
+              <Label className={labelStyle}>アンケートURL</Label>
+              <div className="flex gap-1">
+                <Input
+                  value={formData.survey_url || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, survey_url: e.target.value }))}
+                  placeholder="https://forms.google.com/..."
+                  className={`${inputStyle} flex-1`}
+                />
+                {formData.survey_url && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => window.open(formData.survey_url!, '_blank')}
+                    title="アンケートを開く"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              <p className={hintStyle}>Google Forms等のURLを設定すると、公演後にお客様へ案内されます</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
