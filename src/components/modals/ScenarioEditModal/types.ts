@@ -108,8 +108,20 @@ export interface ScenarioFormData {
   // アンケート設定
   survey_url?: string | null
   survey_enabled?: boolean
+  survey_deadline_days?: number
+  survey_questions?: SurveyQuestionFormData[]
   // キャラクター情報
   characters?: ScenarioCharacter[]
+}
+
+// アンケート質問の型（フォーム用）
+export interface SurveyQuestionFormData {
+  id: string
+  question_text: string
+  question_type: 'text' | 'single_choice' | 'multiple_choice' | 'character_selection'
+  options: { value: string; label: string }[]
+  is_required: boolean
+  order_num: number
 }
 
 // キャラクター情報の型

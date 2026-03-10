@@ -114,6 +114,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       { time_slot: 'normal', amount: 4000, type: 'fixed' },
       { time_slot: 'gmtest', amount: 3000, type: 'fixed' },
     ],
+    characters: [],  // キャラクター情報
     use_flexible_pricing: false,
     flexible_pricing: {
       base_pricing: { participation_fee: 3000 },
@@ -637,7 +638,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           available_stores: scenario.available_stores || [],
           extra_preparation_time: scenario.extra_preparation_time || undefined,
           private_booking_time_slots: scenario.private_booking_time_slots || [],
-          caution: ''
+          caution: '',
+          characters: [],  // organization_scenariosから後で取得
         })
         
         // organization_scenarios から override/custom 値を取得して formData を上書き
@@ -759,7 +761,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         },
         caution: '',
         key_visual_url: '',
-        available_stores: []
+        available_stores: [],
+        characters: [],
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
