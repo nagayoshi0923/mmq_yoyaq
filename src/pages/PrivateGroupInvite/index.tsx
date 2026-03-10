@@ -79,25 +79,44 @@ export function PrivateGroupInvite() {
 
     setPinError(null)
 
-    // メールアドレスとPINでメンバーを検索
-    const matchingMember = group.members?.find(
-      m => m.guest_email?.toLowerCase() === pinEmail.toLowerCase() && 
-           (m as any).access_pin === pinCode &&
-           m.status === 'joined'
-    )
-
-    if (matchingMember) {
-      setExistingMemberId(matchingMember.id)
-      setGuestName(matchingMember.guest_name || '')
-      setGuestEmail(matchingMember.guest_email || '')
-      const existingResponses: Record<string, ResponseValue> = {}
-      matchingMember.date_responses?.forEach(r => {
-        existingResponses[r.candidate_date_id] = r.response
+    try {
+      // RPCでPIN認証
+      const { data: authResult, error: authError } = await supabase.rpc('authenticate_guest_by_pin', {
+        p_group_id: group.id,
+        p_email: pinEmail,
+        p_pin: pinCode,
       })
-      setResponses(existingResponses)
-      setShowPinAuth(false)
-    } else {
-      setPinError('メールアドレスまたはPINが正しくありません')
+
+      if (authError) {
+        logger.error('PIN認証エラー:', authError)
+        setPinError('認証に失敗しました')
+        return
+      }
+
+      if (authResult && authResult.length > 0) {
+        const authMember = authResult[0]
+        setExistingMemberId(authMember.member_id)
+        setGuestName(authMember.guest_name || '')
+        setGuestEmail(authMember.guest_email || '')
+        
+        // メンバーのdate_responsesを取得
+        const matchingMember = group.members?.find(m => m.id === authMember.member_id)
+        if (matchingMember) {
+          const existingResponses: Record<string, ResponseValue> = {}
+          matchingMember.date_responses?.forEach(r => {
+            existingResponses[r.candidate_date_id] = r.response
+          })
+          setResponses(existingResponses)
+        }
+        
+        setShowPinAuth(false)
+        toast.success('認証しました')
+      } else {
+        setPinError('メールアドレスまたはPINが正しくありません')
+      }
+    } catch (err) {
+      logger.error('PIN認証エラー:', err)
+      setPinError('認証に失敗しました')
     }
   }
 
