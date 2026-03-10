@@ -159,6 +159,9 @@ export function PrivateGroupManage() {
   }, [group?.members])
 
   const isOrganizer = user && group?.organizer_id === user.id
+  
+  // メンバーかどうかをチェック（ログインユーザーがメンバーに含まれているか）
+  const isMember = user && group?.members?.some(m => m.user_id === user.id && m.status === 'joined')
 
   if (groupLoading) {
     return (
@@ -198,7 +201,8 @@ export function PrivateGroupManage() {
     )
   }
 
-  if (!isOrganizer) {
+  // 主催者でもメンバーでもない場合はアクセス拒否
+  if (!isOrganizer && !isMember) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -209,7 +213,7 @@ export function PrivateGroupManage() {
               <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
               <h2 className="text-lg font-medium mb-2">アクセス権がありません</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                グループの管理は主催者のみ可能です
+                このグループのメンバーのみ閲覧できます
               </p>
               <Button onClick={() => navigate('/')}>
                 トップへ戻る
@@ -401,8 +405,8 @@ export function PrivateGroupManage() {
                               >
                                 {hasResponded ? '回答済' : '未回答'}
                               </Badge>
-                              {/* 主催者以外は削除可能 */}
-                              {!member.is_organizer && group.status === 'gathering' && (
+                              {/* 主催者のみメンバー削除可能 */}
+                              {isOrganizer && !member.is_organizer && group.status === 'gathering' && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -593,22 +597,27 @@ export function PrivateGroupManage() {
                       </Button>
                     </div>
 
-                    <Button
-                      onClick={handleProceedToBooking}
-                      disabled={(group.candidate_dates?.length || 0) === 0}
-                      className="w-full bg-purple-600 hover:bg-purple-700"
-                    >
-                      貸切を申し込む
-                    </Button>
+                    {/* 主催者のみ予約申込・キャンセルが可能 */}
+                    {isOrganizer && (
+                      <>
+                        <Button
+                          onClick={handleProceedToBooking}
+                          disabled={(group.candidate_dates?.length || 0) === 0}
+                          className="w-full bg-purple-600 hover:bg-purple-700"
+                        >
+                          貸切を申し込む
+                        </Button>
 
-                    <Button
-                      variant="ghost"
-                      onClick={handleCancelGroup}
-                      disabled={cancelling}
-                      className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      {cancelling ? 'キャンセル中...' : 'グループをキャンセル'}
-                    </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={handleCancelGroup}
+                          disabled={cancelling}
+                          className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          {cancelling ? 'キャンセル中...' : 'グループをキャンセル'}
+                        </Button>
+                      </>
+                    )}
                   </>
                 )}
 
