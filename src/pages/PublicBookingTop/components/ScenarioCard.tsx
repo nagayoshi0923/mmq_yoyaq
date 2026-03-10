@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect } from 'react'
-import { Clock, Users, Heart, Sparkles } from 'lucide-react'
+import { Clock, Users, Heart, Sparkles, Check } from 'lucide-react'
 import { usePrefetch } from '@/hooks/usePrefetch'
 import { getColorFromName } from '@/lib/utils'
 import { devDb } from '@/components/ui/DevField'
@@ -110,6 +110,7 @@ interface ScenarioCardProps {
   scenario: ScenarioCardData
   onClick: (id: string) => void
   isFavorite?: boolean
+  isPlayed?: boolean
   onToggleFavorite?: (scenarioId: string, e: React.MouseEvent) => void
   organizationName?: string | null
 }
@@ -121,6 +122,7 @@ export const ScenarioCard = memo(function ScenarioCard({
   scenario, 
   onClick, 
   isFavorite = false, 
+  isPlayed = false,
   onToggleFavorite, 
   organizationName
 }: ScenarioCardProps) {
@@ -162,6 +164,12 @@ export const ScenarioCard = memo(function ScenarioCard({
             alt={scenario.scenario_title}
             className="w-full h-full"
           />
+          {/* 体験済みマーク */}
+          {isPlayed && (
+            <div className="absolute top-1 right-1 bg-green-500 rounded-full p-1 shadow-md" title="体験済み">
+              <Check className="w-3 h-3 text-white" />
+            </div>
+          )}
           {/* バッジ表示: 成立間近 > 募集延長中 > おすすめ > ロングセラー > 人気 */}
           {(() => {
             const nextEvent = scenario.next_events?.[0]

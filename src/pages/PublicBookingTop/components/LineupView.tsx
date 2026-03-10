@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { BookOpen, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
+import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 
 interface LineupViewProps {
@@ -47,6 +48,9 @@ export const LineupView = memo(function LineupView({
   
   // 「もっと見る」の展開状態
   const [isExpanded, setIsExpanded] = useState(false)
+  
+  // 体験済みシナリオ
+  const { isPlayed } = usePlayedScenarios()
   
   // 臨時会場を除外した店舗リスト
   const filteredStores = useMemo(() => stores.filter(store => !store.is_temporary), [stores])
@@ -139,6 +143,7 @@ export const LineupView = memo(function LineupView({
                   scenario={scenario} 
                   onClick={onCardClick}
                   isFavorite={isFavorite(scenario.scenario_id)}
+                  isPlayed={isPlayed(scenario.scenario_id)}
                   onToggleFavorite={onToggleFavorite}
                   organizationName={organizationName}
                 />
@@ -185,6 +190,7 @@ export const LineupView = memo(function LineupView({
                 scenario={scenario} 
                 onClick={onCardClick}
                 isFavorite={isFavorite(scenario.scenario_id)}
+                isPlayed={isPlayed(scenario.scenario_id)}
                 onToggleFavorite={onToggleFavorite}
                 organizationName={organizationName}
               />
@@ -235,6 +241,7 @@ export const LineupView = memo(function LineupView({
                   scenario={scenario} 
                   onClick={onCardClick}
                   isFavorite={isFavorite(scenario.scenario_id)}
+                  isPlayed={isPlayed(scenario.scenario_id)}
                   onToggleFavorite={onToggleFavorite}
                   organizationName={organizationName}
                 />
@@ -276,6 +283,7 @@ export const LineupView = memo(function LineupView({
                       scenario={scenario} 
                       onClick={onCardClick}
                       isFavorite={isFavorite(scenario.scenario_id)}
+                      isPlayed={isPlayed(scenario.scenario_id)}
                       onToggleFavorite={onToggleFavorite}
                       organizationName={organizationName}
                     />
