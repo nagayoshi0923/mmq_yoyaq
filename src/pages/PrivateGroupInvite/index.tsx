@@ -14,6 +14,7 @@ import { usePrivateGroup, usePrivateGroupByInviteCode } from '@/hooks/usePrivate
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { sendEmail } from '@/lib/emailApi'
 import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
 import { SurveyResponseForm } from './components/SurveyResponseForm'
 
@@ -257,7 +258,7 @@ export function PrivateGroupInvite() {
         })
         memberId = member.id
         
-        // ゲスト参加の場合、PINを生成して保存
+        // ゲスト参加の場合、PINを生成して保存・メール送信
         if (!user && guestEmail) {
           newPin = generatePin()
           await supabase
@@ -265,6 +266,31 @@ export function PrivateGroupInvite() {
             .update({ access_pin: newPin })
             .eq('id', memberId)
           setGeneratedPin(newPin)
+          
+          // PINをメールで送信
+          const scenarioName = group.scenario?.title || 'グループ'
+          const inviteUrl = `${window.location.origin}/group/invite/${group.invite_code}`
+          sendEmail({
+            to: guestEmail,
+            subject: `【${scenarioName}】グループ参加のアクセスPINのご案内`,
+            body: `${guestName || 'ゲスト'} 様
+
+「${scenarioName}」のグループに参加登録いただきありがとうございます。
+
+■ アクセスPIN
+${newPin}
+
+このPINとメールアドレス（${guestEmail}）を使って、
+いつでもグループの状況確認・回答変更ができます。
+
+■ グループURL
+${inviteUrl}
+
+※このメールは自動送信されています。
+`,
+          }).catch(err => {
+            logger.error('PIN送信メールエラー:', err)
+          })
         }
       }
 
