@@ -82,11 +82,15 @@ export function PrivateGroupInvite() {
 
     try {
       // RPCでPIN認証
+      logger.info('PIN認証リクエスト:', { groupId: group.id, email: pinEmail, pinLength: pinCode.length })
+      
       const { data: authResult, error: authError } = await supabase.rpc('authenticate_guest_by_pin', {
         p_group_id: group.id,
         p_email: pinEmail,
         p_pin: pinCode,
       })
+
+      logger.info('PIN認証結果:', { authResult, authError })
 
       if (authError) {
         logger.error('PIN認証エラー:', authError)
@@ -280,10 +284,14 @@ export function PrivateGroupInvite() {
         // ゲスト参加の場合、PINを生成して保存・メール送信
         if (!user && guestEmail) {
           newPin = generatePin()
-          await supabase
-            .from('private_group_members')
-            .update({ access_pin: newPin })
-            .eq('id', memberId)
+          // RPC経由でPINを保存（RLSを回避）
+          const { error: pinError } = await supabase.rpc('save_guest_access_pin', {
+            p_member_id: memberId,
+            p_pin: newPin,
+          })
+          if (pinError) {
+            logger.error('PIN保存エラー:', pinError)
+          }
           setGeneratedPin(newPin)
           
           // PINをメールで送信（ゲスト用専用Edge Function）
