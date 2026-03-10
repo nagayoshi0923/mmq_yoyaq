@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp, ExternalLink } from 'lucide-react'
+import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp, ExternalLink, ClipboardList } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { ScenarioMasterEditDialog } from './ScenarioMasterEditDialog'
 import { MasterSelectDialog } from './MasterSelectDialog'
@@ -17,6 +17,7 @@ import { PricingSectionV2 } from './ScenarioEditDialogV2/sections/PricingSection
 import { GmSettingsSectionV2 } from './ScenarioEditDialogV2/sections/GmSettingsSectionV2'
 import { CostsPropsSectionV2 } from './ScenarioEditDialogV2/sections/CostsPropsSectionV2'
 import { PerformancesSectionV2 } from './ScenarioEditDialogV2/sections/PerformancesSectionV2'
+import { SurveySectionV2 } from './ScenarioEditDialogV2/sections/SurveySectionV2'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
@@ -47,6 +48,7 @@ const TABS = [
   { id: 'gm', label: 'GM', icon: Users },
   { id: 'costs', label: '売上', icon: TrendingUp },
   { id: 'performances', label: '公演実績', icon: CalendarDays },
+  { id: 'survey', label: 'アンケート', icon: ClipboardList },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -54,7 +56,7 @@ type TabId = typeof TABS[number]['id']
 // localStorageからタブを取得する関数
 const getSavedTab = (): TabId => {
   const saved = localStorage.getItem('scenarioEditDialogTab')
-  if (saved && ['basic', 'game', 'pricing', 'gm', 'costs', 'performances'].includes(saved)) {
+  if (saved && ['basic', 'game', 'pricing', 'gm', 'costs', 'performances', 'survey'].includes(saved)) {
     return saved as TabId
   }
   return 'basic'
@@ -1133,6 +1135,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             futureReservationCount={scenarioStats.futureReservationCount}
           />
         )
+      case 'survey':
+        return <SurveySectionV2 formData={formData} setFormData={setFormData} />
       default:
         return null
     }
