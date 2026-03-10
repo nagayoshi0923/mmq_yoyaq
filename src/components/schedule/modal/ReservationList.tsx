@@ -953,6 +953,7 @@ ${content.organizationName || '店舗'}
                       const participationFee = scenarioObj?.participation_fee || 0
                       
                       // 直接INSERTでデモ参加者を追加（キャンセル済み公演でも追加可能）
+                      const duration = scenarioObj?.play_time || 120
                       const { error: insertError } = await supabase
                         .from('reservations')
                         .insert({
@@ -967,6 +968,7 @@ ${content.organizationName || '店舗'}
                           reservation_number: reservationNumber,
                           requested_datetime: `${currentEventData.date}T${currentEventData.start_time}+09:00`,
                           title: currentEventData.scenario || '',
+                          duration: duration,
                           base_price: participationFee,
                           total_price: participationFee,
                           final_price: participationFee,
