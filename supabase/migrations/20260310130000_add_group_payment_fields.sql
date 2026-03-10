@@ -17,11 +17,23 @@ COMMENT ON COLUMN public.private_groups.per_person_price IS '1人あたりの参
 -- =============================================================================
 ALTER TABLE public.private_group_members
 ADD COLUMN IF NOT EXISTS payment_amount INTEGER,
-ADD COLUMN IF NOT EXISTS coupon_id UUID REFERENCES public.coupons(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS coupon_id UUID,
 ADD COLUMN IF NOT EXISTS coupon_discount INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS final_amount INTEGER,
 ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'refunded')),
 ADD COLUMN IF NOT EXISTS access_pin TEXT;
+
+-- couponsテーブルが存在する場合のみ外部キー制約を追加
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'coupons') THEN
+    ALTER TABLE public.private_group_members
+    ADD CONSTRAINT fk_private_group_members_coupon_id
+    FOREIGN KEY (coupon_id) REFERENCES public.coupons(id) ON DELETE SET NULL;
+  END IF;
+EXCEPTION WHEN duplicate_object THEN
+  NULL;
+END $$;
 
 COMMENT ON COLUMN public.private_group_members.payment_amount IS '支払い予定額（クーポン適用前）';
 COMMENT ON COLUMN public.private_group_members.coupon_id IS '適用したクーポンID';
