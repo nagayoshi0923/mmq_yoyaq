@@ -7,10 +7,21 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2 } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup, usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroup'
+import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
+
+interface Coupon {
+  id: string
+  code: string
+  discount_amount: number
+  expires_at: string | null
+  status: string
+}
 
 type ResponseValue = DateResponse | null
 
@@ -38,6 +49,11 @@ export function PrivateGroupInvite() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [existingMemberId, setExistingMemberId] = useState<string | null>(null)
+  
+  // クーポン関連
+  const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null)
+  const [couponLoading, setCouponLoading] = useState(false)
 
   useEffect(() => {
     if (group && user) {
@@ -49,9 +65,70 @@ export function PrivateGroupInvite() {
           existingResponses[r.candidate_date_id] = r.response
         })
         setResponses(existingResponses)
+        // 既に適用済みのクーポンがあればセット
+        if ((existingMember as any).coupon_id) {
+          setSelectedCouponId((existingMember as any).coupon_id)
+        }
       }
     }
   }, [group, user])
+
+  // ログインユーザーの利用可能クーポンを取得
+  useEffect(() => {
+    const fetchCoupons = async () => {
+      if (!user) {
+        setCoupons([])
+        return
+      }
+
+      setCouponLoading(true)
+      try {
+        // 顧客IDを取得
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (!customer) {
+          setCoupons([])
+          return
+        }
+
+        // 利用可能なクーポンを取得
+        const { data: couponData, error } = await supabase
+          .from('coupons')
+          .select('id, code, discount_amount, expires_at, status')
+          .eq('customer_id', customer.id)
+          .eq('status', 'active')
+          .or(`expires_at.is.null,expires_at.gte.${new Date().toISOString()}`)
+          .order('discount_amount', { ascending: false })
+
+        if (error) throw error
+        setCoupons(couponData || [])
+      } catch (err) {
+        logger.error('クーポン取得エラー:', err)
+        setCoupons([])
+      } finally {
+        setCouponLoading(false)
+      }
+    }
+
+    fetchCoupons()
+  }, [user])
+
+  // 料金計算
+  const perPersonPrice = useMemo(() => {
+    if (!group) return 0
+    return (group as any).per_person_price || 0
+  }, [group])
+
+  const selectedCoupon = useMemo(() => {
+    return coupons.find(c => c.id === selectedCouponId) || null
+  }, [coupons, selectedCouponId])
+
+  const discountAmount = selectedCoupon?.discount_amount || 0
+  const finalAmount = Math.max(0, perPersonPrice - discountAmount)
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00+09:00')
@@ -133,6 +210,22 @@ export function PrivateGroupInvite() {
         }))
 
       await submitDateResponses(group.id, memberId, responseData)
+
+      // クーポン適用（ログインユーザーで選択済みの場合）
+      if (user && selectedCouponId && perPersonPrice > 0) {
+        const { error: couponError } = await supabase.rpc('apply_coupon_to_group_member', {
+          p_member_id: memberId,
+          p_coupon_id: selectedCouponId,
+        })
+        if (couponError) {
+          logger.error('クーポン適用エラー:', couponError)
+        }
+      } else if (user && !selectedCouponId && perPersonPrice > 0) {
+        // クーポン未選択の場合、既存のクーポンを解除
+        await supabase.rpc('remove_coupon_from_group_member', {
+          p_member_id: memberId,
+        })
+      }
 
       setSuccess(true)
 
@@ -385,6 +478,93 @@ export function PrivateGroupInvite() {
             </div>
           </div>
         </div>
+
+        {/* 参加費・クーポン */}
+        {perPersonPrice > 0 && (
+          <Card className="mb-6 border-blue-200">
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-blue-600" />
+                <h3 className="text-base font-semibold">参加費</h3>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">1人あたり参加費</span>
+                  <span className="font-medium">¥{perPersonPrice.toLocaleString()}</span>
+                </div>
+                
+                {selectedCoupon && (
+                  <div className="flex justify-between items-center text-sm text-green-600">
+                    <span className="flex items-center gap-1">
+                      <Ticket className="w-4 h-4" />
+                      クーポン割引
+                    </span>
+                    <span>-¥{discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                
+                <div className="border-t pt-2 flex justify-between items-center">
+                  <span className="font-medium">お支払い金額</span>
+                  <span className="text-lg font-bold text-blue-600">¥{finalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* クーポン選択（ログインユーザーのみ） */}
+              {user && (
+                <div className="pt-2 border-t">
+                  <Label className="text-sm font-medium mb-2 block flex items-center gap-1">
+                    <Ticket className="w-4 h-4 text-amber-500" />
+                    クーポンを使う
+                  </Label>
+                  {couponLoading ? (
+                    <div className="text-sm text-muted-foreground">読み込み中...</div>
+                  ) : coupons.length > 0 ? (
+                    <Select
+                      value={selectedCouponId || 'none'}
+                      onValueChange={(value) => setSelectedCouponId(value === 'none' ? null : value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="クーポンを選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">クーポンを使用しない</SelectItem>
+                        {coupons.map((coupon) => (
+                          <SelectItem key={coupon.id} value={coupon.id}>
+                            {coupon.code} - ¥{coupon.discount_amount.toLocaleString()}OFF
+                            {coupon.expires_at && (
+                              <span className="text-xs text-muted-foreground ml-1">
+                                ({new Date(coupon.expires_at).toLocaleDateString('ja-JP')}まで)
+                              </span>
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      利用可能なクーポンがありません
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* 未ログインの場合のクーポン案内 */}
+              {!user && (
+                <div className="pt-2 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    <Ticket className="w-4 h-4 inline-block mr-1 text-amber-500" />
+                    ログインするとクーポンを使用できます
+                  </p>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground bg-gray-50 p-2 rounded">
+                💡 お支払いは当日、店舗でお願いします。現金またはクレジットカードがご利用いただけます。
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ゲスト情報（非ログイン時） */}
         {!user && !existingMemberId && (
