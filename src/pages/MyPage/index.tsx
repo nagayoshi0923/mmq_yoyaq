@@ -422,17 +422,21 @@ export default function MyPage() {
         const pastScenarioMasterIds = pastReservations
           .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
           .filter((id): id is string => id !== null && id !== undefined)
-        logger.log('📸 取得対象のシナリオマスターID:', pastScenarioMasterIds)
+        
+        // シナリオタイトル一覧も取得（ID検索で見つからない場合のフォールバック用）
+        const pastScenarioTitles = pastReservations
+          .map(r => r.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim())
+          .filter((title): title is string => !!title)
         
         const additionalScenarioData: Record<string, { key_visual_url?: string, slug?: string }> = {}
+        const titleToScenarioData: Record<string, { key_visual_url?: string, id?: string }> = {}
+        
+        // IDで検索
         if (pastScenarioMasterIds.length > 0) {
-          logger.log('📸 scenario_masters クエリ開始:', { ids: pastScenarioMasterIds })
-          const { data: pastScenarios, error: scenarioError } = await supabase
+          const { data: pastScenarios } = await supabase
             .from('scenario_masters')
             .select('id, key_visual_url')
             .in('id', pastScenarioMasterIds)
-          
-          logger.log('📸 scenario_masters 結果:', { data: pastScenarios, error: scenarioError })
           
           if (pastScenarios) {
             pastScenarios.forEach(s => {
@@ -441,17 +445,37 @@ export default function MyPage() {
           }
         }
         
+        // タイトルでも検索（フォールバック用）
+        if (pastScenarioTitles.length > 0) {
+          const { data: scenariosByTitle } = await supabase
+            .from('scenario_masters')
+            .select('id, title, key_visual_url')
+            .in('title', pastScenarioTitles)
+          
+          if (scenariosByTitle) {
+            scenariosByTitle.forEach(s => {
+              titleToScenarioData[s.title] = { key_visual_url: s.key_visual_url, id: s.id }
+            })
+          }
+        }
+        
         const played: PlayedScenario[] = pastReservations.map(reservation => {
           const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
           const scenarioInfo = scenarioMasterId ? additionalScenarioData[scenarioMasterId] : null
+          const title = reservation.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim() || ''
+          // IDで見つからない場合はタイトルでフォールバック
+          const titleFallback = title ? titleToScenarioData[title] : null
+          const finalKeyVisual = scenarioInfo?.key_visual_url || titleFallback?.key_visual_url
+          const finalScenarioId = scenarioMasterId || titleFallback?.id
+          
           return {
-            scenario: reservation.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim() || '',
+            scenario: title,
             date: reservation.requested_datetime.split('T')[0],
             venue: storesData.find(s => s.id === reservation.store_id)?.name || '店舗情報なし',
-            scenario_id: scenarioMasterId || undefined,
-            scenario_slug: scenarioInfo?.slug || undefined,
+            scenario_id: finalScenarioId || undefined,
+            scenario_slug: scenarioInfo?.slug || titleFallback?.id || undefined,
             organization_slug: reservation.organization_id ? orgSlugMap[reservation.organization_id] : undefined,
-            key_visual_url: scenarioInfo?.key_visual_url || undefined,
+            key_visual_url: finalKeyVisual || undefined,
             is_manual: false,
             reservation_id: reservation.id,
           }

@@ -218,6 +218,23 @@ export function AlbumPage() {
       const scenarios: PlayedScenario[] = []
       
       if (reservations) {
+        // タイトルでの一括検索用マップを作成
+        const titles = reservations.map(r => r.title).filter((t): t is string => !!t)
+        const titleToScenarioMap: Record<string, { key_visual_url?: string; author?: string; id: string }> = {}
+        
+        if (titles.length > 0) {
+          const { data: scenariosByTitle } = await supabase
+            .from('scenario_masters')
+            .select('id, title, key_visual_url, author')
+            .in('title', titles)
+          
+          if (scenariosByTitle) {
+            scenariosByTitle.forEach(s => {
+              titleToScenarioMap[s.title] = { key_visual_url: s.key_visual_url, author: s.author, id: s.id }
+            })
+          }
+        }
+        
         for (const reservation of reservations) {
           const reservationDate = new Date(reservation.requested_datetime)
           const dateStr = reservationDate.toISOString().split('T')[0]
@@ -231,17 +248,28 @@ export function AlbumPage() {
             .maybeSingle()
 
           // シナリオの画像と作者を取得（scenario_master_id を優先、scenario_masters から）
-          let keyVisualUrl = null
-          let author = null
+          let keyVisualUrl: string | null = null
+          let author: string | null = null
+          let finalScenarioId: string | null = null
           const scenarioMasterId = (reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id
+          
           if (scenarioMasterId) {
             const { data: scenarioData } = await supabase
               .from('scenario_masters')
               .select('key_visual_url, author')
               .eq('id', scenarioMasterId)
               .maybeSingle()
-            keyVisualUrl = scenarioData?.key_visual_url
-            author = scenarioData?.author
+            keyVisualUrl = scenarioData?.key_visual_url || null
+            author = scenarioData?.author || null
+            finalScenarioId = scenarioMasterId
+          }
+          
+          // IDで見つからない場合はタイトルでフォールバック
+          if (!keyVisualUrl && reservation.title && titleToScenarioMap[reservation.title]) {
+            const fallback = titleToScenarioMap[reservation.title]
+            keyVisualUrl = fallback.key_visual_url || null
+            author = fallback.author || null
+            finalScenarioId = finalScenarioId || fallback.id
           }
 
           if (!eventError && event) {
@@ -250,8 +278,8 @@ export function AlbumPage() {
               date: event.date,
               venue: event.venue,
               gms: event.gms || [],
-              scenario_id: ((reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id) || undefined,
-              key_visual_url: keyVisualUrl,
+              scenario_id: finalScenarioId || undefined,
+              key_visual_url: keyVisualUrl || undefined,
               author: author || undefined,
             })
           } else {
@@ -261,8 +289,8 @@ export function AlbumPage() {
               date: dateStr,
               venue: '店舗不明',
               gms: [],
-              scenario_id: ((reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id) || undefined,
-              key_visual_url: keyVisualUrl,
+              scenario_id: finalScenarioId || undefined,
+              key_visual_url: keyVisualUrl || undefined,
               author: author || undefined,
             })
           }
