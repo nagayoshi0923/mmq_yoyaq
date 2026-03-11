@@ -35,6 +35,7 @@ export function PrivateBookingRequest({
   stores,
   scenarioAvailableStores,
   organizationSlug,
+  groupId,
   onBack,
   onComplete
 }: PrivateBookingRequestProps) {
@@ -131,7 +132,8 @@ export function PrivateBookingRequest({
     selectedTimeSlots: editableTimeSlots,
     selectedStoreIds,
     stores,
-    userId: user?.id
+    userId: user?.id,
+    groupId
   })
 
   // 予約送信ハンドラ

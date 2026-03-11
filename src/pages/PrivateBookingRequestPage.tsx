@@ -175,6 +175,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       selectedStoreIds={selectedStoreIds}
       stores={stores}
       scenarioAvailableStores={scenario.available_stores || []}
+      groupId={groupId || undefined}
       onBack={handleBack}
       onComplete={handleComplete}
     />

@@ -26,6 +26,7 @@ interface UsePrivateBookingSubmitProps {
   selectedStoreIds: string[]
   stores: any[]
   userId?: string
+  groupId?: string
 }
 
 /**
@@ -152,7 +153,8 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         p_participant_count: props.maxParticipants,
         p_candidate_datetimes: candidateDatetimes,
         p_notes: notes || null,
-        p_reservation_number: baseReservationNumber  // 冪等性キー
+        p_reservation_number: baseReservationNumber,  // 冪等性キー
+        p_private_group_id: props.groupId || null
       })
       
       if (rpcError) {
