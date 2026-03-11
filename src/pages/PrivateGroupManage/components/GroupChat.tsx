@@ -12,9 +12,10 @@ interface GroupChatProps {
   groupId: string
   currentMemberId: string | null
   members: PrivateGroupMember[]
+  fullHeight?: boolean
 }
 
-export function GroupChat({ groupId, currentMemberId, members: initialMembers }: GroupChatProps) {
+export function GroupChat({ groupId, currentMemberId, members: initialMembers, fullHeight = false }: GroupChatProps) {
   const { user } = useAuth()
   const [messages, setMessages] = useState<PrivateGroupMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
@@ -236,7 +237,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
   const effectiveMemberId = currentMemberId || memberIdFromUser
 
   return (
-    <Card className="flex flex-col h-[500px]">
+    <Card className={`flex flex-col ${fullHeight ? 'flex-1 h-full border-0 shadow-none' : 'h-[500px]'}`}>
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
