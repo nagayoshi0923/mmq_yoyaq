@@ -77,6 +77,9 @@ export function PrivateGroupInvite() {
   
   // モバイル候補日シート
   const [showMobileDates, setShowMobileDates] = useState(false)
+  
+  // メンバー招待シート
+  const [showInviteSheet, setShowInviteSheet] = useState(false)
 
   // SessionStorageキー
   const getStorageKey = (inviteCode: string) => `guest_session_${inviteCode}`
@@ -686,14 +689,14 @@ export function PrivateGroupInvite() {
                   </span>
                 </div>
               </div>
-              {isOrganizer && (
-                <button 
-                  onClick={() => setActiveTab('manage')}
-                  className="p-1.5 hover:bg-gray-100 rounded"
-                >
-                  <UserPlus className="w-5 h-5 text-gray-600" />
-                </button>
-              )}
+            {isOrganizer && (
+              <button 
+                onClick={() => setShowInviteSheet(true)}
+                className="p-1.5 hover:bg-gray-100 rounded"
+              >
+                <UserPlus className="w-5 h-5 text-gray-600" />
+              </button>
+            )}
               {/* モバイル: 候補日シートを開く / PC: 日程タブへ */}
             <button 
               onClick={() => {
@@ -888,6 +891,129 @@ export function PrivateGroupInvite() {
           </div>
         )}
 
+        {/* メンバー招待シート */}
+        {showInviteSheet && isOrganizer && (
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowInviteSheet(false)}>
+            <div 
+              className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-96 bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* ハンドル（モバイルのみ） */}
+              <div className="flex justify-center py-2 shrink-0 lg:hidden">
+                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+              </div>
+              
+              {/* ヘッダー */}
+              <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
+                <h3 className="font-semibold">メンバー招待・管理</h3>
+                <button 
+                  onClick={() => setShowInviteSheet(false)}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              {/* コンテンツ */}
+              <div className="overflow-y-auto flex-1 p-4 space-y-4">
+                {/* 招待URL */}
+                <div>
+                  <h4 className="font-medium text-sm mb-2">招待リンク</h4>
+                  <div className="flex gap-2">
+                    <Input
+                      value={getInviteUrl()}
+                      readOnly
+                      className="text-xs"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyUrl}
+                      className="shrink-0"
+                    >
+                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* ユーザー検索・招待 */}
+                {group.status === 'gathering' && (
+                  <UserSearchInvite
+                    groupId={group.id}
+                    inviteCode={group.invite_code}
+                    members={group.members || []}
+                    onInvitationSent={refetch}
+                  />
+                )}
+
+                {/* メンバー一覧 */}
+                <div>
+                  <h4 className="font-medium text-sm mb-2">参加メンバー（{joinedMembers.length}名）</h4>
+                  <div className="space-y-2">
+                    {joinedMembers.map(member => (
+                      <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                            <Users className="w-4 h-4 text-purple-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              {member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'}
+                            </p>
+                            {member.is_organizer && (
+                              <span className="text-xs text-amber-600">主催者</span>
+                            )}
+                          </div>
+                        </div>
+                        {!member.is_organizer && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveMember(member.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 申込ボタン */}
+                {group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
+                  <Button
+                    onClick={() => {
+                      setShowInviteSheet(false)
+                      handleProceedToBooking()
+                    }}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    貸切予約を申し込む
+                  </Button>
+                )}
+
+                {/* キャンセルボタン */}
+                {group.status === 'gathering' && (
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelGroup}
+                    disabled={cancelling}
+                    className="w-full text-red-600 border-red-300 hover:bg-red-50"
+                  >
+                    {cancelling ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        キャンセル中...
+                      </>
+                    ) : 'グループをキャンセル'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* PC: 2カラム / モバイル: チャットのみ */}
         <div className="flex-1 flex overflow-hidden">
           {/* チャット */}
@@ -897,7 +1023,7 @@ export function PrivateGroupInvite() {
               currentMemberId={existingMemberId}
               members={group.members || []}
               fullHeight={true}
-              onGoToSchedule={() => setActiveTab('schedule')}
+              onGoToSchedule={() => setShowMobileDates(true)}
             />
           </div>
 
