@@ -709,92 +709,168 @@ export function PrivateGroupInvite() {
         {showMobileDates && (
           <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setShowMobileDates(false)}>
             <div 
-              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[80vh] overflow-hidden"
+              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               {/* ハンドル */}
-              <div className="flex justify-center py-2">
+              <div className="flex justify-center py-2 shrink-0">
                 <div className="w-10 h-1 bg-gray-300 rounded-full" />
               </div>
               
               {/* ヘッダー */}
-              <div className="flex items-center justify-between px-4 pb-2 border-b">
-                <h3 className="font-semibold">候補日程（{group.candidate_dates?.length || 0}件）</h3>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setShowMobileDates(false)
-                      setActiveTab('schedule')
-                    }}
-                    className="text-xs text-purple-600"
-                  >
-                    詳細を見る
-                  </Button>
-                  <button 
-                    onClick={() => setShowMobileDates(false)}
-                    className="p-1 hover:bg-gray-100 rounded"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+              <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
+                <h3 className="font-semibold">日程・進捗</h3>
+                <button 
+                  onClick={() => setShowMobileDates(false)}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              {/* コンテンツ */}
+              <div className="overflow-y-auto flex-1 p-4 space-y-4">
+                {/* 進捗ステップ */}
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <h4 className="font-medium text-sm mb-2">進捗状況</h4>
+                  <div className="grid grid-cols-5 gap-1">
+                    <div className={`text-center p-1.5 rounded ${joinedMembers.length >= 2 ? 'bg-green-100' : 'bg-gray-200'}`}>
+                      <div className={`text-xs font-medium ${joinedMembers.length >= 2 ? 'text-green-700' : 'text-gray-500'}`}>
+                        {joinedMembers.length >= 2 ? '✓' : '1'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">招待</div>
+                    </div>
+                    <div className={`text-center p-1.5 rounded ${(group.candidate_dates?.length || 0) > 0 ? 'bg-green-100' : 'bg-gray-200'}`}>
+                      <div className={`text-xs font-medium ${(group.candidate_dates?.length || 0) > 0 ? 'text-green-700' : 'text-gray-500'}`}>
+                        {(group.candidate_dates?.length || 0) > 0 ? '✓' : '2'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">候補日</div>
+                    </div>
+                    <div className={`text-center p-1.5 rounded ${allMembersResponded ? 'bg-green-100' : 'bg-gray-200'}`}>
+                      <div className={`text-xs font-medium ${allMembersResponded ? 'text-green-700' : 'text-gray-500'}`}>
+                        {allMembersResponded ? '✓' : '3'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">回答</div>
+                    </div>
+                    <div className={`text-center p-1.5 rounded ${group.status !== 'gathering' ? 'bg-green-100' : 'bg-gray-200'}`}>
+                      <div className={`text-xs font-medium ${group.status !== 'gathering' ? 'text-green-700' : 'text-gray-500'}`}>
+                        {group.status !== 'gathering' ? '✓' : '4'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">申込</div>
+                    </div>
+                    <div className={`text-center p-1.5 rounded ${group.status === 'confirmed' ? 'bg-green-100' : 'bg-gray-200'}`}>
+                      <div className={`text-xs font-medium ${group.status === 'confirmed' ? 'text-green-700' : 'text-gray-500'}`}>
+                        {group.status === 'confirmed' ? '✓' : '5'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">確定</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 候補日リスト */}
+                <div>
+                  <h4 className="font-medium text-sm mb-2">候補日程（{group.candidate_dates?.length || 0}件）</h4>
+                  <div className="space-y-2">
+                    {group.candidate_dates && group.candidate_dates.length > 0 ? (
+                      group.candidate_dates.map((cd, index) => {
+                        const currentResponse = responses[cd.id]
+                        return (
+                          <div key={cd.id} className="p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
+                                    {index + 1}
+                                  </span>
+                                  <span className="font-medium text-sm">
+                                    {new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {cd.time_slot} {cd.start_time} - {cd.end_time}
+                                </div>
+                              </div>
+                            </div>
+                            {/* 回答ボタン */}
+                            {existingMemberId && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleResponseChange(cd.id, 'ok')}
+                                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                    currentResponse === 'ok'
+                                      ? 'bg-green-500 text-white'
+                                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-green-50'
+                                  }`}
+                                >
+                                  ○ OK
+                                </button>
+                                <button
+                                  onClick={() => handleResponseChange(cd.id, 'maybe')}
+                                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                    currentResponse === 'maybe'
+                                      ? 'bg-amber-500 text-white'
+                                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-amber-50'
+                                  }`}
+                                >
+                                  △ 微妙
+                                </button>
+                                <button
+                                  onClick={() => handleResponseChange(cd.id, 'ng')}
+                                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                    currentResponse === 'ng'
+                                      ? 'bg-red-500 text-white'
+                                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-red-50'
+                                  }`}
+                                >
+                                  × NG
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <div className="text-center text-muted-foreground py-8">
+                        候補日がまだ追加されていません
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* メンバー */}
+                <div>
+                  <h4 className="font-medium text-sm mb-2">メンバー（{joinedMembers.length}名）</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {joinedMembers.map(member => (
+                      <div key={member.id} className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-full text-xs">
+                        <div className="w-4 h-4 rounded-full bg-purple-100 flex items-center justify-center">
+                          <Users className="w-2.5 h-2.5 text-purple-600" />
+                        </div>
+                        <span>{member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'}</span>
+                        {member.is_organizer && <span className="text-amber-600">★</span>}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               
-              {/* 候補日リスト */}
-              <div className="overflow-y-auto max-h-[60vh] p-4 space-y-3">
-                {group.candidate_dates && group.candidate_dates.length > 0 ? (
-                  group.candidate_dates.map((cd, index) => {
-                    const myResponse = cd.responses?.find(r => r.member_id === existingMemberId)
-                    return (
-                      <div key={cd.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
-                              候補{index + 1}
-                            </span>
-                            <span className="font-medium text-sm">
-                              {new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}
-                            </span>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {cd.time_slot} {cd.start_time} - {cd.end_time}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {myResponse ? (
-                            <span className={`text-xs px-2 py-1 rounded ${
-                              myResponse.response === 'ok' ? 'bg-green-100 text-green-700' :
-                              myResponse.response === 'maybe' ? 'bg-amber-100 text-amber-700' :
-                              'bg-red-100 text-red-700'
-                            }`}>
-                              {myResponse.response === 'ok' ? '○' : myResponse.response === 'maybe' ? '△' : '×'}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-400">未回答</span>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })
-                ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    候補日がまだ追加されていません
-                  </div>
-                )}
-              </div>
-              
-              {/* 回答ボタン */}
-              {existingMemberId && (
-                <div className="p-4 border-t">
+              {/* 保存ボタン */}
+              {existingMemberId && Object.keys(responses).length > 0 && (
+                <div className="p-4 border-t shrink-0">
                   <Button 
-                    onClick={() => {
+                    onClick={async () => {
+                      await handleSubmit()
                       setShowMobileDates(false)
-                      setActiveTab('schedule')
                     }}
+                    disabled={actionLoading}
                     className="w-full bg-purple-600 hover:bg-purple-700"
                   >
-                    日程を回答する
+                    {actionLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        保存中...
+                      </>
+                    ) : '回答を保存'}
                   </Button>
                 </div>
               )}
