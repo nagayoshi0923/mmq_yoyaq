@@ -638,18 +638,21 @@ export function PrivateGroupInvite() {
     const params = new URLSearchParams()
     params.set('groupId', group.id)
     
+    // シナリオID（必須）
+    if (group.scenario_id) {
+      params.set('scenario', group.scenario_id)
+    }
+    
     // 最初の候補日をデフォルトで設定
     if (group.candidate_dates && group.candidate_dates.length > 0) {
       const firstDate = group.candidate_dates[0]
-      params.set('preferredDate', firstDate.date)
-      params.set('preferredSlot', firstDate.time_slot)
+      params.set('date', firstDate.date)
+      params.set('slot', firstDate.time_slot)
     }
     
+    // 店舗（最初の1つ）
     if (group.store_ids && group.store_ids.length > 0) {
-      params.set('storeIds', group.store_ids.join(','))
-    }
-    if (group.scenario_id) {
-      params.set('scenarioId', group.scenario_id)
+      params.set('store', group.store_ids[0])
     }
     
     navigate(`/${org.slug}/private-booking-request?${params.toString()}`)
