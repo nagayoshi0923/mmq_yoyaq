@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -49,6 +49,13 @@ export function PrivateGroupManage() {
   const { user } = useAuth()
   const { group, loading: groupLoading, error: groupError, refetch } = usePrivateGroupData(id || null)
   const { updateGroupStatus, getDateResponsesSummary, removeMember, loading: actionLoading } = usePrivateGroup()
+
+  // 統合ページにリダイレクト
+  useEffect(() => {
+    if (group?.invite_code) {
+      navigate(`/group/invite/${group.invite_code}`, { replace: true })
+    }
+  }, [group?.invite_code, navigate])
 
   const [copied, setCopied] = useState(false)
   const [progressCopied, setProgressCopied] = useState(false)

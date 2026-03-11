@@ -8,9 +8,11 @@ import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check } from 'lucide-react'
+import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check, UserPlus, Copy, Share2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
+import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
+import { UserSearchInvite } from '@/pages/PrivateGroupManage/components/UserSearchInvite'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup, usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroup'
 import { toast } from 'sonner'
@@ -44,7 +46,7 @@ export function PrivateGroupInvite() {
   
   const { user } = useAuth()
   const { group, loading: groupLoading, error: groupError, refetch } = usePrivateGroupByInviteCode(code || null)
-  const { joinGroup, submitDateResponses, leaveGroup, loading: actionLoading } = usePrivateGroup()
+  const { joinGroup, submitDateResponses, leaveGroup, updateGroupStatus, removeMember, loading: actionLoading } = usePrivateGroup()
 
   const [guestName, setGuestName] = useState('')
   const [guestEmail, setGuestEmail] = useState('')
@@ -68,6 +70,10 @@ export function PrivateGroupInvite() {
   
   // タブ状態（チャットをデフォルトに）
   const [activeTab, setActiveTab] = useState('chat')
+
+  // 主催者向け機能
+  const [copied, setCopied] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   // SessionStorageキー
   const getStorageKey = (inviteCode: string) => `guest_session_${inviteCode}`
@@ -351,7 +357,7 @@ export function PrivateGroupInvite() {
           setGeneratedPin(newPin)
           
           // PINをメールで送信（ゲスト用専用Edge Function）
-          const scenarioName = group.scenario?.title || 'グループ'
+          const scenarioName = group.scenario_masters?.title || 'グループ'
           const inviteUrl = `${window.location.origin}/group/invite/${group.invite_code}`
           supabase.functions.invoke('send-guest-pin', {
             body: {
@@ -563,6 +569,62 @@ export function PrivateGroupInvite() {
 
   const hasCharacters = scenario?.characters && (scenario.characters as unknown[]).length > 0
 
+  // 主催者判定
+  const isOrganizer = user && group?.organizer_id === user.id
+
+  // 招待URL取得
+  const getInviteUrl = () => `${window.location.origin}/group/invite/${group.invite_code}`
+
+  // URLコピー
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(getInviteUrl())
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      logger.error('Failed to copy URL')
+    }
+  }
+
+  // グループキャンセル
+  const handleCancelGroup = async () => {
+    if (!isOrganizer || !group) return
+    if (!confirm('本当にこのグループをキャンセルしますか？')) return
+    
+    setCancelling(true)
+    try {
+      await updateGroupStatus(group.id, 'cancelled')
+      toast.success('グループをキャンセルしました')
+      refetch()
+    } catch (err) {
+      logger.error('Failed to cancel group', err)
+      toast.error('キャンセルに失敗しました')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  // 貸切申込
+  const handleProceedToBooking = () => {
+    if (!isOrganizer || !group) return
+    navigate(`/private-booking/request?groupId=${group.id}`)
+  }
+
+  // メンバー削除
+  const handleRemoveMember = async (memberId: string) => {
+    if (!isOrganizer || !group) return
+    if (!confirm('このメンバーを削除しますか？')) return
+    
+    try {
+      await removeMember(memberId)
+      toast.success('メンバーを削除しました')
+      refetch()
+    } catch (err) {
+      logger.error('Failed to remove member', err)
+      toast.error('削除に失敗しました')
+    }
+  }
+
   // チャットタブ時はシンプルなレイアウト
   const isChatMode = existingMemberId && activeTab === 'chat'
 
@@ -605,6 +667,14 @@ export function PrivateGroupInvite() {
                 </span>
               </div>
             </div>
+            {isOrganizer && (
+              <button 
+                onClick={() => setActiveTab('manage')}
+                className="p-1.5 hover:bg-gray-100 rounded"
+              >
+                <UserPlus className="w-5 h-5 text-gray-600" />
+              </button>
+            )}
             <button 
               onClick={() => setActiveTab('schedule')}
               className="p-1.5 hover:bg-gray-100 rounded"
@@ -712,6 +782,39 @@ export function PrivateGroupInvite() {
                 <Calendar className="w-3.5 h-3.5 mr-1.5" />
                 日程回答・詳細を見る
               </Button>
+
+              {/* 主催者向け機能 */}
+              {isOrganizer && (
+                <div className="space-y-2 pt-2 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={handleCopyUrl}
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5 mr-1.5" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
+                    {copied ? 'コピー完了' : '招待リンクをコピー'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => setActiveTab('manage')}
+                  >
+                    <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+                    メンバー招待・管理
+                  </Button>
+                  {group.status === 'gathering' && hasViableDate && (
+                    <Button
+                      size="sm"
+                      className="w-full text-xs bg-green-600 hover:bg-green-700"
+                      onClick={handleProceedToBooking}
+                    >
+                      貸切予約を申し込む
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -988,7 +1091,7 @@ export function PrivateGroupInvite() {
         {/* 参加済みメンバー向けタブ */}
         {existingMemberId && group.members && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsList className={`grid w-full mb-4 ${isOrganizer ? 'grid-cols-4' : 'grid-cols-3'}`}>
               <TabsTrigger value="schedule" className="gap-1.5">
                 <Calendar className="w-4 h-4" />
                 日程
@@ -1001,6 +1104,12 @@ export function PrivateGroupInvite() {
                 <Users className="w-4 h-4" />
                 メンバー
               </TabsTrigger>
+              {isOrganizer && (
+                <TabsTrigger value="manage" className="gap-1.5">
+                  <UserPlus className="w-4 h-4" />
+                  管理
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {/* 日程タブ */}
@@ -1105,14 +1214,114 @@ export function PrivateGroupInvite() {
                           )}
                         </div>
                       </div>
-                      {member.id === existingMemberId && (
-                        <Badge variant="outline" className="text-xs">あなた</Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {member.id === existingMemberId && (
+                          <Badge variant="outline" className="text-xs">あなた</Badge>
+                        )}
+                        {isOrganizer && !member.is_organizer && member.id !== existingMemberId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveMember(member.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             </TabsContent>
+
+            {/* 管理タブ（主催者のみ） */}
+            {isOrganizer && (
+              <TabsContent value="manage">
+                <div className="space-y-6">
+                  {/* 招待URL共有 */}
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <h3 className="text-base font-semibold flex items-center gap-2">
+                        <Share2 className="w-4 h-4" />
+                        招待リンクを共有
+                      </h3>
+                      <div className="flex gap-2">
+                        <Input
+                          value={getInviteUrl()}
+                          readOnly
+                          className="text-sm"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCopyUrl}
+                          className="shrink-0"
+                        >
+                          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* 候補日追加 */}
+                  {group.status === 'gathering' && (
+                    <AddCandidateDates
+                      groupId={group.id}
+                      scenarioId={group.scenario_id || ''}
+                      storeIds={group.store_ids || []}
+                      existingDates={group.candidate_dates || []}
+                      onDatesAdded={refetch}
+                    />
+                  )}
+
+                  {/* ユーザー検索・招待 */}
+                  {group.status === 'gathering' && (
+                    <UserSearchInvite
+                      groupId={group.id}
+                      inviteCode={group.invite_code}
+                      members={group.members || []}
+                      onInvitationSent={refetch}
+                    />
+                  )}
+
+                  {/* 申込ボタン */}
+                  {group.status === 'gathering' && hasViableDate && (
+                    <Card className="border-green-200 bg-green-50">
+                      <CardContent className="p-4">
+                        <Button
+                          onClick={handleProceedToBooking}
+                          className="w-full bg-green-600 hover:bg-green-700"
+                        >
+                          貸切予約を申し込む
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* キャンセルボタン */}
+                  {group.status === 'gathering' && (
+                    <Card className="border-red-200">
+                      <CardContent className="p-4">
+                        <Button
+                          variant="outline"
+                          onClick={handleCancelGroup}
+                          disabled={cancelling}
+                          className="w-full text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          {cancelling ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              キャンセル中...
+                            </>
+                          ) : 'グループをキャンセル'}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         )}
 
