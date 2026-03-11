@@ -88,11 +88,20 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     }
   }
 
-  // URLパラメータから初期モードを設定
+  // URLパラメータから初期モードと戻り先URLを設定
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     if (urlParams.get('signup') === 'true' || signup) {
       setMode('signup')
+    }
+    
+    // redirectパラメータがあれば戻り先URLとして保存
+    const redirectParam = urlParams.get('redirect')
+    if (redirectParam) {
+      const safeUrl = validateRedirectUrl(redirectParam)
+      if (safeUrl && safeUrl !== '/') {
+        sessionStorage.setItem('returnUrl', safeUrl)
+      }
     }
     
     // sessionStorageからエラーメッセージを取得（OAuthログイン失敗時など）
