@@ -898,9 +898,10 @@ export function PrivateGroupInvite() {
                 )}
               </div>
               
-              {/* 保存ボタン */}
-              {existingMemberId && Object.keys(responses).length > 0 && (
-                <div className="p-4 border-t shrink-0">
+              {/* アクションボタン */}
+              <div className="p-4 border-t shrink-0 space-y-2">
+                {/* 回答保存ボタン */}
+                {existingMemberId && Object.keys(responses).length > 0 && (
                   <Button 
                     onClick={async () => {
                       await handleSubmit({ skipSuccessPage: true })
@@ -916,8 +917,21 @@ export function PrivateGroupInvite() {
                       </>
                     ) : '回答を保存'}
                   </Button>
-                </div>
-              )}
+                )}
+                
+                {/* 主催者向け申込ボタン */}
+                {isOrganizer && group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
+                  <Button 
+                    onClick={() => {
+                      setShowMobileDates(false)
+                      handleProceedToBooking()
+                    }}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    貸切予約を申し込む
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         )}
