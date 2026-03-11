@@ -939,7 +939,7 @@ export function PrivateGroupInvite() {
                         <div className="w-4 h-4 rounded-full bg-purple-100 flex items-center justify-center">
                           <Users className="w-2.5 h-2.5 text-purple-600" />
                         </div>
-                        <span>{member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'}</span>
+                        <span>{member.guest_name || member.users?.nickname || member.users?.email?.split('@')[0] || 'メンバー'}</span>
                         {member.is_organizer && <span className="text-amber-600">★</span>}
                         {member.id === existingMemberId && <span className="text-purple-600">（自分）</span>}
                       </div>
@@ -1077,7 +1077,7 @@ export function PrivateGroupInvite() {
                           </div>
                           <div>
                             <p className="text-sm font-medium">
-                              {member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'}
+                              {member.guest_name || member.users?.nickname || member.users?.email?.split('@')[0] || 'メンバー'}
                             </p>
                             {member.is_organizer && (
                               <span className="text-xs text-amber-600">主催者</span>
@@ -1208,7 +1208,7 @@ export function PrivateGroupInvite() {
                       <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center">
                         <Users className="w-3 h-3 text-purple-600" />
                       </div>
-                      <span className="truncate">{member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'}</span>
+                      <span className="truncate">{member.guest_name || member.users?.nickname || member.users?.email?.split('@')[0] || 'メンバー'}</span>
                     </div>
                   ))}
                   {joinedMembers.length > 5 && (
@@ -1688,7 +1688,7 @@ export function PrivateGroupInvite() {
                         </div>
                         <div>
                           <p className="text-sm font-medium">
-                            {member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'}
+                            {member.guest_name || member.users?.nickname || member.users?.email?.split('@')[0] || 'メンバー'}
                           </p>
                           {member.is_organizer && (
                             <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
