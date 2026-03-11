@@ -664,7 +664,7 @@ export function PrivateGroupInvite() {
           <div className="shrink-0 border-b lg:border lg:rounded-t-lg bg-white">
             <div className="flex items-center gap-3 px-4 py-2">
               <button 
-                onClick={() => navigate('/mypage/reservations')}
+                onClick={() => navigate('/mypage')}
                 className="p-1.5 hover:bg-gray-100 rounded"
               >
                 <ArrowLeft className="w-5 h-5 text-gray-600" />
