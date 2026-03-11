@@ -261,6 +261,34 @@ export function PrivateGroupInvite() {
   const discountAmount = selectedCoupon?.discount_amount || 0
   const finalAmount = Math.max(0, perPersonPrice - discountAmount)
 
+  // 進捗表示用の計算（早期リターンの前に配置してフック順序を維持）
+  const joinedMembers = useMemo(() => {
+    return group?.members?.filter(m => m.status === 'joined') || []
+  }, [group?.members])
+
+  const allMembersResponded = useMemo(() => {
+    if (!group?.candidate_dates?.length || !joinedMembers.length) return false
+    return joinedMembers.every(member => 
+      group.candidate_dates?.every(cd => 
+        cd.responses?.some(r => r.member_id === member.id)
+      )
+    )
+  }, [group?.candidate_dates, joinedMembers])
+
+  const hasViableDate = useMemo(() => {
+    if (!group?.candidate_dates?.length || !joinedMembers.length) return false
+    return group.candidate_dates.some(cd => 
+      joinedMembers.every(member => 
+        cd.responses?.some(r => r.member_id === member.id && r.response === 'ok')
+      )
+    )
+  }, [group?.candidate_dates, joinedMembers])
+
+  const hasCharacters = useMemo(() => {
+    const scenario = group?.scenario_masters
+    return scenario?.characters && (scenario.characters as unknown[]).length > 0
+  }, [group?.scenario_masters])
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00+09:00')
     const weekdays = ['日', '月', '火', '水', '木', '金', '土']
@@ -545,29 +573,7 @@ export function PrivateGroupInvite() {
   const scenario = group.scenario_masters
   const organizerMember = group.members?.find(m => m.is_organizer)
   const organizerName = organizerMember?.guest_name || 'メンバー'
-  const memberCount = group.members?.filter(m => m.status === 'joined').length || 0
-  const joinedMembers = group.members?.filter(m => m.status === 'joined') || []
-
-  // 進捗表示用の計算
-  const allMembersResponded = useMemo(() => {
-    if (!group.candidate_dates?.length || !joinedMembers.length) return false
-    return joinedMembers.every(member => 
-      group.candidate_dates?.every(cd => 
-        cd.responses?.some(r => r.member_id === member.id)
-      )
-    )
-  }, [group.candidate_dates, joinedMembers])
-
-  const hasViableDate = useMemo(() => {
-    if (!group.candidate_dates?.length || !joinedMembers.length) return false
-    return group.candidate_dates.some(cd => 
-      joinedMembers.every(member => 
-        cd.responses?.some(r => r.member_id === member.id && r.response === 'ok')
-      )
-    )
-  }, [group.candidate_dates, joinedMembers])
-
-  const hasCharacters = scenario?.characters && (scenario.characters as unknown[]).length > 0
+  const memberCount = joinedMembers.length
 
   // 主催者判定
   const isOrganizer = user && group?.organizer_id === user.id
