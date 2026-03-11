@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check, UserPlus, Copy, Share2 } from 'lucide-react'
+import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check, UserPlus, Copy, Share2, ArrowLeft } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
@@ -74,6 +74,9 @@ export function PrivateGroupInvite() {
   // 主催者向け機能
   const [copied, setCopied] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  
+  // モバイル候補日シート
+  const [showMobileDates, setShowMobileDates] = useState(false)
 
   // SessionStorageキー
   const getStorageKey = (inviteCode: string) => `guest_session_${inviteCode}`
@@ -651,10 +654,10 @@ export function PrivateGroupInvite() {
         <div className="shrink-0 border-b bg-white">
           <div className="flex items-center gap-3 px-4 py-2">
             <button 
-              onClick={() => navigate(-1)}
+              onClick={() => setActiveTab('schedule')}
               className="p-1.5 hover:bg-gray-100 rounded"
             >
-              <X className="w-5 h-5 text-gray-600" />
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
             {scenario?.key_visual_url && (
               <img
@@ -681,14 +684,123 @@ export function PrivateGroupInvite() {
                 <UserPlus className="w-5 h-5 text-gray-600" />
               </button>
             )}
+            {/* モバイル: 候補日シートを開く / PC: 日程タブへ */}
             <button 
-              onClick={() => setActiveTab('schedule')}
-              className="p-1.5 hover:bg-gray-100 rounded"
+              onClick={() => {
+                if (window.innerWidth < 1024) {
+                  setShowMobileDates(true)
+                } else {
+                  setActiveTab('schedule')
+                }
+              }}
+              className="p-1.5 hover:bg-gray-100 rounded relative"
             >
               <Calendar className="w-5 h-5 text-gray-600" />
+              {(group.candidate_dates?.length || 0) > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-purple-600 text-white text-[10px] rounded-full flex items-center justify-center">
+                  {group.candidate_dates?.length}
+                </span>
+              )}
             </button>
           </div>
         </div>
+
+        {/* モバイル候補日シート */}
+        {showMobileDates && (
+          <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setShowMobileDates(false)}>
+            <div 
+              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[80vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* ハンドル */}
+              <div className="flex justify-center py-2">
+                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+              </div>
+              
+              {/* ヘッダー */}
+              <div className="flex items-center justify-between px-4 pb-2 border-b">
+                <h3 className="font-semibold">候補日程（{group.candidate_dates?.length || 0}件）</h3>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowMobileDates(false)
+                      setActiveTab('schedule')
+                    }}
+                    className="text-xs text-purple-600"
+                  >
+                    詳細を見る
+                  </Button>
+                  <button 
+                    onClick={() => setShowMobileDates(false)}
+                    className="p-1 hover:bg-gray-100 rounded"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* 候補日リスト */}
+              <div className="overflow-y-auto max-h-[60vh] p-4 space-y-3">
+                {group.candidate_dates && group.candidate_dates.length > 0 ? (
+                  group.candidate_dates.map((cd, index) => {
+                    const myResponse = cd.responses?.find(r => r.member_id === existingMemberId)
+                    return (
+                      <div key={cd.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
+                              候補{index + 1}
+                            </span>
+                            <span className="font-medium text-sm">
+                              {new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {cd.time_slot} {cd.start_time} - {cd.end_time}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {myResponse ? (
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              myResponse.response === 'ok' ? 'bg-green-100 text-green-700' :
+                              myResponse.response === 'maybe' ? 'bg-amber-100 text-amber-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {myResponse.response === 'ok' ? '○' : myResponse.response === 'maybe' ? '△' : '×'}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">未回答</span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    候補日がまだ追加されていません
+                  </div>
+                )}
+              </div>
+              
+              {/* 回答ボタン */}
+              {existingMemberId && (
+                <div className="p-4 border-t">
+                  <Button 
+                    onClick={() => {
+                      setShowMobileDates(false)
+                      setActiveTab('schedule')
+                    }}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                  >
+                    日程を回答する
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* PC: 2カラム / モバイル: チャットのみ */}
         <div className="flex-1 flex overflow-hidden">
@@ -811,7 +923,7 @@ export function PrivateGroupInvite() {
                     <UserPlus className="w-3.5 h-3.5 mr-1.5" />
                     メンバー招待・管理
                   </Button>
-                  {group.status === 'gathering' && hasViableDate && (
+                  {group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
                     <Button
                       size="sm"
                       className="w-full text-xs bg-green-600 hover:bg-green-700"
@@ -1295,7 +1407,7 @@ export function PrivateGroupInvite() {
                   )}
 
                   {/* 申込ボタン */}
-                  {group.status === 'gathering' && hasViableDate && (
+                  {group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
                     <Card className="border-green-200 bg-green-50">
                       <CardContent className="p-4">
                         <Button
@@ -1611,6 +1723,16 @@ export function PrivateGroupInvite() {
             <LogOut className="w-4 h-4 mr-2" />
             このグループから退出する
           </Button>
+        )}
+
+        {/* チャットに戻るフローティングボタン（チャットタブ以外で表示） */}
+        {existingMemberId && activeTab !== 'chat' && (
+          <button
+            onClick={() => setActiveTab('chat')}
+            className="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all active:scale-95 z-40"
+          >
+            <MessageCircle className="w-6 h-6" />
+          </button>
         )}
       </div>
     </div>
