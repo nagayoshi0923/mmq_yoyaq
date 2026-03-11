@@ -349,6 +349,9 @@ export const scheduleApi = {
         time_slot,
         organization_id,
         updated_at,
+        reservation_name,
+        reservation_id,
+        is_reservation_name_overwritten,
         stores:store_id (
           id,
           name,
