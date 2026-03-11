@@ -566,104 +566,129 @@ export function PrivateGroupInvite() {
   // チャットタブ時はシンプルなレイアウト
   const isChatMode = existingMemberId && activeTab === 'chat'
 
+  // チャットモード時は専用レイアウト
+  if (isChatMode && group) {
+    return (
+      <div className="h-screen flex flex-col bg-background">
+        {/* コンパクトヘッダー */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b bg-white">
+          <button 
+            onClick={() => setActiveTab('schedule')}
+            className="p-1 hover:bg-gray-100 rounded"
+          >
+            <Calendar className="w-5 h-5 text-gray-600" />
+          </button>
+          {scenario?.key_visual_url && (
+            <img
+              src={scenario.key_visual_url}
+              alt={scenario.title || ''}
+              className="w-8 h-8 object-cover rounded"
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-medium truncate">{scenario?.title || 'グループチャット'}</h2>
+            <p className="text-xs text-muted-foreground">{memberCount}名参加中</p>
+          </div>
+          <button 
+            onClick={() => setActiveTab('members')}
+            className="p-1 hover:bg-gray-100 rounded"
+          >
+            <Users className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
+
+        {/* チャット本体 */}
+        <div className="flex-1 overflow-hidden">
+          <GroupChat
+            groupId={group.id}
+            currentMemberId={existingMemberId}
+            members={group.members || []}
+            fullHeight={true}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       <NavigationBar currentPage="/" />
 
-      <div className={`container mx-auto max-w-lg px-4 ${isChatMode ? 'py-2 flex-1 flex flex-col' : 'py-6'}`}>
-        {/* チャットモード時はコンパクトヘッダー */}
-        {isChatMode ? (
-          <div className="flex items-center gap-3 py-2 mb-2 border-b">
-            {scenario?.key_visual_url && (
-              <img
-                src={scenario.key_visual_url}
-                alt={scenario.title || ''}
-                className="w-10 h-10 object-cover rounded"
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-medium truncate">{scenario?.title || 'グループチャット'}</h2>
-              <p className="text-xs text-muted-foreground">{memberCount}名参加中</p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <Card className="border-purple-200 bg-purple-50/50 mb-6">
-              <CardContent className="p-4 text-center">
-                <p className="text-sm text-purple-800">
-                  <span className="font-medium">{organizerName}</span>さんからの貸切お誘い
-                </p>
-              </CardContent>
-            </Card>
+      <div className="container mx-auto max-w-lg px-4 py-6">
+        <Card className="border-purple-200 bg-purple-50/50 mb-6">
+          <CardContent className="p-4 text-center">
+            <p className="text-sm text-purple-800">
+              <span className="font-medium">{organizerName}</span>さんからの貸切お誘い
+            </p>
+          </CardContent>
+        </Card>
 
-            {/* 新規登録特典案内 */}
-            {!user && (
-              <Card className="mb-6 border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
-                      <span className="text-lg">🎁</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-amber-800">
-                        新規会員登録で2,000円分クーポンプレゼント！
-                      </p>
-                      <p className="text-xs text-amber-700 mt-0.5">
-                        ログインして参加すると、次回予約で使えるクーポンがもらえます
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 mt-3">
-                    <Button
-                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
-                      onClick={() => navigate(`/signup?redirect=${encodeURIComponent(location.pathname)}`)}
-                    >
-                      新規登録
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 border-amber-500 text-amber-700 hover:bg-amber-100"
-                      onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)}
-                    >
-                      ログイン
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+        {/* 新規登録特典案内 */}
+        {!user && (
+          <Card className="mb-6 border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
+                  <span className="text-lg">🎁</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-amber-800">
+                    新規会員登録で2,000円分クーポンプレゼント！
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    ログインして参加すると、次回予約で使えるクーポンがもらえます
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+                  onClick={() => navigate(`/signup?redirect=${encodeURIComponent(location.pathname)}`)}
+                >
+                  新規登録
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-amber-500 text-amber-700 hover:bg-amber-100"
+                  onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)}
+                >
+                  ログイン
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-            {/* シナリオ情報 */}
-            <Card className="mb-6">
-              <CardContent className="p-4">
-                <div className="flex gap-4">
-                  {scenario?.key_visual_url && (
-                    <img
-                      src={scenario.key_visual_url}
-                      alt={scenario.title || ''}
-                      className="w-20 h-28 object-cover rounded"
-                    />
-                  )}
-                  <div className="flex-1">
-                    <h2 className="text-base font-medium">{scenario?.title || 'シナリオ'}</h2>
-                    {group.name && (
-                      <p className="text-sm text-muted-foreground mt-1">{group.name}</p>
-                    )}
-                    <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        <span>{memberCount}/{group.target_participant_count || '?'}名</span>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="mt-2 bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                      貸切グループ
-                    </Badge>
+        {/* シナリオ情報 */}
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <div className="flex gap-4">
+              {scenario?.key_visual_url && (
+                <img
+                  src={scenario.key_visual_url}
+                  alt={scenario.title || ''}
+                  className="w-20 h-28 object-cover rounded"
+                />
+              )}
+              <div className="flex-1">
+                <h2 className="text-base font-medium">{scenario?.title || 'シナリオ'}</h2>
+                {group.name && (
+                  <p className="text-sm text-muted-foreground mt-1">{group.name}</p>
+                )}
+                <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    <span>{memberCount}/{group.target_participant_count || '?'}名</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
+                <Badge variant="outline" className="mt-2 bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                  貸切グループ
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {error && (
           <Card className="mb-4 border-2 border-red-200 bg-red-50">
@@ -853,8 +878,8 @@ export function PrivateGroupInvite() {
 
         {/* 参加済みメンバー向けタブ */}
         {existingMemberId && group.members && (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className={isChatMode ? 'flex-1 flex flex-col' : 'mb-6'}>
-            <TabsList className={`grid w-full grid-cols-3 ${isChatMode ? 'mb-2' : 'mb-4'}`}>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="schedule" className="gap-1.5">
                 <Calendar className="w-4 h-4" />
                 日程
@@ -941,15 +966,12 @@ export function PrivateGroupInvite() {
             </TabsContent>
 
             {/* チャットタブ */}
-            <TabsContent value="chat" className={isChatMode ? 'flex-1 flex flex-col mt-0' : ''}>
-              <div className={isChatMode ? 'flex-1 flex flex-col' : ''}>
-                <GroupChat
-                  groupId={group.id}
-                  currentMemberId={existingMemberId}
-                  members={group.members}
-                  fullHeight={isChatMode}
-                />
-              </div>
+            <TabsContent value="chat">
+              <GroupChat
+                groupId={group.id}
+                currentMemberId={existingMemberId}
+                members={group.members}
+              />
             </TabsContent>
 
             {/* メンバータブ */}
