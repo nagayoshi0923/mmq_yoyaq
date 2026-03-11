@@ -160,7 +160,7 @@ export function usePrivateGroup() {
         .select(`
           *,
           scenario_masters:scenario_id (id, title, key_visual_url),
-          members:private_group_members (*, users:user_id (id, email, nickname)),
+          members:private_group_members (*),
           candidate_dates:private_group_candidate_dates (
             *,
             responses:private_group_date_responses (*)
@@ -210,7 +210,7 @@ export function usePrivateGroup() {
         .select(`
           *,
           scenario_masters:scenario_id (id, title, key_visual_url),
-          members:private_group_members (*, users:user_id (id, email, nickname)),
+          members:private_group_members (*),
           candidate_dates:private_group_candidate_dates (
             *,
             responses:private_group_date_responses (*)
@@ -263,7 +263,7 @@ export function usePrivateGroup() {
         .select(`
           *,
           scenario_masters:scenario_id (id, title, key_visual_url),
-          members:private_group_members (*, users:user_id (id, email, nickname))
+          members:private_group_members (*)
         `)
         .eq('organizer_id', user.id)
         .order('created_at', { ascending: false })
@@ -500,7 +500,6 @@ export function usePrivateGroupData(groupId: string | null) {
           scenario_masters:scenario_id (id, title, key_visual_url),
           members:private_group_members (
             *,
-            users:user_id (id, email, nickname),
             date_responses:private_group_date_responses (*)
           ),
           candidate_dates:private_group_candidate_dates (
@@ -566,7 +565,6 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null) {
           scenario_masters:scenario_id (id, title, key_visual_url),
           members:private_group_members (
             *,
-            users:user_id (id, email, nickname),
             date_responses:private_group_date_responses (*)
           ),
           candidate_dates:private_group_candidate_dates (
