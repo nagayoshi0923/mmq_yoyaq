@@ -53,6 +53,8 @@ export function PrivateGroupManage() {
   const [copied, setCopied] = useState(false)
   const [progressCopied, setProgressCopied] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [showDateSelectionModal, setShowDateSelectionModal] = useState(false)
+  const [selectedDatesForBooking, setSelectedDatesForBooking] = useState<string[]>([])
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00+09:00')
@@ -117,14 +119,34 @@ export function PrivateGroupManage() {
 
   const handleProceedToBooking = () => {
     if (!group) return
+    // 候補日が1件のみの場合は直接申込へ
+    if (group.candidate_dates?.length === 1) {
+      proceedWithSelectedDates([group.candidate_dates[0].id])
+    } else {
+      // 複数候補がある場合は選択モーダルを表示
+      setSelectedDatesForBooking([])
+      setShowDateSelectionModal(true)
+    }
+  }
 
-    const bestDate = responseSummary.find(r => r.isViable)
+  const proceedWithSelectedDates = (dateIds: string[]) => {
+    if (!group) return
+    
+    const selectedDates = group.candidate_dates?.filter(cd => dateIds.includes(cd.id)) || []
     const params = new URLSearchParams()
     params.set('groupId', group.id)
-    if (bestDate) {
-      params.set('preferredDate', bestDate.candidateDate.date)
-      params.set('preferredSlot', bestDate.candidateDate.time_slot)
+    
+    // 選択した日程をパラメータに追加（最大6件）
+    const datesToSend = selectedDates.slice(0, 6)
+    if (datesToSend.length > 0) {
+      params.set('preferredDate', datesToSend[0].date)
+      params.set('preferredSlot', datesToSend[0].time_slot)
+      // 追加の候補日をカンマ区切りで追加
+      if (datesToSend.length > 1) {
+        params.set('additionalDates', datesToSend.slice(1).map(d => `${d.date}_${d.time_slot}`).join(','))
+      }
     }
+    
     if (group.preferred_store_ids && group.preferred_store_ids.length > 0) {
       params.set('storeIds', group.preferred_store_ids.join(','))
     }
@@ -133,6 +155,17 @@ export function PrivateGroupManage() {
     }
 
     navigate(`/private-booking?${params.toString()}`)
+  }
+
+  const toggleDateSelection = (dateId: string) => {
+    setSelectedDatesForBooking(prev => {
+      if (prev.includes(dateId)) {
+        return prev.filter(id => id !== dateId)
+      }
+      // 最大6件まで選択可能
+      if (prev.length >= 6) return prev
+      return [...prev, dateId]
+    })
   }
 
   const handleCancelGroup = async () => {
@@ -699,6 +732,86 @@ export function PrivateGroupManage() {
           </div>
         </div>
       </div>
+
+      {/* 日程選択モーダル */}
+      {showDateSelectionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-lg max-h-[80vh] overflow-hidden">
+            <CardContent className="p-0">
+              <div className="p-4 border-b">
+                <h3 className="font-semibold text-lg">申込日程を選択</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  店舗に申し込む候補日を選んでください（最大6件）
+                </p>
+              </div>
+              
+              <div className="p-4 max-h-[50vh] overflow-y-auto space-y-2">
+                {responseSummary.map((summary, index) => {
+                  const cd = summary.candidateDate
+                  const isSelected = selectedDatesForBooking.includes(cd.id)
+                  const isRecommended = summary.isViable && summary.okCount >= (group.target_participant_count || 1)
+                  
+                  return (
+                    <div
+                      key={cd.id}
+                      onClick={() => toggleDateSelection(cd.id)}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'border-purple-500 bg-purple-50'
+                          : isRecommended
+                          ? 'border-green-300 bg-green-50 hover:border-green-400'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                          isSelected ? 'border-purple-600 bg-purple-600' : 'border-gray-300'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{formatDate(cd.date)}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {cd.time_slot}
+                            </Badge>
+                            {isRecommended && (
+                              <Badge className="bg-green-600 text-white text-xs">おすすめ</Badge>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {cd.start_time} - {cd.end_time} ･ {summary.okCount}名が参加可能
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              
+              <div className="p-4 border-t bg-gray-50 flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowDateSelectionModal(false)}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  className="flex-1 bg-purple-600 hover:bg-purple-700"
+                  disabled={selectedDatesForBooking.length === 0}
+                  onClick={() => {
+                    setShowDateSelectionModal(false)
+                    proceedWithSelectedDates(selectedDatesForBooking)
+                  }}
+                >
+                  {selectedDatesForBooking.length}件で申し込む
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

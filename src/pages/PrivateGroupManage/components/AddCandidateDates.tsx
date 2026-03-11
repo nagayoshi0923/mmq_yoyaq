@@ -45,7 +45,8 @@ export function AddCandidateDates({
   const [allStoreEvents, setAllStoreEvents] = useState<any[]>([])
   
   const { isCustomHoliday } = useCustomHolidays()
-  const MAX_SELECTIONS = 6 - existingDates.length
+  // 候補日の制限なし（メンバー調整用のため自由に追加可能）
+  const MAX_SELECTIONS = 100
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -242,7 +243,6 @@ export function AddCandidateDates({
         variant="outline"
         size="sm"
         onClick={() => setIsOpen(true)}
-        disabled={MAX_SELECTIONS <= 0}
         className="gap-1.5"
       >
         <Plus className="w-4 h-4" />
@@ -294,16 +294,11 @@ export function AddCandidateDates({
 
             <div className="text-xs text-muted-foreground text-center">
               {selectedSlots.length === 0 ? (
-                <span>候補日時を選択してください（最大{MAX_SELECTIONS}件）</span>
+                <span>メンバーに確認したい候補日時を選択してください</span>
               ) : (
                 <span>
                   <span className="font-medium text-purple-600">{selectedSlots.length}件</span>選択中
-                  {MAX_SELECTIONS - selectedSlots.length > 0 && (
-                    <>
-                      <span className="mx-1">･</span>
-                      あと<span className="font-medium">{MAX_SELECTIONS - selectedSlots.length}件</span>選択可能
-                    </>
-                  )}
+                  <span className="ml-2 text-gray-400">（制限なし・複数選択可）</span>
                 </span>
               )}
             </div>
