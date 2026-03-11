@@ -620,8 +620,20 @@ export function PrivateGroupInvite() {
   }
 
   // 貸切申込
-  const handleProceedToBooking = () => {
+  const handleProceedToBooking = async () => {
     if (!isOrganizer || !group) return
+    
+    // 組織のスラッグを取得
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('slug')
+      .eq('id', group.organization_id)
+      .single()
+    
+    if (!org?.slug) {
+      toast.error('組織情報の取得に失敗しました')
+      return
+    }
     
     const params = new URLSearchParams()
     params.set('groupId', group.id)
@@ -640,7 +652,7 @@ export function PrivateGroupInvite() {
       params.set('scenarioId', group.scenario_id)
     }
     
-    navigate(`/private-booking?${params.toString()}`)
+    navigate(`/${org.slug}/private-booking-request?${params.toString()}`)
   }
 
   // メンバー削除
