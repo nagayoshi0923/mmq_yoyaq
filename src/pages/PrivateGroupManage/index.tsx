@@ -272,47 +272,174 @@ export function PrivateGroupManage() {
   // 現在のユーザーのメンバーID
   const currentMemberId = group.members?.find(m => m.user_id === user?.id)?.id || null
 
+  // 進捗ステップ数の計算
+  const completedSteps = [
+    joinedMembers.length >= 2,
+    (group.candidate_dates?.length || 0) > 0,
+    allMembersResponded,
+    group.status === 'booking_requested' || group.status === 'confirmed',
+    group.status === 'confirmed'
+  ].filter(Boolean).length
+
   // チャットモード時は専用レイアウト
   if (activeTab === 'chat') {
     return (
       <div className="h-screen flex flex-col bg-background">
-        {/* コンパクトヘッダー */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b bg-white">
-          <button 
-            onClick={() => setActiveTab('members')}
-            className="p-1 hover:bg-gray-100 rounded"
-          >
-            <Users className="w-5 h-5 text-gray-600" />
-          </button>
-          {scenario?.key_visual_url && (
-            <img
-              src={scenario.key_visual_url}
-              alt={scenario.title || ''}
-              className="w-8 h-8 object-cover rounded"
-            />
-          )}
-          <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-medium truncate">{scenario?.title || 'グループチャット'}</h2>
-            <p className="text-xs text-muted-foreground">{joinedMembers.length}名参加中</p>
-          </div>
-          {isOrganizer && (
+        {/* ヘッダー */}
+        <div className="border-b bg-white">
+          <div className="flex items-center gap-3 px-4 py-2">
             <button 
-              onClick={() => setActiveTab('invite')}
-              className="p-1 hover:bg-gray-100 rounded"
+              onClick={() => navigate(-1)}
+              className="p-1.5 hover:bg-gray-100 rounded"
             >
-              <UserPlus className="w-5 h-5 text-gray-600" />
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
-          )}
+            {scenario?.key_visual_url && (
+              <img
+                src={scenario.key_visual_url}
+                alt={scenario.title || ''}
+                className="w-8 h-8 object-cover rounded"
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-medium truncate">{scenario?.title || 'グループチャット'}</h2>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{joinedMembers.length}名参加</span>
+                <span>•</span>
+                <span className={group.status === 'confirmed' ? 'text-green-600' : group.status === 'booking_requested' ? 'text-blue-600' : ''}>
+                  {group.status === 'confirmed' ? '確定' : group.status === 'booking_requested' ? '確定待ち' : `進捗 ${completedSteps}/5`}
+                </span>
+              </div>
+            </div>
+            <button 
+              onClick={() => setActiveTab('members')}
+              className="p-1.5 hover:bg-gray-100 rounded"
+            >
+              <Users className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
         </div>
 
-        {/* チャット本体 */}
-        <div className="flex-1 overflow-hidden">
-          <GroupChat
-            groupId={group.id}
-            currentMemberId={currentMemberId}
-            members={group.members || []}
-            fullHeight={true}
-          />
+        {/* PC: 2カラム / モバイル: チャットのみ */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* チャット */}
+          <div className="flex-1 flex flex-col min-w-0">
+            <GroupChat
+              groupId={group.id}
+              currentMemberId={currentMemberId}
+              members={group.members || []}
+              fullHeight={true}
+            />
+          </div>
+
+          {/* PC用サイドバー */}
+          <div className="hidden lg:block w-80 border-l bg-gray-50 overflow-y-auto">
+            <div className="p-4 space-y-4">
+              {/* 進捗ステップ */}
+              <div className="bg-white rounded-lg p-3 border">
+                <h3 className="font-semibold text-sm mb-2">進捗</h3>
+                <div className="space-y-1.5">
+                  <div className={`flex items-center gap-2 text-xs ${joinedMembers.length >= 2 ? 'text-green-600' : 'text-gray-500'}`}>
+                    {joinedMembers.length >= 2 ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+                    メンバー招待 ({joinedMembers.length}名)
+                  </div>
+                  <div className={`flex items-center gap-2 text-xs ${(group.candidate_dates?.length || 0) > 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                    {(group.candidate_dates?.length || 0) > 0 ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+                    候補日追加 ({group.candidate_dates?.length || 0}件)
+                  </div>
+                  <div className={`flex items-center gap-2 text-xs ${allMembersResponded ? 'text-green-600' : 'text-gray-500'}`}>
+                    {allMembersResponded ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+                    日程回答
+                  </div>
+                  <div className={`flex items-center gap-2 text-xs ${group.status !== 'gathering' ? 'text-green-600' : 'text-gray-500'}`}>
+                    {group.status !== 'gathering' ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+                    予約申込
+                  </div>
+                  <div className={`flex items-center gap-2 text-xs ${group.status === 'confirmed' ? 'text-green-600' : 'text-gray-500'}`}>
+                    {group.status === 'confirmed' ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+                    日程確定
+                  </div>
+                </div>
+              </div>
+
+              {/* 候補日程 */}
+              {group.candidate_dates && group.candidate_dates.length > 0 && (
+                <div className="bg-white rounded-lg p-3 border">
+                  <h3 className="font-semibold text-sm mb-2">候補日程</h3>
+                  <div className="space-y-2">
+                    {group.candidate_dates.slice(0, 3).map((cd, i) => {
+                      const summary = responseSummary.find(s => s.candidateDate.id === cd.id)
+                      return (
+                        <div key={cd.id} className="text-xs">
+                          <div className="font-medium">{new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}</div>
+                          <div className="text-muted-foreground flex gap-2">
+                            <span className="text-green-600">○{summary?.okCount || 0}</span>
+                            <span className="text-amber-600">△{summary?.maybeCount || 0}</span>
+                            <span className="text-red-600">×{summary?.ngCount || 0}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {group.candidate_dates.length > 3 && (
+                      <button 
+                        onClick={() => setActiveTab('members')}
+                        className="text-xs text-purple-600 hover:underline"
+                      >
+                        他{group.candidate_dates.length - 3}件を表示
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* メンバー */}
+              <div className="bg-white rounded-lg p-3 border">
+                <h3 className="font-semibold text-sm mb-2">メンバー ({joinedMembers.length}名)</h3>
+                <div className="space-y-1.5">
+                  {joinedMembers.slice(0, 5).map(member => (
+                    <div key={member.id} className="flex items-center gap-2 text-xs">
+                      <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center">
+                        <Users className="w-3 h-3 text-purple-600" />
+                      </div>
+                      <span className="truncate">{member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'}</span>
+                      {member.is_organizer && <Badge variant="outline" className="text-[10px] px-1 py-0">主催</Badge>}
+                    </div>
+                  ))}
+                  {joinedMembers.length > 5 && (
+                    <button 
+                      onClick={() => setActiveTab('members')}
+                      className="text-xs text-purple-600 hover:underline"
+                    >
+                      他{joinedMembers.length - 5}名を表示
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* アクションボタン */}
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => setActiveTab('members')}
+                >
+                  <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                  日程・詳細を見る
+                </Button>
+                {isOrganizer && group.status === 'gathering' && (
+                  <Button
+                    size="sm"
+                    className="w-full text-xs bg-purple-600 hover:bg-purple-700"
+                    onClick={() => setActiveTab('invite')}
+                  >
+                    <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+                    メンバーを招待
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
