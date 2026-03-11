@@ -1010,10 +1010,11 @@ export function PrivateGroupInvite() {
               if (!confirm('本当にこのグループから退出しますか？')) return
               try {
                 if (existingMemberId) {
-                  await supabase
-                    .from('private_group_members')
-                    .delete()
-                    .eq('id', existingMemberId)
+                  // RPC経由で削除（RLSを回避）
+                  const { error: deleteError } = await supabase.rpc('delete_guest_member', {
+                    p_member_id: existingMemberId,
+                  })
+                  if (deleteError) throw deleteError
                   toast.success('グループから退出しました')
                   setExistingMemberId(null)
                   clearGuestSession()

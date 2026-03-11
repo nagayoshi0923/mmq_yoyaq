@@ -69,9 +69,16 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
   const getMemberName = useCallback((memberId: string | null) => {
     if (!memberId) return '退出したメンバー'
     const member = members.find(m => m.id === memberId)
-    if (!member) return '退出したメンバー'
-    return member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'
-  }, [members])
+    if (member) {
+      return member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'
+    }
+    // メンバーが見つからないが、currentMemberIdと一致する場合は「あなた」と表示しない（自分のメッセージは右側に表示されるため）
+    // ただしメンバー情報がまだ取得できていない可能性があるので「メンバー」と表示
+    if (memberId === currentMemberId) {
+      return 'メンバー'
+    }
+    return '退出したメンバー'
+  }, [members, currentMemberId])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -145,6 +152,11 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
 
       if (error) throw error
       setNewMessage('')
+      
+      // 自分がメンバー一覧にない場合は再取得
+      if (!members.some(m => m.id === currentMemberId)) {
+        fetchMembers()
+      }
     } catch (err) {
       logger.error('Failed to send message', err)
     } finally {
