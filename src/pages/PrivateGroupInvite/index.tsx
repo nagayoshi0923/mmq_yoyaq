@@ -652,42 +652,49 @@ export function PrivateGroupInvite() {
   // チャットモード時は専用レイアウト
   if (isChatMode && group) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-background z-50">
-        {/* ヘッダー */}
-        <div className="shrink-0 border-b bg-white">
-          <div className="flex items-center gap-3 px-4 py-2">
-            <button 
-              onClick={() => navigate('/mypage/reservations')}
-              className="p-1.5 hover:bg-gray-100 rounded"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </button>
-            {scenario?.key_visual_url && (
-              <img
-                src={scenario.key_visual_url}
-                alt={scenario.title || ''}
-                className="w-8 h-8 object-cover rounded"
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-medium truncate">{scenario?.title || 'グループチャット'}</h2>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{memberCount}名参加</span>
-                <span>•</span>
-                <span className={group.status === 'confirmed' ? 'text-green-600' : group.status === 'booking_requested' ? 'text-blue-600' : ''}>
-                  {group.status === 'confirmed' ? '確定' : group.status === 'booking_requested' ? '確定待ち' : `進捗 ${completedSteps}/5`}
-                </span>
-              </div>
-            </div>
-            {isOrganizer && (
+      <div className="min-h-screen flex flex-col bg-background">
+        {/* PC用ヘッダー */}
+        <div className="hidden lg:block">
+          <Header />
+        </div>
+
+        {/* メインコンテンツ */}
+        <div className="flex-1 flex flex-col lg:max-w-6xl lg:mx-auto lg:w-full lg:px-4 lg:py-4">
+          {/* チャットヘッダー */}
+          <div className="shrink-0 border-b lg:border lg:rounded-t-lg bg-white">
+            <div className="flex items-center gap-3 px-4 py-2">
               <button 
-                onClick={() => setActiveTab('manage')}
+                onClick={() => navigate('/mypage/reservations')}
                 className="p-1.5 hover:bg-gray-100 rounded"
               >
-                <UserPlus className="w-5 h-5 text-gray-600" />
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
               </button>
-            )}
-            {/* モバイル: 候補日シートを開く / PC: 日程タブへ */}
+              {scenario?.key_visual_url && (
+                <img
+                  src={scenario.key_visual_url}
+                  alt={scenario.title || ''}
+                  className="w-8 h-8 object-cover rounded"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-medium truncate">{scenario?.title || 'グループチャット'}</h2>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{memberCount}名参加</span>
+                  <span>•</span>
+                  <span className={group.status === 'confirmed' ? 'text-green-600' : group.status === 'booking_requested' ? 'text-blue-600' : ''}>
+                    {group.status === 'confirmed' ? '確定' : group.status === 'booking_requested' ? '確定待ち' : `進捗 ${completedSteps}/5`}
+                  </span>
+                </div>
+              </div>
+              {isOrganizer && (
+                <button 
+                  onClick={() => setActiveTab('manage')}
+                  className="p-1.5 hover:bg-gray-100 rounded"
+                >
+                  <UserPlus className="w-5 h-5 text-gray-600" />
+                </button>
+              )}
+              {/* モバイル: 候補日シートを開く / PC: 日程タブへ */}
             <button 
               onClick={() => {
                 if (window.innerWidth < 1024) {
@@ -1015,6 +1022,7 @@ export function PrivateGroupInvite() {
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
     )
