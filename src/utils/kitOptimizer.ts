@@ -191,7 +191,7 @@ export function calculateKitTransfers(
             const currentLocation = scenarioState[kitNum]
             // 同じグループの店舗は移動不要
             if (currentLocation && !isSameGroup(currentLocation, storeId)) {
-              // このキットがその日（公演日）、移動元店舗（またはそのグループ）で使われるか確認
+              // このキットが公演日当日、移動元店舗（またはそのグループ）で使われるか確認
               let fromGroupNeedCount = 0
               for (const [checkStoreId, checkNeeds] of storeNeeds) {
                 if (isSameGroup(checkStoreId, currentLocation)) {
@@ -212,6 +212,13 @@ export function calculateKitTransfers(
               // 移動日当日に使用される場合はスキップ
               if (usedOnTransferDate) {
                 console.log(`⚠️ キット移動スキップ: ${scenarioId}#${kitNum} は移動日(${proposedTransferDate})に移動元で使用中`)
+                continue
+              }
+              
+              // 【重要】公演日当日に移動元で使用される場合もスキップ
+              // 例: 3/11に大塚でも大久保でも公演がある場合、大塚のキットは移動してはいけない
+              if (fromGroupNeedCount > 0) {
+                console.log(`⚠️ キット移動スキップ: ${scenarioId}#${kitNum} は公演日(${date})に移動元で使用予定`)
                 continue
               }
               
