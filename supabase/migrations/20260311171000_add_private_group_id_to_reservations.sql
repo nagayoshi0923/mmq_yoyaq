@@ -168,9 +168,9 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION create_private_booking_request TO authenticated;
+GRANT EXECUTE ON FUNCTION create_private_booking_request(UUID, UUID, TEXT, TEXT, TEXT, INTEGER, JSONB, TEXT, TEXT, UUID) TO authenticated;
 
-COMMENT ON FUNCTION create_private_booking_request IS 
+COMMENT ON FUNCTION create_private_booking_request(UUID, UUID, TEXT, TEXT, TEXT, INTEGER, JSONB, TEXT, TEXT, UUID) IS 
 '貸切予約リクエストを作成。private_group_idでグループとの紐付けをサポート。';
 
 
