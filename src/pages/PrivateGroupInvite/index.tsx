@@ -861,10 +861,41 @@ export function PrivateGroupInvite() {
                         </div>
                         <span>{member.guest_name || member.users?.email?.split('@')[0] || 'メンバー'}</span>
                         {member.is_organizer && <span className="text-amber-600">★</span>}
+                        {member.id === existingMemberId && <span className="text-purple-600">（自分）</span>}
                       </div>
                     ))}
                   </div>
                 </div>
+
+                {/* 退出ボタン */}
+                {existingMemberId && !organizerMember?.id?.includes(existingMemberId) && (
+                  <div className="pt-2 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (!confirm('本当にこのグループから退出しますか？')) return
+                        try {
+                          const { error: deleteError } = await supabase.rpc('delete_guest_member', {
+                            p_member_id: existingMemberId,
+                          })
+                          if (deleteError) throw deleteError
+                          toast.success('グループから退出しました')
+                          setShowMobileDates(false)
+                          clearGuestSession()
+                          navigate('/mypage')
+                        } catch (err) {
+                          logger.error('Failed to leave group', err)
+                          toast.error('退出に失敗しました')
+                        }
+                      }}
+                      className="w-full text-red-600 border-red-300 hover:bg-red-50"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      グループから退出
+                    </Button>
+                  </div>
+                )}
               </div>
               
               {/* 保存ボタン */}
