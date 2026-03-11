@@ -2,20 +2,28 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Send, Loader2 } from 'lucide-react'
+import { Send, Loader2, Calendar, CheckCircle2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
+
+interface SystemMessage {
+  type: 'system'
+  action: 'candidate_dates_added'
+  count: number
+  dates: Array<{ date: string; time_slot: string }>
+}
 
 interface GroupChatProps {
   groupId: string
   currentMemberId: string | null
   members: PrivateGroupMember[]
   fullHeight?: boolean
+  onGoToSchedule?: () => void
 }
 
-export function GroupChat({ groupId, currentMemberId, members: initialMembers, fullHeight = false }: GroupChatProps) {
+export function GroupChat({ groupId, currentMemberId, members: initialMembers, fullHeight = false, onGoToSchedule }: GroupChatProps) {
   const { user } = useAuth()
   const [messages, setMessages] = useState<PrivateGroupMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
@@ -220,6 +228,26 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     return groups
   }
 
+  // システムメッセージかどうか判定
+  const parseSystemMessage = (message: string): SystemMessage | null => {
+    try {
+      const parsed = JSON.parse(message)
+      if (parsed.type === 'system') {
+        return parsed as SystemMessage
+      }
+    } catch {
+      // 通常のテキストメッセージ
+    }
+    return null
+  }
+
+  // 候補日を見やすい形式に整形
+  const formatCandidateDate = (dateStr: string, timeSlot: string) => {
+    const date = new Date(dateStr + 'T00:00:00+09:00')
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]}) ${timeSlot}`
+  }
+
   if (loading) {
     return (
       <Card>
@@ -255,6 +283,55 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                 </div>
                 {group.messages.map((msg) => {
                   const isOwnMessage = msg.member_id === effectiveMemberId
+                  const systemMsg = parseSystemMessage(msg.message)
+
+                  // システムメッセージ（候補日追加通知）
+                  if (systemMsg && systemMsg.action === 'candidate_dates_added') {
+                    return (
+                      <div key={msg.id} className="flex justify-center my-4">
+                        <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4 max-w-[90%] shadow-sm">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                              <Calendar className="w-4 h-4 text-purple-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-purple-800">
+                                候補日が{systemMsg.count}件追加されました
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {getMemberName(msg.member_id)} • {formatTime(msg.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 mb-3 space-y-1">
+                            {systemMsg.dates.slice(0, 5).map((d, i) => (
+                              <div key={i} className="text-sm text-gray-700 flex items-center gap-2">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
+                                {formatCandidateDate(d.date, d.time_slot)}
+                              </div>
+                            ))}
+                            {systemMsg.dates.length > 5 && (
+                              <p className="text-xs text-muted-foreground">
+                                他 {systemMsg.dates.length - 5} 件
+                              </p>
+                            )}
+                          </div>
+                          {onGoToSchedule && (
+                            <Button
+                              onClick={onGoToSchedule}
+                              size="sm"
+                              className="w-full bg-purple-600 hover:bg-purple-700"
+                            >
+                              <Calendar className="w-4 h-4 mr-1.5" />
+                              日程を回答する
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // 通常のメッセージ
                   return (
                     <div
                       key={msg.id}

@@ -27,6 +27,7 @@ interface AddCandidateDatesProps {
   storeIds: string[]
   existingDates: PrivateGroupCandidateDate[]
   onDatesAdded: () => void
+  organizerMemberId?: string
 }
 
 export function AddCandidateDates({
@@ -35,6 +36,7 @@ export function AddCandidateDates({
   storeIds,
   existingDates,
   onDatesAdded,
+  organizerMemberId,
 }: AddCandidateDatesProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(() => new Date())
@@ -220,6 +222,28 @@ export function AddCandidateDates({
         .insert(newDates)
 
       if (error) throw error
+
+      // チャットにシステムメッセージを投稿
+      if (organizerMemberId) {
+        const datesSummary = selectedSlots.map(slot => {
+          const date = new Date(slot.date + 'T00:00:00+09:00')
+          const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+          return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]}) ${slot.slot.label}`
+        }).join('\n')
+
+        const systemMessage = JSON.stringify({
+          type: 'system',
+          action: 'candidate_dates_added',
+          count: selectedSlots.length,
+          dates: selectedSlots.map(s => ({ date: s.date, time_slot: s.slot.label }))
+        })
+
+        await supabase.from('private_group_messages').insert({
+          group_id: groupId,
+          member_id: organizerMemberId,
+          message: systemMessage
+        })
+      }
 
       setSelectedSlots([])
       setIsOpen(false)

@@ -693,6 +693,7 @@ export function PrivateGroupInvite() {
               currentMemberId={existingMemberId}
               members={group.members || []}
               fullHeight={true}
+              onGoToSchedule={() => setActiveTab('schedule')}
             />
           </div>
 
@@ -1189,6 +1190,7 @@ export function PrivateGroupInvite() {
                 groupId={group.id}
                 currentMemberId={existingMemberId}
                 members={group.members}
+                onGoToSchedule={() => setActiveTab('schedule')}
               />
             </TabsContent>
 
@@ -1272,6 +1274,7 @@ export function PrivateGroupInvite() {
                       storeIds={group.store_ids || []}
                       existingDates={group.candidate_dates || []}
                       onDatesAdded={refetch}
+                      organizerMemberId={organizerMember?.id}
                     />
                   )}
 
