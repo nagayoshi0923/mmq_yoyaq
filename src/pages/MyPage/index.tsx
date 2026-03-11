@@ -905,7 +905,7 @@ export default function MyPage() {
                         key={group.id}
                         className="bg-white border border-purple-200 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer"
                         style={{ borderRadius: 0 }}
-                        onClick={() => navigate(`/group/manage/${group.id}`)}
+                        onClick={() => navigate(`/group/invite/${group.invite_code}`)}
                       >
                         <div 
                           className="px-3 py-1.5 text-purple-800 text-sm font-bold flex items-center justify-between"
