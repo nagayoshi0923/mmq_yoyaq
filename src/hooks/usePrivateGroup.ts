@@ -176,6 +176,20 @@ export function usePrivateGroup() {
         throw error
       }
 
+      // organization_scenariosからcharactersを取得
+      if (data?.scenario_id && data?.organization_id) {
+        const { data: orgScenario } = await supabase
+          .from('organization_scenarios')
+          .select('characters')
+          .eq('scenario_master_id', data.scenario_id)
+          .eq('organization_id', data.organization_id)
+          .single()
+
+        if (orgScenario?.characters && data.scenario_masters) {
+          (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
+        }
+      }
+
       return data as PrivateGroup
 
     } catch (err: any) {
@@ -210,6 +224,20 @@ export function usePrivateGroup() {
           return null
         }
         throw error
+      }
+
+      // organization_scenariosからcharactersを取得
+      if (data?.scenario_id && data?.organization_id) {
+        const { data: orgScenario } = await supabase
+          .from('organization_scenarios')
+          .select('characters')
+          .eq('scenario_master_id', data.scenario_id)
+          .eq('organization_id', data.organization_id)
+          .single()
+
+        if (orgScenario?.characters && data.scenario_masters) {
+          (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
+        }
       }
 
       return data as PrivateGroup
@@ -483,6 +511,21 @@ export function usePrivateGroupData(groupId: string | null) {
         .single()
 
       if (error) throw error
+
+      // organization_scenariosからcharactersを取得
+      if (data?.scenario_id && data?.organization_id) {
+        const { data: orgScenario } = await supabase
+          .from('organization_scenarios')
+          .select('characters')
+          .eq('scenario_master_id', data.scenario_id)
+          .eq('organization_id', data.organization_id)
+          .single()
+
+        if (orgScenario?.characters && data.scenario_masters) {
+          (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
+        }
+      }
+
       setGroup(data as PrivateGroup)
 
     } catch (err: any) {
@@ -539,6 +582,21 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null) {
         }
         throw error
       }
+
+      // organization_scenariosからcharactersを取得
+      if (data?.scenario_id && data?.organization_id) {
+        const { data: orgScenario } = await supabase
+          .from('organization_scenarios')
+          .select('characters')
+          .eq('scenario_master_id', data.scenario_id)
+          .eq('organization_id', data.organization_id)
+          .single()
+
+        if (orgScenario?.characters && data.scenario_masters) {
+          (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
+        }
+      }
+
       setGroup(data as PrivateGroup)
 
     } catch (err: any) {
