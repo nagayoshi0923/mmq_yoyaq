@@ -667,11 +667,19 @@ export function PrivateGroupInvite() {
       params.set('scenario', group.scenario_id)
     }
     
-    // 選択した日程（複数対応）
-    const dates = selectedCandidateDates.map(cd => cd.date).join(',')
-    const slots = selectedCandidateDates.map(cd => cd.time_slot).join(',')
-    params.set('dates', dates)
-    params.set('slots', slots)
+    // 最初の日程を date/slot に設定（申請ページの期待するパラメータ）
+    if (selectedCandidateDates.length > 0) {
+      params.set('date', selectedCandidateDates[0].date)
+      params.set('slot', selectedCandidateDates[0].time_slot)
+    }
+    
+    // 追加の日程がある場合（複数対応）
+    if (selectedCandidateDates.length > 1) {
+      const dates = selectedCandidateDates.map(cd => cd.date).join(',')
+      const slots = selectedCandidateDates.map(cd => cd.time_slot).join(',')
+      params.set('dates', dates)
+      params.set('slots', slots)
+    }
     
     // 店舗（最初の1つ）
     if (group.store_ids && group.store_ids.length > 0) {
