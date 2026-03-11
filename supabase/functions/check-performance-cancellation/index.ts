@@ -1072,7 +1072,9 @@ async function sendBusinessSummaryNotification(
       lines.push('')
       
       if (allEvents.length === 0) {
-        lines.push('対象となるオープン公演はありませんでした。')
+        // 対象公演がない場合は通知をスキップ
+        console.log(`ℹ️ 対象公演なし: org=${org.organization_id}, 通知スキップ`)
+        continue
       } else {
         // 公演を時間順にソート
         const sortedEvents = [...allEvents].sort((a, b) => {
