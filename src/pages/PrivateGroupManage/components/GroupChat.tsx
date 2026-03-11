@@ -43,6 +43,13 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
     fetchMembers()
   }, [fetchMembers])
 
+  // currentMemberIdが変更されたら、メンバー情報を再取得
+  useEffect(() => {
+    if (currentMemberId && !members.some(m => m.id === currentMemberId)) {
+      fetchMembers()
+    }
+  }, [currentMemberId, members, fetchMembers])
+
   // メンバー変更をリアルタイム監視
   useEffect(() => {
     const channel = supabase
@@ -107,6 +114,12 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
     fetchMessages()
   }, [groupId])
 
+  // メンバー情報を保持するRef（クロージャ問題回避用）
+  const membersRef = useRef<PrivateGroupMember[]>(members)
+  useEffect(() => {
+    membersRef.current = members
+  }, [members])
+
   useEffect(() => {
     const channel = supabase
       .channel(`group-chat-${groupId}`)
@@ -123,7 +136,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
           setMessages((prev) => [...prev, newMsg])
           
           // 新しいメッセージの送信者がメンバー一覧にない場合は再取得
-          if (newMsg.member_id && !members.some(m => m.id === newMsg.member_id)) {
+          if (newMsg.member_id && !membersRef.current.some(m => m.id === newMsg.member_id)) {
             fetchMembers()
           }
         }
@@ -133,7 +146,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [groupId])
+  }, [groupId, fetchMembers])
 
   useEffect(() => {
     scrollToBottom()
@@ -153,10 +166,8 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
       if (error) throw error
       setNewMessage('')
       
-      // 自分がメンバー一覧にない場合は再取得
-      if (!members.some(m => m.id === currentMemberId)) {
-        fetchMembers()
-      }
+      // メッセージ送信後、メンバー一覧を再取得して最新状態に
+      fetchMembers()
     } catch (err) {
       logger.error('Failed to send message', err)
     } finally {
@@ -220,7 +231,9 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
 
   const messageGroups = groupMessagesByDate(messages)
   // ゲストユーザーの場合はcurrentMemberIdを使用、ログインユーザーの場合はuser_idで検索
-  const effectiveMemberId = currentMemberId || members.find(m => m.user_id === user?.id)?.id
+  // currentMemberIdを優先し、なければmembersから検索
+  const memberIdFromUser = user ? members.find(m => m.user_id === user.id)?.id : null
+  const effectiveMemberId = currentMemberId || memberIdFromUser
 
   return (
     <Card className="flex flex-col h-[500px]">
