@@ -331,7 +331,7 @@ export function PrivateGroupInvite() {
     }
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (options?: { skipSuccessPage?: boolean }) => {
     setError(null)
 
     if (!group) {
@@ -431,7 +431,10 @@ export function PrivateGroupInvite() {
         })
       }
 
-      setSuccess(true)
+      if (!options?.skipSuccessPage) {
+        setSuccess(true)
+      }
+      refetch()
 
     } catch (err: any) {
       setError(err.message || '送信に失敗しました')
@@ -654,7 +657,7 @@ export function PrivateGroupInvite() {
         <div className="shrink-0 border-b bg-white">
           <div className="flex items-center gap-3 px-4 py-2">
             <button 
-              onClick={() => setActiveTab('schedule')}
+              onClick={() => navigate('/mypage/reservations')}
               className="p-1.5 hover:bg-gray-100 rounded"
             >
               <ArrowLeft className="w-5 h-5 text-gray-600" />
@@ -859,7 +862,7 @@ export function PrivateGroupInvite() {
                 <div className="p-4 border-t shrink-0">
                   <Button 
                     onClick={async () => {
-                      await handleSubmit()
+                      await handleSubmit({ skipSuccessPage: true })
                       setShowMobileDates(false)
                     }}
                     disabled={actionLoading}
