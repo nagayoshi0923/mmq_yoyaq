@@ -112,7 +112,13 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers }:
           filter: `group_id=eq.${groupId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as PrivateGroupMessage])
+          const newMsg = payload.new as PrivateGroupMessage
+          setMessages((prev) => [...prev, newMsg])
+          
+          // 新しいメッセージの送信者がメンバー一覧にない場合は再取得
+          if (newMsg.member_id && !members.some(m => m.id === newMsg.member_id)) {
+            fetchMembers()
+          }
         }
       )
       .subscribe()
