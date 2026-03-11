@@ -652,14 +652,14 @@ export function PrivateGroupInvite() {
   // チャットモード時は専用レイアウト
   if (isChatMode && group) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="h-screen flex flex-col bg-background overflow-hidden">
         {/* PC用ヘッダー */}
-        <div className="hidden lg:block">
+        <div className="hidden lg:block shrink-0">
           <Header />
         </div>
 
         {/* メインコンテンツ */}
-        <div className="flex-1 flex flex-col lg:max-w-6xl lg:mx-auto lg:w-full lg:px-4 lg:py-4">
+        <div className="flex-1 flex flex-col overflow-hidden lg:max-w-6xl lg:mx-auto lg:w-full lg:px-4 lg:py-4">
           {/* チャットヘッダー */}
           <div className="shrink-0 border-b lg:border lg:rounded-t-lg bg-white">
             <div className="flex items-center gap-3 px-4 py-2">
