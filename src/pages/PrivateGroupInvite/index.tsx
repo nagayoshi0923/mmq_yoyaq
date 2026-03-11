@@ -66,6 +66,51 @@ export function PrivateGroupInvite() {
   const [pinError, setPinError] = useState<string | null>(null)
   const [generatedPin, setGeneratedPin] = useState<string | null>(null)
 
+  // SessionStorageキー
+  const getStorageKey = (inviteCode: string) => `guest_session_${inviteCode}`
+
+  // SessionStorageからゲストセッションを復元
+  useEffect(() => {
+    if (!code || user) return // ログインユーザーは不要
+    
+    const storageKey = getStorageKey(code)
+    const savedSession = sessionStorage.getItem(storageKey)
+    
+    if (savedSession) {
+      try {
+        const session = JSON.parse(savedSession)
+        if (session.memberId) {
+          setExistingMemberId(session.memberId)
+          setGuestName(session.guestName || '')
+          setGuestEmail(session.guestEmail || '')
+          logger.info('ゲストセッションを復元:', { memberId: session.memberId })
+        }
+      } catch (err) {
+        logger.error('セッション復元エラー:', err)
+        sessionStorage.removeItem(storageKey)
+      }
+    }
+  }, [code, user])
+
+  // ゲストセッションを保存
+  const saveGuestSession = (memberId: string, name: string, email: string) => {
+    if (!code) return
+    const storageKey = getStorageKey(code)
+    sessionStorage.setItem(storageKey, JSON.stringify({
+      memberId,
+      guestName: name,
+      guestEmail: email,
+      savedAt: new Date().toISOString(),
+    }))
+  }
+
+  // ゲストセッションをクリア
+  const clearGuestSession = () => {
+    if (!code) return
+    const storageKey = getStorageKey(code)
+    sessionStorage.removeItem(storageKey)
+  }
+
   // 4桁PINを生成
   const generatePin = () => {
     return String(Math.floor(1000 + Math.random() * 9000))
@@ -103,6 +148,9 @@ export function PrivateGroupInvite() {
         setExistingMemberId(authMember.member_id)
         setGuestName(authMember.guest_name || '')
         setGuestEmail(authMember.guest_email || '')
+        
+        // セッションを保存（リロード後も維持）
+        saveGuestSession(authMember.member_id, authMember.guest_name || '', authMember.guest_email || '')
         
         // メンバーのdate_responsesを取得
         const matchingMember = group.members?.find(m => m.id === authMember.member_id)
@@ -280,6 +328,11 @@ export function PrivateGroupInvite() {
         
         // 新規参加後、existingMemberIdをセットして再度フォームを表示しないようにする
         setExistingMemberId(memberId)
+        
+        // ゲスト参加の場合、セッションを保存
+        if (!user && guestEmail) {
+          saveGuestSession(memberId, guestName, guestEmail)
+        }
         
         // ゲスト参加の場合、PINを生成して保存・メール送信
         if (!user && guestEmail) {
@@ -963,6 +1016,7 @@ export function PrivateGroupInvite() {
                     .eq('id', existingMemberId)
                   toast.success('グループから退出しました')
                   setExistingMemberId(null)
+                  clearGuestSession()
                   refetch()
                 } else if (user && group) {
                   await leaveGroup(group.id)
