@@ -872,7 +872,20 @@ export interface PrivateGroup {
   created_at: string
   updated_at: string
   // JOIN時の拡張フィールド
-  scenario_masters?: { id: string; title: string; key_visual_url: string | null } | null
+  scenario_masters?: { 
+    id: string
+    title: string
+    key_visual_url: string | null
+    characters?: Array<{
+      name: string
+      gender?: string
+      age?: string
+      occupation?: string
+      description?: string
+      image_url?: string
+      sort_order?: number
+    }>
+  } | null
   organizer?: { id: string; email: string } | null
   members?: PrivateGroupMember[]
   candidate_dates?: PrivateGroupCandidateDate[]

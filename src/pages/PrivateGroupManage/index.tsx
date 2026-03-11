@@ -575,102 +575,212 @@ export function PrivateGroupManage() {
           <div className="space-y-6">
             <Card className="sticky top-4">
               <CardContent className="p-4 space-y-4">
-                {group.status === 'gathering' && (
+                {/* ステップ形式の進捗表示（全ステータス共通） */}
+                {group.status !== 'cancelled' && (
                   <>
-                    {/* ステップ形式の進捗表示 */}
                     <div className="space-y-1">
-                      <h3 className="font-semibold text-sm text-gray-700">貸切予約までのステップ</h3>
-                      <div className="text-xs text-muted-foreground">
-                        {[joinedMembers.length >= 1, (group.candidate_dates?.length || 0) > 0, allMembersResponded, hasViableDate].filter(Boolean).length}/4 完了
-                      </div>
+                      <h3 className="font-semibold text-sm text-gray-700">貸切予約の進捗</h3>
+                      {group.status === 'gathering' && (
+                        <div className="text-xs text-muted-foreground">
+                          申込準備中（{[joinedMembers.length >= 1, (group.candidate_dates?.length || 0) > 0, allMembersResponded].filter(Boolean).length}/3 完了）
+                        </div>
+                      )}
+                      {group.status === 'booking_requested' && (
+                        <div className="text-xs text-blue-600 font-medium">日程確定待ち</div>
+                      )}
+                      {group.status === 'confirmed' && (
+                        <div className="text-xs text-green-600 font-medium">公演日まであと少し！</div>
+                      )}
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {/* STEP 1: メンバー招待 */}
-                      <div className={`flex items-start gap-3 p-3 rounded-lg border ${joinedMembers.length >= 2 ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${joinedMembers.length >= 2 ? 'bg-green-600 text-white' : 'bg-amber-500 text-white'}`}>
-                          {joinedMembers.length >= 2 ? <Check className="w-4 h-4" /> : '1'}
+                      <div className={`flex items-start gap-3 p-2.5 rounded-lg border ${
+                        group.status !== 'gathering' || joinedMembers.length >= 2 
+                          ? 'bg-green-50 border-green-200' 
+                          : 'bg-amber-50 border-amber-200'
+                      }`}>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                          group.status !== 'gathering' || joinedMembers.length >= 2 
+                            ? 'bg-green-600 text-white' 
+                            : 'bg-amber-500 text-white'
+                        }`}>
+                          {group.status !== 'gathering' || joinedMembers.length >= 2 ? <Check className="w-3 h-3" /> : '1'}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium">メンバーを招待</div>
                           <div className="text-xs text-muted-foreground">
-                            {targetReached 
-                              ? `${joinedMembers.length}名参加中（目標達成）` 
-                              : `${joinedMembers.length}/${group.target_participant_count}名（あと${(group.target_participant_count || 1) - joinedMembers.length}名）`}
+                            {joinedMembers.length}名参加中
                           </div>
                         </div>
                       </div>
 
                       {/* STEP 2: 候補日追加 */}
-                      <div className={`flex items-start gap-3 p-3 rounded-lg border ${(group.candidate_dates?.length || 0) > 0 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${(group.candidate_dates?.length || 0) > 0 ? 'bg-green-600 text-white' : 'bg-gray-400 text-white'}`}>
-                          {(group.candidate_dates?.length || 0) > 0 ? <Check className="w-4 h-4" /> : '2'}
+                      <div className={`flex items-start gap-3 p-2.5 rounded-lg border ${
+                        group.status !== 'gathering' || (group.candidate_dates?.length || 0) > 0 
+                          ? 'bg-green-50 border-green-200' 
+                          : 'bg-gray-50 border-gray-200'
+                      }`}>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                          group.status !== 'gathering' || (group.candidate_dates?.length || 0) > 0 
+                            ? 'bg-green-600 text-white' 
+                            : 'bg-gray-400 text-white'
+                        }`}>
+                          {group.status !== 'gathering' || (group.candidate_dates?.length || 0) > 0 ? <Check className="w-3 h-3" /> : '2'}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium">候補日を追加</div>
                           <div className="text-xs text-muted-foreground">
-                            {(group.candidate_dates?.length || 0) > 0 
-                              ? `${group.candidate_dates?.length}件の候補日あり` 
-                              : '候補日を追加してください'}
+                            {group.candidate_dates?.length || 0}件
                           </div>
                         </div>
                       </div>
 
                       {/* STEP 3: 日程回答待ち */}
-                      <div className={`flex items-start gap-3 p-3 rounded-lg border ${allMembersResponded ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${allMembersResponded ? 'bg-green-600 text-white' : 'bg-gray-400 text-white'}`}>
-                          {allMembersResponded ? <Check className="w-4 h-4" /> : '3'}
+                      <div className={`flex items-start gap-3 p-2.5 rounded-lg border ${
+                        group.status !== 'gathering' || allMembersResponded 
+                          ? 'bg-green-50 border-green-200' 
+                          : 'bg-gray-50 border-gray-200'
+                      }`}>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                          group.status !== 'gathering' || allMembersResponded 
+                            ? 'bg-green-600 text-white' 
+                            : 'bg-gray-400 text-white'
+                        }`}>
+                          {group.status !== 'gathering' || allMembersResponded ? <Check className="w-3 h-3" /> : '3'}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium">日程回答を集める</div>
                           <div className="text-xs text-muted-foreground">
-                            {allMembersResponded 
-                              ? '全員回答済み' 
-                              : `${joinedMembers.filter(m => group.candidate_dates?.every(cd => cd.responses?.some(r => r.member_id === m.id))).length}/${joinedMembers.length}名が回答済み`}
+                            {group.status !== 'gathering' 
+                              ? '完了' 
+                              : `${joinedMembers.filter(m => group.candidate_dates?.every(cd => cd.responses?.some(r => r.member_id === m.id))).length}/${joinedMembers.length}名回答済`}
                           </div>
                         </div>
                       </div>
 
                       {/* STEP 4: 予約申込 */}
-                      <div className={`flex items-start gap-3 p-3 rounded-lg border ${hasViableDate ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${hasViableDate ? 'bg-purple-600 text-white' : 'bg-gray-400 text-white'}`}>
-                          4
+                      <div className={`flex items-start gap-3 p-2.5 rounded-lg border ${
+                        group.status === 'booking_requested' || group.status === 'confirmed'
+                          ? 'bg-green-50 border-green-200' 
+                          : group.status === 'gathering' && hasViableDate
+                            ? 'bg-purple-50 border-purple-200'
+                            : 'bg-gray-50 border-gray-200'
+                      }`}>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                          group.status === 'booking_requested' || group.status === 'confirmed'
+                            ? 'bg-green-600 text-white' 
+                            : group.status === 'gathering' && hasViableDate
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-400 text-white'
+                        }`}>
+                          {group.status === 'booking_requested' || group.status === 'confirmed' ? <Check className="w-3 h-3" /> : '4'}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium">貸切を申し込む</div>
                           <div className="text-xs text-muted-foreground">
-                            {hasViableDate 
-                              ? '全員参加可能な日程あり！' 
-                              : (group.candidate_dates?.length || 0) === 0 
-                                ? '候補日を追加してください'
-                                : '全員参加可能な日程を調整中'}
+                            {group.status === 'booking_requested' || group.status === 'confirmed'
+                              ? '申込完了' 
+                              : hasViableDate 
+                                ? '申込可能！' 
+                                : '調整中'}
                           </div>
                         </div>
                       </div>
+
+                      {/* STEP 5: 日程確定 */}
+                      <div className={`flex items-start gap-3 p-2.5 rounded-lg border ${
+                        group.status === 'confirmed'
+                          ? 'bg-green-50 border-green-200' 
+                          : group.status === 'booking_requested'
+                            ? 'bg-blue-50 border-blue-200'
+                            : 'bg-gray-50 border-gray-200'
+                      }`}>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                          group.status === 'confirmed'
+                            ? 'bg-green-600 text-white' 
+                            : group.status === 'booking_requested'
+                              ? 'bg-blue-600 text-white animate-pulse'
+                              : 'bg-gray-400 text-white'
+                        }`}>
+                          {group.status === 'confirmed' ? <Check className="w-3 h-3" /> : '5'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">日程確定</div>
+                          <div className="text-xs text-muted-foreground">
+                            {group.status === 'confirmed'
+                              ? '確定しました！' 
+                              : group.status === 'booking_requested'
+                                ? '店舗からの連絡待ち'
+                                : '申込後'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* STEP 6: 事前アンケート（キャラクター設定がある場合のみ表示） */}
+                      {group.scenario_masters?.characters && (group.scenario_masters.characters as unknown[]).length > 0 && (
+                        <div className={`flex items-start gap-3 p-2.5 rounded-lg border ${
+                          group.status === 'confirmed'
+                            ? 'bg-amber-50 border-amber-200'
+                            : 'bg-gray-50 border-gray-200'
+                        }`}>
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                            group.status === 'confirmed'
+                              ? 'bg-amber-500 text-white'
+                              : 'bg-gray-400 text-white'
+                          }`}>
+                            6
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium">事前アンケート</div>
+                            <div className="text-xs text-muted-foreground">
+                              {group.status === 'confirmed' ? '回答してください' : '確定後'}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* STEP 7: 配役確定（キャラクター設定がある場合のみ表示） */}
+                      {group.scenario_masters?.characters && (group.scenario_masters.characters as unknown[]).length > 0 && (
+                        <div className={`flex items-start gap-3 p-2.5 rounded-lg border bg-gray-50 border-gray-200`}>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-gray-400 text-white">
+                            7
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium">配役確定</div>
+                            <div className="text-xs text-muted-foreground">
+                              アンケート後
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={handleShareProgress}
-                        className="flex-1 gap-2"
-                      >
-                        {progressCopied ? (
-                          <>
-                            <Check className="w-4 h-4 text-green-600" />
-                            コピーしました
-                          </>
-                        ) : (
-                          <>
-                            <Share2 className="w-4 h-4" />
-                            進捗を共有
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                    {/* 進捗共有ボタン */}
+                    {group.status === 'gathering' && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={handleShareProgress}
+                          className="flex-1 gap-2"
+                        >
+                          {progressCopied ? (
+                            <>
+                              <Check className="w-4 h-4 text-green-600" />
+                              コピーしました
+                            </>
+                          ) : (
+                            <>
+                              <Share2 className="w-4 h-4" />
+                              進捗を共有
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
 
                     {/* 主催者のみ予約申込・キャンセルが可能 */}
-                    {isOrganizer && (
+                    {group.status === 'gathering' && isOrganizer && (
                       <>
                         <Button
                           onClick={handleProceedToBooking}
@@ -690,33 +800,30 @@ export function PrivateGroupManage() {
                         </Button>
                       </>
                     )}
+
+                    {/* booking_requested 状態のアクション */}
+                    {group.status === 'booking_requested' && (
+                      <div className="pt-2 border-t space-y-2">
+                        <p className="text-sm text-center text-muted-foreground">
+                          店舗からの確定連絡をお待ちください
+                        </p>
+                      </div>
+                    )}
+
+                    {/* confirmed 状態のアクション */}
+                    {group.status === 'confirmed' && (
+                      <div className="pt-2 border-t space-y-2">
+                        <Button
+                          variant="outline"
+                          className="w-full gap-2"
+                          onClick={() => navigate('/mypage')}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          マイページで確認
+                        </Button>
+                      </div>
+                    )}
                   </>
-                )}
-
-                {group.status === 'booking_requested' && (
-                  <div className="text-center space-y-2">
-                    <Badge className="bg-blue-600 text-white">予約申込済み</Badge>
-                    <p className="text-sm text-muted-foreground">
-                      店舗からの確定連絡をお待ちください
-                    </p>
-                  </div>
-                )}
-
-                {group.status === 'confirmed' && (
-                  <div className="text-center space-y-2">
-                    <Badge className="bg-green-600 text-white">予約確定</Badge>
-                    <p className="text-sm text-muted-foreground">
-                      予約が確定しました
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="w-full gap-2"
-                      onClick={() => navigate('/mypage')}
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      マイページで確認
-                    </Button>
-                  </div>
                 )}
 
                 {group.status === 'cancelled' && (
