@@ -55,6 +55,7 @@ export function PrivateGroupManage() {
   const [cancelling, setCancelling] = useState(false)
   const [showDateSelectionModal, setShowDateSelectionModal] = useState(false)
   const [selectedDatesForBooking, setSelectedDatesForBooking] = useState<string[]>([])
+  const [activeTab, setActiveTab] = useState('chat')
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00+09:00')
@@ -268,6 +269,55 @@ export function PrivateGroupManage() {
   const hasViableDate = responseSummary.some(r => r.isViable && r.okCount >= (group.target_participant_count || 1))
   const targetReached = joinedMembers.length >= (group.target_participant_count || 1)
 
+  // 現在のユーザーのメンバーID
+  const currentMemberId = group.members?.find(m => m.user_id === user?.id)?.id || null
+
+  // チャットモード時は専用レイアウト
+  if (activeTab === 'chat') {
+    return (
+      <div className="h-screen flex flex-col bg-background">
+        {/* コンパクトヘッダー */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b bg-white">
+          <button 
+            onClick={() => setActiveTab('members')}
+            className="p-1 hover:bg-gray-100 rounded"
+          >
+            <Users className="w-5 h-5 text-gray-600" />
+          </button>
+          {scenario?.key_visual_url && (
+            <img
+              src={scenario.key_visual_url}
+              alt={scenario.title || ''}
+              className="w-8 h-8 object-cover rounded"
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-medium truncate">{scenario?.title || 'グループチャット'}</h2>
+            <p className="text-xs text-muted-foreground">{joinedMembers.length}名参加中</p>
+          </div>
+          {isOrganizer && (
+            <button 
+              onClick={() => setActiveTab('invite')}
+              className="p-1 hover:bg-gray-100 rounded"
+            >
+              <UserPlus className="w-5 h-5 text-gray-600" />
+            </button>
+          )}
+        </div>
+
+        {/* チャット本体 */}
+        <div className="flex-1 overflow-hidden">
+          <GroupChat
+            groupId={group.id}
+            currentMemberId={currentMemberId}
+            members={group.members || []}
+            fullHeight={true}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -340,7 +390,7 @@ export function PrivateGroupManage() {
             </Card>
 
             {/* タブ化されたコンテンツ */}
-            <Tabs defaultValue="members" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full rounded-lg">
                 <TabsTrigger value="members" className="flex-1 gap-1.5 rounded-md">
                   <Users className="w-4 h-4" />
