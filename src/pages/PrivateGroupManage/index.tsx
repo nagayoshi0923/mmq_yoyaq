@@ -544,36 +544,75 @@ export function PrivateGroupManage() {
               <CardContent className="p-4 space-y-4">
                 {group.status === 'gathering' && (
                   <>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        {targetReached ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <AlertCircle className="w-4 h-4 text-amber-500" />
-                        )}
-                        <span className="text-sm">
-                          {targetReached ? '目標人数に達しました' : `あと${(group.target_participant_count || 1) - joinedMembers.length}名`}
-                        </span>
+                    {/* ステップ形式の進捗表示 */}
+                    <div className="space-y-1">
+                      <h3 className="font-semibold text-sm text-gray-700">貸切予約までのステップ</h3>
+                      <div className="text-xs text-muted-foreground">
+                        {[joinedMembers.length >= 1, (group.candidate_dates?.length || 0) > 0, allMembersResponded, hasViableDate].filter(Boolean).length}/4 完了
                       </div>
-                      <div className="flex items-center gap-2">
-                        {allMembersResponded ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <AlertCircle className="w-4 h-4 text-amber-500" />
-                        )}
-                        <span className="text-sm">
-                          {allMembersResponded ? '全員回答済み' : '未回答のメンバーがいます'}
-                        </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* STEP 1: メンバー招待 */}
+                      <div className={`flex items-start gap-3 p-3 rounded-lg border ${joinedMembers.length >= 2 ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${joinedMembers.length >= 2 ? 'bg-green-600 text-white' : 'bg-amber-500 text-white'}`}>
+                          {joinedMembers.length >= 2 ? <Check className="w-4 h-4" /> : '1'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">メンバーを招待</div>
+                          <div className="text-xs text-muted-foreground">
+                            {targetReached 
+                              ? `${joinedMembers.length}名参加中（目標達成）` 
+                              : `${joinedMembers.length}/${group.target_participant_count}名（あと${(group.target_participant_count || 1) - joinedMembers.length}名）`}
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {hasViableDate ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <AlertCircle className="w-4 h-4 text-amber-500" />
-                        )}
-                        <span className="text-sm">
-                          {hasViableDate ? '全員参加可能な日程あり' : '全員参加可能な日程なし'}
-                        </span>
+
+                      {/* STEP 2: 候補日追加 */}
+                      <div className={`flex items-start gap-3 p-3 rounded-lg border ${(group.candidate_dates?.length || 0) > 0 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${(group.candidate_dates?.length || 0) > 0 ? 'bg-green-600 text-white' : 'bg-gray-400 text-white'}`}>
+                          {(group.candidate_dates?.length || 0) > 0 ? <Check className="w-4 h-4" /> : '2'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">候補日を追加</div>
+                          <div className="text-xs text-muted-foreground">
+                            {(group.candidate_dates?.length || 0) > 0 
+                              ? `${group.candidate_dates?.length}件の候補日あり` 
+                              : '候補日を追加してください'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* STEP 3: 日程回答待ち */}
+                      <div className={`flex items-start gap-3 p-3 rounded-lg border ${allMembersResponded ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${allMembersResponded ? 'bg-green-600 text-white' : 'bg-gray-400 text-white'}`}>
+                          {allMembersResponded ? <Check className="w-4 h-4" /> : '3'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">日程回答を集める</div>
+                          <div className="text-xs text-muted-foreground">
+                            {allMembersResponded 
+                              ? '全員回答済み' 
+                              : `${joinedMembers.filter(m => group.candidate_dates?.every(cd => cd.responses?.some(r => r.member_id === m.id))).length}/${joinedMembers.length}名が回答済み`}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* STEP 4: 予約申込 */}
+                      <div className={`flex items-start gap-3 p-3 rounded-lg border ${hasViableDate ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${hasViableDate ? 'bg-purple-600 text-white' : 'bg-gray-400 text-white'}`}>
+                          4
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">貸切を申し込む</div>
+                          <div className="text-xs text-muted-foreground">
+                            {hasViableDate 
+                              ? '全員参加可能な日程あり！' 
+                              : (group.candidate_dates?.length || 0) === 0 
+                                ? '候補日を追加してください'
+                                : '全員参加可能な日程を調整中'}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
