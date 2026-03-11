@@ -37,7 +37,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     try {
       const { data, error } = await supabase
         .from('private_group_members')
-        .select('id, group_id, user_id, guest_name, guest_email, is_organizer, status, users(email)')
+        .select('id, group_id, user_id, guest_name, guest_email, is_organizer, status')
         .eq('group_id', groupId)
         .eq('status', 'joined')
 
