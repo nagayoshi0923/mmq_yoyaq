@@ -578,9 +578,9 @@ export function PrivateGroupInvite() {
   // チャットモード時は専用レイアウト
   if (isChatMode && group) {
     return (
-      <div className="h-screen flex flex-col bg-background">
+      <div className="fixed inset-0 flex flex-col bg-background z-50">
         {/* ヘッダー */}
-        <div className="border-b bg-white">
+        <div className="shrink-0 border-b bg-white">
           <div className="flex items-center gap-3 px-4 py-2">
             <button 
               onClick={() => navigate(-1)}
