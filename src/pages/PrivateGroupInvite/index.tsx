@@ -800,7 +800,22 @@ export function PrivateGroupInvite() {
 
                 {/* 候補日リスト */}
                 <div>
-                  <h4 className="font-medium text-sm mb-2">候補日程（{group.candidate_dates?.length || 0}件）</h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium text-sm">候補日程（{group.candidate_dates?.length || 0}件）</h4>
+                    {isOrganizer && group.status === 'gathering' && (
+                      <AddCandidateDates
+                        groupId={group.id}
+                        scenarioId={group.scenario_id || ''}
+                        storeIds={group.store_ids || []}
+                        existingDates={group.candidate_dates || []}
+                        onDatesAdded={() => {
+                          refetch()
+                          setShowMobileDates(false)
+                        }}
+                        organizerMemberId={organizerMember?.id}
+                      />
+                    )}
+                  </div>
                   <div className="space-y-2">
                     {group.candidate_dates && group.candidate_dates.length > 0 ? (
                       group.candidate_dates.map((cd, index) => {
