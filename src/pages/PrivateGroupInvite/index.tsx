@@ -78,6 +78,9 @@ export function PrivateGroupInvite() {
   // モバイル候補日シート
   const [showMobileDates, setShowMobileDates] = useState(false)
   
+  // 申請用の選択日程
+  const [selectedDatesForBooking, setSelectedDatesForBooking] = useState<Set<string>>(new Set())
+  
   // メンバー招待シート
   const [showInviteSheet, setShowInviteSheet] = useState(false)
 
@@ -619,9 +622,30 @@ export function PrivateGroupInvite() {
     }
   }
 
+  // 日程選択のトグル
+  const toggleDateSelection = (dateId: string) => {
+    setSelectedDatesForBooking(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(dateId)) {
+        newSet.delete(dateId)
+      } else {
+        newSet.add(dateId)
+      }
+      return newSet
+    })
+  }
+  
   // 貸切申込（選択した日程で申請）
-  const handleProceedToBooking = async (selectedDate?: { date: string; time_slot: string }) => {
+  const handleProceedToBooking = async () => {
     if (!isOrganizer || !group) return
+    
+    // 選択した日程を取得
+    const selectedCandidateDates = group.candidate_dates?.filter(cd => selectedDatesForBooking.has(cd.id)) || []
+    
+    if (selectedCandidateDates.length === 0) {
+      toast.error('申請する日程を選択してください')
+      return
+    }
     
     // 組織のスラッグを取得
     const { data: org } = await supabase
@@ -643,15 +667,11 @@ export function PrivateGroupInvite() {
       params.set('scenario', group.scenario_id)
     }
     
-    // 選択した日程、または最初の候補日
-    if (selectedDate) {
-      params.set('date', selectedDate.date)
-      params.set('slot', selectedDate.time_slot)
-    } else if (group.candidate_dates && group.candidate_dates.length > 0) {
-      const firstDate = group.candidate_dates[0]
-      params.set('date', firstDate.date)
-      params.set('slot', firstDate.time_slot)
-    }
+    // 選択した日程（複数対応）
+    const dates = selectedCandidateDates.map(cd => cd.date).join(',')
+    const slots = selectedCandidateDates.map(cd => cd.time_slot).join(',')
+    params.set('dates', dates)
+    params.set('slots', slots)
     
     // 店舗（最初の1つ）
     if (group.store_ids && group.store_ids.length > 0) {
@@ -838,17 +858,37 @@ export function PrivateGroupInvite() {
                     {group.candidate_dates && group.candidate_dates.length > 0 ? (
                       group.candidate_dates.map((cd, index) => {
                         const currentResponse = responses[cd.id]
-                        // 各候補日のメンバー回答状況を集計
                         const dateResponses = cd.responses || []
                         const okCount = dateResponses.filter(r => r.response === 'ok').length
                         const maybeCount = dateResponses.filter(r => r.response === 'maybe').length
                         const ngCount = dateResponses.filter(r => r.response === 'ng').length
                         const totalMembers = joinedMembers.length
                         const respondedCount = dateResponses.length
+                        const isSelected = selectedDatesForBooking.has(cd.id)
                         
                         return (
-                          <div key={cd.id} className="p-3 bg-gray-50 rounded-lg">
-                            <div className="flex items-center justify-between mb-2">
+                          <div 
+                            key={cd.id} 
+                            className={`p-3 rounded-lg border-2 transition-colors ${
+                              isSelected 
+                                ? 'bg-green-50 border-green-500' 
+                                : 'bg-gray-50 border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 mb-2">
+                              {/* 主催者用チェックボックス */}
+                              {isOrganizer && group.status === 'gathering' && (
+                                <button
+                                  onClick={() => toggleDateSelection(cd.id)}
+                                  className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                                    isSelected
+                                      ? 'bg-green-500 border-green-500 text-white'
+                                      : 'bg-white border-gray-300 hover:border-green-400'
+                                  }`}
+                                >
+                                  {isSelected && <Check className="w-4 h-4" />}
+                                </button>
+                              )}
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
@@ -908,16 +948,6 @@ export function PrivateGroupInvite() {
                                   × NG
                                 </button>
                               </div>
-                            )}
-                            {/* 主催者用：この日程で申請ボタン */}
-                            {isOrganizer && group.status === 'gathering' && (
-                              <Button
-                                size="sm"
-                                className="w-full mt-2"
-                                onClick={() => handleProceedToBooking({ date: cd.date, time_slot: cd.time_slot })}
-                              >
-                                この日程で申請する
-                              </Button>
                             )}
                           </div>
                         )
@@ -999,11 +1029,17 @@ export function PrivateGroupInvite() {
                   </Button>
                 )}
                 
-                {/* 主催者向けガイダンス */}
+                {/* 主催者向け申請ボタン */}
                 {isOrganizer && group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
-                  <div className="text-center text-sm text-muted-foreground bg-gray-50 p-3 rounded-lg">
-                    ↑ 上の候補日から採用する日程を選んで「この日程で申請する」を押してください
-                  </div>
+                  <Button
+                    onClick={handleProceedToBooking}
+                    disabled={selectedDatesForBooking.size === 0}
+                    className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300"
+                  >
+                    {selectedDatesForBooking.size > 0 
+                      ? `選択した${selectedDatesForBooking.size}件の日程で申請する`
+                      : '日程を選択してください'}
+                  </Button>
                 )}
               </div>
             </div>
@@ -1574,12 +1610,31 @@ export function PrivateGroupInvite() {
                   const ngCount = dateResponses.filter(r => r.response === 'ng').length
                   const totalMembers = joinedMembers.length
                   const respondedCount = dateResponses.length
+                  const isSelected = selectedDatesForBooking.has(cd.id)
                   
                   return (
-                    <Card key={cd.id}>
+                    <Card 
+                      key={cd.id}
+                      className={`border-2 transition-colors ${
+                        isSelected ? 'border-green-500 bg-green-50' : 'border-transparent'
+                      }`}
+                    >
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="space-y-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          {/* 主催者用チェックボックス */}
+                          {isOrganizer && group.status === 'gathering' && (
+                            <button
+                              onClick={() => toggleDateSelection(cd.id)}
+                              className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                                isSelected
+                                  ? 'bg-green-500 border-green-500 text-white'
+                                  : 'bg-white border-gray-300 hover:border-green-400'
+                              }`}
+                            >
+                              {isSelected && <Check className="w-4 h-4" />}
+                            </button>
+                          )}
+                          <div className="flex-1">
                             <div className="flex items-center gap-2 text-sm">
                               <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
                                 候補 {index + 1}
@@ -1616,16 +1671,6 @@ export function PrivateGroupInvite() {
                             {getResponseIcon(responses[cd.id], 'ng')}
                           </div>
                         </div>
-                        {/* 主催者用：この日程で申請ボタン */}
-                        {isOrganizer && group.status === 'gathering' && (
-                          <Button
-                            size="sm"
-                            className="w-full mt-3 bg-green-600 hover:bg-green-700"
-                            onClick={() => handleProceedToBooking({ date: cd.date, time_slot: cd.time_slot })}
-                          >
-                            この日程で申請する
-                          </Button>
-                        )}
                       </CardContent>
                     </Card>
                   )
@@ -1662,6 +1707,19 @@ export function PrivateGroupInvite() {
                     </>
                   ) : '回答を更新する'}
                 </Button>
+                
+                {/* 主催者向け申請ボタン */}
+                {isOrganizer && group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
+                  <Button
+                    onClick={handleProceedToBooking}
+                    disabled={selectedDatesForBooking.size === 0}
+                    className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 mt-3"
+                  >
+                    {selectedDatesForBooking.size > 0 
+                      ? `選択した${selectedDatesForBooking.size}件の日程で申請する`
+                      : '申請する日程をチェックしてください'}
+                  </Button>
+                )}
               </div>
             </TabsContent>
 
