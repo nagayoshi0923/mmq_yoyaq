@@ -3,6 +3,7 @@ import { PrivateBookingRequest } from './PrivateBookingRequest/index'
 import { scenarioApi, storeApi } from '@/lib/api'
 import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
+import { supabase } from '@/lib/supabase'
 
 interface TimeSlot {
   label: string
@@ -31,6 +32,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
   const dateParam = urlParams.get('date') || ''
   const storeId = urlParams.get('store') || ''
   const slotParam = urlParams.get('slot') || ''
+  const groupId = urlParams.get('groupId') || ''
 
   const isUuidLike = (value: string): boolean =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
@@ -122,7 +124,19 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     window.history.back()
   }
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
+    // グループIDがある場合、グループのステータスを更新
+    if (groupId) {
+      try {
+        await supabase
+          .from('private_groups')
+          .update({ status: 'booking_requested' })
+          .eq('id', groupId)
+        logger.log('グループステータスを booking_requested に更新:', groupId)
+      } catch (error) {
+        logger.error('グループステータス更新エラー:', error)
+      }
+    }
     // 完了後の処理（トップページへ遷移など）
     window.location.href = bookingBasePath
   }
