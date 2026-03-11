@@ -682,8 +682,8 @@ export function PrivateGroupInvite() {
     }
     
     // 店舗（全て）
-    if (group.store_ids && group.store_ids.length > 0) {
-      params.set('store', group.store_ids.join(','))
+    if (group.preferred_store_ids && group.preferred_store_ids.length > 0) {
+      params.set('store', group.preferred_store_ids.join(','))
     }
     
     navigate(`/${org.slug}/private-booking-request?${params.toString()}`)
@@ -852,7 +852,7 @@ export function PrivateGroupInvite() {
                       <AddCandidateDates
                         groupId={group.id}
                         scenarioId={group.scenario_id || ''}
-                        storeIds={group.store_ids || []}
+                        storeIds={group.preferred_store_ids || []}
                         existingDates={group.candidate_dates || []}
                         onDatesAdded={() => {
                           refetch()
@@ -1818,7 +1818,7 @@ export function PrivateGroupInvite() {
                     <AddCandidateDates
                       groupId={group.id}
                       scenarioId={group.scenario_id || ''}
-                      storeIds={group.store_ids || []}
+                      storeIds={group.preferred_store_ids || []}
                       existingDates={group.candidate_dates || []}
                       onDatesAdded={refetch}
                       organizerMemberId={organizerMember?.id}
