@@ -652,7 +652,7 @@ export function PrivateGroupInvite() {
   // チャットモード時は専用レイアウト
   if (isChatMode && group) {
     return (
-      <div className="h-screen flex flex-col bg-background overflow-hidden">
+      <div className="fixed inset-0 lg:relative lg:h-screen flex flex-col bg-background overflow-hidden z-50 lg:z-auto">
         {/* PC用ヘッダー */}
         <div className="hidden lg:block shrink-0">
           <Header />
