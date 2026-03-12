@@ -335,7 +335,8 @@ export const assignmentApi = {
       if (orgId) {
         deleteQuery = deleteQuery.eq('organization_id', orgId)
       }
-      await deleteQuery
+      const { error: deleteError } = await deleteQuery
+      if (deleteError) throw deleteError
 
       const records = (assignments as Array<{ scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; notes?: string }>)
         .filter(a => a.scenarioId && typeof a.scenarioId === 'string')

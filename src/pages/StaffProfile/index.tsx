@@ -13,6 +13,7 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { assignmentApi } from '@/lib/assignmentApi'
 // scenarioApi は不要（organization_scenarios_with_master ビューを直接使用）
 import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
+import { scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { Loader2, Search, BookOpen, Users, Check, UserCircle } from 'lucide-react'
 
 // カスタム丸型チェックボックス
@@ -260,8 +261,9 @@ export function StaffProfile() {
       // NOTE: organization_scenarios への available_gms / experienced_staff / gm_assignments 同期は廃止
       // staff_scenario_assignments が唯一のデータソース
 
-      // スタッフ管理ページのキャッシュを無効化（即座に反映されるようにする）
+      // 関連するキャッシュを無効化（即座に反映されるようにする）
       queryClient.invalidateQueries({ queryKey: staffKeys.all })
+      queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
 
       showToast.success('保存しました')
     } catch (error) {

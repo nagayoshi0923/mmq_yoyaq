@@ -132,7 +132,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       }
 
       // 組織名、店舗一覧、シナリオ一覧を並列取得（パフォーマンス改善）
-      // ※ 担当GMと体験済みスタッフはビューで直接取得される（staff_scenario_assignmentsから動的に計算）
+      // ※ 担当GM・体験済みスタッフはビューで staff_scenario_assignments から動的に計算される
       const [orgResult, storesResult, scenariosResult] = await Promise.all([
         // 組織名を取得
         supabase

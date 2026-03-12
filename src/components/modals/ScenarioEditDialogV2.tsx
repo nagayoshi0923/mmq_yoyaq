@@ -7,7 +7,9 @@ import { useAuth } from '@/contexts/AuthContext'
 import { ScenarioMasterEditDialog } from './ScenarioMasterEditDialog'
 import { MasterSelectDialog } from './MasterSelectDialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useQueryClient } from '@tanstack/react-query'
 import { useScenariosQuery, useScenarioMutation, useDeleteScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
 import { scenarioMasterApi, type ScenarioMaster } from '@/lib/api/scenarioMasterApi'
 
 // V2セクションコンポーネント（カード形式でレイアウト改善）
@@ -65,6 +67,8 @@ const getSavedTab = (): TabId => {
 }
 
 export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onScenarioChange, sortedScenarioIds }: ScenarioEditDialogV2Props) {
+  const queryClient = useQueryClient()
+  
   // 初期値をlocalStorageから取得（コンポーネントマウント時に正しいタブを表示）
   const [activeTab, setActiveTab] = useState<TabId>(getSavedTab)
   
@@ -954,6 +958,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           logger.error('Error updating GM assignments:', syncError)
           showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')
         }
+        
+        // 担当GM変更後、スタッフ管理リストのキャッシュを無効化
+        queryClient.invalidateQueries({ queryKey: staffKeys.all })
       }
 
       // マスタから引用した場合、organization_scenariosにも登録
