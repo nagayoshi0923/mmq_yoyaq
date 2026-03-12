@@ -199,14 +199,15 @@ export const assignmentApi = {
     return filteredData
   },
 
-  // 担当関係を追加
+  // 担当関係を追加（既存の体験済みレコードがあれば昇格）
   async addAssignment(staffId: string, scenarioId: string, notes?: string, organizationId?: string) {
     const orgId = organizationId || await getCurrentOrganizationId()
     if (!orgId) throw new Error('組織情報が取得できません。')
     
+    // upsert: 既存レコードがあればGMフラグを更新、なければ新規作成
     const { data, error } = await supabase
       .from('staff_scenario_assignments')
-      .insert({
+      .upsert({
         staff_id: staffId,
         scenario_id: scenarioId,
         notes: notes || null,
@@ -215,6 +216,8 @@ export const assignmentApi = {
         is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
         assigned_at: new Date().toISOString(),
         organization_id: orgId
+      }, {
+        onConflict: 'staff_id,scenario_id'
       })
       .select()
       .single()
@@ -223,21 +226,26 @@ export const assignmentApi = {
     return data
   },
 
-  // 担当関係を削除
+  // GM担当を解除（体験済みに降格。完全削除ではない）
   async removeAssignment(staffId: string, scenarioId: string, organizationId?: string) {
     const orgId = organizationId || await getCurrentOrganizationId()
     
-    let deleteQuery = supabase
+    // GMフラグをfalseにして体験済みに降格
+    let updateQuery = supabase
       .from('staff_scenario_assignments')
-      .delete()
+      .update({
+        can_main_gm: false,
+        can_sub_gm: false,
+        is_experienced: true  // GM経験者 = 体験済み
+      })
       .eq('staff_id', staffId)
       .eq('scenario_id', scenarioId)
     
     if (orgId) {
-      deleteQuery = deleteQuery.eq('organization_id', orgId)
+      updateQuery = updateQuery.eq('organization_id', orgId)
     }
     
-    const { error } = await deleteQuery
+    const { error } = await updateQuery
     
     if (error) throw error
   },
