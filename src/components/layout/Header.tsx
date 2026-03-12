@@ -223,15 +223,25 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                 </button>
               </>
             ) : (
-              <button 
-                className="inline-flex items-center gap-1 h-8 px-3 text-xs bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors"
-                onClick={() => {
-                  window.location.href = '/login'
-                }}
-              >
-                <User className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">ログイン</span>
-              </button>
+              <div className="flex items-center gap-1">
+                <button 
+                  className="inline-flex items-center gap-1 h-8 px-3 text-xs bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors"
+                  onClick={() => {
+                    window.location.href = '/login'
+                  }}
+                >
+                  <User className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">ログイン</span>
+                </button>
+                <button 
+                  className="inline-flex items-center gap-1 h-8 px-3 text-xs bg-white/20 text-white hover:bg-white/30 font-medium transition-colors"
+                  onClick={() => {
+                    window.location.href = '/signup'
+                  }}
+                >
+                  <span>新規登録</span>
+                </button>
+              </div>
             )}
           </div>
         </div>

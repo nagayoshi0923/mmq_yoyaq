@@ -154,7 +154,7 @@ export function OrganizationDesignSettings() {
             ヘッダー画像
           </CardTitle>
           <CardDescription>
-            予約トップページに表示されるヘッダー画像を設定します
+            予約トップページのヒーローセクションの背景画像として表示されます
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -18,8 +18,16 @@ export interface Organization {
   header_image_url?: string | null  // 組織トップページのヘッダー画像URL
   post_performance_survey_url?: string | null  // 公演後アンケートURL（組織共通）
   post_performance_survey_enabled?: boolean  // 公演後アンケートを有効にするかどうか
+  faq_items?: FAQItem[] | null  // 組織固有のFAQ項目
   created_at: string
   updated_at: string
+}
+
+// FAQ項目の型定義
+export interface FAQItem {
+  question: string
+  answer: string
+  category?: string
 }
 
 // 組織招待の型定義

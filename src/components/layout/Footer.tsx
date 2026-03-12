@@ -133,7 +133,7 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
               </h3>
               <ul className="space-y-3">
                 <li>
-                  <Link to="/faq" className="text-sm hover:text-white transition-colors">
+                  <Link to={organizationSlug ? `/${organizationSlug}/faq` : '/faq'} className="text-sm hover:text-white transition-colors">
                     よくある質問
                   </Link>
                 </li>

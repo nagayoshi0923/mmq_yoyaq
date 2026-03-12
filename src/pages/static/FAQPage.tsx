@@ -1,22 +1,20 @@
 /**
  * よくある質問（FAQ）ページ
- * @path /faq
+ * @path /faq または /:slug/faq
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import { PublicLayout } from '@/components/layout/PublicLayout'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { HelpCircle, ChevronRight, ChevronDown, Search } from 'lucide-react'
+import { HelpCircle, ChevronRight, ChevronDown, Search, Building2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import type { FAQItem } from '@/types'
 
-interface FAQItem {
-  question: string
-  answer: string
-  category: string
-}
-
-const FAQ_DATA: FAQItem[] = [
+// 共通FAQ
+const COMMON_FAQ_DATA: FAQItem[] = [
   // 予約について
   {
     category: '予約について',
@@ -95,14 +93,52 @@ const FAQ_DATA: FAQItem[] = [
 ]
 
 export function FAQPage() {
+  const { slug } = useParams<{ slug?: string }>()
   const [searchTerm, setSearchTerm] = useState('')
   const [openItems, setOpenItems] = useState<Set<number>>(new Set())
+  const [organizationFAQ, setOrganizationFAQ] = useState<FAQItem[]>([])
+  const [organizationName, setOrganizationName] = useState<string | null>(null)
+  const [loading, setLoading] = useState(!!slug)
+
+  // 組織固有のFAQを取得
+  useEffect(() => {
+    if (!slug) {
+      setLoading(false)
+      return
+    }
+
+    const fetchOrgFAQ = async () => {
+      try {
+        const { data } = await supabase
+          .from('organizations')
+          .select('name, faq_items')
+          .eq('slug', slug)
+          .single()
+
+        if (data) {
+          setOrganizationName(data.name)
+          if (data.faq_items && Array.isArray(data.faq_items)) {
+            setOrganizationFAQ(data.faq_items as FAQItem[])
+          }
+        }
+      } catch {
+        // エラー無視
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchOrgFAQ()
+  }, [slug])
+
+  // 組織固有FAQと共通FAQを結合
+  const allFAQ = [...organizationFAQ, ...COMMON_FAQ_DATA]
 
   // カテゴリーでグループ化
-  const categories = Array.from(new Set(FAQ_DATA.map(item => item.category)))
+  const categories = Array.from(new Set(allFAQ.map(item => item.category || 'その他')))
 
   // 検索フィルター
-  const filteredFAQ = FAQ_DATA.filter(item =>
+  const filteredFAQ = allFAQ.filter(item =>
     item.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.answer.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -115,6 +151,16 @@ export function FAQPage() {
       newOpenItems.add(index)
     }
     setOpenItems(newOpenItems)
+  }
+
+  if (loading) {
+    return (
+      <PublicLayout>
+        <div className="flex items-center justify-center py-24">
+          <div className="animate-spin h-8 w-8 border-4 border-t-transparent rounded-full" style={{ borderColor: `${THEME.primary} transparent ${THEME.primary} ${THEME.primary}` }} />
+        </div>
+      </PublicLayout>
+    )
   }
 
   return (
@@ -133,7 +179,9 @@ export function FAQPage() {
         />
         <div className="max-w-4xl mx-auto px-4 relative">
           <div className="flex items-center gap-2 text-white/80 text-sm mb-2">
-            <Link to="/" className="hover:text-white transition-colors">ホーム</Link>
+            <Link to={slug ? `/${slug}` : '/'} className="hover:text-white transition-colors">
+              {organizationName || 'ホーム'}
+            </Link>
             <ChevronRight className="w-4 h-4" />
             <span>よくある質問</span>
           </div>
@@ -144,6 +192,12 @@ export function FAQPage() {
           <p className="text-white/80 mt-2">
             お問い合わせ前にこちらをご確認ください
           </p>
+          {organizationName && (
+            <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 text-white text-sm">
+              <Building2 className="w-4 h-4" />
+              {organizationName}
+            </div>
+          )}
         </div>
       </section>
 
@@ -192,10 +246,15 @@ export function FAQPage() {
                     style={{ backgroundColor: THEME.primary }}
                   />
                   {category}
+                  {organizationFAQ.some(f => (f.category || 'その他') === category) && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                      {organizationName}
+                    </span>
+                  )}
                 </h2>
                 <div className="space-y-3">
-                  {FAQ_DATA.filter(item => item.category === category).map((item, index) => {
-                    const globalIndex = FAQ_DATA.findIndex(f => f === item)
+                  {allFAQ.filter(item => (item.category || 'その他') === category).map((item, index) => {
+                    const globalIndex = allFAQ.findIndex(f => f === item)
                     return (
                       <FAQAccordionItem
                         key={index}
@@ -273,7 +332,3 @@ function FAQAccordionItem({
     </div>
   )
 }
-
-
-
-

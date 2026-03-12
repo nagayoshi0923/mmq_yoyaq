@@ -182,15 +182,29 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         if (error) {
           // 重複メールアドレスのエラーを日本語化
           if (error.message.includes('already registered') || error.message.includes('already exists')) {
-            throw new Error('このメールアドレスは既に登録されています。ログインするか、パスワードリセットをお試しください。')
+            throw new Error('このメールアドレスは既に登録されています。')
           }
           throw error
         }
         
         // Supabaseは既存メールでもエラーを返さないことがある（セキュリティ対策）
-        // identitiesが空の場合は既存ユーザー
-        if (data.user && data.user.identities && data.user.identities.length === 0) {
-          throw new Error('このメールアドレスは既に登録されています。ログインするか、パスワードリセットをお試しください。')
+        // 以下の条件で既存ユーザーを検出:
+        // 1. identitiesが空の場合
+        // 2. created_atが現在時刻から1分以上前（既存ユーザー）
+        logger.debug('SignUp response:', { 
+          user: data.user?.id, 
+          identities: data.user?.identities?.length,
+          created_at: data.user?.created_at 
+        })
+        
+        const isExistingUser = data.user && (
+          (data.user.identities && data.user.identities.length === 0) ||
+          (data.user.created_at && new Date(data.user.created_at).getTime() < Date.now() - 60000)
+        )
+        
+        if (isExistingUser) {
+          logger.debug('Existing user detected')
+          throw new Error('このメールアドレスは既に登録されています。')
         }
         
         setMessage('確認メールを送信しました。メールのリンクをクリックして登録を完了してください。')
@@ -274,7 +288,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
       } else if (mode === 'signup') {
         // 新規登録エラーを適切に表示
         if (errorMessage.includes('already registered') || errorMessage.includes('already exists') || errorMessage.includes('既に登録')) {
-          setError('このメールアドレスは既に登録されています。ログインするか、パスワードリセットをお試しください。')
+          // 既に登録済みの場合はログインモードに切り替え（エラーメッセージは維持）
+          setMode('login')
+          setPassword('')
+          setError('このメールアドレスは既に登録されています。ログインするか、下記の「パスワードを忘れた場合」からパスワードリセットをお試しください。')
         } else if (errorMessage.includes('Invalid email')) {
           setError('有効なメールアドレスを入力してください')
         } else if (errorMessage.includes('Password')) {
@@ -591,15 +608,6 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
             </div>
           </div>
 
-          {/* フッター */}
-          <div className="mt-8 text-center text-sm text-gray-500">
-            <p>
-              店舗運営者の方は
-              <Link to="/for-business" className="ml-1 font-medium hover:underline" style={{ color: THEME.primary }}>
-                こちら
-              </Link>
-            </p>
-          </div>
         </div>
       </main>
 

@@ -200,6 +200,10 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
     if (subPage === 'catalog') {
       return { page: 'catalog', scenarioId: null, organizationSlug: orgSlug }
     }
+    // /{slug}/faq - 組織固有FAQページ
+    if (subPage === 'faq') {
+      return { page: 'org-faq', scenarioId: null, organizationSlug: orgSlug }
+    }
     if (subPage === 'private-booking-select') {
       return { page: 'private-booking-select', scenarioId: null, organizationSlug: orgSlug }
     }
@@ -656,6 +660,15 @@ export function AdminDashboard() {
   }
 
   if (currentPage === 'faq') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <FAQPage />
+      </Suspense>
+    )
+  }
+
+  // 組織固有FAQページ
+  if (currentPage === 'org-faq' && pathOrganizationSlug) {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <FAQPage />

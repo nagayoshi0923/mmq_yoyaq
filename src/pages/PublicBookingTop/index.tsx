@@ -312,40 +312,43 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
       )}
 
-      {/* 組織ヘッダー画像 - 最適化済み */}
-      {organizationHeaderImageUrl && (
-        <section className="relative">
-          <div className="relative h-40 md:h-56 overflow-hidden">
-            <img 
-              src={getOptimizedImageUrl(organizationHeaderImageUrl, { width: 1200, format: 'webp', quality: 80 }) || organizationHeaderImageUrl} 
-              alt={organizationName || ''}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-          </div>
-        </section>
-      )}
-
-      {/* ヒーローセクション - シャープデザイン */}
+      {/* ヒーローセクション - 背景画像対応 */}
       <section 
         className="relative overflow-hidden"
         style={{ backgroundColor: THEME.primary }}
       >
-        {/* アクセント装飾 */}
-        <div 
-          className="absolute top-0 right-0 w-48 h-48 opacity-20"
-          style={{ 
-            background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
-            transform: 'translate(30%, -30%)'
-          }}
-        />
-        <div 
-          className="absolute bottom-0 left-0 w-1 h-12"
-          style={{ backgroundColor: THEME.accent }}
-        />
+        {/* 背景画像（設定されている場合） */}
+        {organizationHeaderImageUrl && (
+          <>
+            <img 
+              src={getOptimizedImageUrl(organizationHeaderImageUrl, { width: 1200, format: 'webp', quality: 80 }) || organizationHeaderImageUrl} 
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            {/* 暗いオーバーレイで文字を読みやすく */}
+            <div className="absolute inset-0 bg-black/50" />
+          </>
+        )}
         
-        <div className="container mx-auto max-w-7xl px-4 md:px-6 py-4 md:py-5 relative">
-          <div className="text-white">
+        {/* アクセント装飾（背景画像がない場合のみ表示） */}
+        {!organizationHeaderImageUrl && (
+          <>
+            <div 
+              className="absolute top-0 right-0 w-48 h-48 opacity-20"
+              style={{ 
+                background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+                transform: 'translate(30%, -30%)'
+              }}
+            />
+            <div 
+              className="absolute bottom-0 left-0 w-1 h-12"
+              style={{ backgroundColor: THEME.accent }}
+            />
+          </>
+        )}
+        
+        <div className="container mx-auto max-w-7xl px-4 md:px-6 py-8 md:py-12 relative">
+          <div className="text-white" style={{ textShadow: organizationHeaderImageUrl ? '0 2px 4px rgba(0,0,0,0.5)' : 'none' }}>
             {/* アクセントバッジ */}
             <div 
               className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium mb-2"
@@ -355,10 +358,10 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
               {organizationName?.toUpperCase() || 'MURDER MYSTERY QUEST'}
             </div>
             
-            <h1 className="text-lg md:text-xl font-bold tracking-tight">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">
               {organizationName || 'MMQ'}
             </h1>
-            <p className="text-sm text-white/80 mb-2">
+            <p className="text-sm text-white/90 mb-3">
               リアルな謎解き体験。あなたは事件の真相を暴けるか？
             </p>
             

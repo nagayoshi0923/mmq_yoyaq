@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
-import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter } from 'lucide-react'
+import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame } from 'lucide-react'
 import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -96,8 +96,8 @@ export function PlatformTop() {
 
       const today = formatDateJST(new Date())
 
-      // 🚀 パフォーマンス最適化: 4つのクエリを並列実行
-      const [orgResult, storeResult, masterResult, eventResult] = await Promise.all([
+      // 🚀 パフォーマンス最適化: 5つのクエリを並列実行
+      const [orgResult, storeResult, masterResult, eventResult, reservationResult] = await Promise.all([
         // 組織一覧
         supabase
           .from('organizations')
@@ -131,13 +131,20 @@ export function PlatformTop() {
           .eq('is_cancelled', false)
           .eq('is_reservation_enabled', true)
           .order('date', { ascending: true })
-          .limit(200)
+          .limit(200),
+        // 今日以降の予約（参加者数計算用）
+        supabase
+          .from('reservations')
+          .select('schedule_event_id, participant_count, status')
+          .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+          .in('status', ['confirmed', 'pending', 'checked_in'])
       ])
 
       const { data: orgData, error: orgError } = orgResult
       const { data: storeData, error: storeError } = storeResult
       const { data: approvedMasters, error: masterError } = masterResult
       const { data: eventData, error: eventError } = eventResult
+      const { data: reservations } = reservationResult
 
       if (orgError) logger.error('組織取得エラー:', orgError)
       if (storeError) logger.error('店舗取得エラー:', storeError)
@@ -169,9 +176,15 @@ export function PlatformTop() {
 
       const approvedMasterIds = new Set(approvedMasters?.map(m => m.id) || [])
 
-      logger.log('📆 イベントデータ:', eventData?.length, '件', eventError ? `エラー: ${JSON.stringify(eventError)}` : '')
-      if (eventData && eventData.length > 0) {
-        logger.log('📆 最初のイベント:', JSON.stringify(eventData[0], null, 2))
+      // 予約から参加者数を集計
+      const participantsMap: Record<string, number> = {}
+      if (reservations) {
+        reservations.forEach(r => {
+          const eventId = r.schedule_event_id
+          if (eventId) {
+            participantsMap[eventId] = (participantsMap[eventId] || 0) + (r.participant_count || 1)
+          }
+        })
       }
 
       if (eventData) {
@@ -242,7 +255,8 @@ export function PlatformTop() {
           
           // 最大10件まで追加
           if (scenarioMap[scenarioKey].next_events.length < 10) {
-            const currentParticipants = e.current_participants || 0
+            // 予約テーブルから計算した参加者数を使用（なければDBの値、それもなければ0）
+            const currentParticipants = participantsMap[e.id] ?? e.current_participants ?? 0
             const remainingSlots = scenario.player_count_max - currentParticipants
             const isConfirmed = currentParticipants >= scenario.player_count_min && remainingSlots > 0
             scenarioMap[scenarioKey].next_events.push({
@@ -274,11 +288,6 @@ export function PlatformTop() {
           })
         
         setScenariosWithEvents(scenarioList)
-        logger.log('🎭 シナリオ（イベント付き・マスタ承認済み）:', scenarioList.length, '件')
-        // デバッグ: 最初のシナリオのイベントを表示
-        if (scenarioList.length > 0) {
-          logger.log('🎭 最初のシナリオのイベント:', scenarioList[0].scenario_title, scenarioList[0].next_events)
-        }
       }
 
     } catch (error) {
@@ -300,6 +309,39 @@ export function PlatformTop() {
       next_events: s.next_events.filter(e => e.region === selectedRegion)
     }))
   }, [scenariosWithEvents, selectedRegion])
+
+  // 残りわずかの公演（残り1-2枠の公演、全イベントを対象）
+  const nearlyConfirmed = useMemo(() => {
+    const result: ScenarioWithEvents[] = []
+    const addedScenarioIds = new Set<string>()
+    
+    filteredScenarios.forEach(scenario => {
+      const nearlyFullEvent = scenario.next_events.find(event => {
+        const available = event.available_seats
+        return available > 0 && available <= 2
+      })
+      
+      if (nearlyFullEvent && !addedScenarioIds.has(scenario.scenario_id)) {
+        addedScenarioIds.add(scenario.scenario_id)
+        const reorderedEvents = [
+          nearlyFullEvent,
+          ...scenario.next_events.filter(e => e !== nearlyFullEvent)
+        ]
+        result.push({
+          ...scenario,
+          next_events: reorderedEvents
+        })
+      }
+    })
+    
+    result.sort((a, b) => {
+      const aAvailable = a.next_events?.[0]?.available_seats || 999
+      const bAvailable = b.next_events?.[0]?.available_seats || 999
+      return aAvailable - bAvailable
+    })
+    
+    return result
+  }, [filteredScenarios])
 
   // 7日以内とそれ以降を分離
   const { within7Days, after7Days } = useMemo(() => {
@@ -432,6 +474,39 @@ export function PlatformTop() {
           </div>
         </div>
       </section>
+
+      {/* 残りわずか作品 */}
+      {!loading && nearlyConfirmed.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 pt-8 md:pt-12">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-3">
+              <Flame className="w-6 h-6 text-orange-500" />
+              残りわずか
+              <span 
+                className="w-12 h-1 ml-2"
+                style={{ backgroundColor: '#f97316' }}
+              />
+              <span className="text-sm font-normal text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                お早めに！
+              </span>
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            {nearlyConfirmed.map((scenario) => (
+              <ScenarioCard
+                key={`nearly-${scenario.scenario_id}`}
+                scenario={scenario}
+                onClick={handleScenarioClick}
+                isFavorite={favorites.has(scenario.scenario_id)}
+                isPlayed={isPlayed(scenario.scenario_id)}
+                onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
+                organizationName={scenario.organization_name}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ラインナップ（公演予定付き） */}
       <section className="max-w-7xl mx-auto px-4 py-8 md:py-12">
@@ -598,8 +673,9 @@ export function PlatformTop() {
                     {storesByRegion.grouped[region].map(store => (
                       <div
                         key={store.id}
-                        className="bg-gray-50 p-3 border border-gray-100"
+                        className="bg-gray-50 p-3 border border-gray-100 cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all"
                         style={{ borderRadius: 0 }}
+                        onClick={() => store.organization_slug && navigate(`/${store.organization_slug}`)}
                       >
                         <div className="flex items-start gap-3">
                           <div 
@@ -609,7 +685,7 @@ export function PlatformTop() {
                             <Building2 className="w-5 h-5" style={{ color: THEME.primary }} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-gray-900 text-sm">
+                            <h4 className="font-medium text-gray-900 text-sm hover:underline">
                               {store.name}
                             </h4>
                             <p className="text-xs text-gray-500">
@@ -621,6 +697,7 @@ export function PlatformTop() {
                               </p>
                             )}
                           </div>
+                          <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
                         </div>
                       </div>
                     ))}
