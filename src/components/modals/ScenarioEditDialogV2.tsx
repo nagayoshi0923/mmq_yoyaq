@@ -8,7 +8,7 @@ import { ScenarioMasterEditDialog } from './ScenarioMasterEditDialog'
 import { MasterSelectDialog } from './MasterSelectDialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useQueryClient } from '@tanstack/react-query'
-import { useScenariosQuery, useScenarioMutation, useDeleteScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { useScenariosQuery, useScenarioMutation, useDeleteScenarioMutation, scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
 import { scenarioMasterApi, type ScenarioMaster } from '@/lib/api/scenarioMasterApi'
 
@@ -921,46 +921,17 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 .eq('scenario_id', targetScenarioId)
             }
           }
-          // GM保存後: staff.special_scenarios を同期更新
-          // スケジュール画面の担当バッジなどが staff.special_scenarios を参照するため必須
-          try {
-            // 削除されたGMの special_scenarios から targetScenarioId を除去
-            for (const staffId of toDelete) {
-              const { data: staffRow } = await supabase
-                .from('staff')
-                .select('special_scenarios')
-                .eq('id', staffId)
-                .maybeSingle()
-              if (staffRow?.special_scenarios) {
-                const updated = (staffRow.special_scenarios as string[]).filter(
-                  (sid: string) => sid !== targetScenarioId
-                )
-                await supabase.from('staff').update({ special_scenarios: updated }).eq('id', staffId)
-              }
-            }
-            // 追加されたGMの special_scenarios に targetScenarioId を追加
-            for (const staffId of toAdd) {
-              const { data: staffRow } = await supabase
-                .from('staff')
-                .select('special_scenarios')
-                .eq('id', staffId)
-                .maybeSingle()
-              const current = (staffRow?.special_scenarios as string[]) || []
-              if (!current.includes(targetScenarioId)) {
-                await supabase.from('staff').update({ special_scenarios: [...current, targetScenarioId] }).eq('id', staffId)
-              }
-            }
-          } catch (e) {
-            logger.error('staff.special_scenarios 同期エラー（無視）:', e)
-          }
+          // NOTE: staff.special_scenarios への同期は廃止
+          // staff_scenario_assignments が唯一のデータソース
 
         } catch (syncError) {
           logger.error('Error updating GM assignments:', syncError)
           showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')
         }
         
-        // 担当GM変更後、スタッフ管理リストのキャッシュを無効化
+        // 担当GM変更後、関連するキャッシュを無効化
         queryClient.invalidateQueries({ queryKey: staffKeys.all })
+        queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
       }
 
       // マスタから引用した場合、organization_scenariosにも登録

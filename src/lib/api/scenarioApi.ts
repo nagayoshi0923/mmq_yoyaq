@@ -459,30 +459,10 @@ export const scenarioApi = {
       logger.error('performance_kits削除エラー:', kitsError)
     }
     
-    // 5. スタッフのspecial_scenariosからこのシナリオを削除
-    const { data: affectedStaff, error: staffError } = await supabase
-      .from('staff')
-      .select('id, special_scenarios')
-      .contains('special_scenarios', [id])
-      .eq('organization_id', orgId)
+    // NOTE: staff.special_scenarios への同期は廃止
+    // staff_scenario_assignments が唯一のデータソース（既に削除済み）
     
-    if (staffError) {
-      logger.error('staff検索エラー:', staffError)
-    }
-    
-    if (affectedStaff && affectedStaff.length > 0) {
-      const updatePromises = affectedStaff.map(staff => {
-        const newScenarios = (staff.special_scenarios || []).filter((sid: string) => sid !== id)
-        return supabase
-          .from('staff')
-          .update({ special_scenarios: newScenarios })
-          .eq('id', staff.id)
-      })
-      
-      await Promise.all(updatePromises)
-    }
-    
-    // 6. organization_scenarios を削除（scenario_masters は残す）
+    // 5. organization_scenarios を削除（scenario_masters は残す）
     const { error } = await supabase
       .from('organization_scenarios')
       .delete()
@@ -894,7 +874,8 @@ export const scenarioApi = {
     return statsMap
   },
 
-  // シナリオの担当GMを更新（スタッフのspecial_scenariosも同期更新）
+  // シナリオの担当GMを更新
+  // NOTE: staff.special_scenarios への同期は廃止。staff_scenario_assignments が唯一のデータソース
   // id: scenario_master_id
   async updateAvailableGmsWithSync(id: string, availableGms: string[]): Promise<Scenario> {
     const orgId = await getCurrentOrganizationId()
@@ -910,42 +891,6 @@ export const scenarioApi = {
       .eq('organization_id', orgId)
     
     if (updateError) throw updateError
-
-    // 組織内の全スタッフを取得して、各スタッフのspecial_scenariosを更新
-    const { data: allStaff, error: staffError } = await supabase
-      .from('staff')
-      .select('id, name, special_scenarios')
-      .eq('organization_id', orgId)
-    
-    if (staffError) throw staffError
-
-    // 各スタッフのspecial_scenariosを更新
-    const updatePromises = allStaff?.map(async (staff) => {
-      const currentScenarios = staff.special_scenarios || []
-      const staffName = staff.name
-      
-      const isAssigned = availableGms.includes(staffName)
-      const isCurrentlyAssigned = currentScenarios.includes(id)
-      
-      let newScenarios = [...currentScenarios]
-      
-      if (isAssigned && !isCurrentlyAssigned) {
-        newScenarios.push(id)
-      } else if (!isAssigned && isCurrentlyAssigned) {
-        newScenarios = newScenarios.filter(scenarioId => scenarioId !== id)
-      }
-      
-      if (JSON.stringify(newScenarios.sort()) !== JSON.stringify(currentScenarios.sort())) {
-        return supabase
-          .from('staff')
-          .update({ special_scenarios: newScenarios })
-          .eq('id', staff.id)
-      }
-      
-      return Promise.resolve()
-    }) || []
-
-    await Promise.all(updatePromises)
 
     // 更新後のデータを取得して返す
     const { data: updatedScenario, error: fetchError } = await supabase

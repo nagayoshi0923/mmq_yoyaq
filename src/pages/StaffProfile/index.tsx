@@ -242,23 +242,7 @@ export function StaffProfile() {
 
       await assignmentApi.updateStaffAssignments(staffId, assignmentData, organizationId)
 
-      // staffテーブルにも保存（special_scenarios のみ。experienced_scenarios はDBカラムが存在しないため除外）
-      // 体験済みデータは staff_scenario_assignments テーブルが正規データ源
-      const specialScenarios = assignments
-        .filter(a => a.can_main_gm || a.can_sub_gm)
-        .map(a => a.scenario_id)
-
-      const { error: staffUpdateError } = await supabase
-        .from('staff')
-        .update({
-          special_scenarios: specialScenarios
-        })
-        .eq('id', staffId)
-        .eq('organization_id', organizationId)
-
-      if (staffUpdateError) throw staffUpdateError
-
-      // NOTE: organization_scenarios への available_gms / experienced_staff / gm_assignments 同期は廃止
+      // NOTE: staff.special_scenarios への同期は廃止
       // staff_scenario_assignments が唯一のデータソース
 
       // 関連するキャッシュを無効化（即座に反映されるようにする）

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
+import { scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import type { Staff } from '@/types'
 import { logger } from '@/utils/logger'
 
@@ -165,6 +166,7 @@ export function useStaffMutation() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: staffKeys.all })
+      queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
     },
   })
 }
