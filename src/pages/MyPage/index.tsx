@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, UserPlus } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
@@ -829,10 +829,6 @@ export default function MyPage() {
                   <Trophy className="w-4 h-4" style={{ color: THEME.primary }} />
                   <span>{stats.participationCount}回参加</span>
                 </div>
-                <div className="flex items-center gap-1 text-sm text-gray-600">
-                  <Star className="w-4 h-4 text-amber-500" />
-                  <span>{stats.points} ポイント</span>
-                </div>
               </div>
             </div>
 
@@ -893,12 +889,12 @@ export default function MyPage() {
           <>
             {activeTab === 'reservations' && (
               <div className="space-y-4">
-                {/* 貸切グループ（日程調整中） */}
+                {/* 貸切リクエスト（日程調整中） */}
                 {privateGroups.filter(g => g.status === 'gathering').length > 0 && (
                   <>
                     <div className="flex items-center gap-2 mb-2">
                       <UserPlus className="w-4 h-4 text-purple-600" />
-                      <h3 className="text-sm font-bold text-gray-700">貸切グループ（メンバー募集中）</h3>
+                      <h3 className="text-sm font-bold text-gray-700">貸切リクエスト（メンバー募集中）</h3>
                     </div>
                     {privateGroups.filter(g => g.status === 'gathering').map((group) => (
                       <div 

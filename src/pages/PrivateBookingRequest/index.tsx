@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,11 +9,12 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Plus, X } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Plus, X, UserPlus, Zap } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCustomerData } from '../BookingConfirmation/hooks/useCustomerData'
 import { usePrivateBookingForm } from './hooks/usePrivateBookingForm'
 import { usePrivateBookingSubmit } from './hooks/usePrivateBookingSubmit'
+import { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import { formatDate } from './utils/privateBookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
 import type { PrivateBookingRequestProps, TimeSlot } from './types'
@@ -39,7 +41,16 @@ export function PrivateBookingRequest({
   onBack,
   onComplete
 }: PrivateBookingRequestProps) {
+  const navigate = useNavigate()
   const { user } = useAuth()
+  const { createGroup, loading: groupLoading } = usePrivateGroup()
+  
+  // 申込方法: 'select' = 選択画面, 'quick' = すぐに申込, 'invite' = メンバー招待
+  // groupId が既にある場合は選択をスキップ
+  const [bookingMode, setBookingMode] = useState<'select' | 'quick' | 'invite'>(
+    groupId ? 'quick' : 'select'
+  )
+  const [createdGroupId, setCreatedGroupId] = useState<string | null>(groupId || null)
   
   // 編集可能な候補日時
   const [editableTimeSlots, setEditableTimeSlots] = useState(initialTimeSlots)
@@ -133,8 +144,40 @@ export function PrivateBookingRequest({
     selectedStoreIds,
     stores,
     userId: user?.id,
-    groupId
+    groupId: createdGroupId || undefined
   })
+
+  // 申込方法選択ハンドラ
+  const handleSelectMode = async (mode: 'quick' | 'invite') => {
+    if (!user || !scenarioId) return
+    
+    try {
+      const group = await createGroup({
+        scenarioId,
+        name: undefined,
+        targetParticipantCount: maxParticipants,
+        preferredStoreIds: selectedStoreIds,
+        candidateDates: editableTimeSlots.map((ts, idx) => ({
+          date: ts.date,
+          time_slot: ts.slot.label as '午前' | '午後' | '夜間',
+          start_time: ts.slot.startTime,
+          end_time: ts.slot.endTime,
+          order_num: idx + 1
+        })),
+        notes: undefined,
+      })
+      
+      setCreatedGroupId(group.id)
+      
+      if (mode === 'invite') {
+        navigate(`/group/invite/${group.invite_code}`)
+      } else {
+        setBookingMode('quick')
+      }
+    } catch (err: any) {
+      setError(err.message || '貸切リクエストの作成に失敗しました')
+    }
+  }
 
   // 予約送信ハンドラ
   const onSubmit = async () => {
@@ -206,6 +249,99 @@ export function PrivateBookingRequest({
   }
 
   const totalPrice = participationFee * maxParticipants
+
+  // 申込方法選択画面
+  if (bookingMode === 'select') {
+    return (
+      <div className="min-h-screen bg-background overflow-x-clip">
+        <Header />
+        <NavigationBar currentPage={bookingBasePath} />
+
+        {/* 戻るボタン */}
+        <div className="bg-background border-b">
+          <div className="container mx-auto max-w-5xl px-2 md:px-4 py-2">
+            <Button variant="ghost" onClick={onBack} className="flex items-center gap-1.5 hover:bg-accent h-8 px-2 text-sm">
+              <ArrowLeft className="w-4 h-4" />
+              シナリオ詳細に戻る
+            </Button>
+          </div>
+        </div>
+
+        <div className="container mx-auto max-w-3xl px-4 py-8">
+          <h1 className="text-xl font-bold mb-2">貸切リクエスト</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            {scenarioTitle} / 候補日時 {editableTimeSlots.length}件
+          </p>
+
+          {error && (
+            <Card className="mb-6 border-2 border-red-200 bg-red-50">
+              <CardContent className="p-4 flex items-center gap-2 text-red-800 text-sm">
+                <AlertCircle className="w-5 h-5" />
+                <span>{error}</span>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* すぐに申込 */}
+            <Card 
+              className="cursor-pointer hover:border-purple-300 hover:shadow-md transition-all"
+              onClick={() => handleSelectMode('quick')}
+            >
+              <CardContent className="p-6 text-center space-y-4">
+                <div className="w-16 h-16 mx-auto bg-purple-100 rounded-full flex items-center justify-center">
+                  <Zap className="w-8 h-8 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">すぐに申込</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    メンバーが決まっている場合<br />
+                    入力情報を確認して申込
+                  </p>
+                </div>
+                <Button 
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                  disabled={groupLoading}
+                >
+                  {groupLoading ? '処理中...' : 'すぐに申込へ進む'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* メンバーを招待 */}
+            <Card 
+              className="cursor-pointer hover:border-purple-300 hover:shadow-md transition-all"
+              onClick={() => handleSelectMode('invite')}
+            >
+              <CardContent className="p-6 text-center space-y-4">
+                <div className="w-16 h-16 mx-auto bg-purple-100 rounded-full flex items-center justify-center">
+                  <UserPlus className="w-8 h-8 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">メンバーを招待</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    友達を誘って日程調整<br />
+                    後から申込できます
+                  </p>
+                </div>
+                <Button 
+                  variant="outline"
+                  className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
+                  disabled={groupLoading}
+                >
+                  {groupLoading ? '処理中...' : 'メンバー招待へ進む'}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          <p className="text-xs text-muted-foreground text-center mt-6">
+            どちらを選んでも、後からメンバーの追加や日程の変更が可能です
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background overflow-x-clip">

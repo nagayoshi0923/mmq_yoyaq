@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users } from 'lucide-react'
+import { Users, CalendarPlus } from 'lucide-react'
 import { BookingNotice } from './BookingNotice'
 
 interface PrivateBookingPanelProps {
@@ -30,15 +30,35 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
 }: PrivateBookingPanelProps) {
   const navigate = useNavigate()
 
-  const handleCreateGroup = () => {
+  const handleCreateGroupWithoutDates = () => {
     const params = new URLSearchParams()
     if (scenarioId) params.set('scenarioId', scenarioId)
     if (organizationSlug) params.set('org', organizationSlug)
+    params.set('mode', 'no-dates')
     navigate(`/group/create?${params.toString()}`)
   }
 
   return (
     <div className="space-y-6">
+      {/* 日程を決めないで作成するボタン（上部） */}
+      {isLoggedIn && scenarioId && (
+        <Card className="border-purple-200 bg-purple-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-purple-800 mb-3">
+              日程が決まっていない場合は、先に貸切リクエストを作成してメンバーを招待できます
+            </p>
+            <Button 
+              variant="outline"
+              className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
+              onClick={handleCreateGroupWithoutDates}
+            >
+              <Users className="w-4 h-4" />
+              日程を決めないで貸切リクエストを作成
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 貸切料金情報 */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-3">料金</h3>
@@ -82,23 +102,6 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
       >
         {!isLoggedIn ? 'ログインして貸切リクエスト' : selectedTimeSlotsCount === 0 ? '候補日時を選択してください' : `貸切リクエスト確認へ (${selectedTimeSlotsCount}件)`}
       </Button>
-
-      {/* 貸切グループを作成ボタン */}
-      {isLoggedIn && scenarioId && (
-        <div className="pt-2 border-t">
-          <p className="text-xs text-muted-foreground mb-2 text-center">
-            まだメンバーが決まっていない場合
-          </p>
-          <Button 
-            variant="outline"
-            className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
-            onClick={handleCreateGroup}
-          >
-            <Users className="w-4 h-4" />
-            貸切グループを作成して友達を誘う
-          </Button>
-        </div>
-      )}
     </div>
   )
 })

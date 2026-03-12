@@ -25,6 +25,7 @@ export function PrivateGroupCreate() {
 
   const scenarioId = searchParams.get('scenarioId')
   const organizationSlug = searchParams.get('org')
+  const mode = searchParams.get('mode')
 
   const [scenario, setScenario] = useState<any>(null)
   const [stores, setStores] = useState<any[]>([])
@@ -119,9 +120,13 @@ export function PrivateGroupCreate() {
         notes: notes || undefined,
       })
 
-      setCreatedGroup(group)
+      if (mode === 'no-dates') {
+        navigate(`/group/invite/${group.invite_code}`)
+      } else {
+        setCreatedGroup(group)
+      }
     } catch (err: any) {
-      setError(err.message || 'グループの作成に失敗しました')
+      setError(err.message || '貸切リクエストの作成に失敗しました')
     }
   }
 
@@ -157,7 +162,7 @@ export function PrivateGroupCreate() {
               <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
               <h2 className="text-lg font-medium mb-2">ログインが必要です</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                貸切グループを作成するにはログインしてください
+                貸切リクエストを作成するにはログインしてください
               </p>
               <Button onClick={() => navigate('/login')}>
                 ログイン
@@ -284,7 +289,7 @@ export function PrivateGroupCreate() {
       </div>
 
       <div className="container mx-auto max-w-5xl px-4 py-6">
-        <h1 className="text-xl font-bold mb-6">貸切グループを作成</h1>
+        <h1 className="text-xl font-bold mb-6">貸切リクエストを作成</h1>
 
         {(error || groupError) && (
           <Card className="mb-6 border-2 border-red-200 bg-red-50">
@@ -317,7 +322,7 @@ export function PrivateGroupCreate() {
                         <span>{scenario.player_count_min}〜{scenario.player_count_max}名</span>
                       </div>
                       <Badge variant="outline" className="mt-2 bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                        貸切グループ
+                        貸切リクエスト
                       </Badge>
                     </div>
                   </div>

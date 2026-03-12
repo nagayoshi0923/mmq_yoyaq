@@ -139,7 +139,7 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
             公演前アンケート
           </CardTitle>
           <CardDescription className="text-xs">
-            貸切グループのお客様へ公演前に回答いただくアンケートを設定します
+            貸切リクエストのお客様へ公演前に回答いただくアンケートを設定します
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

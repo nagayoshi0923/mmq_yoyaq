@@ -98,7 +98,7 @@ export function PrivateGroupManage() {
     const scenario = group.scenario_masters
     const candidateDates = group.candidate_dates || []
 
-    let progressText = `📊 貸切グループ進捗状況\n\n`
+    let progressText = `📊 貸切リクエスト進捗状況\n\n`
     progressText += `🎭 ${scenario?.title || 'シナリオ'}\n`
     progressText += `👥 メンバー: ${joinedMembers.length}/${group.target_participant_count}名\n\n`
 
@@ -472,7 +472,7 @@ export function PrivateGroupManage() {
 
       <div className="container mx-auto max-w-5xl px-4 py-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold">貸切グループ管理</h1>
+          <h1 className="text-xl font-bold">貸切リクエスト</h1>
           <Badge
             variant="outline"
             className={

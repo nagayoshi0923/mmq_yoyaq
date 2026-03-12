@@ -1390,7 +1390,7 @@ export function PrivateGroupInvite() {
                   </div>
                 </div>
                 <Badge variant="outline" className="mt-2 bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                  貸切グループ
+                  貸切リクエスト
                 </Badge>
               </div>
             </div>

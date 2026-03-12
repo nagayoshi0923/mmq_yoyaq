@@ -95,7 +95,7 @@ export function InviteShareButton({
           <DialogHeader>
             <DialogTitle>友達を誘う</DialogTitle>
             <DialogDescription>
-              SNSでシェアするか、貸切グループを作成して友達を招待できます
+              SNSでシェアするか、貸切リクエストを作成して友達を招待できます
             </DialogDescription>
           </DialogHeader>
 
@@ -149,19 +149,19 @@ export function InviteShareButton({
               </Button>
             </div>
 
-            {/* 貸切グループを作成 */}
+            {/* 貸切リクエストを作成 */}
             {showPrivateInvite && scenarioId && (
               <div className="space-y-2 pt-2 border-t">
-                <p className="text-sm font-medium text-muted-foreground">グループで貸切</p>
+                <p className="text-sm font-medium text-muted-foreground">貸切リクエスト</p>
                 <p className="text-xs text-muted-foreground">
-                  グループを作成して友達を招待し、日程調整後に貸切予約を申し込めます
+                  リクエストを作成して友達を招待し、日程調整後に貸切申込できます
                 </p>
                 <Button
                   className="w-full gap-2 bg-purple-600 hover:bg-purple-700"
                   onClick={handlePrivateInvite}
                 >
                   <Users className="w-4 h-4" />
-                  貸切グループを作成
+                  貸切リクエストを作成
                 </Button>
               </div>
             )}
