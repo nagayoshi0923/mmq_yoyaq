@@ -18,6 +18,7 @@ import { useTemporaryVenues } from '@/hooks/useTemporaryVenues'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useBlockedSlots } from '@/hooks/useBlockedSlots'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
+import { useAuth } from '@/contexts/AuthContext'
 
 // Custom Hooks (ScheduleManager専用)
 import { useCategoryFilter } from './hooks/useCategoryFilter'
@@ -51,7 +52,7 @@ import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 import { KitManagementDialog } from './components/KitManagementDialog'
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
@@ -60,6 +61,10 @@ import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
 export type { ScheduleEvent } from '@/types/schedule'
 
 export function ScheduleManager() {
+  // 認証情報（権限チェック用）
+  const { user } = useAuth()
+  const isAdminOrLicenseAdmin = user?.role === 'admin' || user?.role === 'license_admin'
+  
   // 月ナビゲーション
   const scrollRestoration = useScrollRestoration({ pageKey: 'schedule', isLoading: false })
   const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
@@ -924,13 +929,29 @@ export function ScheduleManager() {
           </div>
           
           {/* アクションボタン - スマホ用 */}
-          <button
-            onClick={() => setIsKitManagementOpen(true)}
-            title="キット配置管理"
-            className="sm:hidden h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 ml-auto"
-          >
-            <Package className="h-4 w-4" />
-          </button>
+          <div className="sm:hidden flex items-center gap-1 ml-auto">
+            {isAdminOrLicenseAdmin && (
+              <button
+                onClick={handleFillAllSeats}
+                disabled={isFillingSeats}
+                title="中止以外を満席にする"
+                className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
+              >
+                {isFillingSeats ? (
+                  <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                ) : (
+                  <Users className="h-4 w-4" />
+                )}
+              </button>
+            )}
+            <button
+              onClick={() => setIsKitManagementOpen(true)}
+              title="キット配置管理"
+              className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0"
+            >
+              <Package className="h-4 w-4" />
+            </button>
+          </div>
           
           {/* アクションボタン - PC用連結グループ */}
           <div className="hidden sm:flex items-center h-9 border border-input rounded-lg overflow-hidden bg-background shrink-0 ml-auto">
@@ -944,10 +965,24 @@ export function ScheduleManager() {
             <button
               onClick={() => setIsImportModalOpen(true)}
               title="インポート"
-              className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors"
+              className={`h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors ${isAdminOrLicenseAdmin ? 'border-r border-input' : ''}`}
             >
               <Upload className="h-4 w-4" />
             </button>
+            {isAdminOrLicenseAdmin && (
+              <button
+                onClick={handleFillAllSeats}
+                disabled={isFillingSeats}
+                title="中止以外を満席にする（デモ参加者を追加）"
+                className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-50"
+              >
+                {isFillingSeats ? (
+                  <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                ) : (
+                  <Users className="h-4 w-4" />
+                )}
+              </button>
+            )}
           </div>
         </div>
 
