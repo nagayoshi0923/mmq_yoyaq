@@ -427,7 +427,10 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                             </div>
                           </div>
                           <p className="text-xs text-gray-600 mt-2">
-                            招待リンクを共有して、参加メンバーを募集してください。
+                            招待リンクを共有して、参加メンバーを招待してください。
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            ※ 全員を招待していなくても日程確定は可能ですが、当日は参加人数全員でお越しください。
                           </p>
                         </div>
                       </div>
