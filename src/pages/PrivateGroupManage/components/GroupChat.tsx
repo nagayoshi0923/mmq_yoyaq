@@ -220,6 +220,10 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     }
   }
 
+  const formatDateTime = (dateStr: string) => {
+    return `${formatDate(dateStr)} ${formatTime(dateStr)}`
+  }
+
   const groupMessagesByDate = (messages: PrivateGroupMessage[]) => {
     const groups: { date: string; messages: PrivateGroupMessage[] }[] = []
     let currentDate = ''
@@ -308,7 +312,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                                 候補日程が追加されました（{systemMsg.count}件）
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {getMemberName(msg.member_id)} • {formatTime(msg.created_at)}
+                                {getMemberName(msg.member_id)} • {formatDateTime(msg.created_at)}
                               </p>
                             </div>
                           </div>
@@ -354,7 +358,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                                 日程が確定いたしました
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {formatTime(msg.created_at)}
+                                {formatDateTime(msg.created_at)}
                               </p>
                             </div>
                           </div>
@@ -394,7 +398,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                                 事前読み込みについて
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {formatTime(msg.created_at)}
+                                {formatDateTime(msg.created_at)}
                               </p>
                             </div>
                           </div>
@@ -422,7 +426,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                                 貸切リクエストグループを作成しました
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {formatTime(msg.created_at)}
+                                {formatDateTime(msg.created_at)}
                               </p>
                             </div>
                           </div>
@@ -464,7 +468,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                                 貸切リクエストを送信しました
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {formatTime(msg.created_at)}
+                                {formatDateTime(msg.created_at)}
                               </p>
                             </div>
                           </div>
