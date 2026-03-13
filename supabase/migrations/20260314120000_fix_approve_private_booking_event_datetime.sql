@@ -1,11 +1,10 @@
 -- =============================================================================
--- 20260314110000: approve_private_booking を修正（schedule_events の正しいカラム使用）
+-- 20260314120000: approve_private_booking から event_datetime カラム参照を削除
 -- =============================================================================
 --
 -- 背景:
--- - approve_private_booking RPC が 400 エラーを返す
--- - schedule_events への INSERT で存在しないカラムを使用している可能性
--- - 20260131007000 の定義に戻し、GM重複チェックも維持
+-- - reservations テーブルに event_datetime カラムが存在しない
+-- - 前回のマイグレーションでエラーが発生していた
 --
 -- =============================================================================
 
@@ -181,4 +180,4 @@ $$;
 GRANT EXECUTE ON FUNCTION approve_private_booking TO authenticated;
 
 COMMENT ON FUNCTION approve_private_booking IS
-'貸切予約承認をアトミックに実行。店舗枠の重複に加えて、担当GMの既存予定（schedule_events.gms）との時間重複も禁止（P0025）。紐付いたprivate_groupsのステータスも自動更新。';
+'貸切予約承認をアトミックに実行。店舗枠の重複に加えて、担当GMの既存予定との時間重複も禁止。紐付いたprivate_groupsのステータスも自動更新。';
