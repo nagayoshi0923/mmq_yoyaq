@@ -1,16 +1,25 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users, CalendarPlus } from 'lucide-react'
+import { Users, Loader2 } from 'lucide-react'
 import { BookingNotice } from './BookingNotice'
+import { usePrivateGroup } from '@/hooks/usePrivateGroup'
+import { showToast } from '@/utils/toast'
+import type { TimeSlot } from '../utils/types'
+
+interface SelectedTimeSlot {
+  date: string
+  slot: TimeSlot
+}
 
 interface PrivateBookingPanelProps {
   participationFee: number
   maxParticipants: number
   selectedTimeSlotsCount: number
+  selectedTimeSlots: SelectedTimeSlot[]
+  selectedStoreIds: string[]
   isLoggedIn: boolean
-  onRequestBooking: () => void
   reservationDeadlineHours?: number
   hasPreReading?: boolean
   scenarioId?: string
@@ -21,14 +30,17 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   participationFee,
   maxParticipants,
   selectedTimeSlotsCount,
+  selectedTimeSlots,
+  selectedStoreIds,
   isLoggedIn,
-  onRequestBooking,
   reservationDeadlineHours,
   hasPreReading,
   scenarioId,
   organizationSlug
 }: PrivateBookingPanelProps) {
   const navigate = useNavigate()
+  const { createGroup } = usePrivateGroup()
+  const [isCreating, setIsCreating] = useState(false)
 
   const handleCreateGroupWithoutDates = () => {
     if (!isLoggedIn) {
@@ -40,6 +52,42 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
     if (organizationSlug) params.set('org', organizationSlug)
     params.set('mode', 'no-dates')
     navigate(`/group/create?${params.toString()}`)
+  }
+
+  const handleCreateGroupWithDates = async () => {
+    if (!isLoggedIn) {
+      navigate('/login')
+      return
+    }
+    if (!scenarioId || selectedTimeSlots.length === 0) return
+
+    setIsCreating(true)
+    try {
+      const candidateDates = selectedTimeSlots.map((ts, index) => ({
+        date: ts.date,
+        time_slot: ts.slot.label as '午前' | '午後' | '夜間',
+        start_time: ts.slot.startTime,
+        end_time: ts.slot.endTime,
+        order_num: index + 1
+      }))
+
+      const group = await createGroup({
+        scenarioId,
+        targetParticipantCount: maxParticipants,
+        preferredStoreIds: selectedStoreIds,
+        candidateDates
+      })
+
+      showToast('貸切リクエストを作成しました', 'success')
+      
+      const basePath = organizationSlug ? `/${organizationSlug}` : ''
+      navigate(`${basePath}/group/invite/${group.invite_code}`)
+    } catch (error) {
+      console.error('Failed to create group:', error)
+      showToast('貸切リクエストの作成に失敗しました', 'error')
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   return (
@@ -98,13 +146,24 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
         mode="private"
       />
 
-      {/* 貸切リクエスト送信ボタン */}
+      {/* 貸切リクエスト作成ボタン */}
       <Button 
         className="w-full h-10 text-base bg-[#E60012] hover:bg-[#CC0010]"
-        onClick={onRequestBooking}
-        disabled={!isLoggedIn || selectedTimeSlotsCount === 0}
+        onClick={handleCreateGroupWithDates}
+        disabled={!isLoggedIn || selectedTimeSlotsCount === 0 || isCreating}
       >
-        {!isLoggedIn ? 'ログインして貸切リクエスト' : selectedTimeSlotsCount === 0 ? '候補日時を選択してください' : `貸切リクエスト確認へ (${selectedTimeSlotsCount}件)`}
+        {isCreating ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            作成中...
+          </>
+        ) : !isLoggedIn ? (
+          'ログインして貸切リクエスト'
+        ) : selectedTimeSlotsCount === 0 ? (
+          '候補日時を選択してください'
+        ) : (
+          `貸切リクエストを作成 (${selectedTimeSlotsCount}件)`
+        )}
       </Button>
     </div>
   )
