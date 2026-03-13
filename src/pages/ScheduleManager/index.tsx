@@ -9,7 +9,6 @@ import { staffApi, scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
-import { reservationApi } from '@/lib/reservationApi'
 
 // Custom Hooks
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -355,47 +354,65 @@ export function ScheduleManager() {
             .single()
           
           if (eventDetails) {
-            // シナリオ情報を取得（organization_scenarios_with_masterで組織固有のduration, participation_fee）
-            const scenarioMasterId = eventDetails.scenario_master_id || eventDetails.scenario_id
             const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
-            const { data: scenario } = await supabase
-              .from('organization_scenarios_with_master')
-              .select('duration, participation_fee')
-              .eq('scenario_master_id', scenarioMasterId)
-              .eq('organization_id', orgId)
-              .limit(1)
-              .maybeSingle()
             
-            const participationFee = scenario?.participation_fee || 0
+            // シナリオ情報を取得（scenario_master_idがある場合のみ）
+            const scenarioMasterId = eventDetails.scenario_master_id || eventDetails.scenario_id
+            let participationFee = 0
+            let duration = 120
             
-            // デモ参加者の予約を作成
-            const demoReservation = {
-              schedule_event_id: event.id,
-              organization_id: orgId,
-              title: event.scenario || '',
-              scenario_id: eventDetails.scenario_id || null,
-              store_id: eventDetails.store_id || null,
-              customer_id: null,
-              customer_notes: `デモ参加者${neededParticipants}名`,
-              requested_datetime: `${eventDetails.date}T${eventDetails.start_time}+09:00`,
-              duration: scenario?.duration || 120,
-              participant_count: neededParticipants,
-              participant_names: Array(neededParticipants).fill(null).map((_, i) => 
-                neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
-              ),
-              assigned_staff: eventDetails.gms || [],
-              base_price: participationFee * neededParticipants,
-              options_price: 0,
-              total_price: participationFee * neededParticipants,
-              discount_amount: 0,
-              final_price: participationFee * neededParticipants,
-              payment_method: 'onsite',
-              payment_status: 'paid' as const,
-              status: 'confirmed' as const,
-              reservation_source: 'demo' as const
+            if (scenarioMasterId) {
+              const { data: scenario } = await supabase
+                .from('organization_scenarios_with_master')
+                .select('duration, participation_fee')
+                .eq('scenario_master_id', scenarioMasterId)
+                .eq('organization_id', orgId)
+                .limit(1)
+                .maybeSingle()
+              
+              participationFee = scenario?.participation_fee || 0
+              duration = scenario?.duration || 120
             }
             
-            await reservationApi.create(demoReservation)
+            // 予約番号を生成
+            const now = new Date()
+            const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+            const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+            const reservationNumber = `${dateStr}-${randomStr}`
+            
+            // デモ参加者の予約を直接作成（RPCを経由しない）
+            const { error: insertError } = await supabase
+              .from('reservations')
+              .insert({
+                schedule_event_id: event.id,
+                organization_id: orgId,
+                title: event.scenario || '',
+                scenario_id: eventDetails.scenario_id || null,
+                store_id: eventDetails.store_id || null,
+                customer_id: null,
+                customer_notes: `デモ参加者${neededParticipants}名`,
+                requested_datetime: `${eventDetails.date}T${eventDetails.start_time}+09:00`,
+                duration: duration,
+                participant_count: neededParticipants,
+                participant_names: Array(neededParticipants).fill(null).map((_, i) => 
+                  neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
+                ),
+                assigned_staff: eventDetails.gms || [],
+                base_price: participationFee * neededParticipants,
+                options_price: 0,
+                total_price: participationFee * neededParticipants,
+                discount_amount: 0,
+                final_price: participationFee * neededParticipants,
+                payment_method: 'onsite',
+                payment_status: 'paid',
+                status: 'confirmed',
+                reservation_source: 'demo',
+                reservation_number: reservationNumber
+              })
+            
+            if (insertError) {
+              logger.error('デモ参加者の予約作成エラー:', insertError)
+            }
           }
         }
         

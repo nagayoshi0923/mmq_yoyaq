@@ -44,8 +44,11 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
     customerEmail: string,
     customerPhone: string,
     notes: string,
-    customerNickname?: string
+    customerNickname?: string,
+    groupIdOverride?: string
   ) => {
+    // groupIdOverride が渡された場合はそちらを優先（送信時に作成されたグループID）
+    const effectiveGroupId = groupIdOverride || props.groupId
     if (!props.userId) {
       throw new Error('ログインが必要です')
     }
@@ -154,7 +157,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         p_candidate_datetimes: candidateDatetimes,
         p_notes: notes || null,
         p_reservation_number: baseReservationNumber,  // 冪等性キー
-        p_private_group_id: props.groupId || null
+        p_private_group_id: effectiveGroupId || null
       })
       
       if (rpcError) {
@@ -175,6 +178,24 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         .single()
 
       // GM確認レコードはRPC関数内で作成済み
+
+      // グループのステータスを「申込済み」に更新し、予約IDを紐付け
+      if (effectiveGroupId && parentReservationId) {
+        const { error: groupUpdateError } = await supabase
+          .from('private_groups')
+          .update({
+            status: 'booking_requested',
+            reservation_id: parentReservationId
+          })
+          .eq('id', effectiveGroupId)
+        
+        if (groupUpdateError) {
+          logger.error('グループステータス更新エラー:', groupUpdateError)
+          // グループ更新エラーは予約処理の失敗とはしない
+        } else {
+          logger.log('グループステータスを「申込済み」に更新しました')
+        }
+      }
 
       // 貸切申し込み完了メールを送信
       if (parentReservationId && customerEmail) {

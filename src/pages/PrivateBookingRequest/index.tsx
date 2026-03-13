@@ -188,7 +188,7 @@ export function PrivateBookingRequest({
         setCreatedGroupId(group.id)
       }
 
-      await handleSubmit(customerName, customerEmail, customerPhone, notes, customerNickname)
+      await handleSubmit(customerName, customerEmail, customerPhone, notes, customerNickname, groupIdToUse || undefined)
       
       // 3秒後に自動的に戻る
       setTimeout(() => {

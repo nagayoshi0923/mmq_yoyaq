@@ -708,11 +708,13 @@ export function PrivateGroupInvite() {
   const isChatMode = existingMemberId && activeTab === 'chat'
 
   // 進捗ステップ数の計算
+  // booking_requested以降のステータスであれば、ステップ1〜4は完了済みとして扱う
+  const isBookingRequested = group.status === 'booking_requested' || group.status === 'confirmed'
   const completedSteps = [
-    joinedMembers.length >= 2,
-    (group.candidate_dates?.length || 0) > 0,
-    allMembersResponded,
-    group.status === 'booking_requested' || group.status === 'confirmed',
+    isBookingRequested || joinedMembers.length >= 2,
+    isBookingRequested || (group.candidate_dates?.length || 0) > 0,
+    isBookingRequested || allMembersResponded,
+    isBookingRequested,
     group.status === 'confirmed'
   ].filter(Boolean).length
 
