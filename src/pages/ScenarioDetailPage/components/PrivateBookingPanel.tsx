@@ -31,6 +31,10 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   const navigate = useNavigate()
 
   const handleCreateGroupWithoutDates = () => {
+    if (!isLoggedIn) {
+      navigate('/login')
+      return
+    }
     const params = new URLSearchParams()
     if (scenarioId) params.set('scenarioId', scenarioId)
     if (organizationSlug) params.set('org', organizationSlug)
@@ -41,7 +45,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   return (
     <div className="space-y-6">
       {/* 日程を決めないで作成するボタン（上部） */}
-      {isLoggedIn && scenarioId && (
+      {scenarioId && (
         <Card className="border-purple-200 bg-purple-50/50">
           <CardContent className="p-4">
             <p className="text-sm text-purple-800 mb-3">
@@ -53,7 +57,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
               onClick={handleCreateGroupWithoutDates}
             >
               <Users className="w-4 h-4" />
-              日程を決めないで貸切リクエストを作成
+              {isLoggedIn ? '日程を決めないで貸切リクエストを作成' : 'ログインして貸切リクエストを作成'}
             </Button>
           </CardContent>
         </Card>

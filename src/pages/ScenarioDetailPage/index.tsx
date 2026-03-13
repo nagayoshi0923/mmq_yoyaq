@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Users } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { BookingConfirmation } from '../BookingConfirmation/index'
 import { PrivateBookingRequest } from '../PrivateBookingRequest/index'
@@ -471,6 +471,37 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 
                 {/* 貸切リクエストタブ */}
                 <TabsContent value="private">
+                  {/* 日程を決めないで作成するボタン（一番上） */}
+                  <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <p className="text-sm text-purple-800 mb-2">
+                      日程が決まっていない場合
+                    </p>
+                    <Button 
+                      variant="outline"
+                      className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
+                      onClick={() => {
+                        console.log('貸切リクエストボタンクリック', { user, scenario, organizationSlug })
+                        if (!user) {
+                          console.log('未ログイン、/loginへ遷移')
+                          navigate('/login')
+                          return
+                        }
+                        const params = new URLSearchParams()
+                        const scenarioIdToUse = scenario.scenario_master_id || scenario.id
+                        console.log('scenarioId:', scenarioIdToUse)
+                        if (scenarioIdToUse) params.set('scenarioId', scenarioIdToUse)
+                        if (organizationSlug) params.set('org', organizationSlug)
+                        params.set('mode', 'no-dates')
+                        const url = `/group/create?${params.toString()}`
+                        console.log('遷移先:', url)
+                        navigate(url)
+                      }}
+                    >
+                      <Users className="w-4 h-4" />
+                      {user ? '日程を決めないで貸切リクエストを作成' : 'ログインして貸切リクエストを作成'}
+                    </Button>
+                  </div>
+                  
                   <PrivateBookingForm
                     stores={availableStores}
                     selectedStoreIds={selectedStoreIds}

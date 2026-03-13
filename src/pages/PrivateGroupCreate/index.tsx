@@ -50,7 +50,19 @@ export function PrivateGroupCreate() {
       }
 
       try {
-        const organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+        // organizationSlug がある場合はそれから organization_id を取得
+        let organizationId: string | null = null
+        if (organizationSlug) {
+          const { data: orgData } = await supabase
+            .from('organizations')
+            .select('id')
+            .eq('slug', organizationSlug)
+            .single()
+          organizationId = orgData?.id || null
+        }
+        if (!organizationId) {
+          organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+        }
 
         const { data: scenarioData, error: scenarioError } = await supabase
           .from('organization_scenarios_with_master')
@@ -81,7 +93,7 @@ export function PrivateGroupCreate() {
     }
 
     fetchData()
-  }, [scenarioId])
+  }, [scenarioId, organizationSlug])
 
 
   const handleStoreToggle = (storeId: string) => {

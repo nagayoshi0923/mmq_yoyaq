@@ -289,15 +289,13 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
                 <Share2 className="w-3.5 h-3.5" />
                 シェア
               </button>
-              {user && (
-                <button
-                  className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 transition-colors"
-                  onClick={handleCreateGroup}
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  グループを作成
-                </button>
-              )}
+              <button
+                className="flex items-center gap-1.5 text-xs text-purple-300 hover:text-purple-200 transition-colors"
+                onClick={handleCreateGroup}
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                貸切リクエストを作成
+              </button>
             </div>
           </div>
         </div>
