@@ -15,11 +15,12 @@ export interface GlobalSettings {
   maintenance_message: string | null
   enable_email_notifications: boolean
   enable_discord_notifications: boolean
+  pre_reading_notice_message: string | null // 事前読み込みシナリオの確定時メッセージ
 }
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const GLOBAL_SETTINGS_SELECT_FIELDS =
-  'id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, shift_edit_deadline_days_before, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications' as const
+  'id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, shift_edit_deadline_days_before, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message' as const
 
 /**
  * 全体設定を取得するフック
@@ -79,7 +80,8 @@ export function useGlobalSettings() {
         maintenance_mode: false,
         maintenance_message: null,
         enable_email_notifications: true,
-        enable_discord_notifications: false
+        enable_discord_notifications: false,
+        pre_reading_notice_message: null
       })
     } finally {
       setLoading(false)

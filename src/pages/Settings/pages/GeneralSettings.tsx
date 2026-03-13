@@ -3,9 +3,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Save, Calendar, Bell, Shield } from 'lucide-react'
+import { Save, Calendar, Bell, Shield, BookOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -22,6 +23,7 @@ interface GlobalSettings {
   maintenance_message: string | null
   enable_email_notifications: boolean
   enable_discord_notifications: boolean
+  pre_reading_notice_message: string | null
 }
 
 /**
@@ -40,7 +42,8 @@ export function GeneralSettings() {
     maintenance_mode: false,
     maintenance_message: '',
     enable_email_notifications: true,
-    enable_discord_notifications: false
+    enable_discord_notifications: false,
+    pre_reading_notice_message: '【ご確認ください】\n\nこのシナリオには事前読み込みがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
   })
 
   // 設定を取得
@@ -62,7 +65,7 @@ export function GeneralSettings() {
       
       const { data, error } = await supabase
         .from('global_settings')
-        .select('id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications')
+        .select('id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message')
         .eq('organization_id', orgId)
         .single()
 
@@ -82,7 +85,8 @@ export function GeneralSettings() {
           maintenance_mode: data.maintenance_mode,
           maintenance_message: data.maintenance_message || '',
           enable_email_notifications: data.enable_email_notifications,
-          enable_discord_notifications: data.enable_discord_notifications
+          enable_discord_notifications: data.enable_discord_notifications,
+          pre_reading_notice_message: data.pre_reading_notice_message || '【ご確認ください】\n\nこのシナリオには事前読み込みがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
         })
       }
     } catch (error) {
@@ -108,7 +112,8 @@ export function GeneralSettings() {
           maintenance_mode: formData.maintenance_mode,
           maintenance_message: formData.maintenance_message || null,
           enable_email_notifications: formData.enable_email_notifications,
-          enable_discord_notifications: formData.enable_discord_notifications
+          enable_discord_notifications: formData.enable_discord_notifications,
+          pre_reading_notice_message: formData.pre_reading_notice_message || null
         })
         .eq('id', settings.id)
 
@@ -318,6 +323,44 @@ export function GeneralSettings() {
               checked={formData.enable_discord_notifications}
               onCheckedChange={(checked) => setFormData(prev => ({ ...prev, enable_discord_notifications: checked }))}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 事前読み込み通知設定 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-amber-600" />
+            <CardTitle>事前読み込み通知設定</CardTitle>
+          </div>
+          <CardDescription>
+            事前読み込みがあるシナリオの日程確定時、グループチャットに送信するシステムメッセージを設定します
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="pre_reading_notice_message">通知メッセージ（全体設定）</Label>
+            <Textarea
+              id="pre_reading_notice_message"
+              value={formData.pre_reading_notice_message}
+              onChange={(e) => setFormData(prev => ({ ...prev, pre_reading_notice_message: e.target.value }))}
+              placeholder="事前読み込みについてのお知らせメッセージ..."
+              rows={5}
+            />
+            <p className="text-xs text-muted-foreground">
+              日程確定時、事前読み込みがあるシナリオのグループチャットにこのメッセージが自動送信されます。
+              シナリオごとに追加メッセージを設定することもできます。
+            </p>
+          </div>
+
+          <div className="bg-amber-50 p-4 rounded-lg">
+            <p className="text-sm font-medium text-amber-800 mb-2">プレビュー</p>
+            <div className="bg-white rounded-lg p-3 border border-amber-200">
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                {formData.pre_reading_notice_message || '（メッセージが設定されていません）'}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
