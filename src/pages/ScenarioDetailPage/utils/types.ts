@@ -74,9 +74,10 @@ export interface TimeSlot {
 
 // デフォルトの時間枠（4時間公演想定）
 // 実際の終了時間はシナリオの公演時間から計算される
+// ラベルはデータベース制約 ('午前', '午後', '夜間') と一致させる必要がある
 export const TIME_SLOTS: TimeSlot[] = [
-  { label: '朝公演', startTime: '09:00', endTime: '13:00' },
-  { label: '昼公演', startTime: '14:00', endTime: '18:00' },
-  { label: '夜公演', startTime: '19:00', endTime: '23:00' },
+  { label: '午前', startTime: '09:00', endTime: '13:00' },
+  { label: '午後', startTime: '14:00', endTime: '18:00' },
+  { label: '夜間', startTime: '19:00', endTime: '23:00' },
 ]
 

@@ -50,11 +50,11 @@ const calculateReverseStartTime = (endTimeLimit: string, durationMinutes: number
 
 // デフォルトの開始時間を取得（スロット種別と公演時間に応じて調整）
 const getDefaultStartTime = (slotLabel: string, isWeekendOrHoliday: boolean, durationMinutes: number): string => {
-  if (slotLabel === '朝公演') {
+  if (slotLabel === '朝公演' || slotLabel === '午前') {
     return '09:00'
-  } else if (slotLabel === '昼公演') {
+  } else if (slotLabel === '昼公演' || slotLabel === '午後') {
     return isWeekendOrHoliday ? '14:00' : '13:00'
-  } else if (slotLabel === '夜公演') {
+  } else if (slotLabel === '夜公演' || slotLabel === '夜間') {
     // 夜公演は23:00終了から逆算
     const reverseStart = calculateReverseStartTime('23:00', durationMinutes)
     const defaultStart = '19:00'  // 夜公演は19:00開始がデフォルト
