@@ -7,6 +7,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { ArrowLeft, Users } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { BookingConfirmation } from '../BookingConfirmation/index'
+import { PrivateBookingRequest } from '../PrivateBookingRequest/index'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
@@ -59,17 +60,21 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   // データ取得フック（organization_idでフィルタリング）
   const { scenario, events, stores, relatedScenarios, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId, organizationSlug)
   
-  // 予約アクションフック
+  // 予約・貸切リクエストアクションフック
   const {
     selectedEventId,
     selectedEvent,
     participantCount,
     showBookingConfirmation,
+    showPrivateBookingRequest,
     setSelectedEventId,
     setParticipantCount,
     handleBooking,
     handleBookingComplete,
-    handleBackFromBooking
+    handleBackFromBooking,
+    handlePrivateBookingRequest,
+    handlePrivateBookingComplete,
+    handleBackFromPrivateBooking
   } = useBookingActions({ events, onReload: loadScenarioDetail })
   
   // カスタム休日フック（usePrivateBookingより先に呼ぶ必要がある）
@@ -169,6 +174,13 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     }
   }, [scenarioId, stores, events, setSelectedStoreIds, setSelectedTimeSlots, setSelectedEventId])
 
+  // 貸切リクエスト完了時のハンドラ（選択状態をクリア）
+  const handlePrivateBookingCompleteWithClear = useCallback(() => {
+    setSelectedTimeSlots([])
+    setSelectedStoreIds([])
+    handlePrivateBookingComplete()
+  }, [handlePrivateBookingComplete, setSelectedTimeSlots, setSelectedStoreIds])
+
   // 予約確認画面を表示
   if (showBookingConfirmation && selectedEvent && scenario) {
     return (
@@ -194,6 +206,23 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     )
   }
 
+  // 貸切リクエスト確認画面を表示
+  if (showPrivateBookingRequest && scenario) {
+    return (
+      <PrivateBookingRequest
+        scenarioTitle={scenario.scenario_title}
+        scenarioId={scenario.scenario_id}
+        participationFee={scenario.participation_fee}
+        maxParticipants={scenario.player_count_max}
+        selectedTimeSlots={selectedTimeSlots}
+        selectedStoreIds={selectedStoreIds}
+        stores={stores}
+        organizationSlug={organizationSlug}
+        onBack={handleBackFromPrivateBooking}
+        onComplete={handlePrivateBookingCompleteWithClear}
+      />
+    )
+  }
 
   if (isLoading) {
     return (
@@ -558,9 +587,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       participationFee={scenario.participation_fee}
                       maxParticipants={scenario.player_count_max}
                       selectedTimeSlotsCount={selectedTimeSlots.length}
-                      selectedTimeSlots={selectedTimeSlots}
-                      selectedStoreIds={selectedStoreIds}
                       isLoggedIn={!!user}
+                      onRequestBooking={() => handlePrivateBookingRequest(!!user)}
                       reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
                       hasPreReading={scenario.has_pre_reading}
                       scenarioId={scenario.scenario_master_id || scenario.id}
