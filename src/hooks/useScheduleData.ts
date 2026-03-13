@@ -1292,11 +1292,30 @@ export function useScheduleData(currentDate: Date) {
   }, [currentDate, staff])
 
   // リアルタイム購読（複数ユーザー対応）
+  // デバウンス用のタイマーref（バッチ更新時の大量通知を防ぐ）
+  const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingFetchRef = useRef(false)
+  
   useEffect(() => {
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth() + 1
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
     const monthEnd = `${year}-${String(month).padStart(2, '0')}-31`
+    
+    // デバウンス付きfetchSchedule（500ms以内の連続イベントをまとめる）
+    const debouncedFetchSchedule = () => {
+      pendingFetchRef.current = true
+      if (realtimeDebounceRef.current) {
+        clearTimeout(realtimeDebounceRef.current)
+      }
+      realtimeDebounceRef.current = setTimeout(async () => {
+        if (pendingFetchRef.current) {
+          logger.log('🔄 Realtime: デバウンス後にデータ再取得')
+          pendingFetchRef.current = false
+          await fetchSchedule()
+        }
+      }, 500)
+    }
     
     // schedule_events テーブルの変更を購読
     const scheduleChannel = supabase
@@ -1309,7 +1328,7 @@ export function useScheduleData(currentDate: Date) {
           table: 'schedule_events'
           // フィルターなし（すべての変更を受信し、クライアント側でフィルタリング）
         },
-        async (payload) => {
+        (payload) => {
           // 現在表示中の月のイベントのみ処理
           const newRecord = payload.new as { date?: string } | null
           const oldRecord = payload.old as { date?: string } | null
@@ -1327,9 +1346,8 @@ export function useScheduleData(currentDate: Date) {
           
           logger.log('📡 Realtime: schedule_events 変更検知', payload.eventType, newDate || oldDate)
           
-          // すべての変更でデータを再取得（最も確実な方法）
-          logger.log('🔄 Realtime: データ再取得')
-          await fetchSchedule()
+          // デバウンス付きでデータを再取得（バッチ更新時の大量リクエストを防ぐ）
+          debouncedFetchSchedule()
         }
       )
       .subscribe()
@@ -1345,7 +1363,7 @@ export function useScheduleData(currentDate: Date) {
           table: 'reservations'
           // フィルターなし（すべての変更を受信）
         },
-        async (payload) => {
+        (payload) => {
           const reservation = (payload.new || payload.old) as { reservation_source?: string; status?: string } | null
           
           // web_private かつ confirmed のみ処理
@@ -1356,15 +1374,17 @@ export function useScheduleData(currentDate: Date) {
           
           logger.log('📡 Realtime: reservations 変更検知', payload.eventType)
           
-          // 貸切予約が変更されたら、該当月のスケジュールを再取得
-          // （貸切予約は複雑なデータ構造のため、部分更新より全体再取得が確実）
-          await fetchSchedule()
+          // デバウンス付きでデータを再取得
+          debouncedFetchSchedule()
         }
       )
       .subscribe()
 
     // クリーンアップ
     return () => {
+      if (realtimeDebounceRef.current) {
+        clearTimeout(realtimeDebounceRef.current)
+      }
       supabase.removeChannel(scheduleChannel)
       supabase.removeChannel(reservationsChannel)
       logger.log('🔌 Realtime: 購読解除')

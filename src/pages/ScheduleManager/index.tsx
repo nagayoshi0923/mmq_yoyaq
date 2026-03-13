@@ -7,7 +7,6 @@ import { showToast } from '@/utils/toast'
 // API
 import { staffApi, scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
-import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 
 // Custom Hooks
@@ -164,33 +163,26 @@ export function ScheduleManager() {
 
   // 中止以外を満席にする処理（参加者数を定員に合わせる）
   const handleFillAllSeats = async () => {
-    if (!confirm('中止以外の全公演を満席（参加者数＝定員）にしますか？')) return
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth() + 1
+    
+    if (!confirm(`${year}年${month}月の中止以外の公演を満席（参加者数＝定員）にしますか？`)) return
     
     setIsFillingSeats(true)
     try {
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth() + 1
       const startDate = `${year}-${String(month).padStart(2, '0')}-01`
       // 月末日を正しく計算（翌月の0日 = 当月の最終日）
       const lastDay = new Date(year, month, 0).getDate()
       const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
       
-      // シナリオリストを取得（名前で定員を検索するため）
-      const { data: allScenarios } = await supabase
-        .from('scenario_masters')
-        .select('title, player_count_max')
+      // 組織IDを最初に取得
+      const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
       
-      const scenarioByTitle = new Map<string, number>()
-      allScenarios?.forEach(s => {
-        if (s.title && s.player_count_max) {
-          scenarioByTitle.set(s.title, s.player_count_max)
-        }
-      })
-      
-      // まず対象のイベントを取得（シナリオの定員情報も含む）
+      // まず対象のイベントを取得（シナリオの定員情報も含む、現在の組織のみ）
       const { data: events, error: fetchError } = await supabase
         .from('schedule_events')
-        .select('id, scenario, max_participants, capacity, scenario_masters:scenario_master_id(player_count_max)')
+        .select('id, scenario, max_participants, capacity, current_participants, date, start_time, scenario_id, scenario_master_id, store_id, gms, scenario_masters:scenario_master_id(player_count_max)')
+        .eq('organization_id', orgId)
         .gte('date', startDate)
         .lte('date', endDate)
         .eq('is_cancelled', false)
@@ -200,232 +192,178 @@ export function ScheduleManager() {
         return
       }
       
-      // シナリオ略称マッピング（略称 → 正式名称の一部）
-      const SCENARIO_ALIAS: Record<string, string> = {
-        'さきこさん': '裂き子さん',
-        'サキコサン': '裂き子さん',
-        'トレタリ': '撮れ高足りてますか',
-        'ナナイロ橙': 'ナナイロの迷宮 橙',
-        'ナナイロ緑': 'ナナイロの迷宮 緑',
-        'ナナイロ黄': 'ナナイロの迷宮 黄',
-        '童話裁判': '不思議の国の童話裁判',
-        'TOOLS': 'TOOLS〜ぎこちない椅子',
-        // 季節マダミス
-        'カノケリ': '季節／カノケリ',
-        'アニクシィ': '季節／アニクシィ',
-        'シノポロ': '季節／シノポロ',
-        'キモナス': '季節／キモナス',
-        'ニィホン': '季節／ニィホン',
-        // 数字の違い
-        '凍てつくあなたに6つの灯火': '凍てつくあなたに６つの灯火',
-        // REDRUM
-        'REDRUM1': 'REDRUM01泉涌館の変転',
-        // 傲慢女王
-        '傲慢な女王とアリスの不条理裁判': '傲慢女王とアリスの不条理裁判',
-        // 狂気山脈
-        '狂気山脈1': '狂気山脈　陰謀の分水嶺（１）',
-        '狂気山脈2': '狂気山脈　星降る天辺（２）',
-        '狂気山脈3': '狂気山脈　薄明三角点（３）',
-        '狂気山脈１': '狂気山脈　陰謀の分水嶺（１）',
-        '狂気山脈２': '狂気山脈　星降る天辺（２）',
-        '狂気山脈３': '狂気山脈　薄明三角点（３）',
-        '狂気山脈2.5': '狂気山脈　2.5　頂上戦争',
-        '狂気山脈２．５': '狂気山脈　2.5　頂上戦争',
-        // ソルシエ
-        'ソルシエ': 'SORCIER〜賢者達の物語〜',
-        'SORCIER': 'SORCIER〜賢者達の物語〜',
-        // 藍雨
-        '藍雨': '藍雨廻逢',
-        // TheRealFork
-        "THEREALFOLK'30s": "TheRealFork30's",
-        'THEREALFOLK': "TheRealFork30's",
-        'TheRealFolk': "TheRealFork30's",
-        // 表記ゆれ
-        '真渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
-        '真渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-        '渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
-        '渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-        '真・渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-        '土牢の悲鳴に谺して': '土牢に悲鳴は谺して',
-        '百鬼の夜月光の影': '百鬼の夜、月光の影',
-        'インビジブル亡霊列車': 'Invisible-亡霊列車-',
-        'くずの葉の森': 'くずの葉のもり',
-        'ドクターテラスの秘密の実験': 'ドクター・テラスの秘密の実験',
-        'あるミステリーについて': 'あるマーダーミステリーについて',
+      logger.log(`📊 満席処理対象: ${year}年${month}月 ${events?.length || 0}件`)
+      
+      // シナリオ情報を一括取得（参加費・所要時間）
+      const scenarioMasterIds = [...new Set(
+        (events || [])
+          .map(e => e.scenario_master_id || e.scenario_id)
+          .filter(Boolean)
+      )]
+      
+      const scenarioInfoMap = new Map<string, { duration: number; participation_fee: number }>()
+      if (scenarioMasterIds.length > 0) {
+        const { data: scenarioInfos } = await supabase
+          .from('organization_scenarios_with_master')
+          .select('scenario_master_id, duration, participation_fee')
+          .eq('organization_id', orgId)
+          .in('scenario_master_id', scenarioMasterIds)
+        
+        scenarioInfos?.forEach(s => {
+          if (s.scenario_master_id) {
+            scenarioInfoMap.set(s.scenario_master_id, {
+              duration: s.duration || 120,
+              participation_fee: s.participation_fee || 0
+            })
+          }
+        })
       }
       
-      // シナリオ名を正規化する関数
-      const normalize = (s: string) => s
-        .replace(/[\s\-・／/]/g, '') // スペース、ハイフン、中点、スラッシュを除去
-        .toLowerCase()
+      // 対象イベントIDを抽出して一括で予約を取得
+      const eventIds = (events || []).map(e => e.id)
+      const { data: allReservations } = await supabase
+        .from('reservations')
+        .select('schedule_event_id, participant_count, participant_names')
+        .in('schedule_event_id', eventIds)
+        .in('status', ['confirmed', 'pending'])
       
-      // シナリオ名からmax_participantsを検索する関数
-      const findScenarioMax = (eventScenario: string): number | undefined => {
-        // 0. 略称マッピングを適用
-        const mappedScenario = SCENARIO_ALIAS[eventScenario] || eventScenario
-        const normalizedEvent = normalize(mappedScenario)
-        
-        // 1. 完全一致（マッピング後）
-        if (scenarioByTitle.has(mappedScenario)) {
-          return scenarioByTitle.get(mappedScenario)
-        }
-        
-        // 1b. 元のシナリオ名でも完全一致を試す
-        if (scenarioByTitle.has(eventScenario)) {
-          return scenarioByTitle.get(eventScenario)
-        }
-        
-        // 2. 正規化後の完全一致
-        for (const [title, max] of scenarioByTitle.entries()) {
-          if (normalize(title) === normalizedEvent) {
-            return max
-          }
-        }
-        
-        // 3. 部分一致（片方が片方を含む）
-        for (const [title, max] of scenarioByTitle.entries()) {
-          if (title.includes(eventScenario) || eventScenario.includes(title)) {
-            return max
-          }
-        }
-        
-        // 4. 正規化後の部分一致
-        for (const [title, max] of scenarioByTitle.entries()) {
-          const normalizedTitle = normalize(title)
-          if (normalizedTitle.includes(normalizedEvent) || normalizedEvent.includes(normalizedTitle)) {
-            return max
-          }
-        }
-        
-        // 5. キーワード抽出マッチ（ナナイロ橙 → ナナイロの迷宮 橙）
-        // イベント名からキーワードを抽出し、シナリオタイトルに全て含まれるか確認
-        const eventKeywords = eventScenario.split(/[\s\-・／/]/).filter(k => k.length > 0)
-        for (const [title, max] of scenarioByTitle.entries()) {
-          const normalizedTitle = normalize(title)
-          const allMatch = eventKeywords.every(kw => normalizedTitle.includes(normalize(kw)))
-          if (allMatch && eventKeywords.length >= 1) {
-            return max
-          }
-        }
-        
-        return undefined
-      }
+      // イベントIDごとに予約をグループ化
+      const reservationsByEvent = new Map<string, typeof allReservations>()
+      allReservations?.forEach(r => {
+        const list = reservationsByEvent.get(r.schedule_event_id) || []
+        list.push(r)
+        reservationsByEvent.set(r.schedule_event_id, list)
+      })
       
-      // 各イベントの参加者数を定員に合わせ、デモ参加者の予約レコードも作成
-      let successCount = 0
+      // 各イベントの参加者数を定員に合わせ、デモ参加者の予約レコードを一括作成
+      const demoReservations: Array<{
+        schedule_event_id: string
+        organization_id: string
+        title: string
+        scenario_id: string | null
+        store_id: string | null
+        customer_id: null
+        customer_notes: string
+        requested_datetime: string
+        duration: number
+        participant_count: number
+        participant_names: string[]
+        assigned_staff: string[]
+        base_price: number
+        options_price: number
+        total_price: number
+        discount_amount: number
+        final_price: number
+        payment_method: string
+        payment_status: string
+        status: string
+        reservation_source: string
+        reservation_number: string
+      }> = []
+      const eventsToUpdate: Array<{ id: string; newCount: number }> = []
+      
+      const now = new Date()
+      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+      
       for (const event of events || []) {
-        // シナリオJOIN → イベントのmax_participants → capacity → シナリオ名検索 → デフォルト8人
+        // シナリオJOIN → イベントのmax_participants → capacity → デフォルト8人
         const scenarioMax = (event.scenario_masters as { player_count_max?: number } | null)?.player_count_max
-        let maxParticipants = scenarioMax || event.max_participants || event.capacity
+        const baseMax = scenarioMax || event.max_participants || event.capacity || 8
+        // capacity制約を超えないように制限
+        const maxParticipants = event.capacity ? Math.min(baseMax, event.capacity) : baseMax
         
-        // JOINが効かなかった場合、シナリオ名で検索
-        if (!maxParticipants && event.scenario) {
-          maxParticipants = findScenarioMax(event.scenario)
+        // 既に満席ならスキップ
+        if ((event.current_participants || 0) >= maxParticipants) {
+          continue
         }
         
-        // それでも見つからない場合はデフォルト8
-        if (!maxParticipants) {
-          maxParticipants = 8
-        }
-        
-        // 現在の予約を取得して実際の参加者数を確認
-        const { data: reservations } = await supabase
-          .from('reservations')
-          .select('participant_count, participant_names')
-          .eq('schedule_event_id', event.id)
-          .in('status', ['confirmed', 'pending'])
-        
-        const currentReservedCount = reservations?.reduce((sum, r) => sum + (r.participant_count || 0), 0) || 0
+        // 予約情報を取得（一括取得済み）
+        const reservations = reservationsByEvent.get(event.id) || []
+        const currentReservedCount = reservations.reduce((sum, r) => sum + (r.participant_count || 0), 0)
         const neededParticipants = maxParticipants - currentReservedCount
         
         // デモ参加者が既に存在するかチェック
-        const hasDemoParticipant = reservations?.some(r => 
+        const hasDemoParticipant = reservations.some(r => 
           r.participant_names?.includes('デモ参加者') || 
           r.participant_names?.some((name: string) => name.includes('デモ'))
         )
         
         // 足りない分だけデモ参加者を追加
         if (neededParticipants > 0 && !hasDemoParticipant) {
-          // イベントの詳細情報を取得
-          const { data: eventDetails } = await supabase
-            .from('schedule_events')
-            .select('date, start_time, scenario_id, scenario_master_id, store_id, gms')
-            .eq('id', event.id)
-            .single()
+          // シナリオ情報を取得（一括取得済み）
+          const scenarioMasterId = event.scenario_master_id || event.scenario_id
+          const scenarioInfo = scenarioMasterId ? scenarioInfoMap.get(scenarioMasterId) : null
+          const participationFee = scenarioInfo?.participation_fee || 0
+          const duration = scenarioInfo?.duration || 120
           
-          if (eventDetails) {
-            const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
-            
-            // シナリオ情報を取得（scenario_master_idがある場合のみ）
-            const scenarioMasterId = eventDetails.scenario_master_id || eventDetails.scenario_id
-            let participationFee = 0
-            let duration = 120
-            
-            if (scenarioMasterId) {
-              const { data: scenario } = await supabase
-                .from('organization_scenarios_with_master')
-                .select('duration, participation_fee')
-                .eq('scenario_master_id', scenarioMasterId)
-                .eq('organization_id', orgId)
-                .limit(1)
-                .maybeSingle()
-              
-              participationFee = scenario?.participation_fee || 0
-              duration = scenario?.duration || 120
-            }
-            
-            // 予約番号を生成
-            const now = new Date()
-            const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-            const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
-            const reservationNumber = `${dateStr}-${randomStr}`
-            
-            // デモ参加者の予約を直接作成（RPCを経由しない）
-            const { error: insertError } = await supabase
-              .from('reservations')
-              .insert({
-                schedule_event_id: event.id,
-                organization_id: orgId,
-                title: event.scenario || '',
-                scenario_id: eventDetails.scenario_id || null,
-                store_id: eventDetails.store_id || null,
-                customer_id: null,
-                customer_notes: `デモ参加者${neededParticipants}名`,
-                requested_datetime: `${eventDetails.date}T${eventDetails.start_time}+09:00`,
-                duration: duration,
-                participant_count: neededParticipants,
-                participant_names: Array(neededParticipants).fill(null).map((_, i) => 
-                  neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
-                ),
-                assigned_staff: eventDetails.gms || [],
-                base_price: participationFee * neededParticipants,
-                options_price: 0,
-                total_price: participationFee * neededParticipants,
-                discount_amount: 0,
-                final_price: participationFee * neededParticipants,
-                payment_method: 'onsite',
-                payment_status: 'paid',
-                status: 'confirmed',
-                reservation_source: 'demo',
-                reservation_number: reservationNumber
-              })
-            
-            if (insertError) {
-              logger.error('デモ参加者の予約作成エラー:', insertError)
-            }
-          }
-        }
-        
-        // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
-        try {
-          await recalculateCurrentParticipants(event.id)
-          successCount++
-        } catch (error) {
-          logger.error('参加者数の更新エラー:', error)
+          // 予約番号を生成（ユニークにするためインデックスを含める）
+          const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+          const reservationNumber = `${dateStr}-${randomStr}`
+          
+          demoReservations.push({
+            schedule_event_id: event.id,
+            organization_id: orgId,
+            title: event.scenario || '',
+            scenario_id: event.scenario_id || null,
+            store_id: event.store_id || null,
+            customer_id: null,
+            customer_notes: `デモ参加者${neededParticipants}名`,
+            requested_datetime: `${event.date}T${event.start_time}+09:00`,
+            duration: duration,
+            participant_count: neededParticipants,
+            participant_names: Array(neededParticipants).fill(null).map((_, i) => 
+              neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
+            ),
+            assigned_staff: event.gms || [],
+            base_price: participationFee * neededParticipants,
+            options_price: 0,
+            total_price: participationFee * neededParticipants,
+            discount_amount: 0,
+            final_price: participationFee * neededParticipants,
+            payment_method: 'onsite',
+            payment_status: 'paid',
+            status: 'confirmed',
+            reservation_source: 'demo',
+            reservation_number: reservationNumber
+          })
+          
+          eventsToUpdate.push({ id: event.id, newCount: maxParticipants })
         }
       }
       
-      showToast.success(`${successCount}件を満席に設定しました`)
+      logger.log(`📊 デモ参加者追加: ${demoReservations.length}件`)
+      
+      // バッチサイズ（Supabaseの制限を考慮）
+      const BATCH_SIZE = 50
+      
+      // デモ参加者予約をバッチでinsert
+      if (demoReservations.length > 0) {
+        for (let i = 0; i < demoReservations.length; i += BATCH_SIZE) {
+          const batch = demoReservations.slice(i, i + BATCH_SIZE)
+          const { error: insertError } = await supabase
+            .from('reservations')
+            .insert(batch)
+          
+          if (insertError) {
+            logger.error(`デモ参加者の予約作成エラー (バッチ ${Math.floor(i / BATCH_SIZE) + 1}):`, insertError)
+          }
+        }
+        
+        // 参加者数をバッチで更新
+        for (let i = 0; i < eventsToUpdate.length; i += BATCH_SIZE) {
+          const batch = eventsToUpdate.slice(i, i + BATCH_SIZE)
+          await Promise.all(
+            batch.map(({ id, newCount }) =>
+              supabase
+                .from('schedule_events')
+                .update({ current_participants: newCount })
+                .eq('id', id)
+            )
+          )
+        }
+      }
+      
+      showToast.success(`${eventsToUpdate.length}件を満席に設定しました`)
       // Realtimeで自動的にデータが更新されるため、ページリロードは不要
     } catch (err) {
       showToast.error(getSafeErrorMessage(err, 'エラーが発生しました'))
