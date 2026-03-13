@@ -42,6 +42,30 @@ interface DateResponseParams {
   response: DateResponse
 }
 
+// システムメッセージ送信用ヘルパー
+async function sendSystemMessage(
+  groupId: string,
+  memberId: string | null,
+  action: string,
+  data: Record<string, unknown> = {}
+) {
+  const message = JSON.stringify({
+    type: 'system',
+    action,
+    ...data
+  })
+
+  try {
+    await supabase.from('private_group_messages').insert({
+      group_id: groupId,
+      member_id: memberId,
+      message
+    })
+  } catch (err) {
+    logger.error('Failed to send system message', err)
+  }
+}
+
 export function usePrivateGroup() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -106,7 +130,7 @@ export function usePrivateGroup() {
         throw new Error('グループの作成に失敗しました')
       }
 
-      const { error: memberError } = await supabase
+      const { data: memberData, error: memberError } = await supabase
         .from('private_group_members')
         .insert({
           group_id: group.id,
@@ -115,9 +139,19 @@ export function usePrivateGroup() {
           status: 'joined',
           joined_at: new Date().toISOString(),
         })
+        .select('id')
+        .single()
 
       if (memberError) {
         logger.error('Failed to add organizer as member', memberError)
+      }
+
+      // グループ作成のウェルカムメッセージを送信
+      if (memberData?.id) {
+        await sendSystemMessage(group.id, memberData.id, 'group_created', {
+          organizerName: user.email?.split('@')[0] || '主催者',
+          targetCount: params.targetParticipantCount || null
+        })
       }
 
       if (params.candidateDates.length > 0) {
@@ -315,6 +349,13 @@ export function usePrivateGroup() {
         logger.error('Failed to join group', error)
         throw new Error('グループへの参加に失敗しました')
       }
+
+      // メンバー参加のシステムメッセージを送信
+      const memberName = params.guestName || params.guestEmail?.split('@')[0] || 'メンバー'
+      await sendSystemMessage(params.groupId, member.id, 'member_joined', {
+        memberName,
+        memberId: member.id
+      })
 
       return member as PrivateGroupMember
 

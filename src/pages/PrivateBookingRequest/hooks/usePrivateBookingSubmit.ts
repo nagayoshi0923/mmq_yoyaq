@@ -161,6 +161,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       })
       
       if (rpcError) {
+        console.error('[貸切リクエスト] RPC エラー:', rpcError)
         logger.error('貸切リクエストエラー:', rpcError)
         const errorCode = rpcError.code || ''
         const errorMessage = PRIVATE_BOOKING_ERROR_MESSAGES[errorCode] || '貸切リクエストの送信に失敗しました。もう一度お試しください。'
@@ -169,6 +170,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
 
       // 予約IDを取得（RPC戻り値からの取得）
       const parentReservationId = reservationId as string
+      console.log('[貸切リクエスト] RPC成功', { reservationId: parentReservationId, effectiveGroupId })
       
       // 予約情報を取得（メール送信用）
       const { data: parentReservation } = await supabase
@@ -180,7 +182,9 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       // GM確認レコードはRPC関数内で作成済み
 
       // グループのステータスを「申込済み」に更新し、予約IDを紐付け
+      console.log('[貸切リクエスト] グループステータス更新チェック', { effectiveGroupId, parentReservationId })
       if (effectiveGroupId && parentReservationId) {
+        console.log('[貸切リクエスト] グループステータス更新開始')
         const { error: groupUpdateError } = await supabase
           .from('private_groups')
           .update({
@@ -190,11 +194,41 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           .eq('id', effectiveGroupId)
         
         if (groupUpdateError) {
+          console.error('[貸切リクエスト] グループステータス更新エラー:', groupUpdateError)
           logger.error('グループステータス更新エラー:', groupUpdateError)
-          // グループ更新エラーは予約処理の失敗とはしない
         } else {
+          console.log('[貸切リクエスト] グループステータス更新成功')
           logger.log('グループステータスを「申込済み」に更新しました')
+          
+          // 予約申込のシステムメッセージを送信
+          try {
+            // 主催者のメンバーIDを取得
+            const { data: organizerMember } = await supabase
+              .from('private_group_members')
+              .select('id')
+              .eq('group_id', effectiveGroupId)
+              .eq('is_organizer', true)
+              .single()
+            
+            if (organizerMember) {
+              const systemMessage = JSON.stringify({
+                type: 'system',
+                action: 'booking_requested',
+                candidateCount: candidateDatetimes.candidates.length
+              })
+              
+              await supabase.from('private_group_messages').insert({
+                group_id: effectiveGroupId,
+                member_id: organizerMember.id,
+                message: systemMessage
+              })
+            }
+          } catch (msgError) {
+            logger.error('システムメッセージ送信エラー:', msgError)
+          }
         }
+      } else {
+        console.warn('[貸切リクエスト] グループステータス更新スキップ', { effectiveGroupId, parentReservationId })
       }
 
       // 貸切申し込み完了メールを送信
