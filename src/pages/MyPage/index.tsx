@@ -767,7 +767,7 @@ export default function MyPage() {
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   // タブごとのカウント
-  const activePrivateGroups = privateGroups.filter(g => g.status === 'gathering')
+  const activePrivateGroups = privateGroups.filter(g => ['gathering', 'booking_requested'].includes(g.status))
   const getCounts = () => ({
     reservations: upcomingReservations.length + pendingPrivateBookings.length + activePrivateGroups.length,
     album: playedScenarios.length,
@@ -889,85 +889,99 @@ export default function MyPage() {
           <>
             {activeTab === 'reservations' && (
               <div className="space-y-4">
-                {/* 貸切リクエスト（日程調整中） */}
-                {privateGroups.filter(g => g.status === 'gathering').length > 0 && (
+                {/* 貸切リクエスト（グループベース） */}
+                {privateGroups.filter(g => ['gathering', 'booking_requested'].includes(g.status)).length > 0 && (
                   <>
                     <div className="flex items-center gap-2 mb-2">
-                      <UserPlus className="w-4 h-4 text-purple-600" />
-                      <h3 className="text-sm font-bold text-gray-700">貸切リクエスト（メンバー募集中）</h3>
+                      <Users className="w-4 h-4 text-purple-600" />
+                      <h3 className="text-sm font-bold text-gray-700">貸切リクエスト</h3>
                     </div>
-                    {privateGroups.filter(g => g.status === 'gathering').map((group) => (
-                      <div 
-                        key={group.id}
-                        className="bg-white border border-purple-200 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer"
-                        style={{ borderRadius: 0 }}
-                        onClick={() => navigate(`/group/invite/${group.invite_code}`)}
-                      >
+                    {privateGroups.filter(g => ['gathering', 'booking_requested'].includes(g.status)).map((group) => {
+                      const getGroupStatusLabel = (status: string) => {
+                        switch (status) {
+                          case 'gathering':
+                            return '日程調整前'
+                          case 'booking_requested':
+                            return '日程調整中'
+                          default:
+                            return status
+                        }
+                      }
+                      const statusLabel = getGroupStatusLabel(group.status)
+                      
+                      return (
                         <div 
-                          className="px-3 py-1.5 text-purple-800 text-sm font-bold flex items-center justify-between"
-                          style={{ backgroundColor: '#f3e8ff' }}
+                          key={group.id}
+                          className="bg-white border border-purple-200 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer"
+                          style={{ borderRadius: 0 }}
+                          onClick={() => navigate(`/group/invite/${group.invite_code}`)}
                         >
-                          <div className="flex items-center gap-2">
-                            <UserPlus className="w-4 h-4" />
-                            <span>メンバー募集中</span>
-                            {group.is_organizer && (
-                              <Badge variant="outline" className="text-xs bg-white">主催者</Badge>
-                            )}
-                          </div>
-                          <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700">
-                            {group.member_count}/{group.target_participant_count || '?'}名
-                          </span>
-                        </div>
-                        
-                        <div className="p-3 flex gap-3">
-                          <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden" style={{ borderRadius: 0 }}>
-                            {group.scenario_image ? (
-                              <>
-                                <div 
-                                  className="absolute inset-0 scale-110"
-                                  style={{
-                                    backgroundImage: `url(${group.scenario_image})`,
-                                    backgroundSize: 'cover',
-                                    backgroundPosition: 'center',
-                                    filter: 'blur(8px) brightness(0.6)',
-                                  }}
-                                />
-                                <img
-                                  src={group.scenario_image}
-                                  alt={group.scenario_title || ''}
-                                  className="relative w-full h-full object-contain"
-                                  loading="lazy"
-                                />
-                              </>
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <span className="text-xl opacity-40">🎭</span>
-                              </div>
-                            )}
+                          <div 
+                            className="px-3 py-1.5 text-purple-800 text-sm font-bold flex items-center justify-between"
+                            style={{ backgroundColor: '#f3e8ff' }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4" />
+                              <span>貸切（{statusLabel}）</span>
+                              {group.is_organizer && (
+                                <Badge variant="outline" className="text-xs bg-white">主催者</Badge>
+                              )}
+                            </div>
+                            <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700">
+                              {group.member_count}/{group.target_participant_count || '?'}名
+                            </span>
                           </div>
                           
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1">
-                              {group.scenario_title || 'シナリオ未設定'}
-                            </h3>
-                            {group.name && (
-                              <p className="text-xs text-gray-500 mt-0.5">{group.name}</p>
-                            )}
+                          <div className="p-3 flex gap-3">
+                            <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden" style={{ borderRadius: 0 }}>
+                              {group.scenario_image ? (
+                                <>
+                                  <div 
+                                    className="absolute inset-0 scale-110"
+                                    style={{
+                                      backgroundImage: `url(${group.scenario_image})`,
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center',
+                                      filter: 'blur(8px) brightness(0.6)',
+                                    }}
+                                  />
+                                  <img
+                                    src={group.scenario_image}
+                                    alt={group.scenario_title || ''}
+                                    className="relative w-full h-full object-contain"
+                                    loading="lazy"
+                                  />
+                                </>
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <span className="text-xl opacity-40">🎭</span>
+                                </div>
+                              )}
+                            </div>
                             
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-2 text-xs text-gray-500">
-                              <Users className="w-3 h-3" />
-                              <span>{group.member_count}名参加中</span>
-                              <span>•</span>
-                              <span>コード: {group.invite_code}</span>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1">
+                                {group.scenario_title || 'シナリオ未設定'}
+                              </h3>
+                              {group.name && (
+                                <p className="text-xs text-gray-500 mt-0.5">{group.name}</p>
+                              )}
+                              
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-2 text-xs text-gray-500">
+                                <Users className="w-3 h-3" />
+                                <span>{group.member_count}名参加中</span>
+                                <span>•</span>
+                                <span>コード: {group.invite_code}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center">
+                              <ChevronRight className="w-5 h-5 text-gray-400" />
                             </div>
                           </div>
-                          
-                          <div className="flex items-center">
-                            <ChevronRight className="w-5 h-5 text-gray-400" />
-                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </>
                 )}
 
