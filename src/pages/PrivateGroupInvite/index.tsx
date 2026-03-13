@@ -711,7 +711,7 @@ export function PrivateGroupInvite() {
   // booking_requested以降のステータスであれば、ステップ1〜4は完了済みとして扱う
   const isBookingRequested = group.status === 'booking_requested' || group.status === 'confirmed'
   const completedSteps = [
-    isBookingRequested || joinedMembers.length >= 2,
+    isBookingRequested || joinedMembers.length >= 1,
     isBookingRequested || (group.candidate_dates?.length || 0) > 0,
     isBookingRequested || allMembersResponded,
     isBookingRequested,
@@ -763,15 +763,9 @@ export function PrivateGroupInvite() {
                 <UserPlus className="w-5 h-5 text-gray-600" />
               </button>
             )}
-              {/* モバイル: 候補日シートを開く / PC: 日程タブへ */}
+              {/* 日程シートを開く */}
             <button 
-              onClick={() => {
-                if (window.innerWidth < 1024) {
-                  setShowMobileDates(true)
-                } else {
-                  setActiveTab('schedule')
-                }
-              }}
+              onClick={() => setShowMobileDates(true)}
               className="p-1.5 hover:bg-gray-100 rounded relative"
             >
               <Calendar className="w-5 h-5 text-gray-600" />
@@ -786,13 +780,13 @@ export function PrivateGroupInvite() {
 
         {/* モバイル候補日シート */}
         {showMobileDates && (
-          <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setShowMobileDates(false)}>
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowMobileDates(false)}>
             <div 
-              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[85vh] overflow-hidden flex flex-col"
+              className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* ハンドル */}
-              <div className="flex justify-center py-2 shrink-0">
+              {/* ハンドル（モバイルのみ） */}
+              <div className="flex justify-center py-2 shrink-0 lg:hidden">
                 <div className="w-10 h-1 bg-gray-300 rounded-full" />
               </div>
               
@@ -801,9 +795,9 @@ export function PrivateGroupInvite() {
                 <h3 className="font-semibold">日程・進捗</h3>
                 <button 
                   onClick={() => setShowMobileDates(false)}
-                  className="p-1 hover:bg-gray-100 rounded"
+                  className="p-2 hover:bg-gray-100 rounded-full"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 text-gray-600" />
                 </button>
               </div>
               
@@ -813,9 +807,9 @@ export function PrivateGroupInvite() {
                 <div className="bg-gray-50 rounded-lg p-3">
                   <h4 className="font-medium text-sm mb-2">進捗状況</h4>
                   <div className="grid grid-cols-5 gap-1">
-                    <div className={`text-center p-1.5 rounded ${joinedMembers.length >= 2 ? 'bg-green-100' : 'bg-gray-200'}`}>
-                      <div className={`text-xs font-medium ${joinedMembers.length >= 2 ? 'text-green-700' : 'text-gray-500'}`}>
-                        {joinedMembers.length >= 2 ? '✓' : '1'}
+                    <div className={`text-center p-1.5 rounded ${joinedMembers.length >= 1 || group.status !== 'gathering' ? 'bg-green-100' : 'bg-gray-200'}`}>
+                      <div className={`text-xs font-medium ${joinedMembers.length >= 1 || group.status !== 'gathering' ? 'text-green-700' : 'text-gray-500'}`}>
+                        {joinedMembers.length >= 1 || group.status !== 'gathering' ? '✓' : '1'}
                       </div>
                       <div className="text-[10px] text-muted-foreground">招待</div>
                     </div>
@@ -825,9 +819,9 @@ export function PrivateGroupInvite() {
                       </div>
                       <div className="text-[10px] text-muted-foreground">候補日</div>
                     </div>
-                    <div className={`text-center p-1.5 rounded ${allMembersResponded ? 'bg-green-100' : 'bg-gray-200'}`}>
-                      <div className={`text-xs font-medium ${allMembersResponded ? 'text-green-700' : 'text-gray-500'}`}>
-                        {allMembersResponded ? '✓' : '3'}
+                    <div className={`text-center p-1.5 rounded ${allMembersResponded || group.status !== 'gathering' ? 'bg-green-100' : 'bg-gray-200'}`}>
+                      <div className={`text-xs font-medium ${allMembersResponded || group.status !== 'gathering' ? 'text-green-700' : 'text-gray-500'}`}>
+                        {allMembersResponded || group.status !== 'gathering' ? '✓' : '3'}
                       </div>
                       <div className="text-[10px] text-muted-foreground">回答</div>
                     </div>
@@ -924,8 +918,8 @@ export function PrivateGroupInvite() {
                                 </div>
                               </div>
                             </div>
-                            {/* 回答ボタン */}
-                            {existingMemberId && (
+                            {/* 回答ボタン（日程申込前のみ表示） */}
+                            {existingMemberId && group.status === 'gathering' && (
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => handleResponseChange(cd.id, 'ok')}
@@ -987,41 +981,12 @@ export function PrivateGroupInvite() {
                   </div>
                 </div>
 
-                {/* 退出ボタン */}
-                {existingMemberId && !organizerMember?.id?.includes(existingMemberId) && (
-                  <div className="pt-2 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        if (!confirm('本当にこのグループから退出しますか？')) return
-                        try {
-                          const { error: deleteError } = await supabase.rpc('delete_guest_member', {
-                            p_member_id: existingMemberId,
-                          })
-                          if (deleteError) throw deleteError
-                          toast.success('グループから退出しました')
-                          setShowMobileDates(false)
-                          clearGuestSession()
-                          navigate('/mypage')
-                        } catch (err) {
-                          logger.error('Failed to leave group', err)
-                          toast.error('退出に失敗しました')
-                        }
-                      }}
-                      className="w-full text-red-600 border-red-300 hover:bg-red-50"
-                    >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      グループから退出
-                    </Button>
-                  </div>
-                )}
               </div>
               
               {/* アクションボタン */}
               <div className="p-4 border-t shrink-0 space-y-2">
-                {/* 回答保存ボタン */}
-                {existingMemberId && Object.keys(responses).length > 0 && (
+                {/* 回答保存ボタン（日程申込前のみ表示） */}
+                {existingMemberId && group.status === 'gathering' && Object.keys(responses).length > 0 && (
                   <Button 
                     onClick={async () => {
                       await handleSubmit({ skipSuccessPage: true })
@@ -1051,6 +1016,16 @@ export function PrivateGroupInvite() {
                       : '日程を選択してください'}
                   </Button>
                 )}
+                
+                {/* チャットに戻るボタン */}
+                <Button
+                  variant="outline"
+                  onClick={() => setShowMobileDates(false)}
+                  className="w-full"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  チャットに戻る
+                </Button>
               </div>
             </div>
           </div>
@@ -1073,9 +1048,9 @@ export function PrivateGroupInvite() {
                 <h3 className="font-semibold">メンバー招待・管理</h3>
                 <button 
                   onClick={() => setShowInviteSheet(false)}
-                  className="p-1 hover:bg-gray-100 rounded"
+                  className="p-2 hover:bg-gray-100 rounded-full"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 text-gray-600" />
                 </button>
               </div>
               
@@ -1157,23 +1132,18 @@ export function PrivateGroupInvite() {
                     日程を選んで申請する
                   </Button>
                 )}
-
-                {/* キャンセルボタン */}
-                {group.status === 'gathering' && (
-                  <Button
-                    variant="outline"
-                    onClick={handleCancelGroup}
-                    disabled={cancelling}
-                    className="w-full text-red-600 border-red-300 hover:bg-red-50"
-                  >
-                    {cancelling ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        キャンセル中...
-                      </>
-                    ) : 'グループをキャンセル'}
-                  </Button>
-                )}
+              </div>
+              
+              {/* フッター: チャットに戻るボタン（常に表示） */}
+              <div className="p-4 border-t shrink-0">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowInviteSheet(false)}
+                  className="w-full"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  チャットに戻る
+                </Button>
               </div>
             </div>
           </div>
@@ -1199,16 +1169,18 @@ export function PrivateGroupInvite() {
               <div className="bg-white rounded-lg p-3 border">
                 <h3 className="font-semibold text-sm mb-2">進捗</h3>
                 <div className="space-y-1.5">
-                  <div className={`flex items-center gap-2 text-xs ${joinedMembers.length >= 2 ? 'text-green-600' : 'text-gray-500'}`}>
-                    {joinedMembers.length >= 2 ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+                  {/* メンバー招待: 1名以上または申込済みなら完了 */}
+                  <div className={`flex items-center gap-2 text-xs ${joinedMembers.length >= 1 || group.status !== 'gathering' ? 'text-green-600' : 'text-gray-500'}`}>
+                    {joinedMembers.length >= 1 || group.status !== 'gathering' ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
                     メンバー招待 ({joinedMembers.length}名)
                   </div>
                   <div className={`flex items-center gap-2 text-xs ${(group.candidate_dates?.length || 0) > 0 ? 'text-green-600' : 'text-gray-500'}`}>
                     {(group.candidate_dates?.length || 0) > 0 ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
                     候補日追加 ({group.candidate_dates?.length || 0}件)
                   </div>
-                  <div className={`flex items-center gap-2 text-xs ${allMembersResponded ? 'text-green-600' : 'text-gray-500'}`}>
-                    {allMembersResponded ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+                  {/* 日程回答: 全員回答済み、または申込済みなら完了 */}
+                  <div className={`flex items-center gap-2 text-xs ${allMembersResponded || group.status !== 'gathering' ? 'text-green-600' : 'text-gray-500'}`}>
+                    {allMembersResponded || group.status !== 'gathering' ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
                     日程回答
                   </div>
                   <div className={`flex items-center gap-2 text-xs ${group.status !== 'gathering' ? 'text-green-600' : 'text-gray-500'}`}>
@@ -1325,6 +1297,15 @@ export function PrivateGroupInvite() {
       <NavigationBar currentPage="/" />
 
       <div className="container mx-auto max-w-lg px-4 py-6">
+        {/* 戻るボタン */}
+        <button
+          onClick={() => navigate('/mypage')}
+          className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          マイページに戻る
+        </button>
+
         <Card className="border-purple-200 bg-purple-50/50 mb-6">
           <CardContent className="p-4 text-center">
             <p className="text-sm text-purple-800">
@@ -1428,18 +1409,18 @@ export function PrivateGroupInvite() {
               </div>
 
               <div className="space-y-2">
-                {/* STEP 1: メンバー招待 */}
+                {/* STEP 1: メンバー招待（1名以上または申込済みで完了） */}
                 <div className={`flex items-center gap-3 p-2 rounded-lg border ${
-                  group.status !== 'gathering' || joinedMembers.length >= 2 
+                  group.status !== 'gathering' || joinedMembers.length >= 1 
                     ? 'bg-green-50 border-green-200' 
                     : 'bg-amber-50 border-amber-200'
                 }`}>
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                    group.status !== 'gathering' || joinedMembers.length >= 2 
+                    group.status !== 'gathering' || joinedMembers.length >= 1 
                       ? 'bg-green-600 text-white' 
                       : 'bg-amber-500 text-white'
                   }`}>
-                    {group.status !== 'gathering' || joinedMembers.length >= 2 ? <Check className="w-3 h-3" /> : '1'}
+                    {group.status !== 'gathering' || joinedMembers.length >= 1 ? <Check className="w-3 h-3" /> : '1'}
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className="text-sm">メンバーを招待</span>
@@ -1581,6 +1562,15 @@ export function PrivateGroupInvite() {
                   </div>
                 )}
               </div>
+              
+              {/* チャットを開くボタン */}
+              <Button
+                onClick={() => setActiveTab('chat')}
+                className="w-full mt-4 bg-purple-600 hover:bg-purple-700"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                チャットを開く
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -1669,18 +1659,20 @@ export function PrivateGroupInvite() {
                             </div>
                           </div>
                         </div>
-                        {/* 回答ボタン */}
-                        <div className="flex gap-2">
-                          <div onClick={() => handleResponseChange(cd.id, 'ok')}>
-                            {getResponseIcon(responses[cd.id], 'ok')}
+                        {/* 回答ボタン（日程申込前のみ表示） */}
+                        {group.status === 'gathering' && (
+                          <div className="flex gap-2">
+                            <div onClick={() => handleResponseChange(cd.id, 'ok')}>
+                              {getResponseIcon(responses[cd.id], 'ok')}
+                            </div>
+                            <div onClick={() => handleResponseChange(cd.id, 'maybe')}>
+                              {getResponseIcon(responses[cd.id], 'maybe')}
+                            </div>
+                            <div onClick={() => handleResponseChange(cd.id, 'ng')}>
+                              {getResponseIcon(responses[cd.id], 'ng')}
+                            </div>
                           </div>
-                          <div onClick={() => handleResponseChange(cd.id, 'maybe')}>
-                            {getResponseIcon(responses[cd.id], 'maybe')}
-                          </div>
-                          <div onClick={() => handleResponseChange(cd.id, 'ng')}>
-                            {getResponseIcon(responses[cd.id], 'ng')}
-                          </div>
-                        </div>
+                        )}
                       </CardContent>
                     </Card>
                   )
@@ -1705,18 +1697,22 @@ export function PrivateGroupInvite() {
                     不可
                   </div>
                 </div>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={actionLoading}
-                  className="w-full bg-purple-600 hover:bg-purple-700 mt-4"
-                >
-                  {actionLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      送信中...
-                    </>
-                  ) : '回答を更新する'}
-                </Button>
+                
+                {/* 回答更新ボタン（日程申込前のみ表示） */}
+                {group.status === 'gathering' && (
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={actionLoading}
+                    className="w-full bg-purple-600 hover:bg-purple-700 mt-4"
+                  >
+                    {actionLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        送信中...
+                      </>
+                    ) : '回答を更新する'}
+                  </Button>
+                )}
                 
                 {/* 主催者向け申請ボタン */}
                 {isOrganizer && group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
@@ -2151,15 +2147,6 @@ export function PrivateGroupInvite() {
           </Button>
         )}
 
-        {/* チャットに戻るフローティングボタン（チャットタブ以外で表示） */}
-        {existingMemberId && activeTab !== 'chat' && (
-          <button
-            onClick={() => setActiveTab('chat')}
-            className="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all active:scale-95 z-40"
-          >
-            <MessageCircle className="w-6 h-6" />
-          </button>
-        )}
       </div>
     </div>
   )
