@@ -162,16 +162,21 @@ export const useConflictCheck = () => {
         logger.log(`競合チェック対象（イベント+予約）: ${existingEventsList.length}件`)
       }
       
+      // 既存イベントがある全店舗IDを収集
+      const allStoreIdsWithEvents = new Set<string>()
+      existingEventsList.forEach(event => {
+        if (event.storeId) {
+          allStoreIdsWithEvents.add(event.storeId)
+        }
+      })
+      
       for (const candidate of candidates) {
         const date = candidate.date
         const startTime = candidate.startTime
         const endTime = candidate.endTime
 
-        // 各希望店舗について競合をチェック
-        const storesToCheck = requestedStores.length > 0 ? requestedStores : []
-        for (const store of storesToCheck) {
-          const storeId = store.storeId
-
+        // 全店舗について競合をチェック（希望店舗だけでなく全店舗）
+        for (const storeId of allStoreIdsWithEvents) {
           // 既存イベント（schedule_events + 確定済みreservations）から競合をチェック
           const conflictEvents = existingEventsList.filter(event => 
             event.storeId === storeId && 
@@ -182,6 +187,7 @@ export const useConflictCheck = () => {
           if (conflictEvents.length > 0) {
             const conflictKey = `${storeId}-${date}-${normalizeTimeSlot(candidate.timeSlot)}`
             storeDateConflictsSet.add(conflictKey)
+            logger.log(`🚫 競合発見: ${conflictKey}`, conflictEvents.map(e => e.scenario))
           }
         }
       }
