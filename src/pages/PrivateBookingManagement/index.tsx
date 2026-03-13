@@ -41,7 +41,16 @@ import { useStoreAndGMManagement } from './hooks/useStoreAndGMManagement'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
 
-// ユーティリティ
+// 時間帯を正規化する関数（競合キーの一貫性を保つため）
+const normalizeTimeSlot = (timeSlot: string): string => {
+  if (timeSlot === '午前' || timeSlot === '午後' || timeSlot === '夜間') {
+    return timeSlot
+  }
+  if (timeSlot.includes('朝') || timeSlot.includes('午前')) return '午前'
+  if (timeSlot.includes('昼') || timeSlot.includes('午後')) return '午後'
+  if (timeSlot.includes('夜')) return '夜間'
+  return timeSlot
+}
 
 export function PrivateBookingManagement() {
   const { user } = useAuth()
@@ -255,8 +264,9 @@ export function PrivateBookingManagement() {
             c => c.order === selectedCandidateOrder
           )
           if (selectedCandidate) {
-            const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${selectedCandidate.date}-${selectedCandidate.timeSlot}` : null
-            const gmConflictKey = selectedGMId ? `${selectedGMId}-${selectedCandidate.date}-${selectedCandidate.timeSlot}` : null
+            const normalizedSlot = normalizeTimeSlot(selectedCandidate.timeSlot)
+            const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${selectedCandidate.date}-${normalizedSlot}` : null
+            const gmConflictKey = selectedGMId ? `${selectedGMId}-${selectedCandidate.date}-${normalizedSlot}` : null
             
             timer = setTimeout(() => {
               const hasStoreConflict = storeConflictKey && conflictInfo.storeDateConflicts.has(storeConflictKey)
@@ -281,8 +291,9 @@ export function PrivateBookingManagement() {
     if (!selectedRequest?.candidate_datetimes?.candidates) return
     
     for (const candidate of selectedRequest.candidate_datetimes.candidates) {
-      const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${candidate.date}-${candidate.timeSlot}` : null
-      const gmConflictKey = selectedGMId ? `${selectedGMId}-${candidate.date}-${candidate.timeSlot}` : null
+      const normalizedSlot = normalizeTimeSlot(candidate.timeSlot)
+      const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${candidate.date}-${normalizedSlot}` : null
+      const gmConflictKey = selectedGMId ? `${selectedGMId}-${candidate.date}-${normalizedSlot}` : null
       
       const hasStoreConflict = storeConflictKey && conflictInfo.storeDateConflicts.has(storeConflictKey)
       const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)

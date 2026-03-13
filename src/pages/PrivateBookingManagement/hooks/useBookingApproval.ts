@@ -94,7 +94,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
 
       // ✅ SEC-P0-04: 承認はDB側RPCでアトミックに実行（途中失敗の不整合を防ぐ）
-      const { data: scheduleEventId, error: approveError } = await supabase.rpc('approve_private_booking', {
+      const rpcParams = {
         p_reservation_id: requestId,
         p_selected_date: selectedCandidate.date,
         p_selected_start_time: selectedCandidate.startTime,
@@ -104,10 +104,14 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         p_candidate_datetimes: updatedCandidateDatetimes,
         p_scenario_title: selectedRequest?.scenario_title || '',
         p_customer_name: selectedRequest?.customer_name || ''
-      })
+      }
+      logger.log('貸切承認RPCパラメータ:', rpcParams)
+      
+      const { data: scheduleEventId, error: approveError } = await supabase.rpc('approve_private_booking', rpcParams)
 
       if (approveError) {
         logger.error('貸切承認RPCエラー:', approveError)
+        logger.error('RPCエラー詳細:', JSON.stringify(approveError, null, 2))
         if (approveError.code === 'P0019') {
           setSubmitting(false)
           return {
@@ -197,6 +201,87 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       } catch (emailError) {
         logger.error('メール送信エラー:', emailError)
         // メール送信失敗しても承認処理は続行
+      }
+
+      // グループチャットに日程確定のシステムメッセージを送信
+      try {
+        // 予約に紐づくグループIDを取得
+        const { data: reservation } = await supabase
+          .from('reservations')
+          .select('private_group_id')
+          .eq('id', requestId)
+          .single()
+
+        if (reservation?.private_group_id) {
+          // グループのステータスを confirmed に更新
+          await supabase
+            .from('private_groups')
+            .update({ status: 'confirmed' })
+            .eq('id', reservation.private_group_id)
+
+          // 主催者のメンバーIDを取得
+          const { data: organizerMember } = await supabase
+            .from('private_group_members')
+            .select('id')
+            .eq('group_id', reservation.private_group_id)
+            .eq('is_organizer', true)
+            .single()
+
+          if (organizerMember) {
+            // 日程確定のシステムメッセージ
+            const confirmedMessage = JSON.stringify({
+              type: 'system',
+              action: 'schedule_confirmed',
+              confirmedDate: selectedCandidate.date,
+              confirmedTimeSlot: selectedCandidate.timeSlot || `${selectedCandidate.startTime}〜${selectedCandidate.endTime}`,
+              storeName: stores.find(s => s.id === selectedStoreId)?.name || ''
+            })
+
+            await supabase.from('private_group_messages').insert({
+              group_id: reservation.private_group_id,
+              member_id: organizerMember.id,
+              message: confirmedMessage
+            })
+
+            // 事前読み込みシナリオの場合、追加通知を送信
+            if (selectedRequest?.scenario_id) {
+              const { data: scenarioData } = await supabase
+                .from('scenario_masters')
+                .select('has_pre_reading')
+                .eq('id', selectedRequest.scenario_id)
+                .single()
+
+              if (scenarioData?.has_pre_reading) {
+                // 全体設定から事前読み込み通知メッセージを取得
+                const { data: globalSettings } = await supabase
+                  .from('global_settings')
+                  .select('pre_reading_notice_message')
+                  .eq('organization_id', organizationId)
+                  .single()
+
+                const preReadingMessage = globalSettings?.pre_reading_notice_message || 
+                  '【ご確認ください】\n\nこのシナリオには事前読み込みがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
+
+                const preReadingSystemMessage = JSON.stringify({
+                  type: 'system',
+                  action: 'pre_reading_notice',
+                  message: preReadingMessage
+                })
+
+                await supabase.from('private_group_messages').insert({
+                  group_id: reservation.private_group_id,
+                  member_id: organizerMember.id,
+                  message: preReadingSystemMessage
+                })
+              }
+            }
+
+            logger.log('グループチャットに日程確定メッセージ送信成功')
+          }
+        }
+      } catch (msgError) {
+        logger.error('グループメッセージ送信エラー:', msgError)
+        // メッセージ送信失敗しても承認処理は続行
       }
 
       onSuccess()

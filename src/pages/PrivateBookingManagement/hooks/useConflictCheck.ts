@@ -3,6 +3,17 @@ import { supabase } from '@/lib/supabase'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 
+// 時間帯を正規化する関数（競合キーの一貫性を保つため）
+const normalizeTimeSlot = (timeSlot: string): string => {
+  if (timeSlot === '午前' || timeSlot === '午後' || timeSlot === '夜間') {
+    return timeSlot
+  }
+  if (timeSlot.includes('朝') || timeSlot.includes('午前')) return '午前'
+  if (timeSlot.includes('昼') || timeSlot.includes('午後')) return '午後'
+  if (timeSlot.includes('夜')) return '夜間'
+  return timeSlot
+}
+
 /**
  * 既存イベント情報
  */
@@ -169,7 +180,7 @@ export const useConflictCheck = () => {
           )
 
           if (conflictEvents.length > 0) {
-            const conflictKey = `${storeId}-${date}-${candidate.timeSlot}`
+            const conflictKey = `${storeId}-${date}-${normalizeTimeSlot(candidate.timeSlot)}`
             storeDateConflictsSet.add(conflictKey)
           }
         }
@@ -266,7 +277,7 @@ export const useConflictCheck = () => {
         }
           
         if (hasConflict) {
-          const conflictKey = `${gmId}-${date}-${candidate.timeSlot}`
+          const conflictKey = `${gmId}-${date}-${normalizeTimeSlot(candidate.timeSlot)}`
           gmDateConflictsSet.add(conflictKey)
         }
       }
