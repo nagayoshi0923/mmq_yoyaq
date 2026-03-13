@@ -47,6 +47,8 @@ export function PrivateBookingRequest({
   
   // グループID（既存または送信時に作成）
   const [createdGroupId, setCreatedGroupId] = useState<string | null>(groupId || null)
+  // 作成されたグループの招待コード
+  const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null)
   
   // 編集可能な候補日時
   const [editableTimeSlots, setEditableTimeSlots] = useState(initialTimeSlots)
@@ -169,7 +171,10 @@ export function PrivateBookingRequest({
     try {
       // グループがまだ作成されていない場合は作成
       let groupIdToUse = createdGroupId
+      console.log('[貸切リクエスト] 送信開始', { createdGroupId, scenarioId, editableTimeSlots: editableTimeSlots.length })
+      
       if (!groupIdToUse && scenarioId) {
+        console.log('[貸切リクエスト] グループ作成開始')
         const group = await createGroup({
           scenarioId,
           name: undefined,
@@ -184,18 +189,18 @@ export function PrivateBookingRequest({
           })),
           notes: notes || undefined,
         })
+        console.log('[貸切リクエスト] グループ作成成功', { groupId: group.id, inviteCode: group.invite_code })
         groupIdToUse = group.id
         setCreatedGroupId(group.id)
+        setCreatedInviteCode(group.invite_code)
+      } else {
+        console.log('[貸切リクエスト] グループ作成スキップ', { reason: groupIdToUse ? '既存グループあり' : 'scenarioIdなし' })
       }
 
+      console.log('[貸切リクエスト] handleSubmit呼び出し', { groupIdToUse })
       await handleSubmit(customerName, customerEmail, customerPhone, notes, customerNickname, groupIdToUse || undefined)
       
-      // 3秒後に自動的に戻る
-      setTimeout(() => {
-        if (onComplete) {
-          onComplete()
-        }
-      }, 3000)
+      // 成功後はボタンで遷移させるため自動リダイレクトは行わない
     } catch (error: any) {
       setError(error.message || '処理中にエラーが発生しました')
     }
@@ -218,10 +223,19 @@ export function PrivateBookingRequest({
                 確認メールを {customerEmail} に送信しました。<br />
                 担当者より折り返しご連絡させていただきます。
               </p>
-              <div className="pt-4">
+              <div className="pt-4 flex flex-col gap-3">
+                {createdInviteCode && (
+                  <Button
+                    onClick={() => navigate(`/group/invite/${createdInviteCode}`)}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    グループを開く
+                  </Button>
+                )}
                 <Button
+                  variant="outline"
                   onClick={() => window.location.href = bookingBasePath}
-                  className="bg-purple-600 hover:bg-purple-700"
                 >
                   予約サイトトップに戻る
                 </Button>
