@@ -256,13 +256,13 @@ export default function MyPage() {
         if (customerByEmail) {
           customer = customerByEmail
           
-          // user_idが設定されていない場合は自動で紐付け
+          // user_idが設定されていない場合は自動で紐付け（非同期で実行、待機しない）
           if (!customerByEmail.user_id && user.id) {
-            await supabase
+            supabase
               .from('customers')
               .update({ user_id: user.id })
               .eq('id', customerByEmail.id)
-            logger.log('顧客レコードにuser_idを自動設定しました:', customerByEmail.id)
+              .then(() => logger.log('顧客レコードにuser_idを自動設定しました:', customerByEmail.id))
           }
         }
       }
@@ -282,49 +282,53 @@ export default function MyPage() {
         setAvatarUrl(customer.avatar_url)
       }
 
-      // 予約を取得
-      const { data: reservationData, error: reservationError } = await supabase
-        .from('reservations')
-        .select('id, organization_id, reservation_number, reservation_page_id, title, scenario_id, store_id, customer_id, schedule_event_id, requested_datetime, actual_datetime, duration, participant_count, participant_names, assigned_staff, gm_staff, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, payment_method, payment_datetime, status, customer_notes, staff_notes, special_requests, cancellation_reason, cancelled_at, external_reservation_id, reservation_source, created_by, created_at, updated_at, customer_name, customer_email, customer_phone, candidate_datetimes')
-        .eq('customer_id', customer.id)
-        .order('requested_datetime', { ascending: false })
+      // 🚀 並列でデータ取得（パフォーマンス最適化）
+      const [reservationResult, privateGroupsResult, manualHistoryResult] = await Promise.all([
+        // 予約を取得
+        supabase
+          .from('reservations')
+          .select('id, organization_id, reservation_number, title, scenario_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price')
+          .eq('customer_id', customer.id)
+          .order('requested_datetime', { ascending: false })
+          .limit(50),
+        
+        // 貸切グループを取得（メンバー数も含めて取得）
+        supabase
+          .from('private_group_members')
+          .select(`
+            id,
+            is_organizer,
+            status,
+            group_id,
+            private_groups:group_id (
+              id,
+              name,
+              invite_code,
+              status,
+              target_participant_count,
+              created_at,
+              scenario_masters:scenario_id (id, title, key_visual_url)
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('status', 'joined'),
+        
+        // 手動登録履歴を取得
+        supabase
+          .from('manual_play_history')
+          .select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id, scenario_masters:scenario_master_id(key_visual_url)')
+          .eq('customer_id', customer.id)
+          .order('played_at', { ascending: false })
+          .limit(20)
+      ])
+      
+      const reservationData = reservationResult.data
+      const reservationError = reservationResult.error
 
       if (reservationError) throw reservationError
       setReservations(reservationData || [])
 
-      // 関連するスケジュールイベントを取得（正しい公演日時を取得するため）
-      const eventIds = reservationData
-        ?.map(r => r.schedule_event_id)
-        .filter((id): id is string => id !== null && id !== undefined) || []
-      
-      if (eventIds.length > 0) {
-        const { data: eventsData } = await supabase
-          .from('schedule_events')
-          .select('id, date, start_time, category, current_participants, max_participants')
-          .in('id', eventIds)
-        
-        if (eventsData) {
-          const eventMap: Record<string, { 
-            date: string
-            start_time: string
-            category?: string
-            current_participants?: number
-            max_participants?: number
-          }> = {}
-          eventsData.forEach(e => {
-            eventMap[e.id] = { 
-              date: e.date, 
-              start_time: e.start_time, 
-              category: e.category,
-              current_participants: e.current_participants,
-              max_participants: e.max_participants
-            }
-          })
-          setScheduleEvents(eventMap)
-        }
-      }
-
-      // 統計情報を計算
+      // 統計情報を計算（即座に実行可能）
       const confirmedPast = (reservationData || []).filter(
         r => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed'
       )
@@ -333,139 +337,133 @@ export default function MyPage() {
         points: confirmedPast.length * 100
       })
 
-      // シナリオの画像と組織情報を取得
-      if (reservationData && reservationData.length > 0) {
-        // 組織slugを取得
-        const orgIds = [...new Set(reservationData.map(r => r.organization_id).filter(Boolean))]
-        const orgSlugMap: Record<string, string> = {}
-        if (orgIds.length > 0) {
-          const { data: orgs } = await supabase
-            .from('organizations')
-            .select('id, slug, name')
-            .in('id', orgIds)
-          
-          if (orgs) {
-            const orgNameMap: Record<string, string> = {}
-            orgs.forEach(o => {
-              if (o.slug) orgSlugMap[o.id] = o.slug
-              if (o.name) orgNameMap[o.id] = o.name
-            })
-            setOrgSlugs(orgSlugMap)
-            setOrgNames(orgNameMap)
-          }
-        }
+      // 🚀 関連データを並列で取得（第2波）
+      const eventIds = reservationData
+        ?.map(r => r.schedule_event_id)
+        .filter((id): id is string => id !== null && id !== undefined) || []
+      
+      const orgIds = [...new Set((reservationData || []).map(r => r.organization_id).filter(Boolean))]
+      const scenarioMasterIds = [...new Set((reservationData || [])
+        .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
+        .filter((id): id is string => id !== null && id !== undefined))]
+      const storeIds = [...new Set((reservationData || []).map(r => r.store_id).filter(Boolean))]
+      
+      // グループIDを抽出（メンバー数を一括取得するため）
+      const memberRecords = privateGroupsResult.data || []
+      const groupIds = memberRecords
+        .map(r => (r.private_groups as any)?.id)
+        .filter(Boolean)
 
-        const scenarioMasterIds = reservationData
-          .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
-          .filter((id): id is string => id !== null && id !== undefined)
-        
-        if (scenarioMasterIds.length > 0) {
-          const { data: scenarioMasters, error: scenariosError } = await supabase
-            .from('scenario_masters')
-            .select('id, key_visual_url, player_count_min, player_count_max')
-            .in('id', scenarioMasterIds)
-          
-          if (!scenariosError && scenarioMasters) {
-            const imageMap: Record<string, string> = {}
-            const slugMap: Record<string, string> = {}
-            const infoMap: Record<string, { min: number; max: number }> = {}
-            scenarioMasters.forEach(s => {
-              if (s.key_visual_url) {
-                imageMap[s.id] = s.key_visual_url
-              }
-              slugMap[s.id] = s.id
-              infoMap[s.id] = {
-                min: s.player_count_min || 1,
-                max: s.player_count_max || 8
-              }
-            })
-            setScenarioImages(imageMap)
-            setScenarioSlugs(slugMap)
-            setScenarioInfo(infoMap)
-          }
-        }
+      const [eventsResult, orgsResult, scenariosResult, storesResult, memberCountsResult] = await Promise.all([
+        // スケジュールイベント
+        eventIds.length > 0
+          ? supabase.from('schedule_events')
+              .select('id, date, start_time, category, current_participants, max_participants')
+              .in('id', eventIds)
+          : Promise.resolve({ data: [] }),
+        // 組織情報
+        orgIds.length > 0
+          ? supabase.from('organizations').select('id, slug, name').in('id', orgIds)
+          : Promise.resolve({ data: [] }),
+        // シナリオマスタ（画像・プレイヤー数）
+        scenarioMasterIds.length > 0
+          ? supabase.from('scenario_masters')
+              .select('id, title, key_visual_url, player_count_min, player_count_max')
+              .in('id', scenarioMasterIds)
+          : Promise.resolve({ data: [] }),
+        // 店舗情報
+        storeIds.length > 0
+          ? supabase.from('stores').select('id, name, address, color').in('id', storeIds)
+          : Promise.resolve({ data: [] }),
+        // グループメンバー数を一括取得（N+1問題解消）
+        groupIds.length > 0
+          ? supabase.from('private_group_members')
+              .select('group_id')
+              .in('group_id', groupIds)
+              .eq('status', 'joined')
+          : Promise.resolve({ data: [] })
+      ])
 
-        // 店舗情報を取得
-        const storeIds = new Set<string>()
-        reservationData.forEach(r => {
-          if (r.store_id) storeIds.add(r.store_id)
+      // スケジュールイベントをマップ化
+      if (eventsResult.data && eventsResult.data.length > 0) {
+        const eventMap: Record<string, { 
+          date: string
+          start_time: string
+          category?: string
+          current_participants?: number
+          max_participants?: number
+        }> = {}
+        eventsResult.data.forEach(e => {
+          eventMap[e.id] = { 
+            date: e.date, 
+            start_time: e.start_time, 
+            category: e.category,
+            current_participants: e.current_participants,
+            max_participants: e.max_participants
+          }
         })
+        setScheduleEvents(eventMap)
+      }
 
-        let storesData: { id: string; name: string; address?: string; color?: string }[] = []
-        if (storeIds.size > 0) {
-          const { data, error: storesError } = await supabase
-            .from('stores')
-            .select('id, name, address, color')
-            .in('id', Array.from(storeIds))
-          
-          if (!storesError && data) {
-            storesData = data
-            const storeMap: Record<string, Store> = {}
-            data.forEach(store => {
-              storeMap[store.id] = store as Store
-            })
-            setStores(storeMap)
-          }
-        }
+      // 組織情報をマップ化
+      const orgSlugMap: Record<string, string> = {}
+      const orgNameMap: Record<string, string> = {}
+      if (orgsResult.data) {
+        orgsResult.data.forEach(o => {
+          if (o.slug) orgSlugMap[o.id] = o.slug
+          if (o.name) orgNameMap[o.id] = o.name
+        })
+        setOrgSlugs(orgSlugMap)
+        setOrgNames(orgNameMap)
+      }
 
-        // プレイ済みシナリオを取得（確定済み・GM確認済みの全カテゴリの公演）
+      // シナリオ情報をマップ化
+      const imageMap: Record<string, string> = {}
+      const slugMap: Record<string, string> = {}
+      const infoMap: Record<string, { min: number; max: number }> = {}
+      const titleToScenarioData: Record<string, { key_visual_url?: string, id?: string }> = {}
+      if (scenariosResult.data) {
+        scenariosResult.data.forEach(s => {
+          if (s.key_visual_url) imageMap[s.id] = s.key_visual_url
+          slugMap[s.id] = s.id
+          infoMap[s.id] = { min: s.player_count_min || 1, max: s.player_count_max || 8 }
+          if (s.title) titleToScenarioData[s.title] = { key_visual_url: s.key_visual_url, id: s.id }
+        })
+        setScenarioImages(imageMap)
+        setScenarioSlugs(slugMap)
+        setScenarioInfo(infoMap)
+      }
+
+      // 店舗情報をマップ化
+      const storesData = storesResult.data || []
+      if (storesData.length > 0) {
+        const storeMap: Record<string, Store> = {}
+        storesData.forEach(store => {
+          storeMap[store.id] = store as Store
+        })
+        setStores(storeMap)
+      }
+
+      // メンバー数をカウント（グループIDごと）
+      const memberCountMap: Record<string, number> = {}
+      if (memberCountsResult.data) {
+        memberCountsResult.data.forEach(m => {
+          memberCountMap[m.group_id] = (memberCountMap[m.group_id] || 0) + 1
+        })
+      }
+
+      // プレイ済みシナリオを構築
+      if (reservationData && reservationData.length > 0) {
         const pastReservations = reservationData.filter(
           r => new Date(r.requested_datetime) < new Date() && (r.status === 'confirmed' || r.status === 'gm_confirmed')
         )
         
-        // 追加のシナリオ情報を取得
-        logger.log('📸 予約データ（scenario_master_id確認）:', pastReservations.map(r => ({
-          title: r.title,
-          scenario_id: r.scenario_id,
-          scenario_master_id: (r as { scenario_master_id?: string | null }).scenario_master_id,
-        })))
-        const pastScenarioMasterIds = pastReservations
-          .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
-          .filter((id): id is string => id !== null && id !== undefined)
-        
-        // シナリオタイトル一覧も取得（ID検索で見つからない場合のフォールバック用）
-        const pastScenarioTitles = pastReservations
-          .map(r => r.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim())
-          .filter((title): title is string => !!title)
-        
-        const additionalScenarioData: Record<string, { key_visual_url?: string, slug?: string }> = {}
-        const titleToScenarioData: Record<string, { key_visual_url?: string, id?: string }> = {}
-        
-        // IDで検索
-        if (pastScenarioMasterIds.length > 0) {
-          const { data: pastScenarios } = await supabase
-            .from('scenario_masters')
-            .select('id, key_visual_url')
-            .in('id', pastScenarioMasterIds)
-          
-          if (pastScenarios) {
-            pastScenarios.forEach(s => {
-              additionalScenarioData[s.id] = { key_visual_url: s.key_visual_url, slug: s.id }
-            })
-          }
-        }
-        
-        // タイトルでも検索（フォールバック用）
-        if (pastScenarioTitles.length > 0) {
-          const { data: scenariosByTitle } = await supabase
-            .from('scenario_masters')
-            .select('id, title, key_visual_url')
-            .in('title', pastScenarioTitles)
-          
-          if (scenariosByTitle) {
-            scenariosByTitle.forEach(s => {
-              titleToScenarioData[s.title] = { key_visual_url: s.key_visual_url, id: s.id }
-            })
-          }
-        }
-        
         const played: PlayedScenario[] = pastReservations.map(reservation => {
           const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
-          const scenarioInfo = scenarioMasterId ? additionalScenarioData[scenarioMasterId] : null
           const title = reservation.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim() || ''
-          // IDで見つからない場合はタイトルでフォールバック
+          const scenarioData = scenarioMasterId ? { key_visual_url: imageMap[scenarioMasterId], slug: scenarioMasterId } : null
           const titleFallback = title ? titleToScenarioData[title] : null
-          const finalKeyVisual = scenarioInfo?.key_visual_url || titleFallback?.key_visual_url
+          const finalKeyVisual = scenarioData?.key_visual_url || titleFallback?.key_visual_url
           const finalScenarioId = scenarioMasterId || titleFallback?.id
           
           return {
@@ -473,7 +471,7 @@ export default function MyPage() {
             date: reservation.requested_datetime.split('T')[0],
             venue: storesData.find(s => s.id === reservation.store_id)?.name || '店舗情報なし',
             scenario_id: finalScenarioId || undefined,
-            scenario_slug: scenarioInfo?.slug || titleFallback?.id || undefined,
+            scenario_slug: scenarioData?.slug || titleFallback?.id || undefined,
             organization_slug: reservation.organization_id ? orgSlugMap[reservation.organization_id] : undefined,
             key_visual_url: finalKeyVisual || undefined,
             is_manual: false,
@@ -481,13 +479,8 @@ export default function MyPage() {
           }
         })
         
-        // 手動登録履歴を取得（scenario_master_id で scenario_masters を JOIN）
-        const { data: manualHistory } = await supabase
-          .from('manual_play_history')
-          .select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id, scenario_masters:scenario_master_id(key_visual_url)')
-          .eq('customer_id', customer.id)
-          .order('played_at', { ascending: false })
-        
+        // 手動登録履歴を追加（並列で取得済み）
+        const manualHistory = manualHistoryResult.data
         if (manualHistory) {
           manualHistory.forEach((item: any) => {
             const master = item.scenario_masters as { key_visual_url?: string } | null
@@ -505,12 +498,12 @@ export default function MyPage() {
           })
         }
         
-        // 日付でソート（新しい順）、重複を除去（同じscenario_idは1つだけ）
+        // 日付でソート（新しい順）、重複を除去
         const uniqueScenarioIds = new Set<string>()
         const uniquePlayed = played
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
           .filter(p => {
-            if (!p.scenario_id) return true // scenario_idがない場合は重複チェックしない
+            if (!p.scenario_id) return true
             if (uniqueScenarioIds.has(p.scenario_id)) return false
             uniqueScenarioIds.add(p.scenario_id)
             return true
@@ -520,40 +513,13 @@ export default function MyPage() {
         setPlayedScenarios(uniquePlayed)
       }
 
-      // 貸切グループを取得（主催または参加しているもの）
-      const { data: memberRecords } = await supabase
-        .from('private_group_members')
-        .select(`
-          id,
-          is_organizer,
-          status,
-          group_id,
-          private_groups:group_id (
-            id,
-            name,
-            invite_code,
-            status,
-            target_participant_count,
-            created_at,
-            scenario_masters:scenario_id (id, title, key_visual_url)
-          )
-        `)
-        .eq('user_id', user.id)
-        .eq('status', 'joined')
-
-      if (memberRecords && memberRecords.length > 0) {
+      // 貸切グループを構築（N+1問題解消済み）
+      if (memberRecords.length > 0) {
         const groups: PrivateGroupSummary[] = []
         
         for (const record of memberRecords) {
           const group = record.private_groups as any
           if (!group || group.status === 'cancelled') continue
-          
-          // メンバー数を取得
-          const { count } = await supabase
-            .from('private_group_members')
-            .select('id', { count: 'exact', head: true })
-            .eq('group_id', group.id)
-            .eq('status', 'joined')
           
           const scenario = group.scenario_masters as any
           groups.push({
@@ -564,7 +530,7 @@ export default function MyPage() {
             target_participant_count: group.target_participant_count,
             scenario_title: scenario?.title || null,
             scenario_image: scenario?.key_visual_url || null,
-            member_count: count || 0,
+            member_count: memberCountMap[group.id] || 0,
             is_organizer: record.is_organizer,
             created_at: group.created_at,
           })
