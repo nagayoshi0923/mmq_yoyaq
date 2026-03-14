@@ -347,6 +347,16 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           .eq('id', reservation.private_group_id)
         logger.log('グループステータスを候補日選択に戻す:', reservation.private_group_id)
         
+        // システムメッセージ設定を取得
+        const { data: settings } = await supabase
+          .from('global_settings')
+          .select('system_msg_booking_rejected_title, system_msg_booking_rejected_body')
+          .eq('organization_id', organizationId)
+          .maybeSingle()
+        
+        const title = settings?.system_msg_booking_rejected_title || '日程リクエストが却下されました'
+        const body = settings?.system_msg_booking_rejected_body || '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'
+        
         // グループチャットにシステムメッセージを送信
         await supabase
           .from('private_group_messages')
@@ -356,8 +366,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             content: JSON.stringify({
               type: 'system',
               action: 'booking_rejected',
-              title: '日程リクエストが却下されました',
-              body: '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'
+              title,
+              body
             })
           })
       }

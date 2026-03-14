@@ -32,6 +32,8 @@ interface GlobalSettings {
   system_msg_booking_requested_body: string | null
   system_msg_schedule_confirmed_title: string | null
   system_msg_schedule_confirmed_body: string | null
+  system_msg_booking_rejected_title: string | null
+  system_msg_booking_rejected_body: string | null
 }
 
 /**
@@ -59,7 +61,9 @@ export function GeneralSettings() {
     system_msg_booking_requested_title: '貸切リクエストを送信しました',
     system_msg_booking_requested_body: '店舗より日程確定のご連絡をいたしますので、しばらくお待ちください。',
     system_msg_schedule_confirmed_title: '日程が確定いたしました',
-    system_msg_schedule_confirmed_body: 'ご予約ありがとうございます。当日のご来店をお待ちしております。'
+    system_msg_schedule_confirmed_body: 'ご予約ありがとうございます。当日のご来店をお待ちしております。',
+    system_msg_booking_rejected_title: '日程リクエストが却下されました',
+    system_msg_booking_rejected_body: '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'
   })
 
   // 設定を取得
@@ -81,7 +85,7 @@ export function GeneralSettings() {
       
       const { data, error } = await supabase
         .from('global_settings')
-        .select('id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message, system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body')
+        .select('id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message, system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body, system_msg_booking_rejected_title, system_msg_booking_rejected_body')
         .eq('organization_id', orgId)
         .single()
 
@@ -110,7 +114,9 @@ export function GeneralSettings() {
           system_msg_booking_requested_title: data.system_msg_booking_requested_title || '貸切リクエストを送信しました',
           system_msg_booking_requested_body: data.system_msg_booking_requested_body || '店舗より日程確定のご連絡をいたしますので、しばらくお待ちください。',
           system_msg_schedule_confirmed_title: data.system_msg_schedule_confirmed_title || '日程が確定いたしました',
-          system_msg_schedule_confirmed_body: data.system_msg_schedule_confirmed_body || 'ご予約ありがとうございます。当日のご来店をお待ちしております。'
+          system_msg_schedule_confirmed_body: data.system_msg_schedule_confirmed_body || 'ご予約ありがとうございます。当日のご来店をお待ちしております。',
+          system_msg_booking_rejected_title: data.system_msg_booking_rejected_title || '日程リクエストが却下されました',
+          system_msg_booking_rejected_body: data.system_msg_booking_rejected_body || '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'
         })
       }
     } catch (error) {
@@ -145,7 +151,9 @@ export function GeneralSettings() {
           system_msg_booking_requested_title: formData.system_msg_booking_requested_title || null,
           system_msg_booking_requested_body: formData.system_msg_booking_requested_body || null,
           system_msg_schedule_confirmed_title: formData.system_msg_schedule_confirmed_title || null,
-          system_msg_schedule_confirmed_body: formData.system_msg_schedule_confirmed_body || null
+          system_msg_schedule_confirmed_body: formData.system_msg_schedule_confirmed_body || null,
+          system_msg_booking_rejected_title: formData.system_msg_booking_rejected_title || null,
+          system_msg_booking_rejected_body: formData.system_msg_booking_rejected_body || null
         })
         .eq('id', settings.id)
 
@@ -459,6 +467,35 @@ export function GeneralSettings() {
                   value={formData.system_msg_schedule_confirmed_body}
                   onChange={(e) => setFormData(prev => ({ ...prev, system_msg_schedule_confirmed_body: e.target.value }))}
                   placeholder="ご予約ありがとうございます。当日のご来店を..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 却下時 */}
+          <div className="space-y-4 p-4 bg-red-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-red-600 rounded-full" />
+              <h4 className="font-medium text-red-800">リクエスト却下時</h4>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_booking_rejected_title">タイトル</Label>
+                <Input
+                  id="system_msg_booking_rejected_title"
+                  value={formData.system_msg_booking_rejected_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_booking_rejected_title: e.target.value }))}
+                  placeholder="日程リクエストが却下されました"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_booking_rejected_body">本文</Label>
+                <Textarea
+                  id="system_msg_booking_rejected_body"
+                  value={formData.system_msg_booking_rejected_body}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_booking_rejected_body: e.target.value }))}
+                  placeholder="店舗の都合がつかず..."
+                  rows={3}
                 />
               </div>
             </div>
