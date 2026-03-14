@@ -78,7 +78,7 @@ export function PrivateBookingManagement() {
     activeTab
   })
 
-  // 承認・却下処理
+  // 承認・却下・削除処理
   const {
     submitting,
     showRejectDialog,
@@ -87,7 +87,8 @@ export function PrivateBookingManagement() {
     handleApprove,
     handleRejectClick,
     handleRejectConfirm,
-    handleRejectCancel
+    handleRejectCancel,
+    handleDelete
   } = useBookingApproval({
     onSuccess: () => {
       setSelectedRequest(null)
@@ -514,9 +515,9 @@ export function PrivateBookingManagement() {
                   })()
                 }
                 gmResponses={availableGMs} // 全GMの回答情報を渡す
-                isReadOnly={selectedRequest.status === 'confirmed'} // 確定済みの場合のみ編集不可
+                isReadOnly={false} // 確定済みでも編集可能に
                 isConfirmed={selectedRequest.status === 'confirmed'}
-                stores={filteredStores} // シナリオ対応店舗リスト（空き店舗表示用）
+                stores={stores.filter(s => s.ownership_type !== 'office')} // 全店舗の空き状況表示用（オフィス除く）
               />
 
               {/* 開催店舗の選択 */}
@@ -733,6 +734,7 @@ export function PrivateBookingManagement() {
                     setSelectedStoreId('')
                     setSelectedCandidateOrder(null)
                   }}
+                  onDelete={() => handleDelete(selectedRequest.id)}
                   disabled={submitting || !selectedGMId || !selectedStoreId || !selectedCandidateOrder}
                   submitting={submitting}
                 />

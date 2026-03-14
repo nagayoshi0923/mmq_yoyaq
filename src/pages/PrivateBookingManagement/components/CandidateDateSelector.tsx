@@ -146,27 +146,9 @@ export const CandidateDateSelector = ({
     // 時間帯を正規化（「夜公演」→「夜」など）
     const normalizedTimeSlot = normalizeTimeSlot(candidate.timeSlot)
     
-    // デバッグ: 競合情報の確認
-    const conflictsArray = Array.from(conflictInfo.storeDateConflicts)
-    const matchingConflicts = conflictsArray.filter(c => c.includes(candidate.date))
-    const storeIdList = stores.map(s => s.id)
-    
-    // 各店舗について競合キーを生成して確認
-    const storeConflictCheck = stores.map(s => {
-      const key = `${s.id}-${candidate.date}-${normalizedTimeSlot}`
-      const hasConflict = conflictInfo.storeDateConflicts.has(key)
-      return `${s.name}: ${hasConflict ? '❌競合' : '✅空き'} (${key.substring(0, 20)}...)`
-    })
-    
-    logger.log(`🔍 [${candidate.date} ${normalizedTimeSlot}] 店舗空き状況:`, storeConflictCheck)
-    logger.log(`🔍 [${candidate.date}] マッチする競合:`, matchingConflicts.slice(0, 5))
-    
     return stores.filter(store => {
       const conflictKey = `${store.id}-${candidate.date}-${normalizedTimeSlot}`
       const hasConflict = conflictInfo.storeDateConflicts.has(conflictKey)
-      if (hasConflict) {
-        logger.log(`🚫 店舗競合: ${store.name} (${conflictKey})`)
-      }
       return !hasConflict
     })
   }
