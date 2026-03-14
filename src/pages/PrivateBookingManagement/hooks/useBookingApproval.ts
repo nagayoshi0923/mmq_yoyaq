@@ -49,12 +49,15 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
 
       // 🚨 CRITICAL: 同じ日時・店舗に既存の公演がないかチェック
-      const { data: existingEvents, error: checkError } = await supabase
+      // 再承認の場合は、この予約に紐づくイベントを除外する
+      let existingEventsQuery = supabase
         .from('schedule_events')
-        .select('id, scenario, start_time, end_time')
+        .select('id, scenario, start_time, end_time, reservation_id')
         .eq('date', selectedCandidate.date)
         .eq('store_id', selectedStoreId)
         .neq('is_cancelled', true)
+      
+      const { data: existingEvents, error: checkError } = await existingEventsQuery
 
       if (checkError) {
         logger.error('既存公演チェックエラー:', checkError)
@@ -64,6 +67,11 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         const candidateEnd = selectedCandidate.endTime
 
         for (const event of existingEvents) {
+          // 再承認の場合、同じ予約のイベントは競合チェックから除外
+          if (event.reservation_id === requestId) {
+            continue
+          }
+          
           const eventStart = event.start_time?.substring(0, 5) || ''
           const eventEnd = event.end_time?.substring(0, 5) || ''
 
