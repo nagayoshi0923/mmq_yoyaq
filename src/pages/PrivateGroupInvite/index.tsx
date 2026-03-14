@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check, UserPlus, Copy, Share2, ArrowLeft, Settings, Trash2 } from 'lucide-react'
+import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check, UserPlus, Copy, Share2, ArrowLeft, Settings, Trash2, ChevronDown } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
@@ -86,6 +86,7 @@ export function PrivateGroupInvite() {
   const [showSettingsSheet, setShowSettingsSheet] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [contactMessage, setContactMessage] = useState('')
+  const [showContactForm, setShowContactForm] = useState(false)
   
   // メンバー招待シート
   const [showInviteSheet, setShowInviteSheet] = useState(false)
@@ -1307,53 +1308,67 @@ export function PrivateGroupInvite() {
                 )}
                 
                 {/* 店舗への問い合わせ */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm">店舗への問い合わせ</h4>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="contact-email" className="text-sm text-muted-foreground">
-                      返信先メールアドレス
-                    </Label>
-                    <Input
-                      id="contact-email"
-                      type="email"
-                      value={organizerMember?.guest_email || user?.email || ''}
-                      readOnly
-                      className="bg-gray-50"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="contact-message" className="text-sm text-muted-foreground">
-                      お問い合わせ内容
-                    </Label>
-                    <Textarea
-                      id="contact-message"
-                      value={contactMessage}
-                      onChange={(e) => setContactMessage(e.target.value)}
-                      rows={8}
-                      placeholder="お問い合わせ内容を入力してください"
-                      className="resize-none"
-                    />
-                  </div>
-                  
-                  <Button
-                    className="w-full gap-2"
-                    onClick={() => {
-                      const email = 'info@queens-waltz.com'
-                      const subject = encodeURIComponent(`【貸切予約のお問い合わせ】${group.invite_code}`)
-                      const replyEmail = organizerMember?.guest_email || user?.email || ''
-                      const body = encodeURIComponent(`${contactMessage}\n\n---\n返信先: ${replyEmail}`)
-                      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`
-                    }}
+                <div className="border rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setShowContactForm(!showContactForm)}
+                    className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
                   >
-                    <MessageCircle className="h-4 w-4" />
-                    メールで問い合わせる
-                  </Button>
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium text-sm">店舗への問い合わせ</span>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showContactForm ? 'rotate-180' : ''}`} />
+                  </button>
                   
-                  <p className="text-xs text-muted-foreground text-center">
-                    メールアプリが開きます
-                  </p>
+                  {showContactForm && (
+                    <div className="p-3 pt-0 space-y-3 border-t">
+                      <div className="space-y-2 pt-3">
+                        <Label htmlFor="contact-email" className="text-sm text-muted-foreground">
+                          返信先メールアドレス
+                        </Label>
+                        <Input
+                          id="contact-email"
+                          type="email"
+                          value={organizerMember?.guest_email || user?.email || ''}
+                          readOnly
+                          className="bg-gray-50"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="contact-message" className="text-sm text-muted-foreground">
+                          お問い合わせ内容
+                        </Label>
+                        <Textarea
+                          id="contact-message"
+                          value={contactMessage}
+                          onChange={(e) => setContactMessage(e.target.value)}
+                          rows={8}
+                          placeholder="お問い合わせ内容を入力してください"
+                          className="resize-none"
+                        />
+                      </div>
+                      
+                      <Button
+                        className="w-full gap-2"
+                        onClick={() => {
+                          const email = 'info@queens-waltz.com'
+                          const subject = encodeURIComponent(`【貸切予約のお問い合わせ】${group.invite_code}`)
+                          const replyEmail = organizerMember?.guest_email || user?.email || ''
+                          const body = encodeURIComponent(`${contactMessage}\n\n---\n返信先: ${replyEmail}`)
+                          window.location.href = `mailto:${email}?subject=${subject}&body=${body}`
+                        }}
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        メールで問い合わせる
+                      </Button>
+                      
+                      <p className="text-xs text-muted-foreground text-center">
+                        メールアプリが開きます
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               
