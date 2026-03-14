@@ -1410,8 +1410,22 @@ export function PrivateGroupInvite() {
                             setContactMessage('')
                           } catch (err) {
                             logger.error('問い合わせ送信エラー:', err)
-                            const errorMessage = err instanceof Error ? err.message : '送信に失敗しました'
-                            toast.error(errorMessage)
+                            
+                            // Edge Functionが利用できない場合はmailtoにフォールバック
+                            const replyEmail = organizerMember?.guest_email || user?.email || ''
+                            const { data: org } = await supabase
+                              .from('organizations')
+                              .select('contact_email')
+                              .eq('id', group.organization_id)
+                              .single()
+                            
+                            const toEmail = org?.contact_email || 'info@queens-waltz.com'
+                            const subject = encodeURIComponent(`【貸切予約のお問い合わせ】${group.invite_code}`)
+                            const body = encodeURIComponent(`${contactMessage}\n\n---\n返信先: ${replyEmail}`)
+                            
+                            window.location.href = `mailto:${toEmail}?subject=${subject}&body=${body}`
+                            toast.info('メールアプリを開きます')
+                            setShowContactForm(false)
                           } finally {
                             setIsSubmittingContact(false)
                           }
