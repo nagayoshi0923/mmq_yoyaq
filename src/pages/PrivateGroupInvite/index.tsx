@@ -1376,11 +1376,17 @@ export function PrivateGroupInvite() {
                             const replyEmail = organizerMember?.guest_email || user?.email || ''
                             const replyName = organizerMember?.guest_name || user?.name || '貸切予約者'
                             
+                            if (!replyEmail) {
+                              toast.error('返信先メールアドレスが設定されていません')
+                              return
+                            }
+                            
+                            logger.info('問い合わせ送信開始:', { organizationId: org.id, replyEmail, replyName })
+                            
                             const { data, error } = await supabase.functions.invoke('send-contact-inquiry', {
                               body: {
                                 organizationId: org.id,
                                 organizationName: org.name,
-                                contactEmail: org.contact_email,
                                 name: replyName,
                                 email: replyEmail,
                                 type: 'private',
@@ -1389,8 +1395,14 @@ export function PrivateGroupInvite() {
                               }
                             })
                             
-                            if (error || (data && !data.success)) {
-                              throw new Error(data?.error || '送信に失敗しました')
+                            logger.info('問い合わせ送信結果:', { data, error })
+                            
+                            if (error) {
+                              throw new Error(error.message || '送信に失敗しました')
+                            }
+                            
+                            if (data && !data.success) {
+                              throw new Error(data.error || '送信に失敗しました')
                             }
                             
                             toast.success('問い合わせを送信しました')
@@ -1398,7 +1410,8 @@ export function PrivateGroupInvite() {
                             setContactMessage('')
                           } catch (err) {
                             logger.error('問い合わせ送信エラー:', err)
-                            toast.error('送信に失敗しました。時間をおいて再度お試しください。')
+                            const errorMessage = err instanceof Error ? err.message : '送信に失敗しました'
+                            toast.error(errorMessage)
                           } finally {
                             setIsSubmittingContact(false)
                           }
