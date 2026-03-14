@@ -336,15 +336,16 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
       // 予約をキャンセル（在庫返却 + 通知）
       // 貸切予約の却下なので、reservationApi.cancel()を使用してキャンセル待ち通知も送信
-      await reservationApi.cancel(rejectRequestId, rejectionReason)
+      // ただしグループはキャンセルせず、候補日選択フェーズに戻す
+      await reservationApi.cancel(rejectRequestId, rejectionReason, { skipGroupCancel: true })
       
-      // 関連するグループもキャンセル状態に更新
+      // 関連するグループを候補日選択フェーズに戻す（再申請可能にする）
       if (reservation?.private_group_id) {
         await supabase
           .from('private_groups')
-          .update({ status: 'cancelled' })
+          .update({ status: 'date_adjusting' })
           .eq('id', reservation.private_group_id)
-        logger.log('グループステータスをキャンセルに更新:', reservation.private_group_id)
+        logger.log('グループステータスを候補日選択に戻す:', reservation.private_group_id)
       }
 
       // 却下メール（貸切専用）を送信

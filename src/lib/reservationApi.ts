@@ -626,7 +626,7 @@ export const reservationApi = {
   },
 
   // 予約をキャンセル
-  async cancel(id: string, cancellationReason?: string): Promise<Reservation> {
+  async cancel(id: string, cancellationReason?: string, options?: { skipGroupCancel?: boolean }): Promise<Reservation> {
     // ⚠️ P1-12: 相関ID — キャンセル→メール→通知を一つのフローとして追跡
     const clog = createCorrelatedLogger(generateCorrelationId(), 'cancel')
     clog.info('キャンセル開始', { reservationId: id })
@@ -650,8 +650,8 @@ export const reservationApi = {
     // customer_id が NULL でも動作するように修正（スタッフ予約・貸切予約対応）
     await reservationApi.cancelWithLock(id, reservation.customer_id ?? null, cancellationReason)
     
-    // 貸切予約の場合、関連するグループもキャンセル状態に更新
-    if (reservation.private_group_id) {
+    // 貸切予約の場合、関連するグループもキャンセル状態に更新（skipGroupCancelオプションがない場合のみ）
+    if (reservation.private_group_id && !options?.skipGroupCancel) {
       await supabase
         .from('private_groups')
         .update({ status: 'cancelled' })
