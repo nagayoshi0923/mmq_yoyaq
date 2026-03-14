@@ -302,6 +302,37 @@ const jstFormatter = new Intl.DateTimeFormat('ja-JP', {
 })
 ```
 
+### 日付の比較・フィルタリング（重要）
+
+**「今日」や「過去/未来」の判定は必ずJST基準で行う。**
+
+```typescript
+// ✅ 正しい例：JST基準で今日の日付を取得
+const now = new Date()
+const jstOffset = 9 * 60 // JST は UTC+9
+const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
+const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
+
+// 日付文字列同士で比較（JSTとして正確）
+if (dateStr >= todayStr) {
+  // 今日以降
+}
+
+// ❌ 間違った例：new Date() をそのまま使う
+const today = new Date()
+today.setHours(0, 0, 0, 0)  // ← ローカルタイムゾーン依存で危険！
+```
+
+### ユーザーが指定する時間の解釈
+
+**ユーザーが指定する時間（フォーム入力、パラメータ等）は全て日本時間として解釈する。**
+
+```typescript
+// ユーザーが「14:00」と入力した場合 → JST 14:00 として扱う
+const userInputTime = '14:00'
+const eventDateTime = `${date}T${userInputTime}+09:00`  // JST として保存
+```
+
 ### チェックリスト
 
 ```
