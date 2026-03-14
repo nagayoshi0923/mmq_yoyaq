@@ -39,6 +39,7 @@ export interface PrivateBookingRequest {
     notes?: string
   }>
   created_at: string
+  invite_code?: string
 }
 
 interface UsePrivateBookingDataProps {

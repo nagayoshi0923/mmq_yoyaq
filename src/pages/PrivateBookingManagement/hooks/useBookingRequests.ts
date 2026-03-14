@@ -68,13 +68,14 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
         logger.log('👑 管理者ユーザー - 全てのリクエスト表示')
       }
       
-      // reservationsテーブルから貸切リクエストを取得
+      // reservationsテーブルから貸切リクエストを取得（private_groupsのinvite_codeも含む）
       let query = supabase
         .from('reservations')
         .select(`
           *,
           scenario_masters:scenario_master_id(title),
-          customers:customer_id(name, phone)
+          customers:customer_id(name, phone),
+          private_groups:private_group_id(invite_code)
         `)
         .eq('reservation_source', 'web_private')
         .order('created_at', { ascending: false })
@@ -126,7 +127,8 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
             notes: req.customer_notes || '',
             status: req.status,
             gm_responses: gmResponses || [],
-            created_at: req.created_at
+            created_at: req.created_at,
+            invite_code: req.private_groups?.invite_code || ''
           }
         })
       )
