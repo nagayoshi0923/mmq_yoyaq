@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Trash2, GripVertical, User, Upload, X, Copy } from 'lucide-react'
+import { Plus, Trash2, GripVertical, User, Upload, X, Copy, Link } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { showToast } from '@/utils/toast'
@@ -67,6 +67,7 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
       occupation: null,
       description: null,
       image_url: null,
+      url: null,
       sort_order: characters.length + 1,
     }
     setFormData(prev => ({
@@ -301,6 +302,25 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                         placeholder="キャラクターの簡単な説明..."
                         rows={2}
                         className="text-sm"
+                      />
+                    </div>
+
+                    {/* 4行目: URL */}
+                    <div>
+                      <Label className={labelStyle}>
+                        <span className="flex items-center gap-1">
+                          <Link className="w-3 h-3" />
+                          関連URL（任意）
+                        </span>
+                      </Label>
+                      <Input
+                        value={character.url || ''}
+                        onChange={(e) => updateCharacter(character.id, { 
+                          url: e.target.value || null 
+                        })}
+                        placeholder="https://example.com/character-sheet"
+                        className={inputStyle}
+                        type="url"
                       />
                     </div>
                   </div>

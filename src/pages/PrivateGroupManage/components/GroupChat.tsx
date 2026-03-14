@@ -11,7 +11,7 @@ import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/Survey
 
 interface SystemMessage {
   type: 'system'
-  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested'
+  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested' | 'individual_notice' | 'performance_cancelled'
   count?: number
   dates?: Array<{ date: string; time_slot: string }>
   confirmedDate?: string
@@ -27,6 +27,9 @@ interface SystemMessage {
   title?: string
   body?: string
   note?: string
+  // 個別お知らせ用
+  target_member_id?: string
+  target_member_name?: string
 }
 
 interface GroupChatProps {
@@ -50,7 +53,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [showSurveyDialog, setShowSurveyDialog] = useState(false)
 
-  // メンバー情報を取得
+  // メンバー情報を取得（ニックネームを優先的に取得）
   const fetchMembers = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -60,7 +63,37 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
         .eq('status', 'joined')
 
       if (error) throw error
-      setMembers(data as PrivateGroupMember[] || initialMembers)
+      if (!data) {
+        setMembers(initialMembers)
+        return
+      }
+
+      // user_idがあるメンバーのニックネームをcustomersテーブルから取得
+      const userIds = data.filter(m => m.user_id).map(m => m.user_id)
+      let customerNicknames: Record<string, string> = {}
+      
+      if (userIds.length > 0) {
+        const { data: customers } = await supabase
+          .from('customers')
+          .select('user_id, nickname, name')
+          .in('user_id', userIds)
+        
+        if (customers) {
+          customers.forEach((c: { user_id: string; nickname: string | null; name: string | null }) => {
+            customerNicknames[c.user_id] = c.nickname || c.name || ''
+          })
+        }
+      }
+
+      // ニックネームを優先してguest_nameを設定
+      const membersWithNicknames = data.map(m => ({
+        ...m,
+        guest_name: (m.user_id && customerNicknames[m.user_id]) 
+          ? customerNicknames[m.user_id] 
+          : m.guest_name || m.guest_email?.split('@')[0] || '参加者'
+      }))
+
+      setMembers(membersWithNicknames as PrivateGroupMember[])
     } catch (err) {
       logger.error('Failed to fetch members for chat', err)
     }
@@ -582,8 +615,14 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                     )
                   }
 
-                  // システムメッセージ（個別お知らせ）
+                  // システムメッセージ（個別お知らせ）- 対象者本人のみに表示
                   if (systemMsg && systemMsg.action === 'individual_notice') {
+                    // 対象メンバー本人でなければ表示しない
+                    if (systemMsg.target_member_id !== currentMemberId) {
+                      return null
+                    }
+                    const currentMember = members.find(m => m.id === currentMemberId)
+                    const nickname = currentMember?.guest_name || 'あなた'
                     return (
                       <div key={msg.id} className="flex justify-center my-4">
                         <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 w-full max-w-sm">
@@ -593,7 +632,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                             </div>
                             <div>
                               <p className="text-sm font-medium text-indigo-800">
-                                {systemMsg.target_member_name}さんへのお知らせ
+                                {nickname}さんへのお知らせ
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatDateTime(msg.created_at)}
@@ -605,6 +644,9 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                               {systemMsg.message}
                             </p>
                           </div>
+                          <p className="text-xs text-indigo-400 mt-2 text-center">
+                            🔒 このお知らせはあなただけに表示されています
+                          </p>
                         </div>
                       </div>
                     )

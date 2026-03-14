@@ -1,6 +1,7 @@
 // 公演の追加・編集・削除・中止・復活などの操作を管理
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { scheduleApi } from '@/lib/api'
 import { reservationApi } from '@/lib/reservationApi' // 追加
 import { supabase } from '@/lib/supabase'
@@ -170,6 +171,10 @@ export function useEventOperations({
   // 公演時間帯設定を取得（組織設定から）
   const { getSlotDefaults } = useTimeSlotSettings()
   
+  // URL パラメータ（公演ダイアログの状態をURLに保持）
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initializedRef = useRef(false)
+  
   // モーダル状態
   const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
@@ -203,6 +208,26 @@ export function useEventOperations({
   const [draggedEvent, setDraggedEvent] = useState<ScheduleEvent | null>(null)
   const [dropTarget, setDropTarget] = useState<{ date: string, venue: string, timeSlot: string } | null>(null)
   const [isMoveOrCopyDialogOpen, setIsMoveOrCopyDialogOpen] = useState(false)
+  
+  // URLパラメータから公演ダイアログを復元
+  useEffect(() => {
+    if (initializedRef.current || events.length === 0) return
+    
+    const eventId = searchParams.get('event')
+    if (eventId) {
+      const event = events.find(e => e.id === eventId)
+      if (event) {
+        setModalMode('edit')
+        setEditingEvent(event)
+        setModalInitialData(undefined)
+        setIsPerformanceModalOpen(true)
+        initializedRef.current = true
+        logger.log('📝 URLから公演ダイアログを復元:', eventId)
+      }
+    } else {
+      initializedRef.current = true
+    }
+  }, [events, searchParams])
 
   // 公演追加モーダルを開く
   const handleAddPerformance = useCallback((date: string, venue: string, time_slot: 'morning' | 'afternoon' | 'evening') => {
@@ -258,7 +283,14 @@ export function useEventOperations({
     setEditingEvent(event)
     setModalInitialData(undefined)
     setIsPerformanceModalOpen(true)
-  }, [])
+    
+    // URLにイベントIDを追加（リロード時に復元可能に）
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev)
+      newParams.set('event', event.id)
+      return newParams
+    }, { replace: true })
+  }, [setSearchParams])
 
   // モーダルを閉じる
   const handleCloseModal = useCallback(async () => {
@@ -266,9 +298,16 @@ export function useEventOperations({
     setModalInitialData(undefined)
     setEditingEvent(null)
     
+    // URLからイベントIDを削除
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev)
+      newParams.delete('event')
+      return newParams
+    }, { replace: true })
+    
     // 🔄 Realtime購読により自動同期されるため、手動でのfetchScheduleは不要
     // 楽観的更新 + Realtime で二重更新を防ぎ、チカチカを解消
-  }, [])
+  }, [setSearchParams])
 
   // ドラッグ&ドロップハンドラー
   const handleDrop = useCallback((droppedEvent: ScheduleEvent, targetDate: string, targetVenue: string, targetTimeSlot: 'morning' | 'afternoon' | 'evening') => {

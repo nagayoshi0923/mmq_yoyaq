@@ -133,6 +133,7 @@ export interface ScenarioCharacter {
   occupation?: string | null  // 職業（空白の場合は非表示）
   description?: string | null  // 説明文（空白の場合は非表示）
   image_url?: string | null  // キャラクター画像URL
+  url?: string | null  // キャラクター関連URL（資料等）
   sort_order: number  // 表示順
 }
 

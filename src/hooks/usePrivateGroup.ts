@@ -170,11 +170,29 @@ export function usePrivateGroup() {
         throw new Error('グループの作成に失敗しました')
       }
 
+      // ユーザーのニックネームを取得（customersテーブルから）
+      let organizerDisplayName = user.email?.split('@')[0] || '主催者'
+      try {
+        const { data: customerInfo } = await supabase
+          .from('customers')
+          .select('nickname, name')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (customerInfo?.nickname) {
+          organizerDisplayName = customerInfo.nickname
+        } else if (customerInfo?.name) {
+          organizerDisplayName = customerInfo.name
+        }
+      } catch (err) {
+        logger.warn('ユーザーニックネーム取得エラー:', err)
+      }
+
       const { data: memberData, error: memberError } = await supabase
         .from('private_group_members')
         .insert({
           group_id: group.id,
           user_id: user.id,
+          guest_name: organizerDisplayName, // ログインユーザーの表示名を設定
           is_organizer: true,
           status: 'joined',
           joined_at: new Date().toISOString(),
@@ -376,12 +394,31 @@ export function usePrivateGroup() {
         throw new Error('既にグループに参加しています')
       }
 
+      // ログインユーザーの場合、ニックネームを取得（customersテーブルから）
+      let guestName = params.guestName || null
+      if (params.userId && !guestName) {
+        try {
+          const { data: customerInfo } = await supabase
+            .from('customers')
+            .select('nickname, name')
+            .eq('user_id', params.userId)
+            .maybeSingle()
+          if (customerInfo?.nickname) {
+            guestName = customerInfo.nickname
+          } else if (customerInfo?.name) {
+            guestName = customerInfo.name
+          }
+        } catch (err) {
+          logger.warn('ユーザーニックネーム取得エラー:', err)
+        }
+      }
+
       const { data: member, error } = await supabase
         .from('private_group_members')
         .insert({
           group_id: params.groupId,
           user_id: params.userId || null,
-          guest_name: params.guestName || null,
+          guest_name: guestName,
           guest_email: params.guestEmail || null,
           guest_phone: params.guestPhone || null,
           is_organizer: false,

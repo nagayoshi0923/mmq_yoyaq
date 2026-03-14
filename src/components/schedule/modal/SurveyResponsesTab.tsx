@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { ClipboardList, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, Send, User, MessageSquare } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ClipboardList, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, Send, User, MessageSquare, Link } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -33,7 +34,7 @@ export function SurveyResponsesTab({
   const [responses, setResponses] = useState<ResponseData[]>([])
   const [members, setMembers] = useState<MemberData[]>([])
   const [loading, setLoading] = useState(true)
-  const [characters, setCharacters] = useState<Array<{ id: string; name: string }>>([])
+  const [characters, setCharacters] = useState<Array<{ id: string; name: string; url?: string | null }>>([])
   const [surveyEnabled, setSurveyEnabled] = useState(false)
   const [groupId, setGroupId] = useState<string | null>(null)
   
@@ -41,6 +42,7 @@ export function SurveyResponsesTab({
   const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set())
   // メッセージ送信用
   const [messageInputs, setMessageInputs] = useState<Record<string, string>>({})
+  const [selectedCharacters, setSelectedCharacters] = useState<Record<string, string>>({})
   const [sendingMessage, setSendingMessage] = useState<string | null>(null)
 
   useEffect(() => {
@@ -77,33 +79,63 @@ export function SurveyResponsesTab({
         setGroupId(gId)
         logger.log('📋 SurveyTab: groupData found', { groupId: gId, organizationId })
 
-        const { data: membersRaw } = await supabase
+        // メンバー情報を取得
+        const { data: membersRaw, error: membersError } = await supabase
           .from('private_group_members')
-          .select('id, guest_name, user_id')
+          .select('id, guest_name, guest_email, user_id')
           .eq('group_id', gId)
-
-        // user_idがあるメンバーの表示名を取得
-        const userIds = (membersRaw || []).filter((m: any) => m.user_id).map((m: any) => m.user_id)
-        let userNames: Record<string, string> = {}
         
+        if (membersError) {
+          logger.warn('📋 SurveyTab: メンバー情報取得エラー:', membersError)
+        }
+        
+        logger.log('📋 SurveyTab: メンバー取得結果', { count: membersRaw?.length, data: membersRaw })
+
+        // user_idがあるメンバーのニックネームをcustomersテーブルから取得
+        const userIds = (membersRaw || [])
+          .filter((m: any) => m.user_id)
+          .map((m: any) => m.user_id)
+        
+        let customerNicknames: Record<string, string> = {}
         if (userIds.length > 0) {
-          const { data: usersData } = await supabase
-            .from('users')
-            .select('id, email, display_name')
-            .in('id', userIds)
-          
-          if (usersData) {
-            usersData.forEach((u: any) => {
-              userNames[u.id] = u.display_name || u.email?.split('@')[0] || ''
-            })
+          try {
+            const { data: customers, error: custError } = await supabase
+              .from('customers')
+              .select('user_id, nickname, name')
+              .in('user_id', userIds)
+            
+            if (custError) {
+              logger.warn('📋 SurveyTab: 顧客ニックネーム取得エラー:', custError)
+            } else if (customers) {
+              customers.forEach((c: any) => {
+                // ニックネーム優先、なければ氏名
+                customerNicknames[c.user_id] = c.nickname || c.name || null
+              })
+              logger.log('📋 SurveyTab: 顧客ニックネーム取得結果', customerNicknames)
+            }
+          } catch (err) {
+            logger.warn('📋 SurveyTab: 顧客ニックネーム取得で例外:', err)
           }
         }
 
-        const membersData = (membersRaw || []).map((m: any) => ({
-          id: m.id,
-          guest_name: m.guest_name || (m.user_id ? userNames[m.user_id] : null),
-          user_id: m.user_id,
-        }))
+        const membersData = (membersRaw || []).map((m: any) => {
+          // 名前の優先順位: customersのnickname/name > guest_name > guest_emailのローカル部分
+          let name = null
+          if (m.user_id && customerNicknames[m.user_id]) {
+            name = customerNicknames[m.user_id]
+          }
+          if (!name && m.guest_name) {
+            name = m.guest_name
+          }
+          if (!name && m.guest_email) {
+            name = m.guest_email.split('@')[0]
+          }
+          return {
+            id: m.id,
+            guest_name: name || '参加者',
+            user_id: m.user_id,
+          }
+        })
         setMembers(membersData)
 
         let { data: orgScenario } = await supabase
@@ -145,6 +177,7 @@ export function SurveyResponsesTab({
           setCharacters(orgScenario.characters.map((c: any) => ({
             id: c.id,
             name: c.name,
+            url: c.url || null,
           })))
         }
 
@@ -203,27 +236,40 @@ export function SurveyResponsesTab({
     try {
       const member = members.find(m => m.id === memberId)
       const memberName = member?.guest_name || '参加者'
+      
+      // 選択されたキャラクターの情報を取得
+      const selectedCharId = selectedCharacters[memberId]
+      const selectedChar = selectedCharId ? characters.find(c => c.id === selectedCharId) : null
+      
+      // メッセージにキャラクターURLを含める
+      let fullMessage = message
+      if (selectedChar?.url) {
+        fullMessage = `${message}\n\n【${selectedChar.name}の資料】\n${selectedChar.url}`
+      }
 
       // グループチャットにシステムメッセージとして送信
       const { error } = await supabase
         .from('private_group_messages')
         .insert({
           group_id: groupId,
-          sender_id: memberId, // メンバーIDを指定（表示用）
+          member_id: memberId,
           message: JSON.stringify({
             type: 'system',
             action: 'individual_notice',
             target_member_id: memberId,
             target_member_name: memberName,
-            message: message
-          }),
-          is_system: true
+            message: fullMessage,
+            character_id: selectedCharId || null,
+            character_name: selectedChar?.name || null,
+            character_url: selectedChar?.url || null,
+          })
         })
 
       if (error) throw error
 
       showToast.success(`${memberName}さんへのお知らせを送信しました`)
       setMessageInputs(prev => ({ ...prev, [memberId]: '' }))
+      setSelectedCharacters(prev => ({ ...prev, [memberId]: '' }))
     } catch (err) {
       logger.error('メッセージ送信エラー:', err)
       showToast.error('メッセージの送信に失敗しました')
@@ -412,6 +458,36 @@ export function SurveyResponsesTab({
                       <MessageSquare className="w-3 h-3" />
                       {memberName}さんへ個別にお知らせ
                     </p>
+                    
+                    {/* キャラクター選択（URLがあるキャラクターのみ表示） */}
+                    {characters.filter(c => c.url).length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                          <Link className="w-3 h-3" />
+                          資料URLを添付
+                        </p>
+                        <Select
+                          value={selectedCharacters[member.id] || 'none'}
+                          onValueChange={(value) => setSelectedCharacters(prev => ({
+                            ...prev,
+                            [member.id]: value === 'none' ? '' : value
+                          }))}
+                        >
+                          <SelectTrigger className="text-sm h-8">
+                            <SelectValue placeholder="キャラクターを選択（任意）" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">選択しない</SelectItem>
+                            {characters.filter(c => c.url).map(char => (
+                              <SelectItem key={char.id} value={char.id}>
+                                {char.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
                     <div className="flex gap-2">
                       <Textarea
                         placeholder="メッセージを入力..."

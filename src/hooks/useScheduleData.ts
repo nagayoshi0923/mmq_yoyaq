@@ -434,17 +434,53 @@ export function useScheduleData(currentDate: Date) {
 
   const [error, setError] = useState<string | null>(null)
 
-  // 店舗・シナリオ・スタッフのデータ（常にAPIから最新データを取得）
-  const [stores, setStores] = useState<Store[]>([])
-  const [storesLoading, setStoresLoading] = useState(true)
-  const [staff, setStaff] = useState<Staff[]>([])
-  const [staffLoading, setStaffLoading] = useState(true)
+  // 店舗・シナリオ・スタッフのデータ（キャッシュから初期化して即座に表示）
+  const [stores, setStores] = useState<Store[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleStores')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+  const [storesLoading, setStoresLoading] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleStores')
+      return !cached
+    } catch {
+      return true
+    }
+  })
+  const [staff, setStaff] = useState<Staff[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleStaff')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+  const [staffLoading, setStaffLoading] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleStaff')
+      return !cached
+    } catch {
+      return true
+    }
+  })
   
   // React Queryを使ってシナリオデータを取得（自動更新される）
   const { data: scenariosData = [], isLoading: scenariosLoading } = useScenariosQuery()
   
   // React Queryのデータをstateに同期（後方互換性のため）
-  const [scenarios, setScenarios] = useState<Scenario[]>([])
+  // キャッシュから初期化して即座に表示
+  const [scenarios, setScenarios] = useState<Scenario[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleScenarios')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
   const [orgScenarioOverrides, setOrgScenarioOverrides] = useState<Map<string, {
     duration?: number | null
     participation_fee?: number | null
@@ -530,12 +566,21 @@ export function useScheduleData(currentDate: Date) {
   }, [events])
 
   // 初期データを並列で読み込む（高速化）
+  // キャッシュがある場合はバックグラウンドで更新、ない場合のみローディング表示
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        // 常にローディング状態にする（APIから最新データを取得）
-        setStoresLoading(true)
-        setStaffLoading(true)
+        // キャッシュがない場合のみローディング状態にする
+        // キャッシュがある場合はバックグラウンドで静かに更新
+        const hasCachedStores = stores.length > 0
+        const hasCachedStaff = staff.length > 0
+        
+        if (!hasCachedStores) {
+          setStoresLoading(true)
+        }
+        if (!hasCachedStaff) {
+          setStaffLoading(true)
+        }
         
         // 店舗・スタッフを並列で読み込み（シナリオはReact Queryが管理）
         // includeTemporary: false で通常の店舗のみ取得（臨時会場は useTemporaryVenues で管理）
@@ -590,6 +635,7 @@ export function useScheduleData(currentDate: Date) {
     }
     
     loadInitialData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   
 
@@ -600,7 +646,11 @@ export function useScheduleData(currentDate: Date) {
     
     const loadEvents = async () => {
       try {
-        setIsLoading(true)
+        // キャッシュがない場合のみローディング状態にする
+        // キャッシュがある場合はバックグラウンドで静かに更新
+        if (events.length === 0) {
+          setIsLoading(true)
+        }
         setError(null)
         
         const year = currentDate.getFullYear()

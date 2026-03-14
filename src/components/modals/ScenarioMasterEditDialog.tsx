@@ -53,6 +53,7 @@ interface ScenarioCharacter {
   name: string
   description: string | null
   image_url: string | null
+  url: string | null
   sort_order: number
   is_new?: boolean
 }
@@ -429,6 +430,7 @@ export function ScenarioMasterEditDialog({
       name: '',
       description: '',
       image_url: '',
+      url: '',
       sort_order: characters.length,
       is_new: true
     }
@@ -940,6 +942,11 @@ export function ScenarioMasterEditDialog({
                         onChange={(e) => updateCharacter(index, 'description', e.target.value)}
                         placeholder="説明（ネタバレなし）"
                         rows={2}
+                      />
+                      <Input
+                        value={char.url || ''}
+                        onChange={(e) => updateCharacter(index, 'url', e.target.value)}
+                        placeholder="関連URL（資料等）"
                       />
                     </div>
                     <button
