@@ -861,7 +861,8 @@ export default function MyPage() {
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   // タブごとのカウント
-  const activePrivateGroups = privateGroups.filter(g => ['gathering', 'booking_requested'].includes(g.status))
+  // 表示するグループ: gathering（日程調整前）, date_adjusting（日程調整中）, booking_requested（申込済み）, confirmed（確定済み）
+  const activePrivateGroups = privateGroups.filter(g => ['gathering', 'date_adjusting', 'booking_requested', 'confirmed'].includes(g.status))
   const getCounts = () => ({
     reservations: upcomingReservations.length + pendingPrivateBookings.length + activePrivateGroups.length,
     album: playedScenarios.length,
@@ -984,19 +985,23 @@ export default function MyPage() {
             {activeTab === 'reservations' && (
               <div className="space-y-4">
                 {/* 貸切リクエスト（グループベース） */}
-                {privateGroups.filter(g => ['gathering', 'booking_requested'].includes(g.status)).length > 0 && (
+                {privateGroups.filter(g => ['gathering', 'date_adjusting', 'booking_requested', 'confirmed'].includes(g.status)).length > 0 && (
                   <>
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="w-4 h-4 text-purple-600" />
                       <h3 className="text-sm font-bold text-gray-700">貸切リクエスト</h3>
                     </div>
-                    {privateGroups.filter(g => ['gathering', 'booking_requested'].includes(g.status)).map((group) => {
+                    {privateGroups.filter(g => ['gathering', 'date_adjusting', 'booking_requested', 'confirmed'].includes(g.status)).map((group) => {
                       const getGroupStatusLabel = (status: string) => {
                         switch (status) {
                           case 'gathering':
                             return '日程調整前'
-                          case 'booking_requested':
+                          case 'date_adjusting':
                             return '日程調整中'
+                          case 'booking_requested':
+                            return '申込済み'
+                          case 'confirmed':
+                            return '確定'
                           default:
                             return status
                         }
