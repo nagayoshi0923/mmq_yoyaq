@@ -102,6 +102,20 @@ export default function MyPage() {
   const [editingScenario, setEditingScenario] = useState<PlayedScenario | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [showHiddenItems, setShowHiddenItems] = useState(false)
+  const [editingDate, setEditingDate] = useState<string>('')
+  const [isEditingDate, setIsEditingDate] = useState(false)
+  
+  // 削除したプレイ履歴（予約ベース用、localStorageで管理）
+  const [deletedPlays, setDeletedPlays] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('deleted_played_scenarios')
+    return saved ? new Set(JSON.parse(saved)) : new Set()
+  })
+  
+  // 日付オーバーライド（予約ベース用、localStorageで管理）
+  const [dateOverrides, setDateOverrides] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem('played_scenarios_date_overrides')
+    return saved ? JSON.parse(saved) : {}
+  })
   
   // 選択肢用データ
   const [scenarioOptions, setScenarioOptions] = useState<ScenarioOption[]>([])
@@ -651,16 +665,97 @@ export default function MyPage() {
     showToast.success('アルバムに再表示しました')
   }
   
-  // 編集ダイアログを開く
-  const handleOpenEditDialog = (scenario: PlayedScenario) => {
-    setEditingScenario(scenario)
-    setIsEditDialogOpen(true)
-  }
-  
   // アイテムが非表示かどうか
   const isScenarioHidden = (scenario: PlayedScenario) => {
     const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
     return hiddenPlays.has(key)
+  }
+  
+  // アイテムが削除済みかどうか
+  const isScenarioDeleted = (scenario: PlayedScenario) => {
+    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    return deletedPlays.has(key)
+  }
+  
+  // 予約ベースのプレイ履歴を削除
+  const handleDeleteReservationHistory = (scenario: PlayedScenario) => {
+    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    setDeletedPlays(prev => {
+      const newSet = new Set(prev)
+      newSet.add(key)
+      localStorage.setItem('deleted_played_scenarios', JSON.stringify(Array.from(newSet)))
+      return newSet
+    })
+    // 非表示からも削除（重複を避ける）
+    setHiddenPlays(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(key)
+      localStorage.setItem('hidden_played_scenarios', JSON.stringify(Array.from(newSet)))
+      return newSet
+    })
+    setIsEditDialogOpen(false)
+    setEditingScenario(null)
+    showToast.success('履歴を削除しました')
+  }
+  
+  // 削除した履歴を復元
+  const handleRestoreDeletedHistory = (scenario: PlayedScenario) => {
+    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    setDeletedPlays(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(key)
+      localStorage.setItem('deleted_played_scenarios', JSON.stringify(Array.from(newSet)))
+      return newSet
+    })
+    setIsEditDialogOpen(false)
+    setEditingScenario(null)
+    showToast.success('履歴を復元しました')
+  }
+  
+  // 日付を更新（手動履歴）
+  const handleUpdateManualDate = async (manualId: string, newDate: string) => {
+    try {
+      const { error } = await supabase
+        .from('manual_play_history')
+        .update({ played_at: newDate })
+        .eq('id', manualId)
+      
+      if (error) throw error
+      
+      // ローカルステートを更新
+      setPlayedScenarios(prev => prev.map(p => 
+        p.manual_id === manualId ? { ...p, date: newDate } : p
+      ))
+      setIsEditingDate(false)
+      showToast.success('日付を更新しました')
+    } catch (error) {
+      logger.error('日付更新エラー:', error)
+      showToast.error('日付の更新に失敗しました')
+    }
+  }
+  
+  // 日付を更新（予約ベース、localStorageで管理）
+  const handleUpdateReservationDate = (scenario: PlayedScenario, newDate: string) => {
+    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    const newOverrides = { ...dateOverrides, [key]: newDate }
+    setDateOverrides(newOverrides)
+    localStorage.setItem('played_scenarios_date_overrides', JSON.stringify(newOverrides))
+    
+    // ローカルステートも更新
+    setPlayedScenarios(prev => prev.map(p => {
+      const pKey = p.reservation_id || `${p.scenario}-${p.date}`
+      return pKey === key ? { ...p, date: newDate } : p
+    }))
+    setIsEditingDate(false)
+    showToast.success('日付を更新しました')
+  }
+  
+  // 編集ダイアログを開く
+  const handleOpenEditDialog = (scenario: PlayedScenario) => {
+    setEditingScenario(scenario)
+    setEditingDate(scenario.date || '')
+    setIsEditingDate(false)
+    setIsEditDialogOpen(true)
   }
 
   // 日付フォーマット
@@ -1412,7 +1507,7 @@ export default function MyPage() {
                         <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
                         プレイ済みシナリオ
                       </h2>
-                      {hiddenPlays.size > 0 && (
+                      {(hiddenPlays.size > 0 || deletedPlays.size > 0) && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1420,7 +1515,7 @@ export default function MyPage() {
                           onClick={() => setShowHiddenItems(!showHiddenItems)}
                         >
                           {showHiddenItems ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                          <span className="text-xs">非表示 ({hiddenPlays.size})</span>
+                          <span className="text-xs">非表示/削除 ({hiddenPlays.size + deletedPlays.size})</span>
                         </Button>
                       )}
                     </div>
@@ -1430,20 +1525,23 @@ export default function MyPage() {
                         .filter(s => {
                           const key = s.reservation_id || `${s.scenario}-${s.date}`
                           const isHidden = hiddenPlays.has(key)
-                          return showHiddenItems ? true : !isHidden
+                          const isDeleted = deletedPlays.has(key)
+                          if (showHiddenItems) return true
+                          return !isHidden && !isDeleted
                         })
                         .map((scenario, index) => {
                         const isHidden = isScenarioHidden(scenario)
+                        const isDeleted = isScenarioDeleted(scenario)
                         return (
                         <div
                           key={index}
-                          className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative ${isHidden ? 'opacity-50' : ''}`}
+                          className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative ${isHidden || isDeleted ? 'opacity-50' : ''}`}
                           style={{ borderRadius: 0 }}
                         >
-                          {/* 非表示バッジ */}
-                          {isHidden && (
-                            <div className="absolute top-2 left-2 z-10 bg-gray-800/80 text-white text-xs px-2 py-0.5 rounded">
-                              非表示
+                          {/* ステータスバッジ */}
+                          {(isHidden || isDeleted) && (
+                            <div className={`absolute top-2 left-2 z-10 text-white text-xs px-2 py-0.5 rounded ${isDeleted ? 'bg-red-600/80' : 'bg-gray-800/80'}`}>
+                              {isDeleted ? '削除済み' : '非表示'}
                             </div>
                           )}
                           {/* 画像部分 */}
@@ -1536,7 +1634,10 @@ export default function MyPage() {
                 {/* アルバム編集ダイアログ */}
                 <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
                   setIsEditDialogOpen(open)
-                  if (!open) setEditingScenario(null)
+                  if (!open) {
+                    setEditingScenario(null)
+                    setIsEditingDate(false)
+                  }
                 }}>
                   <DialogContent className="sm:max-w-md">
                     <DialogHeader>
@@ -1562,54 +1663,125 @@ export default function MyPage() {
                               {editingScenario.scenario || '（タイトル不明）'}
                             </p>
                             <p className="text-sm text-gray-500">
-                              {editingScenario.date ? new Date(editingScenario.date).toLocaleDateString('ja-JP') : '日付不明'}
-                              {editingScenario.venue && editingScenario.venue !== '店舗情報なし' && ` @ ${editingScenario.venue}`}
+                              {editingScenario.venue && editingScenario.venue !== '店舗情報なし' && editingScenario.venue}
                             </p>
                           </div>
                         </div>
                         
-                        {/* アクションボタン */}
+                        {/* 日付編集 */}
                         <div className="space-y-2">
-                          {isScenarioHidden(editingScenario) ? (
+                          <Label className="text-sm font-medium">プレイした日付</Label>
+                          {isEditingDate ? (
+                            <div className="flex gap-2">
+                              <SingleDatePopover
+                                date={editingDate}
+                                onDateChange={(date) => setEditingDate(date || '')}
+                                placeholder="日付を選択"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  if (editingScenario.is_manual && editingScenario.manual_id) {
+                                    handleUpdateManualDate(editingScenario.manual_id, editingDate)
+                                  } else {
+                                    handleUpdateReservationDate(editingScenario, editingDate)
+                                  }
+                                }}
+                                disabled={!editingDate}
+                              >
+                                保存
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setIsEditingDate(false)
+                                  setEditingDate(editingScenario.date || '')
+                                }}
+                              >
+                                キャンセル
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-700">
+                                {editingScenario.date ? new Date(editingScenario.date).toLocaleDateString('ja-JP') : '日付不明'}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setIsEditingDate(true)}
+                              >
+                                <Pencil className="h-4 w-4 mr-1" />
+                                編集
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* アクションボタン */}
+                        <div className="space-y-2 pt-2 border-t">
+                          {/* 削除済みの場合は復元ボタン */}
+                          {isScenarioDeleted(editingScenario) ? (
                             <Button
                               variant="outline"
                               className="w-full justify-start gap-3"
-                              onClick={() => handleShowInAlbum(editingScenario)}
+                              onClick={() => handleRestoreDeletedHistory(editingScenario)}
                             >
                               <Eye className="h-4 w-4 text-green-600" />
-                              <span>アルバムに再表示する</span>
+                              <span>履歴を復元する</span>
                             </Button>
                           ) : (
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start gap-3"
-                              onClick={() => handleHideFromAlbum(editingScenario)}
-                            >
-                              <EyeOff className="h-4 w-4 text-gray-500" />
-                              <span>アルバムから非表示にする</span>
-                            </Button>
-                          )}
-                          
-                          {editingScenario.is_manual && editingScenario.manual_id && (
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => {
-                                if (confirm('この履歴を完全に削除しますか？この操作は取り消せません。')) {
-                                  handleDeleteManualHistory(editingScenario.manual_id!)
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span>履歴を削除する</span>
-                            </Button>
+                            <>
+                              {/* 非表示/表示ボタン */}
+                              {isScenarioHidden(editingScenario) ? (
+                                <Button
+                                  variant="outline"
+                                  className="w-full justify-start gap-3"
+                                  onClick={() => handleShowInAlbum(editingScenario)}
+                                >
+                                  <Eye className="h-4 w-4 text-green-600" />
+                                  <span>アルバムに再表示する</span>
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  className="w-full justify-start gap-3"
+                                  onClick={() => handleHideFromAlbum(editingScenario)}
+                                >
+                                  <EyeOff className="h-4 w-4 text-gray-500" />
+                                  <span>アルバムから非表示にする</span>
+                                </Button>
+                              )}
+                              
+                              {/* 削除ボタン */}
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => {
+                                  const message = editingScenario.is_manual
+                                    ? 'この履歴を完全に削除しますか？この操作は取り消せません。'
+                                    : 'この履歴を削除しますか？'
+                                  if (confirm(message)) {
+                                    if (editingScenario.is_manual && editingScenario.manual_id) {
+                                      handleDeleteManualHistory(editingScenario.manual_id)
+                                    } else {
+                                      handleDeleteReservationHistory(editingScenario)
+                                    }
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span>履歴を削除する</span>
+                              </Button>
+                            </>
                           )}
                         </div>
                         
                         <p className="text-xs text-gray-400">
                           {editingScenario.is_manual 
                             ? '手動で追加した履歴です。削除すると完全に消去されます。'
-                            : '予約履歴からの記録です。非表示にしてもデータは保持されます。'}
+                            : '予約履歴からの記録です。削除しても「非表示/削除」から復元できます。'}
                         </p>
                       </div>
                     )}
