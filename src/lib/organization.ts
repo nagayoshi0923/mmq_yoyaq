@@ -15,6 +15,10 @@ const STAFF_SELECT_FIELDS =
 // クインズワルツの organization_id（固定値）
 export const QUEENS_WALTZ_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 
+// 現在のユーザーのorganization_idキャッシュ（パフォーマンス最適化）
+let currentOrgIdCache: { userId: string; orgId: string; timestamp: number } | null = null
+const CURRENT_ORG_CACHE_TTL = 60 * 1000 // 1分
+
 /**
  * 現在のユーザーの organization_id を取得
  * まず users テーブルから取得し、なければ staff テーブルにフォールバック
@@ -22,6 +26,13 @@ export const QUEENS_WALTZ_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 export async function getCurrentOrganizationId(): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
+
+  // キャッシュをチェック
+  if (currentOrgIdCache && 
+      currentOrgIdCache.userId === user.id && 
+      Date.now() - currentOrgIdCache.timestamp < CURRENT_ORG_CACHE_TTL) {
+    return currentOrgIdCache.orgId
+  }
 
   // まず users テーブルから取得（高速・406エラー回避）
   try {
@@ -32,6 +43,7 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
       .maybeSingle()
     
     if (userData?.organization_id) {
+      currentOrgIdCache = { userId: user.id, orgId: userData.organization_id, timestamp: Date.now() }
       return userData.organization_id
     }
   } catch (err) {
@@ -48,6 +60,7 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
       .maybeSingle()
 
     if (staff?.organization_id) {
+      currentOrgIdCache = { userId: user.id, orgId: staff.organization_id, timestamp: Date.now() }
       return staff.organization_id
     }
   } catch (err) {
@@ -61,6 +74,7 @@ export async function getCurrentOrganizationId(): Promise<string | null> {
     if (error) {
       logger.warn('getCurrentOrganizationId: rpc get_user_organization_id failed', error)
     } else if (orgId) {
+      currentOrgIdCache = { userId: user.id, orgId: String(orgId), timestamp: Date.now() }
       return String(orgId)
     }
   } catch (err) {
@@ -180,7 +194,17 @@ export async function updateOrganization(
 /**
  * slug から組織を取得
  */
+// 組織キャッシュ（パフォーマンス最適化）
+const orgCacheBySlug: Map<string, { data: Organization; timestamp: number }> = new Map()
+const ORG_CACHE_TTL = 5 * 60 * 1000 // 5分
+
 export async function getOrganizationBySlug(slug: string): Promise<Organization | null> {
+  // キャッシュをチェック
+  const cached = orgCacheBySlug.get(slug)
+  if (cached && Date.now() - cached.timestamp < ORG_CACHE_TTL) {
+    return cached.data
+  }
+
   const { data, error } = await supabase
     .from('organizations')
     .select(ORGANIZATION_SELECT_FIELDS)
@@ -190,6 +214,11 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
   if (error) {
     logger.error('Failed to fetch organization by slug:', error)
     return null
+  }
+
+  // キャッシュに保存
+  if (data) {
+    orgCacheBySlug.set(slug, { data: data as Organization, timestamp: Date.now() })
   }
 
   return data as Organization
