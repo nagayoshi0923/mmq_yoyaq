@@ -499,11 +499,19 @@ export function PrivateBookingManagement() {
                 selectedGMId={selectedGMId}
                 conflictInfo={conflictInfo}
                 gmSelectedCandidates={
-                  // GMが回答した候補を参考表示（紫色で表示）
-                  selectedRequest.gm_responses && 
-                  selectedRequest.gm_responses.length > 0
-                    ? (selectedRequest.gm_responses[0].available_candidates || []).map(idx => idx + 1) // 0始まり→1始まりに変換
-                    : undefined
+                  // 選択されたGMが回答した候補を参考表示（紫色で表示）
+                  (() => {
+                    if (!selectedRequest.gm_responses || selectedRequest.gm_responses.length === 0) {
+                      return undefined
+                    }
+                    // 選択されたGMの回答を取得
+                    const selectedGMResponse = selectedGMId 
+                      ? selectedRequest.gm_responses.find(r => r.staff_id === selectedGMId)
+                      : selectedRequest.gm_responses[0]
+                    return selectedGMResponse?.available_candidates 
+                      ? selectedGMResponse.available_candidates.map(idx => idx + 1) // 0始まり→1始まりに変換
+                      : undefined
+                  })()
                 }
                 gmResponses={availableGMs} // 全GMの回答情報を渡す
                 isReadOnly={selectedRequest.status === 'confirmed'} // 確定済みの場合のみ編集不可
