@@ -87,6 +87,7 @@ export function PrivateGroupInvite() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [contactMessage, setContactMessage] = useState('')
   const [showContactForm, setShowContactForm] = useState(false)
+  const [isSubmittingContact, setIsSubmittingContact] = useState(false)
   
   // メンバー招待シート
   const [showInviteSheet, setShowInviteSheet] = useState(false)
@@ -1350,34 +1351,76 @@ export function PrivateGroupInvite() {
                         />
                       </div>
                       
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          className="flex-1 gap-2"
-                          onClick={async () => {
-                            const replyEmail = organizerMember?.guest_email || user?.email || ''
-                            const fullMessage = `返信先メールアドレス: ${replyEmail}\n\n${contactMessage}`
-                            try {
-                              await navigator.clipboard.writeText(fullMessage)
-                              toast.success('コピーしました')
-                            } catch {
-                              toast.error('コピーに失敗しました')
+                      <Button
+                        className="w-full gap-2"
+                        disabled={isSubmittingContact || contactMessage.length < 10}
+                        onClick={async () => {
+                          if (contactMessage.length < 10) {
+                            toast.error('問い合わせ内容を10文字以上で入力してください')
+                            return
+                          }
+                          
+                          setIsSubmittingContact(true)
+                          try {
+                            const { data: org } = await supabase
+                              .from('organizations')
+                              .select('id, name, contact_email')
+                              .eq('id', group.organization_id)
+                              .single()
+                            
+                            if (!org?.contact_email) {
+                              toast.error('組織の問い合わせ先が設定されていません')
+                              return
                             }
-                          }}
-                        >
-                          <Copy className="h-4 w-4" />
-                          コピー
-                        </Button>
-                        <Button
-                          className="flex-1 gap-2"
-                          onClick={() => {
-                            window.open('https://queens-waltz.com/contact', '_blank')
-                          }}
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          問い合わせる
-                        </Button>
-                      </div>
+                            
+                            const replyEmail = organizerMember?.guest_email || user?.email || ''
+                            const replyName = organizerMember?.guest_name || user?.name || '貸切予約者'
+                            
+                            const { data, error } = await supabase.functions.invoke('send-contact-inquiry', {
+                              body: {
+                                organizationId: org.id,
+                                organizationName: org.name,
+                                contactEmail: org.contact_email,
+                                name: replyName,
+                                email: replyEmail,
+                                type: 'private',
+                                subject: `【貸切予約のお問い合わせ】${group.invite_code}`,
+                                message: contactMessage,
+                              }
+                            })
+                            
+                            if (error || (data && !data.success)) {
+                              throw new Error(data?.error || '送信に失敗しました')
+                            }
+                            
+                            toast.success('問い合わせを送信しました')
+                            setShowContactForm(false)
+                            setContactMessage('')
+                          } catch (err) {
+                            logger.error('問い合わせ送信エラー:', err)
+                            toast.error('送信に失敗しました。時間をおいて再度お試しください。')
+                          } finally {
+                            setIsSubmittingContact(false)
+                          }
+                        }}
+                      >
+                        {isSubmittingContact ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            送信中...
+                          </>
+                        ) : (
+                          <>
+                            <MessageCircle className="h-4 w-4" />
+                            問い合わせる
+                          </>
+                        )}
+                      </Button>
+                      {contactMessage.length > 0 && contactMessage.length < 10 && (
+                        <p className="text-xs text-red-500 text-center">
+                          あと{10 - contactMessage.length}文字必要です
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
