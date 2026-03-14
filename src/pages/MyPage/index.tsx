@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, UserPlus } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, Eye, UserPlus, MoreVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
@@ -97,6 +97,11 @@ export default function MyPage() {
   const [newPlayedAt, setNewPlayedAt] = useState('')
   const [newStoreId, setNewStoreId] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // アルバム編集ダイアログ用ステート
+  const [editingScenario, setEditingScenario] = useState<PlayedScenario | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [showHiddenItems, setShowHiddenItems] = useState(false)
   
   // 選択肢用データ
   const [scenarioOptions, setScenarioOptions] = useState<ScenarioOption[]>([])
@@ -595,8 +600,6 @@ export default function MyPage() {
 
   // 手動登録を削除
   const handleDeleteManualHistory = async (manualId: string) => {
-    if (!confirm('この履歴を削除しますか？')) return
-
     try {
       const { error } = await supabase
         .from('manual_play_history')
@@ -607,6 +610,8 @@ export default function MyPage() {
 
       showToast.success('削除しました')
       setPlayedScenarios(prev => prev.filter(p => p.manual_id !== manualId))
+      setIsEditDialogOpen(false)
+      setEditingScenario(null)
     } catch (error) {
       logger.error('手動履歴削除エラー:', error)
       showToast.error('削除に失敗しました')
@@ -627,7 +632,35 @@ export default function MyPage() {
       localStorage.setItem('hidden_played_scenarios', JSON.stringify(Array.from(newSet)))
       return newSet
     })
+    setIsEditDialogOpen(false)
+    setEditingScenario(null)
     showToast.success('アルバムから非表示にしました')
+  }
+  
+  // アルバムで再表示
+  const handleShowInAlbum = (scenario: PlayedScenario) => {
+    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    setHiddenPlays(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(key)
+      localStorage.setItem('hidden_played_scenarios', JSON.stringify(Array.from(newSet)))
+      return newSet
+    })
+    setIsEditDialogOpen(false)
+    setEditingScenario(null)
+    showToast.success('アルバムに再表示しました')
+  }
+  
+  // 編集ダイアログを開く
+  const handleOpenEditDialog = (scenario: PlayedScenario) => {
+    setEditingScenario(scenario)
+    setIsEditDialogOpen(true)
+  }
+  
+  // アイテムが非表示かどうか
+  const isScenarioHidden = (scenario: PlayedScenario) => {
+    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    return hiddenPlays.has(key)
   }
 
   // 日付フォーマット
@@ -1372,28 +1405,47 @@ export default function MyPage() {
                 </div>
 
                 {/* シナリオグリッド */}
-                {playedScenarios.filter(s => {
-                  const key = s.reservation_id || `${s.scenario}-${s.date}`
-                  return !hiddenPlays.has(key)
-                }).length > 0 ? (
+                {playedScenarios.length > 0 ? (
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
-                      プレイ済みシナリオ
-                    </h2>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
+                        プレイ済みシナリオ
+                      </h2>
+                      {hiddenPlays.size > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-500 gap-1"
+                          onClick={() => setShowHiddenItems(!showHiddenItems)}
+                        >
+                          {showHiddenItems ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                          <span className="text-xs">非表示 ({hiddenPlays.size})</span>
+                        </Button>
+                      )}
+                    </div>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       {playedScenarios
                         .filter(s => {
                           const key = s.reservation_id || `${s.scenario}-${s.date}`
-                          return !hiddenPlays.has(key)
+                          const isHidden = hiddenPlays.has(key)
+                          return showHiddenItems ? true : !isHidden
                         })
-                        .map((scenario, index) => (
+                        .map((scenario, index) => {
+                        const isHidden = isScenarioHidden(scenario)
+                        return (
                         <div
                           key={index}
-                          className="overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative"
+                          className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative ${isHidden ? 'opacity-50' : ''}`}
                           style={{ borderRadius: 0 }}
                         >
+                          {/* 非表示バッジ */}
+                          {isHidden && (
+                            <div className="absolute top-2 left-2 z-10 bg-gray-800/80 text-white text-xs px-2 py-0.5 rounded">
+                              非表示
+                            </div>
+                          )}
                           {/* 画像部分 */}
                           <div 
                             className="aspect-[4/3] relative bg-gray-100 cursor-pointer"
@@ -1446,31 +1498,24 @@ export default function MyPage() {
                                   <p className="text-xs text-gray-400 mt-0.5 truncate">{scenario.venue}</p>
                                 )}
                               </div>
-                              {/* 削除/非表示ボタン */}
+                              {/* 編集ボタン */}
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
+                                className="h-7 w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-100"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  if (scenario.is_manual && scenario.manual_id) {
-                                    handleDeleteManualHistory(scenario.manual_id)
-                                  } else {
-                                    handleHideFromAlbum(scenario)
-                                  }
+                                  handleOpenEditDialog(scenario)
                                 }}
-                                title={scenario.is_manual ? '削除' : '非表示にする'}
+                                title="編集"
                               >
-                                {scenario.is_manual ? (
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                ) : (
-                                  <EyeOff className="h-4 w-4 text-gray-500" />
-                                )}
+                                <MoreVertical className="h-4 w-4 text-gray-500" />
                               </Button>
                             </div>
                           </div>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 ) : (
@@ -1487,6 +1532,89 @@ export default function MyPage() {
                     </p>
                   </div>
                 )}
+                
+                {/* アルバム編集ダイアログ */}
+                <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+                  setIsEditDialogOpen(open)
+                  if (!open) setEditingScenario(null)
+                }}>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>プレイ履歴の編集</DialogTitle>
+                    </DialogHeader>
+                    {editingScenario && (
+                      <div className="space-y-4 pt-2">
+                        {/* シナリオ情報 */}
+                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          {editingScenario.key_visual_url ? (
+                            <img 
+                              src={editingScenario.key_visual_url} 
+                              alt={editingScenario.scenario}
+                              className="w-16 h-12 object-cover rounded"
+                            />
+                          ) : (
+                            <div className="w-16 h-12 bg-gray-200 rounded flex items-center justify-center">
+                              <span className="text-xl opacity-50">🎭</span>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate">
+                              {editingScenario.scenario || '（タイトル不明）'}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {editingScenario.date ? new Date(editingScenario.date).toLocaleDateString('ja-JP') : '日付不明'}
+                              {editingScenario.venue && editingScenario.venue !== '店舗情報なし' && ` @ ${editingScenario.venue}`}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* アクションボタン */}
+                        <div className="space-y-2">
+                          {isScenarioHidden(editingScenario) ? (
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start gap-3"
+                              onClick={() => handleShowInAlbum(editingScenario)}
+                            >
+                              <Eye className="h-4 w-4 text-green-600" />
+                              <span>アルバムに再表示する</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start gap-3"
+                              onClick={() => handleHideFromAlbum(editingScenario)}
+                            >
+                              <EyeOff className="h-4 w-4 text-gray-500" />
+                              <span>アルバムから非表示にする</span>
+                            </Button>
+                          )}
+                          
+                          {editingScenario.is_manual && editingScenario.manual_id && (
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                if (confirm('この履歴を完全に削除しますか？この操作は取り消せません。')) {
+                                  handleDeleteManualHistory(editingScenario.manual_id!)
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span>履歴を削除する</span>
+                            </Button>
+                          )}
+                        </div>
+                        
+                        <p className="text-xs text-gray-400">
+                          {editingScenario.is_manual 
+                            ? '手動で追加した履歴です。削除すると完全に消去されます。'
+                            : '予約履歴からの記録です。非表示にしてもデータは保持されます。'}
+                        </p>
+                      </div>
+                    )}
+                  </DialogContent>
+                </Dialog>
               </div>
             )}
 
