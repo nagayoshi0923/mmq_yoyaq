@@ -474,9 +474,9 @@ export function PrivateGroupInvite() {
     }
   }
 
-  // グループ削除（主催者かつgatheringステータスのみ）
+  // グループ削除（主催者かつgatheringまたはcancelledステータスのみ）
   const handleDeleteGroup = async () => {
-    if (!group || !isOrganizer || group.status !== 'gathering') return
+    if (!group || !isOrganizer || (group.status !== 'gathering' && group.status !== 'cancelled')) return
     
     setIsDeleting(true)
     try {
@@ -1293,8 +1293,8 @@ export function PrivateGroupInvite() {
                   </div>
                 </div>
                 
-                {/* 削除オプション（gatheringステータスのみ） */}
-                {group.status === 'gathering' && (
+                {/* 削除オプション（gatheringまたはcancelledステータスのみ） */}
+                {(group.status === 'gathering' || group.status === 'cancelled') && (
                   <div className="space-y-2">
                     <h4 className="font-medium text-sm text-red-600">危険な操作</h4>
                     <Button
@@ -1315,13 +1315,15 @@ export function PrivateGroupInvite() {
                       <span>グループを削除する</span>
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      日程リクエストを送信する前のグループのみ削除できます。
+                      {group.status === 'cancelled' 
+                        ? 'キャンセルされたグループを削除できます。'
+                        : '日程リクエストを送信する前のグループのみ削除できます。'}
                     </p>
                   </div>
                 )}
                 
                 {/* 削除不可の場合の説明 */}
-                {group.status !== 'gathering' && (
+                {group.status !== 'gathering' && group.status !== 'cancelled' && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p className="text-sm text-amber-800">
                       日程リクエスト送信済みのグループは削除できません。

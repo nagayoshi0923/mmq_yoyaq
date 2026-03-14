@@ -657,6 +657,31 @@ export const reservationApi = {
         .update({ status: 'cancelled' })
         .eq('id', reservation.private_group_id)
       clog.info('グループステータスをキャンセルに更新', { groupId: reservation.private_group_id })
+      
+      // システムメッセージ設定を取得
+      const { data: settings } = await supabase
+        .from('global_settings')
+        .select('system_msg_booking_cancelled_title, system_msg_booking_cancelled_body')
+        .eq('organization_id', reservation.organization_id)
+        .maybeSingle()
+      
+      const title = settings?.system_msg_booking_cancelled_title || 'ご予約がキャンセルされました'
+      const body = settings?.system_msg_booking_cancelled_body || cancellationReason || '誠に申し訳ございませんが、やむを得ない事情によりご予約がキャンセルとなりました。'
+      
+      // グループチャットにシステムメッセージを送信
+      await supabase
+        .from('private_group_messages')
+        .insert({
+          group_id: reservation.private_group_id,
+          sender_type: 'system',
+          content: JSON.stringify({
+            type: 'system',
+            action: 'booking_cancelled',
+            title,
+            body
+          })
+        })
+      clog.info('キャンセル通知をグループに送信', { groupId: reservation.private_group_id })
     }
 
     const { data, error } = await supabase

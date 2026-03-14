@@ -512,6 +512,32 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                     )
                   }
 
+                  // システムメッセージ（キャンセル通知）
+                  if (systemMsg && systemMsg.action === 'booking_cancelled') {
+                    return (
+                      <div key={msg.id} className="flex justify-center my-4">
+                        <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 w-full max-w-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center">
+                              <X className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">
+                                {systemMsg.title || 'ご予約がキャンセルされました'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(msg.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-2">
+                            {systemMsg.body || '誠に申し訳ございませんが、やむを得ない事情によりご予約がキャンセルとなりました。'}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  }
+
                   // 通常のメッセージ
                   return (
                     <div
