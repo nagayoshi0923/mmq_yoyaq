@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
@@ -84,6 +85,7 @@ export function PrivateGroupInvite() {
   // グループ設定シート
   const [showSettingsSheet, setShowSettingsSheet] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [contactMessage, setContactMessage] = useState('')
   
   // メンバー招待シート
   const [showInviteSheet, setShowInviteSheet] = useState(false)
@@ -831,7 +833,18 @@ export function PrivateGroupInvite() {
             {/* 設定（主催者のみ） */}
             {isOrganizer && (
               <button 
-                onClick={() => setShowSettingsSheet(true)}
+                onClick={() => {
+                  const statusText = group.status === 'confirmed' ? '確定' : group.status === 'booking_requested' ? '確定待ち' : '日程調整中'
+                  setContactMessage(`【予約情報】
+招待コード: ${group.invite_code}
+シナリオ: ${scenario?.title || '-'}
+参加人数: ${memberCount}名
+ステータス: ${statusText}
+
+【お問い合わせ内容】
+`)
+                  setShowSettingsSheet(true)
+                }}
                 className="p-1.5 hover:bg-gray-100 rounded"
               >
                 <Settings className="w-5 h-5 text-gray-600" />
@@ -1293,67 +1306,54 @@ export function PrivateGroupInvite() {
                   </div>
                 )}
                 
-                {/* 予約情報 */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">予約情報</h4>
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">招待コード</span>
-                      <span className="font-mono font-medium">{group.invite_code}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">シナリオ</span>
-                      <span className="font-medium truncate ml-2">{scenario?.title || '-'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">参加人数</span>
-                      <span className="font-medium">{memberCount}名</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">ステータス</span>
-                      <span className="font-medium">
-                        {group.status === 'confirmed' ? '確定' : group.status === 'booking_requested' ? '確定待ち' : '日程調整中'}
-                      </span>
-                    </div>
+                {/* 店舗への問い合わせ */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm">店舗への問い合わせ</h4>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-email" className="text-sm text-muted-foreground">
+                      返信先メールアドレス
+                    </Label>
+                    <Input
+                      id="contact-email"
+                      type="email"
+                      value={organizerMember?.guest_email || user?.email || ''}
+                      readOnly
+                      className="bg-gray-50"
+                    />
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-message" className="text-sm text-muted-foreground">
+                      お問い合わせ内容
+                    </Label>
+                    <Textarea
+                      id="contact-message"
+                      value={contactMessage}
+                      onChange={(e) => setContactMessage(e.target.value)}
+                      rows={8}
+                      placeholder="お問い合わせ内容を入力してください"
+                      className="resize-none"
+                    />
+                  </div>
+                  
                   <Button
-                    variant="outline"
-                    size="sm"
                     className="w-full gap-2"
-                    onClick={async () => {
-                      const info = `【予約情報】
-招待コード: ${group.invite_code}
-シナリオ: ${scenario?.title || '-'}
-参加人数: ${memberCount}名
-ステータス: ${group.status === 'confirmed' ? '確定' : group.status === 'booking_requested' ? '確定待ち' : '日程調整中'}
-URL: ${window.location.origin}/group/invite/${group.invite_code}`
-                      try {
-                        await navigator.clipboard.writeText(info)
-                        toast.success('予約情報をコピーしました')
-                      } catch {
-                        toast.error('コピーに失敗しました')
-                      }
+                    onClick={() => {
+                      const email = 'info@queens-waltz.com'
+                      const subject = encodeURIComponent(`【貸切予約のお問い合わせ】${group.invite_code}`)
+                      const replyEmail = organizerMember?.guest_email || user?.email || ''
+                      const body = encodeURIComponent(`${contactMessage}\n\n---\n返信先: ${replyEmail}`)
+                      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`
                     }}
                   >
-                    <Copy className="h-4 w-4" />
-                    予約情報をコピー
-                  </Button>
-                </div>
-                
-                {/* 問い合わせ */}
-                <div className="pt-2 border-t space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    キャンセルやご質問は予約情報をコピーしてお問い合わせください
-                  </p>
-                  <a
-                    href="https://queens-waltz.com/contact"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full px-4 py-2 border rounded-md hover:bg-gray-50 transition-colors"
-                  >
                     <MessageCircle className="h-4 w-4" />
-                    <span>店舗に問い合わせる</span>
-                  </a>
+                    メールで問い合わせる
+                  </Button>
+                  
+                  <p className="text-xs text-muted-foreground text-center">
+                    メールアプリが開きます
+                  </p>
                 </div>
               </div>
               
