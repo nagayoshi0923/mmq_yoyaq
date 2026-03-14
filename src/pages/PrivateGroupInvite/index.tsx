@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check, UserPlus, Copy, Share2, ArrowLeft } from 'lucide-react'
+import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check, UserPlus, Copy, Share2, ArrowLeft, Settings, Trash2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
@@ -80,6 +80,10 @@ export function PrivateGroupInvite() {
   
   // 申請用の選択日程
   const [selectedDatesForBooking, setSelectedDatesForBooking] = useState<Set<string>>(new Set())
+  
+  // グループ設定シート
+  const [showSettingsSheet, setShowSettingsSheet] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   
   // メンバー招待シート
   const [showInviteSheet, setShowInviteSheet] = useState(false)
@@ -447,6 +451,55 @@ export function PrivateGroupInvite() {
     }
   }
 
+  // グループ削除（主催者かつgatheringステータスのみ）
+  const handleDeleteGroup = async () => {
+    if (!group || !isOrganizer || group.status !== 'gathering') return
+    
+    setIsDeleting(true)
+    try {
+      // メンバーを全員削除
+      const { error: membersError } = await supabase
+        .from('private_group_members')
+        .delete()
+        .eq('group_id', group.id)
+      
+      if (membersError) throw membersError
+      
+      // 候補日を全て削除
+      const { error: datesError } = await supabase
+        .from('private_group_candidate_dates')
+        .delete()
+        .eq('group_id', group.id)
+      
+      if (datesError) throw datesError
+      
+      // メッセージを削除
+      const { error: messagesError } = await supabase
+        .from('private_group_messages')
+        .delete()
+        .eq('group_id', group.id)
+      
+      if (messagesError) throw messagesError
+      
+      // グループを削除
+      const { error: groupDeleteError } = await supabase
+        .from('private_groups')
+        .delete()
+        .eq('id', group.id)
+      
+      if (groupDeleteError) throw groupDeleteError
+      
+      toast.success('グループを削除しました')
+      setShowSettingsSheet(false)
+      navigate('/mypage')
+    } catch (err: any) {
+      logger.error('グループ削除エラー:', err)
+      toast.error('グループの削除に失敗しました')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   if (groupLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -775,6 +828,15 @@ export function PrivateGroupInvite() {
                 </span>
               )}
             </button>
+            {/* 設定（主催者のみ） */}
+            {isOrganizer && (
+              <button 
+                onClick={() => setShowSettingsSheet(true)}
+                className="p-1.5 hover:bg-gray-100 rounded"
+              >
+                <Settings className="w-5 h-5 text-gray-600" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -1143,6 +1205,103 @@ export function PrivateGroupInvite() {
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   チャットに戻る
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* グループ設定シート */}
+        {showSettingsSheet && isOrganizer && (
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowSettingsSheet(false)}>
+            <div 
+              className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* ハンドル（モバイルのみ） */}
+              <div className="flex justify-center py-2 shrink-0 lg:hidden">
+                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+              </div>
+              
+              {/* ヘッダー */}
+              <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
+                <h3 className="font-semibold">グループ設定</h3>
+                <button 
+                  onClick={() => setShowSettingsSheet(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+              
+              {/* コンテンツ */}
+              <div className="overflow-y-auto flex-1 p-4 space-y-4">
+                {/* グループ情報 */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    {scenario?.key_visual_url && (
+                      <img
+                        src={scenario.key_visual_url}
+                        alt={scenario.title || ''}
+                        className="w-12 h-12 object-cover rounded"
+                      />
+                    )}
+                    <div>
+                      <h4 className="font-medium">{scenario?.title || 'グループ'}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {memberCount}名参加 • 
+                        {group.status === 'confirmed' ? ' 確定' : group.status === 'booking_requested' ? ' 確定待ち' : ' 日程調整中'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* 削除オプション（gatheringステータスのみ） */}
+                {group.status === 'gathering' && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm text-red-600">危険な操作</h4>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                      onClick={() => {
+                        if (confirm('このグループを削除しますか？\n\nこの操作は取り消せません。グループのすべてのデータ（メンバー、候補日、メッセージ）が削除されます。')) {
+                          handleDeleteGroup()
+                        }
+                      }}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      <span>グループを削除する</span>
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      日程リクエストを送信する前のグループのみ削除できます。
+                    </p>
+                  </div>
+                )}
+                
+                {/* 削除不可の場合の説明 */}
+                {group.status !== 'gathering' && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="text-sm text-amber-800">
+                      日程リクエスト送信済みのグループは削除できません。
+                      {group.status === 'booking_requested' && 'キャンセルをご希望の場合は店舗にお問い合わせください。'}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              {/* フッター */}
+              <div className="p-4 border-t shrink-0">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSettingsSheet(false)}
+                  className="w-full"
+                >
+                  閉じる
                 </Button>
               </div>
             </div>
