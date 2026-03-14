@@ -24,7 +24,7 @@ import { SurveyResponseForm } from './components/SurveyResponseForm'
 
 interface Coupon {
   id: string
-  code: string
+  name: string
   discount_amount: number
   expires_at: string | null
   status: string
@@ -245,15 +245,34 @@ export function PrivateGroupInvite() {
 
         // 利用可能なクーポンを取得
         const { data: couponData, error } = await supabase
-          .from('coupons')
-          .select('id, code, discount_amount, expires_at, status')
+          .from('customer_coupons')
+          .select(`
+            id,
+            expires_at,
+            status,
+            uses_remaining,
+            coupon_campaigns (
+              id,
+              name,
+              discount_amount
+            )
+          `)
           .eq('customer_id', customer.id)
           .eq('status', 'active')
+          .gt('uses_remaining', 0)
           .or(`expires_at.is.null,expires_at.gte.${new Date().toISOString()}`)
-          .order('discount_amount', { ascending: false })
 
         if (error) throw error
-        setCoupons(couponData || [])
+        
+        // customer_coupons のデータを Coupon 形式に変換
+        const transformedCoupons: Coupon[] = (couponData || []).map((cc: any) => ({
+          id: cc.id,
+          name: cc.coupon_campaigns?.name || 'クーポン',
+          discount_amount: cc.coupon_campaigns?.discount_amount || 0,
+          expires_at: cc.expires_at,
+          status: cc.status,
+        }))
+        setCoupons(transformedCoupons)
       } catch (err) {
         logger.error('クーポン取得エラー:', err)
         setCoupons([])
@@ -2238,7 +2257,7 @@ export function PrivateGroupInvite() {
                         <SelectItem value="none">クーポンを使用しない</SelectItem>
                         {coupons.map((coupon) => (
                           <SelectItem key={coupon.id} value={coupon.id}>
-                            {coupon.code} - ¥{coupon.discount_amount.toLocaleString()}OFF
+                            {coupon.name} - ¥{coupon.discount_amount.toLocaleString()}OFF
                             {coupon.expires_at && (
                               <span className="text-xs text-muted-foreground ml-1">
                                 ({new Date(coupon.expires_at).toLocaleDateString('ja-JP')}まで)
