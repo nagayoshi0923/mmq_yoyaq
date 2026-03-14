@@ -346,6 +346,20 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           .update({ status: 'date_adjusting' })
           .eq('id', reservation.private_group_id)
         logger.log('グループステータスを候補日選択に戻す:', reservation.private_group_id)
+        
+        // グループチャットにシステムメッセージを送信
+        await supabase
+          .from('private_group_messages')
+          .insert({
+            group_id: reservation.private_group_id,
+            sender_type: 'system',
+            content: JSON.stringify({
+              type: 'system',
+              action: 'booking_rejected',
+              title: '日程リクエストが却下されました',
+              body: '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'
+            })
+          })
       }
 
       // 却下メール（貸切専用）を送信

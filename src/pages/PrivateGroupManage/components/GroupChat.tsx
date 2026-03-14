@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Send, Loader2, Calendar, CheckCircle2 } from 'lucide-react'
+import { Send, Loader2, Calendar, CheckCircle2, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -480,6 +480,32 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                           </div>
                           <p className="text-xs text-gray-600 mt-2">
                             {systemMsg.body || '店舗より日程確定のご連絡をいたしますので、しばらくお待ちください。'}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // システムメッセージ（却下通知）
+                  if (systemMsg && systemMsg.action === 'booking_rejected') {
+                    return (
+                      <div key={msg.id} className="flex justify-center my-4">
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 w-full max-w-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center">
+                              <X className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-red-800">
+                                {systemMsg.title || '日程リクエストが却下されました'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(msg.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-2">
+                            {systemMsg.body || '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'}
                           </p>
                         </div>
                       </div>
