@@ -215,9 +215,9 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
               const msgOrgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
               const { data: msgSettings } = await supabase
                 .from('global_settings')
-                .select('system_msg_booking_requested_title, system_msg_booking_requested_body')
+                .select('*')
                 .eq('organization_id', msgOrgId)
-                .single()
+                .maybeSingle()
               
               const systemMessage = JSON.stringify({
                 type: 'system',

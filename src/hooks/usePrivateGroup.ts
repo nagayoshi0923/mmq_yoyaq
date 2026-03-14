@@ -42,16 +42,36 @@ interface DateResponseParams {
   response: DateResponse
 }
 
-// システムメッセージ設定を取得
+// システムメッセージ設定を取得（カラムが存在しない場合も対応）
 async function getSystemMessageSettings(orgId: string) {
   try {
-    const { data } = await supabase
+    // まず全カラムを取得してから必要なものを抽出
+    const { data, error } = await supabase
       .from('global_settings')
-      .select('system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body')
+      .select('*')
       .eq('organization_id', orgId)
-      .single()
-    return data
-  } catch {
+      .maybeSingle()
+    
+    if (error) {
+      logger.warn('Failed to fetch system message settings:', error)
+      return null
+    }
+    
+    // データがない場合はnullを返す
+    if (!data) return null
+    
+    // 必要なフィールドのみ返す（存在しない場合はundefined）
+    return {
+      system_msg_group_created_title: data.system_msg_group_created_title,
+      system_msg_group_created_body: data.system_msg_group_created_body,
+      system_msg_group_created_note: data.system_msg_group_created_note,
+      system_msg_booking_requested_title: data.system_msg_booking_requested_title,
+      system_msg_booking_requested_body: data.system_msg_booking_requested_body,
+      system_msg_schedule_confirmed_title: data.system_msg_schedule_confirmed_title,
+      system_msg_schedule_confirmed_body: data.system_msg_schedule_confirmed_body,
+    }
+  } catch (err) {
+    logger.warn('Exception fetching system message settings:', err)
     return null
   }
 }
@@ -70,13 +90,19 @@ async function sendSystemMessage(
   })
 
   try {
-    await supabase.from('private_group_messages').insert({
+    const { error } = await supabase.from('private_group_messages').insert({
       group_id: groupId,
       member_id: memberId,
       message
     })
+    
+    if (error) {
+      logger.error('Failed to send system message - DB error:', error)
+    } else {
+      logger.log('System message sent successfully:', { groupId, action })
+    }
   } catch (err) {
-    logger.error('Failed to send system message', err)
+    logger.error('Failed to send system message - Exception:', err)
   }
 }
 

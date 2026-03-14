@@ -231,9 +231,9 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             // 設定からメッセージ文言を取得
             const { data: msgSettings } = await supabase
               .from('global_settings')
-              .select('system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body')
+              .select('*')
               .eq('organization_id', organizationId)
-              .single()
+              .maybeSingle()
             
             // 日程確定のシステムメッセージ
             const confirmedMessage = JSON.stringify({
@@ -265,9 +265,9 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 // 全体設定から事前読み込み通知メッセージを取得
                 const { data: globalSettings } = await supabase
                   .from('global_settings')
-                  .select('pre_reading_notice_message')
+                  .select('*')
                   .eq('organization_id', organizationId)
-                  .single()
+                  .maybeSingle()
 
                 const preReadingMessage = globalSettings?.pre_reading_notice_message || 
                   '【ご確認ください】\n\nこのシナリオには事前読み込みがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
