@@ -127,9 +127,10 @@ export function useStoreAndGMManagement() {
 
       // 2. スケジュールイベントを候補日付でフィルタリングして取得
       // ⚠️ 全件取得するとSupabaseの1000件制限に達する可能性があるため
+      // ⚠️ reservation_idも取得して、現在編集中の予約のイベントを除外する
       let scheduleQuery = supabase
         .from('schedule_events')
-        .select('id, store_id, date, start_time, end_time, scenario, gms, is_cancelled')
+        .select('id, store_id, date, start_time, end_time, scenario, gms, is_cancelled, reservation_id')
         .eq('is_cancelled', false)
 
       // 候補日付がある場合はフィルタリング
@@ -153,6 +154,12 @@ export function useStoreAndGMManagement() {
 
       scheduleEvents?.forEach(event => {
         if (!event.date || !event.start_time) return
+        
+        // 🔄 再承認の場合、同じ予約のイベントは除外（店舗・GM変更を可能にするため）
+        if (event.reservation_id === currentRequestId) {
+          logger.log(`🔄 自身の予約イベントを除外: ${event.id}`)
+          return
+        }
         
         const timeSlot = getTimeSlot(event.start_time)
         

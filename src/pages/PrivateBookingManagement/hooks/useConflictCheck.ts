@@ -94,9 +94,10 @@ export const useConflictCheck = () => {
       
       // 🚨 CRITICAL: 2つのテーブルから競合をチェック
       // 1. schedule_events テーブル（手動追加・インポートされた全公演）
+      // ただし、この予約に紐づくイベントは除外する（再承認時のため）
       const { data: allEvents, error: eventsError } = await supabase
         .from('schedule_events')
-        .select('id, scenario, date, start_time, end_time, store_id')
+        .select('id, scenario, date, start_time, end_time, store_id, reservation_id')
         .in('date', candidateDates)
         .eq('is_cancelled', false)
       
@@ -104,8 +105,13 @@ export const useConflictCheck = () => {
         logger.error('既存イベント取得エラー:', eventsError)
       } else if (allEvents && allEvents.length > 0) {
         logger.log(`既存イベント取得: ${allEvents.length}件`, allEvents)
-        // 既存イベントリストを作成
+        // 既存イベントリストを作成（この予約に紐づくイベントは除外）
         allEvents.forEach(event => {
+          // 再承認の場合、同じ予約のイベントは除外
+          if (event.reservation_id === reservationId) {
+            logger.log(`🔄 自身の予約イベントを除外: ${event.id}`)
+            return
+          }
           existingEventsList.push({
             id: event.id,
             scenario: event.scenario || '不明',
@@ -214,10 +220,13 @@ export const useConflictCheck = () => {
    * この関数は以下の2つのテーブルをチェックする必要があります：
    * 1. schedule_events テーブル（手動追加・インポートされた全公演）
    * 2. reservations テーブル（確定済み貸切予約でGMが割り当てられているもの）
+   * 
+   * @param reservationId - 現在編集中の予約ID（この予約は競合チェックから除外）
    */
   const loadGMConflicts = useCallback(async (
     gmId: string,
-    candidates: Array<{ date: string; timeSlot: string; startTime: string; endTime: string }>
+    candidates: Array<{ date: string; timeSlot: string; startTime: string; endTime: string }>,
+    reservationId?: string
   ) => {
     try {
       const gmDateConflictsSet = new Set<string>()
@@ -230,7 +239,7 @@ export const useConflictCheck = () => {
         // 🚨 CRITICAL: 1. schedule_eventsからGMの競合をチェック
         const { data: conflictEvents, error: conflictError } = await supabase
           .from('schedule_events')
-          .select('id, gms')
+          .select('id, gms, reservation_id')
           .eq('date', date)
           .eq('is_cancelled', false)
           .or(`start_time.lte.${sanitizeForPostgRestFilter(startTime) || startTime},end_time.gte.${sanitizeForPostgRestFilter(endTime) || endTime}`)
@@ -243,19 +252,30 @@ export const useConflictCheck = () => {
         let hasConflict = false
 
         if (conflictEvents && conflictEvents.length > 0) {
-          // GMリストに含まれているかチェック
-          hasConflict = conflictEvents.some(event => 
-            event.gms && Array.isArray(event.gms) && event.gms.includes(gmId)
-          )
+          // GMリストに含まれているかチェック（自身の予約は除外）
+          hasConflict = conflictEvents.some(event => {
+            // 再承認の場合、同じ予約のイベントは除外
+            if (reservationId && event.reservation_id === reservationId) {
+              return false
+            }
+            return event.gms && Array.isArray(event.gms) && event.gms.includes(gmId)
+          })
         }
 
         // 🚨 CRITICAL: 2. reservationsからGMの競合をチェック（確定済み貸切予約）
         if (!hasConflict) {
-          const { data: conflictReservations, error: reservationError } = await supabase
+          let reservationQuery = supabase
             .from('reservations')
             .select('id, gm_staff, event_datetime')
             .eq('status', 'confirmed')
             .eq('gm_staff', gmId)
+          
+          // 自分自身の予約は除外
+          if (reservationId) {
+            reservationQuery = reservationQuery.neq('id', reservationId)
+          }
+          
+          const { data: conflictReservations, error: reservationError } = await reservationQuery
 
           if (reservationError) {
             logger.error('GM予約競合チェックエラー:', reservationError)
