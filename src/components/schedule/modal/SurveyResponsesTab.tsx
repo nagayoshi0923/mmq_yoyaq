@@ -82,9 +82,26 @@ export function SurveyResponsesTab({
           .select('id, guest_name, user_id')
           .eq('group_id', gId)
 
+        // user_idがあるメンバーの表示名を取得
+        const userIds = (membersRaw || []).filter((m: any) => m.user_id).map((m: any) => m.user_id)
+        let userNames: Record<string, string> = {}
+        
+        if (userIds.length > 0) {
+          const { data: usersData } = await supabase
+            .from('users')
+            .select('id, email, display_name')
+            .in('id', userIds)
+          
+          if (usersData) {
+            usersData.forEach((u: any) => {
+              userNames[u.id] = u.display_name || u.email?.split('@')[0] || ''
+            })
+          }
+        }
+
         const membersData = (membersRaw || []).map((m: any) => ({
           id: m.id,
-          guest_name: m.guest_name,
+          guest_name: m.guest_name || (m.user_id ? userNames[m.user_id] : null),
           user_id: m.user_id,
         }))
         setMembers(membersData)

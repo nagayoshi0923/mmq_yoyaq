@@ -46,21 +46,38 @@ export function SurveyResponseForm({
 
   useEffect(() => {
     const loadSurveyData = async () => {
+      logger.log('📋 SurveyForm: loading', { groupId, memberId, scenarioId, organizationId })
+      
       if (!scenarioId || !organizationId) {
+        logger.log('📋 SurveyForm: missing scenarioId or organizationId')
         setLoading(false)
         return
       }
 
       try {
         // organization_scenariosからorg_scenario_idとdeadline_days、キャラクター情報を取得
-        const { data: orgScenario } = await supabase
+        // まずscenario_master_idで検索
+        let { data: orgScenario } = await supabase
           .from('organization_scenarios')
           .select('id, survey_enabled, survey_deadline_days, characters')
           .eq('scenario_master_id', scenarioId)
           .eq('organization_id', organizationId)
           .maybeSingle()
 
+        // 見つからなければidで検索（scenarioIdがorganization_scenario.idの場合）
+        if (!orgScenario) {
+          const { data: orgScenarioById } = await supabase
+            .from('organization_scenarios')
+            .select('id, survey_enabled, survey_deadline_days, characters')
+            .eq('id', scenarioId)
+            .maybeSingle()
+          orgScenario = orgScenarioById
+        }
+        
+        logger.log('📋 SurveyForm: orgScenario', { orgScenario, scenarioId })
+
         if (!orgScenario?.survey_enabled || !orgScenario.id) {
+          logger.log('📋 SurveyForm: survey not enabled or orgScenario not found')
           setLoading(false)
           return
         }
@@ -88,23 +105,27 @@ export function SurveyResponseForm({
         }
 
         // 質問を取得
-        const { data: questionsData } = await supabase
+        const { data: questionsData, error: questionsError } = await supabase
           .from('org_scenario_survey_questions')
           .select('*')
           .eq('org_scenario_id', orgScenario.id)
           .order('order_num', { ascending: true })
+
+        logger.log('📋 SurveyForm: questions', { questionsData, questionsError, orgScenarioId: orgScenario.id })
 
         if (questionsData && questionsData.length > 0) {
           setQuestions(questionsData)
         }
 
         // 既存の回答を取得
-        const { data: existingResponse } = await supabase
+        const { data: existingResponse, error: existingError } = await supabase
           .from('private_group_survey_responses')
           .select('id, responses')
           .eq('group_id', groupId)
           .eq('member_id', memberId)
           .maybeSingle()
+
+        logger.log('📋 SurveyForm: existing response', { existingResponse, existingError, groupId, memberId })
 
         if (existingResponse) {
           setExistingResponseId(existingResponse.id)
