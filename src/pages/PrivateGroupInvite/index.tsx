@@ -1324,21 +1324,8 @@ export function PrivateGroupInvite() {
                   {showContactForm && (
                     <div className="p-3 pt-0 space-y-3 border-t">
                       <div className="space-y-2 pt-3">
-                        <Label htmlFor="contact-email" className="text-sm text-muted-foreground">
-                          返信先メールアドレス
-                        </Label>
-                        <Input
-                          id="contact-email"
-                          type="email"
-                          value={organizerMember?.guest_email || user?.email || ''}
-                          readOnly
-                          className="bg-gray-50"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
                         <Label htmlFor="contact-message" className="text-sm text-muted-foreground">
-                          お問い合わせ内容
+                          問い合わせ内容（コピーしてフォームに貼り付けてください）
                         </Label>
                         <Textarea
                           id="contact-message"
@@ -1350,23 +1337,32 @@ export function PrivateGroupInvite() {
                         />
                       </div>
                       
-                      <Button
-                        className="w-full gap-2"
-                        onClick={() => {
-                          const email = 'info@queens-waltz.com'
-                          const subject = encodeURIComponent(`【貸切予約のお問い合わせ】${group.invite_code}`)
-                          const replyEmail = organizerMember?.guest_email || user?.email || ''
-                          const body = encodeURIComponent(`${contactMessage}\n\n---\n返信先: ${replyEmail}`)
-                          window.location.href = `mailto:${email}?subject=${subject}&body=${body}`
-                        }}
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                        メールで問い合わせる
-                      </Button>
-                      
-                      <p className="text-xs text-muted-foreground text-center">
-                        メールアプリが開きます
-                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          className="flex-1 gap-2"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(contactMessage)
+                              toast.success('コピーしました')
+                            } catch {
+                              toast.error('コピーに失敗しました')
+                            }
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
+                          コピー
+                        </Button>
+                        <Button
+                          className="flex-1 gap-2"
+                          onClick={() => {
+                            window.open('https://queens-waltz.com/contact', '_blank')
+                          }}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          問い合わせる
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
