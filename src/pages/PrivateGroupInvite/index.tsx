@@ -1288,10 +1288,24 @@ export function PrivateGroupInvite() {
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p className="text-sm text-amber-800">
                       日程リクエスト送信済みのグループは削除できません。
-                      {group.status === 'booking_requested' && 'キャンセルをご希望の場合は店舗にお問い合わせください。'}
+                      キャンセルをご希望の場合は店舗にお問い合わせください。
                     </p>
                   </div>
                 )}
+                
+                {/* 問い合わせボタン */}
+                <div className="pt-2 border-t">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-3"
+                    onClick={() => {
+                      window.open('https://queens-waltz.com/contact', '_blank')
+                    }}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    <span>店舗に問い合わせる</span>
+                  </Button>
+                </div>
               </div>
               
               {/* フッター */}
