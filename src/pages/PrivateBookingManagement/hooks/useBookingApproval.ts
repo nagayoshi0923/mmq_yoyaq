@@ -86,12 +86,15 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         }
       }
 
+      // 全候補日を保持し、選択された候補のみ 'confirmed' にする
+      const updatedCandidates = (selectedRequest?.candidate_datetimes?.candidates || []).map((c: any) => ({
+        ...c,
+        status: c.order === selectedCandidateOrder ? 'confirmed' : 'pending'
+      }))
+
       const updatedCandidateDatetimes = {
         ...selectedRequest?.candidate_datetimes,
-        candidates: [{
-          ...selectedCandidate,
-          status: 'confirmed'
-        }],
+        candidates: updatedCandidates,
         confirmedStore: selectedRequest?.candidate_datetimes?.requestedStores?.find(
           (s: any) => s.storeId === selectedStoreId
         ) || {
@@ -102,6 +105,12 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
 
       // ✅ SEC-P0-04: 承認はDB側RPCでアトミックに実行（途中失敗の不整合を防ぐ）
+      // シナリオタイトルから「【貸切希望】」プレフィックスを除去（schedule_eventsでシナリオマスタとマッチさせるため）
+      const cleanScenarioTitle = (selectedRequest?.scenario_title || '')
+        .replace(/^【貸切希望】/, '')
+        .replace(/^【貸切】/, '')
+        .trim()
+      
       const rpcParams = {
         p_reservation_id: requestId,
         p_selected_date: selectedCandidate.date,
@@ -110,7 +119,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         p_selected_store_id: selectedStoreId,
         p_selected_gm_id: selectedGMId,
         p_candidate_datetimes: updatedCandidateDatetimes,
-        p_scenario_title: selectedRequest?.scenario_title || '',
+        p_scenario_title: cleanScenarioTitle,
         p_customer_name: selectedRequest?.customer_name || ''
       }
       logger.log('貸切承認RPCパラメータ:', rpcParams)
@@ -302,6 +311,63 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
               }
             }
 
+            // アンケートが有効な場合、回答案内を送信
+            const scenarioMasterId = selectedRequest?.scenario_master_id || selectedRequest?.scenario_id
+            logger.log('📋 アンケート通知チェック:', { 
+              scenarioMasterId, 
+              organizationId,
+              hasScenarioMasterId: !!selectedRequest?.scenario_master_id,
+              hasScenarioId: !!selectedRequest?.scenario_id
+            })
+            
+            if (scenarioMasterId) {
+              const { data: orgScenarioData, error: orgScenarioError } = await supabase
+                .from('organization_scenarios')
+                .select('survey_enabled, survey_deadline_days')
+                .eq('scenario_master_id', scenarioMasterId)
+                .eq('organization_id', organizationId)
+                .maybeSingle()
+
+              logger.log('📋 organization_scenarios取得結果:', { orgScenarioData, orgScenarioError })
+
+              if (orgScenarioData?.survey_enabled) {
+                // 確定日からアンケート期限を計算
+                const confirmedCandidate = selectedRequest.candidate_datetimes?.candidates?.find(
+                  (c: any) => c.order === selectedCandidateOrder
+                )
+                let deadlineText = ''
+                if (confirmedCandidate?.date && orgScenarioData.survey_deadline_days !== undefined) {
+                  const perfDate = new Date(confirmedCandidate.date + 'T00:00:00+09:00')
+                  perfDate.setDate(perfDate.getDate() - orgScenarioData.survey_deadline_days)
+                  deadlineText = `\n\n回答期限: ${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`
+                }
+
+                const surveyMessage = `【アンケートのご協力のお願い】\n\nこちらの公演では事前アンケートへのご回答をお願いしております。\n\n上記の「日程を確認・回答する」ボタンからアンケートにお答えください。${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
+
+                const surveySystemMessage = JSON.stringify({
+                  type: 'system',
+                  action: 'survey_notice',
+                  message: surveyMessage
+                })
+
+                const { error: surveyMsgError } = await supabase.from('private_group_messages').insert({
+                  group_id: reservation.private_group_id,
+                  member_id: organizerMember.id,
+                  message: surveySystemMessage
+                })
+                
+                if (surveyMsgError) {
+                  logger.error('📋 アンケート通知送信エラー:', surveyMsgError)
+                } else {
+                  logger.log('📋 アンケート通知送信成功')
+                }
+              } else {
+                logger.log('📋 アンケートが無効のためスキップ:', { survey_enabled: orgScenarioData?.survey_enabled })
+              }
+            } else {
+              logger.log('📋 scenario_master_idがないためアンケート通知スキップ')
+            }
+
             logger.log('グループチャットに日程確定メッセージ送信成功')
           }
         }
@@ -434,6 +500,96 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     setRejectionReason('')
   }, [])
 
+  // 完全削除
+  const handleDelete = useCallback(async (requestId: string) => {
+    if (!confirm('この申込を完全に削除しますか？\n\nこの操作は取り消せません。関連するグループ、メッセージ、候補日程も削除されます。')) {
+      return
+    }
+    
+    setSubmitting(true)
+    try {
+      // 予約情報を取得
+      const { data: reservation, error: fetchError } = await supabase
+        .from('reservations')
+        .select('id, private_group_id')
+        .eq('id', requestId)
+        .single()
+      
+      if (fetchError) {
+        logger.error('予約情報取得エラー:', fetchError)
+        throw new Error('予約情報の取得に失敗しました')
+      }
+      
+      const privateGroupId = reservation?.private_group_id
+      
+      // グループが紐づいている場合は関連データも削除
+      if (privateGroupId) {
+        // グループメッセージを削除
+        await supabase
+          .from('private_group_messages')
+          .delete()
+          .eq('group_id', privateGroupId)
+        
+        // 候補日程の回答を削除
+        const { data: candidateDates } = await supabase
+          .from('private_group_candidate_dates')
+          .select('id')
+          .eq('group_id', privateGroupId)
+        
+        if (candidateDates && candidateDates.length > 0) {
+          const dateIds = candidateDates.map(d => d.id)
+          await supabase
+            .from('private_group_date_responses')
+            .delete()
+            .in('candidate_date_id', dateIds)
+        }
+        
+        // 候補日程を削除
+        await supabase
+          .from('private_group_candidate_dates')
+          .delete()
+          .eq('group_id', privateGroupId)
+        
+        // グループメンバーを削除
+        await supabase
+          .from('private_group_members')
+          .delete()
+          .eq('group_id', privateGroupId)
+        
+        // グループを削除
+        await supabase
+          .from('private_groups')
+          .delete()
+          .eq('id', privateGroupId)
+      }
+      
+      // GM回答を削除
+      await supabase
+        .from('gm_availability_responses')
+        .delete()
+        .eq('reservation_id', requestId)
+      
+      // 予約を削除
+      const { error: deleteError } = await supabase
+        .from('reservations')
+        .delete()
+        .eq('id', requestId)
+      
+      if (deleteError) {
+        logger.error('予約削除エラー:', deleteError)
+        throw new Error('予約の削除に失敗しました')
+      }
+      
+      logger.log('貸切申込を完全に削除しました:', requestId)
+      onSuccess()
+    } catch (error) {
+      logger.error('削除エラー:', error)
+      alert(error instanceof Error ? error.message : '削除に失敗しました')
+    } finally {
+      setSubmitting(false)
+    }
+  }, [onSuccess])
+
   return {
     submitting,
     showRejectDialog,
@@ -442,7 +598,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     handleApprove,
     handleRejectClick,
     handleRejectConfirm,
-    handleRejectCancel
+    handleRejectCancel,
+    handleDelete
   }
 }
 
