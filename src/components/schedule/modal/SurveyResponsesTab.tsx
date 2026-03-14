@@ -141,10 +141,17 @@ export function SurveyResponsesTab({
           setQuestions(questionsData)
         }
 
-        const { data: responsesData } = await supabase
+        const { data: responsesData, error: responsesError } = await supabase
           .from('private_group_survey_responses')
           .select('member_id, responses, submitted_at')
           .eq('group_id', gId)
+
+        logger.log('📋 SurveyTab: responses query', { 
+          groupId: gId, 
+          responsesData, 
+          responsesError,
+          memberIds: membersData.map((m: MemberData) => m.id)
+        })
 
         if (responsesData) {
           setResponses(responsesData)

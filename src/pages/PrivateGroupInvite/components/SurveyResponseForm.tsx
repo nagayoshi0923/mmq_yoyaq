@@ -163,6 +163,7 @@ export function SurveyResponseForm({
         toast.success('回答を更新しました')
       } else {
         // 新規作成
+        logger.log('📋 SurveyForm: saving new response', { groupId, memberId, responses })
         const { data, error } = await supabase
           .from('private_group_survey_responses')
           .insert({
@@ -173,7 +174,11 @@ export function SurveyResponseForm({
           .select('id')
           .single()
 
-        if (error) throw error
+        if (error) {
+          logger.error('📋 SurveyForm: insert error', error)
+          throw error
+        }
+        logger.log('📋 SurveyForm: saved with id', data.id)
         setExistingResponseId(data.id)
         toast.success('回答を送信しました')
       }
