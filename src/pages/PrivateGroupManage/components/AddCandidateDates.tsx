@@ -82,19 +82,27 @@ export function AddCandidateDates({
 
   const availableDates = useMemo(() => {
     const dates: string[] = []
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    
+    // JST基準で今日の日付を取得
+    const now = new Date()
+    const jstOffset = 9 * 60 // JST は UTC+9
+    const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
+    const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
 
     const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
     const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
 
-    const maxFuture = new Date(today)
+    // 90日後まで
+    const maxFuture = new Date(jstNow)
     maxFuture.setDate(maxFuture.getDate() + 90)
+    const maxFutureStr = `${maxFuture.getFullYear()}-${String(maxFuture.getMonth() + 1).padStart(2, '0')}-${String(maxFuture.getDate()).padStart(2, '0')}`
 
     const d = new Date(start)
     while (d <= end) {
-      if (d >= today && d <= maxFuture) {
-        dates.push(d.toISOString().split('T')[0])
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      // 今日以降かつ90日以内
+      if (dateStr >= todayStr && dateStr <= maxFutureStr) {
+        dates.push(dateStr)
       }
       d.setDate(d.getDate() + 1)
     }
@@ -327,7 +335,17 @@ export function AddCandidateDates({
               )}
             </div>
 
-            <div className="max-h-[280px] overflow-y-auto border rounded-lg p-2 bg-white">
+            <div className="max-h-[320px] overflow-y-auto border rounded-lg p-3 bg-white">
+              {/* ヘッダー行 */}
+              <div className="flex items-center gap-3 pb-2 border-b border-gray-200 mb-2">
+                <div className="w-14"></div>
+                {TIME_SLOTS.map(slot => (
+                  <div key={slot.label} className="flex-1 text-center text-xs text-muted-foreground">
+                    {slot.startTime}〜
+                  </div>
+                ))}
+              </div>
+              
               {availableDates.map(date => {
                 const dateObj = new Date(date + 'T00:00:00+09:00')
                 const month = dateObj.getMonth() + 1
@@ -347,43 +365,38 @@ export function AddCandidateDates({
                 return (
                   <div
                     key={date}
-                    className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0"
+                    className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-b-0"
                   >
-                    <div className="flex-shrink-0 w-12 text-center">
-                      <div className="text-sm font-medium">{month}/{day}</div>
+                    <div className="flex-shrink-0 w-14 text-center">
+                      <div className="text-sm font-bold">{month}/{day}</div>
                       <div className={`text-xs ${weekdayColor}`}>({weekday})</div>
                     </div>
 
-                    <div className="flex gap-1.5 flex-1">
-                      {TIME_SLOTS.map(slot => {
-                        const key = `${date}-${slot.label}`
-                        const isAvailable = availabilityMap[key] ?? true
-                        const isSelected = isSlotSelected(date, slot)
-                        const canSelect = isAvailable && (isSelected || selectedSlots.length < MAX_SELECTIONS)
+                    {TIME_SLOTS.map(slot => {
+                      const key = `${date}-${slot.label}`
+                      const isAvailable = availabilityMap[key] ?? true
+                      const isSelected = isSlotSelected(date, slot)
+                      const canSelect = isAvailable && (isSelected || selectedSlots.length < MAX_SELECTIONS)
 
-                        return (
-                          <button
-                            key={slot.label}
-                            className={`flex-1 py-1.5 px-1 border text-center rounded transition-colors ${
-                              !isAvailable
-                                ? 'border-gray-100 bg-gray-100 cursor-not-allowed opacity-50'
-                                : isSelected
-                                ? 'bg-purple-600 text-white border-purple-600'
-                                : canSelect
-                                ? 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
-                                : 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
-                            }`}
-                            disabled={!canSelect}
-                            onClick={() => canSelect && handleSlotToggle(date, slot)}
-                          >
-                            <div className="text-xs font-medium">{slot.label}</div>
-                            <div className="text-[10px] opacity-70">
-                              {slot.startTime}〜
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
+                      return (
+                        <button
+                          key={slot.label}
+                          className={`flex-1 py-2.5 px-2 border text-center rounded-lg transition-colors ${
+                            !isAvailable
+                              ? 'border-gray-100 bg-gray-100 cursor-not-allowed opacity-50'
+                              : isSelected
+                              ? 'bg-purple-600 text-white border-purple-600'
+                              : canSelect
+                              ? 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                              : 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
+                          }`}
+                          disabled={!canSelect}
+                          onClick={() => canSelect && handleSlotToggle(date, slot)}
+                        >
+                          <div className="text-sm font-medium">{slot.label}</div>
+                        </button>
+                      )
+                    })}
                   </div>
                 )
               })}
