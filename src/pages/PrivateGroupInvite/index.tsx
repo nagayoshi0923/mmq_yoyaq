@@ -797,12 +797,15 @@ export function PrivateGroupInvite() {
   // チャットモード時は専用レイアウト
   if (isChatMode && group) {
     return (
-      <div className="fixed inset-0 lg:relative lg:h-screen flex flex-col bg-background overflow-hidden z-50 lg:z-auto">
-        {/* PC用ヘッダー */}
-        <div className="hidden lg:block shrink-0">
-          <Header />
+      <div className="min-h-screen flex flex-col bg-background">
+        {/* ヘッダー */}
+        <Header />
+        
+        {/* PC用ナビゲーション */}
+        <div className="hidden lg:block">
+          <NavigationBar currentPage="/" />
         </div>
-
+        
         {/* メインコンテンツ */}
         <div className="flex-1 flex flex-col overflow-hidden lg:max-w-6xl lg:mx-auto lg:w-full lg:px-4 lg:py-4">
           {/* チャットヘッダー */}
@@ -1623,6 +1626,11 @@ export function PrivateGroupInvite() {
             </div>
           </div>
         </div>
+        </div>
+        
+        {/* モバイル用ナビゲーション */}
+        <div className="lg:hidden shrink-0">
+          <NavigationBar currentPage="/" />
         </div>
       </div>
     )
