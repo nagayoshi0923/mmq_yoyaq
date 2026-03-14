@@ -328,7 +328,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       // 予約情報を取得（メール送信用）
       const { data: reservation, error: fetchError } = await supabase
         .from('reservations')
-        .select('*, customers(*)')
+        .select('*, customers(*), private_group_id')
         .eq('id', rejectRequestId)
         .single()
 
@@ -337,6 +337,15 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       // 予約をキャンセル（在庫返却 + 通知）
       // 貸切予約の却下なので、reservationApi.cancel()を使用してキャンセル待ち通知も送信
       await reservationApi.cancel(rejectRequestId, rejectionReason)
+      
+      // 関連するグループもキャンセル状態に更新
+      if (reservation?.private_group_id) {
+        await supabase
+          .from('private_groups')
+          .update({ status: 'cancelled' })
+          .eq('id', reservation.private_group_id)
+        logger.log('グループステータスをキャンセルに更新:', reservation.private_group_id)
+      }
 
       // 却下メール（貸切専用）を送信
       if (reservation && reservation.customers) {

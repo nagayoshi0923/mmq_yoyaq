@@ -649,6 +649,15 @@ export const reservationApi = {
 
     // customer_id が NULL でも動作するように修正（スタッフ予約・貸切予約対応）
     await reservationApi.cancelWithLock(id, reservation.customer_id ?? null, cancellationReason)
+    
+    // 貸切予約の場合、関連するグループもキャンセル状態に更新
+    if (reservation.private_group_id) {
+      await supabase
+        .from('private_groups')
+        .update({ status: 'cancelled' })
+        .eq('id', reservation.private_group_id)
+      clog.info('グループステータスをキャンセルに更新', { groupId: reservation.private_group_id })
+    }
 
     const { data, error } = await supabase
       .from('reservations')
