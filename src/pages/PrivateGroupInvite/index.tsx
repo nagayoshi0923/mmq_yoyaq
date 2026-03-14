@@ -1324,6 +1324,19 @@ export function PrivateGroupInvite() {
                   {showContactForm && (
                     <div className="p-3 pt-0 space-y-3 border-t">
                       <div className="space-y-2 pt-3">
+                        <Label htmlFor="contact-email" className="text-sm text-muted-foreground">
+                          返信先メールアドレス
+                        </Label>
+                        <Input
+                          id="contact-email"
+                          type="email"
+                          value={organizerMember?.guest_email || user?.email || ''}
+                          readOnly
+                          className="bg-gray-50"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
                         <Label htmlFor="contact-message" className="text-sm text-muted-foreground">
                           問い合わせ内容（コピーしてフォームに貼り付けてください）
                         </Label>
@@ -1342,8 +1355,10 @@ export function PrivateGroupInvite() {
                           variant="outline"
                           className="flex-1 gap-2"
                           onClick={async () => {
+                            const replyEmail = organizerMember?.guest_email || user?.email || ''
+                            const fullMessage = `返信先メールアドレス: ${replyEmail}\n\n${contactMessage}`
                             try {
-                              await navigator.clipboard.writeText(contactMessage)
+                              await navigator.clipboard.writeText(fullMessage)
                               toast.success('コピーしました')
                             } catch {
                               toast.error('コピーに失敗しました')
