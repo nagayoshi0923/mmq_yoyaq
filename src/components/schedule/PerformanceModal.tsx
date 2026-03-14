@@ -25,6 +25,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { ReservationList } from './modal/ReservationList'
 import { EventHistoryTab } from './modal/EventHistoryTab'
+import { SurveyResponsesTab } from './modal/SurveyResponsesTab'
 import { getEmptySlotMemo, clearEmptySlotMemo } from './SlotMemoInput'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -686,7 +687,7 @@ export function PerformanceModal({
         
         <Tabs defaultValue="edit" className="w-full flex-1 flex flex-col overflow-hidden min-h-0">
           <div className="px-2 sm:px-4 pt-1.5 sm:pt-2 shrink-0">
-            <TabsList className="grid w-full grid-cols-3 h-7 sm:h-8">
+            <TabsList className="grid w-full grid-cols-4 h-7 sm:h-8">
               <TabsTrigger value="edit" className="text-[11px] sm:text-xs h-6 sm:h-7">公演情報</TabsTrigger>
               <TabsTrigger value="reservations" className="text-[11px] sm:text-xs h-6 sm:h-7">
                 予約者
@@ -704,6 +705,7 @@ export function PerformanceModal({
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="survey" className="text-[11px] sm:text-xs h-6 sm:h-7">アンケート</TabsTrigger>
               <TabsTrigger value="history" className="text-[11px] sm:text-xs h-6 sm:h-7">更新履歴</TabsTrigger>
             </TabsList>
           </div>
@@ -1343,6 +1345,16 @@ export function PerformanceModal({
                 await onDeleteEvent(event)
                 onClose()
               } : undefined}
+            />
+          </TabsContent>
+
+          <TabsContent value="survey" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
+            <SurveyResponsesTab 
+              reservationId={event?.reservation_id}
+              scenarioId={(() => {
+                const selectedScenario = scenarios.find(s => s.title === event?.scenario)
+                return selectedScenario?.scenario_master_id || selectedScenario?.id
+              })()}
             />
           </TabsContent>
 
