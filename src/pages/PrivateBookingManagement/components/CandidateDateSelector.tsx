@@ -146,9 +146,28 @@ export const CandidateDateSelector = ({
     // 時間帯を正規化（「夜公演」→「夜」など）
     const normalizedTimeSlot = normalizeTimeSlot(candidate.timeSlot)
     
+    // デバッグ: 競合情報の確認
+    const conflictsArray = Array.from(conflictInfo.storeDateConflicts)
+    const matchingConflicts = conflictsArray.filter(c => c.includes(candidate.date))
+    const storeIdList = stores.map(s => s.id)
+    
+    // 各店舗について競合キーを生成して確認
+    const storeConflictCheck = stores.map(s => {
+      const key = `${s.id}-${candidate.date}-${normalizedTimeSlot}`
+      const hasConflict = conflictInfo.storeDateConflicts.has(key)
+      return `${s.name}: ${hasConflict ? '❌競合' : '✅空き'} (${key.substring(0, 20)}...)`
+    })
+    
+    logger.log(`🔍 [${candidate.date} ${normalizedTimeSlot}] 店舗空き状況:`, storeConflictCheck)
+    logger.log(`🔍 [${candidate.date}] マッチする競合:`, matchingConflicts.slice(0, 5))
+    
     return stores.filter(store => {
       const conflictKey = `${store.id}-${candidate.date}-${normalizedTimeSlot}`
-      return !conflictInfo.storeDateConflicts.has(conflictKey)
+      const hasConflict = conflictInfo.storeDateConflicts.has(conflictKey)
+      if (hasConflict) {
+        logger.log(`🚫 店舗競合: ${store.name} (${conflictKey})`)
+      }
+      return !hasConflict
     })
   }
   return (
@@ -164,11 +183,16 @@ export const CandidateDateSelector = ({
           const isGMSelected = gmSelectedCandidates && gmSelectedCandidates.includes(candidate.order)
 
           // この日時に競合があるかチェック
-          const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${candidate.date}-${candidate.timeSlot}` : null
+          // 空き店舗があるかどうかで判定（選択店舗ではなく全体の空き状況）
+          const availableStoresForCandidate = getAvailableStores(candidate)
+          const hasNoAvailableStore = stores.length > 0 && availableStoresForCandidate.length === 0
+          
+          // 選択されたGMの競合チェック
           const gmConflictKey = selectedGMId ? `${selectedGMId}-${candidate.date}-${candidate.timeSlot}` : null
-          const hasStoreConflict = storeConflictKey && conflictInfo.storeDateConflicts.has(storeConflictKey)
           const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)
-          const hasConflict = hasStoreConflict || hasGMConflict
+          
+          // 空き店舗がない場合のみ競合とみなす
+          const hasConflict = hasNoAvailableStore
 
           // 閲覧専用モード（確定済み）で未選択の候補はdisabled表示
           const isDisabledInReadOnlyMode = isReadOnly && !isSelected
@@ -248,15 +272,12 @@ export const CandidateDateSelector = ({
                 {stores.length > 0 && (
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
                     <MapPin className="w-3 h-3 text-gray-400" />
-                    {(() => {
-                      const availableStores = getAvailableStores(candidate)
-                      if (availableStores.length === 0) {
-                        return <span className="text-xs text-red-500">空き店舗なし</span>
-                      }
-                      if (availableStores.length === stores.length) {
-                        return <span className="text-xs text-green-600">全店舗空き</span>
-                      }
-                      return availableStores.map(store => (
+                    {availableStoresForCandidate.length === 0 ? (
+                      <span className="text-xs text-red-500">空き店舗なし</span>
+                    ) : availableStoresForCandidate.length === stores.length ? (
+                      <span className="text-xs text-green-600">全店舗空き</span>
+                    ) : (
+                      availableStoresForCandidate.map(store => (
                         <span
                           key={store.id}
                           className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200"
@@ -265,7 +286,7 @@ export const CandidateDateSelector = ({
                           {store.short_name || store.name}
                         </span>
                       ))
-                    })()}
+                    )}
                   </div>
                 )}
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
@@ -280,9 +301,12 @@ export const CandidateDateSelector = ({
                 </div>
                 {hasConflict && (
                   <div className="text-xs text-red-600 mt-1">
-                    {hasStoreConflict && '店舗に予定あり'}
-                    {hasStoreConflict && hasGMConflict && ' / '}
-                    {hasGMConflict && 'GMに予定あり'}
+                    空き店舗なし
+                  </div>
+                )}
+                {!hasConflict && hasGMConflict && (
+                  <div className="text-xs text-orange-600 mt-1">
+                    選択中のGMに予定あり（他のGMを選択可能）
                   </div>
                 )}
                 {isSelected && !isGMSelected && gmSelectedCandidates && gmSelectedCandidates.length > 0 && (
