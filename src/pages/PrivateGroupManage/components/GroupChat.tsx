@@ -582,6 +582,34 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                     )
                   }
 
+                  // システムメッセージ（個別お知らせ）
+                  if (systemMsg && systemMsg.action === 'individual_notice') {
+                    return (
+                      <div key={msg.id} className="flex justify-center my-4">
+                        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 w-full max-w-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">!</span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-indigo-800">
+                                {systemMsg.target_member_name}さんへのお知らせ
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(msg.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 mt-2 border border-indigo-100">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {systemMsg.message}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
                   // 通常のメッセージ
                   return (
                     <div

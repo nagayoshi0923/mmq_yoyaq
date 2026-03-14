@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { ClipboardList, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { ClipboardList, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, Send, User, MessageSquare } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import type { SurveyQuestion } from '@/types'
 
 interface SurveyResponsesTabProps {
@@ -19,7 +22,7 @@ interface ResponseData {
 interface MemberData {
   id: string
   guest_name?: string | null
-  users?: { email: string } | null
+  user_id?: string | null
 }
 
 export function SurveyResponsesTab({
@@ -32,6 +35,13 @@ export function SurveyResponsesTab({
   const [loading, setLoading] = useState(true)
   const [characters, setCharacters] = useState<Array<{ id: string; name: string }>>([])
   const [surveyEnabled, setSurveyEnabled] = useState(false)
+  const [groupId, setGroupId] = useState<string | null>(null)
+  
+  // 各メンバーの展開状態
+  const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set())
+  // メッセージ送信用
+  const [messageInputs, setMessageInputs] = useState<Record<string, string>>({})
+  const [sendingMessage, setSendingMessage] = useState<string | null>(null)
 
   useEffect(() => {
     const loadSurveyData = async () => {
@@ -44,15 +54,17 @@ export function SurveyResponsesTab({
       try {
         logger.log('📋 SurveyTab: loading data', { reservationId, scenarioId })
         
-        const { data: groupData } = await supabase
+        const { data: groupData, error: groupError } = await supabase
           .from('private_groups')
-          .select(`
-            id,
-            organization_id,
-            members:private_group_members(id, guest_name, user_id, users:user_id(email))
-          `)
+          .select('id, organization_id')
           .eq('reservation_id', reservationId)
           .maybeSingle()
+
+        if (groupError) {
+          logger.error('📋 SurveyTab: group fetch error', groupError)
+          setLoading(false)
+          return
+        }
 
         if (!groupData) {
           logger.log('📋 SurveyTab: no groupData found for reservationId', reservationId)
@@ -60,18 +72,23 @@ export function SurveyResponsesTab({
           return
         }
 
-        const groupId = groupData.id
+        const gId = groupData.id
         const organizationId = groupData.organization_id
-        logger.log('📋 SurveyTab: groupData found', { groupId, organizationId })
+        setGroupId(gId)
+        logger.log('📋 SurveyTab: groupData found', { groupId: gId, organizationId })
 
-        const membersData = (groupData.members || []).map((m: any) => ({
+        const { data: membersRaw } = await supabase
+          .from('private_group_members')
+          .select('id, guest_name, user_id')
+          .eq('group_id', gId)
+
+        const membersData = (membersRaw || []).map((m: any) => ({
           id: m.id,
           guest_name: m.guest_name,
-          users: m.users ? { email: m.users.email } : null,
+          user_id: m.user_id,
         }))
         setMembers(membersData)
 
-        // まず scenario_master_id で検索
         let { data: orgScenario } = await supabase
           .from('organization_scenarios')
           .select('id, survey_enabled, characters')
@@ -79,7 +96,6 @@ export function SurveyResponsesTab({
           .eq('organization_id', organizationId)
           .maybeSingle()
 
-        // 見つからなければ id で検索（organization_scenario.id が渡されている可能性）
         if (!orgScenario) {
           const { data: orgScenarioById } = await supabase
             .from('organization_scenarios')
@@ -128,7 +144,7 @@ export function SurveyResponsesTab({
         const { data: responsesData } = await supabase
           .from('private_group_survey_responses')
           .select('member_id, responses, submitted_at')
-          .eq('group_id', groupId)
+          .eq('group_id', gId)
 
         if (responsesData) {
           setResponses(responsesData)
@@ -142,6 +158,55 @@ export function SurveyResponsesTab({
 
     loadSurveyData()
   }, [reservationId, scenarioId])
+
+  const toggleMember = (memberId: string) => {
+    setExpandedMembers(prev => {
+      const next = new Set(prev)
+      if (next.has(memberId)) {
+        next.delete(memberId)
+      } else {
+        next.add(memberId)
+      }
+      return next
+    })
+  }
+
+  const handleSendMessage = async (memberId: string) => {
+    const message = messageInputs[memberId]?.trim()
+    if (!message || !groupId) return
+
+    setSendingMessage(memberId)
+    try {
+      const member = members.find(m => m.id === memberId)
+      const memberName = member?.guest_name || '参加者'
+
+      // グループチャットにシステムメッセージとして送信
+      const { error } = await supabase
+        .from('private_group_messages')
+        .insert({
+          group_id: groupId,
+          sender_id: memberId, // メンバーIDを指定（表示用）
+          message: JSON.stringify({
+            type: 'system',
+            action: 'individual_notice',
+            target_member_id: memberId,
+            target_member_name: memberName,
+            message: message
+          }),
+          is_system: true
+        })
+
+      if (error) throw error
+
+      showToast.success(`${memberName}さんへのお知らせを送信しました`)
+      setMessageInputs(prev => ({ ...prev, [memberId]: '' }))
+    } catch (err) {
+      logger.error('メッセージ送信エラー:', err)
+      showToast.error('メッセージの送信に失敗しました')
+    } finally {
+      setSendingMessage(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -192,7 +257,11 @@ export function SurveyResponsesTab({
 
   const getMemberName = (memberId: string) => {
     const member = members.find(m => m.id === memberId)
-    return member?.guest_name || member?.users?.email || '不明'
+    return member?.guest_name || '不明'
+  }
+
+  const getMemberResponse = (memberId: string) => {
+    return responses.find(r => r.member_id === memberId)
   }
 
   const getResponseValue = (questionId: string, memberId: string): string => {
@@ -226,7 +295,7 @@ export function SurveyResponsesTab({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-medium">
@@ -244,28 +313,6 @@ export function SurveyResponsesTab({
         </Badge>
       </div>
 
-      {/* 未回答者の警告 */}
-      {respondedCount < totalCount && totalCount > 0 && (
-        <div className="flex items-center gap-2 p-2 bg-amber-50 rounded-lg text-sm text-amber-700">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>
-            {members
-              .filter(m => !responses.some(r => r.member_id === m.id))
-              .map(m => m.guest_name || m.users?.email || '不明')
-              .join('、')
-            }さんが未回答です
-          </span>
-        </div>
-      )}
-
-      {/* 全員回答済み */}
-      {respondedCount === totalCount && totalCount > 0 && (
-        <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg text-sm text-green-700">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>全員回答済みです</span>
-        </div>
-      )}
-
       {/* メンバーがいない場合 */}
       {totalCount === 0 && (
         <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-sm text-muted-foreground">
@@ -274,35 +321,106 @@ export function SurveyResponsesTab({
         </div>
       )}
 
-      {/* 質問ごとの回答一覧 */}
-      <div className="space-y-4">
-        {questions.map((question, qIndex) => (
-          <div key={question.id} className="space-y-2 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm font-medium">
-              Q{qIndex + 1}. {question.question_text}
-              {question.is_required && (
-                <span className="text-red-500 text-xs ml-1">*必須</span>
-              )}
-            </p>
-            <div className="space-y-1.5">
-              {members.map(member => {
-                const hasResponse = responses.some(r => r.member_id === member.id)
-                const value = getResponseValue(question.id, member.id)
-                
-                return (
-                  <div key={member.id} className="flex items-start gap-2 text-sm bg-white p-2 rounded">
-                    <span className="text-muted-foreground min-w-[100px] shrink-0">
-                      {getMemberName(member.id)}
-                    </span>
-                    <span className={`flex-1 ${hasResponse ? '' : 'text-amber-600 italic'}`}>
-                      {value}
-                    </span>
+      {/* メンバーごとのカード */}
+      <div className="space-y-2">
+        {members.map(member => {
+          const response = getMemberResponse(member.id)
+          const hasResponse = !!response
+          const isExpanded = expandedMembers.has(member.id)
+          const memberName = getMemberName(member.id)
+
+          return (
+            <div key={member.id} className="border rounded-lg overflow-hidden">
+              {/* メンバーヘッダー（クリックで展開/折りたたみ） */}
+              <button
+                type="button"
+                onClick={() => toggleMember(member.id)}
+                className="w-full flex items-center justify-between p-3 bg-white hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-500" />
+                  <span className="font-medium text-sm">{memberName}</span>
+                  <Badge 
+                    variant="outline" 
+                    className={hasResponse 
+                      ? 'bg-green-100 text-green-700 border-green-200 text-xs' 
+                      : 'bg-amber-100 text-amber-700 border-amber-200 text-xs'
+                    }
+                  >
+                    {hasResponse ? '回答済み' : '未回答'}
+                  </Badge>
+                </div>
+                {isExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+
+              {/* 展開時の内容 */}
+              {isExpanded && (
+                <div className="border-t bg-gray-50">
+                  {/* 回答内容 */}
+                  <div className="p-3 space-y-3">
+                    {hasResponse ? (
+                      questions.map((question, qIndex) => {
+                        const value = getResponseValue(question.id, member.id)
+                        return (
+                          <div key={question.id} className="bg-white rounded p-2">
+                            <p className="text-xs text-muted-foreground mb-1">
+                              Q{qIndex + 1}. {question.question_text}
+                            </p>
+                            <p className="text-sm font-medium">{value}</p>
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <div className="bg-amber-50 rounded p-3 text-sm text-amber-700 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        まだ回答がありません
+                      </div>
+                    )}
                   </div>
-                )
-              })}
+
+                  {/* 個別メッセージ送信 */}
+                  <div className="border-t p-3">
+                    <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                      <MessageSquare className="w-3 h-3" />
+                      {memberName}さんへ個別にお知らせ
+                    </p>
+                    <div className="flex gap-2">
+                      <Textarea
+                        placeholder="メッセージを入力..."
+                        value={messageInputs[member.id] || ''}
+                        onChange={(e) => setMessageInputs(prev => ({
+                          ...prev,
+                          [member.id]: e.target.value
+                        }))}
+                        className="text-sm min-h-[60px] flex-1"
+                        rows={2}
+                      />
+                    </div>
+                    <div className="flex justify-end mt-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleSendMessage(member.id)}
+                        disabled={!messageInputs[member.id]?.trim() || sendingMessage === member.id}
+                        className="text-xs"
+                      >
+                        {sendingMessage === member.id ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <Send className="w-3 h-3 mr-1" />
+                        )}
+                        送信
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
