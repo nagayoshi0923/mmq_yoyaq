@@ -1293,18 +1293,67 @@ export function PrivateGroupInvite() {
                   </div>
                 )}
                 
-                {/* 問い合わせボタン */}
-                <div className="pt-2 border-t">
+                {/* 予約情報 */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">予約情報</h4>
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">招待コード</span>
+                      <span className="font-mono font-medium">{group.invite_code}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">シナリオ</span>
+                      <span className="font-medium truncate ml-2">{scenario?.title || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">参加人数</span>
+                      <span className="font-medium">{memberCount}名</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">ステータス</span>
+                      <span className="font-medium">
+                        {group.status === 'confirmed' ? '確定' : group.status === 'booking_requested' ? '確定待ち' : '日程調整中'}
+                      </span>
+                    </div>
+                  </div>
                   <Button
                     variant="outline"
-                    className="w-full justify-start gap-3"
-                    onClick={() => {
-                      window.open('https://queens-waltz.com/contact', '_blank')
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={async () => {
+                      const info = `【予約情報】
+招待コード: ${group.invite_code}
+シナリオ: ${scenario?.title || '-'}
+参加人数: ${memberCount}名
+ステータス: ${group.status === 'confirmed' ? '確定' : group.status === 'booking_requested' ? '確定待ち' : '日程調整中'}
+URL: ${window.location.origin}/group/invite/${group.invite_code}`
+                      try {
+                        await navigator.clipboard.writeText(info)
+                        toast.success('予約情報をコピーしました')
+                      } catch {
+                        toast.error('コピーに失敗しました')
+                      }
                     }}
+                  >
+                    <Copy className="h-4 w-4" />
+                    予約情報をコピー
+                  </Button>
+                </div>
+                
+                {/* 問い合わせ */}
+                <div className="pt-2 border-t space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    キャンセルやご質問は予約情報をコピーしてお問い合わせください
+                  </p>
+                  <a
+                    href="https://queens-waltz.com/contact"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-2 border rounded-md hover:bg-gray-50 transition-colors"
                   >
                     <MessageCircle className="h-4 w-4" />
                     <span>店舗に問い合わせる</span>
-                  </Button>
+                  </a>
                 </div>
               </div>
               
