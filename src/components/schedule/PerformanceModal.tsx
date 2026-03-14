@@ -1353,6 +1353,15 @@ export function PerformanceModal({
               reservationId={event?.reservation_id}
               scenarioId={(() => {
                 const selectedScenario = scenarios.find(s => s.title === event?.scenario)
+                logger.log('📋 PerformanceModal: Survey tab scenario lookup', {
+                  eventScenario: event?.scenario,
+                  selectedScenario: selectedScenario ? { 
+                    id: selectedScenario.id, 
+                    scenario_master_id: selectedScenario.scenario_master_id,
+                    title: selectedScenario.title 
+                  } : null,
+                  reservationId: event?.reservation_id
+                })
                 return selectedScenario?.scenario_master_id || selectedScenario?.id
               })()}
             />

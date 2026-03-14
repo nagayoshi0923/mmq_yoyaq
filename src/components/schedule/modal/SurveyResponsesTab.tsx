@@ -36,11 +36,14 @@ export function SurveyResponsesTab({
   useEffect(() => {
     const loadSurveyData = async () => {
       if (!reservationId || !scenarioId) {
+        logger.log('📋 SurveyTab: missing reservationId or scenarioId', { reservationId, scenarioId })
         setLoading(false)
         return
       }
 
       try {
+        logger.log('📋 SurveyTab: loading data', { reservationId, scenarioId })
+        
         const { data: groupData } = await supabase
           .from('private_groups')
           .select(`
@@ -52,12 +55,14 @@ export function SurveyResponsesTab({
           .maybeSingle()
 
         if (!groupData) {
+          logger.log('📋 SurveyTab: no groupData found for reservationId', reservationId)
           setLoading(false)
           return
         }
 
         const groupId = groupData.id
         const organizationId = groupData.organization_id
+        logger.log('📋 SurveyTab: groupData found', { groupId, organizationId })
 
         const membersData = (groupData.members || []).map((m: any) => ({
           id: m.id,
@@ -66,14 +71,32 @@ export function SurveyResponsesTab({
         }))
         setMembers(membersData)
 
-        const { data: orgScenario } = await supabase
+        // まず scenario_master_id で検索
+        let { data: orgScenario } = await supabase
           .from('organization_scenarios')
           .select('id, survey_enabled, characters')
           .eq('scenario_master_id', scenarioId)
           .eq('organization_id', organizationId)
           .maybeSingle()
 
+        // 見つからなければ id で検索（organization_scenario.id が渡されている可能性）
+        if (!orgScenario) {
+          const { data: orgScenarioById } = await supabase
+            .from('organization_scenarios')
+            .select('id, survey_enabled, characters')
+            .eq('id', scenarioId)
+            .maybeSingle()
+          orgScenario = orgScenarioById
+        }
+        
+        logger.log('📋 SurveyTab: orgScenario result', { 
+          scenarioId, 
+          orgScenario,
+          surveyEnabled: orgScenario?.survey_enabled 
+        })
+
         if (!orgScenario?.id) {
+          logger.log('📋 SurveyTab: no orgScenario found')
           setLoading(false)
           return
         }
