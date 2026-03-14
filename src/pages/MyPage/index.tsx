@@ -1505,17 +1505,17 @@ export default function MyPage() {
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                         <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
-                        プレイ済みシナリオ
+                        {showHiddenItems ? 'すべてのシナリオ（非表示・削除済み含む）' : 'プレイ済みシナリオ'}
                       </h2>
-                      {(hiddenPlays.size > 0 || deletedPlays.size > 0) && (
+                      {showHiddenItems && (
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          className="text-gray-500 gap-1"
-                          onClick={() => setShowHiddenItems(!showHiddenItems)}
+                          className="gap-1"
+                          onClick={() => setShowHiddenItems(false)}
                         >
-                          {showHiddenItems ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                          <span className="text-xs">非表示/削除 ({hiddenPlays.size + deletedPlays.size})</span>
+                          <Eye className="h-4 w-4" />
+                          <span className="text-xs">表示中のみ</span>
                         </Button>
                       )}
                     </div>
@@ -1628,6 +1628,24 @@ export default function MyPage() {
                     <p className="text-gray-500 text-sm">
                       公演に参加すると、ここに記録されます
                     </p>
+                  </div>
+                )}
+                
+                {/* 非表示/削除済みシナリオセクション */}
+                {(hiddenPlays.size > 0 || deletedPlays.size > 0) && !showHiddenItems && (
+                  <div className="mt-8">
+                    <button
+                      onClick={() => setShowHiddenItems(true)}
+                      className="w-full p-4 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors"
+                      style={{ borderRadius: 0 }}
+                    >
+                      <div className="flex items-center justify-center gap-2 text-gray-500">
+                        <EyeOff className="h-4 w-4" />
+                        <span className="text-sm">
+                          非表示・削除済みのシナリオ ({hiddenPlays.size + deletedPlays.size}件)
+                        </span>
+                      </div>
+                    </button>
                   </div>
                 )}
                 
