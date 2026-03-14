@@ -228,13 +228,23 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             .single()
 
           if (organizerMember) {
+            // 設定からメッセージ文言を取得
+            const { data: msgSettings } = await supabase
+              .from('global_settings')
+              .select('system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body')
+              .eq('organization_id', organizationId)
+              .single()
+            
             // 日程確定のシステムメッセージ
             const confirmedMessage = JSON.stringify({
               type: 'system',
               action: 'schedule_confirmed',
               confirmedDate: selectedCandidate.date,
               confirmedTimeSlot: selectedCandidate.timeSlot || `${selectedCandidate.startTime}〜${selectedCandidate.endTime}`,
-              storeName: stores.find(s => s.id === selectedStoreId)?.name || ''
+              storeName: stores.find(s => s.id === selectedStoreId)?.name || '',
+              // 設定されたメッセージ文言を含める
+              title: msgSettings?.system_msg_schedule_confirmed_title || '日程が確定いたしました',
+              body: msgSettings?.system_msg_schedule_confirmed_body || 'ご予約ありがとうございます。当日のご来店をお待ちしております。'
             })
 
             await supabase.from('private_group_messages').insert({

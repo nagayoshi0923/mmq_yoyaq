@@ -22,6 +22,10 @@ interface SystemMessage {
   memberName?: string
   memberId?: string
   candidateCount?: number
+  // 設定可能なメッセージ文言
+  title?: string
+  body?: string
+  note?: string
 }
 
 interface GroupChatProps {
@@ -302,7 +306,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   if (systemMsg && systemMsg.action === 'candidate_dates_added') {
                     return (
                       <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 max-w-[90%]">
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
                           <div className="flex items-center gap-2 mb-3">
                             <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
                               <Calendar className="w-3.5 h-3.5 text-white" />
@@ -348,14 +352,14 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   if (systemMsg && systemMsg.action === 'schedule_confirmed') {
                     return (
                       <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-[90%]">
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 w-full max-w-sm">
                           <div className="flex items-center gap-2 mb-3">
                             <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
                               <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                             </div>
                             <div>
                               <p className="text-sm font-medium text-green-800">
-                                日程が確定いたしました
+                                {systemMsg.title || '日程が確定いたしました'}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatDateTime(msg.created_at)}
@@ -377,7 +381,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                             </div>
                           )}
                           <p className="text-xs text-gray-600 mt-2">
-                            ご予約ありがとうございます。当日のご来店をお待ちしております。
+                            {systemMsg.body || 'ご予約ありがとうございます。当日のご来店をお待ちしております。'}
                           </p>
                         </div>
                       </div>
@@ -388,7 +392,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   if (systemMsg && systemMsg.action === 'pre_reading_notice') {
                     return (
                       <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-[90%]">
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 w-full max-w-sm">
                           <div className="flex items-center gap-2 mb-3">
                             <div className="w-6 h-6 bg-amber-600 rounded-full flex items-center justify-center">
                               <span className="text-white text-xs font-bold">!</span>
@@ -416,14 +420,14 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   if (systemMsg && systemMsg.action === 'group_created') {
                     return (
                       <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 max-w-[90%]">
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
                               <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                             </div>
                             <div>
                               <p className="text-sm font-medium text-purple-800">
-                                貸切リクエストグループを作成しました
+                                {systemMsg.title || '貸切リクエストグループを作成しました'}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatDateTime(msg.created_at)}
@@ -431,11 +435,13 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                             </div>
                           </div>
                           <p className="text-xs text-gray-600 mt-2">
-                            招待リンクを共有して、参加メンバーを招待してください。
+                            {systemMsg.body || '招待リンクを共有して、参加メンバーを招待してください。'}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            ※ 全員を招待していなくても日程確定は可能ですが、当日は参加人数全員でお越しください。
-                          </p>
+                          {(systemMsg.note || !systemMsg.body) && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {systemMsg.note || '※ 全員を招待していなくても日程確定は可能ですが、当日は参加人数全員でお越しください。'}
+                            </p>
+                          )}
                         </div>
                       </div>
                     )
@@ -458,14 +464,14 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   if (systemMsg && systemMsg.action === 'booking_requested') {
                     return (
                       <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-[90%]">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full max-w-sm">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
                               <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                             </div>
                             <div>
                               <p className="text-sm font-medium text-blue-800">
-                                貸切リクエストを送信しました
+                                {systemMsg.title || '貸切リクエストを送信しました'}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatDateTime(msg.created_at)}
@@ -473,7 +479,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                             </div>
                           </div>
                           <p className="text-xs text-gray-600 mt-2">
-                            店舗より日程確定のご連絡をいたしますので、しばらくお待ちください。
+                            {systemMsg.body || '店舗より日程確定のご連絡をいたしますので、しばらくお待ちください。'}
                           </p>
                         </div>
                       </div>

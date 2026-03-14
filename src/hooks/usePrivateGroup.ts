@@ -42,6 +42,20 @@ interface DateResponseParams {
   response: DateResponse
 }
 
+// システムメッセージ設定を取得
+async function getSystemMessageSettings(orgId: string) {
+  try {
+    const { data } = await supabase
+      .from('global_settings')
+      .select('system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body')
+      .eq('organization_id', orgId)
+      .single()
+    return data
+  } catch {
+    return null
+  }
+}
+
 // システムメッセージ送信用ヘルパー
 async function sendSystemMessage(
   groupId: string,
@@ -148,9 +162,15 @@ export function usePrivateGroup() {
 
       // グループ作成のウェルカムメッセージを送信
       if (memberData?.id) {
+        // 設定からメッセージ文言を取得
+        const msgSettings = await getSystemMessageSettings(organizationId)
         await sendSystemMessage(group.id, memberData.id, 'group_created', {
           organizerName: user.email?.split('@')[0] || '主催者',
-          targetCount: params.targetParticipantCount || null
+          targetCount: params.targetParticipantCount || null,
+          // 設定されたメッセージ文言を含める
+          title: msgSettings?.system_msg_group_created_title || '貸切リクエストグループを作成しました',
+          body: msgSettings?.system_msg_group_created_body || '招待リンクを共有して、参加メンバーを招待してください。',
+          note: msgSettings?.system_msg_group_created_note || '※ 全員を招待していなくても日程確定は可能ですが、当日は参加人数全員でお越しください。'
         })
       }
 

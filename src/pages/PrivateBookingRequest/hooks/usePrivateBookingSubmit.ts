@@ -211,10 +211,21 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
               .single()
             
             if (organizerMember) {
+              // 設定からメッセージ文言を取得
+              const msgOrgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+              const { data: msgSettings } = await supabase
+                .from('global_settings')
+                .select('system_msg_booking_requested_title, system_msg_booking_requested_body')
+                .eq('organization_id', msgOrgId)
+                .single()
+              
               const systemMessage = JSON.stringify({
                 type: 'system',
                 action: 'booking_requested',
-                candidateCount: candidateDatetimes.candidates.length
+                candidateCount: candidateDatetimes.candidates.length,
+                // 設定されたメッセージ文言を含める
+                title: msgSettings?.system_msg_booking_requested_title || '貸切リクエストを送信しました',
+                body: msgSettings?.system_msg_booking_requested_body || '店舗より日程確定のご連絡をいたしますので、しばらくお待ちください。'
               })
               
               await supabase.from('private_group_messages').insert({

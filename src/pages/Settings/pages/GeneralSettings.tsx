@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Save, Calendar, Bell, Shield, BookOpen } from 'lucide-react'
+import { Save, Calendar, Bell, Shield, BookOpen, MessageSquare } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -24,6 +24,14 @@ interface GlobalSettings {
   enable_email_notifications: boolean
   enable_discord_notifications: boolean
   pre_reading_notice_message: string | null
+  // システムアナウンス設定
+  system_msg_group_created_title: string | null
+  system_msg_group_created_body: string | null
+  system_msg_group_created_note: string | null
+  system_msg_booking_requested_title: string | null
+  system_msg_booking_requested_body: string | null
+  system_msg_schedule_confirmed_title: string | null
+  system_msg_schedule_confirmed_body: string | null
 }
 
 /**
@@ -43,7 +51,15 @@ export function GeneralSettings() {
     maintenance_message: '',
     enable_email_notifications: true,
     enable_discord_notifications: false,
-    pre_reading_notice_message: '【ご確認ください】\n\nこのシナリオには事前読み込みがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
+    pre_reading_notice_message: '【ご確認ください】\n\nこのシナリオには事前読み込みがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。',
+    // システムアナウンス設定
+    system_msg_group_created_title: '貸切リクエストグループを作成しました',
+    system_msg_group_created_body: '招待リンクを共有して、参加メンバーを招待してください。',
+    system_msg_group_created_note: '※ 全員を招待していなくても日程確定は可能ですが、当日は参加人数全員でお越しください。',
+    system_msg_booking_requested_title: '貸切リクエストを送信しました',
+    system_msg_booking_requested_body: '店舗より日程確定のご連絡をいたしますので、しばらくお待ちください。',
+    system_msg_schedule_confirmed_title: '日程が確定いたしました',
+    system_msg_schedule_confirmed_body: 'ご予約ありがとうございます。当日のご来店をお待ちしております。'
   })
 
   // 設定を取得
@@ -65,7 +81,7 @@ export function GeneralSettings() {
       
       const { data, error } = await supabase
         .from('global_settings')
-        .select('id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message')
+        .select('id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message, system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body')
         .eq('organization_id', orgId)
         .single()
 
@@ -86,7 +102,15 @@ export function GeneralSettings() {
           maintenance_message: data.maintenance_message || '',
           enable_email_notifications: data.enable_email_notifications,
           enable_discord_notifications: data.enable_discord_notifications,
-          pre_reading_notice_message: data.pre_reading_notice_message || '【ご確認ください】\n\nこのシナリオには事前読み込みがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
+          pre_reading_notice_message: data.pre_reading_notice_message || '【ご確認ください】\n\nこのシナリオには事前読み込みがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。',
+          // システムアナウンス設定
+          system_msg_group_created_title: data.system_msg_group_created_title || '貸切リクエストグループを作成しました',
+          system_msg_group_created_body: data.system_msg_group_created_body || '招待リンクを共有して、参加メンバーを招待してください。',
+          system_msg_group_created_note: data.system_msg_group_created_note || '※ 全員を招待していなくても日程確定は可能ですが、当日は参加人数全員でお越しください。',
+          system_msg_booking_requested_title: data.system_msg_booking_requested_title || '貸切リクエストを送信しました',
+          system_msg_booking_requested_body: data.system_msg_booking_requested_body || '店舗より日程確定のご連絡をいたしますので、しばらくお待ちください。',
+          system_msg_schedule_confirmed_title: data.system_msg_schedule_confirmed_title || '日程が確定いたしました',
+          system_msg_schedule_confirmed_body: data.system_msg_schedule_confirmed_body || 'ご予約ありがとうございます。当日のご来店をお待ちしております。'
         })
       }
     } catch (error) {
@@ -113,7 +137,15 @@ export function GeneralSettings() {
           maintenance_message: formData.maintenance_message || null,
           enable_email_notifications: formData.enable_email_notifications,
           enable_discord_notifications: formData.enable_discord_notifications,
-          pre_reading_notice_message: formData.pre_reading_notice_message || null
+          pre_reading_notice_message: formData.pre_reading_notice_message || null,
+          // システムアナウンス設定
+          system_msg_group_created_title: formData.system_msg_group_created_title || null,
+          system_msg_group_created_body: formData.system_msg_group_created_body || null,
+          system_msg_group_created_note: formData.system_msg_group_created_note || null,
+          system_msg_booking_requested_title: formData.system_msg_booking_requested_title || null,
+          system_msg_booking_requested_body: formData.system_msg_booking_requested_body || null,
+          system_msg_schedule_confirmed_title: formData.system_msg_schedule_confirmed_title || null,
+          system_msg_schedule_confirmed_body: formData.system_msg_schedule_confirmed_body || null
         })
         .eq('id', settings.id)
 
@@ -324,6 +356,117 @@ export function GeneralSettings() {
               onCheckedChange={(checked) => setFormData(prev => ({ ...prev, enable_discord_notifications: checked }))}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* システムアナウンス設定 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-purple-600" />
+            <CardTitle>システムアナウンス設定</CardTitle>
+          </div>
+          <CardDescription>
+            貸切グループのチャットに自動送信されるシステムメッセージの文言を設定します
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* グループ作成時 */}
+          <div className="space-y-4 p-4 bg-purple-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-purple-600 rounded-full" />
+              <h4 className="font-medium text-purple-800">グループ作成時</h4>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_group_created_title">タイトル</Label>
+                <Input
+                  id="system_msg_group_created_title"
+                  value={formData.system_msg_group_created_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_group_created_title: e.target.value }))}
+                  placeholder="貸切リクエストグループを作成しました"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_group_created_body">本文</Label>
+                <Input
+                  id="system_msg_group_created_body"
+                  value={formData.system_msg_group_created_body}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_group_created_body: e.target.value }))}
+                  placeholder="招待リンクを共有して、参加メンバーを招待してください。"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_group_created_note">注記（任意）</Label>
+                <Input
+                  id="system_msg_group_created_note"
+                  value={formData.system_msg_group_created_note}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_group_created_note: e.target.value }))}
+                  placeholder="※ 全員を招待していなくても日程確定は可能ですが..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 予約申込時 */}
+          <div className="space-y-4 p-4 bg-blue-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-600 rounded-full" />
+              <h4 className="font-medium text-blue-800">予約申込時</h4>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_booking_requested_title">タイトル</Label>
+                <Input
+                  id="system_msg_booking_requested_title"
+                  value={formData.system_msg_booking_requested_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_booking_requested_title: e.target.value }))}
+                  placeholder="貸切リクエストを送信しました"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_booking_requested_body">本文</Label>
+                <Input
+                  id="system_msg_booking_requested_body"
+                  value={formData.system_msg_booking_requested_body}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_booking_requested_body: e.target.value }))}
+                  placeholder="店舗より日程確定のご連絡をいたしますので..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 日程確定時 */}
+          <div className="space-y-4 p-4 bg-green-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-600 rounded-full" />
+              <h4 className="font-medium text-green-800">日程確定時</h4>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_schedule_confirmed_title">タイトル</Label>
+                <Input
+                  id="system_msg_schedule_confirmed_title"
+                  value={formData.system_msg_schedule_confirmed_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_schedule_confirmed_title: e.target.value }))}
+                  placeholder="日程が確定いたしました"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="system_msg_schedule_confirmed_body">本文</Label>
+                <Input
+                  id="system_msg_schedule_confirmed_body"
+                  value={formData.system_msg_schedule_confirmed_body}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system_msg_schedule_confirmed_body: e.target.value }))}
+                  placeholder="ご予約ありがとうございます。当日のご来店を..."
+                />
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            ※ 日時や店舗名などの情報は自動で挿入されます
+          </p>
         </CardContent>
       </Card>
 
