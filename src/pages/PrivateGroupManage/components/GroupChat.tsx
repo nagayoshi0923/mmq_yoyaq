@@ -2,15 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Send, Loader2, Calendar, CheckCircle2, X } from 'lucide-react'
+import { Send, Loader2, Calendar, CheckCircle2, X, ClipboardList } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
+import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
 
 interface SystemMessage {
   type: 'system'
-  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'group_created' | 'member_joined' | 'booking_requested'
+  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested'
   count?: number
   dates?: Array<{ date: string; time_slot: string }>
   confirmedDate?: string
@@ -34,9 +35,12 @@ interface GroupChatProps {
   members: PrivateGroupMember[]
   fullHeight?: boolean
   onGoToSchedule?: () => void
+  scenarioId?: string
+  organizationId?: string
+  performanceDate?: string
 }
 
-export function GroupChat({ groupId, currentMemberId, members: initialMembers, fullHeight = false, onGoToSchedule }: GroupChatProps) {
+export function GroupChat({ groupId, currentMemberId, members: initialMembers, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate }: GroupChatProps) {
   const { user } = useAuth()
   const [messages, setMessages] = useState<PrivateGroupMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
@@ -44,6 +48,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   const [sending, setSending] = useState(false)
   const [members, setMembers] = useState<PrivateGroupMember[]>(initialMembers)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [showSurveyDialog, setShowSurveyDialog] = useState(false)
 
   // メンバー情報を取得
   const fetchMembers = useCallback(async () => {
@@ -282,6 +287,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   const effectiveMemberId = currentMemberId || memberIdFromUser
 
   return (
+    <>
     <Card className={`flex flex-col ${fullHeight ? 'flex-1 h-full border-0 shadow-none' : 'h-[500px]'}`}>
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -410,6 +416,44 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                             <p className="text-sm text-gray-700 whitespace-pre-wrap">
                               {systemMsg.message}
                             </p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // システムメッセージ（アンケート回答のお願い）
+                  if (systemMsg && systemMsg.action === 'survey_notice') {
+                    return (
+                      <div key={msg.id} className="flex justify-center my-4">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full max-w-sm">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                              <ClipboardList className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-blue-800">
+                                アンケートのご協力のお願い
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(msg.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 border border-blue-100 space-y-3">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {systemMsg.message}
+                            </p>
+                            {scenarioId && organizationId && currentMemberId && (
+                              <Button
+                                onClick={() => setShowSurveyDialog(true)}
+                                className="w-full bg-blue-600 hover:bg-blue-700"
+                                size="sm"
+                              >
+                                <ClipboardList className="w-4 h-4 mr-2" />
+                                アンケートに回答する
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -607,6 +651,50 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
           </div>
         </div>
       </CardContent>
+
     </Card>
+
+      {/* アンケート回答ダイアログ */}
+      {showSurveyDialog && (
+        <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowSurveyDialog(false)}>
+          <div 
+            className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* ハンドル（モバイルのみ） */}
+            <div className="flex justify-center py-2 shrink-0 lg:hidden">
+              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            </div>
+            
+            {/* ヘッダー */}
+            <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
+              <h3 className="font-semibold flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-purple-600" />
+                公演前アンケート
+              </h3>
+              <button 
+                onClick={() => setShowSurveyDialog(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            
+            {/* コンテンツ */}
+            <div className="overflow-y-auto flex-1 p-4">
+              {scenarioId && organizationId && currentMemberId && (
+                <SurveyResponseForm
+                  groupId={groupId}
+                  memberId={currentMemberId}
+                  scenarioId={scenarioId}
+                  organizationId={organizationId}
+                  performanceDate={performanceDate}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

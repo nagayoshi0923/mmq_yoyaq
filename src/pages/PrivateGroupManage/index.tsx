@@ -338,6 +338,9 @@ export function PrivateGroupManage() {
               currentMemberId={currentMemberId}
               members={group.members || []}
               fullHeight={true}
+              scenarioId={group.scenario_id || undefined}
+              organizationId={group.organization_id || undefined}
+              performanceDate={group.candidate_dates?.[0]?.date}
             />
           </div>
 
@@ -740,6 +743,9 @@ export function PrivateGroupManage() {
                   groupId={group.id}
                   currentMemberId={joinedMembers.find(m => m.user_id === user?.id)?.id || null}
                   members={joinedMembers}
+                  scenarioId={group.scenario_id || undefined}
+                  organizationId={group.organization_id || undefined}
+                  performanceDate={group.candidate_dates?.[0]?.date}
                 />
               </TabsContent>
 

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check, UserPlus, Copy, Share2, ArrowLeft, Settings, Trash2, ChevronDown } from 'lucide-react'
+import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircle, Loader2, Ticket, CreditCard, LogOut, MessageCircle, Check, UserPlus, Copy, Share2, ArrowLeft, Settings, Trash2, ChevronDown, MapPin } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
@@ -79,8 +79,6 @@ export function PrivateGroupInvite() {
   // モバイル候補日シート
   const [showMobileDates, setShowMobileDates] = useState(false)
   
-  // 申請用の選択日程
-  const [selectedDatesForBooking, setSelectedDatesForBooking] = useState<Set<string>>(new Set())
   
   // グループ設定シート
   const [showSettingsSheet, setShowSettingsSheet] = useState(false)
@@ -91,6 +89,20 @@ export function PrivateGroupInvite() {
   
   // メンバー招待シート
   const [showInviteSheet, setShowInviteSheet] = useState(false)
+  
+  // 希望店舗関連
+  const [preferredStoreNames, setPreferredStoreNames] = useState<Array<{ id: string; name: string }>>([])
+  const [showStoreEditSheet, setShowStoreEditSheet] = useState(false)
+  const [allStores, setAllStores] = useState<Array<{ id: string; name: string; short_name: string }>>([])
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
+  const [savingStores, setSavingStores] = useState(false)
+  
+  // 申請ダイアログ（日程選択 + 送信）
+  const [showBookingDialog, setShowBookingDialog] = useState(false)
+  const [bookingSelectedDates, setBookingSelectedDates] = useState<Set<string>>(new Set())
+  const [bookingPhone, setBookingPhone] = useState('')
+  const [bookingNotes, setBookingNotes] = useState('')
+  const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
 
   // SessionStorageキー
   const getStorageKey = (inviteCode: string) => `guest_session_${inviteCode}`
@@ -283,6 +295,95 @@ export function PrivateGroupInvite() {
 
     fetchCoupons()
   }, [user])
+
+  // 希望店舗の名前を取得
+  useEffect(() => {
+    const fetchStoreNames = async () => {
+      if (!group?.preferred_store_ids?.length) {
+        setPreferredStoreNames([])
+        return
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from('stores')
+          .select('id, name')
+          .in('id', group.preferred_store_ids)
+        
+        if (error) throw error
+        setPreferredStoreNames(data || [])
+      } catch (err) {
+        logger.error('店舗名取得エラー:', err)
+        setPreferredStoreNames([])
+      }
+    }
+    
+    fetchStoreNames()
+  }, [group?.preferred_store_ids])
+
+  // 店舗編集用: シナリオに対応した全店舗を取得
+  const fetchAllStores = async () => {
+    if (!group?.scenario_id) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('scenario_stores')
+        .select(`
+          store_id,
+          stores:store_id (
+            id,
+            name,
+            short_name
+          )
+        `)
+        .eq('scenario_id', group.scenario_id)
+      
+      if (error) throw error
+      
+      const storeList = (data || [])
+        .filter((ss: any) => ss.stores)
+        .map((ss: any) => ({
+          id: ss.stores.id,
+          name: ss.stores.name,
+          short_name: ss.stores.short_name || ss.stores.name
+        }))
+      
+      setAllStores(storeList)
+    } catch (err) {
+      logger.error('全店舗取得エラー:', err)
+    }
+  }
+
+  // 希望店舗を保存
+  const handleSavePreferredStores = async () => {
+    if (!group) return
+    
+    setSavingStores(true)
+    try {
+      const { error } = await supabase
+        .from('private_groups')
+        .update({ preferred_store_ids: selectedStoreIds })
+        .eq('id', group.id)
+      
+      if (error) throw error
+      
+      toast.success('希望店舗を更新しました')
+      setShowStoreEditSheet(false)
+      refetch()
+    } catch (err) {
+      logger.error('希望店舗保存エラー:', err)
+      toast.error('保存に失敗しました')
+    } finally {
+      setSavingStores(false)
+    }
+  }
+
+  // 店舗編集シートを開く
+  const openStoreEditSheet = () => {
+    setSelectedStoreIds(group?.preferred_store_ids || [])
+    fetchAllStores()
+    setShowStoreEditSheet(true)
+  }
 
   // 料金計算
   const perPersonPrice = useMemo(() => {
@@ -699,8 +800,29 @@ export function PrivateGroupInvite() {
   }
 
   // 日程選択のトグル
-  const toggleDateSelection = (dateId: string) => {
-    setSelectedDatesForBooking(prev => {
+  // 貸切申込ダイアログを開く
+  const handleOpenBookingDialog = async () => {
+    if (!isOrganizer || !group || !user) return
+    setBookingSelectedDates(new Set())
+    setBookingNotes('')
+    
+    // 既存の電話番号を取得
+    let phone = organizerMember?.guest_phone || ''
+    if (!phone) {
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('phone')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      phone = customer?.phone || ''
+    }
+    setBookingPhone(phone)
+    setShowBookingDialog(true)
+  }
+  
+  // ダイアログ内での日程選択トグル
+  const toggleBookingDate = (dateId: string) => {
+    setBookingSelectedDates(prev => {
       const newSet = new Set(prev)
       if (newSet.has(dateId)) {
         newSet.delete(dateId)
@@ -711,58 +833,162 @@ export function PrivateGroupInvite() {
     })
   }
   
-  // 貸切申込（選択した日程で申請）
-  const handleProceedToBooking = async () => {
-    if (!isOrganizer || !group) return
+  // 貸切申込を実行
+  const handleSubmitBooking = async () => {
+    if (!isOrganizer || !group || !user) return
     
-    // 選択した日程を取得
-    const selectedCandidateDates = group.candidate_dates?.filter(cd => selectedDatesForBooking.has(cd.id)) || []
+    const selectedCandidateDates = group.candidate_dates?.filter(cd => bookingSelectedDates.has(cd.id)) || []
     
     if (selectedCandidateDates.length === 0) {
       toast.error('申請する日程を選択してください')
       return
     }
     
-    // 組織のスラッグを取得
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('slug')
-      .eq('id', group.organization_id)
-      .single()
-    
-    if (!org?.slug) {
-      toast.error('組織情報の取得に失敗しました')
+    // 電話番号の検証
+    if (!bookingPhone.trim()) {
+      toast.error('電話番号を入力してください')
       return
     }
     
-    const params = new URLSearchParams()
-    params.set('groupId', group.id)
+    setIsSubmittingBooking(true)
     
-    // シナリオID（必須）
-    if (group.scenario_id) {
-      params.set('scenario', group.scenario_id)
+    try {
+      // 顧客情報を取得または作成
+      let customerId: string | null = null
+      const customerName = organizerMember?.guest_name || user.email?.split('@')[0] || ''
+      const customerEmail = organizerMember?.guest_email || user.email || ''
+      const customerPhone = bookingPhone.trim()
+      
+      const { data: existingCustomer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+      
+      if (existingCustomer) {
+        customerId = existingCustomer.id
+        await supabase
+          .from('customers')
+          .update({ name: customerName, phone: customerPhone, email: customerEmail })
+          .eq('id', customerId)
+      } else {
+        const { data: newCustomer } = await supabase
+          .from('customers')
+          .insert({
+            user_id: user.id,
+            name: customerName,
+            phone: customerPhone,
+            email: customerEmail,
+            organization_id: group.organization_id
+          })
+          .select('id')
+          .single()
+        
+        if (newCustomer) {
+          customerId = newCustomer.id
+        }
+      }
+      
+      if (!customerId) {
+        throw new Error('顧客情報の取得に失敗しました')
+      }
+      
+      // 予約番号を生成
+      const now = new Date()
+      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+      const baseReservationNumber = `${dateStr}-${randomStr}`
+      
+      // 候補日時をJSONB形式で準備
+      const candidateDatetimes = {
+        candidates: selectedCandidateDates.map((cd, index) => ({
+          order: index + 1,
+          date: cd.date,
+          timeSlot: cd.time_slot,
+          startTime: cd.start_time,
+          endTime: cd.end_time,
+          status: 'pending'
+        })),
+        requestedStores: preferredStoreNames.map(store => ({
+          storeId: store.id,
+          storeName: store.name,
+          storeShortName: store.name
+        }))
+      }
+      
+      // シナリオ情報を取得
+      const maxParticipants = group.target_participant_count || 6
+      
+      // RPC経由で貸切予約を作成
+      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', {
+        p_scenario_id: group.scenario_id,
+        p_customer_id: customerId,
+        p_customer_name: customerName,
+        p_customer_email: customerEmail,
+        p_customer_phone: customerPhone,
+        p_participant_count: maxParticipants,
+        p_candidate_datetimes: candidateDatetimes,
+        p_notes: bookingNotes || null,
+        p_reservation_number: baseReservationNumber,
+        p_private_group_id: group.id
+      })
+      
+      if (rpcError) {
+        logger.error('貸切リクエストエラー:', rpcError)
+        throw new Error('貸切リクエストの送信に失敗しました')
+      }
+      
+      const parentReservationId = reservationId as string
+      
+      // グループのステータスを「申込済み」に更新
+      const { error: groupUpdateError } = await supabase
+        .from('private_groups')
+        .update({
+          status: 'booking_requested',
+          reservation_id: parentReservationId
+        })
+        .eq('id', group.id)
+      
+      if (groupUpdateError) {
+        logger.error('グループステータス更新エラー:', groupUpdateError)
+      }
+      
+      // システムメッセージを送信
+      const { data: msgSettings } = await supabase
+        .from('global_settings')
+        .select('system_msg_booking_requested_title, system_msg_booking_requested_body')
+        .eq('organization_id', group.organization_id)
+        .maybeSingle()
+      
+      const title = msgSettings?.system_msg_booking_requested_title || '予約リクエストを送信しました'
+      const body = msgSettings?.system_msg_booking_requested_body || '店舗からの返信をお待ちください。'
+      
+      await supabase
+        .from('private_group_messages')
+        .insert({
+          group_id: group.id,
+          sender_id: organizerMember?.id,
+          sender_type: 'system',
+          content: JSON.stringify({
+            type: 'system',
+            action: 'booking_requested',
+            title,
+            body
+          })
+        })
+      
+      toast.success('予約リクエストを送信しました')
+      setShowBookingDialog(false)
+      setBookingNotes('')
+      setBookingSelectedDates(new Set())
+      refetch()
+      
+    } catch (err) {
+      logger.error('予約リクエストエラー:', err)
+      toast.error(err instanceof Error ? err.message : '予約リクエストの送信に失敗しました')
+    } finally {
+      setIsSubmittingBooking(false)
     }
-    
-    // 最初の日程を date/slot に設定（申請ページの期待するパラメータ）
-    if (selectedCandidateDates.length > 0) {
-      params.set('date', selectedCandidateDates[0].date)
-      params.set('slot', selectedCandidateDates[0].time_slot)
-    }
-    
-    // 追加の日程がある場合（複数対応）
-    if (selectedCandidateDates.length > 1) {
-      const dates = selectedCandidateDates.map(cd => cd.date).join(',')
-      const slots = selectedCandidateDates.map(cd => cd.time_slot).join(',')
-      params.set('dates', dates)
-      params.set('slots', slots)
-    }
-    
-    // 店舗（全て）
-    if (group.preferred_store_ids && group.preferred_store_ids.length > 0) {
-      params.set('store', group.preferred_store_ids.join(','))
-    }
-    
-    navigate(`/${org.slug}/private-booking-request?${params.toString()}`)
   }
 
   // メンバー削除
@@ -881,7 +1107,7 @@ export function PrivateGroupInvite() {
         {showMobileDates && (
           <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowMobileDates(false)}>
             <div 
-              className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
+              className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[520px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               {/* ハンドル（モバイルのみ） */}
@@ -939,24 +1165,58 @@ export function PrivateGroupInvite() {
                   </div>
                 </div>
 
-                {/* 候補日リスト */}
-                <div>
+                {/* 希望店舗 */}
+                <div className="mb-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-sm">候補日程（{group.candidate_dates?.length || 0}件）</h4>
-                    {isOrganizer && group.status === 'gathering' && (
-                      <AddCandidateDates
-                        groupId={group.id}
-                        scenarioId={group.scenario_id || ''}
-                        storeIds={group.preferred_store_ids || []}
-                        existingDates={group.candidate_dates || []}
-                        onDatesAdded={() => {
-                          refetch()
-                          setShowMobileDates(false)
-                        }}
-                        organizerMemberId={organizerMember?.id}
-                      />
+                    <h4 className="font-medium text-sm">希望店舗（{preferredStoreNames.length}件）</h4>
+                    {isOrganizer && (group.status === 'gathering' || group.status === 'date_adjusting') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7"
+                        onClick={openStoreEditSheet}
+                      >
+                        <Settings className="w-3 h-3 mr-1" />
+                        編集
+                      </Button>
                     )}
                   </div>
+                  {preferredStoreNames.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {preferredStoreNames.map(store => (
+                        <span
+                          key={store.id}
+                          className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium"
+                        >
+                          {store.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">店舗が指定されていません</p>
+                  )}
+                </div>
+
+                {/* 候補日追加 */}
+                {isOrganizer && (group.status === 'gathering' || group.status === 'date_adjusting') && (
+                  <div className="mb-4">
+                    <AddCandidateDates
+                      groupId={group.id}
+                      scenarioId={group.scenario_id || ''}
+                      storeIds={group.preferred_store_ids || []}
+                      existingDates={group.candidate_dates || []}
+                      onDatesAdded={() => {
+                        refetch()
+                        setShowMobileDates(false)
+                      }}
+                      organizerMemberId={organizerMember?.id}
+                    />
+                  </div>
+                )}
+
+                {/* 候補日リスト */}
+                <div>
+                  <h4 className="font-medium text-sm mb-2">候補日程（{group.candidate_dates?.length || 0}件）</h4>
                   <div className="space-y-2">
                     {group.candidate_dates && group.candidate_dates.length > 0 ? (
                       group.candidate_dates.map((cd, index) => {
@@ -967,31 +1227,13 @@ export function PrivateGroupInvite() {
                         const ngCount = dateResponses.filter(r => r.response === 'ng').length
                         const totalMembers = joinedMembers.length
                         const respondedCount = dateResponses.length
-                        const isSelected = selectedDatesForBooking.has(cd.id)
                         
                         return (
                           <div 
                             key={cd.id} 
-                            className={`p-3 rounded-lg border-2 transition-colors ${
-                              isSelected 
-                                ? 'bg-green-50 border-green-500' 
-                                : 'bg-gray-50 border-transparent'
-                            }`}
+                            className="p-3 rounded-lg bg-gray-50"
                           >
                             <div className="flex items-center gap-3 mb-2">
-                              {/* 主催者用チェックボックス */}
-                              {isOrganizer && group.status === 'gathering' && (
-                                <button
-                                  onClick={() => toggleDateSelection(cd.id)}
-                                  className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
-                                    isSelected
-                                      ? 'bg-green-500 border-green-500 text-white'
-                                      : 'bg-white border-gray-300 hover:border-green-400'
-                                  }`}
-                                >
-                                  {isSelected && <Check className="w-4 h-4" />}
-                                </button>
-                              )}
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
@@ -1106,13 +1348,13 @@ export function PrivateGroupInvite() {
                 {/* 主催者向け申請ボタン */}
                 {isOrganizer && group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
                   <Button
-                    onClick={handleProceedToBooking}
-                    disabled={selectedDatesForBooking.size === 0}
-                    className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300"
+                    onClick={() => {
+                      setShowMobileDates(false)
+                      handleOpenBookingDialog()
+                    }}
+                    className="w-full bg-green-600 hover:bg-green-700"
                   >
-                    {selectedDatesForBooking.size > 0 
-                      ? `選択した${selectedDatesForBooking.size}件の日程で申請する`
-                      : '日程を選択してください'}
+                    予約リクエストを作成
                   </Button>
                 )}
                 
@@ -1134,7 +1376,7 @@ export function PrivateGroupInvite() {
         {showInviteSheet && isOrganizer && (
           <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowInviteSheet(false)}>
             <div 
-              className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-96 bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
+              className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               {/* ハンドル（モバイルのみ） */}
@@ -1188,15 +1430,15 @@ export function PrivateGroupInvite() {
                 {/* メンバー一覧 */}
                 <div>
                   <h4 className="font-medium text-sm mb-2">参加メンバー（{joinedMembers.length}名）</h4>
-                  <div className="space-y-2">
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
                     {joinedMembers.map(member => (
                       <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
                             <Users className="w-4 h-4 text-purple-600" />
                           </div>
-                          <div>
-                            <p className="text-sm font-medium">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">
                               {member.guest_name || member.users?.nickname || member.users?.email?.split('@')[0] || 'メンバー'}
                             </p>
                             {member.is_organizer && (
@@ -1209,7 +1451,7 @@ export function PrivateGroupInvite() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRemoveMember(member.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
                           >
                             <X className="w-4 h-4" />
                           </Button>
@@ -1218,30 +1460,16 @@ export function PrivateGroupInvite() {
                     ))}
                   </div>
                 </div>
-
-                {/* 日程選択への導線 */}
-                {group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
-                  <Button
-                    onClick={() => {
-                      setShowInviteSheet(false)
-                      setShowMobileDates(true)
-                    }}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                  >
-                    日程を選んで申請する
-                  </Button>
-                )}
               </div>
               
-              {/* フッター: チャットに戻るボタン（常に表示） */}
+              {/* フッター */}
               <div className="p-4 border-t shrink-0">
                 <Button
                   variant="outline"
                   onClick={() => setShowInviteSheet(false)}
                   className="w-full"
                 >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  チャットに戻る
+                  閉じる
                 </Button>
               </div>
             </div>
@@ -1491,6 +1719,301 @@ export function PrivateGroupInvite() {
           </div>
         )}
 
+        {/* 希望店舗編集シート */}
+        {showStoreEditSheet && isOrganizer && (
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowStoreEditSheet(false)}>
+            <div 
+              className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* ハンドル（モバイルのみ） */}
+              <div className="flex justify-center py-2 shrink-0 lg:hidden">
+                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+              </div>
+              
+              {/* ヘッダー */}
+              <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
+                <h3 className="font-semibold">希望店舗を編集</h3>
+                <button 
+                  onClick={() => setShowStoreEditSheet(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+              
+              {/* コンテンツ */}
+              <div className="overflow-y-auto flex-1 p-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  利用を希望する店舗を選択してください。
+                </p>
+                <div className="space-y-2">
+                  {allStores.length > 0 ? (
+                    allStores.map(store => (
+                      <label
+                        key={store.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                          selectedStoreIds.includes(store.id)
+                            ? 'bg-blue-50 border-blue-500'
+                            : 'bg-gray-50 border-transparent hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedStoreIds.includes(store.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedStoreIds([...selectedStoreIds, store.id])
+                            } else {
+                              setSelectedStoreIds(selectedStoreIds.filter(id => id !== store.id))
+                            }
+                          }}
+                          className="sr-only"
+                        />
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                          selectedStoreIds.includes(store.id)
+                            ? 'bg-blue-500 border-blue-500 text-white'
+                            : 'border-gray-300'
+                        }`}>
+                          {selectedStoreIds.includes(store.id) && <Check className="w-3.5 h-3.5" />}
+                        </div>
+                        <span className="font-medium text-sm">{store.name}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+                      店舗を読み込み中...
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* フッター */}
+              <div className="p-4 border-t shrink-0 space-y-2">
+                <Button
+                  onClick={handleSavePreferredStores}
+                  className="w-full"
+                  disabled={savingStores || selectedStoreIds.length === 0}
+                >
+                  {savingStores ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      保存中...
+                    </>
+                  ) : (
+                    `保存する（${selectedStoreIds.length}件選択中）`
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowStoreEditSheet(false)}
+                  className="w-full"
+                >
+                  キャンセル
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 予約申請シート（日程選択 + 送信） */}
+        {showBookingDialog && isOrganizer && (
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowBookingDialog(false)}>
+            <div 
+              className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* ハンドル（モバイルのみ） */}
+              <div className="flex justify-center py-2 shrink-0 lg:hidden">
+                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+              </div>
+              
+              {/* ヘッダー */}
+              <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
+                <h3 className="font-semibold">予約リクエスト</h3>
+                <button 
+                  onClick={() => setShowBookingDialog(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+              
+              {/* コンテンツ */}
+              <div className="overflow-y-auto flex-1 p-4 space-y-4">
+                {/* 日程選択 */}
+                <div>
+                  <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-purple-600" />
+                    希望日程を選択
+                  </h4>
+                  <div className="space-y-2">
+                    {group.candidate_dates && group.candidate_dates.length > 0 ? (
+                      group.candidate_dates.map((cd) => {
+                        const isSelected = bookingSelectedDates.has(cd.id)
+                        const dateResponses = cd.responses || []
+                        const okCount = dateResponses.filter(r => r.response === 'ok').length
+                        const maybeCount = dateResponses.filter(r => r.response === 'maybe').length
+                        const ngCount = dateResponses.filter(r => r.response === 'ng').length
+                        
+                        return (
+                          <label
+                            key={cd.id}
+                            className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'bg-purple-50 border-purple-500'
+                                : 'bg-gray-50 border-transparent hover:border-gray-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleBookingDate(cd.id)}
+                              className="sr-only"
+                            />
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                              isSelected
+                                ? 'bg-purple-500 border-purple-500 text-white'
+                                : 'border-gray-300'
+                            }`}>
+                              {isSelected && <Check className="w-3.5 h-3.5" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm">
+                                {new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {cd.time_slot} {cd.start_time}-{cd.end_time}
+                              </div>
+                            </div>
+                            <div className="text-xs text-right shrink-0">
+                              <span className="text-green-600">○{okCount}</span>
+                              <span className="text-amber-600 ml-1">△{maybeCount}</span>
+                              <span className="text-red-600 ml-1">×{ngCount}</span>
+                            </div>
+                          </label>
+                        )
+                      })
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        候補日程がありません
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* 希望店舗 */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-blue-600" />
+                      希望店舗
+                    </h4>
+                    <button
+                      onClick={() => {
+                        setShowBookingDialog(false)
+                        openStoreEditSheet()
+                      }}
+                      className="text-xs text-purple-600 hover:underline"
+                    >
+                      変更
+                    </button>
+                  </div>
+                  {preferredStoreNames.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {preferredStoreNames.map(store => (
+                        <span
+                          key={store.id}
+                          className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium"
+                        >
+                          {store.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-amber-600 bg-amber-50 rounded-lg p-2">
+                      店舗が未選択です。「変更」から店舗を選択してください。
+                    </p>
+                  )}
+                </div>
+                
+                {/* 参加人数 */}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-green-600" />
+                    参加人数
+                  </span>
+                  <span>{joinedMembers.length}名（目標: {group.target_participant_count || '-'}名）</span>
+                </div>
+                
+                {/* 連絡先電話番号 */}
+                <div>
+                  <Label htmlFor="booking-phone" className="text-sm mb-2 block">
+                    連絡先電話番号 <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="booking-phone"
+                    type="tel"
+                    value={bookingPhone}
+                    onChange={(e) => setBookingPhone(e.target.value)}
+                    placeholder="090-1234-5678"
+                    className="text-sm"
+                  />
+                </div>
+                
+                {/* 備考 */}
+                <div>
+                  <Label htmlFor="booking-notes" className="text-sm mb-2 block">
+                    備考・リクエスト（任意）
+                  </Label>
+                  <Textarea
+                    id="booking-notes"
+                    value={bookingNotes}
+                    onChange={(e) => setBookingNotes(e.target.value)}
+                    placeholder="特別なリクエストがあればご記入ください"
+                    className="resize-none text-sm"
+                    rows={2}
+                  />
+                </div>
+              </div>
+              
+              {/* フッター */}
+              <div className="p-4 border-t shrink-0 space-y-2">
+                <Button
+                  onClick={handleSubmitBooking}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  disabled={isSubmittingBooking || bookingSelectedDates.size === 0 || preferredStoreNames.length === 0 || !bookingPhone.trim()}
+                >
+                  {isSubmittingBooking ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      送信中...
+                    </>
+                  ) : bookingSelectedDates.size === 0 ? (
+                    '日程を選択してください'
+                  ) : !bookingPhone.trim() ? (
+                    '電話番号を入力してください'
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      {bookingSelectedDates.size}件の日程で申請する
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowBookingDialog(false)}
+                  className="w-full"
+                  disabled={isSubmittingBooking}
+                >
+                  キャンセル
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* PC: 2カラム / モバイル: チャットのみ */}
         <div className="flex-1 flex overflow-hidden">
           {/* チャット */}
@@ -1501,6 +2024,9 @@ export function PrivateGroupInvite() {
               members={group.members || []}
               fullHeight={true}
               onGoToSchedule={() => setShowMobileDates(true)}
+              scenarioId={group.scenario_id || undefined}
+              organizationId={group.organization_id || undefined}
+              performanceDate={group.candidate_dates?.[0]?.date}
             />
           </div>
 
@@ -1536,6 +2062,35 @@ export function PrivateGroupInvite() {
                 </div>
               </div>
 
+              {/* 希望店舗 */}
+              <div className="bg-white rounded-lg p-3 border">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-sm">希望店舗</h3>
+                  {isOrganizer && (group.status === 'gathering' || group.status === 'date_adjusting') && (
+                    <button
+                      onClick={openStoreEditSheet}
+                      className="text-xs text-purple-600 hover:underline"
+                    >
+                      編集
+                    </button>
+                  )}
+                </div>
+                {preferredStoreNames.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {preferredStoreNames.map(store => (
+                      <span
+                        key={store.id}
+                        className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-xs"
+                      >
+                        {store.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">未設定</p>
+                )}
+              </div>
+
               {/* 候補日程 */}
               {group.candidate_dates && group.candidate_dates.length > 0 && (
                 <div className="bg-white rounded-lg p-3 border">
@@ -1559,9 +2114,15 @@ export function PrivateGroupInvite() {
                 </div>
               )}
 
-              {/* メンバー */}
-              <div className="bg-white rounded-lg p-3 border">
-                <h3 className="font-semibold text-sm mb-2">メンバー ({joinedMembers.length}名)</h3>
+              {/* メンバー（クリックで管理ダイアログを開く） */}
+              <div 
+                className={`bg-white rounded-lg p-3 border ${isOrganizer ? 'cursor-pointer hover:border-purple-300 transition-colors' : ''}`}
+                onClick={() => isOrganizer && setShowInviteSheet(true)}
+              >
+                <h3 className="font-semibold text-sm mb-2 flex items-center justify-between">
+                  <span>メンバー ({joinedMembers.length}名)</span>
+                  {isOrganizer && <UserPlus className="w-4 h-4 text-purple-600" />}
+                </h3>
                 <div className="space-y-1.5">
                   {joinedMembers.slice(0, 5).map(member => (
                     <div key={member.id} className="flex items-center gap-2 text-xs">
@@ -1572,46 +2133,23 @@ export function PrivateGroupInvite() {
                     </div>
                   ))}
                   {joinedMembers.length > 5 && (
-                    <button 
-                      onClick={() => setActiveTab('members')}
-                      className="text-xs text-purple-600 hover:underline"
-                    >
-                      他{joinedMembers.length - 5}名を表示
-                    </button>
+                    <p className="text-xs text-muted-foreground">
+                      他{joinedMembers.length - 5}名
+                    </p>
                   )}
                 </div>
               </div>
 
               {/* 主催者向け機能 */}
-              {isOrganizer && (
-                <div className="space-y-2 pt-2 border-t">
+              {isOrganizer && group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
+                <div className="pt-2 border-t">
                   <Button
-                    variant="outline"
                     size="sm"
-                    className="w-full text-xs"
-                    onClick={handleCopyUrl}
+                    className="w-full text-xs bg-green-600 hover:bg-green-700"
+                    onClick={handleOpenBookingDialog}
                   >
-                    {copied ? <Check className="w-3.5 h-3.5 mr-1.5" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
-                    {copied ? 'コピー完了' : '招待リンクをコピー'}
+                    予約リクエストを作成
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-xs"
-                    onClick={() => setActiveTab('manage')}
-                  >
-                    <UserPlus className="w-3.5 h-3.5 mr-1.5" />
-                    メンバー招待・管理
-                  </Button>
-                  {group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
-                    <Button
-                      size="sm"
-                      className="w-full text-xs bg-green-600 hover:bg-green-700"
-                      onClick={() => setActiveTab('schedule')}
-                    >
-                      日程を選んで申請
-                    </Button>
-                  )}
                 </div>
               )}
             </div>
@@ -1946,30 +2484,11 @@ export function PrivateGroupInvite() {
                   const ngCount = dateResponses.filter(r => r.response === 'ng').length
                   const totalMembers = joinedMembers.length
                   const respondedCount = dateResponses.length
-                  const isSelected = selectedDatesForBooking.has(cd.id)
                   
                   return (
-                    <Card 
-                      key={cd.id}
-                      className={`border-2 transition-colors ${
-                        isSelected ? 'border-green-500 bg-green-50' : 'border-transparent'
-                      }`}
-                    >
+                    <Card key={cd.id}>
                       <CardContent className="p-4">
                         <div className="flex items-center gap-3 mb-2">
-                          {/* 主催者用チェックボックス */}
-                          {isOrganizer && group.status === 'gathering' && (
-                            <button
-                              onClick={() => toggleDateSelection(cd.id)}
-                              className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
-                                isSelected
-                                  ? 'bg-green-500 border-green-500 text-white'
-                                  : 'bg-white border-gray-300 hover:border-green-400'
-                              }`}
-                            >
-                              {isSelected && <Check className="w-4 h-4" />}
-                            </button>
-                          )}
                           <div className="flex-1">
                             <div className="flex items-center gap-2 text-sm">
                               <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
@@ -2053,13 +2572,10 @@ export function PrivateGroupInvite() {
                 {/* 主催者向け申請ボタン */}
                 {isOrganizer && group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
                   <Button
-                    onClick={handleProceedToBooking}
-                    disabled={selectedDatesForBooking.size === 0}
-                    className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 mt-3"
+                    onClick={handleOpenBookingDialog}
+                    className="w-full bg-green-600 hover:bg-green-700 mt-3"
                   >
-                    {selectedDatesForBooking.size > 0 
-                      ? `選択した${selectedDatesForBooking.size}件の日程で申請する`
-                      : '申請する日程をチェックしてください'}
+                    予約リクエストを作成
                   </Button>
                 )}
               </div>
@@ -2072,6 +2588,9 @@ export function PrivateGroupInvite() {
                 currentMemberId={existingMemberId}
                 members={group.members}
                 onGoToSchedule={() => setActiveTab('schedule')}
+                scenarioId={group.scenario_id || undefined}
+                organizationId={group.organization_id || undefined}
+                performanceDate={group.candidate_dates?.[0]?.date}
               />
             </TabsContent>
 
