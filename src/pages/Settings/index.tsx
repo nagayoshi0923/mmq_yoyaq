@@ -166,6 +166,7 @@ export function Settings() {
           menuItems={menuItems}
           activeTab={activeTab}
           onTabChange={setActiveTab}
+          showSearch={true}
         />
       }
       maxWidth="max-w-[1440px]"

@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { ArrowLeft, LucideIcon, Menu, X } from 'lucide-react'
+import { ArrowLeft, LucideIcon, Menu, X, Search } from 'lucide-react'
 
 export interface SidebarMenuItem {
   id: string
@@ -27,6 +28,8 @@ interface UnifiedSidebarProps {
   onBackToList?: () => void
   /** 編集モード時のサブタイトル（例: スタッフ名、シナリオ名） */
   editModeSubtitle?: string
+  /** 検索機能を有効にする */
+  showSearch?: boolean
 }
 
 export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
@@ -37,14 +40,26 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
   activeTab,
   onTabChange,
   onBackToList,
-  editModeSubtitle
+  editModeSubtitle,
+  showSearch = false
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const handleMenuItemClick = (itemId: string) => {
     onTabChange(itemId)
     setIsMobileMenuOpen(false) // モバイルメニューを閉じる
   }
+
+  // 検索でフィルタリングされたメニュー項目
+  const filteredMenuItems = useMemo(() => {
+    if (!searchQuery.trim()) return menuItems
+    const query = searchQuery.toLowerCase()
+    return menuItems.filter(item =>
+      item.label.toLowerCase().includes(query) ||
+      (item.description?.toLowerCase().includes(query))
+    )
+  }, [menuItems, searchQuery])
 
   return (
     <>
@@ -94,10 +109,30 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
           </div>
         )}
 
+        {/* 検索フィールド */}
+        {showSearch && mode === 'list' && (
+          <div className="px-4 pt-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="設定を検索..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+          </div>
+        )}
+
         {/* メニュー項目 */}
         <nav className="flex-1 overflow-y-auto p-4">
           <div className="space-y-1">
-            {menuItems.map((item) => {
+            {filteredMenuItems.length === 0 ? (
+              <div className="text-xs text-slate-500 text-center py-4">
+                該当する設定が見つかりません
+              </div>
+            ) : filteredMenuItems.map((item) => {
               const isActive = activeTab === item.id
               const Icon = item.icon
               
@@ -185,10 +220,30 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
           </div>
         )}
 
+        {/* 検索フィールド（モバイル） */}
+        {showSearch && mode === 'list' && (
+          <div className="px-4 pt-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="設定を検索..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+          </div>
+        )}
+
         {/* メニュー項目 */}
         <nav className="flex-1 overflow-y-auto p-4">
           <div className="space-y-1">
-            {menuItems.map((item) => {
+            {filteredMenuItems.length === 0 ? (
+              <div className="text-xs text-slate-500 text-center py-4">
+                該当する設定が見つかりません
+              </div>
+            ) : filteredMenuItems.map((item) => {
               const isActive = activeTab === item.id
               const Icon = item.icon
               
