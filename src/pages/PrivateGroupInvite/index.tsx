@@ -1582,17 +1582,6 @@ export function PrivateGroupInvite() {
                 </div>
               </div>
 
-              {/* アクションボタン */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-                onClick={() => setActiveTab('schedule')}
-              >
-                <Calendar className="w-3.5 h-3.5 mr-1.5" />
-                日程回答・詳細を見る
-              </Button>
-
               {/* 主催者向け機能 */}
               {isOrganizer && (
                 <div className="space-y-2 pt-2 border-t">
