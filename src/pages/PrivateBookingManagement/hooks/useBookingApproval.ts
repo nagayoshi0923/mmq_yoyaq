@@ -206,18 +206,26 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       // グループチャットに日程確定のシステムメッセージを送信
       try {
         // 予約に紐づくグループIDを取得
-        const { data: reservation } = await supabase
+        const { data: reservation, error: reservationQueryError } = await supabase
           .from('reservations')
           .select('private_group_id')
           .eq('id', requestId)
           .single()
+        
+        logger.log('予約のグループID取得結果:', { requestId, private_group_id: reservation?.private_group_id, error: reservationQueryError })
 
         if (reservation?.private_group_id) {
           // グループのステータスを confirmed に更新
-          await supabase
+          const { error: groupUpdateError } = await supabase
             .from('private_groups')
             .update({ status: 'confirmed' })
             .eq('id', reservation.private_group_id)
+          
+          if (groupUpdateError) {
+            logger.error('グループステータス更新エラー:', groupUpdateError)
+          } else {
+            logger.log('グループステータスをconfirmedに更新:', reservation.private_group_id)
+          }
 
           // 主催者のメンバーIDを取得
           const { data: organizerMember } = await supabase

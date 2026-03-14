@@ -701,6 +701,11 @@ export function PrivateBookingManagement() {
               <div className="pt-3 border-t">
                 <ActionButtons
                   onApprove={async () => {
+                    // 既に承認済みの場合は確認ダイアログを表示
+                    if (selectedRequest.status === 'gm_confirmed' || selectedRequest.status === 'confirmed') {
+                      const confirmed = window.confirm('この予約は既に承認済みです。内容を変更しますか？\n\n変更すると、お客様に再度確定メールが送信されます。')
+                      if (!confirmed) return
+                    }
                     const result = await handleApprove(
                       selectedRequest.id,
                       selectedRequest,
