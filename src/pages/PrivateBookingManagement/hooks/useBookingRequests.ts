@@ -68,14 +68,14 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
         logger.log('👑 管理者ユーザー - 全てのリクエスト表示')
       }
       
-      // reservationsテーブルから貸切リクエストを取得（private_groupsのinvite_codeも含む）
+      // reservationsテーブルから貸切リクエストを取得（private_groupsのinvite_codeとscenario_idも含む）
       let query = supabase
         .from('reservations')
         .select(`
           *,
           scenario_masters:scenario_master_id(title),
           customers:customer_id(name, phone),
-          private_groups:private_group_id(invite_code)
+          private_groups:private_group_id(invite_code, scenario_id)
         `)
         .eq('reservation_source', 'web_private')
         .order('created_at', { ascending: false })
@@ -107,26 +107,84 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
       // 各リクエストに対してGM回答を取得
       const formattedData: PrivateBookingRequest[] = await Promise.all(
         (data || []).map(async (req: any) => {
-          // GM回答を別途取得（スタッフのavatar_colorも含める）
+          // GM回答を別途取得（スタッフのavatar_colorと名前も含める）
           const { data: gmResponses } = await supabase
             .from('gm_availability_responses')
-            .select('staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, staff:staff_id(avatar_color)')
+            .select('staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, staff:staff_id(name, avatar_color)')
             .eq('reservation_id', req.id)
             .in('response_status', ['available', 'unavailable'])
+          
+          // GM名がnullの場合はスタッフテーブルの名前を使用
+          const transformedGMResponses = (gmResponses || []).map((gm: any) => ({
+            ...gm,
+            gm_name: gm.gm_name || gm.staff?.name || ''
+          }))
+          
+          // 確定済み予約で候補日が1つしかない場合、元の候補日をprivate_group_candidate_datesから復元
+          let candidateDatetimes = req.candidate_datetimes || { candidates: [] }
+          const currentCandidates = candidateDatetimes.candidates || []
+          
+          // private_group_idがある場合、元の候補日を取得
+          let originalCandidates: any[] = []
+          if (req.private_group_id) {
+            const { data: candidateDatesData } = await supabase
+              .from('private_group_candidate_dates')
+              .select('id, date, time_slot, start_time, end_time')
+              .eq('group_id', req.private_group_id)
+              .order('date', { ascending: true })
+            
+            originalCandidates = candidateDatesData || []
+          }
+          
+          logger.log(`📋 予約 ${req.id}: 現在の候補数=${currentCandidates.length}, 元の候補数=${originalCandidates.length}`)
+          
+          // 元の候補日が多い場合は復元
+          if (originalCandidates.length > currentCandidates.length) {
+            logger.log(`🔄 候補日を復元: ${originalCandidates.map((c: any) => c.date).join(', ')}`)
+            // 確定された候補を特定
+            const confirmedCandidate = currentCandidates.find((c: any) => c.status === 'confirmed')
+            
+            // 元の候補日をcandidate_datetimes形式に変換
+            const restoredCandidates = originalCandidates.map((cd: any, idx: number) => {
+              const isConfirmed = confirmedCandidate && 
+                confirmedCandidate.date === cd.date && 
+                confirmedCandidate.timeSlot === cd.time_slot
+              
+              return {
+                order: idx + 1,
+                date: cd.date,
+                timeSlot: cd.time_slot,
+                startTime: cd.start_time || confirmedCandidate?.startTime || '10:00',
+                endTime: cd.end_time || confirmedCandidate?.endTime || '13:00',
+                status: isConfirmed ? 'confirmed' : 'pending'
+              }
+            })
+            
+            candidateDatetimes = {
+              ...candidateDatetimes,
+              candidates: restoredCandidates
+            }
+          }
+          
+          // scenario_master_id のフォールバック: private_groups.scenario_id を使用
+          const scenarioMasterId = req.scenario_master_id || req.private_groups?.scenario_id
+          if (!scenarioMasterId) {
+            logger.log(`⚠️ 予約 ${req.id}: scenario_master_id が未設定（private_groups.scenario_id も未設定）`)
+          }
           
           return {
             id: req.id,
             reservation_number: req.reservation_number || '',
-            scenario_master_id: req.scenario_master_id,
+            scenario_master_id: scenarioMasterId,
             scenario_title: req.scenario_masters?.title || req.title || 'シナリオ名不明',
             customer_name: req.customers?.name || '顧客名不明',
             customer_email: req.customer_email || '',
             customer_phone: req.customers?.phone || req.customer_phone || '',
-            candidate_datetimes: req.candidate_datetimes || { candidates: [] },
+            candidate_datetimes: candidateDatetimes,
             participant_count: req.participant_count || 0,
             notes: req.customer_notes || '',
             status: req.status,
-            gm_responses: gmResponses || [],
+            gm_responses: transformedGMResponses,
             created_at: req.created_at,
             invite_code: req.private_groups?.invite_code || ''
           }

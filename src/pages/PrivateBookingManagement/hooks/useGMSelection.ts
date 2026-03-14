@@ -58,10 +58,10 @@ export const useGMSelection = (allGMs: Staff[]) => {
         }
       }
 
-      // GM回答データを取得（CORSエラー回避のため、クライアント側でフィルタリング）
+      // GM回答データを取得（スタッフの名前も含める、CORSエラー回避のため、クライアント側でフィルタリング）
       const { data: availableData, error: availableError } = await supabase
         .from('gm_availability_responses')
-        .select('staff_id, available_candidates, notes, response_status, selected_candidate_index, gm_discord_id, gm_name')
+        .select('staff_id, available_candidates, notes, response_status, selected_candidate_index, gm_discord_id, gm_name, staff:staff_id(name)')
         .eq('reservation_id', reservationId)
         .not('response_status', 'is', null)
 
@@ -96,15 +96,19 @@ export const useGMSelection = (allGMs: Staff[]) => {
         selected_candidate_index?: number
         notes?: string
         gm_name?: string
+        staff?: { name?: string }
       }
 
       (filteredAvailableData || []).forEach((a: AvailabilityResponse) => {
+        // GM名がnullの場合はスタッフテーブルの名前を使用
+        const gmName = a.gm_name || a.staff?.name || ''
         if (a.staff_id) {
           // 通常のstaff_id経由の回答
           availableGMMap.set(a.staff_id, {
             available_candidates: a.available_candidates || [],
             selected_candidate_index: a.selected_candidate_index,
-            notes: a.notes || ''
+            notes: a.notes || '',
+            gm_name: gmName
           })
         } else if (a.gm_discord_id) {
           // Discord経由の回答
@@ -112,7 +116,7 @@ export const useGMSelection = (allGMs: Staff[]) => {
             available_candidates: a.available_candidates || [],
             selected_candidate_index: a.selected_candidate_index,
             notes: a.notes || '',
-            gm_name: a.gm_name
+            gm_name: gmName
           })
         }
       })

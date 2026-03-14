@@ -6,6 +6,7 @@ export interface PrivateBookingRequest {
   id: string
   reservation_number: string
   scenario_id?: string
+  scenario_master_id?: string
   scenario_title: string
   customer_name: string
   customer_email: string
@@ -170,12 +171,18 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
 
       const formattedData: PrivateBookingRequest[] = await Promise.all(
         (data || []).map(async (req: ReservationData) => {
-          // GM回答を別途取得
+          // GM回答を別途取得（スタッフの名前も含める）
           const { data: gmResponses } = await supabase
             .from('gm_availability_responses')
-            .select('gm_name, response_status, available_candidates, selected_candidate_index, notes')
+            .select('staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, staff:staff_id(name)')
             .eq('reservation_id', req.id)
             .in('response_status', ['available', 'unavailable'])
+
+          // GM名がnullの場合はスタッフテーブルの名前を使用
+          const transformedGMResponses = (gmResponses || []).map((gm: any) => ({
+            ...gm,
+            gm_name: gm.gm_name || gm.staff?.name || ''
+          }))
 
           // デバッグ: candidate_datetimesの構造を確認
           if (req.candidate_datetimes?.candidates) {
@@ -202,7 +209,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
             participant_count: req.participant_count || 0,
             notes: req.customer_notes || '',
             status: req.status,
-            gm_responses: gmResponses || [],
+            gm_responses: transformedGMResponses,
             created_at: req.created_at
           }
         })

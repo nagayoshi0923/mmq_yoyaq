@@ -103,11 +103,18 @@ export function useStoreAndGMManagement() {
       logger.log('📅 候補日付:', candidateDates)
 
       // 1. 確定済みの予約を全て取得（reservationsテーブル）
-      const { data: confirmedReservations, error: reservationsError } = await supabase
+      let reservationsQuery = supabase
         .from('reservations')
         .select('id, store_id, gm_staff, candidate_datetimes')
         .eq('status', 'confirmed')
         .neq('id', currentRequestId)
+
+      // 組織IDでフィルタリング
+      if (orgId) {
+        reservationsQuery = reservationsQuery.eq('organization_id', orgId)
+      }
+
+      const { data: confirmedReservations, error: reservationsError } = await reservationsQuery
 
       if (reservationsError) throw reservationsError
 
@@ -132,6 +139,11 @@ export function useStoreAndGMManagement() {
         .from('schedule_events')
         .select('id, store_id, date, start_time, end_time, scenario, gms, is_cancelled, reservation_id')
         .eq('is_cancelled', false)
+
+      // 組織IDでフィルタリング
+      if (orgId) {
+        scheduleQuery = scheduleQuery.eq('organization_id', orgId)
+      }
 
       // 候補日付がある場合はフィルタリング
       if (candidateDates.length > 0) {
@@ -222,13 +234,13 @@ export function useStoreAndGMManagement() {
     }
   }, [])
 
-  // 利用可能なGMの読み込み（スタッフのavatar_colorも取得）
+  // 利用可能なGMの読み込み（スタッフのavatar_colorと名前も取得）
   const loadAvailableGMs = useCallback(async (reservationId: string) => {
     try {
-      // まず全てのレスポンスを取得してからフィルタリング（スタッフのavatar_colorも含める）
+      // まず全てのレスポンスを取得してからフィルタリング（スタッフのavatar_colorと名前も含める）
       const { data: responses, error } = await supabase
         .from('gm_availability_responses')
-        .select('staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, staff:staff_id(avatar_color)')
+        .select('staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, staff:staff_id(name, avatar_color)')
         .eq('reservation_id', reservationId)
       
       if (error) {
@@ -243,7 +255,7 @@ export function useStoreAndGMManagement() {
 
       const gmList = filteredResponses.map((response: any) => ({
         gm_id: response.staff_id,
-        gm_name: response.gm_name,
+        gm_name: response.gm_name || response.staff?.name || '',
         response_status: response.response_status,
         available_candidates: response.available_candidates || [],
         selected_candidate_index: response.selected_candidate_index,
