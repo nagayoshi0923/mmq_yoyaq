@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
-import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, Users, Target, FileText } from 'lucide-react'
+import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, Users, Target, FileText, X, Gift } from 'lucide-react'
 import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -104,6 +104,25 @@ export function PlatformTop() {
   const [isExpanded, setIsExpanded] = useState(false)
   const [nearlyCompleteGroups, setNearlyCompleteGroups] = useState<NearlyCompleteGroup[]>([])
   const [blogPosts, setBlogPosts] = useState<BlogPostSummary[]>([])
+  const [showCouponPopup, setShowCouponPopup] = useState(false)
+
+  // クーポンポップアップ表示判定（非ログインユーザー & 非表示設定なし）
+  useEffect(() => {
+    if (user) return // ログイン済みなら表示しない
+    const dismissed = localStorage.getItem('mmq_coupon_popup_dismissed')
+    if (!dismissed) {
+      // 少し遅延させて表示
+      const timer = setTimeout(() => setShowCouponPopup(true), 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [user])
+
+  const handleDismissCouponPopup = (permanently: boolean) => {
+    if (permanently) {
+      localStorage.setItem('mmq_coupon_popup_dismissed', 'true')
+    }
+    setShowCouponPopup(false)
+  }
 
   // スクロール位置の保存と復元
   useScrollRestoration({ 
@@ -543,57 +562,23 @@ export function PlatformTop() {
               )}
             </div>
 
-            {/* 新規登録キャンペーンバナー */}
+            {/* 新規登録キャンペーンバナー（コンパクト版） */}
             <div 
-              className="mt-10 cursor-pointer group"
-              onClick={() => navigate('/blog/coupon-campaign')}
+              className="mt-8 cursor-pointer group"
+              onClick={() => navigate('/signup')}
             >
               <div 
-                className="relative overflow-hidden mx-auto max-w-2xl"
+                className="flex items-center justify-center gap-3 mx-auto max-w-md px-4 py-3 rounded-full transition-all group-hover:scale-[1.02]"
                 style={{ 
-                  background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF8C00 100%)',
-                  boxShadow: '0 8px 32px rgba(255, 165, 0, 0.4)'
+                  background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                  boxShadow: '0 4px 16px rgba(255, 165, 0, 0.3)'
                 }}
               >
-                {/* 装飾パターン */}
-                <div className="absolute inset-0 opacity-20">
-                  <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-1/2 -translate-y-1/2" />
-                  <div className="absolute bottom-0 right-0 w-48 h-48 bg-white rounded-full translate-x-1/4 translate-y-1/4" />
-                </div>
-                
-                <div className="relative px-6 py-5 md:px-8 md:py-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                  {/* 左側: テキスト */}
-                  <div className="text-center md:text-left">
-                    <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 text-xs font-bold text-white mb-2">
-                      ⏰ 5月5日までに登録の方限定
-                    </div>
-                    <h3 className="text-white font-bold text-xl md:text-2xl mb-1">
-                      新規登録キャンペーン実施中！
-                    </h3>
-                    <p className="text-white/90 text-sm">
-                      今なら登録するだけで使えるクーポンをプレゼント
-                    </p>
-                  </div>
-                  
-                  {/* 右側: 金額 */}
-                  <div className="flex items-center gap-4">
-                    <div className="bg-white px-5 py-3 text-center shadow-lg group-hover:scale-105 transition-transform">
-                      <p className="text-xs font-bold text-orange-600 mb-1">総額</p>
-                      <p className="font-black text-3xl md:text-4xl" style={{ color: THEME.primary }}>
-                        2,000<span className="text-lg">円分</span>
-                      </p>
-                      <p className="text-xs text-gray-600 mt-1">500円 × 4回</p>
-                    </div>
-                    <ChevronRight className="w-6 h-6 text-white hidden md:block group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-                
-                {/* 有効期限 */}
-                <div className="bg-black/20 px-4 py-2 text-center">
-                  <p className="text-white/90 text-xs">
-                    🎁 クーポン有効期限6ヶ月 ｜ 1回のご予約につき1枚使用可能
-                  </p>
-                </div>
+                <Gift className="w-5 h-5 text-white" />
+                <span className="text-white font-bold text-sm">
+                  4月限定｜新規登録で2,000円分クーポン
+                </span>
+                <ChevronRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
           </div>
@@ -998,6 +983,79 @@ export function PlatformTop() {
 
       {/* フッター */}
       <Footer />
+
+      {/* クーポンキャンペーンポップアップ */}
+      {showCouponPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-300">
+          <div 
+            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300"
+          >
+            {/* ヘッダー */}
+            <div 
+              className="px-6 py-5 text-center"
+              style={{ 
+                background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF8C00 100%)'
+              }}
+            >
+              <button
+                onClick={() => handleDismissCouponPopup(false)}
+                className="absolute top-3 right-3 p-1 text-white/80 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold text-white mb-3">
+                🎉 4月中に登録の方限定
+              </div>
+              <h3 className="text-white font-bold text-xl mb-1">
+                新規登録キャンペーン
+              </h3>
+            </div>
+            
+            {/* コンテンツ */}
+            <div className="px-6 py-6 text-center">
+              <div className="mb-4">
+                <p className="text-gray-600 text-sm mb-2">今なら登録するだけで</p>
+                <p className="font-black text-4xl" style={{ color: THEME.primary }}>
+                  2,000<span className="text-xl">円分</span>
+                </p>
+                <p className="text-gray-500 text-sm mt-1">500円OFFクーポン × 4枚</p>
+              </div>
+              
+              <div className="bg-gray-50 rounded-lg p-4 mb-5 text-left">
+                <p className="text-xs text-gray-600 space-y-1">
+                  <span className="block">✓ 1回のご予約につき1枚使用可能</span>
+                  <span className="block">✓ クーポン有効期限：10月末まで</span>
+                  <span className="block">✓ 他のクーポンとの併用不可</span>
+                </p>
+              </div>
+              
+              <Button
+                className="w-full py-6 text-lg font-bold hover:scale-[1.02] transition-transform"
+                style={{ 
+                  backgroundColor: THEME.primary,
+                  borderRadius: '8px'
+                }}
+                onClick={() => {
+                  handleDismissCouponPopup(false)
+                  navigate('/signup')
+                }}
+              >
+                無料で登録してクーポンをもらう
+              </Button>
+            </div>
+            
+            {/* フッター */}
+            <div className="px-6 pb-4 text-center">
+              <button
+                onClick={() => handleDismissCouponPopup(true)}
+                className="text-xs text-gray-400 hover:text-gray-600 underline transition-colors"
+              >
+                今後このお知らせを表示しない
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
