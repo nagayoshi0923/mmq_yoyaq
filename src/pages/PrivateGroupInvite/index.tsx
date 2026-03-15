@@ -1088,11 +1088,17 @@ export function PrivateGroupInvite() {
                 <img
                   src={scenario.key_visual_url}
                   alt={scenario.title || ''}
-                  className="w-8 h-8 object-cover rounded"
+                  className="w-8 h-8 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
                 />
               )}
               <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-medium truncate">{scenario?.title || 'グループチャット'}</h2>
+                <h2 
+                  className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
+                >
+                  {scenario?.title || 'グループチャット'}
+                </h2>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{memberCount}名参加</span>
                   <span>•</span>
@@ -1549,11 +1555,17 @@ export function PrivateGroupInvite() {
                       <img
                         src={scenario.key_visual_url}
                         alt={scenario.title || ''}
-                        className="w-12 h-12 object-cover rounded"
+                        className="w-12 h-12 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
                       />
                     )}
                     <div>
-                      <h4 className="font-medium">{scenario?.title || 'グループ'}</h4>
+                      <h4 
+                        className="font-medium cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
+                      >
+                        {scenario?.title || 'グループ'}
+                      </h4>
                       <p className="text-sm text-muted-foreground">
                         {memberCount}名参加 • 
                         {group.status === 'confirmed' ? ' 確定' : group.status === 'booking_requested' ? ' 確定待ち' : ' 日程調整中'}
@@ -2273,11 +2285,17 @@ export function PrivateGroupInvite() {
                 <img
                   src={scenario.key_visual_url}
                   alt={scenario.title || ''}
-                  className="w-20 h-28 object-cover rounded"
+                  className="w-20 h-28 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
                 />
               )}
               <div className="flex-1">
-                <h2 className="text-base font-medium">{scenario?.title || 'シナリオ'}</h2>
+                <h2 
+                  className="text-base font-medium cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
+                >
+                  {scenario?.title || 'シナリオ'}
+                </h2>
                 {group.name && (
                   <p className="text-sm text-muted-foreground mt-1">{group.name}</p>
                 )}
