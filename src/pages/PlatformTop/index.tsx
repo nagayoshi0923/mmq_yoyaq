@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
-import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame } from 'lucide-react'
+import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, Users, Target } from 'lucide-react'
 import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -56,6 +56,18 @@ interface StoreWithOrg {
   organization_name?: string
 }
 
+// 残りわずかで達成の貸切グループ
+interface NearlyCompleteGroup {
+  id: string
+  invite_code: string
+  scenario_title: string
+  scenario_key_visual?: string
+  target_count: number
+  current_count: number
+  remaining: number
+  organizer_name?: string
+}
+
 // 地域リスト
 const REGIONS = [
   { value: 'all', label: '全国' },
@@ -79,6 +91,7 @@ export function PlatformTop() {
   const [loading, setLoading] = useState(true)
   const [selectedRegion, setSelectedRegion] = useState('all')
   const [isExpanded, setIsExpanded] = useState(false)
+  const [nearlyCompleteGroups, setNearlyCompleteGroups] = useState<NearlyCompleteGroup[]>([])
 
   // スクロール位置の保存と復元
   useScrollRestoration({ 
@@ -288,6 +301,57 @@ export function PlatformTop() {
           })
         
         setScenariosWithEvents(scenarioList)
+      }
+
+      // 残りわずかで達成の貸切グループを取得
+      const { data: privateGroups, error: pgError } = await supabase
+        .from('private_groups')
+        .select(`
+          id,
+          invite_code,
+          target_participant_count,
+          scenario_masters:scenario_id (title, key_visual_url),
+          members:private_group_members (id, status, is_organizer, guest_name)
+        `)
+        .eq('status', 'gathering')
+        .not('target_participant_count', 'is', null)
+
+      logger.log('📋 PlatformTop: private_groups query', { 
+        count: privateGroups?.length, 
+        error: pgError,
+        data: privateGroups 
+      })
+
+      if (privateGroups) {
+        const nearlyComplete: NearlyCompleteGroup[] = []
+        privateGroups.forEach((g: any) => {
+          const joinedCount = (g.members || []).filter((m: any) => m.status === 'joined').length
+          const target = g.target_participant_count || 0
+          const remaining = target - joinedCount
+          logger.log('📋 PlatformTop: group check', { 
+            id: g.id, 
+            target, 
+            joinedCount, 
+            remaining,
+            members: g.members
+          })
+          // 残り1〜2人で達成するグループのみ
+          if (remaining > 0 && remaining <= 2 && joinedCount > 0) {
+            const organizer = (g.members || []).find((m: any) => m.is_organizer && m.status === 'joined')
+            nearlyComplete.push({
+              id: g.id,
+              invite_code: g.invite_code,
+              scenario_title: g.scenario_masters?.title || '未設定',
+              scenario_key_visual: g.scenario_masters?.key_visual_url,
+              target_count: target,
+              current_count: joinedCount,
+              remaining,
+              organizer_name: organizer?.guest_name || '主催者'
+            })
+          }
+        })
+        logger.log('📋 PlatformTop: nearlyComplete result', nearlyComplete)
+        setNearlyCompleteGroups(nearlyComplete)
       }
 
     } catch (error) {
@@ -503,6 +567,67 @@ export function PlatformTop() {
                 onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
                 organizationName={scenario.organization_name}
               />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 残りわずかで達成 - 貸切グループ */}
+      {!loading && nearlyCompleteGroups.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 pt-6 md:pt-8">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-3">
+              <Target className="w-5 h-5 text-emerald-500" />
+              あと少しで達成
+              <span 
+                className="w-10 h-1 ml-2"
+                style={{ backgroundColor: '#10b981' }}
+              />
+              <span className="text-xs font-normal text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                貸切グループ
+              </span>
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {nearlyCompleteGroups.map((group) => (
+              <div 
+                key={group.id}
+                className="bg-white border border-emerald-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => navigate(`/group/invite/${group.invite_code}`)}
+              >
+                <div className="flex gap-3">
+                  {group.scenario_key_visual ? (
+                    <img 
+                      src={group.scenario_key_visual} 
+                      alt={group.scenario_title}
+                      className="w-16 h-16 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
+                      <Users className="w-6 h-6 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{group.scenario_title}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{group.organizer_name}さんの募集</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-emerald-500 rounded-full transition-all"
+                          style={{ width: `${(group.current_count / group.target_count) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-emerald-600">
+                        {group.current_count}/{group.target_count}
+                      </span>
+                    </div>
+                    <p className="text-xs text-emerald-600 font-medium mt-1">
+                      あと{group.remaining}人で達成！
+                    </p>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </section>
