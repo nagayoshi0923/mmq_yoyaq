@@ -60,11 +60,42 @@ export function useBookingFilters(scenarios: ScenarioCard[], searchTerm: string)
     )
   }, [filteredScenarios])
 
+  /**
+   * 残りわずかの公演（残り1-2枠の公演があるシナリオ）
+   */
+  const nearlyConfirmed = useMemo(() => {
+    const result: ScenarioCard[] = []
+    const addedScenarioIds = new Set<string>()
+    
+    filteredScenarios.forEach(scenario => {
+      const nearlyFullEvent = scenario.next_events?.find(event => {
+        const available = event.available_seats ?? 0
+        return available > 0 && available <= 2
+      })
+      
+      if (nearlyFullEvent && !addedScenarioIds.has(scenario.scenario_id)) {
+        addedScenarioIds.add(scenario.scenario_id)
+        // 残りわずかのイベントを先頭に持ってきたシナリオを作成
+        const reorderedEvents = [
+          nearlyFullEvent,
+          ...(scenario.next_events || []).filter(e => e !== nearlyFullEvent)
+        ]
+        result.push({
+          ...scenario,
+          next_events: reorderedEvents
+        })
+      }
+    })
+    
+    return result
+  }, [filteredScenarios])
+
   return {
     filteredScenarios,
     newScenarios,
     upcomingScenarios,
-    allScenarios
+    allScenarios,
+    nearlyConfirmed
   }
 }
 

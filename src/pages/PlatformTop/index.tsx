@@ -316,25 +316,12 @@ export function PlatformTop() {
         .eq('status', 'gathering')
         .not('target_participant_count', 'is', null)
 
-      logger.log('📋 PlatformTop: private_groups query', { 
-        count: privateGroups?.length, 
-        error: pgError,
-        data: privateGroups 
-      })
-
       if (privateGroups) {
         const nearlyComplete: NearlyCompleteGroup[] = []
         privateGroups.forEach((g: any) => {
           const joinedCount = (g.members || []).filter((m: any) => m.status === 'joined').length
           const target = g.target_participant_count || 0
           const remaining = target - joinedCount
-          logger.log('📋 PlatformTop: group check', { 
-            id: g.id, 
-            target, 
-            joinedCount, 
-            remaining,
-            members: g.members
-          })
           // 残り1〜2人で達成するグループのみ
           if (remaining > 0 && remaining <= 2 && joinedCount > 0) {
             const organizer = (g.members || []).find((m: any) => m.is_organizer && m.status === 'joined')
@@ -350,7 +337,6 @@ export function PlatformTop() {
             })
           }
         })
-        logger.log('📋 PlatformTop: nearlyComplete result', nearlyComplete)
         setNearlyCompleteGroups(nearlyComplete)
       }
 
@@ -456,11 +442,16 @@ export function PlatformTop() {
     toggleFavorite(scenarioId)
   }
 
-  const handleScenarioClick = (slugOrId: string) => {
+  const handleScenarioClick = (slugOrId: string, eventDate?: string, eventTime?: string) => {
     // ナビゲーション前にスクロール位置を保存（ScrollToTopに上書きされる前に）
     sessionStorage.setItem('platform-topScrollY', window.scrollY.toString())
+    // 日付・時間パラメータがあれば追加
+    const params = new URLSearchParams()
+    if (eventDate) params.set('date', eventDate)
+    if (eventTime) params.set('time', eventTime)
+    const query = params.toString() ? `?${params.toString()}` : ''
     // シナリオ共通トップページに遷移
-    navigate(`/scenario/${slugOrId}`)
+    navigate(`/scenario/${slugOrId}${query}`)
   }
 
   return (
@@ -561,7 +552,11 @@ export function PlatformTop() {
               <ScenarioCard
                 key={`nearly-${scenario.scenario_id}`}
                 scenario={scenario}
-                onClick={handleScenarioClick}
+                onClick={(slugOrId) => {
+                  // 残りわずかのイベント日付・時間を渡す（next_eventsの先頭が残りわずかのイベント）
+                  const nearlyFullEvent = scenario.next_events?.[0]
+                  handleScenarioClick(slugOrId, nearlyFullEvent?.date, nearlyFullEvent?.time)
+                }}
                 isFavorite={favorites.has(scenario.scenario_id)}
                 isPlayed={isPlayed(scenario.scenario_id)}
                 onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}

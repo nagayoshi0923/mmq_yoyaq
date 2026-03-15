@@ -7,7 +7,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
 import { getColorFromName } from '@/lib/utils'
 import { BOOKING_THEME, MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Sparkles, MapPin, Store, BookOpen, Target, Users } from 'lucide-react'
+import { Sparkles, MapPin, Store, BookOpen, Target, Users, Flame } from 'lucide-react'
 import { useBookingData } from './hooks/useBookingData'
 import { useCalendarData } from './hooks/useCalendarData'
 import { useListViewData } from './hooks/useListViewData'
@@ -19,6 +19,7 @@ import { SearchBar } from './components/SearchBar'
 import { LineupView } from './components/LineupView'
 import { CalendarView } from './components/CalendarView'
 import { ListView } from './components/ListView'
+import { ScenarioCard } from './components/ScenarioCard'
 import { Footer } from '@/components/layout/Footer'
 import { HowToUseGuide, HowToUseButton, useHowToUseGuide } from './components/HowToUseGuide'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
@@ -176,7 +177,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   }, [stores, scenarios])
   
   // フィルタリングフック
-  const { newScenarios, upcomingScenarios, allScenarios } = useBookingFilters(scenarios, searchTerm)
+  const { newScenarios, upcomingScenarios, allScenarios, nearlyConfirmed } = useBookingFilters(scenarios, searchTerm)
   
   // お気に入りトグルハンドラ（メモ化）
   const handleToggleFavorite = useCallback((scenarioId: string, e: React.MouseEvent) => {
@@ -248,17 +249,22 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
 
   // シナリオカードクリック（メモ化）
   // ScenarioCardからはslug（またはID）が渡される
-  const handleCardClick = useCallback((slugOrId: string) => {
+  const handleCardClick = useCallback((slugOrId: string, eventDate?: string, eventTime?: string) => {
     // ナビゲーション前にスクロール位置を保存（ScrollToTopに上書きされる前に）
     sessionStorage.setItem(`booking-${organizationSlug || 'platform'}ScrollY`, window.scrollY.toString())
     if (onScenarioSelect) {
       onScenarioSelect(slugOrId)
     } else {
+      // 日付・時間パラメータがあれば追加
+      const params = new URLSearchParams()
+      if (eventDate) params.set('date', eventDate)
+      if (eventTime) params.set('time', eventTime)
+      const query = params.toString() ? `?${params.toString()}` : ''
       // 組織slugがあれば予約サイト形式、なければグローバル形式
       if (organizationSlug) {
-        navigate(`/${organizationSlug}/scenario/${slugOrId}`)
+        navigate(`/${organizationSlug}/scenario/${slugOrId}${query}`)
       } else {
-        navigate(`/scenario-detail/${slugOrId}`)
+        navigate(`/scenario-detail/${slugOrId}${query}`)
       }
     }
   }, [onScenarioSelect, organizationSlug, navigate])
@@ -422,6 +428,41 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         isOpen={isGuideOpen}
         onClose={closeGuide}
       />
+
+      {/* 残りわずか公演 */}
+      {!isLoading && nearlyConfirmed.length > 0 && (
+        <section className="container mx-auto max-w-7xl px-4 md:px-6 pt-6 md:pt-8">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-3">
+              <Flame className="w-5 h-5 text-orange-500" />
+              残りわずか
+              <span 
+                className="w-10 h-1 ml-2"
+                style={{ backgroundColor: '#f97316' }}
+              />
+              <span className="text-xs font-normal text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                お早めに！
+              </span>
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            {nearlyConfirmed.map((scenario) => (
+              <ScenarioCard
+                key={`nearly-${scenario.scenario_id}`}
+                scenario={scenario}
+                onClick={(slugOrId) => {
+                  // 残りわずかのイベント日付・時間を渡す（next_eventsの先頭が残りわずかのイベント）
+                  const nearlyFullEvent = scenario.next_events?.[0]
+                  handleCardClick(slugOrId, nearlyFullEvent?.date, nearlyFullEvent?.time)
+                }}
+                isFavorite={isFavorite(scenario.scenario_id)}
+                onToggleFavorite={handleToggleFavorite}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 残りわずかで達成 - 貸切グループ */}
       {!isLoading && nearlyCompleteGroups.length > 0 && (

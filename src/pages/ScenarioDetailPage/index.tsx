@@ -166,8 +166,17 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         }
       }
     } else if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && events.length > 0) {
-      // 公演日程タブ: 指定日付に一致する最初のイベントを自動選択
-      const matchingEvent = events.find(e => e.date === dateParam)
+      // 公演日程タブ: 指定日付（+時間）に一致するイベントを自動選択
+      const timeParam = urlParams.get('time')
+      let matchingEvent
+      if (timeParam) {
+        // 時間パラメータがある場合は日付+時間で一致を探す
+        matchingEvent = events.find(e => e.date === dateParam && e.start_time === timeParam)
+      }
+      // 見つからない場合は日付のみで探す
+      if (!matchingEvent) {
+        matchingEvent = events.find(e => e.date === dateParam)
+      }
       if (matchingEvent) {
         setSelectedEventId(matchingEvent.event_id)
       }

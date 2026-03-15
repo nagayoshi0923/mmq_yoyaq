@@ -454,7 +454,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         return (a.start_time || '').localeCompare(b.start_time || '')
       })
       
-      const nextEvents = sortedEvents.slice(0, 3).map((event: any) => {
+      const nextEvents = sortedEvents.slice(0, 10).map((event: any) => {
         const store = storeMap.get(event.venue) || 
                      storeMap.get(event.store_id) ||
                      null
@@ -568,23 +568,11 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
       .eq('status', 'gathering')
       .not('target_participant_count', 'is', null)
 
-    logger.log('📋 useBookingData: private_groups query', { 
-      orgId,
-      count: privateGroups?.length, 
-      error: pgError 
-    })
-
     if (privateGroups) {
       privateGroups.forEach((g: any) => {
         const joinedCount = (g.members || []).filter((m: any) => m.status === 'joined').length
         const target = g.target_participant_count || 0
         const remaining = target - joinedCount
-        logger.log('📋 useBookingData: group check', { 
-          id: g.id, 
-          target, 
-          joinedCount, 
-          remaining 
-        })
         // 残り1〜2人で達成するグループのみ
         if (remaining > 0 && remaining <= 2 && joinedCount > 0) {
           const organizer = (g.members || []).find((m: any) => m.is_organizer && m.status === 'joined')
@@ -600,7 +588,6 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
           })
         }
       })
-      logger.log('📋 useBookingData: nearlyCompleteGroups result', nearlyCompleteGroups)
     }
   }
   
