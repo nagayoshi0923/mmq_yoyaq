@@ -43,13 +43,20 @@ export function SurveyResponseForm({
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null)
   const [isExpired, setIsExpired] = useState(false)
   const [localCharacters, setLocalCharacters] = useState<Array<{ id: string; name: string; gender?: string }>>(characters)
+  const [surveyStatus, setSurveyStatus] = useState<'loading' | 'not_found' | 'disabled' | 'no_questions' | 'ready'>('loading')
 
   useEffect(() => {
     const loadSurveyData = async () => {
       logger.log('📋 SurveyForm: loading', { groupId, memberId, scenarioId, organizationId })
       
       if (!scenarioId || !organizationId) {
-        logger.log('📋 SurveyForm: missing scenarioId or organizationId')
+        logger.log('📋 SurveyForm: missing scenarioId or organizationId', { 
+          scenarioId, 
+          organizationId,
+          groupId,
+          memberId 
+        })
+        setSurveyStatus('not_found')
         setLoading(false)
         return
       }
@@ -64,20 +71,31 @@ export function SurveyResponseForm({
           .eq('organization_id', organizationId)
           .maybeSingle()
 
+        logger.log('📋 SurveyForm: first query result', { orgScenario, scenarioId, organizationId })
+
         // 見つからなければidで検索（scenarioIdがorganization_scenario.idの場合）
         if (!orgScenario) {
-          const { data: orgScenarioById } = await supabase
+          const { data: orgScenarioById, error: byIdError } = await supabase
             .from('organization_scenarios')
             .select('id, survey_enabled, survey_deadline_days, characters')
             .eq('id', scenarioId)
             .maybeSingle()
           orgScenario = orgScenarioById
+          logger.log('📋 SurveyForm: second query result (by id)', { orgScenarioById, byIdError })
         }
         
-        logger.log('📋 SurveyForm: orgScenario', { orgScenario, scenarioId })
+        logger.log('📋 SurveyForm: final orgScenario', { orgScenario, scenarioId })
 
-        if (!orgScenario?.survey_enabled || !orgScenario.id) {
-          logger.log('📋 SurveyForm: survey not enabled or orgScenario not found')
+        if (!orgScenario) {
+          logger.log('📋 SurveyForm: orgScenario not found', { scenarioId, organizationId })
+          setSurveyStatus('not_found')
+          setLoading(false)
+          return
+        }
+        
+        if (!orgScenario.survey_enabled) {
+          logger.log('📋 SurveyForm: survey not enabled', { orgScenarioId: orgScenario.id, survey_enabled: orgScenario.survey_enabled })
+          setSurveyStatus('disabled')
           setLoading(false)
           return
         }
@@ -115,6 +133,9 @@ export function SurveyResponseForm({
 
         if (questionsData && questionsData.length > 0) {
           setQuestions(questionsData)
+          setSurveyStatus('ready')
+        } else {
+          setSurveyStatus('no_questions')
         }
 
         // 既存の回答を取得
@@ -134,6 +155,7 @@ export function SurveyResponseForm({
         }
       } catch (err) {
         logger.error('アンケート読み込みエラー:', err)
+        setSurveyStatus('not_found')
       } finally {
         setLoading(false)
       }
@@ -230,8 +252,30 @@ export function SurveyResponseForm({
     )
   }
 
-  if (questions.length === 0) {
-    return null
+  // アンケートが設定されていない場合
+  if (surveyStatus === 'not_found') {
+    return (
+      <div className="text-center py-4 text-muted-foreground">
+        <AlertCircle className="w-8 h-8 mx-auto mb-2 text-amber-400" />
+        <p className="text-sm">アンケート情報を取得できませんでした</p>
+        <p className="text-xs mt-1">シナリオ設定を確認してください</p>
+      </div>
+    )
+  }
+
+  // アンケートが無効な場合
+  if (surveyStatus === 'disabled') {
+    return null // アンケートが無効なら何も表示しない
+  }
+
+  // 質問が設定されていない場合
+  if (surveyStatus === 'no_questions' || questions.length === 0) {
+    return (
+      <div className="text-center py-4 text-muted-foreground">
+        <ClipboardList className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+        <p className="text-sm">アンケートの質問が設定されていません</p>
+      </div>
+    )
   }
 
   if (isExpired) {
