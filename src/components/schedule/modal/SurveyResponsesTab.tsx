@@ -37,6 +37,7 @@ export function SurveyResponsesTab({
   const [characters, setCharacters] = useState<Array<{ id: string; name: string; url?: string | null }>>([])
   const [surveyEnabled, setSurveyEnabled] = useState(false)
   const [groupId, setGroupId] = useState<string | null>(null)
+  const [participantLimit, setParticipantLimit] = useState<number | null>(null)
   
   // 各メンバーの展開状態
   const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set())
@@ -140,7 +141,7 @@ export function SurveyResponsesTab({
 
         let { data: orgScenario } = await supabase
           .from('organization_scenarios')
-          .select('id, survey_enabled, characters')
+          .select('id, survey_enabled, characters, scenario_masters(player_count_max)')
           .eq('scenario_master_id', scenarioId)
           .eq('organization_id', organizationId)
           .maybeSingle()
@@ -148,10 +149,16 @@ export function SurveyResponsesTab({
         if (!orgScenario) {
           const { data: orgScenarioById } = await supabase
             .from('organization_scenarios')
-            .select('id, survey_enabled, characters')
+            .select('id, survey_enabled, characters, scenario_masters(player_count_max)')
             .eq('id', scenarioId)
             .maybeSingle()
           orgScenario = orgScenarioById
+        }
+        
+        // シナリオの参加者上限を取得
+        const scenarioMaster = (orgScenario as any)?.scenario_masters
+        if (scenarioMaster?.player_count_max) {
+          setParticipantLimit(scenarioMaster.player_count_max)
         }
         
         logger.log('📋 SurveyTab: orgScenario result', { 
@@ -323,7 +330,8 @@ export function SurveyResponsesTab({
   }
 
   const respondedCount = responses.length
-  const totalCount = members.length
+  // 分母はシナリオの参加者上限（なければメンバー数）
+  const totalCount = participantLimit || members.length
 
   const getMemberName = (memberId: string) => {
     const member = members.find(m => m.id === memberId)
