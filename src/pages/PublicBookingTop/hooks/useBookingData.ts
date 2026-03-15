@@ -3,6 +3,18 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
 
+// 残りわずかで達成の貸切グループ
+export interface NearlyCompleteGroup {
+  id: string
+  invite_code: string
+  scenario_title: string
+  scenario_key_visual?: string
+  target_count: number
+  current_count: number
+  remaining: number
+  organizer_name?: string
+}
+
 export interface ScenarioCard {
   scenario_id: string
   scenario_slug?: string  // URL用のslug（あればこちらを使用）
@@ -45,6 +57,7 @@ interface BookingDataResult {
   organizationHeaderImageUrl: string | null
   organizationThemeColor: string | null
   organizationNotFound: boolean
+  nearlyCompleteGroups: NearlyCompleteGroup[]
 }
 
 /**
@@ -538,6 +551,59 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   
   const scenarioList = Array.from(scenarioMap.values())
   
+  // 残りわずかで達成の貸切グループを取得
+  let nearlyCompleteGroups: NearlyCompleteGroup[] = []
+  
+  if (orgId) {
+    const { data: privateGroups, error: pgError } = await supabase
+      .from('private_groups')
+      .select(`
+        id,
+        invite_code,
+        target_participant_count,
+        scenario_masters:scenario_id (title, key_visual_url),
+        members:private_group_members (id, status, is_organizer, guest_name)
+      `)
+      .eq('organization_id', orgId)
+      .eq('status', 'gathering')
+      .not('target_participant_count', 'is', null)
+
+    logger.log('📋 useBookingData: private_groups query', { 
+      orgId,
+      count: privateGroups?.length, 
+      error: pgError 
+    })
+
+    if (privateGroups) {
+      privateGroups.forEach((g: any) => {
+        const joinedCount = (g.members || []).filter((m: any) => m.status === 'joined').length
+        const target = g.target_participant_count || 0
+        const remaining = target - joinedCount
+        logger.log('📋 useBookingData: group check', { 
+          id: g.id, 
+          target, 
+          joinedCount, 
+          remaining 
+        })
+        // 残り1〜2人で達成するグループのみ
+        if (remaining > 0 && remaining <= 2 && joinedCount > 0) {
+          const organizer = (g.members || []).find((m: any) => m.is_organizer && m.status === 'joined')
+          nearlyCompleteGroups.push({
+            id: g.id,
+            invite_code: g.invite_code,
+            scenario_title: g.scenario_masters?.title || '未設定',
+            scenario_key_visual: g.scenario_masters?.key_visual_url,
+            target_count: target,
+            current_count: joinedCount,
+            remaining,
+            organizer_name: organizer?.guest_name || '主催者'
+          })
+        }
+      })
+      logger.log('📋 useBookingData: nearlyCompleteGroups result', nearlyCompleteGroups)
+    }
+  }
+  
   return {
     scenarios: scenarioList,
     allEvents: enrichedEvents,
@@ -548,7 +614,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     organizationName: orgName,
     organizationHeaderImageUrl: orgHeaderImageUrl,
     organizationThemeColor: orgThemeColor,
-    organizationNotFound
+    organizationNotFound,
+    nearlyCompleteGroups
   }
 }
 
@@ -579,6 +646,7 @@ export function useBookingData(organizationSlug?: string) {
     organizationNotFound: data?.organizationNotFound ?? false,
     organizationName: data?.organizationName ?? null,
     organizationHeaderImageUrl: data?.organizationHeaderImageUrl ?? null,
-    organizationThemeColor: data?.organizationThemeColor ?? null
+    organizationThemeColor: data?.organizationThemeColor ?? null,
+    nearlyCompleteGroups: data?.nearlyCompleteGroups ?? []
   }
 }

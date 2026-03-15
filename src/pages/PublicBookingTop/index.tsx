@@ -7,7 +7,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
 import { getColorFromName } from '@/lib/utils'
 import { BOOKING_THEME, MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Sparkles, MapPin, Store, BookOpen } from 'lucide-react'
+import { Sparkles, MapPin, Store, BookOpen, Target, Users } from 'lucide-react'
 import { useBookingData } from './hooks/useBookingData'
 import { useCalendarData } from './hooks/useCalendarData'
 import { useListViewData } from './hooks/useListViewData'
@@ -72,7 +72,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     loadData,
     organizationNotFound,
     organizationName,
-    organizationHeaderImageUrl
+    organizationHeaderImageUrl,
+    nearlyCompleteGroups
   } = useBookingData(organizationSlug)
   
   // スクロール位置の保存と復元（一覧→詳細→戻る時に位置を保持）
@@ -421,6 +422,60 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         isOpen={isGuideOpen}
         onClose={closeGuide}
       />
+
+      {/* 残りわずかで達成 - 貸切グループ */}
+      {!isLoading && nearlyCompleteGroups.length > 0 && (
+        <div className="container mx-auto max-w-7xl px-4 md:px-6 pt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Target className="w-4 h-4 text-emerald-500" />
+            <h2 className="text-sm font-bold text-gray-900">あと少しで達成</h2>
+            <span className="text-[10px] font-normal text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+              貸切グループ
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {nearlyCompleteGroups.map((group) => (
+              <div 
+                key={group.id}
+                className="bg-white border border-emerald-200 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => navigate(`/group/invite/${group.invite_code}`)}
+              >
+                <div className="flex gap-2">
+                  {group.scenario_key_visual ? (
+                    <img 
+                      src={group.scenario_key_visual} 
+                      alt={group.scenario_title}
+                      className="w-12 h-12 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                      <Users className="w-4 h-4 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-900 truncate">{group.scenario_title}</p>
+                    <p className="text-[10px] text-gray-500">{group.organizer_name}さんの募集</p>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-emerald-500 rounded-full"
+                          style={{ width: `${(group.current_count / group.target_count) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-medium text-emerald-600">
+                        {group.current_count}/{group.target_count}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-emerald-600 font-medium">
+                      あと{group.remaining}人で達成！
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="container mx-auto max-w-7xl px-4 md:px-6 py-4">
         {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}
