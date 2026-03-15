@@ -43,11 +43,21 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
     <div className={`rounded-lg p-3 text-center ${isNpc ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}>
       {/* キャラクター画像 */}
       {character.image_url ? (
-        <div className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden border-2 border-gray-200">
+        <div 
+          className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden border-2 border-gray-200"
+          style={{ backgroundColor: character.background_color || 'transparent' }}
+        >
           <OptimizedImage
             src={character.image_url}
             alt={character.name}
             className="w-full h-full object-cover"
+            style={{ 
+              objectPosition: character.image_position 
+                ? (character.image_position.includes(' ')
+                    ? `${character.image_position.split(' ')[0]}% ${character.image_position.split(' ')[1]}%`
+                    : `center ${character.image_position}`)
+                : '50% 50%'
+            }}
           />
         </div>
       ) : (

@@ -6,6 +6,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Trash2, GripVertical, User, Upload, X, Copy, Link, Bot } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
@@ -71,6 +73,8 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
       image_url: null,
       url: null,
       is_npc: false,
+      background_color: null,
+      image_position: null,
       sort_order: characters.length + 1,
     }
     setFormData(prev => ({
@@ -187,15 +191,25 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                   </div>
 
                   {/* キャラクター画像 */}
-                  <div className="w-20 shrink-0">
+                  <div className="w-20 shrink-0 space-y-1">
                     <Label className={labelStyle}>画像</Label>
                     {character.image_url ? (
                       <div className="relative group">
-                        <OptimizedImage
-                          src={character.image_url}
-                          alt={character.name || 'キャラクター'}
-                          className="w-full aspect-square object-cover rounded border"
-                        />
+                        <div 
+                          className="w-full aspect-square rounded border overflow-hidden"
+                          style={{ backgroundColor: character.background_color || 'transparent' }}
+                        >
+                          <OptimizedImage
+                            src={character.image_url}
+                            alt={character.name || 'キャラクター'}
+                            className="w-full h-full object-cover"
+                            style={{ 
+                              objectPosition: character.image_position 
+                                ? `${character.image_position.split(' ')[0]}% ${character.image_position.split(' ')[1]}%`
+                                : '50% 50%'
+                            }}
+                          />
+                        </div>
                         <Button
                           type="button"
                           variant="destructive"
@@ -229,6 +243,121 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                         ) : (
                           <Upload className="h-4 w-4 text-muted-foreground" />
                         )}
+                      </div>
+                    )}
+                    {/* 画像設定（画像がある場合のみ表示） */}
+                    {character.image_url && (
+                      <div className="space-y-1">
+                        {/* 背景色・位置調整 */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-6 text-[10px] px-2">
+                              調整
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-3" side="right" align="start">
+                            <div className="space-y-4">
+                              {/* プレビュー */}
+                              <div className="flex justify-center">
+                                <div 
+                                  className="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-300"
+                                  style={{ backgroundColor: character.background_color || 'transparent' }}
+                                >
+                                  <OptimizedImage
+                                    src={character.image_url!}
+                                    alt={character.name || 'プレビュー'}
+                                    className="w-full h-full object-cover"
+                                    style={{ 
+                                      objectPosition: character.image_position 
+                                        ? `${character.image_position.split(' ')[0]}% ${character.image_position.split(' ')[1]}%`
+                                        : '50% 50%'
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* 背景色 */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-xs">背景色</Label>
+                                  {character.background_color && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-5 text-[10px] px-1"
+                                      onClick={() => updateCharacter(character.id, { background_color: null })}
+                                    >
+                                      クリア
+                                    </Button>
+                                  )}
+                                </div>
+                                <input
+                                  type="color"
+                                  value={character.background_color || '#ffffff'}
+                                  onChange={(e) => updateCharacter(character.id, { background_color: e.target.value })}
+                                  className="w-full h-8 rounded cursor-pointer border border-gray-300 p-0"
+                                />
+                              </div>
+
+                              {/* 横位置 */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-xs">横位置</Label>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {character.image_position?.split(' ')[0] || '50'}%
+                                  </span>
+                                </div>
+                                <Slider
+                                  value={[parseInt(character.image_position?.split(' ')[0] || '50')]}
+                                  onValueChange={([x]) => {
+                                    const y = character.image_position?.split(' ')[1] || '50'
+                                    updateCharacter(character.id, { image_position: `${x} ${y}` })
+                                  }}
+                                  min={0}
+                                  max={100}
+                                  step={1}
+                                  className="w-full"
+                                />
+                              </div>
+
+                              {/* 縦位置 */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-xs">縦位置</Label>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {character.image_position?.split(' ')[1] || '50'}%
+                                  </span>
+                                </div>
+                                <Slider
+                                  value={[parseInt(character.image_position?.split(' ')[1] || '50')]}
+                                  onValueChange={([y]) => {
+                                    const x = character.image_position?.split(' ')[0] || '50'
+                                    updateCharacter(character.id, { image_position: `${x} ${y}` })
+                                  }}
+                                  min={0}
+                                  max={100}
+                                  step={1}
+                                  className="w-full"
+                                />
+                              </div>
+
+                              {/* リセット */}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs"
+                                onClick={() => updateCharacter(character.id, { 
+                                  image_position: null,
+                                  background_color: null 
+                                })}
+                              >
+                                すべてリセット
+                              </Button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     )}
                   </div>

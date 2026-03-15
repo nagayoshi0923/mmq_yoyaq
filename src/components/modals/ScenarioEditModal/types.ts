@@ -135,6 +135,8 @@ export interface ScenarioCharacter {
   image_url?: string | null  // キャラクター画像URL
   url?: string | null  // キャラクター関連URL（資料等）
   is_npc?: boolean  // NPCフラグ（trueの場合、プレイ人数にカウントしない）
+  background_color?: string | null  // アイコン背景色（透明画像用）
+  image_position?: string | null  // 画像表示位置（object-position: 'top', 'center', 'bottom'）
   sort_order: number  // 表示順
 }
 

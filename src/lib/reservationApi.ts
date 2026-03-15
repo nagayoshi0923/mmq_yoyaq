@@ -911,47 +911,84 @@ export const reservationApi = {
       // 2. 現在の予約を取得
       const currentReservations = await this.getByScheduleEvent(eventId)
 
-      // 3. すべてのスタッフ予約を抽出（表示用）
-      const allStaffReservations = currentReservations.filter(r =>
-        r.reservation_source === 'staff_entry' ||
-        r.reservation_source === 'staff_participation' ||
-        r.payment_method === 'staff'
+      // 3. すべてのアクティブなスタッフ予約を抽出（重複チェック用）
+      // ※ キャンセル済みは除外して、アクティブな予約のみを対象にする
+      const activeStaffReservations = currentReservations.filter(r =>
+        r.status !== 'cancelled' && (
+          r.reservation_source === 'staff_entry' ||
+          r.reservation_source === 'staff_participation' ||
+          r.payment_method === 'staff'
+        )
       )
 
       // 4. スタッフ予約として管理している予約を抽出（削除対象の候補）
       // ※ staff_entry（GM欄から自動作成）と staff_participation（予約者タブから追加）が対象
       // ※ web（予約サイト）や walk_in（当日飛び込み）は保護
+      // ※ キャンセル済みも含める（toRemoveの後で status !== 'cancelled' でフィルタ）
       const managedStaffReservations = currentReservations.filter(r =>
         r.reservation_source === 'staff_entry' ||
         r.reservation_source === 'staff_participation'
       )
 
-      // 5. 追加が必要なスタッフ（すべてのスタッフ予約をチェック）
-      const toAdd = staffParticipants.filter(staffName =>
-        !allStaffReservations.some(r => r.participant_names?.includes(staffName))
-      )
+      // 5. 追加が必要なスタッフ（アクティブな予約のみをチェック）
+      // ※ 名前の完全一致で比較（trimして比較）
+      const toAdd = staffParticipants.filter(staffName => {
+        const trimmedName = staffName.trim()
+        return !activeStaffReservations.some(r => 
+          r.participant_names?.some(name => name.trim() === trimmedName)
+        )
+      })
 
       // 6. 削除が必要なスタッフ予約
       // GM欄のスタッフ参加リストに含まれていない予約を削除
       // ※ staff_entry と staff_participation の両方が対象（GM欄と同期）
       // ※ web, walk_in, onsite 等は保護（一般顧客の予約を誤削除しない）
+      // ※ 名前の完全一致で比較（trimして比較）
       const toRemove = managedStaffReservations.filter(r =>
-        !r.participant_names?.some(name => staffParticipants.includes(name))
+        !r.participant_names?.some(name => 
+          staffParticipants.some(sp => sp.trim() === name.trim())
+        )
       )
 
       logger.log('🔄 スタッフ予約同期:', {
         staffParticipants,
-        allStaffReservations: allStaffReservations.map(r => ({ name: r.participant_names, source: r.reservation_source })),
+        activeStaffReservations: activeStaffReservations.map(r => ({ 
+          id: r.id,
+          name: r.participant_names, 
+          source: r.reservation_source,
+          status: r.status 
+        })),
         toAdd,
-        toRemove: toRemove.map(r => ({ name: r.participant_names, source: r.reservation_source }))
+        toRemove: toRemove.map(r => ({ 
+          id: r.id,
+          name: r.participant_names, 
+          source: r.reservation_source,
+          status: r.status 
+        }))
       })
 
       // 7. 実行
-      // 追加
-      if (eventDetails) {
+      // 追加（スタッフ予約は通常のRPCではなく直接INSERTを使用）
+      // ※ create()はcreate_reservation_with_lock_v2 RPCを使用するが、
+      //    このRPCはpayment_method, reservation_source, participant_namesをサポートしていないため
+      if (eventDetails && toAdd.length > 0) {
+        // organization_idを取得
+        const organizationId = await getCurrentOrganizationId()
+        if (!organizationId) {
+          throw new Error('組織情報が取得できません')
+        }
+
         for (const staffName of toAdd) {
-          const reservation = {
+          // 予約番号を生成
+          const now = new Date()
+          const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+          const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+          const reservationNumber = `${dateStr}-${randomStr}`
+
+          const staffReservation = {
+            organization_id: organizationId,
             schedule_event_id: eventId,
+            reservation_number: reservationNumber,
             title: eventDetails.scenario_title || '',
             scenario_id: eventDetails.scenario_id || null,
             store_id: eventDetails.store_id || null,
@@ -973,7 +1010,15 @@ export const reservationApi = {
             reservation_source: 'staff_entry'
           }
 
-          await this.create(reservation as Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'>)
+          logger.log('📝 スタッフ予約を作成:', { staffName, reservationNumber })
+          
+          const { error: insertError } = await supabase
+            .from('reservations')
+            .insert([staffReservation])
+
+          if (insertError) {
+            logger.error('スタッフ予約作成エラー:', insertError)
+          }
         }
       }
 

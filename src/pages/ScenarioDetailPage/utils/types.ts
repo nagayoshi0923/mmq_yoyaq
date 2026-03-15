@@ -12,6 +12,8 @@ export interface ScenarioCharacter {
   description?: string | null
   image_url?: string | null
   is_npc?: boolean
+  background_color?: string | null
+  image_position?: string | null
   sort_order: number
 }
 
