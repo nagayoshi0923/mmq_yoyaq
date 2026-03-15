@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Send, Loader2, Calendar, CheckCircle2, X, ClipboardList } from 'lucide-react'
+import { Send, Loader2, Calendar, CheckCircle2, X, ClipboardList, AlertCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -52,6 +52,9 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   const [members, setMembers] = useState<PrivateGroupMember[]>(initialMembers)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [showSurveyDialog, setShowSurveyDialog] = useState(false)
+
+  // デバッグログ
+  logger.log('📋 GroupChat: props', { groupId, currentMemberId, scenarioId, organizationId, performanceDate })
 
   // メンバー情報を取得（ニックネームを優先的に取得）
   const fetchMembers = useCallback(async () => {
@@ -752,7 +755,17 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
             
             {/* コンテンツ */}
             <div className="overflow-y-auto flex-1 p-4">
-              {scenarioId && organizationId && currentMemberId && (
+              {!currentMemberId ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                  <p className="text-sm">メンバー情報を読み込み中...</p>
+                </div>
+              ) : !scenarioId || !organizationId ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <AlertCircle className="w-6 h-6 mx-auto mb-2 text-amber-500" />
+                  <p className="text-sm">アンケート情報を取得できませんでした</p>
+                </div>
+              ) : (
                 <SurveyResponseForm
                   groupId={groupId}
                   memberId={currentMemberId}
