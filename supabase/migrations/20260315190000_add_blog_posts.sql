@@ -84,3 +84,65 @@ CREATE TRIGGER trg_blog_posts_updated_at
   BEFORE UPDATE ON public.blog_posts
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
+
+-- =====================
+-- 4. 初期記事データ（クーポンキャンペーン）
+-- =====================
+INSERT INTO public.blog_posts (
+  organization_id,
+  title,
+  slug,
+  excerpt,
+  content,
+  is_published,
+  published_at
+) VALUES (
+  'a0000000-0000-0000-0000-000000000001',
+  '【5月5日まで】新規登録で2,000円分のクーポンプレゼント！',
+  'coupon-campaign',
+  '初めてMMQをご利用いただく方に、500円OFFクーポンを4枚（合計2,000円分）プレゼント中！',
+  '## 新規登録キャンペーン実施中！
+
+MMQでは、初めてご登録いただいた方に **500円OFFクーポン×4枚（合計2,000円分）** をプレゼントしています！
+
+### キャンペーン概要
+
+- **対象**: 5月5日までに新規登録された方
+- **特典**: 500円OFFクーポン × 4枚
+- **有効期限**: 登録から6ヶ月間
+
+### クーポンのご利用方法
+
+1. MMQに新規登録（メールアドレスまたはGoogleアカウント）
+2. プロフィール情報を入力して登録完了
+3. 自動的にクーポンが付与されます
+4. 予約時にクーポンを選択して割引を適用
+
+### ご利用条件
+
+- 1回のご予約につき1枚のクーポンをご利用いただけます
+- 他のクーポンとの併用はできません
+- 有効期限を過ぎたクーポンはご利用いただけません
+
+### よくあるご質問
+
+**Q. クーポンはいつ届きますか？**
+A. 新規登録完了後、すぐにマイページのクーポン一覧に表示されます。
+
+**Q. 友達と一緒に予約する場合も使えますか？**
+A. はい、グループ予約の場合も1枚ご利用いただけます。予約代表者のクーポンが適用されます。
+
+**Q. 複数のクーポンを1回の予約で使えますか？**
+A. 1回のご予約につき1枚までとなります。
+
+---
+
+この機会にぜひMMQで、新しいマーダーミステリー体験をお楽しみください！',
+  true,
+  now()
+) ON CONFLICT (organization_id, slug) DO UPDATE SET
+  title = EXCLUDED.title,
+  excerpt = EXCLUDED.excerpt,
+  content = EXCLUDED.content,
+  is_published = EXCLUDED.is_published,
+  published_at = EXCLUDED.published_at;
