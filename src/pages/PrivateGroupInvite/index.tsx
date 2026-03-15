@@ -49,6 +49,16 @@ export function PrivateGroupInvite() {
   const { group, loading: groupLoading, error: groupError, refetch } = usePrivateGroupByInviteCode(code || null)
   const { joinGroup, submitDateResponses, leaveGroup, updateGroupStatus, removeMember, loading: actionLoading } = usePrivateGroup()
 
+  // デバッグログ
+  if (group) {
+    logger.log('📋 PrivateGroupInvite: group data', { 
+      id: group.id,
+      scenario_id: group.scenario_id,
+      organization_id: group.organization_id,
+      status: group.status
+    })
+  }
+
   const [guestName, setGuestName] = useState('')
   const [guestEmail, setGuestEmail] = useState('')
   const [guestPhone, setGuestPhone] = useState('')
@@ -1023,7 +1033,7 @@ export function PrivateGroupInvite() {
   // チャットモード時は専用レイアウト
   if (isChatMode && group) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="h-screen flex flex-col bg-background overflow-hidden">
         {/* ヘッダー */}
         <Header />
         
