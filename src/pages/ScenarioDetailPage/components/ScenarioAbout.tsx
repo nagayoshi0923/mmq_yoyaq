@@ -92,7 +92,7 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
       
       {/* 説明（空白でない場合のみ表示） */}
       {character.description && (
-        <p className="text-xs text-gray-600 mt-2 text-left leading-relaxed">
+        <p className="text-xs text-gray-600 mt-2 text-left leading-relaxed whitespace-pre-wrap">
           {character.description}
         </p>
       )}

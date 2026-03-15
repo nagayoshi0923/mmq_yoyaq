@@ -993,6 +993,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               survey_deadline_days: formData.survey_deadline_days ?? 1,
               // キャラクター情報
               characters: formData.characters || [],
+              // 男女比
+              male_count: formData.male_count ?? null,
+              female_count: formData.female_count ?? null,
+              other_count: formData.other_count ?? null,
             }
 
             let orgScenarioId: string | null = existingOrgScenario?.id || null

@@ -19,6 +19,17 @@ import { Link, useNavigate } from 'react-router-dom'
 // デフォルト組織ID（クインズワルツ）
 const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 
+// 都道府県リスト
+const PREFECTURES = [
+  '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+  '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+  '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
+  '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
+  '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+  '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
+  '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
+]
+
 export function CompleteProfile() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -34,6 +45,7 @@ export function CompleteProfile() {
   const [userId, setUserId] = useState('')
   const [isOAuthUser, setIsOAuthUser] = useState(false)
   const [birthDate, setBirthDate] = useState('')
+  const [prefecture, setPrefecture] = useState('')
   const [acceptNewsletter, setAcceptNewsletter] = useState(true)
   const [acceptTerms, setAcceptTerms] = useState(false)
   const navigate = useNavigate()
@@ -83,6 +95,10 @@ export function CompleteProfile() {
     const phoneDigits = phone.replace(/[-\s]/g, '')
     if (!/^\d{10,11}$/.test(phoneDigits)) {
       setError('電話番号は10〜11桁で入力してください')
+      return
+    }
+    if (!prefecture) {
+      setError('お住まいの都道府県を選択してください')
       return
     }
     if (!birthDate) {
@@ -255,6 +271,7 @@ export function CompleteProfile() {
             nickname: nickname.trim() || null,
             email: userEmail,
             phone: phone.trim(),
+            prefecture: prefecture,
             birth_date: birthDate,
             organization_id: organizationId,
             notification_settings: notificationSettings,
@@ -277,6 +294,7 @@ export function CompleteProfile() {
             nickname: nickname.trim() || null,
             email: userEmail,
             phone: phone.trim(),
+            prefecture: prefecture,
             birth_date: birthDate,
             visit_count: 0,
             total_spent: 0,
@@ -305,6 +323,7 @@ export function CompleteProfile() {
                   user_id: userId,
                   name: name.trim(),
                   phone: phone.trim(),
+                  prefecture: prefecture,
                   organization_id: organizationId,
                   updated_at: new Date().toISOString()
                 })
@@ -324,6 +343,7 @@ export function CompleteProfile() {
                   user_id: userId,
                   name: name.trim(),
                   phone: phone.trim(),
+                  prefecture: prefecture,
                   visit_count: 0,
                   total_spent: 0,
                   organization_id: organizationId,
@@ -568,6 +588,26 @@ export function CompleteProfile() {
                     className="h-12"
                     disabled={isLoading}
                   />
+                </div>
+
+                {/* 都道府県 */}
+                <div>
+                  <label htmlFor="prefecture" className="block text-sm font-medium text-gray-700 mb-1.5">
+                    お住まいの都道府県 <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="prefecture"
+                    value={prefecture}
+                    onChange={(e) => setPrefecture(e.target.value)}
+                    required
+                    className="w-full h-12 px-3 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-[#E60012] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    disabled={isLoading}
+                  >
+                    <option value="">選択してください</option>
+                    {PREFECTURES.map((pref) => (
+                      <option key={pref} value={pref}>{pref}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* 生年月日 */}

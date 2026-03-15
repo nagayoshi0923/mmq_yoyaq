@@ -542,6 +542,7 @@ export interface Customer {
   email?: string | null
   email_verified?: boolean
   phone?: string | null
+  prefecture?: string | null  // 都道府県
   address?: string | null  // 住所
   line_id?: string | null
   notes?: string | null
