@@ -19,7 +19,8 @@ import {
   XCircle,
   Tags,
   Palette,
-  HelpCircle
+  HelpCircle,
+  FileText
 } from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
@@ -48,6 +49,7 @@ import { TenantManagementSettings } from './pages/TenantManagementSettings'
 import { CategoryAuthorManagementSettings } from './pages/CategoryAuthorManagementSettings'
 import { OrganizationDesignSettings } from './pages/OrganizationDesignSettings'
 import { FAQSettings } from './pages/FAQSettings'
+import { BlogSettings } from './pages/BlogSettings'
 
 // 基本のメニュー項目
 const BASE_MENU_ITEMS: SidebarMenuItem[] = [
@@ -55,6 +57,7 @@ const BASE_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'organization-info', label: '組織情報', icon: Building2, description: '会社情報・招待管理' },
   { id: 'organization-design', label: '組織デザイン', icon: Palette, description: 'テーマカラー・ヘッダー画像' },
   { id: 'faq', label: 'FAQ設定', icon: HelpCircle, description: 'よくある質問' },
+  { id: 'blog', label: 'ブログ・お知らせ', icon: FileText, description: '記事の作成・管理' },
   
   // 全体設定
   { id: 'general', label: '全体設定', icon: SettingsIcon, description: 'システム全体の設定' },
@@ -101,7 +104,7 @@ export function Settings() {
   }, [isLicenseManager])
 
   // 店舗セレクターを表示しないページ
-  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'tenant-management', 'general', 'salary', 'booking-notice', 'categories']
+  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'tenant-management', 'general', 'salary', 'booking-notice', 'categories']
   const showStoreSelector = !noStoreSelectorPages.includes(activeTab)
 
   const renderContent = () => {
@@ -115,6 +118,8 @@ export function Settings() {
         return <OrganizationDesignSettings />
       case 'faq':
         return <FAQSettings />
+      case 'blog':
+        return <BlogSettings />
       case 'tenant-management':
         return <TenantManagementSettings />
       case 'general':

@@ -997,6 +997,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               male_count: formData.male_count ?? null,
               female_count: formData.female_count ?? null,
               other_count: formData.other_count ?? null,
+              // シナリオタイプ
+              scenario_type: formData.scenario_type || 'normal',
             }
 
             let orgScenarioId: string | null = existingOrgScenario?.id || null

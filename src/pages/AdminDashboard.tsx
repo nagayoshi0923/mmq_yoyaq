@@ -68,6 +68,8 @@ const PrivateGroupCreate = lazyWithRetry(() => import('./PrivateGroupCreate').th
 const PrivateGroupInvite = lazyWithRetry(() => import('./PrivateGroupInvite').then(m => ({ default: m.PrivateGroupInvite })))
 const PrivateGroupManage = lazyWithRetry(() => import('./PrivateGroupManage').then(m => ({ default: m.PrivateGroupManage })))
 const CouponManagement = lazyWithRetry(() => import('./CouponManagement').then(m => ({ default: m.CouponManagement })))
+const BlogDetailPage = lazyWithRetry(() => import('./BlogDetailPage').then(m => ({ default: m.BlogDetailPage })))
+const BlogManagement = lazyWithRetry(() => import('./BlogManagement').then(m => ({ default: m.BlogManagement })))
 
 function ScenarioEditRedirect({ organizationSlug, scenarioId }: { organizationSlug: string; scenarioId: string | null }) {
   const navigate = useNavigate()
@@ -101,7 +103,7 @@ const ADMIN_PATHS = [
   'schedule', 'shift-submission', 'gm-availability', 'private-booking-management',
   'reservations', 'accounts', 'sales', 'settings', 'manual', 'add-demo-participants',
   'scenario-matcher', 'organizations', 'external-reports', 'license-reports', 'license-management',
-  'customer-management', 'user-management', 'coupons'
+  'customer-management', 'user-management', 'coupons', 'blog'
 ]
 
 // パスを解析してページ情報を返す
@@ -159,6 +161,11 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   // /scenario/{slug} - シナリオ共通詳細ページ（組織を跨いで公演情報を表示）
   if (segments[0] === 'scenario' && segments[1]) {
     return { page: 'scenario-detail-global', scenarioId: segments[1], organizationSlug: null }
+  }
+  
+  // /blog/{slug} - ブログ記事詳細ページ
+  if (segments[0] === 'blog' && segments[1]) {
+    return { page: 'blog-detail', scenarioId: segments[1], organizationSlug: null }
   }
   
   // /admin/scenario-masters - シナリオマスタ管理
@@ -412,6 +419,18 @@ export function AdminDashboard() {
     }
   }
 
+  // ブログ記事詳細ページ
+  if (currentPage === 'blog-detail') {
+    const { scenarioId: slug } = parsePath(location.pathname)
+    if (slug) {
+      return (
+        <Suspense fallback={<LoadingScreen message="記事を読み込み中..." />}>
+          <BlogDetailPage slug={slug} />
+        </Suspense>
+      )
+    }
+  }
+
   // シナリオマスタ管理（MMQ運営用）
   if (currentPage === 'scenario-master-admin') {
     return (
@@ -482,6 +501,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="クーポン管理を読み込み中..." />}>
         <CouponManagement />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'blog') {
+    return (
+      <Suspense fallback={<LoadingScreen message="ブログ管理を読み込み中..." />}>
+        <BlogManagement />
       </Suspense>
     )
   }

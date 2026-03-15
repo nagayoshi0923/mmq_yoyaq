@@ -21,7 +21,8 @@ import {
   Ticket,
   FileCheck,
   Shield,
-  Gift
+  Gift,
+  FileText
 } from 'lucide-react'
 
 interface NavigationBarProps {
@@ -65,6 +66,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'private-booking-management', path: `/${bookingSlug}/private-booking-management`, label: '貸切管理', icon: ClipboardCheck, roles: ['admin', 'license_admin'] },
     { id: 'reservations', path: `/${bookingSlug}/reservations`, label: '予約管理', icon: Ticket, roles: ['admin', 'license_admin'] },
     { id: 'coupons', path: `/${bookingSlug}/coupons`, label: 'クーポン', icon: Gift, roles: ['admin', 'license_admin'] },
+    { id: 'blog', path: `/${bookingSlug}/blog`, label: 'ブログ', icon: FileText, roles: ['admin', 'license_admin'] },
     { id: 'accounts', path: `/${bookingSlug}/accounts`, label: 'アカウント', icon: UserCog, roles: ['admin', 'license_admin'] },
     { id: 'sales', path: `/${bookingSlug}/sales`, label: '売上', icon: TrendingUp, roles: ['admin', 'license_admin'] },
     { id: 'license-management', path: `/${bookingSlug}/license-management`, label: '公演報告', icon: FileCheck, roles: ['admin', 'staff', 'license_admin'] },

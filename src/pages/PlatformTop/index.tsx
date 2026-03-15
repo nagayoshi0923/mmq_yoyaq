@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
-import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, Users, Target } from 'lucide-react'
+import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, Users, Target, FileText } from 'lucide-react'
 import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -68,6 +68,17 @@ interface NearlyCompleteGroup {
   organizer_name?: string
 }
 
+// ブログ記事
+interface BlogPostSummary {
+  id: string
+  title: string
+  slug: string
+  excerpt?: string | null
+  cover_image_url?: string | null
+  published_at: string
+  organization_name?: string
+}
+
 // 地域リスト
 const REGIONS = [
   { value: 'all', label: '全国' },
@@ -92,6 +103,7 @@ export function PlatformTop() {
   const [selectedRegion, setSelectedRegion] = useState('all')
   const [isExpanded, setIsExpanded] = useState(false)
   const [nearlyCompleteGroups, setNearlyCompleteGroups] = useState<NearlyCompleteGroup[]>([])
+  const [blogPosts, setBlogPosts] = useState<BlogPostSummary[]>([])
 
   // スクロール位置の保存と復元
   useScrollRestoration({ 
@@ -337,6 +349,22 @@ export function PlatformTop() {
         setNearlyCompleteGroups(nearlyComplete)
       }
 
+      // ブログ記事を取得（最新3件）
+      const { data: blogData } = await supabase
+        .from('blog_posts')
+        .select('id, title, slug, excerpt, cover_image_url, published_at, organization_id')
+        .eq('is_published', true)
+        .order('published_at', { ascending: false })
+        .limit(3)
+
+      if (blogData) {
+        const postsWithOrg = blogData.map(post => ({
+          ...post,
+          organization_name: orgMap[post.organization_id]?.name || ''
+        }))
+        setBlogPosts(postsWithOrg)
+      }
+
     } catch (error) {
       logger.error('データ取得エラー:', error)
     } finally {
@@ -475,20 +503,11 @@ export function PlatformTop() {
         
         <div className="max-w-7xl mx-auto px-4 py-12 md:py-20 relative">
           <div className="text-center text-white">
-            {/* アクセントバッジ */}
-            <div 
-              className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium mb-6"
-              style={{ backgroundColor: THEME.accent, color: '#000' }}
-            >
-              <Sparkles className="w-3 h-3" />
-              MURDER MYSTERY QUEST
-            </div>
-            
             <h1 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight">
-              マーダーミステリーを<br className="md:hidden" />探そう
+              マーダーミステリー予約するなら<br className="md:hidden" />MMQ
             </h1>
             <p className="text-lg md:text-xl opacity-90 mb-8 max-w-2xl mx-auto">
-              様々な店舗のマーダーミステリーを検索・予約
+              全国の店舗から、あなたにぴったりの物語を見つけよう
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -522,6 +541,60 @@ export function PlatformTop() {
                   ログイン / 新規登録
                 </Button>
               )}
+            </div>
+
+            {/* 新規登録キャンペーンバナー */}
+            <div 
+              className="mt-10 cursor-pointer group"
+              onClick={() => navigate('/blog/coupon-campaign')}
+            >
+              <div 
+                className="relative overflow-hidden mx-auto max-w-2xl"
+                style={{ 
+                  background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FF8C00 100%)',
+                  boxShadow: '0 8px 32px rgba(255, 165, 0, 0.4)'
+                }}
+              >
+                {/* 装飾パターン */}
+                <div className="absolute inset-0 opacity-20">
+                  <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-1/2 -translate-y-1/2" />
+                  <div className="absolute bottom-0 right-0 w-48 h-48 bg-white rounded-full translate-x-1/4 translate-y-1/4" />
+                </div>
+                
+                <div className="relative px-6 py-5 md:px-8 md:py-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                  {/* 左側: テキスト */}
+                  <div className="text-center md:text-left">
+                    <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 text-xs font-bold text-white mb-2">
+                      ⏰ 5月5日までに登録の方限定
+                    </div>
+                    <h3 className="text-white font-bold text-xl md:text-2xl mb-1">
+                      新規登録キャンペーン実施中！
+                    </h3>
+                    <p className="text-white/90 text-sm">
+                      今なら登録するだけで使えるクーポンをプレゼント
+                    </p>
+                  </div>
+                  
+                  {/* 右側: 金額 */}
+                  <div className="flex items-center gap-4">
+                    <div className="bg-white px-5 py-3 text-center shadow-lg group-hover:scale-105 transition-transform">
+                      <p className="text-xs font-bold text-orange-600 mb-1">総額</p>
+                      <p className="font-black text-3xl md:text-4xl" style={{ color: THEME.primary }}>
+                        2,000<span className="text-lg">円分</span>
+                      </p>
+                      <p className="text-xs text-gray-600 mt-1">500円 × 4回</p>
+                    </div>
+                    <ChevronRight className="w-6 h-6 text-white hidden md:block group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+                
+                {/* 有効期限 */}
+                <div className="bg-black/20 px-4 py-2 text-center">
+                  <p className="text-white/90 text-xs">
+                    🎁 クーポン有効期限6ヶ月 ｜ 1回のご予約につき1枚使用可能
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -822,6 +895,64 @@ export function PlatformTop() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* ブログ・お知らせ */}
+      {blogPosts.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 py-8 md:py-12">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+            <FileText className="w-6 h-6" style={{ color: THEME.primary }} />
+            お知らせ
+            <span 
+              className="w-12 h-1 ml-2"
+              style={{ backgroundColor: THEME.primary }}
+            />
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {blogPosts.map(post => (
+              <article
+                key={post.id}
+                className="bg-white border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                style={{ borderRadius: 0 }}
+                onClick={() => navigate(`/blog/${post.slug}`)}
+              >
+                {post.cover_image_url && (
+                  <div className="aspect-[16/9] bg-gray-100 overflow-hidden">
+                    <img
+                      src={post.cover_image_url}
+                      alt={post.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                <div className="p-4">
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                    <Calendar className="w-3 h-3" />
+                    {new Date(post.published_at).toLocaleDateString('ja-JP', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric'
+                    })}
+                    {post.organization_name && (
+                      <>
+                        <span>•</span>
+                        <span>{post.organization_name}</span>
+                      </>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-gray-900 line-clamp-2 mb-2">
+                    {post.title}
+                  </h3>
+                  {post.excerpt && (
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {post.excerpt}
+                    </p>
+                  )}
+                </div>
+              </article>
+            ))}
           </div>
         </section>
       )}
