@@ -128,12 +128,13 @@ export interface SurveyQuestionFormData {
 export interface ScenarioCharacter {
   id: string  // UUID（フロントエンド生成）
   name: string  // キャラクター名（必須）
-  gender: 'male' | 'female' | 'other' | 'unknown'  // 性別
+  gender: 'male' | 'female' | 'any' | 'other' | 'unknown'  // 性別
   age?: string | null  // 年齢（空白の場合は非表示）
   occupation?: string | null  // 職業（空白の場合は非表示）
   description?: string | null  // 説明文（空白の場合は非表示）
   image_url?: string | null  // キャラクター画像URL
   url?: string | null  // キャラクター関連URL（資料等）
+  is_npc?: boolean  // NPCフラグ（trueの場合、プレイ人数にカウントしない）
   sort_order: number  // 表示順
 }
 

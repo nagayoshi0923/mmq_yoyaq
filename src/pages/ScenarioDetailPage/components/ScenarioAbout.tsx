@@ -31,14 +31,16 @@ function formatGenderRatio(male?: number | null, female?: number | null, other?:
 const genderLabel: Record<ScenarioCharacter['gender'], string> = {
   male: '男性',
   female: '女性',
+  any: 'どちらでもよい',
   other: 'その他',
   unknown: '',
 }
 
 // キャラクターカード
 function CharacterCard({ character }: { character: ScenarioCharacter }) {
+  const isNpc = character.is_npc
   return (
-    <div className="bg-gray-50 rounded-lg p-3 text-center">
+    <div className={`rounded-lg p-3 text-center ${isNpc ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}>
       {/* キャラクター画像 */}
       {character.image_url ? (
         <div className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden border-2 border-gray-200">
@@ -55,7 +57,14 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
       )}
       
       {/* 名前 */}
-      <p className="font-semibold text-gray-900 text-sm">{character.name}</p>
+      <p className="font-semibold text-gray-900 text-sm">
+        {character.name}
+        {character.is_npc && (
+          <span className="ml-1 text-[10px] font-normal bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded">
+            NPC
+          </span>
+        )}
+      </p>
       
       {/* 性別・年齢・職業（空白でない場合のみ表示） */}
       <div className="text-xs text-gray-500 mt-1 space-y-0.5">

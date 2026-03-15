@@ -6,11 +6,12 @@
 export interface ScenarioCharacter {
   id: string
   name: string
-  gender: 'male' | 'female' | 'other' | 'unknown'
+  gender: 'male' | 'female' | 'any' | 'other' | 'unknown'
   age?: string | null
   occupation?: string | null
   description?: string | null
   image_url?: string | null
+  is_npc?: boolean
   sort_order: number
 }
 

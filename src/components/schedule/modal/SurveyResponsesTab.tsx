@@ -34,7 +34,7 @@ export function SurveyResponsesTab({
   const [responses, setResponses] = useState<ResponseData[]>([])
   const [members, setMembers] = useState<MemberData[]>([])
   const [loading, setLoading] = useState(true)
-  const [characters, setCharacters] = useState<Array<{ id: string; name: string; url?: string | null }>>([])
+  const [characters, setCharacters] = useState<Array<{ id: string; name: string; url?: string | null; is_npc?: boolean }>>([])
   const [surveyEnabled, setSurveyEnabled] = useState(false)
   const [groupId, setGroupId] = useState<string | null>(null)
   const [participantLimit, setParticipantLimit] = useState<number | null>(null)
@@ -185,6 +185,7 @@ export function SurveyResponsesTab({
             id: c.id,
             name: c.name,
             url: c.url || null,
+            is_npc: c.is_npc || false,
           })))
         }
 
@@ -467,8 +468,8 @@ export function SurveyResponsesTab({
                       {memberName}さんへ個別にお知らせ
                     </p>
                     
-                    {/* キャラクター選択（URLがあるキャラクターのみ表示） */}
-                    {characters.filter(c => c.url).length > 0 && (
+                    {/* キャラクター選択（URLがあり、NPCでないキャラクターのみ表示） */}
+                    {characters.filter(c => c.url && !c.is_npc).length > 0 && (
                       <div className="mb-2">
                         <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                           <Link className="w-3 h-3" />
@@ -486,7 +487,7 @@ export function SurveyResponsesTab({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">選択しない</SelectItem>
-                            {characters.filter(c => c.url).map(char => (
+                            {characters.filter(c => c.url && !c.is_npc).map(char => (
                               <SelectItem key={char.id} value={char.id}>
                                 {char.name}
                               </SelectItem>

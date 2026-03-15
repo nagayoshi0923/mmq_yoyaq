@@ -5,7 +5,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Trash2, GripVertical, User, Upload, X, Copy, Link } from 'lucide-react'
+import { Plus, Trash2, GripVertical, User, Upload, X, Copy, Link, Bot } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { showToast } from '@/utils/toast'
@@ -22,6 +23,7 @@ interface CharactersSectionV2Props {
 const genderOptions = [
   { value: 'male', label: '男性' },
   { value: 'female', label: '女性' },
+  { value: 'any', label: 'どちらでもよい' },
   { value: 'other', label: 'その他' },
   { value: 'unknown', label: '不明' },
 ]
@@ -68,6 +70,7 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
       description: null,
       image_url: null,
       url: null,
+      is_npc: false,
       sort_order: characters.length + 1,
     }
     setFormData(prev => ({
@@ -322,6 +325,19 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                         className={inputStyle}
                         type="url"
                       />
+                    </div>
+
+                    {/* 5行目: NPCフラグ */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <Switch
+                        id={`npc-${character.id}`}
+                        checked={character.is_npc || false}
+                        onCheckedChange={(checked) => updateCharacter(character.id, { is_npc: checked })}
+                      />
+                      <Label htmlFor={`npc-${character.id}`} className="text-xs flex items-center gap-1 cursor-pointer">
+                        <Bot className="w-3 h-3" />
+                        NPC（プレイ人数にカウントしない）
+                      </Label>
                     </div>
                   </div>
 

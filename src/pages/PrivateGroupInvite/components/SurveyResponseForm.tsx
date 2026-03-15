@@ -110,12 +110,15 @@ export function SurveyResponseForm({
         }
 
         // キャラクター情報を設定（propsより優先）
+        // NPCは希望キャラクター選択から除外
         if (orgScenario.characters && Array.isArray(orgScenario.characters)) {
-          const charData = orgScenario.characters.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            gender: c.gender,
-          }))
+          const charData = orgScenario.characters
+            .filter((c: any) => !c.is_npc)  // NPCを除外
+            .map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              gender: c.gender,
+            }))
           // 外部から渡されたcharactersが空の場合のみ上書き
           if (characters.length === 0) {
             setLocalCharacters(charData)
@@ -394,7 +397,7 @@ export function SurveyResponseForm({
                           {char.name}
                           {char.gender && (
                             <span className="text-xs text-muted-foreground ml-1">
-                              ({char.gender === 'male' ? '男性' : char.gender === 'female' ? '女性' : 'その他'})
+                              ({char.gender === 'male' ? '男性' : char.gender === 'female' ? '女性' : char.gender === 'any' ? 'どちらでもよい' : 'その他'})
                             </span>
                           )}
                         </Label>
