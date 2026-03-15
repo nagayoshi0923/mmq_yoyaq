@@ -31,7 +31,7 @@ function formatGenderRatio(male?: number | null, female?: number | null, other?:
 const genderLabel: Record<ScenarioCharacter['gender'], string> = {
   male: '男性',
   female: '女性',
-  any: 'どちらでもよい',
+  any: '性別自由',
   other: 'その他',
   unknown: '',
 }

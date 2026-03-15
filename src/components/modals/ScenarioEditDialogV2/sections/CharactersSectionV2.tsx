@@ -25,7 +25,7 @@ interface CharactersSectionV2Props {
 const genderOptions = [
   { value: 'male', label: '男性' },
   { value: 'female', label: '女性' },
-  { value: 'any', label: 'どちらでもよい' },
+  { value: 'any', label: '性別自由' },
   { value: 'other', label: 'その他' },
   { value: 'unknown', label: '不明' },
 ]

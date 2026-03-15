@@ -397,7 +397,7 @@ export function SurveyResponseForm({
                           {char.name}
                           {char.gender && (
                             <span className="text-xs text-muted-foreground ml-1">
-                              ({char.gender === 'male' ? '男性' : char.gender === 'female' ? '女性' : char.gender === 'any' ? 'どちらでもよい' : 'その他'})
+                              ({char.gender === 'male' ? '男性' : char.gender === 'female' ? '女性' : char.gender === 'any' ? '性別自由' : 'その他'})
                             </span>
                           )}
                         </Label>
