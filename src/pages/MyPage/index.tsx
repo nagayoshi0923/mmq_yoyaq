@@ -306,7 +306,7 @@ export default function MyPage() {
         // 予約を取得
         supabase
           .from('reservations')
-          .select('id, organization_id, reservation_number, title, scenario_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price')
+          .select('id, organization_id, reservation_number, title, scenario_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at')
           .eq('customer_id', customer.id)
           .order('requested_datetime', { ascending: false })
           .limit(50),

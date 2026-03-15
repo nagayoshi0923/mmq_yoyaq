@@ -65,6 +65,7 @@ export interface ScheduleTableModals {
     availableStaffByScenario?: Record<string, Staff[]>
     allAvailableStaff?: Staff[]
     onParticipantChange?: (eventId: string, newCount: number) => void
+    onDeleteEvent?: (event: ScheduleEvent) => Promise<void>
   }
   performance: {
     handleOpenPerformanceModal: any

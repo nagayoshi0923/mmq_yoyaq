@@ -96,12 +96,13 @@ export const useGMSelection = (allGMs: Staff[]) => {
         selected_candidate_index?: number
         notes?: string
         gm_name?: string
-        staff?: { name?: string }
+        staff?: { name?: string } | { name?: string }[] | null
       }
 
       (filteredAvailableData || []).forEach((a: AvailabilityResponse) => {
         // GM名がnullの場合はスタッフテーブルの名前を使用
-        const gmName = a.gm_name || a.staff?.name || ''
+        const staffName = Array.isArray(a.staff) ? a.staff[0]?.name : a.staff?.name
+        const gmName = a.gm_name || staffName || ''
         if (a.staff_id) {
           // 通常のstaff_id経由の回答
           availableGMMap.set(a.staff_id, {

@@ -856,7 +856,7 @@ export interface CouponUsage {
 // ================================================
 
 // グループのステータス
-export type PrivateGroupStatus = 'gathering' | 'booking_requested' | 'confirmed' | 'cancelled'
+export type PrivateGroupStatus = 'gathering' | 'date_adjusting' | 'booking_requested' | 'confirmed' | 'cancelled'
 
 // メンバーのステータス
 export type PrivateGroupMemberStatus = 'pending' | 'joined' | 'declined'
@@ -894,7 +894,7 @@ export interface PrivateGroup {
       sort_order?: number
     }>
   } | null
-  organizer?: { id: string; email: string } | null
+  organizer?: { id: string; email: string; nickname?: string } | null
   members?: PrivateGroupMember[]
   candidate_dates?: PrivateGroupCandidateDate[]
 }
@@ -912,7 +912,7 @@ export interface PrivateGroupMember {
   joined_at: string | null
   created_at: string
   // JOIN時の拡張フィールド
-  users?: { id: string; email: string } | null
+  users?: { id: string; email: string; nickname?: string } | null
   date_responses?: PrivateGroupDateResponse[]
 }
 

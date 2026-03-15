@@ -6,7 +6,7 @@ import type { PrivateBookingRequest } from './usePrivateBookingData'
 interface UseBookingRequestsProps {
   userId?: string
   userRole?: string
-  activeTab: 'pending' | 'all'
+  activeTab: 'gm_pending' | 'store_pending' | 'all'
 }
 
 /**
@@ -91,8 +91,10 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
       }
 
       // タブによってフィルター
-      if (activeTab === 'pending') {
-        query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'])
+      if (activeTab === 'gm_pending') {
+        query = query.in('status', ['pending', 'pending_gm'])
+      } else if (activeTab === 'store_pending') {
+        query = query.in('status', ['gm_confirmed', 'pending_store'])
       } else {
         query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store', 'confirmed', 'cancelled'])
       }

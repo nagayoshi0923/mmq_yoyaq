@@ -344,8 +344,8 @@ interface RawEventData {
   date: string
   store_id: string
   scenario?: string
-  scenarios?: { id: string; title: string; player_count_max?: number } | null
-  scenario_masters?: { id: string; title: string; player_count_max?: number } | null
+  scenarios?: { id: string; title: string; player_count_max?: number } | { id: string; title: string; player_count_max?: number }[] | null
+  scenario_masters?: { id: string; title: string; player_count_max?: number } | { id: string; title: string; player_count_max?: number }[] | null
   gms: string[]
   gm_roles?: Record<string, string> // 追加
   start_time: string
@@ -656,7 +656,7 @@ export function useScheduleData(currentDate: Date) {
         const year = currentDate.getFullYear()
         const month = currentDate.getMonth() + 1
         
-        const data = await scheduleApi.getByMonth(year, month)
+        const data = await scheduleApi.getByMonth(year, month) as RawEventData[]
         
         // シナリオリストを取得（player_count_max取得用のフォールバック）
         const scenarioList = await scenarioApi.getAll()
@@ -756,7 +756,8 @@ export function useScheduleData(currentDate: Date) {
       // 拡張プロパティ（scenarios, gm_roles, timeSlot等）を含むため型アサーションを使用
       const formattedEvents = data.map((event: RawEventData) => {
         // scenario_masters（新）または scenarios（旧）からシナリオ情報を取得
-        const scenarioData = event.scenario_masters || event.scenarios
+        const rawScenarioData = event.scenario_masters || event.scenarios
+        const scenarioData = Array.isArray(rawScenarioData) ? rawScenarioData[0] : rawScenarioData
         const scenarioTitle = scenarioData?.title || event.scenario || ''
         // シナリオデータが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
         const isValidScenario = scenarioData && scenarioData.id
@@ -1046,7 +1047,7 @@ export function useScheduleData(currentDate: Date) {
       
       logger.log(`🔄 fetchSchedule: ${year}年${month}月のデータを取得`)
       
-      const data = await scheduleApi.getByMonth(year, month)
+      const data = await scheduleApi.getByMonth(year, month) as RawEventData[]
       
       // シナリオリストを取得（player_count_max取得用のフォールバック）
       const scenarioList = await scenarioApi.getAll()
@@ -1136,7 +1137,8 @@ export function useScheduleData(currentDate: Date) {
       // 拡張プロパティ（scenarios, gm_roles, timeSlot等）を含むため型アサーションを使用
       const formattedEvents = data.map((event: RawEventData) => {
         // scenario_masters（新）または scenarios（旧）からシナリオ情報を取得
-        const scenarioData = event.scenario_masters || event.scenarios
+        const rawScenarioData2 = event.scenario_masters || event.scenarios
+        const scenarioData = Array.isArray(rawScenarioData2) ? rawScenarioData2[0] : rawScenarioData2
         const scenarioTitle = scenarioData?.title || event.scenario || ''
         // シナリオデータが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
         const isValidScenario = scenarioData && scenarioData.id

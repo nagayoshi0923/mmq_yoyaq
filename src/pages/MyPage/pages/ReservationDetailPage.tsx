@@ -971,7 +971,7 @@ export function ReservationDetailPage() {
           <div className="mt-4">
             <InviteShareButton
               scenarioTitle={scenario.title}
-              scenarioId={scenario.scenario_master_id || scenario.id}
+              scenarioId={scenario.id}
               scenarioSlug={scenario.slug}
               eventDate={reservation?.schedule_events?.date ? new Date(reservation.schedule_events.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP') : undefined}
               eventTime={reservation?.schedule_events?.start_time || undefined}

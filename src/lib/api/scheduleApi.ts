@@ -242,7 +242,7 @@ export const scheduleApi = {
     const { data: staffReservations } = await resQuery
     
     // スタッフ参加の公演を抽出（日付フィルタリング）
-    type JoinedScheduleEvent = { id: string; date: string; start_time: string; is_cancelled: boolean; scenarios?: unknown; max_participants?: number; capacity?: number; [key: string]: unknown }
+    type JoinedScheduleEvent = { id: string; date: string; start_time: string; is_cancelled: boolean; scenario_masters?: unknown; max_participants?: number; capacity?: number; [key: string]: unknown }
     const staffEvents = (staffReservations || [])
       .map(r => r.schedule_events as unknown as JoinedScheduleEvent)
       .filter((event): event is JoinedScheduleEvent => 
@@ -294,7 +294,7 @@ export const scheduleApi = {
       const reservations = reservationsMap.get(event.id) || []
       const actualParticipants = reservations.reduce((sum, r) => sum + (r.participant_count || 0), 0)
       
-      const scenarioData = event.scenarios as { player_count_max?: number } | null
+      const scenarioData = event.scenario_masters as { player_count_max?: number } | null
       const maxParticipants = scenarioData?.player_count_max || event.max_participants || event.capacity || 8
 
       return {
@@ -468,7 +468,7 @@ export const scheduleApi = {
       // 予約から計算した参加者数が現在の値より大きい場合のみ更新
       // （手動で設定した「満席」状態が上書きされないようにする）
       // ただし、max_participantsを超えないようにする
-      const scenarioForSync = event.scenarios as { player_count_max?: number } | null
+      const scenarioForSync = event.scenario_masters as { player_count_max?: number } | null
       const maxForSync = scenarioForSync?.player_count_max ||
                         event.max_participants ||
                         event.capacity ||
@@ -498,8 +498,8 @@ export const scheduleApi = {
           })
       }
       
-      const scenarioData = event.scenarios as { player_count_max?: number } | null
-      const scenarioMaxPlayers = scenarioData?.player_count_max
+      const scenarioData2 = event.scenario_masters as { player_count_max?: number } | null
+      const scenarioMaxPlayers = scenarioData2?.player_count_max
       
       const maxParticipants = scenarioMaxPlayers ||
                               event.max_participants ||
@@ -786,8 +786,8 @@ export const scheduleApi = {
           })
       }
       
-      const scenarioData = event.scenarios as { player_count_max?: number } | null
-      const scenarioMaxPlayers = scenarioData?.player_count_max
+      const scenarioData3 = event.scenario_masters as { player_count_max?: number } | null
+      const scenarioMaxPlayers = scenarioData3?.player_count_max
       const maxParticipants = scenarioMaxPlayers ||
                               event.max_participants ||
                               event.capacity ||

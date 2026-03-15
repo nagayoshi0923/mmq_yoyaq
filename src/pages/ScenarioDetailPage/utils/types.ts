@@ -15,7 +15,9 @@ export interface ScenarioCharacter {
 }
 
 export interface ScenarioDetail {
+  id?: string  // organization_scenarios.id
   scenario_id: string
+  scenario_master_id?: string  // scenario_masters.id
   scenario_title: string
   key_visual_url?: string
   synopsis?: string

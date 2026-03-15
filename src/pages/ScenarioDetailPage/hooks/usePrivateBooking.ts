@@ -612,14 +612,6 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         : dayNames[dayOfWeek]
       const dayHours = settings.opening_hours[effectiveDayName]
       
-      logger.log('[getTimeSlotsForDate] 営業時間設定', {
-        dayName: effectiveDayName,
-        isWeekendOrHoliday,
-        dayHours,
-        slot_start_times: dayHours?.slot_start_times,
-        open_time: dayHours?.open_time
-      })
-      
       if (dayHours) {
         // 店舗設定からは利用可能な公演枠のみを取得
         // ただし、カスタム休日・祝日の場合は朝公演を強制的に有効にする
@@ -634,15 +626,10 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         // 営業時間設定の公演枠開始時間を適用（slot_start_times）
         if (dayHours.slot_start_times) {
           const st = dayHours.slot_start_times
-          logger.log('[getTimeSlotsForDate] slot_start_times適用:', st)
           // 値が存在し、かつ有効な時間形式の場合のみ適用
           if (st.morning && st.morning.includes(':')) defaultStartTimes.morning = timeToMinutes(st.morning)
           if (st.afternoon && st.afternoon.includes(':')) defaultStartTimes.afternoon = timeToMinutes(st.afternoon)
           if (st.evening && st.evening.includes(':')) defaultStartTimes.evening = timeToMinutes(st.evening)
-        } else {
-          // slot_start_timesがない古いデータの場合、デフォルト値を維持
-          // （defaultStartTimesは既に曜日に応じた適切な値が設定されている）
-          logger.log('[getTimeSlotsForDate] slot_start_timesなし - デフォルト値を使用')
         }
         
         // 営業終了時間を夜公演の上限に反映
@@ -651,15 +638,6 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         }
       }
     }
-    
-    logger.log('[getTimeSlotsForDate] 最終開始時間:', {
-      date,
-      isWeekendOrHoliday,
-      morning: minutesToTime(defaultStartTimes.morning),
-      afternoon: minutesToTime(defaultStartTimes.afternoon),
-      evening: minutesToTime(defaultStartTimes.evening),
-      availableSlots
-    })
     
     // === 既存イベントのスケジュールを参照して開始時間を計算 ===
     // targetDateは関数冒頭で定義済み
@@ -892,14 +870,6 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           if (startMinutes + durationMinutes > hardDayLimit) {
             return null // 営業終了時間を超えるので無効
           }
-          
-          logger.log('[getTimeSlotsForDate] 夜公演開始時間計算:', {
-            configuredStart: minutesToTime(configuredStart),
-            reverseCalculatedStart: minutesToTime(reverseCalculatedStart),
-            hasEarlierEvent,
-            earliestPossibleStart: minutesToTime(earliestPossibleStart),
-            startMinutes: minutesToTime(startMinutes)
-          })
         } else {
           // 朝・昼公演は従来通り開始時間準拠
           startMinutes = earliestPossibleStart

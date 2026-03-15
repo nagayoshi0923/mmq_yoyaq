@@ -109,7 +109,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         organizationName: null,
         organizationHeaderImageUrl: null,
         organizationThemeColor: null,
-        organizationNotFound: true
+        organizationNotFound: true,
+        nearlyCompleteGroups: []
       }
     }
   }

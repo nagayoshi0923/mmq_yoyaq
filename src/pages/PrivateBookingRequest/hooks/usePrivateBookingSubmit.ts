@@ -146,6 +146,15 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         })
       }
       
+      // パラメータをログに出力
+      console.log('[貸切リクエスト] RPCパラメータ:', {
+        p_scenario_id: props.scenarioId,
+        p_customer_id: customerId,
+        p_participant_count: props.maxParticipants,
+        p_candidate_datetimes: candidateDatetimes,
+        p_private_group_id: effectiveGroupId || null
+      })
+      
       // RPC経由で貸切予約を作成（サーバー側でバリデーション・料金計算を強制）
       const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', {
         p_scenario_id: props.scenarioId,
@@ -161,10 +170,15 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       })
       
       if (rpcError) {
-        console.error('[貸切リクエスト] RPC エラー:', rpcError)
+        console.error('[貸切リクエスト] RPC エラー詳細:', {
+          code: rpcError.code,
+          message: rpcError.message,
+          details: rpcError.details,
+          hint: rpcError.hint
+        })
         logger.error('貸切リクエストエラー:', rpcError)
         const errorCode = rpcError.code || ''
-        const errorMessage = PRIVATE_BOOKING_ERROR_MESSAGES[errorCode] || '貸切リクエストの送信に失敗しました。もう一度お試しください。'
+        const errorMessage = PRIVATE_BOOKING_ERROR_MESSAGES[errorCode] || `貸切リクエストの送信に失敗しました: ${rpcError.message || 'もう一度お試しください。'}`
         throw new Error(errorMessage)
       }
 

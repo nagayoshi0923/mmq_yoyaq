@@ -11,7 +11,7 @@ import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/Survey
 
 interface SystemMessage {
   type: 'system'
-  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested' | 'individual_notice' | 'performance_cancelled'
+  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled'
   count?: number
   dates?: Array<{ date: string; time_slot: string }>
   confirmedDate?: string

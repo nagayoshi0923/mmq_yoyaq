@@ -953,7 +953,7 @@ ${content.organizationName || '店舗'}
                       const participationFee = scenarioObj?.participation_fee || 0
                       
                       // 直接INSERTでデモ参加者を追加（キャンセル済み公演でも追加可能）
-                      const duration = scenarioObj?.play_time || 120
+                      const duration = scenarioObj?.duration || 120
                       const { error: insertError } = await supabase
                         .from('reservations')
                         .insert({

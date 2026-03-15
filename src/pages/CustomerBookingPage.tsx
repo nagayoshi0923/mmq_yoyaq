@@ -200,28 +200,29 @@ export function CustomerBookingPage() {
         for (const event of filteredData) {
           const isWithinHours = await isWithinBusinessHours(event.date, event.start_time, event.store_id)
           if (isWithinHours) {
+            const e = event as any
             publicEvents.push({
-            id: event.id,
-            date: event.date,
-            start_time: event.start_time,
-            end_time: event.end_time,
-            scenario_title: event.scenario || event.scenarios?.title || '未定',
-            scenario_description: event.scenarios?.description,
-            store_name: event.stores?.name || '',
-            store_short_name: event.stores?.short_name || '',
-            store_color: event.stores?.color,
-            duration: calculateDuration(event.start_time, event.end_time),
-            max_participants: event.max_participants || event.capacity || 8,
-            current_participants: event.current_participants || 0,
-            available_seats: (event.max_participants || event.capacity || 8) - (event.current_participants || 0),
+            id: e.id,
+            date: e.date,
+            start_time: e.start_time,
+            end_time: e.end_time,
+            scenario_title: e.scenario || e.scenario_masters?.title || '未定',
+            scenario_description: undefined,
+            store_name: e.stores?.name || '',
+            store_short_name: e.stores?.short_name || '',
+            store_color: e.stores?.color,
+            duration: calculateDuration(e.start_time, e.end_time),
+            max_participants: e.max_participants || e.capacity || 8,
+            current_participants: e.current_participants || 0,
+            available_seats: (e.max_participants || e.capacity || 8) - (e.current_participants || 0),
             participation_fee: await calculateParticipationFee(
-              event.scenario_id,
-              event.start_time,
-              event.date,
+              e.scenario_id,
+              e.start_time,
+              e.date,
               organization?.id
             ), // 料金設定から計算
-            is_reservation_enabled: event.is_reservation_enabled,
-            reservation_deadline_hours: event.reservation_deadline_hours ?? 0
+            is_reservation_enabled: e.is_reservation_enabled,
+            reservation_deadline_hours: e.reservation_deadline_hours ?? 0
             })
           }
         }

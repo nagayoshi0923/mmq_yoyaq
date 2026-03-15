@@ -33,6 +33,7 @@ export interface PrivateBookingRequest {
   notes: string
   status: string
   gm_responses?: Array<{
+    staff_id?: string
     gm_name?: string
     response_status: string
     available_candidates?: number[]

@@ -235,9 +235,6 @@ export function PlatformTop() {
             }
           }
           
-          // 予約無効のイベントを除外
-          if (e.is_reservation_enabled === false) return
-          
           // 🔐 マスタ未登録または未承認のシナリオを除外
           // scenario.id は scenario_master_id と同じ（JOINした結果）
           if (!approvedMasterIds.has(scenario.id)) {
@@ -274,7 +271,7 @@ export function PlatformTop() {
             const isConfirmed = currentParticipants >= scenario.player_count_min && remainingSlots > 0
             scenarioMap[scenarioKey].next_events.push({
               date: e.date,
-              time: e.start_time || e.time_slot || '',
+              time: e.start_time || '',
               store_name: store.name,
               store_short_name: store.short_name || store.name,
               store_color: store.color,

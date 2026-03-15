@@ -21,6 +21,15 @@ export const logger = {
   },
 
   /**
+   * デバッグログ（log のエイリアス）
+   */
+  debug: (...args: any[]) => {
+    if (isDevelopment && isDebugMode) {
+      console.log('[DEBUG]', ...args)
+    }
+  },
+
+  /**
    * 情報ログ（VITE_DEBUG=true の時のみ）
    */
   info: (...args: any[]) => {

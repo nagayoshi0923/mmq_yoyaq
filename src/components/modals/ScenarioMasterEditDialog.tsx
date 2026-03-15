@@ -50,10 +50,11 @@ interface ScenarioMaster {
 
 interface ScenarioCharacter {
   id: string
+  scenario_master_id?: string
   name: string
   description: string | null
   image_url: string | null
-  url: string | null
+  url?: string | null
   sort_order: number
   is_new?: boolean
 }

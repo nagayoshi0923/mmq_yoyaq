@@ -929,6 +929,19 @@ export function PrivateGroupInvite() {
       // シナリオ情報を取得
       const maxParticipants = group.target_participant_count || 6
       
+      // パラメータの検証
+      if (!group.scenario_id) {
+        throw new Error('シナリオが選択されていません')
+      }
+      
+      logger.log('[貸切リクエスト] RPCパラメータ:', {
+        scenario_id: group.scenario_id,
+        customer_id: customerId,
+        participant_count: maxParticipants,
+        candidateDatetimes,
+        private_group_id: group.id
+      })
+      
       // RPC経由で貸切予約を作成
       const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', {
         p_scenario_id: group.scenario_id,
@@ -944,8 +957,26 @@ export function PrivateGroupInvite() {
       })
       
       if (rpcError) {
-        logger.error('貸切リクエストエラー:', rpcError)
-        throw new Error('貸切リクエストの送信に失敗しました')
+        logger.error('貸切リクエストエラー:', {
+          code: rpcError.code,
+          message: rpcError.message,
+          details: rpcError.details,
+          hint: rpcError.hint
+        })
+        
+        // エラーコードに応じたメッセージ
+        let errorMessage = '貸切リクエストの送信に失敗しました'
+        if (rpcError.code === 'P0001') {
+          errorMessage = 'シナリオが見つかりません'
+        } else if (rpcError.code === 'P0025') {
+          errorMessage = '参加人数が上限を超えています'
+        } else if (rpcError.code === 'P0026') {
+          errorMessage = '組織情報が見つかりません'
+        } else if (rpcError.message) {
+          errorMessage = rpcError.message
+        }
+        
+        throw new Error(errorMessage)
       }
       
       const parentReservationId = reservationId as string
@@ -1532,7 +1563,7 @@ export function PrivateGroupInvite() {
                 </div>
                 
                 {/* 削除オプション（gatheringまたはcancelledステータスのみ） */}
-                {(group.status === 'gathering' || group.status === 'cancelled') && (
+                {((group.status as string) === 'gathering' || (group.status as string) === 'cancelled') && (
                   <div className="space-y-2">
                     <h4 className="font-medium text-sm text-red-600">危険な操作</h4>
                     <Button
@@ -1553,7 +1584,7 @@ export function PrivateGroupInvite() {
                       <span>グループを削除する</span>
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      {group.status === 'cancelled' 
+                      {(group.status as string) === 'cancelled' 
                         ? 'キャンセルされたグループを削除できます。'
                         : '日程リクエストを送信する前のグループのみ削除できます。'}
                     </p>
@@ -1561,7 +1592,7 @@ export function PrivateGroupInvite() {
                 )}
                 
                 {/* 削除不可の場合の説明 */}
-                {group.status !== 'gathering' && group.status !== 'cancelled' && (
+                {(group.status as string) !== 'gathering' && (group.status as string) !== 'cancelled' && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p className="text-sm text-amber-800">
                       日程リクエスト送信済みのグループは削除できません。
@@ -2274,7 +2305,7 @@ export function PrivateGroupInvite() {
         )}
 
         {/* 進捗ステップ表示（参加済みメンバー向け、チャットモード時は非表示） */}
-        {existingMemberId && group.status !== 'cancelled' && !isChatMode && (
+        {existingMemberId && (group.status as string) !== 'cancelled' && !isChatMode && (
           <Card className="mb-6">
             <CardContent className="p-4">
               <div className="space-y-1 mb-3">
@@ -2566,7 +2597,7 @@ export function PrivateGroupInvite() {
                 {/* 回答更新ボタン（日程申込前のみ表示） */}
                 {group.status === 'gathering' && (
                   <Button
-                    onClick={handleSubmit}
+                    onClick={() => handleSubmit()}
                     disabled={actionLoading}
                     className="w-full bg-purple-600 hover:bg-purple-700 mt-4"
                   >
@@ -2962,7 +2993,7 @@ export function PrivateGroupInvite() {
         {/* 送信ボタン（新規参加時のみ表示） */}
         {!existingMemberId && (
           <Button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={actionLoading}
             className="w-full bg-purple-600 hover:bg-purple-700"
           >

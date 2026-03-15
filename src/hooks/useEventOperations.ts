@@ -1443,7 +1443,7 @@ export function useEventOperations({
               null,
               organizationId,
               'delete',
-              eventToDelete,
+              eventToDelete as unknown as Record<string, unknown>,
               {},
               {
                 date: eventToDelete.date,
