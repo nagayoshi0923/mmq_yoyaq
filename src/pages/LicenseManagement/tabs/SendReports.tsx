@@ -537,11 +537,24 @@ ${scenariosText}
 
       const items = Array.from(itemsByScenario.values())
 
-      // 報告用表示名でグループ化
+      // グループ化: メールアドレスがあればメアドで、なければ報告用表示名で
       const groupMap = new Map<string, ReportGroup>()
+      // メアドごとの表示名を追跡（複数作者をまとめる場合用）
+      const emailDisplayNames = new Map<string, Set<string>>()
 
       items.forEach(item => {
-        const key = item.reportDisplayName  // 報告用表示名でグループ化
+        // メールアドレスがあればメアドでグループ化、なければ報告用表示名でグループ化
+        const key = item.authorEmail 
+          ? `email:${item.authorEmail}` 
+          : `name:${item.reportDisplayName}`
+        
+        // メアドグループの場合、表示名を追跡
+        if (item.authorEmail) {
+          if (!emailDisplayNames.has(item.authorEmail)) {
+            emailDisplayNames.set(item.authorEmail, new Set())
+          }
+          emailDisplayNames.get(item.authorEmail)!.add(item.reportDisplayName)
+        }
         
         if (groupMap.has(key)) {
           const group = groupMap.get(key)!
@@ -554,10 +567,6 @@ ${scenariosText}
           group.totalExternalLicenseCost += item.externalLicenseCost
           if (item.authorEmail) {
             group.itemsWithEmail++
-            // 最も多く使われているメアドを採用（初回設定優先）
-            if (!group.authorEmail) {
-              group.authorEmail = item.authorEmail
-            }
           } else {
             group.itemsWithoutEmail++
           }
@@ -581,12 +590,21 @@ ${scenariosText}
         }
       })
 
-      // 一部未登録フラグと作者メモを設定
-      groupMap.forEach(group => {
+      // 一部未登録フラグと作者メモを設定、メアドグループの表示名を更新
+      groupMap.forEach((group, key) => {
         group.hasPartialEmail = group.itemsWithEmail > 0 && group.itemsWithoutEmail > 0
         // 元の作者名でメモを探す（まだ設定されていない場合）
         if (!group.authorNotes) {
           group.authorNotes = authorNotesMap.get(group.originalAuthorName) || null
+        }
+        
+        // メアドでグループ化された場合、複数の作者名を結合して表示
+        if (key.startsWith('email:') && group.authorEmail) {
+          const displayNames = emailDisplayNames.get(group.authorEmail)
+          if (displayNames && displayNames.size > 1) {
+            // 複数の作者名がある場合は結合（例: "作者A / 作者B"）
+            group.authorName = Array.from(displayNames).sort().join(' / ')
+          }
         }
       })
 
