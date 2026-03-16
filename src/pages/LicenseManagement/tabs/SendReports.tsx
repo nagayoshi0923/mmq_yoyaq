@@ -289,33 +289,60 @@ ${scenariosText}
           saveError = error
         }
       } else {
-        // upsertで挿入または更新（競合時は更新）
-        const { error } = await supabase
+        // まず更新を試みる（存在する場合）
+        const { data: updateResult, error: updateError } = await supabase
           .from('manual_external_performances')
-          .upsert({
-            organization_id: organizationId,
-            scenario_id: scenarioId,
-            year: selectedYear,
-            month: selectedMonth,
+          .update({
             performance_count: count,
             updated_by: authUserId,
             updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'organization_id,scenario_id,year,month'
           })
-        if (error) {
-          logger.error('Failed to upsert manual_external_performances:', {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            scenarioId,
-            organizationId,
-            year: selectedYear,
-            month: selectedMonth,
-            count,
-          })
-          saveError = error
+          .eq('organization_id', organizationId)
+          .eq('scenario_id', scenarioId)
+          .eq('year', selectedYear)
+          .eq('month', selectedMonth)
+          .select('id')
+        
+        if (updateError) {
+          logger.error('Failed to update:', updateError)
+          saveError = updateError
+        } else if (!updateResult || updateResult.length === 0) {
+          // 更新対象がない場合は新規挿入
+          const { error: insertError } = await supabase
+            .from('manual_external_performances')
+            .insert({
+              organization_id: organizationId,
+              scenario_id: scenarioId,
+              year: selectedYear,
+              month: selectedMonth,
+              performance_count: count,
+              updated_by: authUserId
+            })
+          
+          if (insertError) {
+            // 競合エラーの場合は再度更新を試みる（race condition対策）
+            if (insertError.code === '23505' || insertError.message?.includes('duplicate')) {
+              const { error: retryError } = await supabase
+                .from('manual_external_performances')
+                .update({
+                  performance_count: count,
+                  updated_by: authUserId,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('organization_id', organizationId)
+                .eq('scenario_id', scenarioId)
+                .eq('year', selectedYear)
+                .eq('month', selectedMonth)
+              
+              if (retryError) {
+                logger.error('Retry update failed:', retryError)
+                saveError = retryError
+              }
+            } else {
+              logger.error('Failed to insert:', insertError)
+              saveError = insertError
+            }
+          }
         }
       }
       
