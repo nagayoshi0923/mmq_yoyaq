@@ -243,68 +243,42 @@ ${scenariosText}
       savingScenarios.current.add(scenarioId)
       setIsSavingExternal(true)
       
-      // まず既存レコードを確認
-      const { data: existing, error: selectError } = await supabase
-        .from('manual_external_performances')
-        .select('id')
-        .eq('organization_id', organizationId)
-        .eq('scenario_id', scenarioId)
-        .eq('year', selectedYear)
-        .eq('month', selectedMonth)
-        .maybeSingle()
-      
-      if (selectError) {
-        logger.error('Failed to check existing record:', selectError)
-        showToast.error('他社公演数の保存に失敗しました', getSafeErrorMessage(selectError))
-        return
-      }
-      
-      let saveError: Error | null = null
-      
       // 認証ユーザーのIDを取得（usersテーブルのid）
       const { data: { user } } = await supabase.auth.getUser()
       const authUserId = user?.id || null
       
+      let saveError: Error | null = null
+      
       if (count === 0) {
         // 0の場合は削除
-        if (existing?.id) {
-          const { error } = await supabase
-            .from('manual_external_performances')
-            .delete()
-            .eq('id', existing.id)
-          if (error) {
-            logger.error('Failed to delete:', error)
-            saveError = error
-          }
-        }
-      } else if (existing?.id) {
-        // 既存レコードがあれば更新
         const { error } = await supabase
           .from('manual_external_performances')
-          .update({
-            performance_count: count,
-            updated_by: authUserId
-          })
-          .eq('id', existing.id)
+          .delete()
+          .eq('organization_id', organizationId)
+          .eq('scenario_id', scenarioId)
+          .eq('year', selectedYear)
+          .eq('month', selectedMonth)
         if (error) {
-          logger.error('Failed to update:', error)
+          logger.error('Failed to delete:', error)
           saveError = error
         }
       } else {
-        // なければ挿入
+        // upsertで挿入または更新（競合時は更新）
         const { error } = await supabase
           .from('manual_external_performances')
-          .insert({
+          .upsert({
             organization_id: organizationId,
             scenario_id: scenarioId,
             year: selectedYear,
             month: selectedMonth,
             performance_count: count,
-            updated_by: authUserId
+            updated_by: authUserId,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'organization_id,scenario_id,year,month'
           })
         if (error) {
-          // 409 (unique violation) の場合、既存行がある前提でUPDATEにフォールバック
-          logger.error('Failed to insert manual_external_performances:', {
+          logger.error('Failed to upsert manual_external_performances:', {
             code: error.code,
             message: error.message,
             details: error.details,
@@ -315,35 +289,7 @@ ${scenariosText}
             month: selectedMonth,
             count,
           })
-          const maybeConflict =
-            error.code === '23505' ||
-            String(error.message || '').includes('duplicate') ||
-            String(error.details || '').includes('duplicate')
-
-          if (maybeConflict) {
-            const { error: updateError } = await supabase
-              .from('manual_external_performances')
-              .update({
-                performance_count: count,
-                updated_by: authUserId,
-              })
-              .eq('organization_id', organizationId)
-              .eq('scenario_id', scenarioId)
-              .eq('year', selectedYear)
-              .eq('month', selectedMonth)
-
-            if (updateError) {
-              logger.error('Fallback update failed:', {
-                code: updateError.code,
-                message: updateError.message,
-                details: updateError.details,
-                hint: updateError.hint,
-              })
-              saveError = updateError
-            }
-          } else {
-            saveError = error
-          }
+          saveError = error
         }
       }
       
