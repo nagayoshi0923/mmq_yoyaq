@@ -86,13 +86,6 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b))
   }, [displayStores])
 
-  const allAvailableStoreIds = useMemo(() => {
-    if (!scenarioAvailableStoreIds) return displayStores.map((s: any) => s.id)
-    return displayStores.filter((s: any) => scenarioAvailableStoreIds.has(s.id)).map((s: any) => s.id)
-  }, [displayStores, scenarioAvailableStoreIds])
-
-  const allAvailableSelected = allAvailableStoreIds.length > 0 && allAvailableStoreIds.every(id => selectedStoreIds.includes(id))
-
   // 選択中シナリオの対応店舗IDセット（空 = 全店舗対応）
   const scenarioAvailableStoreIds = useMemo(() => {
     if (!selectedScenarioId) return null
@@ -102,6 +95,13 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     }
     return null // null = 全店舗対応
   }, [selectedScenarioId, scenarios])
+
+  const allAvailableStoreIds = useMemo(() => {
+    if (!scenarioAvailableStoreIds) return displayStores.map((s: any) => s.id)
+    return displayStores.filter((s: any) => scenarioAvailableStoreIds.has(s.id)).map((s: any) => s.id)
+  }, [displayStores, scenarioAvailableStoreIds])
+
+  const allAvailableSelected = allAvailableStoreIds.length > 0 && allAvailableStoreIds.every(id => selectedStoreIds.includes(id))
 
   useEffect(() => {
     loadScenarios()
