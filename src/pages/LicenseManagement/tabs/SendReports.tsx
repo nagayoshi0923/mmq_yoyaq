@@ -5,7 +5,8 @@
  * - author_email あり → 作者に報告（メール送信）
  * - author_email なし → 管理会社に報告
  */
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -222,10 +223,35 @@ ${scenariosText}
     }
   }
   
-  // 月選択
-  const [currentDate, setCurrentDate] = useState(() => new Date())
+  // 月選択（URLパラメータで保持）
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [currentDate, setCurrentDate] = useState(() => {
+    const yearParam = searchParams.get('year')
+    const monthParam = searchParams.get('month')
+    if (yearParam && monthParam) {
+      const year = parseInt(yearParam, 10)
+      const month = parseInt(monthParam, 10)
+      if (!isNaN(year) && !isNaN(month) && month >= 1 && month <= 12) {
+        return new Date(year, month - 1, 1)
+      }
+    }
+    return new Date()
+  })
   const selectedYear = currentDate.getFullYear()
   const selectedMonth = currentDate.getMonth() + 1
+  
+  // 月が変更されたらURLパラメータを更新
+  useEffect(() => {
+    const currentYear = searchParams.get('year')
+    const currentMonth = searchParams.get('month')
+    if (currentYear !== String(selectedYear) || currentMonth !== String(selectedMonth)) {
+      setSearchParams(prev => {
+        prev.set('year', String(selectedYear))
+        prev.set('month', String(selectedMonth))
+        return prev
+      }, { replace: true })
+    }
+  }, [selectedYear, selectedMonth, searchParams, setSearchParams])
   
   // 他社公演数の保存（debounce用 - シナリオごとに管理）
   const saveTimeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map())
