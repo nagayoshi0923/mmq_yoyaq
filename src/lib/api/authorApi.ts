@@ -22,81 +22,95 @@ const AUTHOR_SUMMARY_SELECT_FIELDS =
 
 export const authorApi = {
   // ================================================
-  // 旧形式の互換性（authors テーブル用）
+  // 作者テーブル操作（RPC関数経由でRLSをバイパス）
   // ================================================
   
   // 全作者を取得
   async getAll(): Promise<Author[]> {
-    const { data, error } = await supabase
-      .from('authors')
-      .select(AUTHOR_SELECT_FIELDS)
-      .order('name', { ascending: true })
+    const { data, error } = await supabase.rpc('get_all_authors')
     
     if (error) {
-      if (error.code === 'PGRST205' || error.code === 'PGRST116') {
-        return []
-      }
-      throw error
+      logger.warn('get_all_authors error:', error)
+      return []
     }
-    return data || []
+    
+    // RPC関数はJSONB配列を返す
+    if (Array.isArray(data)) {
+      return data as Author[]
+    }
+    return []
   },
 
   // 作者を名前で取得
   async getByName(name: string): Promise<Author | null> {
-    const { data, error } = await supabase
-      .from('authors')
-      .select(AUTHOR_SELECT_FIELDS)
-      .eq('name', name)
-      .single()
+    const { data, error } = await supabase.rpc('get_author_by_name', { p_name: name })
     
     if (error) {
-      if (error.code === 'PGRST116' || error.code === 'PGRST205') {
-        return null
-      }
-      throw error
+      logger.warn('get_author_by_name error:', error)
+      return null
     }
-    return data
+    
+    // RPC関数は { found: boolean, ...author } を返す
+    if (data && data.found) {
+      return {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        notes: data.notes,
+        created_at: data.created_at,
+        updated_at: data.updated_at
+      } as Author
+    }
+    return null
   },
 
   // 作者を作成
   async create(author: Omit<Author, 'id' | 'created_at' | 'updated_at'>): Promise<Author> {
-    const { data, error } = await supabase
-      .from('authors')
-      .insert([author])
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    return this.upsertByName(author.name, {
+      email: author.email,
+      notes: author.notes
+    })
   },
 
   // 作者を更新
   async update(id: string, updates: Partial<Omit<Author, 'id' | 'created_at' | 'updated_at'>>): Promise<Author> {
+    // idから名前を取得して更新（RPC関数はname指定）
     const { data, error } = await supabase
       .from('authors')
-      .update(updates)
+      .select('name')
       .eq('id', id)
-      .select()
       .single()
     
-    if (error) throw error
-    return data
+    if (error || !data) {
+      throw new Error('Author not found')
+    }
+    
+    return this.upsertByName(data.name, updates)
   },
 
-  // 名前で更新または作成（upsert）
+  // 名前で更新または作成（upsert）- RPC関数を使用
   async upsertByName(name: string, updates: Partial<Omit<Author, 'id' | 'name' | 'created_at' | 'updated_at'>>): Promise<Author> {
-    const existing = await this.getByName(name)
+    const { data, error } = await supabase.rpc('upsert_author', {
+      p_name: name,
+      p_email: updates.email ?? null,
+      p_notes: updates.notes ?? null
+    })
     
-    if (existing) {
-      return this.update(existing.id, updates)
-    } else {
-      return this.create({
-        name,
-        ...updates,
-        email: updates.email ?? null,
-        notes: updates.notes ?? null
-      })
+    if (error) {
+      logger.error('upsert_author error:', error)
+      throw error
     }
+    
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to upsert author')
+    }
+    
+    // 更新後のデータを取得して返す
+    const author = await this.getByName(name)
+    if (!author) {
+      throw new Error('Failed to retrieve updated author')
+    }
+    return author
   },
 
   // 作者を削除
