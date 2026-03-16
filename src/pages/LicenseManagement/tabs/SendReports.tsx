@@ -1061,14 +1061,14 @@ ${scenariosText}
         ? null 
         : newDisplayName.trim()
 
-      // 同じ作者名を持つ全シナリオを更新（scenario_masters に report_display_name を保存）
-      const { data: updatedScenarios, error } = await supabase
-        .from('scenario_masters')
-        .update({ report_display_name: displayNameValue })
-        .eq('author', displayNameTarget.originalAuthorName)
-        .select('id')
+      // 同じ作者名を持つ全シナリオを更新（RPC関数経由でRLSをバイパス）
+      const { data: rpcResult, error } = await supabase.rpc('update_report_display_name', {
+        p_author_name: displayNameTarget.originalAuthorName,
+        p_display_name: displayNameValue
+      })
 
       if (error) throw error
+      if (rpcResult && !rpcResult.success) throw new Error(rpcResult.error)
 
       // メモをauthorsテーブルに保存
       const notesValue = newAuthorNotes.trim() || null
@@ -1081,7 +1081,7 @@ ${scenariosText}
         // メモの保存失敗は警告だけで続行
       }
 
-      const count = updatedScenarios?.length || 0
+      const count = rpcResult?.updated_count || 0
       showToast.success('更新完了', `${count}件のシナリオの表示名を更新しました`)
       setIsDisplayNameDialogOpen(false)
       setDisplayNameTarget(null)
