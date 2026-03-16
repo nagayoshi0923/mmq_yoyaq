@@ -276,6 +276,229 @@ export async function grantRegistrationCoupon(
 }
 
 /**
+ * クーポンを使用（もぎる）
+ * @param customerCouponId 顧客クーポンID
+ * @param reservationId 紐づける予約ID（任意）
+ * @returns 使用結果
+ */
+export async function useCoupon(
+  customerCouponId: string,
+  reservationId?: string
+): Promise<{ success: boolean; error?: string }> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'ログインが必要です' }
+
+  // 顧客IDを取得
+  const { data: customer } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!customer) return { success: false, error: '顧客情報が見つかりません' }
+
+  // クーポン情報を取得
+  const { data: coupon, error: couponError } = await supabase
+    .from('customer_coupons')
+    .select(`
+      id,
+      customer_id,
+      uses_remaining,
+      status,
+      expires_at,
+      coupon_campaigns (
+        discount_type,
+        discount_amount
+      )
+    `)
+    .eq('id', customerCouponId)
+    .eq('customer_id', customer.id)
+    .single()
+
+  if (couponError || !coupon) {
+    logger.error('クーポン取得エラー:', couponError)
+    return { success: false, error: 'クーポンが見つかりません' }
+  }
+
+  // 有効性チェック
+  if (coupon.status !== 'active') {
+    return { success: false, error: 'このクーポンは利用できません' }
+  }
+  if (coupon.uses_remaining <= 0) {
+    return { success: false, error: 'このクーポンは使い切りました' }
+  }
+  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+    return { success: false, error: 'このクーポンは有効期限が切れています' }
+  }
+
+  const campaign = coupon.coupon_campaigns as any
+  const discountAmount = campaign?.discount_amount || 0
+
+  // トランザクション的に処理
+  // 1. coupon_usages に記録
+  const { error: usageError } = await supabase
+    .from('coupon_usages')
+    .insert({
+      customer_coupon_id: customerCouponId,
+      reservation_id: reservationId || null,
+      discount_amount: discountAmount,
+      used_at: new Date().toISOString()
+    })
+
+  if (usageError) {
+    logger.error('クーポン使用記録エラー:', usageError)
+    return { success: false, error: 'クーポン使用の記録に失敗しました' }
+  }
+
+  // 2. uses_remaining をデクリメント & 必要なら status を fully_used に
+  const newUsesRemaining = coupon.uses_remaining - 1
+  const newStatus = newUsesRemaining <= 0 ? 'fully_used' : 'active'
+
+  const { error: updateError } = await supabase
+    .from('customer_coupons')
+    .update({
+      uses_remaining: newUsesRemaining,
+      status: newStatus
+    })
+    .eq('id', customerCouponId)
+
+  if (updateError) {
+    logger.error('クーポン更新エラー:', updateError)
+    return { success: false, error: 'クーポンの更新に失敗しました' }
+  }
+
+  logger.log('✅ クーポン使用成功:', { customerCouponId, reservationId, discountAmount })
+  return { success: true }
+}
+
+/**
+ * 現在進行中の予約を取得（クーポン使用時の紐付け用）
+ * 本日の公演で、開始前〜開始後3時間以内のものを対象
+ * 通常予約と貸切公演（参加メンバー含む）の両方に対応
+ */
+export async function getCurrentReservations(): Promise<Array<{
+  id: string
+  scenario_title: string
+  store_name: string
+  date: string
+  time: string
+}>> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  // 顧客IDを取得
+  const { data: customer } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!customer) return []
+
+  // JSTで今日の日付を取得
+  const now = new Date()
+  const jstOffset = 9 * 60
+  const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
+  const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
+
+  // 1. 通常予約を取得（自分がcustomer_idの予約）
+  const { data: directReservations } = await supabase
+    .from('reservations')
+    .select(`
+      id,
+      schedule_events (
+        date,
+        start_time,
+        scenarios (title),
+        stores (name)
+      )
+    `)
+    .eq('customer_id', customer.id)
+    .eq('status', 'confirmed')
+
+  // 2. 貸切公演の参加メンバーとしての予約を取得
+  const { data: privateGroupMembers } = await supabase
+    .from('private_group_members')
+    .select(`
+      id,
+      status,
+      private_groups (
+        id,
+        status,
+        reservation_id,
+        reservations (
+          id,
+          status,
+          schedule_events (
+            date,
+            start_time,
+            scenarios (title),
+            stores (name)
+          )
+        )
+      )
+    `)
+    .eq('user_id', user.id)
+    .eq('status', 'joined')
+
+  // 結果をマージ
+  const allReservations: Array<{ id: string; event: any }> = []
+
+  // 通常予約
+  if (directReservations) {
+    for (const r of directReservations) {
+      if (r.schedule_events) {
+        allReservations.push({ id: r.id, event: r.schedule_events })
+      }
+    }
+  }
+
+  // 貸切公演（参加メンバー）
+  if (privateGroupMembers) {
+    for (const member of privateGroupMembers) {
+      const group = member.private_groups as any
+      if (!group || group.status !== 'confirmed') continue
+      const reservation = group.reservations as any
+      if (!reservation || reservation.status !== 'confirmed') continue
+      if (reservation.schedule_events) {
+        // 重複チェック（主催者は両方に出る可能性）
+        if (!allReservations.some(r => r.id === reservation.id)) {
+          allReservations.push({ id: reservation.id, event: reservation.schedule_events })
+        }
+      }
+    }
+  }
+
+  // 今日の公演で、現在時刻の前後3時間以内のものをフィルタ
+  const currentHour = jstNow.getHours()
+  const currentMinute = jstNow.getMinutes()
+  const currentTotalMinutes = currentHour * 60 + currentMinute
+
+  const filtered = allReservations
+    .filter(({ event }) => {
+      if (!event) return false
+      if (event.date !== todayStr) return false
+
+      // 開始時間をパース
+      const [startHour, startMinute] = event.start_time.split(':').map(Number)
+      const startTotalMinutes = startHour * 60 + startMinute
+
+      // 開始3時間前 〜 開始3時間後 の範囲内
+      const diff = currentTotalMinutes - startTotalMinutes
+      return diff >= -180 && diff <= 180 // 前後3時間
+    })
+    .map(({ id, event }) => ({
+      id,
+      scenario_title: event.scenarios?.title || '不明なシナリオ',
+      store_name: event.stores?.name || '不明な店舗',
+      date: event.date,
+      time: event.start_time.substring(0, 5)
+    }))
+
+  return filtered
+}
+
+/**
  * クーポン使用履歴を取得
  */
 export async function getCouponUsageHistory(): Promise<CouponUsage[]> {

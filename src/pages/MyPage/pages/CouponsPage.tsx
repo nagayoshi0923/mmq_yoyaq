@@ -1,31 +1,78 @@
 /**
  * マイページ - クーポン一覧ページ
  * 保有クーポンと使用履歴を表示
+ * クーポンをタップしてもぎる機能付き
  */
 import { useState, useEffect } from 'react'
-import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
-import { getAllCoupons } from '@/lib/api/couponApi'
+import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'lucide-react'
+import { getAllCoupons, useCoupon, getCurrentReservations } from '@/lib/api/couponApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { Button } from '@/components/ui/button'
 import type { CustomerCoupon } from '@/types'
+
+interface CurrentReservation {
+  id: string
+  scenario_title: string
+  store_name: string
+  date: string
+  time: string
+}
 
 export function CouponsPage() {
   const [coupons, setCoupons] = useState<CustomerCoupon[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentReservations, setCurrentReservations] = useState<CurrentReservation[]>([])
+  const [selectedCoupon, setSelectedCoupon] = useState<{ coupon: CustomerCoupon; index: number } | null>(null)
+  const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [using, setUsing] = useState(false)
 
   useEffect(() => {
-    const fetchCoupons = async () => {
+    const fetchData = async () => {
       setLoading(true)
       try {
-        const data = await getAllCoupons()
-        setCoupons(data)
+        const [couponData, reservationData] = await Promise.all([
+          getAllCoupons(),
+          getCurrentReservations()
+        ])
+        setCoupons(couponData)
+        setCurrentReservations(reservationData)
       } catch {
         // エラーはcouponApi内でログ出力済み
       } finally {
         setLoading(false)
       }
     }
-    fetchCoupons()
+    fetchData()
   }, [])
+
+  const handleCouponTap = (coupon: CustomerCoupon, index: number) => {
+    if (coupon.status !== 'active') return
+    setSelectedCoupon({ coupon, index })
+    // 予約が1つなら自動選択、複数なら未選択状態
+    setSelectedReservationId(currentReservations.length === 1 ? currentReservations[0].id : null)
+    setShowConfirmDialog(true)
+  }
+
+  const handleUseCoupon = async () => {
+    if (!selectedCoupon || !selectedReservationId) return
+    setUsing(true)
+    try {
+      const result = await useCoupon(selectedCoupon.coupon.id, selectedReservationId)
+      if (result.success) {
+        // クーポン一覧を再取得
+        const data = await getAllCoupons()
+        setCoupons(data)
+        setShowConfirmDialog(false)
+        setSelectedCoupon(null)
+        setSelectedReservationId(null)
+      } else {
+        alert(result.error || 'クーポンの使用に失敗しました')
+      }
+    } finally {
+      setUsing(false)
+    }
+  }
 
   // クーポンをステータスでソート（active → fully_used → expired → revoked）
   const statusOrder: Record<string, number> = { active: 0, fully_used: 1, expired: 2, revoked: 3 }
@@ -115,8 +162,9 @@ export function CouponsPage() {
               return (
                 <div
                   key={`${coupon.id}-${index}`}
-                  className="bg-white border border-gray-200 overflow-hidden"
+                  className="bg-white border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98]"
                   style={{ borderRadius: 0 }}
+                  onClick={() => handleCouponTap(coupon, index)}
                 >
                   {/* クーポン上部 - 割引額 */}
                   <div
@@ -129,10 +177,12 @@ export function CouponsPage() {
                         {discountLabel}
                       </span>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded ${status.color} flex items-center gap-1`}>
-                      <StatusIcon className="w-3 h-3" />
-                      {status.label}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 bg-orange-100 text-orange-700 font-bold flex items-center gap-1">
+                        <Scissors className="w-3 h-3" />
+                        タップして使う
+                      </span>
+                    </div>
                   </div>
 
                   {/* クーポン詳細 */}
@@ -212,6 +262,118 @@ export function CouponsPage() {
           <p className="text-gray-500 text-sm">
             キャンペーン実施時にクーポンが付与されます
           </p>
+        </div>
+      )}
+
+      {/* クーポン使用確認ダイアログ */}
+      {showConfirmDialog && selectedCoupon && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
+            {/* ヘッダー */}
+            <div 
+              className="px-5 py-4 text-center"
+              style={{ backgroundColor: THEME.primaryLight }}
+            >
+              <Scissors className="w-10 h-10 mx-auto mb-2" style={{ color: THEME.primary }} />
+              <h3 className="font-bold text-lg" style={{ color: THEME.primary }}>
+                クーポンを使用しますか？
+              </h3>
+            </div>
+
+            {/* コンテンツ */}
+            <div className="px-5 py-4">
+              {/* クーポン情報 */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <p className="text-center">
+                  <span className="text-2xl font-bold" style={{ color: THEME.primary }}>
+                    {selectedCoupon.coupon.coupon_campaigns?.discount_type === 'fixed'
+                      ? `¥${selectedCoupon.coupon.coupon_campaigns.discount_amount.toLocaleString()}`
+                      : `${selectedCoupon.coupon.coupon_campaigns?.discount_amount}%`} OFF
+                  </span>
+                </p>
+                <p className="text-center text-sm text-gray-600 mt-1">
+                  {selectedCoupon.coupon.coupon_campaigns?.name}
+                </p>
+              </div>
+
+              {/* 紐付け予約 */}
+              {currentReservations.length > 0 ? (
+                <div className="mb-4">
+                  <p className="text-xs text-gray-600 font-bold mb-2">
+                    {currentReservations.length > 1 ? '紐付ける公演を選択' : '紐付ける公演'}
+                  </p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {currentReservations.map((reservation) => (
+                      <div
+                        key={reservation.id}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                          selectedReservationId === reservation.id
+                            ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
+                            : 'border-gray-200 bg-white hover:border-gray-300'
+                        }`}
+                        onClick={() => setSelectedReservationId(reservation.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                              selectedReservationId === reservation.id
+                                ? 'border-green-500 bg-green-500'
+                                : 'border-gray-300'
+                            }`}
+                          >
+                            {selectedReservationId === reservation.id && (
+                              <CheckCircle2 className="w-4 h-4 text-white" />
+                            )}
+                          </div>
+                          <div className="text-sm flex-1">
+                            <p className="font-bold text-gray-900">{reservation.scenario_title}</p>
+                            <p className="text-gray-600 text-xs mt-0.5">
+                              {reservation.store_name} ｜ {reservation.time}〜
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 mb-4">
+                  <p className="text-xs text-yellow-700">
+                    ⚠️ 現在進行中の予約がありません。<br />
+                    公演の前後3時間以内に使用してください。
+                  </p>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500 text-center mb-4">
+                使用後は元に戻せません
+              </p>
+
+              {/* ボタン */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowConfirmDialog(false)
+                    setSelectedCoupon(null)
+                    setSelectedReservationId(null)
+                  }}
+                  disabled={using}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  className="flex-1"
+                  style={{ backgroundColor: selectedReservationId ? THEME.primary : '#9ca3af' }}
+                  onClick={handleUseCoupon}
+                  disabled={using || !selectedReservationId}
+                >
+                  {using ? '処理中...' : 'もぎる'}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
