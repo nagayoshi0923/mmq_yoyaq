@@ -273,81 +273,19 @@ ${scenariosText}
       const { data: { user } } = await supabase.auth.getUser()
       const authUserId = user?.id || null
       
-      let saveError: Error | null = null
+      // RPC関数でupsert（RLSをバイパスして確実に実行）
+      const { error } = await supabase.rpc('upsert_manual_external_performance', {
+        p_organization_id: organizationId,
+        p_scenario_id: scenarioId,
+        p_year: selectedYear,
+        p_month: selectedMonth,
+        p_performance_count: count,
+        p_updated_by: authUserId
+      })
       
-      if (count === 0) {
-        // 0の場合は削除
-        const { error } = await supabase
-          .from('manual_external_performances')
-          .delete()
-          .eq('organization_id', organizationId)
-          .eq('scenario_id', scenarioId)
-          .eq('year', selectedYear)
-          .eq('month', selectedMonth)
-        if (error) {
-          logger.error('Failed to delete:', error)
-          saveError = error
-        }
-      } else {
-        // まず更新を試みる（存在する場合）
-        const { data: updateResult, error: updateError } = await supabase
-          .from('manual_external_performances')
-          .update({
-            performance_count: count,
-            updated_by: authUserId,
-            updated_at: new Date().toISOString()
-          })
-          .eq('organization_id', organizationId)
-          .eq('scenario_id', scenarioId)
-          .eq('year', selectedYear)
-          .eq('month', selectedMonth)
-          .select('id')
-        
-        if (updateError) {
-          logger.error('Failed to update:', updateError)
-          saveError = updateError
-        } else if (!updateResult || updateResult.length === 0) {
-          // 更新対象がない場合は新規挿入
-          const { error: insertError } = await supabase
-            .from('manual_external_performances')
-            .insert({
-              organization_id: organizationId,
-              scenario_id: scenarioId,
-              year: selectedYear,
-              month: selectedMonth,
-              performance_count: count,
-              updated_by: authUserId
-            })
-          
-          if (insertError) {
-            // 競合エラーの場合は再度更新を試みる（race condition対策）
-            if (insertError.code === '23505' || insertError.message?.includes('duplicate')) {
-              const { error: retryError } = await supabase
-                .from('manual_external_performances')
-                .update({
-                  performance_count: count,
-                  updated_by: authUserId,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('organization_id', organizationId)
-                .eq('scenario_id', scenarioId)
-                .eq('year', selectedYear)
-                .eq('month', selectedMonth)
-              
-              if (retryError) {
-                logger.error('Retry update failed:', retryError)
-                saveError = retryError
-              }
-            } else {
-              logger.error('Failed to insert:', insertError)
-              saveError = insertError
-            }
-          }
-        }
-      }
-      
-      if (saveError) {
-        showToast.error('他社公演数の保存に失敗しました', getSafeErrorMessage(saveError))
+      if (error) {
+        logger.error('Failed to save manual_external_performance:', error)
+        showToast.error('他社公演数の保存に失敗しました', getSafeErrorMessage(error))
       }
     } catch (error) {
       logger.error('Failed to save external input:', error)
