@@ -73,6 +73,26 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     )
   }, [allStores])
 
+  // 地域ごとに店舗をグループ化
+  const storesByRegion = useMemo(() => {
+    const groups = new Map<string, any[]>()
+    displayStores.forEach((store: any) => {
+      const region = store.region || extractRegionFromAddress(store.address) || 'その他'
+      if (!groups.has(region)) {
+        groups.set(region, [])
+      }
+      groups.get(region)!.push(store)
+    })
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b))
+  }, [displayStores])
+
+  const allAvailableStoreIds = useMemo(() => {
+    if (!scenarioAvailableStoreIds) return displayStores.map((s: any) => s.id)
+    return displayStores.filter((s: any) => scenarioAvailableStoreIds.has(s.id)).map((s: any) => s.id)
+  }, [displayStores, scenarioAvailableStoreIds])
+
+  const allAvailableSelected = allAvailableStoreIds.length > 0 && allAvailableStoreIds.every(id => selectedStoreIds.includes(id))
+
   // 選択中シナリオの対応店舗IDセット（空 = 全店舗対応）
   const scenarioAvailableStoreIds = useMemo(() => {
     if (!selectedScenarioId) return null
@@ -124,10 +144,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
       showToast.warning('シナリオを選択してください')
       return
     }
-    if (selectedStoreIds.length === 0) {
-      showToast.warning('希望店舗を1つ以上選択してください')
-      return
-    }
+    // 店舗は任意（後から選択可能）
     
     // 貸切リクエスト確認ページへ遷移（組織slugがあれば予約サイト形式）
     // 複数店舗はカンマ区切りで渡す
@@ -362,64 +379,108 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                   </div>
                   {/* 希望店舗選択 */}
                   <div className="border rounded-lg p-4 space-y-3">
-                    <h3 className="text-sm font-medium">希望店舗を選択</h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium">希望店舗を選択（任意）</h3>
+                      {displayStores.length > 0 && (
+                        <button
+                          type="button"
+                          className="text-xs text-purple-600 hover:text-purple-800 hover:underline"
+                          onClick={() => {
+                            if (allAvailableSelected) {
+                              setSelectedStoreIds([])
+                            } else {
+                              setSelectedStoreIds([...allAvailableStoreIds])
+                            }
+                          }}
+                        >
+                          {allAvailableSelected ? 'すべて解除' : 'すべて選択'}
+                        </button>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      希望する店舗を選択してください（複数選択可）
+                      希望する店舗を選択してください。未選択の場合は、後から選択できます。
                     </p>
-                    <div className="space-y-2">
-                      {displayStores.map((store: any) => {
-                        const isSelected = selectedStoreIds.includes(store.id)
-                        const isUnavailable = scenarioAvailableStoreIds !== null && !scenarioAvailableStoreIds.has(store.id)
-                        
+                    <div className="space-y-4">
+                      {storesByRegion.map(([region, regionStores]) => {
+                        const availableInRegion = regionStores.filter((s: any) => 
+                          scenarioAvailableStoreIds === null || scenarioAvailableStoreIds.has(s.id)
+                        )
+                        const availableRegionIds = availableInRegion.map((s: any) => s.id)
+                        const allRegionSelected = availableRegionIds.length > 0 && availableRegionIds.every(id => selectedStoreIds.includes(id))
+
                         return (
-                          <label
-                            key={store.id}
-                            className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-                              isUnavailable
-                                ? 'border-gray-200 bg-gray-100 opacity-60 cursor-not-allowed'
-                                : isSelected
-                                  ? 'border-purple-300 bg-purple-50 cursor-pointer'
-                                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              disabled={isUnavailable}
-                              onChange={() => {
-                                if (isUnavailable) return
-                                setSelectedStoreIds(prev =>
-                                  isSelected
-                                    ? prev.filter(id => id !== store.id)
-                                    : [...prev, store.id]
-                                )
-                              }}
-                              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:opacity-50"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <MapPin className={`w-3.5 h-3.5 flex-shrink-0 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`} />
-                                <span className={`text-sm font-medium ${isUnavailable ? 'text-gray-400' : ''}`}>{store.name}</span>
-                                {isUnavailable && (
-                                  <span className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded">対応不可</span>
-                                )}
-                              </div>
-                              {store.address && (
-                                <p className={`text-xs mt-0.5 ml-5.5 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`}>{store.address}</p>
+                          <div key={region}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{region}</span>
+                              {availableRegionIds.length > 1 && (
+                                <button
+                                  type="button"
+                                  className="text-xs text-purple-600 hover:text-purple-800 hover:underline"
+                                  onClick={() => {
+                                    if (allRegionSelected) {
+                                      setSelectedStoreIds(prev => prev.filter(id => !availableRegionIds.includes(id)))
+                                    } else {
+                                      setSelectedStoreIds(prev => [...new Set([...prev, ...availableRegionIds])])
+                                    }
+                                  }}
+                                >
+                                  {allRegionSelected ? '解除' : 'すべて選択'}
+                                </button>
                               )}
                             </div>
-                          </label>
+                            <div className="space-y-2">
+                              {regionStores.map((store: any) => {
+                                const isSelected = selectedStoreIds.includes(store.id)
+                                const isUnavailable = scenarioAvailableStoreIds !== null && !scenarioAvailableStoreIds.has(store.id)
+                                
+                                return (
+                                  <label
+                                    key={store.id}
+                                    className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                                      isUnavailable
+                                        ? 'border-gray-200 bg-gray-100 opacity-60 cursor-not-allowed'
+                                        : isSelected
+                                          ? 'border-purple-300 bg-purple-50 cursor-pointer'
+                                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      disabled={isUnavailable}
+                                      onChange={() => {
+                                        if (isUnavailable) return
+                                        setSelectedStoreIds(prev =>
+                                          isSelected
+                                            ? prev.filter(id => id !== store.id)
+                                            : [...prev, store.id]
+                                        )
+                                      }}
+                                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:opacity-50"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <MapPin className={`w-3.5 h-3.5 flex-shrink-0 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`} />
+                                        <span className={`text-sm font-medium ${isUnavailable ? 'text-gray-400' : ''}`}>{store.name}</span>
+                                        {isUnavailable && (
+                                          <span className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded">対応不可</span>
+                                        )}
+                                      </div>
+                                      {store.address && (
+                                        <p className={`text-xs mt-0.5 ml-5.5 ${isUnavailable ? 'text-gray-400' : 'text-muted-foreground'}`}>{store.address}</p>
+                                      )}
+                                    </div>
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </div>
                         )
                       })}
                     </div>
-                    {selectedStoreIds.length === 0 && (
-                      <p className="text-xs text-orange-600">
-                        ※ 店舗を1つ以上選択してください
-                      </p>
-                    )}
-                    {selectedStoreIds.length > 1 && (
+                    {selectedStoreIds.length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        ※ 最終的な開催店舗は、候補日時と合わせて店舗側が決定します
+                        {selectedStoreIds.length}店舗を選択中 ・ 最終的な開催店舗は、候補日時と合わせて店舗側が決定します
                       </p>
                     )}
                   </div>
@@ -450,3 +511,14 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   )
 }
 
+function extractRegionFromAddress(address?: string): string | null {
+  if (!address) return null
+  const prefectureMatch = address.match(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/)
+  if (!prefectureMatch) return null
+  const prefecture = prefectureMatch[1]
+  if (prefecture === '東京都') {
+    const wardMatch = address.match(/東京都(.+?[区市])/)
+    return wardMatch ? `東京・${wardMatch[1]}` : '東京都'
+  }
+  return prefecture
+}

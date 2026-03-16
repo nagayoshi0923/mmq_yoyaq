@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -104,6 +104,40 @@ export function PrivateGroupCreate() {
     )
   }
 
+  // 地域ごとに店舗をグループ化
+  const storesByRegion = useMemo(() => {
+    const groups = new Map<string, typeof stores>()
+    stores.forEach(store => {
+      const region = store.region || extractRegionFromAddress(store.address) || 'その他'
+      if (!groups.has(region)) {
+        groups.set(region, [])
+      }
+      groups.get(region)!.push(store)
+    })
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b))
+  }, [stores])
+
+  const allStoreIds = useMemo(() => stores.map(s => s.id), [stores])
+  const allSelected = allStoreIds.length > 0 && allStoreIds.every(id => selectedStoreIds.includes(id))
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setSelectedStoreIds([])
+    } else {
+      setSelectedStoreIds([...allStoreIds])
+    }
+  }
+
+  const handleSelectRegion = (regionStores: typeof stores) => {
+    const regionIds = regionStores.map(s => s.id)
+    const allRegionSelected = regionIds.every(id => selectedStoreIds.includes(id))
+    if (allRegionSelected) {
+      setSelectedStoreIds(prev => prev.filter(id => !regionIds.includes(id)))
+    } else {
+      setSelectedStoreIds(prev => [...new Set([...prev, ...regionIds])])
+    }
+  }
+
   const handleSubmit = async () => {
     setError(null)
 
@@ -114,11 +148,6 @@ export function PrivateGroupCreate() {
 
     if (!scenarioId) {
       setError('シナリオが選択されていません')
-      return
-    }
-
-    if (selectedStoreIds.length === 0) {
-      setError('希望店舗を1つ以上選択してください')
       return
     }
 
@@ -344,39 +373,81 @@ export function PrivateGroupCreate() {
 
             {/* 希望店舗 */}
             <div>
-              <h2 className="text-base font-semibold mb-3">希望店舗</h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold">希望店舗（任意）</h2>
+                {stores.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7"
+                    onClick={handleSelectAll}
+                  >
+                    {allSelected ? 'すべて解除' : 'すべて選択'}
+                  </Button>
+                )}
+              </div>
               <Card>
-                <CardContent className="p-4 space-y-3">
+                <CardContent className="p-4 space-y-4">
+                  <p className="text-xs text-muted-foreground">
+                    希望する店舗を選択してください。未選択の場合は、後からグループ管理画面で選択できます。
+                  </p>
                   {stores.length === 0 ? (
                     <p className="text-sm text-muted-foreground">利用可能な店舗がありません</p>
                   ) : (
-                    <div className="space-y-2">
-                      {stores.map((store) => (
-                        <div
-                          key={store.id}
-                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                            selectedStoreIds.includes(store.id)
-                              ? 'border-purple-300 bg-purple-50'
-                              : 'border-gray-200 hover:border-purple-200'
-                          }`}
-                          onClick={() => handleStoreToggle(store.id)}
-                        >
-                          <Checkbox
-                            checked={selectedStoreIds.includes(store.id)}
-                            onCheckedChange={() => handleStoreToggle(store.id)}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
-                              <span className="text-sm font-medium">{store.name}</span>
+                    <div className="space-y-4">
+                      {storesByRegion.map(([region, regionStores]) => {
+                        const regionIds = regionStores.map(s => s.id)
+                        const allRegionSelected = regionIds.every(id => selectedStoreIds.includes(id))
+                        const someRegionSelected = regionIds.some(id => selectedStoreIds.includes(id))
+
+                        return (
+                          <div key={region}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{region}</span>
+                              <button
+                                type="button"
+                                className="text-xs text-purple-600 hover:text-purple-800 hover:underline"
+                                onClick={() => handleSelectRegion(regionStores)}
+                              >
+                                {allRegionSelected ? '解除' : 'すべて選択'}
+                              </button>
                             </div>
-                            {store.address && (
-                              <p className="text-xs mt-0.5 ml-5.5 text-muted-foreground">{store.address}</p>
-                            )}
+                            <div className="space-y-2">
+                              {regionStores.map((store) => (
+                                <div
+                                  key={store.id}
+                                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                    selectedStoreIds.includes(store.id)
+                                      ? 'border-purple-300 bg-purple-50'
+                                      : 'border-gray-200 hover:border-purple-200'
+                                  }`}
+                                  onClick={() => handleStoreToggle(store.id)}
+                                >
+                                  <Checkbox
+                                    checked={selectedStoreIds.includes(store.id)}
+                                    onCheckedChange={() => handleStoreToggle(store.id)}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
+                                      <span className="text-sm font-medium">{store.name}</span>
+                                    </div>
+                                    {store.address && (
+                                      <p className="text-xs mt-0.5 ml-5.5 text-muted-foreground">{store.address}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
+                  )}
+                  {selectedStoreIds.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {selectedStoreIds.length}店舗を選択中 ・ 最終的な開催店舗は、候補日時と合わせて店舗側が決定します
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -473,4 +544,16 @@ export function PrivateGroupCreate() {
       </div>
     </div>
   )
+}
+
+function extractRegionFromAddress(address?: string): string | null {
+  if (!address) return null
+  const prefectureMatch = address.match(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/)
+  if (!prefectureMatch) return null
+  const prefecture = prefectureMatch[1]
+  if (prefecture === '東京都') {
+    const wardMatch = address.match(/東京都(.+?[区市])/)
+    return wardMatch ? `東京・${wardMatch[1]}` : '東京都'
+  }
+  return prefecture
 }

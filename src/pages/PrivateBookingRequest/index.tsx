@@ -154,10 +154,7 @@ export function PrivateBookingRequest({
       return
     }
 
-    if (selectedStoreIds.length === 0) {
-      setError('希望店舗を1つ以上選択してください')
-      return
-    }
+    // 店舗未選択でも送信可能（後から選択できる）
     
     if (!validateForm(customerName, customerEmail, customerPhone)) {
       return
