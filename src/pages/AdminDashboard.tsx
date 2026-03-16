@@ -59,6 +59,7 @@ const LandingPage = lazyWithRetry(() => import('./LandingPage'))
 const AuthorDashboard = lazyWithRetry(() => import('./AuthorDashboard'))
 const AuthorLogin = lazyWithRetry(() => import('./AuthorLogin'))
 const ExternalReportForm = lazyWithRetry(() => import('./ExternalReportForm'))
+const RentalReportForm = lazyWithRetry(() => import('./RentalReportForm').then(m => ({ default: m.RentalReportForm })))
 const PlatformScenarioSearch = lazyWithRetry(() => import('./PlatformScenarioSearch').then(m => ({ default: m.PlatformScenarioSearch })))
 const PlatformTop = lazyWithRetry(() => import('./PlatformTop').then(m => ({ default: m.PlatformTop })))
 const DesignPreview = lazyWithRetry(() => import('./dev/DesignPreview').then(m => ({ default: m.DesignPreview })))
@@ -216,6 +217,9 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
     }
     if (subPage === 'private-booking-request') {
       return { page: 'private-booking-request', scenarioId: null, organizationSlug: orgSlug }
+    }
+    if (subPage === 'rental-report') {
+      return { page: 'rental-report', scenarioId: null, organizationSlug: orgSlug }
     }
   }
   
@@ -385,6 +389,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="カタログを読み込み中..." />}>
         <ScenarioCatalog organizationSlug={organizationSlug} />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'rental-report' && organizationSlug) {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <RentalReportForm organizationSlug={organizationSlug} />
       </Suspense>
     )
   }
@@ -838,7 +850,7 @@ export function AdminDashboard() {
   
   // スタッフ/管理者でない場合で、認識されないページの場合は404を表示
   const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin' || user?.role === 'license_admin'
-  const knownPages = ['dashboard', 'report-form']
+  const knownPages = ['dashboard', 'report-form', 'rental-report']
   if (!isStaffOrAdmin && !knownPages.includes(currentPage)) {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>

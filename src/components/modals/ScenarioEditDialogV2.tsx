@@ -139,6 +139,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const deleteMutation = useDeleteScenarioMutation()
   const { user } = useAuth()
   const isLicenseAdmin = user?.role === 'license_admin'
+  const isOrgAdmin = user?.role === 'admin' || user?.role === 'owner'
+  const canDeleteScenario = isLicenseAdmin || isOrgAdmin
   
   // マスター編集ダイアログ（MMQ運営者用）
   const [masterEditDialogOpen, setMasterEditDialogOpen] = useState(false)
@@ -1194,7 +1196,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const renderTabContent = (tabId: TabId) => {
     switch (tabId) {
       case 'basic':
-        return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={handleDelete} />
+        return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={canDeleteScenario ? handleDelete : undefined} />
       case 'game':
         return <GameInfoSectionV2 formData={formData} setFormData={setFormData} />
       case 'characters':
