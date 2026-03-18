@@ -366,11 +366,22 @@ SELECT tablename, policyname FROM pg_policies WHERE schemaname = 'public';
 **絶対に守ること：ステージングにデプロイしたら、必ずユーザーの確認を待つ。**
 勝手に本番（main）にマージしたり、本番にデプロイしたりしないこと。
 
+### ⚠️ Supabase環境の区別（重要）
+
+```
+supabase db push --linked  → 本番環境（絶対に注意！）
+supabase functions deploy --project-ref xxx  → プロジェクト指定でデプロイ
+```
+
+**`--linked` は本番に接続されています。ステージングではありません。**
+
+マイグレーションをステージングに適用したい場合は、ユーザーに確認してから実行すること。
+
 ### デプロイフロー
 
 ```
 1. feature/* ブランチで開発
-2. ステージングにデプロイ（supabase db push, functions deploy）
+2. ステージングにデプロイ（ユーザーに確認してから実行）
 3. ⚠️ ここで必ず停止 ⚠️
    - 「ステージングにデプロイしました。動作確認をお願いします。」と伝える
    - ユーザーからの明示的な承認（「OK」「問題なし」「本番に適用して」等）を待つ
