@@ -343,7 +343,7 @@ export async function useCoupon(
 /**
  * 現在進行中の予約を取得（クーポン使用時の紐付け用）
  * 本日の公演で、開始前〜開始後3時間以内のものを対象
- * 通常予約と貸切公演（参加メンバー含む）の両方に対応
+ * 通常予約、貸切公演（参加メンバー含む）、スタッフ予約の全てに対応
  */
 export async function getCurrentReservations(): Promise<Array<{
   id: string
@@ -355,14 +355,22 @@ export async function getCurrentReservations(): Promise<Array<{
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  // 顧客IDを取得
+  // 顧客情報を取得（名前も取得してスタッフ予約のマッチングに使用）
   const { data: customer } = await supabase
     .from('customers')
-    .select('id')
+    .select('id, name')
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (!customer) return []
+  // スタッフ情報を取得（スタッフ予約のマッチングに使用）
+  const { data: staffRecord } = await supabase
+    .from('staff')
+    .select('id, name')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  // 顧客もスタッフも見つからない場合は空を返す
+  if (!customer && !staffRecord) return []
 
   // JSTで今日の日付を取得
   const now = new Date()
@@ -371,19 +379,23 @@ export async function getCurrentReservations(): Promise<Array<{
   const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
 
   // 1. 通常予約を取得（自分がcustomer_idの予約）
-  const { data: directReservations } = await supabase
-    .from('reservations')
-    .select(`
-      id,
-      schedule_events (
-        date,
-        start_time,
-        scenarios (title),
-        stores (name)
-      )
-    `)
-    .eq('customer_id', customer.id)
-    .eq('status', 'confirmed')
+  let directReservations: any[] | null = null
+  if (customer) {
+    const { data } = await supabase
+      .from('reservations')
+      .select(`
+        id,
+        schedule_events (
+          date,
+          start_time,
+          scenarios (title),
+          stores (name)
+        )
+      `)
+      .eq('customer_id', customer.id)
+      .eq('status', 'confirmed')
+    directReservations = data
+  }
 
   // 2. 貸切公演の参加メンバーとしての予約を取得
   const { data: privateGroupMembers } = await supabase
@@ -410,6 +422,24 @@ export async function getCurrentReservations(): Promise<Array<{
     .eq('user_id', user.id)
     .eq('status', 'joined')
 
+  // 3. スタッフ予約を取得（payment_method='staff' または reservation_source='staff_entry'/'staff_participation'）
+  // NOTE: スタッフ予約はGM欄から自動作成（staff_entry）または予約者タブから手動追加（staff_participation）される
+  //       participant_names にスタッフ名が入るので、それで自分の予約かどうかを判定
+  const { data: staffReservations } = await supabase
+    .from('reservations')
+    .select(`
+      id,
+      participant_names,
+      schedule_events (
+        date,
+        start_time,
+        scenarios (title),
+        stores (name)
+      )
+    `)
+    .or('payment_method.eq.staff,reservation_source.eq.staff_entry,reservation_source.eq.staff_participation')
+    .eq('status', 'confirmed')
+
   // 結果をマージ
   const allReservations: Array<{ id: string; event: any }> = []
 
@@ -433,6 +463,23 @@ export async function getCurrentReservations(): Promise<Array<{
         // 重複チェック（主催者は両方に出る可能性）
         if (!allReservations.some(r => r.id === reservation.id)) {
           allReservations.push({ id: reservation.id, event: reservation.schedule_events })
+        }
+      }
+    }
+  }
+
+  // スタッフ予約（participant_namesに自分の名前が含まれる場合）
+  // 顧客名またはスタッフ名で照合
+  const myNames: string[] = []
+  if (customer?.name) myNames.push(customer.name)
+  if (staffRecord?.name && !myNames.includes(staffRecord.name)) myNames.push(staffRecord.name)
+  
+  if (staffReservations && myNames.length > 0) {
+    for (const r of staffReservations) {
+      const names = r.participant_names as string[] | null
+      if (names && names.some(n => myNames.includes(n))) {
+        if (r.schedule_events && !allReservations.some(existing => existing.id === r.id)) {
+          allReservations.push({ id: r.id, event: r.schedule_events })
         }
       }
     }
