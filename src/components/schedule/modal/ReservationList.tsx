@@ -775,12 +775,14 @@ ${content.organizationName || '店舗'}
       // スタッフ参加の場合は reservation_source を 'staff_participation' に設定
       const reservationSource = isStaff ? 'staff_participation' : 'walk_in'
       
-      // デモ参加者や当日飛び込みの場合はデモ顧客を取得して設定
-      // user_notifications テーブルのチェック制約（user_or_customer_required）を満たすため
+      // 参加者名から顧客を検索して customer_id を設定
+      // マイページで予約を表示するために必要
       let customerId: string | null = null
-      if (participantName === 'デモ参加者' || reservationSource === 'walk_in') {
+      const organizationId = await getCurrentOrganizationId()
+      
+      if (participantName === 'デモ参加者') {
+        // デモ参加者の場合はデモ顧客を取得
         try {
-          const organizationId = await getCurrentOrganizationId()
           let query = supabase
             .from('customers')
             .select('id')
@@ -795,12 +797,32 @@ ${content.organizationName || '店舗'}
           if (demoCustomer) {
             customerId = demoCustomer.id
             logger.log(`デモ顧客を設定: ${demoCustomer.id}`)
-          } else {
-            logger.warn('デモ顧客が見つかりませんでした。customer_id は null のままです。')
           }
         } catch (error) {
           logger.error('デモ顧客取得エラー:', error)
-          // エラーが発生しても処理は続行（customer_id は null のまま）
+        }
+      } else {
+        // 参加者名で顧客を検索（スタッフ参加・当日飛び込み共通）
+        try {
+          let query = supabase
+            .from('customers')
+            .select('id')
+            .eq('name', participantName)
+          
+          if (organizationId) {
+            query = query.eq('organization_id', organizationId)
+          }
+          
+          const { data: customer } = await query.limit(1).maybeSingle()
+          
+          if (customer) {
+            customerId = customer.id
+            logger.log(`顧客を設定（名前一致）: ${customer.id} (${participantName})`)
+          } else {
+            logger.log(`顧客が見つかりませんでした: ${participantName}`)
+          }
+        } catch (error) {
+          logger.error('顧客検索エラー:', error)
         }
       }
       
