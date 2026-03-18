@@ -225,28 +225,8 @@ export function CompleteProfile() {
         .neq('user_id', userId) // 自分以外
         .maybeSingle()
 
-      // 電話番号で既存顧客を検索（クーポン不正取得防止）
-      // DB側でregexp_replaceができないため、全件取得してクライアント側でフィルタ
-      const phoneDigitsNormalized = phone.replace(/[-\s]/g, '')
-      let hasExistingCustomerByPhone = false
-      
-      if (phoneDigitsNormalized) {
-        const { data: allCustomers } = await supabase
-          .from('customers')
-          .select('id, phone, user_id')
-          .neq('user_id', userId) // 自分以外
-        
-        if (allCustomers) {
-          hasExistingCustomerByPhone = allCustomers.some(c => 
-            c.phone && c.phone.replace(/[-\s]/g, '') === phoneDigitsNormalized
-          )
-          if (hasExistingCustomerByPhone) {
-            logger.log('⚠️ 同じ電話番号の既存顧客が見つかりました:', phoneDigitsNormalized)
-          }
-        }
-      }
-
       // 同じメールの既存顧客をログ
+      // NOTE: 電話番号での重複チェックは廃止（真正性を確認できないため、他人の番号を使われる可能性がある）
       if (existingByEmail) {
         logger.log('⚠️ 同じメールの既存顧客が見つかりました:', userEmail)
       }
@@ -258,9 +238,9 @@ export function CompleteProfile() {
       }
 
       // 新規登録かどうかを判定（クーポンページ遷移の判断に使用）
-      // メールアドレスまたは電話番号で既存顧客が見つかった場合も新規扱いしない
+      // メールアドレスで既存顧客が見つかった場合は新規扱いしない
       let isNewCustomer = false
-      const hasExistingCustomer = !!existingByEmail || hasExistingCustomerByPhone
+      const hasExistingCustomer = !!existingByEmail
 
       if (existingByUserId) {
         // 自分のレコードがある → UPDATE（既存ユーザー）
@@ -389,19 +369,18 @@ export function CompleteProfile() {
         }
         logger.log('✅ 保存検証OK:', { name: verify.name, phone: verify.phone, email: verify.email })
         
-        // 新規顧客の場合、クーポンを付与（電話番号で重複チェック）
+        // 新規顧客の場合、クーポンを付与
         if (isNewCustomer && verify.id) {
           try {
             const couponResult = await grantRegistrationCoupon(
               verify.id,
-              phone.trim(),
               organizationId
             )
             if (couponResult.granted > 0) {
               logger.log(`✅ クーポン ${couponResult.granted} 枚付与`)
             } else if (couponResult.skipped) {
-              logger.log(`⚠️ クーポン付与スキップ: ${couponResult.reason || '既存電話番号'}`)
-              // 既存電話番号の場合はクーポンページに遷移しない
+              logger.log(`⚠️ クーポン付与スキップ: ${couponResult.reason}`)
+              // キャンペーンなし等の場合はクーポンページに遷移しない
               isNewCustomer = false
             }
           } catch (couponErr) {

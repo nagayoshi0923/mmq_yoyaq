@@ -179,25 +179,17 @@ export async function getAllCoupons(): Promise<CustomerCoupon[]> {
 }
 
 /**
- * 新規登録クーポンを付与（電話番号で重複チェック）
+ * 新規登録クーポンを付与
+ * NOTE: 電話番号での重複チェックは廃止（真正性を確認できないため）
+ * 重複防止は customer_coupons の UNIQUE 制約 (campaign_id, customer_id) で担保
  * @param customerId 顧客ID
- * @param phone 電話番号
  * @param organizationId 組織ID
  * @returns 付与されたクーポン数
  */
 export async function grantRegistrationCoupon(
   customerId: string,
-  phone: string,
   organizationId: string
 ): Promise<{ granted: number; skipped: boolean; reason?: string }> {
-  // 電話番号を正規化（数字のみ）
-  const normalizedPhone = phone.replace(/[^0-9]/g, '')
-  
-  if (!normalizedPhone) {
-    logger.log('クーポン付与スキップ: 電話番号が空')
-    return { granted: 0, skipped: true, reason: '電話番号が空' }
-  }
-
   // 対象キャンペーンを取得
   const { data: campaigns, error: campaignError } = await supabase
     .from('coupon_campaigns')
@@ -216,29 +208,6 @@ export async function grantRegistrationCoupon(
   let grantedCount = 0
 
   for (const campaign of campaigns) {
-    // 同じ電話番号で既にクーポンが付与されていないかチェック
-    const { data: existingCoupons } = await supabase
-      .from('customer_coupons')
-      .select(`
-        id,
-        customers!inner (
-          phone
-        )
-      `)
-      .eq('campaign_id', campaign.id)
-
-    // 電話番号でフィルタ（正規化して比較）
-    const hasExisting = existingCoupons?.some((coupon: any) => {
-      const existingPhone = coupon.customers?.phone || ''
-      const existingNormalized = existingPhone.replace(/[^0-9]/g, '')
-      return existingNormalized === normalizedPhone
-    })
-
-    if (hasExisting) {
-      logger.log(`クーポン付与スキップ: 電話番号 ${normalizedPhone} は既にキャンペーン ${campaign.name} のクーポン所持`)
-      continue
-    }
-
     // 有効期限を計算
     let expiresAt: string | null = null
     if (campaign.coupon_expiry_days) {
@@ -247,7 +216,7 @@ export async function grantRegistrationCoupon(
       expiresAt = expiry.toISOString()
     }
 
-    // クーポンを付与
+    // クーポンを付与（同一顧客への重複付与は UNIQUE 制約で防止）
     const { error: insertError } = await supabase
       .from('customer_coupons')
       .insert({
