@@ -260,6 +260,8 @@ export function CompleteProfile() {
       // 新規登録かどうかを判定（クーポンページ遷移の判断に使用）
       // メールアドレスまたは電話番号で既存顧客が見つかった場合も新規扱いしない
       let isNewCustomer = false
+      // 既存レコードだがクーポン未付与の場合にクーポン付与を試みるフラグ
+      let shouldTryGrantCoupon = false
       const hasExistingCustomer = !!existingByEmail || hasExistingCustomerByPhone
 
       if (existingByUserId) {
@@ -284,6 +286,8 @@ export function CompleteProfile() {
         }
         logger.log('✅ 既存の顧客レコードを更新しました')
         isNewCustomer = false
+        // 既存レコードでも、クーポン未付与なら付与を試みる（管理者が手動作成した顧客など）
+        shouldTryGrantCoupon = !hasExistingCustomer
       } else {
         // 新規 → INSERT
         const { error: insertCustErr } = await supabase
@@ -389,8 +393,8 @@ export function CompleteProfile() {
         }
         logger.log('✅ 保存検証OK:', { name: verify.name, phone: verify.phone, email: verify.email })
         
-        // 新規顧客の場合、クーポンを付与（電話番号で重複チェック）
-        if (isNewCustomer && verify.id) {
+        // 新規顧客、または既存顧客でクーポン未付与の場合、クーポンを付与（電話番号で重複チェック）
+        if ((isNewCustomer || shouldTryGrantCoupon) && verify.id) {
           try {
             const couponResult = await grantRegistrationCoupon(
               verify.id,
@@ -399,6 +403,10 @@ export function CompleteProfile() {
             )
             if (couponResult.granted > 0) {
               logger.log(`✅ クーポン ${couponResult.granted} 枚付与`)
+              // 既存レコードでもクーポンが付与されたらクーポンページへ遷移
+              if (shouldTryGrantCoupon) {
+                isNewCustomer = true
+              }
             } else if (couponResult.skipped) {
               logger.log(`⚠️ クーポン付与スキップ: ${couponResult.reason || '既存電話番号'}`)
               // 既存電話番号の場合はクーポンページに遷移しない
