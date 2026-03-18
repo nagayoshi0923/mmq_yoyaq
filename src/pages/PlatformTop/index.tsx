@@ -171,7 +171,7 @@ export function PlatformTop() {
             stores:store_id (id, name, short_name, color, region)
           `)
           .gte('date', today)
-          .eq('category', 'open')
+          .in('category', ['open', 'offsite'])
           .eq('is_cancelled', false)
           .eq('is_reservation_enabled', true)
           .order('date', { ascending: true })

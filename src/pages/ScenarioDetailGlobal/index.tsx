@@ -383,7 +383,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         `)
         .eq('scenario_master_id', masterId)
         .gte('date', today)
-        .eq('category', 'open')
+        .in('category', ['open', 'offsite'])
         .eq('is_cancelled', false)
         .order('date', { ascending: true })
         .order('start_time', { ascending: true })

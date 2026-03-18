@@ -716,7 +716,7 @@ export const scheduleApi = {
       .eq('scenario_id', scenarioId)
       .gte('date', startDate)
       .lte('date', endDate)
-      .eq('category', 'open')
+      .in('category', ['open', 'offsite'])
       .eq('is_reservation_enabled', true)
       .eq('is_cancelled', false)
     

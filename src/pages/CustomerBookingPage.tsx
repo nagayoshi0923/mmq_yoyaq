@@ -191,7 +191,7 @@ export function CustomerBookingPage() {
         // 予約可能な公演のみをフィルタリング
         const filteredData = data.filter((event: any) => {
           const isNotCancelled = !event.is_cancelled
-          const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open')
+          const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open' || event.category === 'offsite')
           return isNotCancelled && isOpenAndEnabled
         })
 

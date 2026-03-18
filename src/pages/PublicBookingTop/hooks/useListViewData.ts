@@ -36,8 +36,8 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreId
     const set = new Set<string>()
     allEvents.forEach(event => {
       const dateStr = event.date
-      // オープン公演のみカウント（category === 'open'）
-      if (event.category === 'open' && !event.is_cancelled) {
+      // オープン公演・出張公演をカウント
+      if ((event.category === 'open' || event.category === 'offsite') && !event.is_cancelled) {
         // store_idがあれば追加
         if (event.store_id) {
           set.add(`${dateStr}:${event.store_id}`)

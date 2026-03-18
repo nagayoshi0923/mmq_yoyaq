@@ -309,8 +309,8 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
     if (isPrivateBooking) return false
     
-    // 通常公演: category='open' かつ is_reservation_enabled=true
-    const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open')
+    // 通常公演・出張公演: category='open' or 'offsite' かつ is_reservation_enabled=true
+    const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open' || event.category === 'offsite')
 
     // 今日の公演で開始時間を過ぎたものは非表示
     if (event.date === todayStr && event.start_time) {
