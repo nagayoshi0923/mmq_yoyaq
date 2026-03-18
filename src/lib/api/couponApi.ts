@@ -305,18 +305,39 @@ export async function useCoupon(
 
   // トランザクション的に処理
   // 1. coupon_usages に記録
+  const usageData: Record<string, unknown> = {
+    customer_coupon_id: customerCouponId,
+    discount_amount: discountAmount,
+    used_at: new Date().toISOString()
+  }
+  // reservation_id は外部キー制約があるため、有効な場合のみ設定
+  if (reservationId) {
+    usageData.reservation_id = reservationId
+  }
+
   const { error: usageError } = await supabase
     .from('coupon_usages')
-    .insert({
-      customer_coupon_id: customerCouponId,
-      reservation_id: reservationId || null,
-      discount_amount: discountAmount,
-      used_at: new Date().toISOString()
-    })
+    .insert(usageData)
 
   if (usageError) {
-    logger.error('クーポン使用記録エラー:', usageError)
-    return { success: false, error: 'クーポン使用の記録に失敗しました' }
+    console.error('クーポン使用記録エラー:', usageError)
+    // reservation_id の外部キー制約エラーの場合、reservation_id なしでリトライ
+    if (usageError.code === '23503' && reservationId) {
+      console.warn('reservation_id の外部キー制約エラー。reservation_id なしでリトライ')
+      const { error: retryError } = await supabase
+        .from('coupon_usages')
+        .insert({
+          customer_coupon_id: customerCouponId,
+          discount_amount: discountAmount,
+          used_at: new Date().toISOString()
+        })
+      if (retryError) {
+        console.error('クーポン使用記録リトライエラー:', retryError)
+        return { success: false, error: 'クーポン使用の記録に失敗しました' }
+      }
+    } else {
+      return { success: false, error: 'クーポン使用の記録に失敗しました' }
+    }
   }
 
   // 2. uses_remaining をデクリメント & 必要なら status を fully_used に
@@ -332,11 +353,11 @@ export async function useCoupon(
     .eq('id', customerCouponId)
 
   if (updateError) {
-    logger.error('クーポン更新エラー:', updateError)
+    console.error('クーポン更新エラー:', updateError)
     return { success: false, error: 'クーポンの更新に失敗しました' }
   }
 
-  logger.log('✅ クーポン使用成功:', { customerCouponId, reservationId, discountAmount })
+  console.log('✅ クーポン使用成功:', { customerCouponId, reservationId, discountAmount, newUsesRemaining, newStatus })
   return { success: true }
 }
 
