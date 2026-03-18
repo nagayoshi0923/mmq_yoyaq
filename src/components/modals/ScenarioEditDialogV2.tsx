@@ -349,6 +349,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   // 保存成功メッセージ
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   
+  // 新規作成後のシナリオIDを追跡（2回目以降の保存で update にするため）
+  const [createdScenarioId, setCreatedScenarioId] = useState<string | null>(null)
+  
   // マスタ選択ダイアログ
   const [masterSelectOpen, setMasterSelectOpen] = useState(false)
   
@@ -519,6 +522,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
   // フォームの初回ロード済みキーを追跡（保存後の不要なフォームリセットを防止）
   const formLoadedKeyRef = useRef<string>('')
+
+  // ダイアログが閉じた時やscenarioIdが変わった時にcreatedScenarioIdをリセット
+  useEffect(() => {
+    if (!isOpen) {
+      setCreatedScenarioId(null)
+    }
+  }, [isOpen, scenarioId])
 
   // シナリオデータをロード
   useEffect(() => {
@@ -795,7 +805,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   }, [isOpen, scenarioId, scenarios.length])
 
   const handleSave = async (statusOverride?: 'available' | 'unavailable' | 'draft') => {
-    if (scenarioId && !isScenarioLoaded) {
+    // 新規作成後のIDがあれば編集モードとして扱う
+    const effectiveScenarioId = scenarioId || createdScenarioId
+
+    if (effectiveScenarioId && !isScenarioLoaded) {
       showToast.error('保存できません', 'シナリオが読み込めていません（権限/組織情報の可能性）')
       return
     }
@@ -861,8 +874,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         updated_at: new Date().toISOString()
       }
 
-      if (scenarioId) {
-        scenarioData.id = scenarioId
+      if (effectiveScenarioId) {
+        scenarioData.id = effectiveScenarioId
       }
       
       // scenarios テーブルへの保存（旧テーブル）
@@ -871,7 +884,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       try {
         scenarioSaveResult = await scenarioMutation.mutateAsync({
           scenario: scenarioData,
-          isEdit: !!scenarioId
+          isEdit: !!effectiveScenarioId
         })
       } catch (scenarioErr) {
         logger.warn('scenarios テーブル保存エラー（organization_scenariosへの保存は続行）:', scenarioErr)
@@ -880,7 +893,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
       // 担当GMの更新処理
       // scenario_master_id を直接使用
-      const targetScenarioId = scenarioId || (scenarioSaveResult && typeof scenarioSaveResult === 'object' && 'scenario_master_id' in scenarioSaveResult ? (scenarioSaveResult as any).scenario_master_id : undefined)
+      const targetScenarioId = effectiveScenarioId || (scenarioSaveResult && typeof scenarioSaveResult === 'object' && 'scenario_master_id' in scenarioSaveResult ? (scenarioSaveResult as any).scenario_master_id : undefined)
 
       if (targetScenarioId) {
         try {
@@ -1122,11 +1135,14 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         // 組織固有の上書きは override_* / custom_* カラムで organization_scenarios に保存済み。
       }
 
-      // 新規作成の場合、シナリオIDを親に通知して編集モードに切り替え
-      // これにより、scenarios.length が変わってもフォームがリセットされない
-      if (!scenarioId && targetScenarioId && onScenarioChange) {
-        logger.log('🔄 新規作成完了: 編集モードに切り替え', targetScenarioId)
-        onScenarioChange(targetScenarioId)
+      // 新規作成の場合、作成されたIDを内部で追跡して2回目以降は更新モードにする
+      if (!effectiveScenarioId && targetScenarioId) {
+        setCreatedScenarioId(targetScenarioId)
+        logger.log('🔄 新規作成完了: 内部IDを追跡', targetScenarioId)
+        // 親コンポーネントにも通知（対応している場合）
+        if (onScenarioChange) {
+          onScenarioChange(targetScenarioId)
+        }
       }
 
       // 保存完了通知
