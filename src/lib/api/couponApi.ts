@@ -379,22 +379,18 @@ export async function getCurrentReservations(): Promise<Array<{
   const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
 
   // 1. 通常予約を取得（自分がcustomer_idの予約）
+  // schedule_event_id で明示的にJOINを指定（reservationsとschedule_eventsに複数の外部キーがあるため）
   let directReservations: any[] | null = null
   if (customer) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('reservations')
       .select(`
         id,
-        schedule_event_id,
-        schedule_events:schedule_event_id (
-          date,
-          start_time,
-          scenarios:scenario_id (title),
-          stores:store_id (name)
-        )
+        schedule_event_id
       `)
       .eq('customer_id', customer.id)
       .eq('status', 'confirmed')
+    if (error) console.error('[クーポン予約検索] directReservations error:', error)
     directReservations = data
   }
 
@@ -407,17 +403,10 @@ export async function getCurrentReservations(): Promise<Array<{
       private_groups (
         id,
         status,
-        reservation_id,
-        reservations:reservation_id (
+        reservations (
           id,
           status,
-          schedule_event_id,
-          schedule_events:schedule_event_id (
-            date,
-            start_time,
-            scenarios:scenario_id (title),
-            stores:store_id (name)
-          )
+          schedule_event_id
         )
       )
     `)
@@ -425,32 +414,57 @@ export async function getCurrentReservations(): Promise<Array<{
     .eq('status', 'joined')
 
   // 3. スタッフ予約を取得（payment_method='staff' または reservation_source='staff_entry'/'staff_participation'）
-  // NOTE: スタッフ予約はGM欄から自動作成（staff_entry）または予約者タブから手動追加（staff_participation）される
-  //       participant_names にスタッフ名が入るので、それで自分の予約かどうかを判定
-  const { data: staffReservations } = await supabase
+  const { data: staffReservations, error: staffError } = await supabase
     .from('reservations')
     .select(`
       id,
       participant_names,
-      schedule_event_id,
-      schedule_events:schedule_event_id (
-        date,
-        start_time,
-        scenarios:scenario_id (title),
-        stores:store_id (name)
-      )
+      schedule_event_id
     `)
     .or('payment_method.eq.staff,reservation_source.eq.staff_entry,reservation_source.eq.staff_participation')
     .eq('status', 'confirmed')
+  if (staffError) console.error('[クーポン予約検索] staffReservations error:', staffError)
 
-  // 結果をマージ
+  // schedule_event_id を収集して、一括でschedule_eventsを取得
+  const eventIds = new Set<string>()
+  if (directReservations) {
+    directReservations.forEach((r: any) => { if (r.schedule_event_id) eventIds.add(r.schedule_event_id) })
+  }
+  if (privateGroupMembers) {
+    privateGroupMembers.forEach((m: any) => {
+      const group = m.private_groups as any
+      if (!group) return
+      const res = group.reservations as any
+      if (res?.schedule_event_id) eventIds.add(res.schedule_event_id)
+    })
+  }
+  if (staffReservations) {
+    staffReservations.forEach((r: any) => { if (r.schedule_event_id) eventIds.add(r.schedule_event_id) })
+  }
+
+  // schedule_events を一括取得
+  let eventsMap: Record<string, any> = {}
+  if (eventIds.size > 0) {
+    const { data: events } = await supabase
+      .from('schedule_events')
+      .select('id, date, start_time, scenario, venue, stores (name)')
+      .in('id', Array.from(eventIds))
+    if (events) {
+      for (const ev of events) {
+        eventsMap[ev.id] = ev
+      }
+    }
+  }
+
+  // 結果をマージ（eventsMapからイベント情報を取得）
   const allReservations: Array<{ id: string; event: any }> = []
 
   // 通常予約
   if (directReservations) {
     for (const r of directReservations) {
-      if (r.schedule_events) {
-        allReservations.push({ id: r.id, event: r.schedule_events })
+      const event = eventsMap[r.schedule_event_id]
+      if (event) {
+        allReservations.push({ id: r.id, event })
       }
     }
   }
@@ -462,17 +476,14 @@ export async function getCurrentReservations(): Promise<Array<{
       if (!group || group.status !== 'confirmed') continue
       const reservation = group.reservations as any
       if (!reservation || reservation.status !== 'confirmed') continue
-      if (reservation.schedule_events) {
-        // 重複チェック（主催者は両方に出る可能性）
-        if (!allReservations.some(r => r.id === reservation.id)) {
-          allReservations.push({ id: reservation.id, event: reservation.schedule_events })
-        }
+      const event = eventsMap[reservation.schedule_event_id]
+      if (event && !allReservations.some(r => r.id === reservation.id)) {
+        allReservations.push({ id: reservation.id, event })
       }
     }
   }
 
   // スタッフ予約（participant_namesに自分の名前が含まれる場合）
-  // 顧客名またはスタッフ名で照合
   const myNames: string[] = []
   if (customer?.name) myNames.push(customer.name)
   if (staffRecord?.name && !myNames.includes(staffRecord.name)) myNames.push(staffRecord.name)
@@ -481,35 +492,38 @@ export async function getCurrentReservations(): Promise<Array<{
     for (const r of staffReservations) {
       const names = r.participant_names as string[] | null
       if (names && names.some(n => myNames.includes(n))) {
-        if (r.schedule_events && !allReservations.some(existing => existing.id === r.id)) {
-          allReservations.push({ id: r.id, event: r.schedule_events })
+        const event = eventsMap[r.schedule_event_id]
+        if (event && !allReservations.some(existing => existing.id === r.id)) {
+          allReservations.push({ id: r.id, event })
         }
       }
     }
   }
+
+ 
 
   // 今日の公演で、現在時刻の前後3時間以内のものをフィルタ
   const currentHour = jstNow.getHours()
   const currentMinute = jstNow.getMinutes()
   const currentTotalMinutes = currentHour * 60 + currentMinute
 
+  
+
   const filtered = allReservations
     .filter(({ event }) => {
       if (!event) return false
       if (event.date !== todayStr) return false
 
-      // 開始時間をパース
       const [startHour, startMinute] = event.start_time.split(':').map(Number)
       const startTotalMinutes = startHour * 60 + startMinute
 
-      // 開始3時間前 〜 開始3時間後 の範囲内
       const diff = currentTotalMinutes - startTotalMinutes
-      return diff >= -180 && diff <= 180 // 前後3時間
+      return diff >= -180 && diff <= 180
     })
     .map(({ id, event }) => ({
       id,
-      scenario_title: event.scenarios?.title || '不明なシナリオ',
-      store_name: event.stores?.name || '不明な店舗',
+      scenario_title: event.scenario || '不明なシナリオ',
+      store_name: event.stores?.name || event.venue || '不明な店舗',
       date: event.date,
       time: event.start_time.substring(0, 5)
     }))
