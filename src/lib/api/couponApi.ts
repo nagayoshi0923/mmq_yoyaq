@@ -385,11 +385,12 @@ export async function getCurrentReservations(): Promise<Array<{
       .from('reservations')
       .select(`
         id,
-        schedule_events (
+        schedule_event_id,
+        schedule_events:schedule_event_id (
           date,
           start_time,
-          scenarios (title),
-          stores (name)
+          scenarios:scenario_id (title),
+          stores:store_id (name)
         )
       `)
       .eq('customer_id', customer.id)
@@ -407,14 +408,15 @@ export async function getCurrentReservations(): Promise<Array<{
         id,
         status,
         reservation_id,
-        reservations (
+        reservations:reservation_id (
           id,
           status,
-          schedule_events (
+          schedule_event_id,
+          schedule_events:schedule_event_id (
             date,
             start_time,
-            scenarios (title),
-            stores (name)
+            scenarios:scenario_id (title),
+            stores:store_id (name)
           )
         )
       )
@@ -430,11 +432,12 @@ export async function getCurrentReservations(): Promise<Array<{
     .select(`
       id,
       participant_names,
-      schedule_events (
+      schedule_event_id,
+      schedule_events:schedule_event_id (
         date,
         start_time,
-        scenarios (title),
-        stores (name)
+        scenarios:scenario_id (title),
+        stores:store_id (name)
       )
     `)
     .or('payment_method.eq.staff,reservation_source.eq.staff_entry,reservation_source.eq.staff_participation')
