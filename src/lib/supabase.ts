@@ -52,8 +52,9 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     detectSessionInUrl: true,
     // ストレージキーを明示的に設定
     storageKey: 'mmq-supabase-auth',
-    // タブ間でのセッション同期を有効化
-    flowType: 'pkce',
+    // implicit フロー: 別ブラウザでメールリンクを開いても動作する
+    // （PKCE は同じブラウザでないと code_verifier が失われる問題がある）
+    flowType: 'implicit',
   },
 })
 

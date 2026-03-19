@@ -74,7 +74,7 @@ export function CompleteProfile() {
       }
     })
 
-    // 初回: 既存セッション確認（PKCE コード交換済みの場合や再訪問時に対応）
+    // 初回: 既存セッション確認
     const checkSession = async () => {
       try {
         // まず即座にセッションを確認
@@ -84,21 +84,22 @@ export function CompleteProfile() {
           return
         }
         
-        // セッションがない場合、URL にコードがあれば PKCE 交換を待機
+        // セッションがない場合、URL にトークン/コードがあれば交換を待機
+        const hash = window.location.hash
         const urlParams = new URLSearchParams(window.location.search)
-        const hasCode = urlParams.has('code')
+        const hasToken = hash.includes('access_token') || urlParams.has('code')
         
-        if (hasCode) {
-          logger.log('⏳ PKCE コード検出 — セッション交換を待機中...')
-          // PKCE 交換は onAuthStateChange で受け取る
-          // 最大 15 秒待機
+        if (hasToken) {
+          logger.log('⏳ 認証トークン検出 — セッション確立を待機中...')
+          // 認証処理は onAuthStateChange で受け取る
+          // 最大 10 秒待機
           await new Promise<void>((resolve) => {
             const timeout = setTimeout(() => {
               if (!sessionReceived && !cancelled) {
-                logger.warn('⚠️ PKCE 交換タイムアウト')
+                logger.warn('⚠️ セッション確立タイムアウト')
               }
               resolve()
-            }, 15000)
+            }, 10000)
             
             // セッション受信したら即座に resolve
             const checkInterval = setInterval(() => {
@@ -110,8 +111,8 @@ export function CompleteProfile() {
             }, 100)
           })
         } else {
-          logger.log('⏳ コードなし — 既存セッションを再確認')
-          // コードがない場合、もう一度セッションを確認
+          logger.log('⏳ トークンなし — 既存セッションを再確認')
+          // トークンがない場合、もう一度セッションを確認
           const { data: { session: retrySession } } = await supabase.auth.getSession()
           if (retrySession?.user) {
             applySession(retrySession.user)
