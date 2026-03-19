@@ -130,15 +130,27 @@ export function FAQSettings() {
     )
   }
 
+  // デバッグ用：データ再取得ボタン
+  const handleRefresh = async () => {
+    await refetchOrg()
+    window.location.reload()
+  }
+
   return (
     <div className="space-y-6">
       <Card className="bg-blue-50 border-blue-200">
         <CardContent className="p-4">
-          <p className="text-sm text-blue-800">
-            <strong>このページでできること：</strong>
-            予約サイトのFAQページに表示される質問と回答を設定します。
-            {isLicenseManager && 'MMQ共通FAQと組織固有FAQの両方を編集できます。'}
-          </p>
+          <div className="flex items-start justify-between gap-4">
+            <p className="text-sm text-blue-800">
+              <strong>このページでできること：</strong>
+              予約サイトのFAQページに表示される質問と回答を設定します。
+              {isLicenseManager && 'MMQ共通FAQと組織固有FAQの両方を編集できます。'}
+            </p>
+            <Button variant="ghost" size="sm" onClick={handleRefresh} className="shrink-0">
+              <Loader2 className="w-4 h-4 mr-1" />
+              再読込
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
