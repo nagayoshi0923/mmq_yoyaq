@@ -208,11 +208,30 @@ export function CompleteProfile() {
       setError('生年月日を入力してください')
       return
     }
+    // YYYY/MM/DD 形式のバリデーション
+    const birthDateMatch = birthDate.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
+    if (!birthDateMatch) {
+      setError('生年月日は YYYY/MM/DD 形式で入力してください（例: 1990/01/15）')
+      return
+    }
+    const [, year, month, day] = birthDateMatch
+    const birthDateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+    // 有効な日付かチェック（例: 2/30 は無効）
+    if (
+      birthDateObj.getFullYear() !== parseInt(year) ||
+      birthDateObj.getMonth() !== parseInt(month) - 1 ||
+      birthDateObj.getDate() !== parseInt(day)
+    ) {
+      setError('有効な日付を入力してください')
+      return
+    }
     // 未来日チェック
-    if (new Date(birthDate) >= new Date()) {
+    if (birthDateObj >= new Date()) {
       setError('生年月日に未来の日付は設定できません')
       return
     }
+    // DB保存用に YYYY-MM-DD 形式に変換
+    const birthDateForDB = `${year}-${month}-${day}`
 
     if (!userEmail.trim()) {
       setError('メールアドレスが取得できませんでした。別のログイン方法をお試しください。')
@@ -355,7 +374,7 @@ export function CompleteProfile() {
             email: userEmail,
             phone: phone.trim(),
             prefecture: prefecture,
-            birth_date: birthDate,
+            birth_date: birthDateForDB,
             organization_id: organizationId,
             notification_settings: notificationSettings,
             updated_at: new Date().toISOString()
@@ -378,7 +397,7 @@ export function CompleteProfile() {
             email: userEmail,
             phone: phone.trim(),
             prefecture: prefecture,
-            birth_date: birthDate,
+            birth_date: birthDateForDB,
             visit_count: 0,
             total_spent: 0,
             organization_id: organizationId,
@@ -711,11 +730,26 @@ export function CompleteProfile() {
                   </label>
                   <Input
                     id="birthDate"
-                    type="date"
+                    type="text"
+                    inputMode="numeric"
                     value={birthDate}
-                    onChange={(e) => setBirthDate(e.target.value)}
-                    required
-                    max={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => {
+                      // 数字とスラッシュのみ許可、自動フォーマット
+                      let value = e.target.value.replace(/[^\d/]/g, '')
+                      // スラッシュを除去して数字だけにする
+                      const digits = value.replace(/\//g, '')
+                      // 自動でスラッシュを挿入 (YYYY/MM/DD)
+                      if (digits.length <= 4) {
+                        value = digits
+                      } else if (digits.length <= 6) {
+                        value = `${digits.slice(0, 4)}/${digits.slice(4)}`
+                      } else {
+                        value = `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6, 8)}`
+                      }
+                      setBirthDate(value)
+                    }}
+                    placeholder="1990/01/15"
+                    maxLength={10}
                     className="h-12"
                     disabled={isLoading}
                   />
