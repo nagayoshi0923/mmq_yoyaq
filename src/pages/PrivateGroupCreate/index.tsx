@@ -469,25 +469,6 @@ export function PrivateGroupCreate() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">目標人数</Label>
-                    <Select
-                      value={String(targetParticipantCount)}
-                      onValueChange={(val) => setTargetParticipantCount(Number(val))}
-                    >
-                      <SelectTrigger className="w-32 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: scenario.player_count_max - scenario.player_count_min + 1 }, (_, i) => (
-                          <SelectItem key={i} value={String(scenario.player_count_min + i)}>
-                            {scenario.player_count_min + i}名
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
                     <Label className="text-sm font-medium mb-1.5 block">メモ（任意）</Label>
                     <Textarea
                       value={notes}
