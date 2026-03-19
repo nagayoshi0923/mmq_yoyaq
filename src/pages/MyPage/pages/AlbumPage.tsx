@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -59,6 +60,7 @@ interface LikedScenario {
 export function AlbumPage() {
   const { user } = useAuth()
   const { organizationId } = useOrganization()
+  const navigate = useNavigate()
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
   const [likedScenariosList, setLikedScenariosList] = useState<LikedScenario[]>([])
   const [hiddenScenarios, setHiddenScenarios] = useState<Set<string>>(new Set())
@@ -651,7 +653,11 @@ export function AlbumPage() {
                   const isLiked = scenarioId ? likedScenarios.has(scenarioId) : false
 
                   return (
-                    <div key={idx} className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors">
+                    <div
+                      key={idx}
+                      className={`border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors ${scenarioId ? 'cursor-pointer' : ''}`}
+                      onClick={() => scenarioId && navigate(`/scenario/${scenarioId}`)}
+                    >
                       <div className="flex items-start gap-3 sm:gap-4">
                         {/* シナリオ画像 */}
                         <div className="flex-shrink-0 w-12 sm:w-16 h-16 sm:h-20 bg-gray-200 rounded overflow-hidden">
@@ -684,7 +690,7 @@ export function AlbumPage() {
                             <div className="flex-1 min-w-0 pr-2">
                               <h3 className="text-base break-words">{cleanTitle(group.scenario)}</h3>
                             </div>
-                            <div className="flex items-center gap-0.5 flex-shrink-0">
+                            <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -749,7 +755,7 @@ export function AlbumPage() {
                                 
                                 {/* 手動登録バッジと削除ボタン */}
                                 {play.is_manual && (
-                                  <div className="flex items-center gap-1 ml-auto">
+                                  <div className="flex items-center gap-1 ml-auto" onClick={e => e.stopPropagation()}>
                                     <Badge variant="outline" className="text-[10px] px-1 py-0 text-muted-foreground">
                                       手動登録
                                     </Badge>
@@ -795,7 +801,8 @@ export function AlbumPage() {
               {likedScenariosList.map((item) => (
                 <div
                   key={item.id}
-                  className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors"
+                  className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/scenario/${item.scenario.id}`)}
                 >
                   <div className="flex items-start gap-3 sm:gap-4 mb-3">
                     {/* シナリオ画像 */}
@@ -839,7 +846,7 @@ export function AlbumPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleRemoveLike(item.id)}
+                          onClick={(e) => { e.stopPropagation(); handleRemoveLike(item.id) }}
                           className="hover:bg-red-50 h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0"
                           title="リストから削除"
                         >
