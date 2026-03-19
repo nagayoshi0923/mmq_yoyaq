@@ -1762,24 +1762,27 @@ export default function MyPage() {
                             </div>
                             {/* おすすめ度（星評価） */}
                             {scenario.scenario_id && (
-                              <div className="flex items-center gap-0.5 mt-1.5">
-                                {[1, 2, 3, 4, 5].map(star => (
-                                  <button
-                                    key={star}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleRatingChange(scenario, star)
-                                    }}
-                                    className="p-0.5 hover:scale-110 transition-transform"
-                                    title={`おすすめ度 ${star}`}
-                                  >
-                                    <Star
-                                      className="h-3.5 w-3.5"
-                                      fill={scenario.rating && scenario.rating >= star ? '#f59e0b' : 'none'}
-                                      stroke={scenario.rating && scenario.rating >= star ? '#f59e0b' : '#d1d5db'}
-                                    />
-                                  </button>
-                                ))}
+                              <div className="flex items-center gap-1 mt-1.5">
+                                <span className="text-xs text-gray-400">おすすめ度</span>
+                                <div className="flex items-center gap-0.5">
+                                  {[1, 2, 3, 4, 5].map(star => (
+                                    <button
+                                      key={star}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleRatingChange(scenario, star)
+                                      }}
+                                      className="p-0.5 hover:scale-110 transition-transform"
+                                      title={`おすすめ度 ${star}`}
+                                    >
+                                      <Star
+                                        className="h-3.5 w-3.5"
+                                        fill={scenario.rating && scenario.rating >= star ? '#f59e0b' : 'none'}
+                                        stroke={scenario.rating && scenario.rating >= star ? '#f59e0b' : '#d1d5db'}
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
                             )}
                           </div>
