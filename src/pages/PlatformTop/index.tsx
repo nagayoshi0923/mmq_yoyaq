@@ -562,6 +562,17 @@ export function PlatformTop() {
               )}
             </div>
 
+            {/* 使い方リンク */}
+            <div className="mt-4">
+              <button
+                onClick={() => navigate('/guide')}
+                className="inline-flex items-center gap-1.5 text-white/70 hover:text-white text-sm transition-colors"
+              >
+                <span className="w-5 h-5 rounded-full border border-white/40 flex items-center justify-center text-xs font-bold">?</span>
+                使い方
+              </button>
+            </div>
+
             {/* 新規登録キャンペーンバナー（コンパクト版）- 未ログインユーザーのみ表示 */}
             {!user && (
               <div 

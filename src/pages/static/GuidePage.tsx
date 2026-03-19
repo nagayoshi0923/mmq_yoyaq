@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { 
   BookOpen, ChevronRight, Users, Clock, MessageCircle, 
   Search, Shield, Sparkles, CheckCircle, ArrowRight,
-  Target, Brain, Drama, UserCheck
+  Target, Brain, Drama, UserCheck, Home, UserPlus
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -159,6 +159,123 @@ export function GuidePage() {
                   </div>
                   <p className="text-gray-600">{step.description}</p>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 貸切について */}
+      <section className="max-w-4xl mx-auto px-4 py-16">
+        <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center flex items-center justify-center gap-3">
+          <Home className="w-6 h-6" style={{ color: THEME.primary }} />
+          貸切で楽しむ
+        </h2>
+        <p className="text-center text-gray-600 mb-10 max-w-2xl mx-auto">
+          友達グループ・職場・記念日など、メンバーだけで楽しみたい方に。MMQでは2通りの貸切方法があります。
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+          {/* 貸切リクエスト */}
+          <div className="border-2 border-gray-200 p-6">
+            <div
+              className="w-12 h-12 flex items-center justify-center mb-4"
+              style={{ backgroundColor: THEME.primaryLight }}
+            >
+              <Search className="w-6 h-6" style={{ color: THEME.primary }} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">貸切リクエスト</h3>
+            <p className="text-sm text-gray-600 leading-relaxed mb-4">
+              公演ページから「貸切希望」として予約を入れる方法。既存の公演日程に対して、グループ専用で参加したいときに使います。
+            </p>
+            <div className="space-y-2 text-sm">
+              {[
+                '公演ページで「貸切希望」を選択して予約',
+                '店舗側が人数・日程を確認して承認',
+                '承認後、そのシナリオがグループ専用になる',
+              ].map((t, i) => (
+                <div key={i} className="flex items-start gap-2 text-gray-700">
+                  <span
+                    className="w-5 h-5 flex-shrink-0 flex items-center justify-center text-xs font-bold text-white mt-0.5"
+                    style={{ backgroundColor: THEME.primary }}
+                  >
+                    {i + 1}
+                  </span>
+                  {t}
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 p-3 bg-gray-50 border border-gray-200 text-xs text-gray-500">
+              ※ 店舗の空き状況・人数によって対応できない場合があります
+            </div>
+          </div>
+
+          {/* 貸切グループ作成 */}
+          <div className="border-2 p-6" style={{ borderColor: THEME.primary }}>
+            <div
+              className="w-12 h-12 flex items-center justify-center mb-4"
+              style={{ backgroundColor: THEME.primaryLight }}
+            >
+              <UserPlus className="w-6 h-6" style={{ color: THEME.primary }} />
+            </div>
+            <div className="flex items-start gap-2 mb-2">
+              <h3 className="text-lg font-bold text-gray-900">貸切グループ作成</h3>
+              <span
+                className="text-xs font-bold text-white px-2 py-0.5 mt-0.5 flex-shrink-0"
+                style={{ backgroundColor: THEME.primary }}
+              >
+                おすすめ
+              </span>
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed mb-4">
+              幹事がグループを作成して招待コードをシェアする方法。メンバーの参加状況をリアルタイムで確認でき、人数が揃ったら貸切予約に進めます。
+            </p>
+            <div className="space-y-2 text-sm">
+              {[
+                'マイページ →「グループ作成」でシナリオ・希望日を設定',
+                '発行された招待コードをメンバーにシェア',
+                'メンバーがコードを入力してグループに参加',
+                '全員揃ったら貸切予約を確定',
+              ].map((t, i) => (
+                <div key={i} className="flex items-start gap-2 text-gray-700">
+                  <span
+                    className="w-5 h-5 flex-shrink-0 flex items-center justify-center text-xs font-bold text-white mt-0.5"
+                    style={{ backgroundColor: THEME.primary }}
+                  >
+                    {i + 1}
+                  </span>
+                  {t}
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 p-3 bg-red-50 border border-red-100 text-xs text-red-700">
+              ✓ メンバーの参加状況がひと目でわかる<br />
+              ✓ 招待コードはLINEやSNSで簡単シェア<br />
+              ✓ アプリ不要・スマホだけでOK
+            </div>
+          </div>
+        </div>
+
+        {/* 貸切の流れ図 */}
+        <div className="bg-gray-50 border border-gray-200 p-6">
+          <h3 className="font-bold text-gray-900 mb-4 text-center">グループ作成から貸切予約までの流れ</h3>
+          <div className="flex flex-col md:flex-row items-center gap-2 justify-center">
+            {[
+              { icon: '👤', label: '幹事がグループ作成' },
+              { icon: '🔗', label: '招待コードをシェア' },
+              { icon: '👥', label: 'メンバーが参加' },
+              { icon: '✅', label: '人数確定→予約へ' },
+            ].map(({ icon, label }, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-white border border-gray-200 flex items-center justify-center text-xl mx-auto mb-1">
+                    {icon}
+                  </div>
+                  <p className="text-xs text-gray-600 text-center w-20">{label}</p>
+                </div>
+                {i < 3 && (
+                  <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0 hidden md:block" />
+                )}
               </div>
             ))}
           </div>

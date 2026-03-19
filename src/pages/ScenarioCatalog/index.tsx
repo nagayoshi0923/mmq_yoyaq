@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
-import { scenarioApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { useFavorites } from '@/hooks/useFavorites'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
@@ -115,8 +114,18 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
         setIsLoading(true)
         
         // シナリオ、公開リスト、店舗、カテゴリを並列取得
-        const [data, availableKeysResult, storesResult, categoriesResult] = await Promise.all([
-          scenarioApi.getAll(),
+        const orgId = await import('@/lib/organization').then(m => m.getCurrentOrganizationId())
+        let scenariosQuery = supabase
+          .from('organization_scenarios_with_master')
+          .select('id, org_scenario_id, slug, title, author, key_visual_url, duration, player_count_min, player_count_max, genre, participation_fee, difficulty, release_date, status, scenario_master_id, available_stores, is_recommended, scenario_type, organization_id')
+          .in('status', ['available', 'coming_soon'])
+          .neq('scenario_type', 'gm_test')
+          .order('title', { ascending: true })
+        if (orgId) {
+          scenariosQuery = scenariosQuery.eq('organization_id', orgId)
+        }
+        const [scenariosResult, availableKeysResult, storesResult, categoriesResult] = await Promise.all([
+          scenariosQuery,
           // 🔐 公開中かつ承認済みのシナリオキーを取得（RPC: RLSバイパス、匿名OK）
           supabase.rpc('get_public_available_scenario_keys'),
           // 店舗データを取得
@@ -150,15 +159,13 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
         // RPCエラーまたはデータ0件の場合はフィルタをスキップ
         const shouldFilter = !availableKeysResult.error && keysData.length > 0
         
+        if (scenariosResult.error) throw scenariosResult.error
+        
         // 組織で公開されているシナリオのみ表示（available + coming_soon）
-        const availableScenarios = data.filter((s: any) => {
-          if (!shouldFilter) {
-            // RPC失敗時のフォールバック: status='available' のみ
-            return s.status === 'available'
-          }
-          // scenario_master_idがない場合はstatus='available'のみ通す
-          if (!s.scenario_master_id) return s.status === 'available'
-          // 公開中・近日公開の組織シナリオに含まれているもののみ表示
+        // DBレベルで既に unavailable を除外済み。RPCで二重チェック。
+        const availableScenarios = (scenariosResult.data || []).filter((s: any) => {
+          if (!shouldFilter) return true // DBフィルタ済みなのでフォールバックは全件OK
+          if (!s.scenario_master_id) return true
           return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
         }).map((s: any) => ({
           ...s,
