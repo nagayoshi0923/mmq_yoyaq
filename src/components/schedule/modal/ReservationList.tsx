@@ -826,31 +826,47 @@ ${content.organizationName || '店舗'}
         }
       }
       
-      const reservation: Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'> = {
-        schedule_event_id: event.id,
-        title: currentEventData.scenario || '',
-        scenario_id: scenarioObj?.id || null,
-        store_id: storeObj?.id || null,
-        customer_id: customerId,
-        customer_notes: participantName,
-        requested_datetime: `${currentEventData.date}T${currentEventData.start_time}+09:00`,
-        duration: scenarioObj?.duration || 120,
-        participant_count: newParticipant.participant_count,
-        participant_names: [participantName],
-        assigned_staff: currentEventData.gms || [],
-        base_price: basePrice,
-        options_price: 0,
-        total_price: totalPrice,
-        discount_amount: 0,
-        final_price: totalPrice,
-        unit_price: unitPrice,
-        payment_method: participantName === 'デモ参加者' ? 'onsite' : paymentMethod,
-        payment_status: (participantName === 'デモ参加者' || paymentMethod === 'online') ? 'paid' : (paymentMethod === 'staff' ? 'paid' : 'pending'),
-        status: 'confirmed' as const,
-        reservation_source: reservationSource
-      }
+      // 予約番号を生成
+      const now = new Date()
+      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+      const reservationNumber = `${dateStr}-${randomStr}`
 
-      const createdReservation = await reservationApi.create(reservation)
+      const finalPaymentMethod = participantName === 'デモ参加者' ? 'onsite' : paymentMethod
+      const finalPaymentStatus = (participantName === 'デモ参加者' || paymentMethod === 'online') ? 'paid' : (paymentMethod === 'staff' ? 'paid' : 'pending')
+
+      // 管理者による手動追加は直接INSERTで実行（RPCの満員・重複チェックを回避）
+      const { data: insertedRows, error: insertError } = await supabase
+        .from('reservations')
+        .insert({
+          schedule_event_id: event.id,
+          organization_id: organizationId,
+          title: currentEventData.scenario || '',
+          scenario_id: scenarioObj?.id || null,
+          store_id: storeObj?.id || null,
+          customer_id: customerId,
+          customer_notes: participantName,
+          reservation_number: reservationNumber,
+          requested_datetime: `${currentEventData.date}T${currentEventData.start_time}+09:00`,
+          duration: scenarioObj?.duration || 120,
+          participant_count: newParticipant.participant_count,
+          participant_names: [participantName],
+          assigned_staff: currentEventData.gms || [],
+          base_price: basePrice,
+          options_price: 0,
+          total_price: totalPrice,
+          discount_amount: 0,
+          final_price: totalPrice,
+          unit_price: unitPrice,
+          payment_method: finalPaymentMethod,
+          payment_status: finalPaymentStatus,
+          status: 'confirmed',
+          reservation_source: reservationSource
+        })
+        .select('*')
+
+      if (insertError) throw insertError
+      const createdReservation = insertedRows?.[0] || null
       
       // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
       if (event.id) {
