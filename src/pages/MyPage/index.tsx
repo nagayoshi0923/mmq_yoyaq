@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, Eye, UserPlus, MoreVertical } from 'lucide-react'
+import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, Eye, UserPlus, MoreVertical, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
@@ -40,6 +40,7 @@ interface PlayedScenario {
   is_manual?: boolean
   manual_id?: string
   reservation_id?: string
+  rating?: number | null
 }
 
 interface PrivateGroupSummary {
@@ -104,6 +105,10 @@ export default function MyPage() {
   const [showHiddenItems, setShowHiddenItems] = useState(false)
   const [editingDate, setEditingDate] = useState<string>('')
   const [isEditingDate, setIsEditingDate] = useState(false)
+  
+  // おすすめ度（ratings）
+  const [ratingsMap, setRatingsMap] = useState<Record<string, number>>({})
+  const [albumSortOrder, setAlbumSortOrder] = useState<'date' | 'rating_desc' | 'rating_asc'>('date')
   
   // 削除したプレイ履歴（予約ベース用、localStorageで管理）
   const [deletedPlays, setDeletedPlays] = useState<Set<string>>(() => {
@@ -323,7 +328,7 @@ export default function MyPage() {
       }
 
       // 🚀 並列でデータ取得（パフォーマンス最適化）
-      const [reservationResult, privateGroupsResult, manualHistoryResult] = await Promise.all([
+      const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult] = await Promise.all([
         // 予約を取得
         supabase
           .from('reservations')
@@ -359,7 +364,13 @@ export default function MyPage() {
           .select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id')
           .eq('customer_id', customer.id)
           .order('created_at', { ascending: false })
-          .limit(20)
+          .limit(20),
+
+        // おすすめ度を取得
+        supabase
+          .from('scenario_ratings')
+          .select('scenario_master_id, rating')
+          .eq('customer_id', customer.id)
       ])
       
       const reservationData = reservationResult.data
@@ -367,6 +378,15 @@ export default function MyPage() {
 
       if (reservationError) throw reservationError
       setReservations(reservationData || [])
+
+      // おすすめ度マップをセット
+      if (ratingsResult.data) {
+        const map: Record<string, number> = {}
+        ratingsResult.data.forEach((r: any) => {
+          if (r.scenario_master_id) map[r.scenario_master_id] = r.rating
+        })
+        setRatingsMap(map)
+      }
 
       // 統計情報を計算（即座に実行可能）
       const confirmedPast = (reservationData || []).filter(
@@ -507,6 +527,14 @@ export default function MyPage() {
           r => new Date(r.requested_datetime) < new Date() && (r.status === 'confirmed' || r.status === 'gm_confirmed')
         )
         
+        // ratingsMapをローカル変数でも参照できるよう
+        const localRatingsMap: Record<string, number> = {}
+        if (ratingsResult.data) {
+          ratingsResult.data.forEach((r: any) => {
+            if (r.scenario_master_id) localRatingsMap[r.scenario_master_id] = r.rating
+          })
+        }
+
         const played: PlayedScenario[] = pastReservations.map(reservation => {
           const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
           const title = reservation.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim() || ''
@@ -525,6 +553,7 @@ export default function MyPage() {
             key_visual_url: finalKeyVisual || undefined,
             is_manual: false,
             reservation_id: reservation.id,
+            rating: finalScenarioId ? (localRatingsMap[finalScenarioId] ?? null) : null,
           }
         })
         
@@ -547,6 +576,7 @@ export default function MyPage() {
               key_visual_url: scenarioMasterId ? imageMap[scenarioMasterId] : undefined,
               is_manual: true,
               manual_id: item.id,
+              rating: scenarioMasterId ? (localRatingsMap[scenarioMasterId] ?? null) : null,
             })
           })
         }
@@ -683,6 +713,50 @@ export default function MyPage() {
     } catch (error) {
       logger.error('手動履歴削除エラー:', error)
       showToast.error('削除に失敗しました')
+    }
+  }
+
+  // おすすめ度を保存（upsert）
+  const handleRatingChange = async (scenario: PlayedScenario, rating: number) => {
+    if (!customerId || !scenario.scenario_id) return
+    const prevRating = ratingsMap[scenario.scenario_id]
+    // 同じ評価をクリックした場合は削除（トグル）
+    const newRating = prevRating === rating ? null : rating
+
+    // UI即時反映
+    setRatingsMap(prev => {
+      const next = { ...prev }
+      if (newRating === null) {
+        delete next[scenario.scenario_id!]
+      } else {
+        next[scenario.scenario_id!] = newRating
+      }
+      return next
+    })
+    setPlayedScenarios(prev => prev.map(p =>
+      p.scenario_id === scenario.scenario_id ? { ...p, rating: newRating } : p
+    ))
+
+    try {
+      if (newRating === null) {
+        await supabase
+          .from('scenario_ratings')
+          .delete()
+          .eq('customer_id', customerId)
+          .eq('scenario_master_id', scenario.scenario_id)
+      } else {
+        await supabase
+          .from('scenario_ratings')
+          .upsert({
+            customer_id: customerId,
+            scenario_master_id: scenario.scenario_id,
+            rating: newRating,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'customer_id,scenario_master_id' })
+      }
+    } catch (error) {
+      logger.error('評価保存エラー:', error)
+      showToast.error('評価の保存に失敗しました')
     }
   }
 
@@ -1546,22 +1620,34 @@ export default function MyPage() {
                 {/* シナリオグリッド */}
                 {playedScenarios.length > 0 ? (
                   <div>
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
                       <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                         <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
                         {showHiddenItems ? 'すべてのシナリオ（非表示・削除済み含む）' : '体験済みシナリオ'}
                       </h2>
-                      {showHiddenItems && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1"
-                          onClick={() => setShowHiddenItems(false)}
+                      <div className="flex items-center gap-2">
+                        {/* ソート */}
+                        <select
+                          value={albumSortOrder}
+                          onChange={e => setAlbumSortOrder(e.target.value as typeof albumSortOrder)}
+                          className="text-xs border border-gray-200 rounded px-2 py-1 bg-white text-gray-700"
                         >
-                          <Eye className="h-4 w-4" />
-                          <span className="text-xs">表示中のみ</span>
-                        </Button>
-                      )}
+                          <option value="date">体験日順</option>
+                          <option value="rating_desc">おすすめ度（高い順）</option>
+                          <option value="rating_asc">おすすめ度（低い順）</option>
+                        </select>
+                        {showHiddenItems && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => setShowHiddenItems(false)}
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span className="text-xs">表示中のみ</span>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -1572,6 +1658,23 @@ export default function MyPage() {
                           const isDeleted = deletedPlays.has(key)
                           if (showHiddenItems) return true
                           return !isHidden && !isDeleted
+                        })
+                        .sort((a, b) => {
+                          if (albumSortOrder === 'rating_desc') {
+                            return (b.rating ?? 0) - (a.rating ?? 0)
+                          }
+                          if (albumSortOrder === 'rating_asc') {
+                            const ra = a.rating ?? 6
+                            const rb = b.rating ?? 6
+                            return ra - rb
+                          }
+                          // date order (default)
+                          if (a.is_manual && !a.date && !(b.is_manual && !b.date)) return -1
+                          if (b.is_manual && !b.date && !(a.is_manual && !a.date)) return 1
+                          if (!a.date && !b.date) return 0
+                          if (!a.date) return 1
+                          if (!b.date) return -1
+                          return new Date(b.date).getTime() - new Date(a.date).getTime()
                         })
                         .map((scenario, index) => {
                         const isHidden = isScenarioHidden(scenario)
@@ -1657,6 +1760,28 @@ export default function MyPage() {
                                 <MoreVertical className="h-4 w-4 text-gray-500" />
                               </Button>
                             </div>
+                            {/* おすすめ度（星評価） */}
+                            {scenario.scenario_id && (
+                              <div className="flex items-center gap-0.5 mt-1.5">
+                                {[1, 2, 3, 4, 5].map(star => (
+                                  <button
+                                    key={star}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleRatingChange(scenario, star)
+                                    }}
+                                    className="p-0.5 hover:scale-110 transition-transform"
+                                    title={`おすすめ度 ${star}`}
+                                  >
+                                    <Star
+                                      className="h-3.5 w-3.5"
+                                      fill={scenario.rating && scenario.rating >= star ? '#f59e0b' : 'none'}
+                                      stroke={scenario.rating && scenario.rating >= star ? '#f59e0b' : '#d1d5db'}
+                                    />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                         )
