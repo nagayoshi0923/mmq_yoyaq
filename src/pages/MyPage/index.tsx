@@ -492,9 +492,9 @@ export default function MyPage() {
         })
       }
 
-      // 体験済みシナリオを構築
-      if (reservationData && reservationData.length > 0) {
-        const pastReservations = reservationData.filter(
+      // 体験済みシナリオを構築（予約履歴 + 手動登録、両方を常に処理）
+      {
+        const pastReservations = (reservationData || []).filter(
           r => new Date(r.requested_datetime) < new Date() && (r.status === 'confirmed' || r.status === 'gm_confirmed')
         )
         
@@ -519,7 +519,7 @@ export default function MyPage() {
           }
         })
         
-        // 手動登録履歴を追加（並列で取得済み）
+        // 手動登録履歴を追加（予約の有無に関わらず常に追加）
         const manualHistory = manualHistoryResult.data
         if (manualHistory) {
           manualHistory.forEach((item: any) => {
@@ -538,10 +538,15 @@ export default function MyPage() {
           })
         }
         
-        // 日付でソート（新しい順）、重複を除去
+        // 日付でソート（新しい順）、null日付は末尾へ、重複を除去
         const uniqueScenarioIds = new Set<string>()
         const uniquePlayed = played
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .sort((a, b) => {
+            if (!a.date && !b.date) return 0
+            if (!a.date) return 1
+            if (!b.date) return -1
+            return new Date(b.date).getTime() - new Date(a.date).getTime()
+          })
           .filter(p => {
             if (!p.scenario_id) return true
             if (uniqueScenarioIds.has(p.scenario_id)) return false
