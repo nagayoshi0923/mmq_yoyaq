@@ -26,7 +26,7 @@ export function FAQSettings() {
 
   // デバッグログ
   useEffect(() => {
-    console.log('[FAQSettings] organization:', organization?.name, 'is_license_manager:', organization?.is_license_manager, 'isLicenseManager:', isLicenseManager)
+    console.log('[FAQSettings] organization:', organization?.name, 'is_license_manager:', organization?.is_license_manager, 'isLicenseManager:', isLicenseManager, 'faq_items:', organization?.faq_items)
   }, [organization, isLicenseManager])
 
   useEffect(() => {
