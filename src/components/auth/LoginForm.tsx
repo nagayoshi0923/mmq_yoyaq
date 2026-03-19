@@ -169,34 +169,45 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
       } else if (mode === 'signup') {
         // 新規登録（Magic Link 方式）
         // signInWithOtp を使用：PKCE の code_verifier 問題を回避
-        // shouldCreateUser: true で新規ユーザーも作成される
         
-        // まず既存の customers をチェック（登録済みユーザーはログインに誘導）
-        const { data: existingCustomer } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle()
-        
-        if (existingCustomer) {
-          throw new Error('このメールアドレスは既に登録されています。ログインをお試しください。')
-        }
-        
-        const { error } = await supabase.auth.signInWithOtp({
+        // まず shouldCreateUser: false で既存ユーザーかチェック
+        const { error: checkError } = await supabase.auth.signInWithOtp({
           email,
           options: {
-            shouldCreateUser: true,
+            shouldCreateUser: false,
             emailRedirectTo: `${window.location.origin}/complete-profile`,
           }
         })
         
-        if (error) {
-          logger.error('signInWithOtp error:', error)
-          throw error
+        if (!checkError) {
+          // 既存ユーザー：ログインに誘導
+          logger.debug('既存ユーザー検出:', email)
+          throw new Error('このメールアドレスは既に登録されています。ログインタブからログインしてください。')
         }
         
-        logger.debug('Magic Link sent to:', email)
-        setMessage('確認メールを送信しました。メールのリンクをクリックして登録を完了してください。')
+        // 「Signups not allowed for otp」エラー = 新規ユーザー
+        if (checkError.message?.includes('Signups not allowed') || checkError.message?.includes('User not found')) {
+          // 新規ユーザー作成
+          const { error: signupError } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+              shouldCreateUser: true,
+              emailRedirectTo: `${window.location.origin}/complete-profile`,
+            }
+          })
+          
+          if (signupError) {
+            logger.error('signInWithOtp (signup) error:', signupError)
+            throw signupError
+          }
+          
+          logger.debug('Magic Link sent to (new user):', email)
+          setMessage('確認メールを送信しました。メールのリンクをクリックして登録を完了してください。')
+        } else {
+          // その他のエラー
+          logger.error('signInWithOtp (check) error:', checkError)
+          throw checkError
+        }
         
       } else {
         // ログイン
