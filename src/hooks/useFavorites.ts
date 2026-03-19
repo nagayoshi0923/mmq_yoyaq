@@ -127,13 +127,16 @@ export function useFavorites() {
       try {
         const { data: likesData, error } = await supabase
           .from('scenario_likes')
-          .select('scenario_id')
+          .select('scenario_id, scenario_master_id')
           .eq('customer_id', customerId)
 
         if (error) throw error
 
         if (likesData) {
-          const dbFavorites = new Set(likesData.map(like => like.scenario_id))
+          // scenario_master_id を優先、なければ scenario_id を使用
+          const dbFavorites = new Set(
+            likesData.map(like => like.scenario_master_id ?? like.scenario_id).filter(Boolean) as string[]
+          )
           setFavorites(dbFavorites)
           // ローカルストレージも更新
           localStorage.setItem(FAVORITES_KEY, JSON.stringify(Array.from(dbFavorites)))
@@ -177,22 +180,22 @@ export function useFavorites() {
     if (customerId) {
       try {
         if (isCurrentlyFavorite) {
-          // お気に入りから削除
+          // お気に入りから削除（scenario_master_id または scenario_id で検索）
           const { error } = await supabase
             .from('scenario_likes')
             .delete()
             .eq('customer_id', customerId)
-            .eq('scenario_id', scenarioId)
+            .or(`scenario_master_id.eq.${scenarioId},scenario_id.eq.${scenarioId}`)
 
           if (error) throw error
         } else {
-          // お気に入りに追加（organization_idを取得して設定）
+          // お気に入りに追加（scenario_master_id を使用）
           const orgId = await getCurrentOrganizationId() || DEFAULT_ORG_ID
           const { error } = await supabase
             .from('scenario_likes')
             .insert({
               customer_id: customerId,
-              scenario_id: scenarioId,
+              scenario_master_id: scenarioId,
               organization_id: orgId,
             })
 
