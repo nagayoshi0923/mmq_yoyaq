@@ -562,25 +562,27 @@ export function PlatformTop() {
               )}
             </div>
 
-            {/* 新規登録キャンペーンバナー（コンパクト版） */}
-            <div 
-              className="mt-8 cursor-pointer group"
-              onClick={() => navigate('/signup')}
-            >
+            {/* 新規登録キャンペーンバナー（コンパクト版）- 未ログインユーザーのみ表示 */}
+            {!user && (
               <div 
-                className="flex items-center justify-center gap-3 mx-auto max-w-md px-4 py-3 rounded-full transition-all group-hover:scale-[1.02]"
-                style={{ 
-                  background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
-                  boxShadow: '0 4px 16px rgba(255, 165, 0, 0.3)'
-                }}
+                className="mt-8 cursor-pointer group"
+                onClick={() => navigate('/signup')}
               >
-                <Gift className="w-5 h-5 text-white" />
-                <span className="text-white font-bold text-sm">
-                  4月限定｜新規登録で2,000円分クーポン
-                </span>
-                <ChevronRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
+                <div 
+                  className="flex items-center justify-center gap-3 mx-auto max-w-md px-4 py-3 rounded-full transition-all group-hover:scale-[1.02]"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                    boxShadow: '0 4px 16px rgba(255, 165, 0, 0.3)'
+                  }}
+                >
+                  <Gift className="w-5 h-5 text-white" />
+                  <span className="text-white font-bold text-sm">
+                    4月限定｜新規登録で2,000円分クーポン
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
