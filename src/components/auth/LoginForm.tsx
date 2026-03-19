@@ -180,9 +180,13 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         })
         
         if (error) {
-          // 重複メールアドレスのエラーを日本語化
+          // 重複メールアドレスのエラーは無視（確認メール再送信として扱う）
+          // セキュリティ上、既存ユーザーかどうかは知らせない
           if (error.message.includes('already registered') || error.message.includes('already exists')) {
-            throw new Error('このメールアドレスは既に登録されています。')
+            logger.debug('既存ユーザーへの再登録試行（確認メール再送信として扱う）')
+            // エラーをスローせず、成功メッセージを表示
+            setMessage('確認メールを送信しました。メールのリンクをクリックして登録を完了してください。')
+            return
           }
           throw error
         }
