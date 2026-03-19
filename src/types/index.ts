@@ -19,6 +19,7 @@ export interface Organization {
   post_performance_survey_url?: string | null  // 公演後アンケートURL（組織共通）
   post_performance_survey_enabled?: boolean  // 公演後アンケートを有効にするかどうか
   faq_items?: FAQItem[] | null  // 組織固有のFAQ項目
+  common_faq_items?: FAQItem[] | null  // MMQ共通FAQ項目（ライセンス管理者組織のみ）
   created_at: string
   updated_at: string
 }

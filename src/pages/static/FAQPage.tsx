@@ -18,8 +18,8 @@ interface FAQPageProps {
   organizationSlug?: string
 }
 
-// 共通FAQ
-const COMMON_FAQ_DATA: FAQItem[] = [
+// 共通FAQ（MMQ汎用）- exportして他で再利用
+export const COMMON_FAQ_DATA: FAQItem[] = [
   // 予約について
   {
     category: '予約について',
@@ -103,8 +103,31 @@ export function FAQPage({ organizationSlug: propSlug }: FAQPageProps = {}) {
   const [searchTerm, setSearchTerm] = useState('')
   const [openItems, setOpenItems] = useState<Set<number>>(new Set())
   const [organizationFAQ, setOrganizationFAQ] = useState<FAQItem[]>([])
+  const [commonFAQ, setCommonFAQ] = useState<FAQItem[]>(COMMON_FAQ_DATA)
   const [organizationName, setOrganizationName] = useState<string | null>(null)
-  const [loading, setLoading] = useState(!!slug)
+  const [loading, setLoading] = useState(true)
+
+  // 共通FAQをライセンス管理者組織から取得
+  useEffect(() => {
+    const fetchCommonFAQ = async () => {
+      try {
+        const { data } = await supabase
+          .from('organizations')
+          .select('common_faq_items')
+          .eq('is_license_manager', true)
+          .limit(1)
+          .maybeSingle()
+
+        if (data?.common_faq_items && Array.isArray(data.common_faq_items) && data.common_faq_items.length > 0) {
+          setCommonFAQ(data.common_faq_items as FAQItem[])
+        }
+      } catch {
+        // エラー時はデフォルトを使用
+      }
+    }
+
+    fetchCommonFAQ()
+  }, [])
 
   // 組織固有のFAQを取得
   useEffect(() => {
@@ -144,7 +167,7 @@ export function FAQPage({ organizationSlug: propSlug }: FAQPageProps = {}) {
   }, [slug])
 
   // 組織固有FAQと共通FAQを結合
-  const allFAQ = [...organizationFAQ, ...COMMON_FAQ_DATA]
+  const allFAQ = [...organizationFAQ, ...commonFAQ]
 
   // カテゴリーでグループ化
   const categories = Array.from(new Set(allFAQ.map(item => item.category || 'その他')))
