@@ -205,10 +205,8 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           })
         })
         setStoreMap(map)
-        const regularCount = storesResult.data.filter(s => s.ownership_type !== 'office' && !s.is_temporary).length
-        console.log('🏪 店舗一覧:', { total: storesResult.data.length, regular: regularCount, stores: storesResult.data.map(s => ({ id: s.id.substring(0, 8), name: s.name })) })
       } else {
-        console.warn('⚠️ 店舗データの取得に失敗:', storesResult.error)
+        logger.error('店舗データの取得に失敗:', storesResult.error)
       }
 
       const data = scenariosResult.data
@@ -263,26 +261,6 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           available_stores: viewStores || mapStores || []
         }
       })
-
-      // デバッグ: play_count の確認
-      if (scenariosWithAssignments.length > 0) {
-        // 生データの play_count を確認
-        const rawPlayCounts = (data || []).slice(0, 5).map(s => ({
-          title: s.title,
-          play_count: s.play_count,
-          play_count_type: typeof s.play_count
-        }))
-        console.log('🎯 raw data play_count (最初の5件):', rawPlayCounts)
-        
-        const withPlayCount = scenariosWithAssignments.filter(s => s.play_count != null && s.play_count > 0)
-        console.log('🎯 play_count > 0 のシナリオ数:', withPlayCount.length, '/', scenariosWithAssignments.length)
-        if (withPlayCount.length > 0) {
-          console.log('🎯 play_count トップ3:', withPlayCount.slice(0, 3).map(s => ({
-            title: s.title,
-            play_count: s.play_count
-          })))
-        }
-      }
 
       setScenarios(scenariosWithAssignments)
     } catch (err) {
@@ -457,8 +435,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       // RPC の結果を確認
       if (!data?.success) {
         logger.error('Update failed:', data)
-        const debugInfo = data?.debug ? ` (user_org: ${data.debug.user_org_id}, scenario_org: ${data.debug.scenario_org_id}, uid: ${data.debug.user_id})` : ''
-        toast.error(`${data?.error || 'ステータス更新に失敗しました'}${debugInfo}`)
+        toast.error(data?.error || 'ステータス更新に失敗しました')
         setScenarios(prev => prev.map(s => 
           s.id === scenario.id ? { ...s, org_status: previousStatus } : s
         ))
@@ -496,8 +473,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       // RPC の結果を確認
       if (!data?.success) {
         logger.error('Delete failed:', data)
-        const debugInfo = data?.debug ? ` (user_org: ${data.debug.user_org_id}, scenario_org: ${data.debug.scenario_org_id}, uid: ${data.debug.user_id})` : ''
-        toast.error(`${data?.error || '解除に失敗しました'}${debugInfo}`)
+        toast.error(data?.error || '解除に失敗しました')
         return
       }
 
