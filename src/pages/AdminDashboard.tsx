@@ -113,6 +113,12 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   const path = pathname.startsWith('/') ? pathname.substring(1) : pathname
   const segments = path.split('/')
   
+  // 認証トークンがパスに含まれている場合（Supabase リダイレクトの問題対応）
+  // implicit フローで #access_token ではなく /access_token になることがある
+  if (path.includes('access_token=') || segments[0]?.startsWith('access_token=')) {
+    return { page: 'complete-profile', scenarioId: null, organizationSlug: null }
+  }
+  
   // 空パスはプラットフォームトップ
   if (!path || path === '') {
     return { page: 'platform-top', scenarioId: null, organizationSlug: null }

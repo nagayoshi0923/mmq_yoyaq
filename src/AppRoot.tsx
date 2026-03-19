@@ -116,6 +116,29 @@ function FullPageSpinner() {
   )
 }
 
+// Supabase implicit フローで認証トークンがパスに含まれる問題を修正
+// /access_token=xxx&... を /complete-profile#access_token=xxx&... にリダイレクト
+function AuthTokenPathRedirect() {
+  React.useEffect(() => {
+    const pathname = window.location.pathname
+    const fullUrl = window.location.href
+    
+    // パスに access_token= が含まれている場合
+    if (pathname.includes('access_token=') || fullUrl.includes('/access_token=')) {
+      // URLからトークン部分を抽出
+      const tokenMatch = fullUrl.match(/[/?]?(access_token=[^#]*)/)
+      if (tokenMatch) {
+        const tokenParams = tokenMatch[1]
+        // /complete-profile#access_token=... にリダイレクト
+        const newUrl = `${window.location.origin}/complete-profile#${tokenParams}`
+        window.location.replace(newUrl)
+      }
+    }
+  }, [])
+  
+  return null
+}
+
 // 後方互換性: ハッシュURLをパスURLにリダイレクト
 function HashRedirect() {
   const location = useLocation()
@@ -347,6 +370,7 @@ function AppRoutes() {
 function AppContent() {
   return (
     <>
+      <AuthTokenPathRedirect />
       <ScrollToTop />
       <HashRedirect />
       <AppRoutes />
