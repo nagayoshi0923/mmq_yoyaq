@@ -21,6 +21,11 @@ export function FAQSettings() {
   const [commonFaqItems, setCommonFaqItems] = useState<FAQItem[]>([])
   const [saving, setSaving] = useState(false)
 
+  // デバッグログ
+  useEffect(() => {
+    console.log('[FAQSettings] organization:', organization?.name, 'is_license_manager:', organization?.is_license_manager, 'isLicenseManager:', isLicenseManager)
+  }, [organization, isLicenseManager])
+
   useEffect(() => {
     if (organization?.faq_items) {
       setFaqItems(organization.faq_items)
