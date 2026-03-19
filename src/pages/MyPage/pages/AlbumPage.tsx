@@ -73,6 +73,7 @@ export function AlbumPage() {
   const [newScenarioId, setNewScenarioId] = useState('')
   const [newPlayedAt, setNewPlayedAt] = useState('')
   const [newStoreId, setNewStoreId] = useState('')
+  const [newRating, setNewRating] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   
   // 選択肢用データ
@@ -364,8 +365,8 @@ export function AlbumPage() {
 
   // 手動登録を追加
   const handleAddManualHistory = async () => {
-    if (!customerId || !newScenarioId || !newPlayedAt) {
-      showToast.error('シナリオと日付は必須です')
+    if (!customerId || !newScenarioId) {
+      showToast.error('シナリオは必須です')
       return
     }
 
@@ -387,17 +388,29 @@ export function AlbumPage() {
           scenario_title: scenarioTitle,
           scenario_id: null,
           scenario_master_id: newScenarioId,
-          played_at: newPlayedAt,
+          played_at: newPlayedAt || null,
           venue: storeName,
         })
 
       if (error) throw error
+
+      // おすすめ度が設定されている場合は scenario_ratings に保存
+      if (newRating > 0) {
+        await supabase
+          .from('scenario_ratings')
+          .upsert({
+            customer_id: customerId,
+            scenario_master_id: newScenarioId,
+            rating: newRating,
+          }, { onConflict: 'customer_id,scenario_master_id' })
+      }
 
       showToast.success('プレイ履歴を追加しました')
       setIsAddDialogOpen(false)
       setNewScenarioId('')
       setNewPlayedAt('')
       setNewStoreId('')
+      setNewRating(0)
       fetchPlayedScenarios()
     } catch (error) {
       logger.error('手動履歴追加エラー:', error)
@@ -617,7 +630,7 @@ export function AlbumPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>プレイした日付 *</Label>
+                  <Label>プレイした日付（任意）</Label>
                   <SingleDatePopover
                     date={newPlayedAt}
                     onDateChange={(date) => setNewPlayedAt(date || '')}
@@ -640,9 +653,35 @@ export function AlbumPage() {
                     allowClear={true}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>おすすめ度（任意）</Label>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setNewRating(newRating === star ? 0 : star)}
+                        className="p-0.5 focus:outline-none"
+                      >
+                        <Star
+                          className={`h-7 w-7 transition-colors ${
+                            star <= newRating
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-gray-300 hover:text-yellow-300'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                    {newRating > 0 && (
+                      <span className="text-xs text-muted-foreground ml-1">
+                        {newRating === 1 ? 'いまいち' : newRating === 2 ? 'まあまあ' : newRating === 3 ? '良かった' : newRating === 4 ? 'とても良かった' : '最高！'}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <Button 
                   onClick={handleAddManualHistory} 
-                  disabled={isSubmitting || !newScenarioId || !newPlayedAt}
+                  disabled={isSubmitting || !newScenarioId}
                   className="w-full"
                 >
                   {isSubmitting ? '追加中...' : '追加'}
