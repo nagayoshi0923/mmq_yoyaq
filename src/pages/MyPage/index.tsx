@@ -542,10 +542,13 @@ export default function MyPage() {
           })
         }
         
-        // 日付でソート（新しい順）、null日付は末尾へ、重複を除去
+        // 日付でソート（新しい順）、手動登録(null日付)は先頭に、重複を除去
         const uniqueScenarioIds = new Set<string>()
         const uniquePlayed = played
           .sort((a, b) => {
+            // 手動登録(is_manual)でdate nullは先頭に表示
+            if (a.is_manual && !a.date && !(b.is_manual && !b.date)) return -1
+            if (b.is_manual && !b.date && !(a.is_manual && !a.date)) return 1
             if (!a.date && !b.date) return 0
             if (!a.date) return 1
             if (!b.date) return -1
@@ -557,7 +560,7 @@ export default function MyPage() {
             uniqueScenarioIds.add(p.scenario_id)
             return true
           })
-          .slice(0, 12)
+          .slice(0, 50)
         
         setPlayedScenarios(uniquePlayed)
       }
