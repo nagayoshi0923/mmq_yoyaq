@@ -65,9 +65,15 @@ interface EventWithOrg {
 interface ScenarioCharacter {
   id: string
   name: string
-  description: string | null
-  image_url: string | null
+  description?: string | null
+  image_url?: string | null
   sort_order: number
+  is_npc?: boolean
+  gender?: string
+  age?: string | null
+  occupation?: string | null
+  background_color?: string | null
+  image_position?: string | null
 }
 
 export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGlobalProps) {
@@ -880,24 +886,46 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                 <div className="p-4">
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     {[...characters].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((char, index) => (
-                      <div key={char.id ?? index} className="group">
-                        <div className="relative overflow-hidden" style={{ borderRadius: 0 }}>
+                      <div
+                        key={char.id ?? index}
+                        className={`rounded-lg p-3 text-center ${char.is_npc ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}
+                      >
+                        {/* キャラクター画像 */}
+                        <div
+                          className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden border-2 border-gray-200"
+                          style={{ backgroundColor: char.background_color || 'transparent' }}
+                        >
                           {char.image_url ? (
                             <img
                               src={char.image_url}
                               alt={char.name}
-                              className="w-full aspect-[3/4] object-cover shadow-sm group-hover:scale-105 transition-transform"
-                              style={{ borderRadius: 0 }}
+                              className="w-full h-full object-cover"
+                              style={{
+                                objectPosition: char.image_position
+                                  ? (char.image_position.includes(' ')
+                                      ? `${char.image_position.split(' ')[0]}% ${char.image_position.split(' ')[1]}%`
+                                      : `center ${char.image_position}`)
+                                  : '50% 50%'
+                              }}
                             />
                           ) : (
-                            <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center" style={{ borderRadius: 0 }}>
+                            <div className="w-full h-full bg-gray-100 flex items-center justify-center">
                               <Users className="w-6 h-6 text-gray-300" />
                             </div>
                           )}
                         </div>
-                        <p className="font-medium text-gray-900 text-sm mt-2 text-center">{char.name}</p>
+                        {/* NPC バッジ */}
+                        {char.is_npc && (
+                          <span className="inline-block text-[10px] px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded mb-1">NPC</span>
+                        )}
+                        <p className="font-medium text-gray-900 text-sm">{char.name}</p>
+                        {(char.age || char.occupation) && (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {[char.age, char.occupation].filter(Boolean).join(' / ')}
+                          </p>
+                        )}
                         {char.description && (
-                          <p className="text-xs text-gray-500 mt-1 text-center line-clamp-2">{char.description}</p>
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{char.description}</p>
                         )}
                       </div>
                     ))}
