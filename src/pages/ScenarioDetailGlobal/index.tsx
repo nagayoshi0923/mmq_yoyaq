@@ -72,6 +72,7 @@ interface ScenarioCharacter {
   gender?: string
   age?: string | null
   occupation?: string | null
+  first_person?: string | null
   background_color?: string | null
   image_position?: string | null
 }
@@ -929,6 +930,9 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                         >
                           <p className="font-semibold text-white text-xs leading-tight drop-shadow">
                             {char.name}
+                            {char.first_person && (
+                              <span className="ml-1 font-normal text-white/70">（{char.first_person}）</span>
+                            )}
                           </p>
                           {(char.age || char.occupation) && (
                             <p className="text-[10px] text-white/80 mt-0.5 leading-tight">

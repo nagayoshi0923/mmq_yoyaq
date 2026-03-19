@@ -9,6 +9,7 @@ export interface ScenarioCharacter {
   gender: 'male' | 'female' | 'any' | 'other' | 'unknown'
   age?: string | null
   occupation?: string | null
+  first_person?: string | null
   description?: string | null
   image_url?: string | null
   is_npc?: boolean

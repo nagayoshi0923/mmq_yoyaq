@@ -77,12 +77,15 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
       )}
 
       {/* テキストオーバーレイ（下部グラデーション） */}
-      <div
+        <div
         className="absolute bottom-0 left-0 right-0 px-2 pt-6 pb-2"
         style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
       >
         <p className="font-semibold text-white text-xs leading-tight drop-shadow">
           {character.name}
+          {character.first_person && (
+            <span className="ml-1 font-normal text-white/70">（{character.first_person}）</span>
+          )}
         </p>
         <div className="text-[10px] text-white/80 mt-0.5 leading-tight">
           {(character.gender !== 'unknown' || character.age) && (

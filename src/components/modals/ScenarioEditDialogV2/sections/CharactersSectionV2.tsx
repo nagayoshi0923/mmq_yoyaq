@@ -69,6 +69,7 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
       gender: 'unknown',
       age: null,
       occupation: null,
+      first_person: null,
       description: null,
       image_url: null,
       url: null,
@@ -397,8 +398,8 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                       </div>
                     </div>
 
-                    {/* 2行目: 年齢・職業 */}
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* 2行目: 年齢・職業・一人称 */}
+                    <div className="grid grid-cols-3 gap-2">
                       <div>
                         <Label className={labelStyle}>年齢（任意）</Label>
                         <Input
@@ -406,7 +407,7 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                           onChange={(e) => updateCharacter(character.id, { 
                             age: e.target.value || null 
                           })}
-                          placeholder="例: 25歳、20代後半"
+                          placeholder="例: 25歳"
                           className={inputStyle}
                         />
                       </div>
@@ -417,7 +418,18 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                           onChange={(e) => updateCharacter(character.id, { 
                             occupation: e.target.value || null 
                           })}
-                          placeholder="例: 探偵、医師"
+                          placeholder="例: 探偵"
+                          className={inputStyle}
+                        />
+                      </div>
+                      <div>
+                        <Label className={labelStyle}>一人称（任意）</Label>
+                        <Input
+                          value={character.first_person || ''}
+                          onChange={(e) => updateCharacter(character.id, { 
+                            first_person: e.target.value || null 
+                          })}
+                          placeholder="例: 私、僕、俺"
                           className={inputStyle}
                         />
                       </div>
