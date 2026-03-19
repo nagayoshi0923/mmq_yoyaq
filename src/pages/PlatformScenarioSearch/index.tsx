@@ -85,7 +85,7 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
         organization_id, status, scenario_master_id, available_stores,
         organizations:organization_id (slug, name)
       `)
-      .in('status', ['available', 'unavailable'])
+      .in('status', ['available', 'coming_soon'])
       .order('title'),
     // 店舗データを取得（available_storesのIDを名前に変換するため）
     supabase
@@ -219,6 +219,21 @@ export function PlatformScenarioSearch() {
     return Array.from(orgMap.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
   }, [scenarios])
 
+  // 実際に存在する所要時間の選択肢を動的生成
+  const availableDurations = useMemo(() => {
+    const durationSet = new Set<number>()
+    scenarios.forEach(s => { if (s.duration) durationSet.add(s.duration) })
+    return Array.from(durationSet).sort((a, b) => a - b)
+  }, [scenarios])
+
+  const formatDuration = (minutes: number) => {
+    const h = Math.floor(minutes / 60)
+    const m = minutes % 60
+    if (h === 0) return `${m}分`
+    if (m === 0) return `${h}時間`
+    return `${h}時間${m}分`
+  }
+
   // フィルタリング
   const filteredScenarios = useMemo(() => {
     return scenarios.filter(scenario => {
@@ -237,17 +252,9 @@ export function PlatformScenarioSearch() {
         if (!scenario.genre?.includes(selectedGenre)) return false
       }
       
-      // 所要時間フィルター
+      // 所要時間フィルター（完全一致）
       if (selectedDuration !== 'all') {
-        const duration = scenario.duration
-        const maxDuration = parseInt(selectedDuration)
-        if (selectedDuration === '901') {
-          // 15時間以上
-          if (duration < 900) return false
-        } else {
-          // 指定時間以下
-          if (duration > maxDuration) return false
-        }
+        if (scenario.duration !== parseInt(selectedDuration)) return false
       }
       
       // プレイ人数フィルター
@@ -432,23 +439,9 @@ export function PlatformScenarioSearch() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">すべての時間</SelectItem>
-                  <SelectItem value="60">〜1時間</SelectItem>
-                  <SelectItem value="90">〜1.5時間</SelectItem>
-                  <SelectItem value="120">〜2時間</SelectItem>
-                  <SelectItem value="150">〜2.5時間</SelectItem>
-                  <SelectItem value="180">〜3時間</SelectItem>
-                  <SelectItem value="210">〜3.5時間</SelectItem>
-                  <SelectItem value="240">〜4時間</SelectItem>
-                  <SelectItem value="270">〜4.5時間</SelectItem>
-                  <SelectItem value="300">〜5時間</SelectItem>
-                  <SelectItem value="360">〜6時間</SelectItem>
-                  <SelectItem value="420">〜7時間</SelectItem>
-                  <SelectItem value="480">〜8時間</SelectItem>
-                  <SelectItem value="540">〜9時間</SelectItem>
-                  <SelectItem value="600">〜10時間</SelectItem>
-                  <SelectItem value="720">〜12時間</SelectItem>
-                  <SelectItem value="900">〜15時間</SelectItem>
-                  <SelectItem value="901">15時間〜</SelectItem>
+                  {availableDurations.map(d => (
+                    <SelectItem key={d} value={d.toString()}>{formatDuration(d)}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               
