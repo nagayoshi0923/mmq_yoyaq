@@ -79,7 +79,7 @@ export function PrivateGroupCreate() {
           .select('*')
           .eq('organization_id', organizationId)
           .eq('status', 'active')
-          .neq('ownership_type', 'office')
+          .or('ownership_type.neq.office,ownership_type.is.null')
 
         if (storesError) throw storesError
         setStores(storesData || [])
@@ -513,7 +513,7 @@ export function PrivateGroupCreate() {
 
                 <Button
                   onClick={handleSubmit}
-                  disabled={groupLoading || selectedStoreIds.length === 0}
+                  disabled={groupLoading}
                   className="w-full bg-purple-600 hover:bg-purple-700"
                 >
                   {groupLoading ? '作成中...' : 'グループを作成'}
