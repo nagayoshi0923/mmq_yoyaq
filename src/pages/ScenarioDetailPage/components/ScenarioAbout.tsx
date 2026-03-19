@@ -1,30 +1,13 @@
-import { memo, useState, useMemo } from 'react'
+import { memo, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Clock, Users, ChevronDown, BookOpen, AlertTriangle, UserCircle, Building2, User } from 'lucide-react'
+import { Users, ChevronDown, BookOpen, AlertTriangle, User } from 'lucide-react'
 import type { ScenarioDetail, ScenarioCharacter } from '../utils/types'
-import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 
-interface Store {
-  id: string
-  name: string
-  short_name?: string
-}
-
 interface ScenarioAboutProps {
   scenario: ScenarioDetail
-  stores?: Store[]
-}
-
-// 男女比の表示文字列を生成
-function formatGenderRatio(male?: number | null, female?: number | null, other?: number | null): string | null {
-  const parts: string[] = []
-  if (male != null) parts.push(`男性${male}人`)
-  if (female != null) parts.push(`女性${female}人`)
-  if (other != null) parts.push(`その他${other}人`)
-  return parts.length > 0 ? parts.join(' / ') : null
+  stores?: { id: string; name: string; short_name?: string }[]
 }
 
 // 性別の表示ラベル
@@ -107,23 +90,10 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
   )
 }
 
-export const ScenarioAbout = memo(function ScenarioAbout({ scenario, stores = [] }: ScenarioAboutProps) {
+export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioAboutProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const synopsisLength = scenario.synopsis?.length || 0
   const shouldTruncate = synopsisLength > 200
-  
-  // 男女比が設定されているかどうか
-  const hasGenderRatio = scenario.male_count != null || scenario.female_count != null || scenario.other_count != null
-  const genderRatioText = formatGenderRatio(scenario.male_count, scenario.female_count, scenario.other_count)
-  
-  // 公演可能店舗名を取得
-  const availableStoreNames = useMemo(() => {
-    if (!scenario.available_stores || scenario.available_stores.length === 0) return []
-    const storeMap = new Map(stores.map(s => [s.id, s.short_name || s.name]))
-    return scenario.available_stores
-      .map(id => storeMap.get(id))
-      .filter((name): name is string => !!name)
-  }, [scenario.available_stores, stores])
 
   return (
     <div className="space-y-4">
@@ -198,51 +168,6 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario, stores = []
         </div>
       )}
 
-      {/* 基本情報 */}
-      <div className="bg-white border border-gray-200 p-4">
-        <h4 className="font-semibold text-gray-900 mb-3 text-sm">シナリオ情報</h4>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-gray-400" />
-            <div>
-              <span className="text-gray-500 text-xs">プレイ人数</span>
-              <p className="font-medium text-gray-900">{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-gray-400" />
-            <div>
-              <span className="text-gray-500 text-xs">プレイ時間</span>
-              <p className="font-medium text-gray-900">{formatDuration(scenario.duration, 'minutes')}</p>
-            </div>
-          </div>
-          {hasGenderRatio && (
-            <div className="flex items-center gap-2 col-span-2">
-              <UserCircle className="w-4 h-4 text-gray-400" />
-              <div>
-                <span className="text-gray-500 text-xs">男女比</span>
-                <p className="font-medium text-gray-900">{genderRatioText}</p>
-              </div>
-            </div>
-          )}
-          {availableStoreNames.length > 0 && (
-            <div className="flex items-start gap-2 col-span-2">
-              <Building2 className="w-4 h-4 text-gray-400 mt-0.5" />
-              <div>
-                <span className="text-gray-500 text-xs">公演可能店舗</span>
-                <p className="font-medium text-gray-900">{availableStoreNames.join('・')}</p>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-gray-100">
-          {scenario.genre.map((g, i) => (
-            <Badge key={i} variant="outline" className="text-xs">
-              {g}
-            </Badge>
-          ))}
-        </div>
-      </div>
     </div>
   )
 })

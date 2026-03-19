@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from 'react'
+import { memo, useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,7 +6,7 @@ import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { Label } from '@/components/ui/label'
-import { Clock, Users, ExternalLink, Star, Share2, Heart, UserPlus, CheckCheck } from 'lucide-react'
+import { Clock, Users, ExternalLink, Star, Share2, Heart, UserPlus, CheckCheck, Building2, UserCircle } from 'lucide-react'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -25,19 +25,41 @@ const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
   5: { label: '上級者向け', color: 'bg-red-500' },
 }
 
+interface Store {
+  id: string
+  name: string
+  short_name?: string
+}
+
 interface ScenarioHeroProps {
   scenario: ScenarioDetail
   events?: EventSchedule[]
   organizationSlug?: string
+  stores?: Store[]
 }
 
 /**
  * シナリオヒーローセクション（キービジュアル + タイトル + 基本情報）
  */
-export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], organizationSlug }: ScenarioHeroProps) {
+export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], organizationSlug, stores = [] }: ScenarioHeroProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
+
+  // 公演可能店舗名
+  const availableStoreNames = useMemo(() => {
+    if (!scenario.available_stores || scenario.available_stores.length === 0) return []
+    const storeMap = new Map(stores.map(s => [s.id, s.short_name || s.name]))
+    return scenario.available_stores.map(id => storeMap.get(id)).filter((n): n is string => !!n)
+  }, [scenario.available_stores, stores])
+
+  // 男女比
+  const hasGenderRatio = scenario.male_count != null || scenario.female_count != null || scenario.other_count != null
+  const genderRatioParts: string[] = []
+  if (scenario.male_count != null) genderRatioParts.push(`男性${scenario.male_count}人`)
+  if (scenario.female_count != null) genderRatioParts.push(`女性${scenario.female_count}人`)
+  if (scenario.other_count != null) genderRatioParts.push(`その他${scenario.other_count}人`)
+  const genderRatioText = genderRatioParts.join(' / ')
   const scenarioIsFavorite = isFavorite(scenario.scenario_id)
   
   // 体験済み登録用ステート
@@ -258,7 +280,23 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
               </div>
             </div>
 
-            {/* ジャンルタグ + シェアを1行に */}
+              {/* 公演可能店舗 */}
+            {availableStoreNames.length > 0 && (
+              <div className="flex items-start gap-1.5 text-xs text-white/70">
+                <Building2 className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                <span>{availableStoreNames.join('・')}</span>
+              </div>
+            )}
+
+            {/* 男女比 */}
+            {hasGenderRatio && (
+              <div className="flex items-center gap-1.5 text-xs text-white/70">
+                <UserCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>{genderRatioText}</span>
+              </div>
+            )}
+
+            {/* ジャンルタグ */}
             <div className="flex flex-wrap items-center gap-1.5">
               {scenario.genre.map((g, i) => (
                 <span key={i} className="text-xs text-white/70 border border-white/20 px-1.5 py-0.5">
