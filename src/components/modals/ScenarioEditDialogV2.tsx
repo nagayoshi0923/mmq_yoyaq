@@ -139,8 +139,16 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const deleteMutation = useDeleteScenarioMutation()
   const { user } = useAuth()
   const isLicenseAdmin = user?.role === 'license_admin'
-  const isOrgAdmin = user?.role === 'admin' || user?.role === 'owner'
+  const isOrgAdmin = user?.role === 'admin'
   const canDeleteScenario = isLicenseAdmin || isOrgAdmin
+  
+  // クインズワルツの組織ID
+  const QUEENS_WALTZ_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
+  
+  // クインズワルツの管理者はマスター編集権限を持つ
+  const isQueensWaltzAdmin = isOrgAdmin && currentOrgId === QUEENS_WALTZ_ORG_ID
+  const canEditMaster = isLicenseAdmin || isQueensWaltzAdmin
   
   // マスター編集ダイアログ（MMQ運営者用）
   const [masterEditDialogOpen, setMasterEditDialogOpen] = useState(false)
@@ -166,6 +174,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       const org = await getCurrentOrganization()
       setOrganizationName(org?.name || '')
       setOrganizationSlug(org?.slug || '')
+      setCurrentOrgId(org?.id || null)
     }
     fetchOrg()
   }, [])
@@ -1267,8 +1276,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   {organizationName}
                 </span>
               )}
-              {/* MMQ運営者用：マスター編集ボタン */}
-              {isLicenseAdmin && currentMasterId && (
+              {/* MMQ運営者・クインズワルツ管理者用：マスター編集ボタン */}
+              {canEditMaster && currentMasterId && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -1507,8 +1516,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             >
               下書き
             </Button>
-            {/* マスターに反映ボタン（license_admin のみ） */}
-            {isLicenseAdmin && currentMasterId && masterDiffs.count > 0 && (
+            {/* マスターに反映ボタン（license_admin or クインズワルツ管理者） */}
+            {canEditMaster && currentMasterId && masterDiffs.count > 0 && (
               <Button 
                 variant="outline"
                 onClick={handleApplyToMaster}
@@ -1534,8 +1543,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         onSelect={handleMasterSelect}
       />
       
-      {/* MMQ運営者用：マスター編集ダイアログ */}
-      {isLicenseAdmin && currentMasterId && (
+      {/* MMQ運営者・クインズワルツ管理者用：マスター編集ダイアログ */}
+      {canEditMaster && currentMasterId && (
         <ScenarioMasterEditDialog
           open={masterEditDialogOpen}
           onOpenChange={setMasterEditDialogOpen}
