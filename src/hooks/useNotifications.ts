@@ -164,6 +164,32 @@ export function useNotifications() {
           data: { waitlistId: wl.id }
         })
       })
+
+      // キャンセルされた予約の通知（7日以内）
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const { data: cancelledReservations } = await supabase
+        .from('reservations')
+        .select('id, reservation_number, title, cancelled_at, requested_datetime, cancellation_reason')
+        .eq('customer_id', customer.id)
+        .eq('status', 'cancelled')
+        .gte('cancelled_at', sevenDaysAgo.toISOString())
+        .order('cancelled_at', { ascending: false })
+        .limit(5)
+
+      cancelledReservations?.forEach(res => {
+        const notifId = `reservation_cancelled_${res.id}`
+        const eventDate = res.requested_datetime ? new Date(res.requested_datetime).toLocaleDateString('ja-JP') : ''
+        newNotifications.push({
+          id: notifId,
+          type: 'reservation_cancelled',
+          title: '予約がキャンセルされました',
+          message: `「${res.title}」${eventDate}`,
+          timestamp: new Date(res.cancelled_at),
+          read: readIds.has(notifId),
+          link: '/mypage',
+          data: { reservationId: res.id, reservationNumber: res.reservation_number, cancellationReason: res.cancellation_reason }
+        })
+      })
     }
 
     // タイムスタンプでソート（新しい順）

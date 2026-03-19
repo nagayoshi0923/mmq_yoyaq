@@ -129,6 +129,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
         .from('stores')
         .select('id, name, short_name')
         .eq('status', 'active')
+        .neq('is_temporary', true)
         .or('ownership_type.neq.office,ownership_type.is.null')
         .order('name')
       setAllStores(data || [])

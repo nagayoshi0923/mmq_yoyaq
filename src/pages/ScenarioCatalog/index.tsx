@@ -118,7 +118,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
         let scenariosQuery = supabase
           .from('organization_scenarios_with_master')
           .select('id, org_scenario_id, slug, title, author, key_visual_url, duration, player_count_min, player_count_max, genre, participation_fee, difficulty, release_date, status, scenario_master_id, available_stores, is_recommended, scenario_type, organization_id')
-          .in('status', ['available', 'coming_soon'])
+          .eq('status', 'available')
           .neq('scenario_type', 'gm_test')
           .order('title', { ascending: true })
         if (orgId) {
@@ -184,10 +184,23 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     loadScenarios()
   }, [])
 
-  // ジャンル一覧（organization_categoriesから取得）
+  // ジャンル一覧（シナリオの登録数が多い順にソート）
   const genres = useMemo(() => {
-    return categories.map(c => c.name)
-  }, [categories])
+    // シナリオのgenreからカテゴリの出現回数をカウント
+    const genreCount = new Map<string, number>()
+    scenarios.forEach(scenario => {
+      scenario.genre?.forEach(g => {
+        genreCount.set(g, (genreCount.get(g) || 0) + 1)
+      })
+    })
+    
+    // organization_categoriesに登録されているカテゴリのみ、登録数順でソート
+    const categoryNames = new Set(categories.map(c => c.name))
+    return Array.from(genreCount.entries())
+      .filter(([name]) => categoryNames.has(name))
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name)
+  }, [categories, scenarios])
 
   // 実際に存在する所要時間の選択肢を動的生成（シナリオのdurationから）
   const availableDurations = useMemo(() => {

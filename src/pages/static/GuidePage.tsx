@@ -1,407 +1,155 @@
 /**
- * 初めての方へ / 遊び方ガイドページ
+ * 初めての方へ / 使い方ガイドページ
  * @path /guide
+ * 組織トップのHowToUseGuideと同じ内容を表示
  */
 import { PublicLayout } from '@/components/layout/PublicLayout'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Button } from '@/components/ui/button'
 import { 
-  BookOpen, ChevronRight, Users, Clock, MessageCircle, 
-  Search, Shield, Sparkles, CheckCircle, ArrowRight,
-  Target, Brain, Drama, UserCheck, Home, UserPlus
+  BookOpen, ChevronRight, Calendar, Clock, Users, HelpCircle, ArrowRight
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-
-const STEPS = [
-  {
-    number: 1,
-    title: 'シナリオを選ぶ',
-    description: 'お好みのテーマや人数に合わせてシナリオを検索。初心者向けマークがついたシナリオがおすすめです。',
-    icon: Search,
-  },
-  {
-    number: 2,
-    title: '日時・店舗を選んで予約',
-    description: 'カレンダーから都合の良い日時を選択。友達と参加する場合は人数分まとめて予約できます。',
-    icon: Clock,
-  },
-  {
-    number: 3,
-    title: '当日、店舗へ',
-    description: '予約時の注意事項を確認し、指定の時間に到着。スタッフがルールを丁寧に説明しますので、初めてでも安心です。',
-    icon: UserCheck,
-  },
-  {
-    number: 4,
-    title: '事件発生！推理開始',
-    description: 'キャラクターになりきって議論。証拠を集め、嘘を見抜き、真犯人を見つけ出しましょう！',
-    icon: Target,
-  },
-]
-
-const FEATURES = [
-  {
-    icon: Drama,
-    title: 'ロールプレイを楽しむ',
-    description: '配られた役になりきって演じます。普段の自分とは違う人格を体験できる非日常感が魅力です。',
-  },
-  {
-    icon: Brain,
-    title: '推理する',
-    description: '証拠を集め、矛盾を見つけ、真実を追求。論理的思考力を活かして謎を解き明かしましょう。',
-  },
-  {
-    icon: MessageCircle,
-    title: '議論する',
-    description: '他の参加者と情報を交換し、議論を重ねます。コミュニケーション能力が試される場面も。',
-  },
-  {
-    icon: Shield,
-    title: '秘密を守る',
-    description: '自分だけが知る秘密を持っています。どこまで明かし、何を隠すかはあなた次第。',
-  },
-]
 
 export function GuidePage() {
   return (
     <PublicLayout>
       {/* ヒーロー */}
       <section 
-        className="relative overflow-hidden py-16 md:py-24"
+        className="relative overflow-hidden py-12 md:py-16"
         style={{ backgroundColor: THEME.primary }}
       >
         <div 
-          className="absolute top-0 right-0 w-96 h-96 opacity-20"
+          className="absolute top-0 right-0 w-64 h-64 opacity-20"
           style={{ 
             background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
             transform: 'translate(30%, -30%)'
           }}
         />
-        <div 
-          className="absolute bottom-0 left-0 w-2 h-32"
-          style={{ backgroundColor: THEME.accent }}
-        />
-        <div className="max-w-4xl mx-auto px-4 relative text-center">
+        <div className="max-w-2xl mx-auto px-4 relative text-center">
           <div className="flex items-center justify-center gap-2 text-white/80 text-sm mb-4">
             <Link to="/" className="hover:text-white transition-colors">ホーム</Link>
             <ChevronRight className="w-4 h-4" />
-            <span>初めての方へ</span>
+            <span>使い方</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-6 flex items-center justify-center gap-3">
-            <BookOpen className="w-10 h-10" />
-            初めての方へ
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-4 flex items-center justify-center gap-3">
+            <HelpCircle className="w-8 h-8" />
+            ご予約ガイド
           </h1>
-          <p className="text-xl text-white/90 max-w-2xl mx-auto">
-            マーダーミステリーは、参加者全員が物語の登場人物となり、<br className="hidden md:block" />
-            起こった事件の真相を解き明かす体験型ゲームです。
+          <p className="text-lg text-white/90">
+            かんたん3ステップで予約できます
           </p>
         </div>
       </section>
 
-      {/* マーダーミステリーとは */}
-      <section className="max-w-4xl mx-auto px-4 py-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
-          マーダーミステリーとは？
-        </h2>
-        <div className="bg-gray-50 p-8 border border-gray-200 mb-8">
-          <p className="text-lg text-gray-700 leading-relaxed text-center">
-            マーダーミステリーは、<strong>「あなた自身が物語の登場人物になる」</strong>体験型推理ゲームです。<br /><br />
-            参加者はそれぞれキャラクターを担当し、設定された物語の中で発生した事件の謎を解き明かします。<br />
-            キャラクターには「あなただけが知っている秘密」が設定されており、<br />
-            何を話し、何を隠すかはあなた次第。<br /><br />
-            <span className="text-red-600 font-semibold">真実を暴くのか、それとも隠し通すのか——</span><br />
-            予測不能な展開と、一度きりの物語をお楽しみください。
-          </p>
-        </div>
-
-        {/* 特徴 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {FEATURES.map((feature, index) => (
-            <div key={index} className="bg-white p-6 border border-gray-200 hover:shadow-lg transition-shadow">
+      {/* ステップ説明 */}
+      <section className="max-w-2xl mx-auto px-4 py-12">
+        <div className="space-y-0">
+          {/* Step 1 */}
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
               <div 
-                className="w-12 h-12 flex items-center justify-center mb-4"
-                style={{ backgroundColor: THEME.primaryLight }}
-              >
-                <feature.icon className="w-6 h-6" style={{ color: THEME.primary }} />
-              </div>
-              <h3 className="font-bold text-gray-900 mb-2">{feature.title}</h3>
-              <p className="text-sm text-gray-600">{feature.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 参加の流れ */}
-      <section className="bg-gray-50 py-16">
-        <div className="max-w-4xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-gray-900 mb-12 text-center flex items-center justify-center gap-3">
-            <Sparkles className="w-6 h-6" style={{ color: THEME.primary }} />
-            参加の流れ
-          </h2>
-          <div className="space-y-8">
-            {STEPS.map((step, index) => (
-              <div key={index} className="flex gap-6 items-start">
-                <div className="flex-shrink-0">
-                  <div 
-                    className="w-14 h-14 flex items-center justify-center text-white font-bold text-xl"
-                    style={{ backgroundColor: THEME.primary }}
-                  >
-                    {step.number}
-                  </div>
-                  {index < STEPS.length - 1 && (
-                    <div className="w-0.5 h-8 mx-auto mt-2" style={{ backgroundColor: THEME.primary + '40' }} />
-                  )}
-                </div>
-                <div className="flex-1 bg-white p-6 border border-gray-200">
-                  <div className="flex items-center gap-3 mb-2">
-                    <step.icon className="w-5 h-5" style={{ color: THEME.primary }} />
-                    <h3 className="font-bold text-lg text-gray-900">{step.title}</h3>
-                  </div>
-                  <p className="text-gray-600">{step.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 貸切について */}
-      <section className="max-w-4xl mx-auto px-4 py-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center flex items-center justify-center gap-3">
-          <Home className="w-6 h-6" style={{ color: THEME.primary }} />
-          貸切で楽しむ
-        </h2>
-        <p className="text-center text-gray-600 mb-10 max-w-2xl mx-auto">
-          友達グループ・職場・記念日など、メンバーだけで楽しみたい方に。MMQでは2通りの貸切方法があります。
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-          {/* 貸切リクエスト */}
-          <div className="border-2 border-gray-200 p-6">
-            <div
-              className="w-12 h-12 flex items-center justify-center mb-4"
-              style={{ backgroundColor: THEME.primaryLight }}
-            >
-              <Search className="w-6 h-6" style={{ color: THEME.primary }} />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">貸切リクエスト</h3>
-            <p className="text-sm text-gray-600 leading-relaxed mb-4">
-              公演ページから「貸切希望」として予約を入れる方法。既存の公演日程に対して、グループ専用で参加したいときに使います。
-            </p>
-            <div className="space-y-2 text-sm">
-              {[
-                '公演ページで「貸切希望」を選択して予約',
-                '店舗側が人数・日程を確認して承認',
-                '承認後、そのシナリオがグループ専用になる',
-              ].map((t, i) => (
-                <div key={i} className="flex items-start gap-2 text-gray-700">
-                  <span
-                    className="w-5 h-5 flex-shrink-0 flex items-center justify-center text-xs font-bold text-white mt-0.5"
-                    style={{ backgroundColor: THEME.primary }}
-                  >
-                    {i + 1}
-                  </span>
-                  {t}
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 p-3 bg-gray-50 border border-gray-200 text-xs text-gray-500">
-              ※ 店舗の空き状況・人数によって対応できない場合があります
-            </div>
-            <Link to="/queens-waltz">
-              <Button
-                size="sm"
-                className="w-full mt-4 rounded-none"
-                style={{ backgroundColor: THEME.primary, color: '#fff' }}
-              >
-                公演一覧から試してみる
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
-            </Link>
-          </div>
-
-          {/* 貸切グループ作成 */}
-          <div className="border-2 p-6" style={{ borderColor: THEME.primary }}>
-            <div
-              className="w-12 h-12 flex items-center justify-center mb-4"
-              style={{ backgroundColor: THEME.primaryLight }}
-            >
-              <UserPlus className="w-6 h-6" style={{ color: THEME.primary }} />
-            </div>
-            <div className="flex items-start gap-2 mb-2">
-              <h3 className="text-lg font-bold text-gray-900">貸切グループ作成</h3>
-              <span
-                className="text-xs font-bold text-white px-2 py-0.5 mt-0.5 flex-shrink-0"
+                className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
                 style={{ backgroundColor: THEME.primary }}
               >
-                おすすめ
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 leading-relaxed mb-4">
-              幹事がグループを作成して招待コードをシェアする方法。メンバーの参加状況をリアルタイムで確認でき、人数が揃ったら貸切予約に進めます。
-            </p>
-            <div className="space-y-2 text-sm">
-              {[
-                'マイページ →「グループ作成」でシナリオ・希望日を設定',
-                '発行された招待コードをメンバーにシェア',
-                'メンバーがコードを入力してグループに参加',
-                '全員揃ったら貸切予約を確定',
-              ].map((t, i) => (
-                <div key={i} className="flex items-start gap-2 text-gray-700">
-                  <span
-                    className="w-5 h-5 flex-shrink-0 flex items-center justify-center text-xs font-bold text-white mt-0.5"
-                    style={{ backgroundColor: THEME.primary }}
-                  >
-                    {i + 1}
-                  </span>
-                  {t}
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 p-3 bg-red-50 border border-red-100 text-xs text-red-700">
-              ✓ メンバーの参加状況がひと目でわかる<br />
-              ✓ 招待コードはLINEやSNSで簡単シェア<br />
-              ✓ アプリ不要・スマホだけでOK
-            </div>
-            <Link to="/group/create">
-              <Button
-                size="sm"
-                className="w-full mt-4 rounded-none"
-                style={{ backgroundColor: THEME.primary, color: '#fff' }}
-              >
-                貸切グループを作成する
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* 貸切の流れ図 */}
-        <div className="bg-gray-50 border border-gray-200 p-6">
-          <h3 className="font-bold text-gray-900 mb-4 text-center">グループ作成から貸切予約までの流れ</h3>
-          <div className="flex flex-col md:flex-row items-center gap-2 justify-center">
-            {[
-              { icon: '👤', label: '幹事がグループ作成' },
-              { icon: '🔗', label: '招待コードをシェア' },
-              { icon: '👥', label: 'メンバーが参加' },
-              { icon: '✅', label: '人数確定→予約へ' },
-            ].map(({ icon, label }, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-white border border-gray-200 flex items-center justify-center text-xl mx-auto mb-1">
-                    {icon}
-                  </div>
-                  <p className="text-xs text-gray-600 text-center w-20">{label}</p>
-                </div>
-                {i < 3 && (
-                  <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0 hidden md:block" />
-                )}
+                1
               </div>
-            ))}
+              <div className="w-0.5 flex-1 bg-gray-200 my-2" />
+            </div>
+            <div className="pb-8">
+              <h3 className="font-bold text-lg text-gray-900">シナリオを探す</h3>
+              <p className="text-gray-600 mt-2 leading-relaxed">
+                「ラインナップ」タブでシナリオ一覧から選べます。
+                <br />
+                「カレンダー」タブでは日程から空き状況を確認できます。
+              </p>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div 
+                className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
+                style={{ backgroundColor: THEME.primary }}
+              >
+                2
+              </div>
+              <div className="w-0.5 flex-1 bg-gray-200 my-2" />
+            </div>
+            <div className="pb-8">
+              <h3 className="font-bold text-lg text-gray-900">公演を選んで予約</h3>
+              <p className="text-gray-600 mt-2 leading-relaxed">
+                シナリオ詳細ページから参加したい日程・人数を選択します。
+              </p>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center">
+              <div 
+                className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
+                style={{ backgroundColor: THEME.primary }}
+              >
+                3
+              </div>
+            </div>
+            <div className="pb-4">
+              <h3 className="font-bold text-lg text-gray-900">予約完了！</h3>
+              <p className="text-gray-600 mt-2 leading-relaxed">
+                お名前・連絡先を入力して送信。確認メールが届きます。
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 当日の持ち物・注意事項 */}
-      <section className="max-w-4xl mx-auto px-4 py-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
-          当日のご案内
-        </h2>
-        
-        {/* 予約時の注意事項を確認 */}
-        <div className="mb-8 bg-blue-50 border border-blue-200 p-6">
-          <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5" />
-            予約時の注意事項を必ずご確認ください
-          </h3>
-          <p className="text-blue-800 text-sm mb-3">
-            開始時刻・到着時間・持ち物・アクセス方法などは<strong>店舗・シナリオによって異なります</strong>。
-          </p>
-          <p className="text-blue-800 text-sm">
-            予約完了時に送信されるメール、または予約詳細ページに記載されている<strong>「注意事項」を必ずご確認</strong>の上、当日お越しください。
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-white p-6 border border-gray-200">
-            <h3 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5" style={{ color: THEME.accent }} />
-              持ち物（一般的な例）
-            </h3>
-            <ul className="space-y-3 text-gray-600">
-              <li className="flex items-start gap-2">
-                <span className="text-green-500 mt-1">✓</span>
-                <span>基本的には手ぶらでOKなことが多いですが、店舗によって異なります。</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-500 mt-1">✓</span>
-                <span>事前読み物があるシナリオは、可能であれば事前にお読みください。</span>
-              </li>
-            </ul>
+      {/* 便利機能 */}
+      <section className="bg-gray-50 py-12">
+        <div className="max-w-2xl mx-auto px-4">
+          <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">便利な機能</h2>
+          <div className="bg-white border border-gray-200 divide-y divide-gray-200">
+            <div className="px-4 py-4 flex items-start gap-3">
+              <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-gray-900">カレンダーで空き確認</p>
+                <p className="text-sm text-gray-500 mt-1">店舗プルダウンで絞り込むと、その店舗の空き枠と貸切可能な日時が表示されます</p>
+              </div>
+            </div>
+            <div className="px-4 py-4 flex items-start gap-3">
+              <Users className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-gray-900">貸切予約</p>
+                <p className="text-sm text-gray-500 mt-1">お好きなシナリオを、お仲間だけで楽しめるプランです。カレンダーの空き枠にある「貸切申込」ボタンから日時・店舗を選んでリクエストできます</p>
+              </div>
+            </div>
+            <div className="px-4 py-4 flex items-start gap-3">
+              <Clock className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-gray-900">キャンセル待ち</p>
+                <p className="text-sm text-gray-500 mt-1">満席の公演でもキャンセル待ち登録ができます</p>
+              </div>
+            </div>
           </div>
-          <div className="bg-white p-6 border border-gray-200">
-            <h3 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
-              <Clock className="w-5 h-5" style={{ color: THEME.primary }} />
-              到着時刻（一般的な例）
-            </h3>
-            <ul className="space-y-3 text-gray-600">
-              <li className="flex items-start gap-2">
-                <span className="text-red-500 mt-1">●</span>
-                <span>開始時刻の<strong>10〜15分前</strong>到着が目安ですが、店舗の指示に従ってください。</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-red-500 mt-1">●</span>
-                <span>遅刻されると公演に参加できない場合があります。</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        {/* 重要事項 */}
-        <div className="mt-8 bg-amber-50 border border-amber-200 p-6">
-          <h3 className="font-bold text-amber-900 mb-3">⚠️ ご注意</h3>
-          <ul className="space-y-2 text-amber-800 text-sm">
-            <li>• マーダーミステリーは<strong>1度しか体験できません</strong>。同じシナリオの再参加はご遠慮ください。</li>
-            <li>• 公演中の<strong>撮影・録音・ネタバレは禁止</strong>です。</li>
-            <li>• 途中退出はできません。公演時間を確認の上、最後まで参加できる日程でご予約ください。</li>
-          </ul>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="py-16">
-        <div className="max-w-4xl mx-auto px-4">
-          <div 
-            className="relative overflow-hidden p-12 text-center text-white"
-            style={{ backgroundColor: THEME.primary }}
-          >
-            <div 
-              className="absolute top-0 right-0 w-64 h-full"
-              style={{ background: `linear-gradient(90deg, transparent 0%, ${THEME.accent}30 100%)` }}
-            />
-            <div className="relative">
-              <h2 className="text-2xl md:text-3xl font-bold mb-4">
-                さあ、物語の世界へ
-              </h2>
-              <p className="opacity-90 mb-8 max-w-lg mx-auto">
-                あなたを待つ謎と物語。<br />
-                今すぐシナリオを探して、初めてのマーダーミステリーを体験しましょう。
-              </p>
-              <Link to="/">
-                <Button
-                  size="lg"
-                  className="bg-white hover:bg-gray-100 px-8 hover:scale-[1.02] transition-transform"
-                  style={{ color: THEME.primary, borderRadius: 0 }}
-                >
-                  シナリオを探す
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-            </div>
-          </div>
+      <section className="py-12">
+        <div className="max-w-2xl mx-auto px-4 text-center">
+          <Link to="/">
+            <Button
+              size="lg"
+              className="px-8"
+              style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
+            >
+              シナリオを探す
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </Link>
         </div>
       </section>
     </PublicLayout>
   )
 }
-

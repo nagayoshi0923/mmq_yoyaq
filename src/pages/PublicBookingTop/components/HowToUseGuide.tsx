@@ -138,17 +138,35 @@ export function HowToUseGuide({ organizationName, isOpen, onClose }: HowToUseGui
               </div>
             </div>
             <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex items-start gap-2.5">
-              <Users className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700">貸切予約</p>
-                <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">お好きなシナリオを、お仲間だけで楽しめるプランです。カレンダーの空き枠にある「貸切申込」ボタンから日時・店舗を選んでリクエストできます</p>
-              </div>
-            </div>
-            <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex items-start gap-2.5">
               <Clock className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs sm:text-sm font-medium text-gray-700">キャンセル待ち</p>
                 <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">満席の公演でもキャンセル待ち登録ができます</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 貸切グループ機能 */}
+          <div className="mt-4 sm:mt-5">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-4 h-4" style={{ color: THEME.primary }} />
+              <p className="text-sm font-bold text-gray-900">貸切グループで予約する</p>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              お仲間だけでシナリオを楽しめる「貸切予約」には2つの方法があります
+            </p>
+            <div className="rounded-lg border border-gray-200 divide-y divide-gray-200">
+              <div className="px-3 sm:px-4 py-2.5 sm:py-3">
+                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">① 日程が決まっている場合</p>
+                <p className="text-[11px] sm:text-xs text-gray-400 leading-relaxed">
+                  カレンダーから希望の日時を選び「貸切申込」ボタンをタップ。店舗・人数を選んでリクエストを送信します。
+                </p>
+              </div>
+              <div className="px-3 sm:px-4 py-2.5 sm:py-3">
+                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">② 日程やメンバーが決まっていない場合</p>
+                <p className="text-[11px] sm:text-xs text-gray-400 leading-relaxed">
+                  シナリオ詳細ページから「貸切グループを作成」できます。招待リンクでメンバーを集め、グループ内で希望日程を調整。人数が揃ったら日程確定リクエストを送信します。
+                </p>
               </div>
             </div>
           </div>

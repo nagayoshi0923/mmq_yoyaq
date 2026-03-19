@@ -729,6 +729,32 @@ export const reservationApi = {
         })
         logger.log('キャンセル確認メール送信成功')
 
+        // 通知ダイアログ用にuser_notificationsテーブルにも挿入
+        try {
+          const eventDateStr = scheduleEvent?.date || ''
+          const eventTimeStr = scheduleEvent?.start_time?.slice(0, 5) || ''
+          await supabase
+            .from('user_notifications')
+            .insert({
+              customer_id: reservation.customer_id,
+              type: 'reservation_cancelled',
+              title: '予約がキャンセルされました',
+              message: `「${reservation.scenario_title || scheduleEvent?.scenario}」${eventDateStr} ${eventTimeStr}`,
+              link: '/mypage',
+              metadata: {
+                reservationId: reservation.id,
+                reservationNumber: reservation.reservation_number,
+                scenarioTitle: reservation.scenario_title || scheduleEvent?.scenario,
+                eventDate: eventDateStr,
+                startTime: eventTimeStr,
+                cancellationReason: cancellationReason || 'キャンセル'
+              }
+            })
+          logger.log('キャンセル通知をuser_notificationsに挿入')
+        } catch (notifError) {
+          logger.warn('キャンセル通知の挿入に失敗（続行）:', notifError)
+        }
+
         // キャンセル待ち通知を送信
         const orgIdForWaitlist = reservation.organization_id || scheduleEvent?.organization_id
         if (reservation.schedule_event_id && orgIdForWaitlist) {

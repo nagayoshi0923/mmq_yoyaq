@@ -85,7 +85,7 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
         organization_id, status, scenario_master_id, available_stores,
         organizations:organization_id (slug, name)
       `)
-      .in('status', ['available', 'coming_soon'])
+      .eq('status', 'available')
       .order('title'),
     // 店舗データを取得（available_storesのIDを名前に変換するため）
     supabase

@@ -49,7 +49,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
         <Card className="border-purple-200 bg-purple-50/50">
           <CardContent className="p-4">
             <p className="text-sm text-purple-800 mb-3">
-              日程が決まっていない場合は、先に貸切リクエストを作成してメンバーを招待できます
+              日程やメンバーが決まっていない場合
             </p>
             <Button 
               variant="outline"
@@ -57,7 +57,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
               onClick={handleCreateGroupWithoutDates}
             >
               <Users className="w-4 h-4" />
-              {isLoggedIn ? '日程を決めないで貸切リクエストを作成' : 'ログインして貸切リクエストを作成'}
+              まずはメンバーを招待して貸切グループを作成
             </Button>
           </CardContent>
         </Card>

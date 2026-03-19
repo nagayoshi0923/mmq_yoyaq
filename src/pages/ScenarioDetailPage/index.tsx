@@ -483,7 +483,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   {/* 日程を決めないで作成するボタン（一番上） */}
                   <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
                     <p className="text-sm text-purple-800 mb-2">
-                      日程が決まっていない場合
+                      日程やメンバーが決まっていない場合
                     </p>
                     <Button 
                       variant="outline"
@@ -507,7 +507,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       }}
                     >
                       <Users className="w-4 h-4" />
-                      {user ? '日程を決めないで貸切リクエストを作成' : 'ログインして貸切リクエストを作成'}
+                      まずはメンバーを招待して貸切グループを作成
                     </Button>
                   </div>
                   

@@ -19,6 +19,7 @@ import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { ScenarioCard, type ScenarioCardData } from '@/pages/PublicBookingTop/components/ScenarioCard'
+import { HowToUseGuide } from '@/pages/PublicBookingTop/components/HowToUseGuide'
 
 // シナリオカード用の型（直近公演情報を含む）- ScenarioCardDataを拡張
 interface ScenarioWithEvents extends ScenarioCardData {
@@ -105,6 +106,7 @@ export function PlatformTop() {
   const [nearlyCompleteGroups, setNearlyCompleteGroups] = useState<NearlyCompleteGroup[]>([])
   const [blogPosts, setBlogPosts] = useState<BlogPostSummary[]>([])
   const [showCouponPopup, setShowCouponPopup] = useState(false)
+  const [isGuideOpen, setIsGuideOpen] = useState(false)
 
   // クーポンポップアップ表示判定（非ログインユーザー & 非表示設定なし）
   useEffect(() => {
@@ -565,7 +567,7 @@ export function PlatformTop() {
             {/* 使い方リンク */}
             <div className="mt-4">
               <button
-                onClick={() => navigate('/guide')}
+                onClick={() => setIsGuideOpen(true)}
                 className="inline-flex items-center gap-1.5 text-white/70 hover:text-white text-sm transition-colors"
               >
                 <span className="w-5 h-5 rounded-full border border-white/40 flex items-center justify-center text-xs font-bold">?</span>
@@ -996,6 +998,13 @@ export function PlatformTop() {
 
       {/* フッター */}
       <Footer />
+
+      {/* 使い方ガイドポップアップ */}
+      <HowToUseGuide
+        organizationName={null}
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+      />
 
       {/* クーポンキャンペーンポップアップ */}
       {showCouponPopup && (
