@@ -206,16 +206,32 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
           throw error
         }
         
-        // Supabaseは既存ユーザーでも確認メールを再送信する
-        // セキュリティ上、既存かどうかはユーザーに知らせない
         logger.debug('SignUp response:', { 
           user: data.user?.id, 
           identities: data.user?.identities?.length,
           created_at: data.user?.created_at
         })
         
-        // 常に「確認メールを送信しました」と表示
-        // 既存ユーザーでも新規ユーザーでも同じメッセージ（セキュリティ対策）
+        // 既存ユーザーの場合（identitiesが空）、signUpではメールが送信されないので resend を呼ぶ
+        const isExistingUser = data.user && data.user.identities && data.user.identities.length === 0
+        if (isExistingUser) {
+          logger.debug('既存ユーザー検出（identities空） — 確認メール再送信を試行')
+          const { error: resendError } = await supabase.auth.resend({
+            type: 'signup',
+            email: email,
+            options: {
+              emailRedirectTo: `${window.location.origin}/complete-profile`,
+            }
+          })
+          if (resendError) {
+            logger.error('確認メール再送信エラー:', resendError)
+            // 確認済みユーザーの場合はログインを促す
+            if (resendError.message.includes('already confirmed') || resendError.message.includes('Email link is invalid')) {
+              throw new Error('このメールアドレスは既に登録済みです。ログインをお試しください。')
+            }
+          }
+        }
+        
         setMessage('確認メールを送信しました。メールのリンクをクリックして登録を完了してください。')
         
       } else {
