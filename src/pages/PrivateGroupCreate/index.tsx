@@ -79,6 +79,7 @@ export function PrivateGroupCreate() {
           .select('*')
           .eq('organization_id', organizationId)
           .eq('status', 'active')
+          .neq('is_temporary', true)
           .or('ownership_type.neq.office,ownership_type.is.null')
 
         if (storesError) throw storesError

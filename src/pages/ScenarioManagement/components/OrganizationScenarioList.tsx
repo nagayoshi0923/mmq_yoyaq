@@ -442,7 +442,6 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         return
       }
 
-      logger.log('Status updated successfully:', data)
       toast.success(`「${scenario.title}」を${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}に変更しました`)
     } catch (err) {
       logger.error('Error updating status:', err)
@@ -477,7 +476,6 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         return
       }
 
-      logger.log('Scenario unlinked successfully:', data)
       toast.success(`「${scenarioToDelete.title}」を解除しました`)
       // ローカルstateから即時削除（リロードなし）
       setScenarios(prev => prev.filter(s => s.id !== scenarioToDelete.id))
