@@ -590,8 +590,8 @@ export default function MyPage() {
 
   // 手動登録を追加
   const handleAddManualHistory = async () => {
-    if (!customerId || !newScenarioId || !newPlayedAt) {
-      showToast.error('シナリオと日付は必須です')
+    if (!customerId || !newScenarioId) {
+      showToast.error('シナリオは必須です')
       return
     }
 
@@ -614,7 +614,7 @@ export default function MyPage() {
           scenario_title: scenarioTitle,
           scenario_id: null,
           scenario_master_id: newScenarioId,
-          played_at: newPlayedAt,
+          played_at: newPlayedAt || null,
           venue: storeName,
         })
 
@@ -1475,7 +1475,7 @@ export default function MyPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>プレイした日付 *</Label>
+                            <Label>プレイした日付（任意）</Label>
                             <SingleDatePopover
                               date={newPlayedAt}
                               onDateChange={(date) => setNewPlayedAt(date || '')}
@@ -1500,7 +1500,7 @@ export default function MyPage() {
                           </div>
                           <Button 
                             onClick={handleAddManualHistory} 
-                            disabled={isSubmitting || !newScenarioId || !newPlayedAt}
+                            disabled={isSubmitting || !newScenarioId}
                             className="w-full"
                           >
                             {isSubmitting ? '追加中...' : '追加'}
@@ -1560,13 +1560,16 @@ export default function MyPage() {
                           <div 
                             className="aspect-[4/3] relative bg-gray-100 cursor-pointer"
                             onClick={() => {
+                              console.log('🎬 [MyPage] Scenario card clicked:', { scenario_id: scenario.scenario_id, scenario_slug: scenario.scenario_slug, organization_slug: scenario.organization_slug, scenario })
                               if (scenario.scenario_id) {
                                 const scenarioSlug = scenario.scenario_slug || scenario.scenario_id
-                                if (scenario.organization_slug) {
-                                  navigate(`/${scenario.organization_slug}/scenario/${scenarioSlug}`)
-                                } else {
-                                  navigate(`/scenario/${scenarioSlug}`)
-                                }
+                                const url = scenario.organization_slug 
+                                  ? `/${scenario.organization_slug}/scenario/${scenarioSlug}`
+                                  : `/scenario/${scenarioSlug}`
+                                console.log('🎬 [MyPage] Navigating to:', url)
+                                navigate(url)
+                              } else {
+                                console.log('🎬 [MyPage] No scenario_id, not navigating')
                               }
                             }}
                           >
