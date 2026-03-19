@@ -227,16 +227,9 @@ function AppRoutes() {
   const hasRecoveryTokens = searchParams.get('type') === 'recovery'
 
   // プロフィール設定ページ（新規登録メール確認後）
-  // type=signup でリダイレクトされるが、/complete-profile の場合はこちらを優先
-  // ただし未ログインの場合はログインページへリダイレクト
+  // PKCE フローでは onAuthStateChange でセッションが非同期確立されるため、
+  // CompleteProfile に判断を委ねる（LoginForm を表示しない）
   if (location.pathname === '/complete-profile') {
-    if (!loading && !user) {
-      return (
-        <Suspense fallback={<FullPageSpinner />}>
-          <LoginForm />
-        </Suspense>
-      )
-    }
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <CompleteProfile />

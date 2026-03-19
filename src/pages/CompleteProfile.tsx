@@ -51,30 +51,57 @@ export function CompleteProfile() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // セッションを確認
+    let cancelled = false
+
+    const applySession = (sessionUser: { id: string; email?: string; app_metadata?: Record<string, unknown> }) => {
+      if (cancelled) return
+      setUserEmail(sessionUser.email || '')
+      setUserId(sessionUser.id)
+      const provider = sessionUser.app_metadata?.provider as string | undefined
+      setIsOAuthUser(Boolean(provider && provider !== 'email'))
+      setError('')
+      setIsCheckingSession(false)
+      logger.log('✅ セッション確認完了:', sessionUser.email)
+    }
+
+    // 初回: 既存セッション確認（PKCE コード交換済みの場合や再訪問時に対応）
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        
         if (session?.user) {
-          setUserEmail(session.user.email || '')
-          setUserId(session.user.id)
-          const provider = (session.user.app_metadata as any)?.provider as string | undefined
-          setIsOAuthUser(Boolean(provider && provider !== 'email'))
-          logger.log('✅ セッション確認完了:', session.user.email)
-        } else {
-          logger.warn('セッションが見つかりません')
-          setError('セッションが無効です。もう一度メールのリンクをクリックしてください。')
+          applySession(session.user)
+          return
         }
+        // セッションがまだない場合は onAuthStateChange で待機（PKCE 非同期交換に対応）
+        logger.log('⏳ セッション未確立 — PKCE コード交換を待機中...')
       } catch (err) {
         logger.error('Session check error:', err)
-        setError('エラーが発生しました。もう一度お試しください。')
-      } finally {
-        setIsCheckingSession(false)
       }
     }
 
-    checkSession()
+    // PKCE コード交換完了など、非同期でセッションが確立されたときに受け取る
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && !cancelled) {
+        logger.log('🔄 onAuthStateChange でセッション受信:', event)
+        applySession(session.user)
+      }
+    })
+
+    checkSession().finally(() => {
+      // getSession が先にセッションを取得した場合、isCheckingSession が既に false になっている
+      // 取得できなかった場合のみスピナーを止める（onAuthStateChange で回収する）
+      if (!cancelled) {
+        // 少し待ってからスピナーを止める（onAuthStateChange が先に来る猶予を与える）
+        setTimeout(() => {
+          if (!cancelled) setIsCheckingSession(false)
+        }, 3000)
+      }
+    })
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -444,13 +471,13 @@ export function CompleteProfile() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">読み込み中...</p>
+          <p className="text-muted-foreground">認証情報を確認中...</p>
         </div>
       </div>
     )
   }
 
-  if (!userId && !isCheckingSession) {
+  if (!userId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
         <Card className="w-full max-w-md">
@@ -458,12 +485,13 @@ export function CompleteProfile() {
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto" />
             <h2 className="text-xl font-bold text-red-800">セッションエラー</h2>
             <p className="text-muted-foreground">
-              セッションが無効または期限切れです。
+              セッションが無効または期限切れです。<br />
+              メールのリンクを再度クリックするか、新規登録からやり直してください。
             </p>
             <Button 
-              onClick={() => navigate('/login?signup=true', { replace: true })}
+              onClick={() => navigate('/signup', { replace: true })}
               className="w-full"
-              variant="outline"
+              style={{ backgroundColor: THEME.primary }}
             >
               新規登録画面に戻る
             </Button>
