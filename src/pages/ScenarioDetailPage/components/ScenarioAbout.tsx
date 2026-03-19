@@ -40,19 +40,22 @@ const genderLabel: Record<ScenarioCharacter['gender'], string> = {
 function CharacterCard({ character }: { character: ScenarioCharacter }) {
   const isNpc = character.is_npc
   return (
-    <div className={`rounded-lg p-3 text-center ${isNpc ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}>
-      {/* キャラクター画像 */}
+    <div
+      className={`relative overflow-hidden ${isNpc ? 'ring-2 ring-amber-300' : ''}`}
+      style={{ borderRadius: 0 }}
+    >
+      {/* キャラクター画像（全面） */}
       {character.image_url ? (
-        <div 
-          className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden border-2 border-gray-200"
-          style={{ backgroundColor: character.background_color || 'transparent' }}
+        <div
+          className="w-full aspect-[3/4] overflow-hidden"
+          style={{ backgroundColor: character.background_color || '#e5e7eb' }}
         >
           <OptimizedImage
             src={character.image_url}
             alt={character.name}
             className="w-full h-full object-cover"
-            style={{ 
-              objectPosition: character.image_position 
+            style={{
+              objectPosition: character.image_position
                 ? (character.image_position.includes(' ')
                     ? `${character.image_position.split(' ')[0]}% ${character.image_position.split(' ')[1]}%`
                     : `center ${character.image_position}`)
@@ -61,41 +64,42 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
           />
         </div>
       ) : (
-        <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-gray-200 flex items-center justify-center">
-          <User className="w-8 h-8 text-gray-400" />
+        <div className="w-full aspect-[3/4] bg-gray-200 flex items-center justify-center">
+          <User className="w-10 h-10 text-gray-400" />
         </div>
       )}
-      
-      {/* 名前 */}
-      <p className="font-semibold text-gray-900 text-sm">
-        {character.name}
-        {character.is_npc && (
-          <span className="ml-1 text-[10px] font-normal bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded">
-            NPC
-          </span>
-        )}
-      </p>
-      
-      {/* 性別・年齢・職業（空白でない場合のみ表示） */}
-      <div className="text-xs text-gray-500 mt-1 space-y-0.5">
-        {(character.gender !== 'unknown' || character.age) && (
-          <p>
-            {genderLabel[character.gender]}
-            {character.gender !== 'unknown' && character.age && ' / '}
-            {character.age}
+
+      {/* NPC バッジ（左上） */}
+      {isNpc && (
+        <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-sm shadow">
+          NPC
+        </span>
+      )}
+
+      {/* テキストオーバーレイ（下部グラデーション） */}
+      <div
+        className="absolute bottom-0 left-0 right-0 px-2 pt-6 pb-2"
+        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
+      >
+        <p className="font-semibold text-white text-xs leading-tight drop-shadow">
+          {character.name}
+        </p>
+        <div className="text-[10px] text-white/80 mt-0.5 leading-tight">
+          {(character.gender !== 'unknown' || character.age) && (
+            <p>
+              {genderLabel[character.gender]}
+              {character.gender !== 'unknown' && character.age && ' / '}
+              {character.age}
+            </p>
+          )}
+          {character.occupation && <p>{character.occupation}</p>}
+        </div>
+        {character.description && (
+          <p className="text-[10px] text-white/70 mt-1 leading-snug line-clamp-2">
+            {character.description}
           </p>
         )}
-        {character.occupation && (
-          <p>{character.occupation}</p>
-        )}
       </div>
-      
-      {/* 説明（空白でない場合のみ表示） */}
-      {character.description && (
-        <p className="text-xs text-gray-600 mt-2 text-left leading-relaxed whitespace-pre-wrap">
-          {character.description}
-        </p>
-      )}
     </div>
   )
 }
@@ -165,7 +169,7 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario, stores = []
             <h3 className="font-semibold text-white text-sm">キャラクター</h3>
           </div>
           <div className="p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {scenario.characters
                 .sort((a, b) => a.sort_order - b.sort_order)
                 .map((character) => (
