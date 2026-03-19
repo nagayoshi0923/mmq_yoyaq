@@ -496,7 +496,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                           return
                         }
                         const params = new URLSearchParams()
-                        const scenarioIdToUse = scenario.scenario_master_id || scenario.id
+                        const scenarioIdToUse = scenario.scenario_id
                         console.log('scenarioId:', scenarioIdToUse)
                         if (scenarioIdToUse) params.set('scenarioId', scenarioIdToUse)
                         if (organizationSlug) params.set('org', organizationSlug)
