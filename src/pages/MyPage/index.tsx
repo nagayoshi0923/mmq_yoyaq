@@ -383,9 +383,18 @@ export default function MyPage() {
         .filter((id): id is string => id !== null && id !== undefined) || []
       
       const orgIds = [...new Set((reservationData || []).map(r => r.organization_id).filter(Boolean))]
-      const scenarioMasterIds = [...new Set((reservationData || [])
-        .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
-        .filter((id): id is string => id !== null && id !== undefined))]
+      
+      // 手動登録のシナリオIDも含める
+      const manualScenarioIds = (manualHistoryResult.data || [])
+        .map((m: any) => m.scenario_master_id ?? m.scenario_id)
+        .filter((id: string | null): id is string => id !== null && id !== undefined)
+      
+      const scenarioMasterIds = [...new Set([
+        ...(reservationData || [])
+          .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
+          .filter((id): id is string => id !== null && id !== undefined),
+        ...manualScenarioIds
+      ])]
       const storeIds = [...new Set((reservationData || []).map(r => r.store_id).filter(Boolean))]
       
       // グループIDを抽出（メンバー数を一括取得するため）
