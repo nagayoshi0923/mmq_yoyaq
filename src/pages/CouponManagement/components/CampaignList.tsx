@@ -172,7 +172,6 @@ export function CampaignList({
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       onClick={() => onGrant(campaign)}
-                      disabled={!campaign.is_active}
                     >
                       <Gift className="h-4 w-4 mr-2" />
                       クーポン付与

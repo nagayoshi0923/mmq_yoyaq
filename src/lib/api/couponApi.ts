@@ -300,6 +300,67 @@ export async function useCoupon(
     return { success: false, error: 'このクーポンは有効期限が切れています' }
   }
 
+  // タイトル（シナリオ）に既にクーポンを使用していないかチェック
+  if (reservationId) {
+    // 選択した予約のシナリオ情報を取得
+    const { data: selectedReservation } = await supabase
+      .from('reservations')
+      .select('schedule_event_id')
+      .eq('id', reservationId)
+      .maybeSingle()
+
+    if (selectedReservation?.schedule_event_id) {
+      const { data: selectedEvent } = await supabase
+        .from('schedule_events')
+        .select('scenario_master_id, scenario')
+        .eq('id', selectedReservation.schedule_event_id)
+        .maybeSingle()
+
+      if (selectedEvent && (selectedEvent.scenario_master_id || selectedEvent.scenario)) {
+        // このお客さんの全クーポン使用履歴の reservation_id を取得
+        const { data: myCoupons } = await supabase
+          .from('customer_coupons')
+          .select('id')
+          .eq('customer_id', customer.id)
+
+        if (myCoupons && myCoupons.length > 0) {
+          const { data: usages } = await supabase
+            .from('coupon_usages')
+            .select('reservation_id')
+            .in('customer_coupon_id', myCoupons.map(c => c.id))
+            .not('reservation_id', 'is', null)
+
+          if (usages && usages.length > 0) {
+            const usedReservationIds = usages.map(u => u.reservation_id).filter(Boolean) as string[]
+            const { data: usedReservations } = await supabase
+              .from('reservations')
+              .select('schedule_event_id')
+              .in('id', usedReservationIds)
+
+            if (usedReservations && usedReservations.length > 0) {
+              const usedEventIds = usedReservations.map(r => r.schedule_event_id).filter(Boolean) as string[]
+              let sameScenarioQuery = supabase
+                .from('schedule_events')
+                .select('id')
+                .in('id', usedEventIds)
+
+              if (selectedEvent.scenario_master_id) {
+                sameScenarioQuery = sameScenarioQuery.eq('scenario_master_id', selectedEvent.scenario_master_id)
+              } else if (selectedEvent.scenario) {
+                sameScenarioQuery = sameScenarioQuery.eq('scenario', selectedEvent.scenario)
+              }
+
+              const { data: sameScenarioEvents } = await sameScenarioQuery
+              if (sameScenarioEvents && sameScenarioEvents.length > 0) {
+                return { success: false, error: 'このタイトルには既にクーポンをご利用済みです' }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   const campaign = coupon.coupon_campaigns as any
   const discountAmount = campaign?.discount_amount || 0
 
@@ -340,24 +401,9 @@ export async function useCoupon(
     }
   }
 
-  // 2. uses_remaining をデクリメント & 必要なら status を fully_used に
-  const newUsesRemaining = coupon.uses_remaining - 1
-  const newStatus = newUsesRemaining <= 0 ? 'fully_used' : 'active'
+  // coupon_usages への INSERT 後、DB トリガーが自動で
+  // customer_coupons の uses_remaining と status を更新する
 
-  const { error: updateError } = await supabase
-    .from('customer_coupons')
-    .update({
-      uses_remaining: newUsesRemaining,
-      status: newStatus
-    })
-    .eq('id', customerCouponId)
-
-  if (updateError) {
-    console.error('クーポン更新エラー:', updateError)
-    return { success: false, error: 'クーポンの更新に失敗しました' }
-  }
-
-  console.log('✅ クーポン使用成功:', { customerCouponId, reservationId, discountAmount, newUsesRemaining, newStatus })
   return { success: true }
 }
 
@@ -779,10 +825,6 @@ export async function grantCouponToCustomer(
   if (campaignError || !campaign) {
     logger.error('キャンペーン取得エラー:', campaignError)
     return { success: false, error: 'キャンペーンが見つかりません' }
-  }
-
-  if (!campaign.is_active) {
-    return { success: false, error: 'このキャンペーンは無効です' }
   }
 
   // 有効期限を計算

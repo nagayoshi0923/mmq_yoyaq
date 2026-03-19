@@ -81,7 +81,24 @@ export function CouponsPage() {
   )
 
   const activeCoupons = sortedCoupons.filter(c => c.status === 'active')
-  const usedCoupons = sortedCoupons.filter(c => c.status !== 'active')
+  // 使用済み: fully_used は updated_at が1ヶ月以内 OR created_at が1ヶ月以内（登録直後に使用した場合）
+  // 期限切れ・無効: updated_at が1ヶ月以内のものだけ表示
+  const oneMonthAgo = new Date()
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
+  const usedCoupons = sortedCoupons.filter(c => {
+    if (c.status === 'active') return false
+    if (c.status === 'fully_used') {
+      // updated_at か created_at のいずれかが1ヶ月以内なら表示
+      const updatedAt = c.updated_at ? new Date(c.updated_at) : null
+      const createdAt = c.created_at ? new Date(c.created_at) : null
+      if (updatedAt && updatedAt >= oneMonthAgo) return true
+      if (createdAt && createdAt >= oneMonthAgo) return true
+      return false
+    }
+    // expired / revoked は updated_at が1ヶ月以内
+    if (!c.updated_at) return true
+    return new Date(c.updated_at) >= oneMonthAgo
+  })
 
   // 利用可能枚数 = 全activeクーポンのuses_remainingの合計
   const totalAvailableCount = activeCoupons.reduce((sum, c) => sum + c.uses_remaining, 0)
@@ -225,6 +242,10 @@ export function CouponsPage() {
                 ? `¥${campaign.discount_amount.toLocaleString()} OFF`
                 : `${campaign.discount_amount}% OFF`
 
+              const usedAt = coupon.updated_at
+                ? new Date(coupon.updated_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : null
+
               return (
                 <div
                   key={coupon.id}
@@ -232,12 +253,19 @@ export function CouponsPage() {
                   style={{ borderRadius: 0 }}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Ticket className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm font-medium text-gray-500">{discountLabel}</span>
-                      <span className="text-xs text-gray-500">- {campaign.name}</span>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Ticket className="w-4 h-4 text-gray-400 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-500">{discountLabel}</span>
+                          <span className="text-xs text-gray-500 truncate">- {campaign.name}</span>
+                        </div>
+                        {usedAt && coupon.status === 'fully_used' && (
+                          <p className="text-xs text-gray-400 mt-0.5">{usedAt} 使用</p>
+                        )}
+                      </div>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded ${status.color} flex items-center gap-1`}>
+                    <span className={`text-xs px-2 py-0.5 rounded ${status.color} flex items-center gap-1 shrink-0 ml-2`}>
                       <StatusIcon className="w-3 h-3" />
                       {status.label}
                     </span>
