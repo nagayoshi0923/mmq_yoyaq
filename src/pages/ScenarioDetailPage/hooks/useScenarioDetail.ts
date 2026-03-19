@@ -129,16 +129,28 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   const [orgScenarioResult, masterCautionResult, relatedScenariosResult] = await Promise.all([
     // organization_scenarios からカスタム注意事項とキャラクターを取得
     (async () => {
-      if (!scenarioData.scenario_master_id || !orgId) return null
+      if (!scenarioData.scenario_master_id) return null
       
       try {
-        const { data: orgScenarioData } = await supabase
-          .from('organization_scenarios')
-          .select('custom_caution, characters')
-          .eq('scenario_master_id', scenarioData.scenario_master_id)
-          .eq('organization_id', orgId)
-          .maybeSingle()
-        return orgScenarioData
+        if (orgId) {
+          // 組織指定あり: その組織のデータを取得
+          const { data: orgScenarioData } = await supabase
+            .from('organization_scenarios')
+            .select('custom_caution, characters')
+            .eq('scenario_master_id', scenarioData.scenario_master_id)
+            .eq('organization_id', orgId)
+            .maybeSingle()
+          return orgScenarioData
+        } else {
+          // 組織指定なし（MMQプラットフォームビュー）: キャラクターが登録されている組織から取得
+          const { data: orgScenarioRows } = await supabase
+            .from('organization_scenarios')
+            .select('custom_caution, characters')
+            .eq('scenario_master_id', scenarioData.scenario_master_id)
+            .not('characters', 'is', null)
+            .limit(1)
+          return orgScenarioRows?.[0] || null
+        }
       } catch (e) {
         logger.error('organization_scenarios取得エラー:', e)
         return null

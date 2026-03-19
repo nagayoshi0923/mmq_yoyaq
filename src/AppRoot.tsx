@@ -124,6 +124,10 @@ function HashRedirect() {
   React.useEffect(() => {
     const hash = window.location.hash
     if (hash && hash.startsWith('#')) {
+      // 認証トークンを含むハッシュは無視（Supabase が処理する）
+      if (hash.includes('access_token=') || hash.includes('refresh_token=') || hash.includes('error=')) {
+        return
+      }
       const hashPath = hash.substring(1)
       // booking/xxx を /xxx に変換
       const newPath = hashPath.replace(/^booking\//, '/')

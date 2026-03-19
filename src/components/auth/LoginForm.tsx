@@ -167,71 +167,35 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         setMessage('パスワードリセット用のメールを送信しました。メールをご確認ください。')
         
       } else if (mode === 'signup') {
-        // 新規登録（メールのみ → 確認メール → プロフィール設定ページ）
-        // ランダムな仮パスワードで登録（ユーザーは確認メール後にパスワードを設定する）
-        const tempPassword = crypto.randomUUID() + 'Aa1!'
+        // 新規登録（Magic Link 方式）
+        // signInWithOtp を使用：PKCE の code_verifier 問題を回避
+        // shouldCreateUser: true で新規ユーザーも作成される
         
-        const { data, error } = await supabase.auth.signUp({
+        // まず既存の customers をチェック（登録済みユーザーはログインに誘導）
+        const { data: existingCustomer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle()
+        
+        if (existingCustomer) {
+          throw new Error('このメールアドレスは既に登録されています。ログインをお試しください。')
+        }
+        
+        const { error } = await supabase.auth.signInWithOtp({
           email,
-          password: tempPassword,
           options: {
+            shouldCreateUser: true,
             emailRedirectTo: `${window.location.origin}/complete-profile`,
           }
         })
         
         if (error) {
-          // 重複メールアドレスのエラーは確認メール再送信を試みる
-          if (error.message.includes('already registered') || error.message.includes('already exists')) {
-            logger.debug('既存ユーザー検出 — 確認メール再送信を試行')
-            try {
-              const { error: resendError } = await supabase.auth.resend({
-                type: 'signup',
-                email: email,
-                options: {
-                  emailRedirectTo: `${window.location.origin}/complete-profile`,
-                }
-              })
-              if (resendError) {
-                logger.error('確認メール再送信エラー:', resendError)
-                // それでもエラーの場合は、確認済みユーザーの可能性
-                throw new Error('このメールアドレスは既に登録されています。ログインをお試しください。')
-              }
-              setMessage('確認メールを再送信しました。メールのリンクをクリックして登録を完了してください。')
-              return
-            } catch (resendErr) {
-              logger.error('resend例外:', resendErr)
-              throw resendErr
-            }
-          }
+          logger.error('signInWithOtp error:', error)
           throw error
         }
         
-        logger.debug('SignUp response:', { 
-          user: data.user?.id, 
-          identities: data.user?.identities?.length,
-          created_at: data.user?.created_at
-        })
-        
-        // 既存ユーザーの場合（identitiesが空）、signUpではメールが送信されないので resend を呼ぶ
-        const isExistingUser = data.user && data.user.identities && data.user.identities.length === 0
-        if (isExistingUser) {
-          logger.debug('既存ユーザー検出（identities空） — 確認メール再送信を試行')
-          const { error: resendError } = await supabase.auth.resend({
-            type: 'signup',
-            email: email,
-            options: {
-              emailRedirectTo: `${window.location.origin}/complete-profile`,
-            }
-          })
-          if (resendError) {
-            logger.error('確認メール再送信エラー:', resendError)
-            // 確認済みユーザーの場合はログインを促す
-            if (resendError.message.includes('already confirmed') || resendError.message.includes('Email link is invalid')) {
-              throw new Error('このメールアドレスは既に登録済みです。ログインをお試しください。')
-            }
-          }
-        }
-        
+        logger.debug('Magic Link sent to:', email)
         setMessage('確認メールを送信しました。メールのリンクをクリックして登録を完了してください。')
         
       } else {
