@@ -888,13 +888,14 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                     {[...characters].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((char, index) => (
                       <div
                         key={char.id ?? index}
-                        className={`rounded-lg p-3 text-center ${char.is_npc ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}
+                        className={`relative overflow-hidden ${char.is_npc ? 'ring-2 ring-amber-300' : ''}`}
+                        style={{ borderRadius: 0 }}
                       >
-                        {/* キャラクター画像 */}
+                        {/* キャラクター画像（全面） */}
                         {char.image_url ? (
                           <div
-                            className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden border-2 border-gray-200"
-                            style={{ backgroundColor: char.background_color || 'transparent' }}
+                            className="w-full aspect-[3/4] overflow-hidden"
+                            style={{ backgroundColor: char.background_color || '#e5e7eb' }}
                           >
                             <img
                               src={char.image_url}
@@ -910,25 +911,34 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                             />
                           </div>
                         ) : (
-                          <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-gray-200 flex items-center justify-center">
-                            <Users className="w-8 h-8 text-gray-400" />
+                          <div className="w-full aspect-[3/4] bg-gray-200 flex items-center justify-center">
+                            <Users className="w-10 h-10 text-gray-400" />
                           </div>
                         )}
-                        {/* 名前 */}
-                        <p className="font-semibold text-gray-900 text-sm">
-                          {char.name}
-                          {char.is_npc && (
-                            <span className="ml-1 text-[10px] font-normal bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded">NPC</span>
-                          )}
-                        </p>
-                        {(char.age || char.occupation) && (
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {[char.age, char.occupation].filter(Boolean).join(' / ')}
+
+                        {/* NPC バッジ（左上） */}
+                        {char.is_npc && (
+                          <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-sm shadow">
+                            NPC
+                          </span>
+                        )}
+
+                        {/* テキストオーバーレイ（下部グラデーション） */}
+                        <div className="absolute bottom-0 left-0 right-0 px-2 pt-6 pb-2"
+                          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
+                        >
+                          <p className="font-semibold text-white text-xs leading-tight drop-shadow">
+                            {char.name}
                           </p>
-                        )}
-                        {char.description && (
-                          <p className="text-xs text-gray-600 mt-1 text-left leading-relaxed whitespace-pre-wrap">{char.description}</p>
-                        )}
+                          {(char.age || char.occupation) && (
+                            <p className="text-[10px] text-white/80 mt-0.5 leading-tight">
+                              {[char.age, char.occupation].filter(Boolean).join(' / ')}
+                            </p>
+                          )}
+                          {char.description && (
+                            <p className="text-[10px] text-white/70 mt-1 leading-snug line-clamp-2">{char.description}</p>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
