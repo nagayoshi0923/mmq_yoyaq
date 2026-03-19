@@ -429,36 +429,43 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
   // useCallbackで安定化し、columns useMemoの不要な再計算を防止
   const handleStatusChange = useCallback(async (scenario: OrganizationScenarioWithMaster, newStatus: string) => {
     const previousStatus = scenario.org_status
+    
     // 楽観的更新: まずローカルstateを即時反映（リロードなし）
     setScenarios(prev => prev.map(s => 
       s.id === scenario.id ? { ...s, org_status: newStatus as OrganizationScenarioWithMaster['org_status'] } : s
     ))
 
     try {
-      // 1. organization_scenarios の org_status を更新
-      const { error } = await supabase
-        .from('organization_scenarios')
-        .update({ org_status: newStatus })
-        .eq('id', scenario.id)
+      // RPC を使用してステータス更新（RLS をバイパス）
+      const { data, error } = await supabase.rpc('update_org_scenario_status', {
+        p_scenario_id: scenario.id,
+        p_new_status: newStatus
+      })
 
       if (error) {
         logger.error('Failed to update status:', error)
-        toast.error('ステータス更新に失敗しました')
-        // エラー時はロールバック
+        toast.error(`ステータス更新に失敗しました: ${error.message}`)
         setScenarios(prev => prev.map(s => 
           s.id === scenario.id ? { ...s, org_status: previousStatus } : s
         ))
         return
       }
 
-      // 2. organization_scenarios の org_status は既に更新済み（上記で更新）
-      //    scenarios テーブルは廃止のため、同期更新は不要
+      // RPC の結果を確認
+      if (!data?.success) {
+        logger.error('Update failed:', data)
+        toast.error(data?.error || 'ステータス更新に失敗しました')
+        setScenarios(prev => prev.map(s => 
+          s.id === scenario.id ? { ...s, org_status: previousStatus } : s
+        ))
+        return
+      }
 
+      logger.log('Status updated successfully:', data)
       toast.success(`「${scenario.title}」を${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS]?.label || newStatus}に変更しました`)
     } catch (err) {
       logger.error('Error updating status:', err)
       toast.error('エラーが発生しました')
-      // エラー時はロールバック
       setScenarios(prev => prev.map(s => 
         s.id === scenario.id ? { ...s, org_status: previousStatus } : s
       ))
@@ -470,17 +477,25 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
     if (!scenarioToDelete) return
 
     try {
-      const { error } = await supabase
-        .from('organization_scenarios')
-        .delete()
-        .eq('id', scenarioToDelete.id)
+      // RPC を使用して削除（RLS をバイパス）
+      const { data, error } = await supabase.rpc('delete_org_scenario', {
+        p_scenario_id: scenarioToDelete.id
+      })
 
       if (error) {
         logger.error('Failed to unlink scenario:', error)
-        toast.error('解除に失敗しました')
+        toast.error(`解除に失敗しました: ${error.message}`)
         return
       }
 
+      // RPC の結果を確認
+      if (!data?.success) {
+        logger.error('Delete failed:', data)
+        toast.error(data?.error || '解除に失敗しました')
+        return
+      }
+
+      logger.log('Scenario unlinked successfully:', data)
       toast.success(`「${scenarioToDelete.title}」を解除しました`)
       // ローカルstateから即時削除（リロードなし）
       setScenarios(prev => prev.filter(s => s.id !== scenarioToDelete.id))

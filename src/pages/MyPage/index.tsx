@@ -606,19 +606,22 @@ export default function MyPage() {
       const storeName = selectedStore?.name || null
 
       // scenario_master_id を設定して画像を取得できるようにする
-      console.log('🎬 [MyPage] Adding manual history:', { customerId, scenarioTitle, newScenarioId, newPlayedAt, storeName })
+      const insertData = {
+        customer_id: customerId,
+        scenario_title: scenarioTitle,
+        scenario_master_id: newScenarioId,
+        played_at: newPlayedAt || null,
+        venue: storeName,
+      }
+      console.log('🎬 [MyPage] Adding manual history:', insertData)
       const { error } = await supabase
         .from('manual_play_history')
-        .insert({
-          customer_id: customerId,
-          scenario_title: scenarioTitle,
-          scenario_id: null,
-          scenario_master_id: newScenarioId,
-          played_at: newPlayedAt || null,
-          venue: storeName,
-        })
+        .insert(insertData)
 
-      if (error) throw error
+      if (error) {
+        console.error('🎬 [MyPage] Insert error details:', error)
+        throw error
+      }
 
       showToast.success('プレイ履歴を追加しました')
       setIsAddDialogOpen(false)
