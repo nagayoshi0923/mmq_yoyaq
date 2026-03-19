@@ -356,9 +356,9 @@ export default function MyPage() {
         // 手動登録履歴を取得
         supabase
           .from('manual_play_history')
-          .select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id, scenario_masters:scenario_master_id(key_visual_url)')
+          .select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id')
           .eq('customer_id', customer.id)
-          .order('played_at', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(20)
       ])
       
@@ -520,18 +520,22 @@ export default function MyPage() {
         })
         
         // 手動登録履歴を追加（予約の有無に関わらず常に追加）
+        console.log('🎬 [MyPage] Manual history result:', { data: manualHistoryResult.data, error: manualHistoryResult.error })
         const manualHistory = manualHistoryResult.data
-        if (manualHistory) {
+        if (manualHistoryResult.error) {
+          console.error('🎬 [MyPage] Manual history fetch error:', manualHistoryResult.error)
+        }
+        if (manualHistory && manualHistory.length > 0) {
           manualHistory.forEach((item: any) => {
-            const master = item.scenario_masters as { key_visual_url?: string } | null
+            const scenarioMasterId = item.scenario_master_id ?? item.scenario_id
             played.push({
               scenario: item.scenario_title,
               date: item.played_at,
               venue: item.venue || '',
-              scenario_id: (item.scenario_master_id ?? item.scenario_id) || undefined,
-              scenario_slug: (item.scenario_master_id ?? item.scenario_id) || undefined,
+              scenario_id: scenarioMasterId || undefined,
+              scenario_slug: scenarioMasterId || undefined,
               organization_slug: undefined,
-              key_visual_url: master?.key_visual_url || undefined,
+              key_visual_url: scenarioMasterId ? imageMap[scenarioMasterId] : undefined,
               is_manual: true,
               manual_id: item.id,
             })
