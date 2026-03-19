@@ -42,7 +42,8 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
                 ? (character.image_position.includes(' ')
                     ? `${character.image_position.split(' ')[0]}% ${character.image_position.split(' ')[1]}%`
                     : `center ${character.image_position}`)
-                : '50% 50%'
+                : '50% 50%',
+              transform: character.image_scale ? `scale(${character.image_scale / 100})` : undefined
             }}
           />
         </div>

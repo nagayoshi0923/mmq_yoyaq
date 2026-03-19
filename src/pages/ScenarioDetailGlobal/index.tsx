@@ -75,6 +75,7 @@ interface ScenarioCharacter {
   first_person?: string | null
   background_color?: string | null
   image_position?: string | null
+  image_scale?: number | null
 }
 
 export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGlobalProps) {
@@ -907,7 +908,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                                   ? (char.image_position.includes(' ')
                                       ? `${char.image_position.split(' ')[0]}% ${char.image_position.split(' ')[1]}%`
                                       : `center ${char.image_position}`)
-                                  : '50% 50%'
+                                  : '50% 50%',
+                                transform: char.image_scale ? `scale(${char.image_scale / 100})` : undefined
                               }}
                             />
                           </div>

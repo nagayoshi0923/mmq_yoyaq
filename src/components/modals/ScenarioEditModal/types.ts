@@ -138,6 +138,7 @@ export interface ScenarioCharacter {
   is_npc?: boolean  // NPCフラグ（trueの場合、プレイ人数にカウントしない）
   background_color?: string | null  // アイコン背景色（透明画像用）
   image_position?: string | null  // 画像表示位置（object-position: 'top', 'center', 'bottom'）
+  image_scale?: number | null  // 画像拡大率（100 = 等倍、200 = 2倍）
   sort_order: number  // 表示順
 }
 

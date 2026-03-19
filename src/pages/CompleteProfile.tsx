@@ -180,6 +180,31 @@ export function CompleteProfile() {
     }
   }, [])
 
+  // 既に登録済みの場合はマイページにリダイレクト
+  useEffect(() => {
+    if (!userId || isCheckingSession) return
+
+    const checkExistingCustomer = async () => {
+      try {
+        const { data: existingCustomer } = await supabase
+          .from('customers')
+          .select('id, name')
+          .eq('user_id', userId)
+          .maybeSingle()
+
+        if (existingCustomer && existingCustomer.name) {
+          // 既に登録完了済み → マイページへリダイレクト
+          logger.log('✅ 既に登録済みのユーザー:', existingCustomer.name)
+          navigate('/mypage', { replace: true })
+        }
+      } catch (err) {
+        logger.error('既存顧客チェックエラー:', err)
+      }
+    }
+
+    checkExistingCustomer()
+  }, [userId, isCheckingSession, navigate])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')

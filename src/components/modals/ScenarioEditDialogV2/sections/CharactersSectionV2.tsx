@@ -76,6 +76,7 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
       is_npc: false,
       background_color: null,
       image_position: null,
+      image_scale: null,
       sort_order: characters.length + 1,
     }
     setFormData(prev => ({
@@ -207,7 +208,8 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                             style={{ 
                               objectPosition: character.image_position 
                                 ? `${character.image_position.split(' ')[0]}% ${character.image_position.split(' ')[1]}%`
-                                : '50% 50%'
+                                : '50% 50%',
+                              transform: character.image_scale ? `scale(${character.image_scale / 100})` : undefined
                             }}
                           />
                         </div>
@@ -271,7 +273,8 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                                     style={{ 
                                       objectPosition: character.image_position 
                                         ? `${character.image_position.split(' ')[0]}% ${character.image_position.split(' ')[1]}%`
-                                        : '50% 50%'
+                                        : '50% 50%',
+                                      transform: character.image_scale ? `scale(${character.image_scale / 100})` : undefined
                                     }}
                                   />
                                 </div>
@@ -343,6 +346,26 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                                 />
                               </div>
 
+                              {/* 拡大率 */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-xs">拡大</Label>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {character.image_scale || 100}%
+                                  </span>
+                                </div>
+                                <Slider
+                                  value={[character.image_scale || 100]}
+                                  onValueChange={([scale]) => {
+                                    updateCharacter(character.id, { image_scale: scale === 100 ? null : scale })
+                                  }}
+                                  min={100}
+                                  max={200}
+                                  step={5}
+                                  className="w-full"
+                                />
+                              </div>
+
                               {/* リセット */}
                               <Button
                                 type="button"
@@ -351,7 +374,8 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                                 className="w-full text-xs"
                                 onClick={() => updateCharacter(character.id, { 
                                   image_position: null,
-                                  background_color: null 
+                                  background_color: null,
+                                  image_scale: null
                                 })}
                               >
                                 すべてリセット
