@@ -180,13 +180,28 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         })
         
         if (error) {
-          // 重複メールアドレスのエラーは無視（確認メール再送信として扱う）
-          // セキュリティ上、既存ユーザーかどうかは知らせない
+          // 重複メールアドレスのエラーは確認メール再送信を試みる
           if (error.message.includes('already registered') || error.message.includes('already exists')) {
-            logger.debug('既存ユーザーへの再登録試行（確認メール再送信として扱う）')
-            // エラーをスローせず、成功メッセージを表示
-            setMessage('確認メールを送信しました。メールのリンクをクリックして登録を完了してください。')
-            return
+            logger.debug('既存ユーザー検出 — 確認メール再送信を試行')
+            try {
+              const { error: resendError } = await supabase.auth.resend({
+                type: 'signup',
+                email: email,
+                options: {
+                  emailRedirectTo: `${window.location.origin}/complete-profile`,
+                }
+              })
+              if (resendError) {
+                logger.error('確認メール再送信エラー:', resendError)
+                // それでもエラーの場合は、確認済みユーザーの可能性
+                throw new Error('このメールアドレスは既に登録されています。ログインをお試しください。')
+              }
+              setMessage('確認メールを再送信しました。メールのリンクをクリックして登録を完了してください。')
+              return
+            } catch (resendErr) {
+              logger.error('resend例外:', resendErr)
+              throw resendErr
+            }
           }
           throw error
         }
