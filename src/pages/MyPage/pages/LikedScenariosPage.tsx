@@ -284,7 +284,7 @@ export function WantToPlayPage() {
                   <Clock className="w-3 h-3 mr-1" />
                   {Math.floor(item.scenario.duration / 60)}h{item.scenario.duration % 60 > 0 ? `${item.scenario.duration % 60}m` : ''}
                 </Badge>
-                {item.scenario.difficulty > 0 && (
+                {item.scenario.difficulty >= 1 && item.scenario.difficulty <= 5 && (
                   <Badge variant="outline" className="text-xs">
                     {getDifficultyLabel(item.scenario.difficulty)}
                   </Badge>

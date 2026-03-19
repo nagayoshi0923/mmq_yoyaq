@@ -208,6 +208,16 @@ export function GuidePage() {
             <div className="mt-4 p-3 bg-gray-50 border border-gray-200 text-xs text-gray-500">
               ※ 店舗の空き状況・人数によって対応できない場合があります
             </div>
+            <Link to="/queens-waltz">
+              <Button
+                size="sm"
+                className="w-full mt-4 rounded-none"
+                style={{ backgroundColor: THEME.primary, color: '#fff' }}
+              >
+                公演一覧から試してみる
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </Link>
           </div>
 
           {/* 貸切グループ作成 */}
@@ -253,6 +263,16 @@ export function GuidePage() {
               ✓ 招待コードはLINEやSNSで簡単シェア<br />
               ✓ アプリ不要・スマホだけでOK
             </div>
+            <Link to="/group/create">
+              <Button
+                size="sm"
+                className="w-full mt-4 rounded-none"
+                style={{ backgroundColor: THEME.primary, color: '#fff' }}
+              >
+                貸切グループを作成する
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </Link>
           </div>
         </div>
 
