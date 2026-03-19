@@ -513,16 +513,27 @@ export function CompleteProfile() {
       <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 sm:p-8 text-center space-y-4">
-            <AlertCircle className="w-16 h-16 text-red-500 mx-auto" />
-            <h2 className="text-xl font-bold text-red-800">セッションエラー</h2>
-            <p className="text-muted-foreground">
-              セッションが無効または期限切れです。<br />
-              メールのリンクを再度クリックするか、新規登録からやり直してください。
+            <AlertCircle className="w-16 h-16 text-amber-500 mx-auto" />
+            <h2 className="text-xl font-bold text-amber-800">確認リンクを開き直してください</h2>
+            <p className="text-muted-foreground text-sm">
+              セキュリティのため、確認メールのリンクは<br />
+              <strong>登録時と同じブラウザ</strong>で開く必要があります。
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded p-3 text-left text-sm">
+              <p className="font-medium text-amber-800 mb-2">解決方法：</p>
+              <ol className="list-decimal list-inside text-amber-700 space-y-1">
+                <li>登録時に使ったブラウザを開く</li>
+                <li>確認メールのリンクをコピー</li>
+                <li>そのブラウザに貼り付けて開く</li>
+              </ol>
+            </div>
+            <p className="text-xs text-gray-500">
+              解決しない場合は、新規登録からやり直してください。
             </p>
             <Button 
               onClick={() => navigate('/signup', { replace: true })}
               className="w-full"
-              style={{ backgroundColor: THEME.primary }}
+              variant="outline"
             >
               新規登録画面に戻る
             </Button>

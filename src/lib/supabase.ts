@@ -52,9 +52,9 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     detectSessionInUrl: true,
     // ストレージキーを明示的に設定
     storageKey: 'mmq-supabase-auth',
-    // implicit フロー: 別ブラウザでメールリンクを開いても動作する
-    // （PKCE は同じブラウザでないと code_verifier が失われる問題がある）
-    flowType: 'implicit',
+    // PKCE フロー: セキュリティ上推奨
+    // 注意: 確認メールは登録時と同じブラウザで開く必要がある
+    flowType: 'pkce',
   },
 })
 
