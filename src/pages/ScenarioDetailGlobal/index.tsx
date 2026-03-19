@@ -891,11 +891,11 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                         className={`rounded-lg p-3 text-center ${char.is_npc ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}
                       >
                         {/* キャラクター画像 */}
-                        <div
-                          className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden border-2 border-gray-200"
-                          style={{ backgroundColor: char.background_color || 'transparent' }}
-                        >
-                          {char.image_url ? (
+                        {char.image_url ? (
+                          <div
+                            className="w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden border-2 border-gray-200"
+                            style={{ backgroundColor: char.background_color || 'transparent' }}
+                          >
                             <img
                               src={char.image_url}
                               alt={char.name}
@@ -908,24 +908,26 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                                   : '50% 50%'
                               }}
                             />
-                          ) : (
-                            <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                              <Users className="w-6 h-6 text-gray-300" />
-                            </div>
-                          )}
-                        </div>
-                        {/* NPC バッジ */}
-                        {char.is_npc && (
-                          <span className="inline-block text-[10px] px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded mb-1">NPC</span>
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-gray-200 flex items-center justify-center">
+                            <Users className="w-8 h-8 text-gray-400" />
+                          </div>
                         )}
-                        <p className="font-medium text-gray-900 text-sm">{char.name}</p>
+                        {/* 名前 */}
+                        <p className="font-semibold text-gray-900 text-sm">
+                          {char.name}
+                          {char.is_npc && (
+                            <span className="ml-1 text-[10px] font-normal bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded">NPC</span>
+                          )}
+                        </p>
                         {(char.age || char.occupation) && (
                           <p className="text-xs text-gray-500 mt-0.5">
                             {[char.age, char.occupation].filter(Boolean).join(' / ')}
                           </p>
                         )}
                         {char.description && (
-                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{char.description}</p>
+                          <p className="text-xs text-gray-600 mt-1 text-left leading-relaxed whitespace-pre-wrap">{char.description}</p>
                         )}
                       </div>
                     ))}
