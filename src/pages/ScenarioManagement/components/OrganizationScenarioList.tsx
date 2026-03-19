@@ -32,7 +32,8 @@ import { TanStackDataTable } from '@/components/patterns/table'
 import type { Column } from '@/components/patterns/table'
 
 interface OrganizationScenarioWithMaster {
-  id: string
+  id: string           // = scenario_master_id（ビューの id）
+  org_scenario_id: string  // = organization_scenarios.id（実テーブルの id）
   organization_id: string
   scenario_master_id: string
   slug: string | null
@@ -151,6 +152,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
           .from('organization_scenarios_with_master')
           .select(`
             id,
+            org_scenario_id,
             organization_id,
             scenario_master_id,
             slug,
@@ -437,8 +439,9 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
 
     try {
       // RPC を使用してステータス更新（RLS をバイパス）
+      // org_scenario_id = organization_scenarios テーブルの実 id
       const { data, error } = await supabase.rpc('update_org_scenario_status', {
-        p_scenario_id: scenario.id,
+        p_scenario_id: scenario.org_scenario_id,
         p_new_status: newStatus
       })
 
@@ -479,8 +482,9 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
 
     try {
       // RPC を使用して削除（RLS をバイパス）
+      // org_scenario_id = organization_scenarios テーブルの実 id
       const { data, error } = await supabase.rpc('delete_org_scenario', {
-        p_scenario_id: scenarioToDelete.id
+        p_scenario_id: scenarioToDelete.org_scenario_id
       })
 
       if (error) {
