@@ -11,7 +11,12 @@ import { Link } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 import type { FAQItem } from '@/types'
+
+interface FAQPageProps {
+  organizationSlug?: string
+}
 
 // 共通FAQ
 const COMMON_FAQ_DATA: FAQItem[] = [
@@ -92,8 +97,9 @@ const COMMON_FAQ_DATA: FAQItem[] = [
   },
 ]
 
-export function FAQPage() {
-  const { slug } = useParams<{ slug?: string }>()
+export function FAQPage({ organizationSlug: propSlug }: FAQPageProps = {}) {
+  const { slug: paramSlug } = useParams<{ slug?: string }>()
+  const slug = propSlug || paramSlug
   const [searchTerm, setSearchTerm] = useState('')
   const [openItems, setOpenItems] = useState<Set<number>>(new Set())
   const [organizationFAQ, setOrganizationFAQ] = useState<FAQItem[]>([])
@@ -109,20 +115,26 @@ export function FAQPage() {
 
     const fetchOrgFAQ = async () => {
       try {
-        const { data } = await supabase
+        logger.info('[FAQPage] Fetching FAQ for slug:', slug)
+        const { data, error } = await supabase
           .from('organizations')
           .select('name, faq_items')
           .eq('slug', slug)
           .single()
 
+        if (error) {
+          logger.error('[FAQPage] Error fetching FAQ:', error)
+        }
+
         if (data) {
+          logger.info('[FAQPage] Fetched FAQ items:', data.faq_items)
           setOrganizationName(data.name)
           if (data.faq_items && Array.isArray(data.faq_items)) {
             setOrganizationFAQ(data.faq_items as FAQItem[])
           }
         }
-      } catch {
-        // エラー無視
+      } catch (err) {
+        logger.error('[FAQPage] Exception:', err)
       } finally {
         setLoading(false)
       }

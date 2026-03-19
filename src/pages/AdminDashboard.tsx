@@ -716,7 +716,7 @@ export function AdminDashboard() {
   if (currentPage === 'org-faq' && pathOrganizationSlug) {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
-        <FAQPage />
+        <FAQPage organizationSlug={pathOrganizationSlug} />
       </Suspense>
     )
   }
