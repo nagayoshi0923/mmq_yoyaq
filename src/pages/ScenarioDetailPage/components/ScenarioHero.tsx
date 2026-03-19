@@ -6,6 +6,7 @@ import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { Label } from '@/components/ui/label'
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { Clock, Users, ExternalLink, Star, Share2, Heart, UserPlus, CheckCheck, Building2, UserCircle } from 'lucide-react'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useAuth } from '@/contexts/AuthContext'
@@ -66,6 +67,8 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
   const [isPlayed, setIsPlayed] = useState(false)
   const [isPlayedDialogOpen, setIsPlayedDialogOpen] = useState(false)
   const [playedDate, setPlayedDate] = useState('')
+  const [selectedStoreId, setSelectedStoreId] = useState('')
+  const [allStores, setAllStores] = useState<Store[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   
   // 体験済みかどうかチェック
@@ -118,6 +121,20 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
     
     checkPlayed()
   }, [user, scenario.scenario_id])
+
+  // 全店舗を取得（ダイアログ用）
+  useEffect(() => {
+    const fetchStores = async () => {
+      const { data } = await supabase
+        .from('stores')
+        .select('id, name, short_name')
+        .eq('status', 'active')
+        .or('ownership_type.neq.office,ownership_type.is.null')
+        .order('name')
+      setAllStores(data || [])
+    }
+    fetchStores()
+  }, [])
   
   const handleFavoriteClick = () => {
     toggleFavorite(scenario.scenario_id)
@@ -139,7 +156,8 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
       showToast.info('既に体験済みとして登録されています')
       return
     }
-    setPlayedDate(new Date().toISOString().split('T')[0])
+    setPlayedDate('')
+    setSelectedStoreId('')
     setIsPlayedDialogOpen(true)
   }
   
@@ -160,6 +178,10 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
         return
       }
       
+      // 選択された店舗名を取得
+      const selectedStore = allStores.find(s => s.id === selectedStoreId)
+      const venueName = selectedStore?.name || null
+
       // manual_play_historyに追加
       const { error } = await supabase
         .from('manual_play_history')
@@ -168,7 +190,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           scenario_title: scenario.scenario_title,
           scenario_master_id: scenario.scenario_id,
           played_at: playedDate || null,
-          venue: null,
+          venue: venueName,
         })
       
       if (error) throw error
@@ -355,6 +377,21 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
                 date={playedDate}
                 onDateChange={(date) => setPlayedDate(date || '')}
                 placeholder="日付を選択"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>店舗（任意）</Label>
+              <SearchableSelect
+                options={allStores.map((s): SearchableSelectOption => ({
+                  value: s.id,
+                  label: s.name,
+                }))}
+                value={selectedStoreId}
+                onValueChange={setSelectedStoreId}
+                placeholder="店舗を選択"
+                searchPlaceholder="店舗を検索..."
+                emptyText="店舗が見つかりません"
+                allowClear={true}
               />
             </div>
             <Button 
