@@ -13,7 +13,6 @@ import { Calendar, Clock, Users, CheckCircle2, AlertCircle, Circle, X, HelpCircl
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GroupChat } from '@/pages/PrivateGroupManage/components/GroupChat'
 import { AddCandidateDates } from '@/pages/PrivateGroupManage/components/AddCandidateDates'
-import { UserSearchInvite } from '@/pages/PrivateGroupManage/components/UserSearchInvite'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup, usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroup'
 import { toast } from 'sonner'
@@ -1464,16 +1463,6 @@ export function PrivateGroupInvite() {
                   </div>
                 </div>
 
-                {/* ユーザー検索・招待 */}
-                {group.status === 'gathering' && (
-                  <UserSearchInvite
-                    groupId={group.id}
-                    inviteCode={group.invite_code}
-                    members={group.members || []}
-                    onInvitationSent={refetch}
-                  />
-                )}
-
                 {/* メンバー一覧 */}
                 <div>
                   <h4 className="font-medium text-sm mb-2">参加メンバー（{joinedMembers.length}名）</h4>
@@ -2734,16 +2723,6 @@ export function PrivateGroupInvite() {
                       existingDates={group.candidate_dates || []}
                       onDatesAdded={refetch}
                       organizerMemberId={organizerMember?.id}
-                    />
-                  )}
-
-                  {/* ユーザー検索・招待 */}
-                  {group.status === 'gathering' && (
-                    <UserSearchInvite
-                      groupId={group.id}
-                      inviteCode={group.invite_code}
-                      members={group.members || []}
-                      onInvitationSent={refetch}
                     />
                   )}
 
