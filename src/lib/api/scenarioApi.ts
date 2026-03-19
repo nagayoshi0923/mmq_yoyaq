@@ -417,6 +417,7 @@ export const scenarioApi = {
     // 関連データの参照をクリア（scenario_master_id を使用）
     
     // 1. reservationsのscenario_master_idをNULLに設定
+    // eslint-disable-next-line no-restricted-syntax -- シナリオ削除時の関連データクリアのため直接更新が必要
     const { error: reservationError } = await supabase
       .from('reservations')
       .update({ scenario_master_id: null })

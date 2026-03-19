@@ -97,7 +97,7 @@ export function SurveyResponsesTab({
           .filter((m: any) => m.user_id)
           .map((m: any) => m.user_id)
         
-        let customerNicknames: Record<string, string> = {}
+        const customerNicknames: Record<string, string> = {}
         if (userIds.length > 0) {
           try {
             const { data: customers, error: custError } = await supabase

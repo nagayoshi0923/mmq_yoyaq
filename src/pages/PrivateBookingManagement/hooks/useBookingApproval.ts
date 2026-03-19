@@ -50,7 +50,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
       // 🚨 CRITICAL: 同じ日時・店舗に既存の公演がないかチェック
       // 再承認の場合は、この予約に紐づくイベントを除外する
-      let existingEventsQuery = supabase
+      const existingEventsQuery = supabase
         .from('schedule_events')
         .select('id, scenario, start_time, end_time, reservation_id')
         .eq('date', selectedCandidate.date)
@@ -570,6 +570,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         .eq('reservation_id', requestId)
       
       // 予約を削除
+      // eslint-disable-next-line no-restricted-syntax -- 貸切予約リクエストの却下処理のため直接削除が必要
       const { error: deleteError } = await supabase
         .from('reservations')
         .delete()

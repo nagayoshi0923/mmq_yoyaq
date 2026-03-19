@@ -510,7 +510,7 @@ export async function getCurrentReservations(): Promise<Array<{
   }
 
   // schedule_events を一括取得
-  let eventsMap: Record<string, any> = {}
+  const eventsMap: Record<string, any> = {}
   if (eventIds.size > 0) {
     const { data: events } = await supabase
       .from('schedule_events')

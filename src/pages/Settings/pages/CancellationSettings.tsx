@@ -415,7 +415,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
               if (lines.length > 0) {
                 policyItems = lines.map((line: string) => ({
                   id: generateId(),
-                  content: line.replace(/^[・•\-\*]\s*/, '').trim()
+                  content: line.replace(/^[・•\-*]\s*/, '').trim()
                 }))
               } else {
                 policyItems = DEFAULT_POLICY_ITEMS
@@ -430,7 +430,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
               if (lines.length > 0) {
                 privatePolicyItems = lines.map((line: string) => ({
                   id: generateId(),
-                  content: line.replace(/^[・•\-\*]\s*/, '').trim()
+                  content: line.replace(/^[・•\-*]\s*/, '').trim()
                 }))
               } else {
                 privatePolicyItems = DEFAULT_PRIVATE_POLICY_ITEMS
@@ -502,7 +502,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           if (lines.length > 0) {
             policyItems = lines.map((line: string, index: number) => ({
               id: generateId(),
-              content: line.replace(/^[・•\-\*]\s*/, '').trim() // 先頭の箇条書き記号を除去
+              content: line.replace(/^[・•\-*]\s*/, '').trim() // 先頭の箇条書き記号を除去
             }))
           } else {
             policyItems = DEFAULT_POLICY_ITEMS
@@ -517,7 +517,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           if (lines.length > 0) {
             privatePolicyItems = lines.map((line: string, index: number) => ({
               id: generateId(),
-              content: line.replace(/^[・•\-\*]\s*/, '').trim()
+              content: line.replace(/^[・•\-*]\s*/, '').trim()
             }))
           } else {
             privatePolicyItems = DEFAULT_PRIVATE_POLICY_ITEMS

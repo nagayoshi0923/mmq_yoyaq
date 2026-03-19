@@ -73,7 +73,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
 
       // user_idがあるメンバーのニックネームをcustomersテーブルから取得
       const userIds = data.filter(m => m.user_id).map(m => m.user_id)
-      let customerNicknames: Record<string, string> = {}
+      const customerNicknames: Record<string, string> = {}
       
       if (userIds.length > 0) {
         const { data: customers } = await supabase

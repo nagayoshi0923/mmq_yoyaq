@@ -83,7 +83,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   let orgName: string | null = null
   let orgHeaderImageUrl: string | null = null
   let orgThemeColor: string | null = null
-  let organizationNotFound = false
+  const organizationNotFound = false
   
   if (organizationSlug) {
     const { data: orgData } = await supabase
@@ -553,7 +553,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   const scenarioList = Array.from(scenarioMap.values())
   
   // 残りわずかで達成の貸切グループを取得
-  let nearlyCompleteGroups: NearlyCompleteGroup[] = []
+  const nearlyCompleteGroups: NearlyCompleteGroup[] = []
   
   if (orgId) {
     const { data: privateGroups, error: pgError } = await supabase
