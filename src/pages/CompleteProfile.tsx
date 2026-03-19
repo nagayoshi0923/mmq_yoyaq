@@ -59,11 +59,17 @@ export function CompleteProfile() {
       sessionReceived = true
       setUserEmail(sessionUser.email || '')
       setUserId(sessionUser.id)
+      
+      // OAuth ユーザーまたは Magic Link (OTP) ユーザーはパスワード設定不要
       const provider = sessionUser.app_metadata?.provider as string | undefined
-      setIsOAuthUser(Boolean(provider && provider !== 'email'))
+      const amr = sessionUser.app_metadata?.amr as Array<{ method: string }> | undefined
+      const isOtp = amr?.some(a => a.method === 'otp')
+      const isOAuth = Boolean(provider && provider !== 'email')
+      setIsOAuthUser(isOAuth || Boolean(isOtp))
+      
       setError('')
       setIsCheckingSession(false)
-      logger.log('✅ セッション確認完了:', sessionUser.email)
+      logger.log('✅ セッション確認完了:', sessionUser.email, 'provider:', provider, 'isOtp:', isOtp)
     }
 
     // PKCE コード交換完了など、非同期でセッションが確立されたときに受け取る
@@ -84,15 +90,38 @@ export function CompleteProfile() {
           return
         }
         
-        // セッションがない場合、URL にトークン/コードがあれば交換を待機
+        // セッションがない場合、URL にトークン/コードがあれば処理
         const hash = window.location.hash
         const urlParams = new URLSearchParams(window.location.search)
-        const hasToken = hash.includes('access_token') || urlParams.has('code')
+        const hasTokenInHash = hash.includes('access_token')
+        const hasCode = urlParams.has('code')
         
-        if (hasToken) {
-          logger.log('⏳ 認証トークン検出 — セッション確立を待機中...')
-          // 認証処理は onAuthStateChange で受け取る
-          // 最大 10 秒待機
+        // ハッシュからトークンを手動で抽出してセッション設定を試みる
+        if (hasTokenInHash) {
+          logger.log('⏳ ハッシュから認証トークンを抽出中...')
+          const hashParams = new URLSearchParams(hash.substring(1))
+          const accessToken = hashParams.get('access_token')
+          const refreshToken = hashParams.get('refresh_token')
+          
+          if (accessToken && refreshToken) {
+            logger.log('🔑 トークン検出 — setSession を実行')
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            })
+            
+            if (error) {
+              logger.error('setSession error:', error)
+            } else if (data.session?.user) {
+              applySession(data.session.user)
+              // ハッシュをクリア
+              window.history.replaceState(null, '', window.location.pathname + window.location.search)
+              return
+            }
+          }
+          
+          // setSession が失敗した場合は onAuthStateChange を待機
+          logger.log('⏳ onAuthStateChange を待機中...')
           await new Promise<void>((resolve) => {
             const timeout = setTimeout(() => {
               if (!sessionReceived && !cancelled) {
@@ -101,7 +130,24 @@ export function CompleteProfile() {
               resolve()
             }, 10000)
             
-            // セッション受信したら即座に resolve
+            const checkInterval = setInterval(() => {
+              if (sessionReceived || cancelled) {
+                clearTimeout(timeout)
+                clearInterval(checkInterval)
+                resolve()
+              }
+            }, 100)
+          })
+        } else if (hasCode) {
+          logger.log('⏳ PKCE コード検出 — セッション確立を待機中...')
+          await new Promise<void>((resolve) => {
+            const timeout = setTimeout(() => {
+              if (!sessionReceived && !cancelled) {
+                logger.warn('⚠️ セッション確立タイムアウト')
+              }
+              resolve()
+            }, 10000)
+            
             const checkInterval = setInterval(() => {
               if (sessionReceived || cancelled) {
                 clearTimeout(timeout)
@@ -112,7 +158,6 @@ export function CompleteProfile() {
           })
         } else {
           logger.log('⏳ トークンなし — 既存セッションを再確認')
-          // トークンがない場合、もう一度セッションを確認
           const { data: { session: retrySession } } = await supabase.auth.getSession()
           if (retrySession?.user) {
             applySession(retrySession.user)
