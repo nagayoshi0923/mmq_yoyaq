@@ -21,21 +21,29 @@ export function FAQSettings() {
   const [commonFaqItems, setCommonFaqItems] = useState<FAQItem[]>([])
   const [saving, setSaving] = useState(false)
 
+  // データロード完了フラグ
+  const [dataLoaded, setDataLoaded] = useState(false)
+
   // デバッグログ
   useEffect(() => {
     console.log('[FAQSettings] organization:', organization?.name, 'is_license_manager:', organization?.is_license_manager, 'isLicenseManager:', isLicenseManager)
   }, [organization, isLicenseManager])
 
   useEffect(() => {
-    if (organization?.faq_items) {
-      setFaqItems(organization.faq_items)
-    }
-    if (isLicenseManager) {
-      if (organization?.common_faq_items && organization.common_faq_items.length > 0) {
-        setCommonFaqItems(organization.common_faq_items)
-      } else {
-        setCommonFaqItems(COMMON_FAQ_DATA)
+    if (organization) {
+      // 組織固有FAQ（nullでも空配列として扱う）
+      setFaqItems(organization.faq_items || [])
+      
+      // MMQ共通FAQ（ライセンス管理者の場合）
+      if (isLicenseManager) {
+        if (organization.common_faq_items && organization.common_faq_items.length > 0) {
+          setCommonFaqItems(organization.common_faq_items)
+        } else {
+          setCommonFaqItems(COMMON_FAQ_DATA)
+        }
       }
+      
+      setDataLoaded(true)
     }
   }, [organization, isLicenseManager])
 
@@ -357,7 +365,7 @@ export function FAQSettings() {
       )}
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} disabled={saving || !dataLoaded}>
           {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           <Save className="w-4 h-4 mr-2" />
           保存
