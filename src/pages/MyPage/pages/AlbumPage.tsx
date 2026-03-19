@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { Images, Calendar, MapPin, Star, EyeOff, Users, Clock, User, Plus, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -89,29 +89,47 @@ export function AlbumPage() {
 
   // シナリオと店舗の選択肢を取得
   // 顧客は全組織のシナリオ/店舗を利用可能
-  // シナリオはscenario_mastersテーブルから取得（承認済みのみ）
+  // シナリオはorganization_scenarios_with_masterビューから取得（公開中のみ）
   useEffect(() => {
     const fetchOptions = async () => {
       setOptionsLoading(true)
       try {
-        // シナリオマスタを取得（承認済みのみ）
+        // 公開中のシナリオを取得（organization_scenarios_with_masterビューから）
+        // org_status='available' のシナリオのみ取得し、重複を排除
         const { data: scenarios, error: scenarioError } = await supabase
-          .from('scenario_masters')
-          .select('id, title')
-          .eq('master_status', 'approved')
+          .from('organization_scenarios_with_master')
+          .select('scenario_master_id, title')
+          .eq('org_status', 'available')
           .order('title')
         
         if (scenarioError) throw scenarioError
-        setScenarioOptions(scenarios || [])
+        
+        // 重複を排除（同じシナリオが複数組織で公開されている場合）
+        const uniqueScenarios = scenarios?.reduce((acc, s) => {
+          if (!acc.find(item => item.id === s.scenario_master_id)) {
+            acc.push({ id: s.scenario_master_id, title: s.title })
+          }
+          return acc
+        }, [] as ScenarioOption[]) || []
+        
+        setScenarioOptions(uniqueScenarios)
 
         // 店舗を取得（RLSで許可された店舗）
+        // 臨時店舗は1つだけ表示（臨時会場1のみ）
         const { data: stores, error: storeError } = await supabase
           .from('stores')
-          .select('id, name')
+          .select('id, name, short_name, is_temporary')
           .order('name')
         
         if (storeError) throw storeError
-        setStoreOptions(stores || [])
+        
+        // 臨時店舗は「臨時1」（臨時会場1）のみ残し、他は除外
+        const filteredStores = (stores || []).filter(store => {
+          if (!store.is_temporary) return true
+          return store.short_name === '臨時1' || store.name === '臨時会場1'
+        })
+        
+        setStoreOptions(filteredStores.map(s => ({ id: s.id, name: s.name })))
       } catch (error) {
         logger.error('オプション取得エラー:', error)
       } finally {
@@ -575,26 +593,18 @@ export function AlbumPage() {
               <div className="space-y-4 pt-4">
                 <div className="space-y-2">
                   <Label>シナリオ *</Label>
-                  <Select
+                  <SearchableSelect
+                    options={scenarioOptions.map((s): SearchableSelectOption => ({
+                      value: s.id,
+                      label: s.title
+                    }))}
                     value={newScenarioId}
                     onValueChange={setNewScenarioId}
+                    placeholder={optionsLoading ? '読み込み中...' : scenarioOptions.length === 0 ? 'シナリオがありません' : 'シナリオを選択'}
+                    searchPlaceholder="シナリオを検索..."
+                    emptyText="シナリオが見つかりません"
                     disabled={optionsLoading || scenarioOptions.length === 0}
-                  >
-                    <SelectTrigger className="h-10 text-sm">
-                      <SelectValue placeholder={optionsLoading ? '読み込み中...' : scenarioOptions.length === 0 ? 'シナリオがありません' : 'シナリオを選択'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {scenarioOptions.length === 0 ? (
-                        <div className="py-2 px-3 text-sm text-muted-foreground">シナリオがありません</div>
-                      ) : (
-                        scenarioOptions.map((scenario) => (
-                          <SelectItem key={scenario.id} value={scenario.id} className="text-sm">
-                            {scenario.title}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>プレイした日付 *</Label>
@@ -606,26 +616,19 @@ export function AlbumPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>店舗（任意）</Label>
-                  <Select
+                  <SearchableSelect
+                    options={storeOptions.map((s): SearchableSelectOption => ({
+                      value: s.id,
+                      label: s.name
+                    }))}
                     value={newStoreId}
                     onValueChange={setNewStoreId}
+                    placeholder={optionsLoading ? '読み込み中...' : storeOptions.length === 0 ? '店舗がありません' : '店舗を選択'}
+                    searchPlaceholder="店舗を検索..."
+                    emptyText="店舗が見つかりません"
                     disabled={optionsLoading || storeOptions.length === 0}
-                  >
-                    <SelectTrigger className="h-10 text-sm">
-                      <SelectValue placeholder={optionsLoading ? '読み込み中...' : storeOptions.length === 0 ? '店舗がありません' : '店舗を選択'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {storeOptions.length === 0 ? (
-                        <div className="py-2 px-3 text-sm text-muted-foreground">店舗がありません</div>
-                      ) : (
-                        storeOptions.map((store) => (
-                          <SelectItem key={store.id} value={store.id} className="text-sm">
-                            {store.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                    allowClear={true}
+                  />
                 </div>
                 <Button 
                   onClick={handleAddManualHistory} 

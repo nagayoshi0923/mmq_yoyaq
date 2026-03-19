@@ -296,6 +296,11 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
           setError('有効なメールアドレスを入力してください')
         } else if (errorMessage.includes('Password')) {
           setError('パスワードは6文字以上で入力してください')
+        } else if (errorMessage.includes('security purposes') || errorMessage.includes('after') && errorMessage.includes('seconds')) {
+          // レート制限エラー
+          const match = errorMessage.match(/after (\d+) seconds/)
+          const seconds = match ? match[1] : '30'
+          setError(`セキュリティのため、${seconds}秒後に再度お試しください`)
         } else {
           setError('アカウント作成に失敗しました: ' + (errorMessage || 'もう一度お試しください'))
         }
