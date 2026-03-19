@@ -160,7 +160,9 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
     // 静的ページ
     'terms', 'privacy', 'legal', 'contact', 'faq', 'guide', 'cancel-policy', 'stores', 'company',
     // 組織向けページ
-    'for-business', 'pricing', 'getting-started']
+    'for-business', 'pricing', 'getting-started',
+    // ランディングページ
+    'lp']
   if (segments.length === 1 && specialPages.includes(segments[0])) {
     return { page: segments[0], scenarioId: null, organizationSlug: null }
   }
@@ -631,6 +633,15 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <PlatformTop />
+      </Suspense>
+    )
+  }
+
+  // MMQ訴求ランディングページ
+  if (currentPage === 'lp') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <LandingPage />
       </Suspense>
     )
   }

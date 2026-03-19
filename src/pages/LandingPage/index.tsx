@@ -1,503 +1,457 @@
 /**
- * MMQ ランディングページ
- * @page LandingPage
- * @path #landing または /
- * @purpose サービス紹介・機能説明・登録誘導
- * @access 全員（未ログイン向け）
- * @organization なし
+ * MMQ サービス訴求ランディングページ（顧客向け）
+ * @path /lp
  */
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import {
-  Calendar,
-  Users,
-  Clock,
-  BarChart3,
-  Smartphone,
-  Globe,
-  CheckCircle,
-  ArrowRight,
-  Sparkles,
-  Building2,
-  BookOpen,
-  Bell,
-  Shield,
-  Zap,
-  FileCheck,
-  Receipt
-} from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
-import { Link } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import {
+  Users, Clock, MapPin, Star, ChevronRight, Play,
+  Sparkles, Shield, Smartphone, BookOpen, CheckCircle2,
+  ArrowRight, Heart, Award
+} from 'lucide-react'
 
-export default function LandingPage() {
-  const features = [
-    {
-      icon: Calendar,
-      title: 'スケジュール管理',
-      description: '公演スケジュールを一元管理。複数店舗・複数シナリオを見やすく表示。',
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10'
-    },
-    {
-      icon: Globe,
-      title: 'オンライン予約',
-      description: '24時間対応の予約サイト。顧客は好きな時間に予約・変更が可能。',
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10'
-    },
-    {
-      icon: Users,
-      title: 'GM・スタッフ管理',
-      description: 'シフト提出から配置決定まで。GM確認機能で調整もスムーズ。',
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-500/10'
-    },
-    {
-      icon: BookOpen,
-      title: 'シナリオ管理',
-      description: 'MMQのシナリオマスタから選ぶだけで店舗のシナリオリストに簡単追加。',
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-500/10'
-    },
-    {
-      icon: BarChart3,
-      title: '売上・分析',
-      description: '公演ごとの売上を自動集計。シナリオ別・期間別の分析も。',
-      color: 'text-pink-500',
-      bgColor: 'bg-pink-500/10'
-    },
-    {
-      icon: Bell,
-      title: '通知連携',
-      description: 'Discord連携で予約・シフト通知。リマインドメールも自動送信。',
-      color: 'text-indigo-500',
-      bgColor: 'bg-indigo-500/10'
-    },
-    {
-      icon: FileCheck,
-      title: 'ライセンス報告',
-      description: '他社シナリオの公演回数を報告。ライセンス料の自動計算で報告業務を効率化。',
-      color: 'text-emerald-500',
-      bgColor: 'bg-emerald-500/10'
-    },
-    {
-      icon: Receipt,
-      title: 'ライセンス管理',
-      description: '自社シナリオのライセンス状況を一元管理。報告の承認・集計・請求書作成まで。',
-      color: 'text-amber-500',
-      bgColor: 'bg-amber-500/10'
-    }
-  ]
+const PRIMARY = '#E60012'
+const DARK = '#111111'
 
-  const benefits = [
-    {
-      icon: Clock,
-      title: '業務時間を大幅削減',
-      description: '予約受付・スケジュール調整・シフト管理を自動化。運営にかかる時間を最大70%削減。'
-    },
-    {
-      icon: Smartphone,
-      title: 'どこからでもアクセス',
-      description: 'スマホ・タブレット・PCに完全対応。外出先からでも予約状況を確認。'
-    },
-    {
-      icon: Shield,
-      title: 'データを安全に管理',
-      description: '顧客情報・予約履歴を安全に保管。組織ごとにデータを完全分離。'
-    },
-    {
-      icon: Zap,
-      title: 'すぐに始められる',
-      description: '登録から稼働まで最短30分。難しい設定は不要、直感的に使えるUI。'
-    }
-  ]
+// ---- データ ----
+const FEATURES = [
+  {
+    icon: BookOpen,
+    title: '180以上のシナリオ',
+    desc: 'ホラー・SF・ファンタジー・日常系など多彩なジャンル。初心者から上級者まで楽しめる作品が揃っています。',
+  },
+  {
+    icon: MapPin,
+    title: '複数店舗で開催',
+    desc: '馬場・大塚・埼玉大宮など都内・近郊の複数店舗で定期開催。あなたの近くで参加できます。',
+  },
+  {
+    icon: Users,
+    title: '少人数〜貸切まで',
+    desc: '一人でも参加できる少人数公演から、グループ貸切プランまで柔軟に対応。',
+  },
+  {
+    icon: Smartphone,
+    title: 'かんたんオンライン予約',
+    desc: '会員登録すればスマホから24時間いつでも予約。当日の流れもアプリで確認できます。',
+  },
+  {
+    icon: Shield,
+    title: '安心のキャンセルポリシー',
+    desc: '公演4時間前まではキャンセル料無料。急な予定変更にも対応しています。',
+  },
+  {
+    icon: Award,
+    title: 'プロGMが全力サポート',
+    desc: 'マーダーミステリー経験豊富なGMが進行をサポート。はじめての方も安心して楽しめます。',
+  },
+]
 
-  const plans = [
-    {
-      name: '管理サイト',
-      price: '¥0',
-      period: '',
-      description: '管理機能はずっと無料',
-      features: [
-        'スケジュール管理',
-        'スタッフ・GM管理',
-        'シナリオ管理',
-        '売上・分析レポート',
-        'Discord通知',
-        'ライセンス報告',
-        '店舗・スタッフ数 無制限'
-      ],
-      buttonText: '無料で始める',
-      buttonVariant: 'outline' as const,
-      popular: false
-    },
-    {
-      name: '予約サイト公開',
-      price: '¥4,980',
-      period: '/月',
-      description: '予約受付を始めたい方に',
-      features: [
-        '24時間オンライン予約受付',
-        '顧客への自動メール送信',
-        '予約サイトのカスタマイズ',
-        '顧客管理機能',
-        'キャンセル・変更受付',
-        '貸切予約受付',
-        '管理機能すべて含む'
-      ],
-      buttonText: '予約サイトを公開する',
-      buttonVariant: 'default' as const,
-      popular: true
-    }
-  ]
+const STEPS = [
+  { num: '01', title: '会員登録（無料）', desc: 'メールアドレスで30秒で完了。SNSアカウントでも登録可能。' },
+  { num: '02', title: 'シナリオを選ぶ', desc: '180以上のシナリオからジャンル・日程・人数で検索。' },
+  { num: '03', title: '予約を確定', desc: '日程・店舗を選んでオンラインで予約完了。' },
+  { num: '04', title: '当日参加・体験！', desc: '店舗へ向かい、謎解きと推理を楽しむだけ。' },
+]
+
+const VOICES = [
+  {
+    name: 'Aさん（20代女性）',
+    genre: 'ホラー好き',
+    text: '友達と参加したら大盛り上がり！シナリオの完成度が高くて本格的な推理ゲームができました。また来ます！',
+    stars: 5,
+  },
+  {
+    name: 'Bさん（30代男性）',
+    genre: 'はじめての参加',
+    text: 'マーダーミステリー初体験でしたがGMさんが丁寧に教えてくれて安心でした。没入感が半端ない。',
+    stars: 5,
+  },
+  {
+    name: 'Cさん（20代男性）',
+    genre: 'リピーター',
+    text: 'もう10回以上参加しています。シナリオの種類が豊富で毎回新鮮な体験ができるのが最高。',
+    stars: 5,
+  },
+]
+
+export function LandingPage() {
+  const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* ヘッダー */}
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">M</span>
-            </div>
-            <span className="font-bold text-xl">MMQ</span>
+    <div className="min-h-screen bg-white overflow-x-hidden">
+      <Header />
+
+      {/* ═══ ヒーロー ═══ */}
+      <section
+        className="relative min-h-[90vh] flex items-center justify-center overflow-hidden"
+        style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1a0000 50%, #2a0000 100%)` }}
+      >
+        {/* 背景装飾 */}
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(230,0,18,0.3) 40px, rgba(230,0,18,0.3) 41px), repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(230,0,18,0.3) 40px, rgba(230,0,18,0.3) 41px)`
+          }}
+        />
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] opacity-20 pointer-events-none"
+          style={{ background: `radial-gradient(circle, ${PRIMARY} 0%, transparent 70%)` }}
+        />
+
+        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+          {/* バッジ */}
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-8 text-sm text-white/80">
+            <Sparkles className="w-4 h-4" style={{ color: PRIMARY }} />
+            マーダーミステリー専門プラットフォーム
           </div>
-          <div className="flex items-center gap-4">
-            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground hidden sm:inline">
-              機能
-            </a>
-            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground hidden sm:inline">
-              料金
-            </a>
-            <Button variant="ghost" size="sm" onClick={() => window.location.href = '/login'}>
-              ログイン
+
+          <h1 className="text-5xl md:text-7xl font-black text-white leading-none tracking-tight mb-6">
+            あなたが、
+            <br />
+            <span style={{ color: PRIMARY }}>探偵</span>になる夜。
+          </h1>
+
+          <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto mb-10 leading-relaxed">
+            MMQは、本格マーダーミステリーを手軽に楽しめる予約プラットフォーム。
+            <br className="hidden md:block" />
+            180以上のシナリオ、複数の会場で、非日常の体験があなたを待っています。
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Button
+              size="lg"
+              className="w-full sm:w-auto text-base font-bold px-8 h-14 rounded-none shadow-2xl"
+              style={{ backgroundColor: PRIMARY, color: '#fff' }}
+              onClick={() => navigate('/signup')}
+            >
+              無料で会員登録する
+              <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
-            <Button size="sm" onClick={() => window.location.href = '/register'}>
-              無料で始める
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full sm:w-auto text-base font-bold px-8 h-14 rounded-none border-white/30 text-white bg-transparent hover:bg-white/10"
+              onClick={() => navigate('/queens-waltz')}
+            >
+              <Play className="mr-2 w-4 h-4" />
+              公演を見てみる
             </Button>
           </div>
-        </div>
-      </header>
 
-      {/* ヒーローセクション */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-secondary/5" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(120,119,198,0.1),transparent_50%)]" />
-        
-        <div className="container mx-auto px-4 py-20 md:py-32 relative">
-          <div className="max-w-3xl mx-auto text-center">
-            <Badge variant="secondary" className="mb-4">
-              <Sparkles className="w-3 h-3 mr-1" />
-              マーダーミステリー専用
-            </Badge>
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
-              公演運営を、
-              <br />
-              <span className="text-primary">もっとスマート</span>に
-            </h1>
-            <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              予約受付・スケジュール管理・GM配置・売上分析まで。
-              <br className="hidden sm:block" />
-              マーダーミステリー店舗の運営を一元管理するSaaS。
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" onClick={() => window.location.href = '/register'} className="gap-2">
-                無料で始める
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => window.location.href = '/queens-waltz'}>
-                デモを見る
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground mt-4">
-              クレジットカード不要 • 30秒で登録完了
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 機能紹介 */}
-      <section id="features" className="py-20 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">イチオシ機能</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              マーダーミステリー店舗の運営に必要な機能をすべて搭載
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {features.map((feature) => (
-              <Card key={feature.title} className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className={`w-12 h-12 rounded-lg ${feature.bgColor} flex items-center justify-center mb-4`}>
-                    <feature.icon className={`w-6 h-6 ${feature.color}`} />
-                  </div>
-                  <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
-                  <p className="text-muted-foreground text-sm">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ライセンス機能ピックアップ */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-5xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
-                <Badge variant="secondary" className="mb-4">
-                  <FileCheck className="w-3 h-3 mr-1" />
-                  業界初
-                </Badge>
-                <h2 className="text-3xl font-bold mb-4">
-                  ライセンス報告を
-                  <br />
-                  <span className="text-primary">もっと簡単に</span>
-                </h2>
-                <p className="text-muted-foreground mb-6">
-                  他社シナリオを公演した際のライセンス報告、面倒じゃないですか？
-                  MMQなら公演記録から自動で報告書を作成。
-                  シナリオ著作者への報告業務を大幅に効率化します。
-                </p>
-                <ul className="space-y-3">
-                  <li className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                    公演回数を自動カウント
-                  </li>
-                  <li className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                    ライセンス料を自動計算
-                  </li>
-                  <li className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                    ワンクリックで報告完了
-                  </li>
-                  <li className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                    報告履歴を一元管理
-                  </li>
-                </ul>
-              </div>
-              <div className="bg-gradient-to-br from-emerald-50 to-amber-50 dark:from-emerald-950/20 dark:to-amber-950/20 rounded-2xl p-8">
-                <div className="space-y-4">
-                  <Card className="shadow-lg">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">シナリオA</span>
-                        <Badge>12回公演</Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        ライセンス料: ¥36,000
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="shadow-lg">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">シナリオB</span>
-                        <Badge>8回公演</Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        ライセンス料: ¥24,000
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <div className="border-t pt-4 mt-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">合計</span>
-                      <span className="text-xl font-bold text-primary">¥60,000</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* メリット */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">MMQを使うメリット</h2>
-          </div>
-          
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {benefits.map((benefit) => (
-              <div key={benefit.title} className="flex gap-4">
-                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <benefit.icon className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-1">{benefit.title}</h3>
-                  <p className="text-muted-foreground text-sm">{benefit.description}</p>
-                </div>
+          {/* 実績数字 */}
+          <div className="mt-16 grid grid-cols-3 gap-8 max-w-lg mx-auto">
+            {[
+              { num: '180+', label: 'シナリオ数' },
+              { num: '5', label: '開催店舗' },
+              { num: '4h', label: '没入体験' },
+            ].map(({ num, label }) => (
+              <div key={label} className="text-center">
+                <div className="text-3xl md:text-4xl font-black" style={{ color: PRIMARY }}>{num}</div>
+                <div className="text-xs text-white/50 mt-1">{label}</div>
               </div>
             ))}
           </div>
         </div>
+
+        {/* 下部の矢印 */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+          <ChevronRight className="w-6 h-6 text-white/30 rotate-90" />
+        </div>
       </section>
 
-      {/* 料金プラン */}
-      <section id="pricing" className="py-20 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">シンプルな料金体系</h2>
-            <p className="text-muted-foreground">
-              まずは無料プランでお試しください
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-            {plans.map((plan) => (
-              <Card 
-                key={plan.name} 
-                className={`relative ${plan.popular ? 'border-primary shadow-lg' : 'border-border'}`}
+      {/* ═══ マーダーミステリーとは？ ═══ */}
+      <section className="py-20 px-4 bg-white">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <p className="text-sm font-bold tracking-widest mb-3" style={{ color: PRIMARY }}>WHAT IS MMQ</p>
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900 leading-tight mb-6">
+                マーダーミステリーって<br />なに？
+              </h2>
+              <p className="text-gray-600 leading-relaxed mb-6">
+                マーダーミステリーは、参加者それぞれが与えられたキャラクターを演じながら、殺人事件の謎を解く没入型の推理ゲームです。
+              </p>
+              <p className="text-gray-600 leading-relaxed mb-8">
+                小説や映画を「読む・観る」のではなく、<strong className="text-gray-900">自ら物語の中に入り込んで体験する</strong>のが最大の魅力。犯人かもしれない、探偵かもしれない——あなたの役割次第でストーリーが変わります。
+              </p>
+              <ul className="space-y-3">
+                {['ネタバレ厳禁のため、何度でも新鮮に楽しめる', '友達・カップル・家族みんなで盛り上がれる', '演技が苦手でも大丈夫！キャラを楽しむだけでOK'].map(text => (
+                  <li key={text} className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: PRIMARY }} />
+                    <span className="text-gray-700 text-sm">{text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* 右側ビジュアル */}
+            <div className="relative">
+              <div
+                className="aspect-square max-w-md mx-auto flex items-center justify-center"
+                style={{ background: `linear-gradient(135deg, ${DARK} 0%, #3a0000 100%)` }}
               >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-primary">人気</Badge>
-                  </div>
-                )}
-                <CardContent className="p-6">
-                  <h3 className="font-semibold text-lg mb-1">{plan.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
-                  <div className="mb-6">
-                    <span className="text-3xl font-bold">{plan.price}</span>
-                    <span className="text-muted-foreground">{plan.period}</span>
-                  </div>
-                  <ul className="space-y-3 mb-6">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                        {feature}
-                      </li>
+                <div className="text-center p-8">
+                  <div className="text-8xl mb-4">🔍</div>
+                  <div className="text-white text-xl font-bold mb-2">あなたは誰？</div>
+                  <div className="flex flex-wrap gap-2 justify-center mt-4">
+                    {['探偵', '犯人', '目撃者', '被疑者', '共犯者'].map(role => (
+                      <span
+                        key={role}
+                        className="px-3 py-1 text-xs font-bold text-white border rounded-full"
+                        style={{ borderColor: `${PRIMARY}60` }}
+                      >
+                        {role}
+                      </span>
                     ))}
-                  </ul>
-                  <Button 
-                    className="w-full" 
-                    variant={plan.buttonVariant}
-                    onClick={() => window.location.href = '/register'}
-                  >
-                    {plan.buttonText}
-                  </Button>
-                </CardContent>
-              </Card>
+                  </div>
+                </div>
+              </div>
+              {/* 装飾 */}
+              <div
+                className="absolute -bottom-4 -right-4 w-24 h-24"
+                style={{ backgroundColor: PRIMARY, opacity: 0.15 }}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ 特徴 ═══ */}
+      <section className="py-20 px-4" style={{ backgroundColor: '#FAFAFA' }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-sm font-bold tracking-widest mb-3" style={{ color: PRIMARY }}>WHY MMQ</p>
+            <h2 className="text-3xl md:text-4xl font-black text-gray-900">MMQが選ばれる理由</h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {FEATURES.map(({ icon: Icon, title, desc }) => (
+              <div
+                key={title}
+                className="bg-white p-6 border border-gray-100 hover:border-gray-300 hover:shadow-lg transition-all group"
+              >
+                <div
+                  className="w-12 h-12 flex items-center justify-center mb-4"
+                  style={{ backgroundColor: '#FEE2E2' }}
+                >
+                  <Icon className="w-6 h-6" style={{ color: PRIMARY }} />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{desc}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <Card className="bg-primary text-primary-foreground">
-            <CardContent className="p-12 text-center">
-              <Building2 className="w-12 h-12 mx-auto mb-6 opacity-90" />
-              <h2 className="text-3xl font-bold mb-4">
-                今すぐMMQを始めましょう
-              </h2>
-              <p className="text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-                登録は無料。クレジットカードも不要です。
-                <br />
-                まずはFreeプランで、MMQの便利さを体験してください。
-              </p>
-              <Button 
-                size="lg" 
-                variant="secondary"
-                onClick={() => window.location.href = '/register'}
-                className="gap-2"
-              >
-                無料で始める
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+      {/* ═══ 参加の流れ ═══ */}
+      <section className="py-20 px-4 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-sm font-bold tracking-widest mb-3" style={{ color: PRIMARY }}>HOW TO</p>
+            <h2 className="text-3xl md:text-4xl font-black text-gray-900">参加の流れ</h2>
+          </div>
 
-      {/* シナリオ作家向けセクション */}
-      <section className="py-20 bg-gradient-to-br from-amber-500/5 via-orange-500/5 to-red-500/5">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <Badge variant="outline" className="mb-4 text-amber-600 border-amber-500/30">
-                シナリオ作家の方へ
-              </Badge>
-              <h2 className="text-3xl font-bold mb-4">
-                作者ポータルで公演情報を一元管理
-              </h2>
-              <p className="text-muted-foreground">
-                あなたのシナリオがどの会社でどれだけ使用されているか、
-                <br />
-                リアルタイムで確認できます
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-6 mb-12">
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
-                    <Receipt className="w-6 h-6 text-amber-600" />
+          <div className="space-y-0">
+            {STEPS.map(({ num, title, desc }, i) => (
+              <div key={num} className="flex gap-6 items-start">
+                <div className="flex flex-col items-center flex-shrink-0">
+                  <div
+                    className="w-14 h-14 flex items-center justify-center font-black text-white text-lg"
+                    style={{ backgroundColor: PRIMARY }}
+                  >
+                    {num}
                   </div>
-                  <h3 className="font-semibold mb-2">公演報告の受取</h3>
-                  <p className="text-sm text-muted-foreground">
-                    各会社からの公演報告を自動で集計。どこで何回使用されたか一目瞭然。
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
-                    <BarChart3 className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <h3 className="font-semibold mb-2">ライセンス収入の確認</h3>
-                  <p className="text-sm text-muted-foreground">
-                    月別・シナリオ別のライセンス収入を自動計算。確定申告にも便利。
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
-                    <Bell className="w-6 h-6 text-red-600" />
-                  </div>
-                  <h3 className="font-semibold mb-2">通知機能</h3>
-                  <p className="text-sm text-muted-foreground">
-                    新しい報告があるとメールでお知らせ。定期サマリーも受け取れます。
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="text-center">
-              <Button 
-                size="lg"
-                variant="outline"
-                onClick={() => window.location.href = '/author-login'}
-                className="gap-2 border-amber-500/50 hover:bg-amber-500/10"
-              >
-                <Sparkles className="w-4 h-4 text-amber-600" />
-                作者ログイン
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-              <p className="text-sm text-muted-foreground mt-4">
-                ※ 登録不要！メールアドレスを入力するだけでログインリンクが届きます。
-              </p>
-            </div>
+                  {i < STEPS.length - 1 && (
+                    <div className="w-0.5 h-12 mt-0" style={{ backgroundColor: '#FEE2E2' }} />
+                  )}
+                </div>
+                <div className="pb-10">
+                  <h3 className="text-xl font-bold text-gray-900 mb-1 mt-3">{title}</h3>
+                  <p className="text-gray-600 text-sm">{desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* フッター */}
+      {/* ═══ 口コミ ═══ */}
+      <section className="py-20 px-4" style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1a0000 100%)` }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-sm font-bold tracking-widest mb-3" style={{ color: PRIMARY }}>VOICES</p>
+            <h2 className="text-3xl md:text-4xl font-black text-white">参加者の声</h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {VOICES.map(({ name, genre, text, stars }) => (
+              <div
+                key={name}
+                className="p-6 border border-white/10"
+                style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
+              >
+                <div className="flex gap-1 mb-4">
+                  {Array.from({ length: stars }).map((_, i) => (
+                    <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  ))}
+                </div>
+                <p className="text-white/80 text-sm leading-relaxed mb-4">「{text}」</p>
+                <div>
+                  <div className="text-white font-bold text-sm">{name}</div>
+                  <div className="text-white/40 text-xs">{genre}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ 料金 ═══ */}
+      <section className="py-20 px-4 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-sm font-bold tracking-widest mb-3" style={{ color: PRIMARY }}>PRICE</p>
+            <h2 className="text-3xl md:text-4xl font-black text-gray-900">料金について</h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* 通常参加 */}
+            <div className="border-2 border-gray-200 p-8">
+              <div className="text-sm font-bold text-gray-500 mb-2">通常参加</div>
+              <div className="text-4xl font-black text-gray-900 mb-1">
+                ¥3,500<span className="text-lg font-normal text-gray-500">〜</span>
+              </div>
+              <div className="text-sm text-gray-500 mb-6">/お一人様（税込）</div>
+              <ul className="space-y-2">
+                {['シナリオ代込み', '入場料込み', '初心者歓迎', 'GMサポート付き'].map(t => (
+                  <li key={t} className="flex items-center gap-2 text-sm text-gray-700">
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: PRIMARY }} />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* 貸切 */}
+            <div className="border-2 p-8" style={{ borderColor: PRIMARY, backgroundColor: '#fff5f5' }}>
+              <div className="inline-block text-xs font-bold text-white px-2 py-0.5 mb-2" style={{ backgroundColor: PRIMARY }}>
+                人気
+              </div>
+              <div className="text-sm font-bold text-gray-500 mb-2">グループ貸切</div>
+              <div className="text-4xl font-black text-gray-900 mb-1">
+                ¥8,000<span className="text-lg font-normal text-gray-500">〜</span>
+              </div>
+              <div className="text-sm text-gray-500 mb-6">/グループ（税込）</div>
+              <ul className="space-y-2">
+                {['グループ専用で開催', '日程・人数の相談可', 'サプライズ企画OK', 'SNS映えの演出対応'].map(t => (
+                  <li key={t} className="flex items-center gap-2 text-sm text-gray-700">
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: PRIMARY }} />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <p className="text-center text-xs text-gray-400 mt-6">
+            ※ 料金はシナリオ・人数・プランにより異なります。詳細は各公演ページをご確認ください。
+          </p>
+        </div>
+      </section>
+
+      {/* ═══ こんな人におすすめ ═══ */}
+      <section className="py-20 px-4" style={{ backgroundColor: '#FAFAFA' }}>
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-sm font-bold tracking-widest mb-3" style={{ color: PRIMARY }}>FOR YOU</p>
+            <h2 className="text-3xl md:text-4xl font-black text-gray-900">こんな方におすすめ</h2>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {[
+              { emoji: '👥', text: '友達と非日常を楽しみたい' },
+              { emoji: '💑', text: 'カップルで新鮮な体験をしたい' },
+              { emoji: '🎉', text: '誕生日・記念日のサプライズに' },
+              { emoji: '🏢', text: '職場のチームビルディングに' },
+              { emoji: '🔍', text: '推理・謎解きが好き' },
+              { emoji: '🎭', text: 'ロールプレイ・演技が好き' },
+            ].map(({ emoji, text }) => (
+              <div
+                key={text}
+                className="flex items-center gap-3 bg-white p-4 border border-gray-100"
+              >
+                <span className="text-2xl">{emoji}</span>
+                <span className="text-sm font-medium text-gray-800">{text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ 最終CTA ═══ */}
+      <section
+        className="py-24 px-4 text-center"
+        style={{ background: `linear-gradient(135deg, ${DARK} 0%, #2a0000 100%)` }}
+      >
+        <div className="max-w-2xl mx-auto">
+          <div className="inline-flex items-center gap-2 mb-6">
+            <Heart className="w-5 h-5" style={{ color: PRIMARY }} />
+            <span className="text-white/60 text-sm">会員登録は無料・30秒で完了</span>
+          </div>
+          <h2 className="text-4xl md:text-5xl font-black text-white mb-6 leading-tight">
+            さあ、<span style={{ color: PRIMARY }}>謎解き</span>を<br />はじめよう。
+          </h2>
+          <p className="text-white/60 mb-10">
+            まずは公演ラインナップをチェック。気になるシナリオを見つけたら、すぐに予約できます。
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              size="lg"
+              className="font-bold px-10 h-14 rounded-none shadow-2xl text-base"
+              style={{ backgroundColor: PRIMARY, color: '#fff' }}
+              onClick={() => navigate('/signup')}
+            >
+              無料で会員登録
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="font-bold px-10 h-14 rounded-none border-white/20 text-white bg-transparent hover:bg-white/10 text-base"
+              onClick={() => navigate('/queens-waltz')}
+            >
+              公演を見る
+              <ChevronRight className="ml-1 w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* 補足リンク */}
+          <div className="flex flex-wrap justify-center gap-4 mt-10 text-white/40 text-xs">
+            {[
+              { label: 'よくある質問', path: '/faq' },
+              { label: '利用ガイド', path: '/guide' },
+              { label: 'キャンセルポリシー', path: '/cancel-policy' },
+              { label: 'お問い合わせ', path: '/contact' },
+            ].map(({ label, path }) => (
+              <button
+                key={label}
+                onClick={() => navigate(path)}
+                className="hover:text-white/70 transition-colors underline underline-offset-2"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <Footer />
     </div>
   )
 }
 
+export default LandingPage
