@@ -91,17 +91,21 @@ export function AlbumPage() {
   // 顧客は全組織のシナリオ/店舗を利用可能
   // シナリオはorganization_scenarios_with_masterビューから取得（公開中のみ）
   useEffect(() => {
+    console.log('🎬 [AlbumPage] fetchOptions useEffect triggered')
     const fetchOptions = async () => {
+      console.log('🎬 [AlbumPage] fetchOptions START')
       setOptionsLoading(true)
       try {
         // 公開中のシナリオを取得（organization_scenarios_with_masterビューから）
         // org_status='available' のシナリオのみ取得し、重複を排除
+        console.log('🎬 [AlbumPage] Fetching scenarios from organization_scenarios_with_master...')
         const { data: scenarios, error: scenarioError } = await supabase
           .from('organization_scenarios_with_master')
           .select('scenario_master_id, title')
           .eq('org_status', 'available')
           .order('title')
         
+        console.log('🎬 [AlbumPage] Scenarios result:', { count: scenarios?.length, error: scenarioError })
         if (scenarioError) throw scenarioError
         
         // 重複を排除（同じシナリオが複数組織で公開されている場合）
@@ -112,15 +116,18 @@ export function AlbumPage() {
           return acc
         }, [] as ScenarioOption[]) || []
         
+        console.log('🎬 [AlbumPage] Unique scenarios:', uniqueScenarios.length, uniqueScenarios.slice(0, 5))
         setScenarioOptions(uniqueScenarios)
 
         // 店舗を取得（RLSで許可された店舗）
         // 臨時店舗は1つだけ表示（臨時会場1のみ）
+        console.log('🎬 [AlbumPage] Fetching stores...')
         const { data: stores, error: storeError } = await supabase
           .from('stores')
           .select('id, name, short_name, is_temporary')
           .order('name')
         
+        console.log('🎬 [AlbumPage] Stores result:', { count: stores?.length, error: storeError })
         if (storeError) throw storeError
         
         // 臨時店舗は「臨時1」（臨時会場1）のみ残し、他は除外
@@ -129,10 +136,13 @@ export function AlbumPage() {
           return store.short_name === '臨時1' || store.name === '臨時会場1'
         })
         
+        console.log('🎬 [AlbumPage] Filtered stores:', filteredStores.length)
         setStoreOptions(filteredStores.map(s => ({ id: s.id, name: s.name })))
       } catch (error) {
+        console.error('🎬 [AlbumPage] Error:', error)
         logger.error('オプション取得エラー:', error)
       } finally {
+        console.log('🎬 [AlbumPage] fetchOptions END')
         setOptionsLoading(false)
       }
     }
