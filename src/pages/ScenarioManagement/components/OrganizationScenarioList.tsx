@@ -454,7 +454,8 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       // RPC の結果を確認
       if (!data?.success) {
         logger.error('Update failed:', data)
-        toast.error(data?.error || 'ステータス更新に失敗しました')
+        const debugInfo = data?.debug ? ` (user_org: ${data.debug.user_org_id}, scenario_org: ${data.debug.scenario_org_id}, uid: ${data.debug.user_id})` : ''
+        toast.error(`${data?.error || 'ステータス更新に失敗しました'}${debugInfo}`)
         setScenarios(prev => prev.map(s => 
           s.id === scenario.id ? { ...s, org_status: previousStatus } : s
         ))
@@ -491,7 +492,8 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       // RPC の結果を確認
       if (!data?.success) {
         logger.error('Delete failed:', data)
-        toast.error(data?.error || '解除に失敗しました')
+        const debugInfo = data?.debug ? ` (user_org: ${data.debug.user_org_id}, scenario_org: ${data.debug.scenario_org_id}, uid: ${data.debug.user_id})` : ''
+        toast.error(`${data?.error || '解除に失敗しました'}${debugInfo}`)
         return
       }
 

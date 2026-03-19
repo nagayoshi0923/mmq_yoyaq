@@ -614,13 +614,21 @@ export default function MyPage() {
         venue: storeName,
       }
       console.log('🎬 [MyPage] Adding manual history:', insertData)
-      const { error } = await supabase
+      const { data: insertedData, error } = await supabase
         .from('manual_play_history')
         .insert(insertData)
+        .select()
+
+      console.log('🎬 [MyPage] Insert result:', { insertedData, error })
 
       if (error) {
         console.error('🎬 [MyPage] Insert error details:', error)
         throw error
+      }
+
+      if (!insertedData || insertedData.length === 0) {
+        console.error('🎬 [MyPage] No data inserted (RLS policy may have blocked)')
+        throw new Error('データの追加に失敗しました（権限エラーの可能性）')
       }
 
       showToast.success('プレイ履歴を追加しました')
