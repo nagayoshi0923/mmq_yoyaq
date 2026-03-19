@@ -188,22 +188,22 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         }
         
         // Supabaseは既存メールでもエラーを返さないことがある（セキュリティ対策）
-        // 以下の条件で既存ユーザーを検出:
-        // 1. identitiesが空の場合
-        // 2. created_atが現在時刻から1分以上前（既存ユーザー）
+        // identitiesが空 = 既にメール確認済みのユーザーが存在（OAuth等で登録済み）
         logger.debug('SignUp response:', { 
           user: data.user?.id, 
           identities: data.user?.identities?.length,
-          created_at: data.user?.created_at 
+          created_at: data.user?.created_at,
+          email_confirmed_at: data.user?.email_confirmed_at
         })
         
-        const isExistingUser = data.user && (
-          (data.user.identities && data.user.identities.length === 0) ||
-          (data.user.created_at && new Date(data.user.created_at).getTime() < Date.now() - 60000)
+        // メール確認済みの既存ユーザーのみエラー
+        // 未確認ユーザーの場合は確認メールが再送信される
+        const isConfirmedUser = data.user && (
+          data.user.identities && data.user.identities.length === 0
         )
         
-        if (isExistingUser) {
-          logger.debug('Existing user detected')
+        if (isConfirmedUser) {
+          logger.debug('Confirmed existing user detected')
           throw new Error('このメールアドレスは既に登録されています。')
         }
         
