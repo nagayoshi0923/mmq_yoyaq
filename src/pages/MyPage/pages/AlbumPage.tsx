@@ -356,7 +356,7 @@ export function AlbumPage() {
 
       setPlayedScenarios(scenarios)
     } catch (error) {
-      logger.error('プレイ済みシナリオ取得エラー:', error)
+      logger.error('体験済みシナリオ取得エラー:', error)
     } finally {
       setLoading(false)
     }

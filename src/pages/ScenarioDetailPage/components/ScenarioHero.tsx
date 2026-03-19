@@ -144,7 +144,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
   }
   
   const handleSubmitPlayed = async () => {
-    if (!user?.email || !playedDate) return
+    if (!user?.email) return
     
     setIsSubmitting(true)
     try {
@@ -167,7 +167,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           customer_id: customer.id,
           scenario_title: scenario.scenario_title,
           scenario_master_id: scenario.scenario_id,
-          played_at: playedDate,
+          played_at: playedDate || null,
           venue: null,
         })
       
@@ -350,7 +350,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
               「{scenario.scenario_title}」を体験済みに登録します。
             </div>
             <div className="space-y-2">
-              <Label>体験日</Label>
+              <Label>体験日（任意）</Label>
               <SingleDatePopover
                 date={playedDate}
                 onDateChange={(date) => setPlayedDate(date || '')}
@@ -359,7 +359,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
             </div>
             <Button 
               onClick={handleSubmitPlayed} 
-              disabled={isSubmitting || !playedDate}
+              disabled={isSubmitting}
               className="w-full"
             >
               {isSubmitting ? '登録中...' : '登録する'}

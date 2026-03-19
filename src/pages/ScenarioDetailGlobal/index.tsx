@@ -9,13 +9,17 @@ import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { SingleDatePopover } from '@/components/ui/single-date-popover'
+import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
+import { showToast } from '@/utils/toast'
 import { 
   ArrowLeft, Users, Clock, Calendar, MapPin, Building2, ChevronRight, ChevronDown, ChevronUp,
-  Sparkles, BookOpen, Heart, Info, ExternalLink, Star, AlertCircle, MessageSquare, Zap
+  Sparkles, BookOpen, Heart, Info, ExternalLink, Star, AlertCircle, MessageSquare, Zap, CheckCheck
 } from 'lucide-react'
 import { getColorFromName } from '@/lib/utils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -91,6 +95,11 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   const [isEventsExpanded, setIsEventsExpanded] = useState(false)
   // お気に入り用のシナリオID（scenarios テーブルのID）
   const [favoriteScenarioId, setFavoriteScenarioId] = useState<string | null>(null)
+  // 体験済み登録用ステート
+  const [isPlayed, setIsPlayed] = useState(false)
+  const [isPlayedDialogOpen, setIsPlayedDialogOpen] = useState(false)
+  const [playedDate, setPlayedDate] = useState('')
+  const [isPlayedSubmitting, setIsPlayedSubmitting] = useState(false)
   // 貸切可能な組織情報
   const [availableOrganizations, setAvailableOrganizations] = useState<Array<{
     id: string
@@ -544,6 +553,108 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     }
   }
 
+  // 体験済みかどうかチェック
+  useEffect(() => {
+    const checkPlayed = async () => {
+      if (!user?.email || !scenario) return
+      
+      try {
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('email', user.email)
+          .maybeSingle()
+        
+        if (!customer) return
+        
+        // 予約から体験済みか確認
+        const { data: reservation } = await supabase
+          .from('reservations')
+          .select('id')
+          .eq('customer_id', customer.id)
+          .eq('scenario_master_id', scenario.id)
+          .in('status', ['confirmed', 'gm_confirmed'])
+          .lte('requested_datetime', new Date().toISOString())
+          .limit(1)
+          .maybeSingle()
+        
+        if (reservation) {
+          setIsPlayed(true)
+          return
+        }
+        
+        // 手動登録から体験済みか確認
+        const { data: manual } = await supabase
+          .from('manual_play_history')
+          .select('id')
+          .eq('customer_id', customer.id)
+          .eq('scenario_master_id', scenario.id)
+          .limit(1)
+          .maybeSingle()
+        
+        if (manual) {
+          setIsPlayed(true)
+        }
+      } catch (error) {
+        logger.error('体験済みチェックエラー:', error)
+      }
+    }
+    
+    checkPlayed()
+  }, [user, scenario])
+
+  const handlePlayedClick = () => {
+    if (!user) {
+      showToast.error('ログインが必要です')
+      return
+    }
+    if (isPlayed) {
+      showToast.info('既に体験済みとして登録されています')
+      return
+    }
+    setPlayedDate(new Date().toISOString().split('T')[0])
+    setIsPlayedDialogOpen(true)
+  }
+  
+  const handleSubmitPlayed = async () => {
+    if (!user?.email || !scenario) return
+    
+    setIsPlayedSubmitting(true)
+    try {
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('email', user.email)
+        .maybeSingle()
+      
+      if (!customer) {
+        showToast.error('顧客情報が見つかりません')
+        return
+      }
+      
+      const { error } = await supabase
+        .from('manual_play_history')
+        .insert({
+          customer_id: customer.id,
+          scenario_title: scenario.title,
+          scenario_master_id: scenario.id,
+          played_at: playedDate || null,
+          venue: null,
+        })
+      
+      if (error) throw error
+      
+      setIsPlayed(true)
+      setIsPlayedDialogOpen(false)
+      showToast.success('体験済みに登録しました')
+    } catch (error) {
+      logger.error('体験済み登録エラー:', error)
+      showToast.error('登録に失敗しました')
+    } finally {
+      setIsPlayedSubmitting(false)
+    }
+  }
+
   // あらすじの文字数
   const synopsisLength = scenario?.synopsis?.length || 0
   const shouldTruncateSynopsis = synopsisLength > 200
@@ -750,19 +861,31 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                     <span className="text-gray-700">{scenario.author}</span>
                   </div>
                 )}
-                {/* お気に入りボタン */}
+                {/* 体験済み・お気に入りボタン */}
                 {user && (
-                  <button
-                    onClick={handleFavoriteClick}
-                    className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-red-50 rounded"
-                  >
-                    <Heart className={`h-5 w-5 fill-current text-red-500 ${
-                      isFavorite(favoriteScenarioId || scenario.id) ? 'opacity-100' : 'opacity-30'
-                    }`} />
-                    <span className="text-xs text-gray-500">
-                      {isFavorite(favoriteScenarioId || scenario.id) ? '登録済み' : '遊びたい'}
-                    </span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handlePlayedClick}
+                      className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-green-50 rounded"
+                      title={isPlayed ? '体験済み' : '体験済みに登録'}
+                    >
+                      <CheckCheck className={`h-5 w-5 ${isPlayed ? 'text-green-500' : 'text-gray-400'}`} />
+                      <span className="text-xs text-gray-500">
+                        {isPlayed ? '体験済み' : '体験した'}
+                      </span>
+                    </button>
+                    <button
+                      onClick={handleFavoriteClick}
+                      className="flex items-center gap-1 px-2 py-1 transition-colors hover:bg-red-50 rounded"
+                    >
+                      <Heart className={`h-5 w-5 fill-current text-red-500 ${
+                        isFavorite(favoriteScenarioId || scenario.id) ? 'opacity-100' : 'opacity-30'
+                      }`} />
+                      <span className="text-xs text-gray-500">
+                        {isFavorite(favoriteScenarioId || scenario.id) ? '登録済み' : '遊びたい'}
+                      </span>
+                    </button>
+                  </div>
                 )}
               </div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
@@ -1216,6 +1339,35 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       </div>
 
       <Footer />
+
+      {/* 体験済み登録ダイアログ */}
+      <Dialog open={isPlayedDialogOpen} onOpenChange={setIsPlayedDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>体験済みに登録</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="text-sm text-muted-foreground">
+              「{scenario?.title}」を体験済みに登録します。
+            </div>
+            <div className="space-y-2">
+              <Label>体験日（任意）</Label>
+              <SingleDatePopover
+                date={playedDate}
+                onDateChange={(date) => setPlayedDate(date || '')}
+                placeholder="日付を選択"
+              />
+            </div>
+            <Button 
+              onClick={handleSubmitPlayed} 
+              disabled={isPlayedSubmitting}
+              className="w-full"
+            >
+              {isPlayedSubmitting ? '登録中...' : '登録する'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

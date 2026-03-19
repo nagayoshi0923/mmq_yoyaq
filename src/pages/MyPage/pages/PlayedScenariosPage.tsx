@@ -134,7 +134,7 @@ export function PlayedScenariosPage() {
 
       setPlayedScenarios(scenarios)
     } catch (error) {
-      logger.error('プレイ済みシナリオ取得エラー:', error)
+      logger.error('体験済みシナリオ取得エラー:', error)
     } finally {
       setLoading(false)
     }
@@ -251,7 +251,7 @@ export function PlayedScenariosPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5" />
-            プレイ済みシナリオ一覧
+            体験済みシナリオ一覧
           </CardTitle>
         </CardHeader>
         <CardContent>

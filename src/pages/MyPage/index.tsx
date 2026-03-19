@@ -492,7 +492,7 @@ export default function MyPage() {
         })
       }
 
-      // プレイ済みシナリオを構築
+      // 体験済みシナリオを構築
       if (reservationData && reservationData.length > 0) {
         const pastReservations = reservationData.filter(
           r => new Date(r.requested_datetime) < new Date() && (r.status === 'confirmed' || r.status === 'gm_confirmed')
@@ -1436,7 +1436,7 @@ export default function MyPage() {
                 {/* 踏破率 - シャープデザイン */}
                 <div className="bg-white shadow-sm p-6 border border-gray-200" style={{ borderRadius: 0 }}>
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="font-bold text-gray-900">プレイ済みシナリオ</h2>
+                    <h2 className="font-bold text-gray-900">体験済みシナリオ</h2>
                     <span className="text-2xl font-bold" style={{ color: THEME.primary }}>{playedScenarios.filter(s => {
                       const key = s.reservation_id || `${s.scenario}-${s.date}`
                       return !hiddenPlays.has(key)
@@ -1517,7 +1517,7 @@ export default function MyPage() {
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                         <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
-                        {showHiddenItems ? 'すべてのシナリオ（非表示・削除済み含む）' : 'プレイ済みシナリオ'}
+                        {showHiddenItems ? 'すべてのシナリオ（非表示・削除済み含む）' : '体験済みシナリオ'}
                       </h2>
                       {showHiddenItems && (
                         <Button
