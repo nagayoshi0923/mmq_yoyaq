@@ -52,9 +52,11 @@ export function CompleteProfile() {
 
   useEffect(() => {
     let cancelled = false
+    let sessionReceived = false
 
     const applySession = (sessionUser: { id: string; email?: string; app_metadata?: Record<string, unknown> }) => {
-      if (cancelled) return
+      if (cancelled || sessionReceived) return
+      sessionReceived = true
       setUserEmail(sessionUser.email || '')
       setUserId(sessionUser.id)
       const provider = sessionUser.app_metadata?.provider as string | undefined
@@ -64,39 +66,67 @@ export function CompleteProfile() {
       logger.log('✅ セッション確認完了:', sessionUser.email)
     }
 
+    // PKCE コード交換完了など、非同期でセッションが確立されたときに受け取る
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      logger.log('🔄 onAuthStateChange:', event, session?.user?.email)
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && !cancelled) {
+        applySession(session.user)
+      }
+    })
+
     // 初回: 既存セッション確認（PKCE コード交換済みの場合や再訪問時に対応）
     const checkSession = async () => {
       try {
+        // まず即座にセッションを確認
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user) {
           applySession(session.user)
           return
         }
-        // セッションがまだない場合は onAuthStateChange で待機（PKCE 非同期交換に対応）
-        logger.log('⏳ セッション未確立 — PKCE コード交換を待機中...')
+        
+        // セッションがない場合、URL にコードがあれば PKCE 交換を待機
+        const urlParams = new URLSearchParams(window.location.search)
+        const hasCode = urlParams.has('code')
+        
+        if (hasCode) {
+          logger.log('⏳ PKCE コード検出 — セッション交換を待機中...')
+          // PKCE 交換は onAuthStateChange で受け取る
+          // 最大 15 秒待機
+          await new Promise<void>((resolve) => {
+            const timeout = setTimeout(() => {
+              if (!sessionReceived && !cancelled) {
+                logger.warn('⚠️ PKCE 交換タイムアウト')
+              }
+              resolve()
+            }, 15000)
+            
+            // セッション受信したら即座に resolve
+            const checkInterval = setInterval(() => {
+              if (sessionReceived || cancelled) {
+                clearTimeout(timeout)
+                clearInterval(checkInterval)
+                resolve()
+              }
+            }, 100)
+          })
+        } else {
+          logger.log('⏳ コードなし — 既存セッションを再確認')
+          // コードがない場合、もう一度セッションを確認
+          const { data: { session: retrySession } } = await supabase.auth.getSession()
+          if (retrySession?.user) {
+            applySession(retrySession.user)
+          }
+        }
       } catch (err) {
         logger.error('Session check error:', err)
+      } finally {
+        if (!cancelled) {
+          setIsCheckingSession(false)
+        }
       }
     }
 
-    // PKCE コード交換完了など、非同期でセッションが確立されたときに受け取る
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user && !cancelled) {
-        logger.log('🔄 onAuthStateChange でセッション受信:', event)
-        applySession(session.user)
-      }
-    })
-
-    checkSession().finally(() => {
-      // getSession が先にセッションを取得した場合、isCheckingSession が既に false になっている
-      // 取得できなかった場合のみスピナーを止める（onAuthStateChange で回収する）
-      if (!cancelled) {
-        // 少し待ってからスピナーを止める（onAuthStateChange が先に来る猶予を与える）
-        setTimeout(() => {
-          if (!cancelled) setIsCheckingSession(false)
-        }, 3000)
-      }
-    })
+    checkSession()
 
     return () => {
       cancelled = true
