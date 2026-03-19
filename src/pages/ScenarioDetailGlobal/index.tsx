@@ -249,8 +249,32 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           .eq('is_visible', true)
           .order('sort_order', { ascending: true })
         
-        if (charData) {
+        if (charData && charData.length > 0) {
           setCharacters(charData)
+        } else {
+          // フォールバック: organization_scenarios.characters から取得
+          const { data: orgScenarioRows } = await supabase
+            .from('organization_scenarios')
+            .select('characters')
+            .eq('scenario_master_id', masterId)
+            .not('characters', 'is', null)
+            .limit(1)
+          
+          if (orgScenarioRows?.[0]?.characters && Array.isArray(orgScenarioRows[0].characters)) {
+            setCharacters(orgScenarioRows[0].characters as ScenarioCharacter[])
+          }
+        }
+      } else {
+        // legacyTableの場合もorganization_scenarios.charactersから取得を試みる
+        const { data: orgScenarioRows } = await supabase
+          .from('organization_scenarios')
+          .select('characters')
+          .eq('scenario_master_id', masterId)
+          .not('characters', 'is', null)
+          .limit(1)
+        
+        if (orgScenarioRows?.[0]?.characters && Array.isArray(orgScenarioRows[0].characters)) {
+          setCharacters(orgScenarioRows[0].characters as ScenarioCharacter[])
         }
       }
 
@@ -855,8 +879,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                 </div>
                 <div className="p-4">
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {characters.map(char => (
-                      <div key={char.id} className="group">
+                    {[...characters].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((char, index) => (
+                      <div key={char.id ?? index} className="group">
                         <div className="relative overflow-hidden" style={{ borderRadius: 0 }}>
                           {char.image_url ? (
                             <img
