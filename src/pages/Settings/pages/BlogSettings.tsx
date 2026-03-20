@@ -2,7 +2,7 @@
  * ブログ・お知らせ管理設定
  * @path /settings (blog タブ)
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,8 +15,31 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganization, getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
-import { Plus, Edit2, Trash2, Eye, EyeOff, Calendar, FileText, Loader2, ExternalLink } from 'lucide-react'
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Eye,
+  EyeOff,
+  Calendar,
+  FileText,
+  Loader2,
+  ExternalLink,
+  Upload,
+  X,
+} from 'lucide-react'
+import { uploadBlogCoverImage, deleteBlogCoverImage, validateImageFile } from '@/lib/uploadImage'
 import type { BlogPost } from '@/types'
+
+/** 自前アップロード（blog-covers）の公開URLからストレージパスを復元 */
+function storagePathFromBlogCoverPublicUrl(url: string): string | null {
+  if (!url || typeof url !== 'string') return null
+  const marker = '/blog-covers/'
+  const i = url.indexOf(marker)
+  if (i === -1) return null
+  const path = url.slice(i + marker.length).split('?')[0]
+  return path || null
+}
 
 export function BlogSettings() {
   const [posts, setPosts] = useState<BlogPost[]>([])
@@ -25,6 +48,8 @@ export function BlogSettings() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [organizationSlug, setOrganizationSlug] = useState<string | null>(null)
+  const [isUploadingCover, setIsUploadingCover] = useState(false)
+  const coverFileInputRef = useRef<HTMLInputElement>(null)
 
   // フォーム状態
   const [formData, setFormData] = useState({
@@ -113,6 +138,54 @@ export function BlogSettings() {
       .replace(/^-|-$/g, '')
       .slice(0, 30)
     return `${sanitized || 'post'}-${timestamp}`
+  }
+
+  const handleCoverFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    const check = validateImageFile(file, 5)
+    if (!check.valid) {
+      toast.error(check.error || '画像を選べませんでした')
+      return
+    }
+
+    try {
+      setIsUploadingCover(true)
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) {
+        toast.error('組織情報を取得できません')
+        return
+      }
+
+      const previousUrl = formData.cover_image_url.trim()
+      const previousPath = previousUrl ? storagePathFromBlogCoverPublicUrl(previousUrl) : null
+
+      const result = await uploadBlogCoverImage(file, orgId)
+      if (!result) {
+        toast.error('画像のアップロードに失敗しました')
+        return
+      }
+
+      if (previousPath) {
+        void deleteBlogCoverImage(previousPath).catch(() => {
+          /* 旧ファイル削除失敗は無視（一覧は新URLで表示） */
+        })
+      }
+
+      setFormData((prev) => ({ ...prev, cover_image_url: result.url }))
+      toast.success('カバー画像をアップロードしました')
+    } catch (err) {
+      logger.error('カバー画像アップロード:', err)
+      toast.error('画像のアップロードに失敗しました')
+    } finally {
+      setIsUploadingCover(false)
+    }
+  }
+
+  const clearCoverImage = () => {
+    setFormData((prev) => ({ ...prev, cover_image_url: '' }))
   }
 
   const handleTitleChange = (title: string) => {
@@ -403,13 +476,61 @@ export function BlogSettings() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
-                カバー画像URL
-              </label>
+              <label className="block text-sm font-medium mb-1">カバー画像</label>
+              <p className="text-xs text-gray-500 mb-2">
+                画像ファイルをアップロードするか、外部URLを直接入力できます
+              </p>
+              <input
+                ref={coverFileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={handleCoverFileSelected}
+              />
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploadingCover || isSaving}
+                  onClick={() => coverFileInputRef.current?.click()}
+                >
+                  {isUploadingCover ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  画像をアップロード
+                </Button>
+                {formData.cover_image_url.trim() ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600"
+                    disabled={isUploadingCover || isSaving}
+                    onClick={clearCoverImage}
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    画像をクリア
+                  </Button>
+                ) : null}
+              </div>
+              {formData.cover_image_url.trim() ? (
+                <div className="mb-2 rounded-md border border-gray-200 overflow-hidden bg-gray-50 max-h-40 w-full max-w-md">
+                  <img
+                    src={formData.cover_image_url.trim()}
+                    alt="カバープレビュー"
+                    className="w-full h-full max-h-40 object-contain"
+                  />
+                </div>
+              ) : null}
+              <label className="block text-xs font-medium text-gray-600 mb-1">または画像URL</label>
               <Input
                 value={formData.cover_image_url}
-                onChange={(e) => setFormData(prev => ({ ...prev, cover_image_url: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, cover_image_url: e.target.value }))}
                 placeholder="https://..."
+                disabled={isUploadingCover}
               />
             </div>
 

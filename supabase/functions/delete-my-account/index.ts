@@ -8,6 +8,15 @@ import { getCorsHeaders, maskEmail, sanitizeErrorMessage, getServiceRoleKey } fr
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
 
+/** SYNC: src/lib/reservationWithdrawalGuard.ts の RESERVATION_STATUSES_BLOCKING_WITHDRAWAL */
+const RESERVATION_STATUSES_BLOCKING_WITHDRAWAL = [
+  'pending',
+  'confirmed',
+  'gm_confirmed',
+  'pending_gm',
+  'pending_store',
+] as const
+
 // サービスロールクライアント（管理操作用）
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -59,6 +68,60 @@ serve(async (req) => {
     console.log('✅ User verified:', user.id)
 
     const userId = user.id
+
+    // 未来の公演予約（進行中〜確定）がある場合は退会不可
+    const { data: customerRows, error: customersLookupError } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('user_id', userId)
+
+    if (customersLookupError) {
+      console.error('❌ customers lookup for withdrawal guard:', customersLookupError)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: '予約状況の確認に失敗しました。しばらくしてから再度お試しください。',
+          code: 'RESERVATION_CHECK_FAILED',
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    const customerIds = (customerRows ?? []).map((r) => r.id)
+    if (customerIds.length > 0) {
+      const nowIso = new Date().toISOString()
+      const { count, error: resvError } = await supabase
+        .from('reservations')
+        .select('id', { count: 'exact', head: true })
+        .in('customer_id', customerIds)
+        .gte('requested_datetime', nowIso)
+        .in('status', [...RESERVATION_STATUSES_BLOCKING_WITHDRAWAL])
+
+      if (resvError) {
+        console.error('❌ reservation check for withdrawal:', resvError)
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: '予約状況の確認に失敗しました。しばらくしてから再度お試しください。',
+            code: 'RESERVATION_CHECK_FAILED',
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
+
+      if (count && count > 0) {
+        console.warn('⚠️ Self-delete blocked: active future reservations', { userId, count })
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error:
+              '公演日時がまだ来ていない予約があります。予約をキャンセルしたうえで退会手続きを行ってください。',
+            code: 'ACTIVE_RESERVATIONS',
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
+    }
     const userEmail = user.email || 'unknown'
     const maskedEmail = maskEmail(userEmail)
 

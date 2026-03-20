@@ -108,8 +108,9 @@ export async function deleteMyAccount(): Promise<void> {
   }
 
   if (!data?.success) {
-    const err = new Error(data?.error || 'アカウントの削除に失敗しました')
-    // @ts-ignore
+    const err = new Error(data?.error || 'アカウントの削除に失敗しました') as Error & {
+      code?: string
+    }
     err.code = data?.code
     throw err
   }

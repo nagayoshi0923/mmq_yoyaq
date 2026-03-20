@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { getTimeSlot } from '@/utils/scheduleUtils' // 時間帯判定用
@@ -112,13 +113,9 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         // organizationSlugからorganization_idを取得
         let orgId: string | undefined = undefined
         if (organizationSlug) {
-          const { data: orgData } = await supabase
-            .from('organizations')
-            .select('id')
-            .eq('slug', organizationSlug)
-            .eq('is_active', true)
-            .single()
-          
+          const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
+            requireActive: true,
+          })
           if (orgData) {
             orgId = orgData.id
           }

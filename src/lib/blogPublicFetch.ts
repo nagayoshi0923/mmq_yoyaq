@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { getOrganizationBySlug } from '@/lib/organization'
 import type { BlogPost } from '@/types'
 
 /** `blog_posts` の BlogPost 型に対応する SELECT 列（* 回避用・他画面からも利用可） */
@@ -42,17 +43,14 @@ export async function fetchPublishedBlogPost(params: {
     return data as BlogPost | null
   }
 
-  const { data: org, error: orgError } = await supabase
-    .from('organizations')
-    .select('id')
-    .eq('slug', organizationSlug)
-    .maybeSingle()
+  const orgResolved = await getOrganizationBySlug(organizationSlug.trim())
+  const orgSlugForRpc = orgResolved?.slug ?? organizationSlug.trim()
 
-  if (!orgError && org?.id) {
+  if (orgResolved?.id) {
     const { data: row, error: postError } = await supabase
       .from('blog_posts')
       .select(BLOG_POST_SELECT_COLUMNS)
-      .eq('organization_id', org.id)
+      .eq('organization_id', orgResolved.id)
       .eq('slug', articleSlug)
       .eq('is_published', true)
       .maybeSingle()
@@ -64,7 +62,7 @@ export async function fetchPublishedBlogPost(params: {
     .select(`${BLOG_POST_SELECT_COLUMNS}, organizations!inner(slug)`)
     .eq('slug', articleSlug)
     .eq('is_published', true)
-    .eq('organizations.slug', organizationSlug)
+    .eq('organizations.slug', orgSlugForRpc)
     .maybeSingle()
 
   if (!joinError && joined) {
@@ -72,7 +70,7 @@ export async function fetchPublishedBlogPost(params: {
   }
 
   const { data: rpcRows, error: rpcError } = await supabase.rpc('get_public_blog_post', {
-    p_org_slug: organizationSlug,
+    p_org_slug: orgSlugForRpc,
     p_article_slug: articleSlug,
   })
 

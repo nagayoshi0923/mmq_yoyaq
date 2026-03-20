@@ -23,6 +23,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 
@@ -67,14 +68,12 @@ export function RentalReportForm({ organizationSlug }: RentalReportFormProps) {
     try {
       setLoading(true)
 
-      const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .select('id, name')
-        .eq('slug', organizationSlug)
-        .single()
+      const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
+        requireActive: false,
+      })
 
-      if (orgError || !orgData) {
-        logger.error('組織取得エラー:', orgError)
+      if (!orgData) {
+        logger.error('組織取得エラー: not found', { organizationSlug })
         return
       }
 

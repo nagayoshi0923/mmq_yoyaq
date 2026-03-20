@@ -14,7 +14,11 @@ import { Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Copy } from 'lucid
 import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
+import {
+  getCurrentOrganizationId,
+  QUEENS_WALTZ_ORG_ID,
+  resolveOrganizationFromPathSegment,
+} from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
 export function PrivateGroupCreate() {
@@ -53,11 +57,9 @@ export function PrivateGroupCreate() {
         // organizationSlug がある場合はそれから organization_id を取得
         let organizationId: string | null = null
         if (organizationSlug) {
-          const { data: orgData } = await supabase
-            .from('organizations')
-            .select('id')
-            .eq('slug', organizationSlug)
-            .single()
+          const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
+            requireActive: false,
+          })
           organizationId = orgData?.id || null
         }
         if (!organizationId) {

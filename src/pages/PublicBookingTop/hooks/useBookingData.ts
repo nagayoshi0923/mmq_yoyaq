@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
 import { readBookingDataSnapshot, writeBookingDataSnapshot } from '../utils/bookingDataSnapshot'
@@ -91,18 +92,15 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   const organizationNotFound = false
   
   if (organizationSlug) {
-    const { data: orgData } = await supabase
-      .from('organizations')
-      .select('id, name, header_image_url, theme_color, public_booking_hero_description')
-      .eq('slug', organizationSlug)
-      .eq('is_active', true)
-      .single()
-    
+    const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
+      requireActive: true,
+    })
+
     if (orgData) {
       orgId = orgData.id
       orgName = orgData.name
-      orgHeaderImageUrl = orgData.header_image_url
-      orgThemeColor = orgData.theme_color
+      orgHeaderImageUrl = orgData.header_image_url ?? null
+      orgThemeColor = orgData.theme_color ?? null
       orgPublicBookingHeroDescription = orgData.public_booking_hero_description ?? null
     } else {
       return {

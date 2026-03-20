@@ -147,6 +147,25 @@ export async function uploadImage(
  * @param bucket バケット名（デフォルト: 'key-visuals'）
  * @returns 削除成功の真偽値
  */
+const BLOG_COVERS_BUCKET = 'blog-covers'
+
+/**
+ * ブログ記事カバー用（バケット blog-covers / フォルダ = organization_id）
+ */
+export async function uploadBlogCoverImage(
+  file: File,
+  organizationId: string
+): Promise<{ url: string; path: string } | null> {
+  return uploadImage(file, BLOG_COVERS_BUCKET, organizationId, true)
+}
+
+/**
+ * ブログカバー画像をストレージから削除
+ */
+export async function deleteBlogCoverImage(path: string): Promise<boolean> {
+  return deleteImage(path, BLOG_COVERS_BUCKET)
+}
+
 export async function deleteImage(
   path: string,
   bucket: string = 'key-visuals'

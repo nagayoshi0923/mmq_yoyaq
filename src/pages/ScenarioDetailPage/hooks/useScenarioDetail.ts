@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { getColorFromName } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
@@ -18,13 +19,9 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   // Step 1: organizationSlugからorganization_idを取得（必須、他のクエリに必要）
   let orgId: string | undefined = undefined
   if (organizationSlug) {
-    const { data: orgData } = await supabase
-      .from('organizations')
-      .select('id')
-      .eq('slug', organizationSlug)
-      .eq('is_active', true)
-      .single()
-    
+    const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
+      requireActive: true,
+    })
     if (orgData?.id) {
       orgId = orgData.id
     }

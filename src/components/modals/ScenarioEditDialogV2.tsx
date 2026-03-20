@@ -30,7 +30,7 @@ import { showToast } from '@/utils/toast'
 import { staffApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId, getCurrentOrganization } from '@/lib/organization'
+import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
 import type { Staff } from '@/types'
 
 interface ScenarioEditDialogV2Props {
@@ -166,18 +166,36 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   // scenario_master_id を直接使用（旧ID解決は不要）
   // staff_scenario_assignments.scenario_id は scenario_master_id と統一済み
   
-  // 組織名とslugを取得
+  // 組織名・予約サイト上のシナリオ詳細URL用 slug（所属組織を優先）
   const [organizationName, setOrganizationName] = useState<string>('')
-  const [organizationSlug, setOrganizationSlug] = useState<string>('')
+  const [publicBookingOrgSlug, setPublicBookingOrgSlug] = useState<string>('')
   useEffect(() => {
-    const fetchOrg = async () => {
-      const org = await getCurrentOrganization()
-      setOrganizationName(org?.name || '')
-      setOrganizationSlug(org?.slug || '')
-      setCurrentOrgId(org?.id || null)
+    if (!isOpen) return
+    let cancelled = false
+    const sync = async () => {
+      const currentOrg = await getCurrentOrganization()
+      if (cancelled) return
+      setOrganizationName(currentOrg?.name || '')
+      setCurrentOrgId(currentOrg?.id || null)
+
+      let slugForPublic = currentOrg?.slug?.trim() || ''
+      const scenarioOrgId = currentScenario?.organization_id
+      if (scenarioOrgId) {
+        const scenarioOrg = await getOrganizationById(scenarioOrgId)
+        if (cancelled) return
+        if (scenarioOrg?.slug?.trim()) {
+          slugForPublic = scenarioOrg.slug.trim()
+        }
+      }
+      if (!cancelled) {
+        setPublicBookingOrgSlug(slugForPublic)
+      }
     }
-    fetchOrg()
-  }, [])
+    void sync()
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, scenarioId, currentScenario?.organization_id])
 
   // マスターデータを取得（相違検出用）
   useEffect(() => {
@@ -1306,13 +1324,15 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   </span>
                 </Button>
               )}
-              {/* シナリオ詳細ページへのリンク（編集時のみ） */}
-              {scenarioId && organizationSlug && (
+              {/* シナリオ詳細ページへのリンク（編集時のみ・公開用組織slug解決後） */}
+              {scenarioId && publicBookingOrgSlug && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-5 text-[11px] gap-0.5 text-gray-600 hover:text-gray-900 px-1.5"
-                  onClick={() => window.open(`/${organizationSlug}/scenario/${formData.slug || scenarioId}`, '_blank')}
+                  onClick={() =>
+                    window.open(`/${publicBookingOrgSlug}/scenario/${formData.slug || scenarioId}`, '_blank')
+                  }
                   title="予約サイトのシナリオ詳細ページを開く"
                 >
                   <ExternalLink className="w-2.5 h-2.5" />

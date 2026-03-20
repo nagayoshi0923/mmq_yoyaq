@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,8 +22,16 @@ import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
 import { QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { RESERVATION_STATUSES_BLOCKING_WITHDRAWAL } from '@/lib/reservationWithdrawalGuard'
 
-type DialogType = 'profile' | 'notification' | 'email' | 'password' | 'delete' | null
+type DialogType =
+  | 'profile'
+  | 'notification'
+  | 'email'
+  | 'password'
+  | 'delete'
+  | 'delete_blocked'
+  | null
 
 export function SettingsPage() {
   const { user, signOut } = useAuth()
@@ -50,6 +58,10 @@ export function SettingsPage() {
   })
   const [confirmEmail, setConfirmEmail] = useState('')
   const [deleting, setDeleting] = useState(false)
+  /** null: 未確認。true のとき退会フローをブロック（公演予約あり） */
+  const [hasBlockingPerformanceReservations, setHasBlockingPerformanceReservations] = useState<
+    boolean | null
+  >(null)
   const [changingEmail, setChangingEmail] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
   
@@ -71,6 +83,44 @@ export function SettingsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
   }, [user])
+
+  const checkBlockingPerformanceReservations = useCallback(async (): Promise<boolean> => {
+    if (!customerInfo?.id) return false
+    const nowIso = new Date().toISOString()
+    let q = supabase
+      .from('reservations')
+      .select('id', { count: 'exact', head: true })
+      .eq('customer_id', customerInfo.id)
+      .gte('requested_datetime', nowIso)
+      .in('status', [...RESERVATION_STATUSES_BLOCKING_WITHDRAWAL])
+    if (organizationId) {
+      q = q.eq('organization_id', organizationId)
+    }
+    const { count, error } = await q
+    if (error) throw error
+    return (count ?? 0) > 0
+  }, [customerInfo?.id, organizationId])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!customerInfo?.id) {
+        setHasBlockingPerformanceReservations(false)
+        return
+      }
+      setHasBlockingPerformanceReservations(null)
+      try {
+        const blocked = await checkBlockingPerformanceReservations()
+        if (!cancelled) setHasBlockingPerformanceReservations(blocked)
+      } catch (e) {
+        logger.error('公演予約ブロック確認エラー:', e)
+        if (!cancelled) setHasBlockingPerformanceReservations(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [customerInfo?.id, organizationId, checkBlockingPerformanceReservations])
 
   // 連携されているログインプロバイダーを取得
   const fetchLinkedProviders = async () => {
@@ -350,26 +400,45 @@ export function SettingsPage() {
     }
 
     setDeleting(true)
+    let leaveDeleteDialogOpen = false
     try {
-      if (customerInfo?.id) {
-        let del = supabase.from('customers').delete().eq('id', customerInfo.id)
-        if (user?.id) del = del.eq('user_id', user.id)
-        if (organizationId) del = del.eq('organization_id', organizationId)
-        await del
+      try {
+        const blocked = await checkBlockingPerformanceReservations()
+        if (blocked) {
+          setHasBlockingPerformanceReservations(true)
+          setActiveDialog('delete_blocked')
+          setConfirmEmail('')
+          leaveDeleteDialogOpen = true
+          return
+        }
+      } catch (e) {
+        logger.error('退会前の予約確認エラー:', e)
+        showToast.error('予約状況の確認に失敗しました。時間をおいて再度お試しください。')
+        return
       }
 
       await deleteMyAccount()
-      
+
       showToast.success('アカウントを削除しました')
       await signOut()
       window.location.href = '/login'
     } catch (error: any) {
       logger.error('アカウント削除エラー:', error)
+      if (error?.code === 'ACTIVE_RESERVATIONS') {
+        setHasBlockingPerformanceReservations(true)
+        setActiveDialog('delete_blocked')
+        setConfirmEmail('')
+        leaveDeleteDialogOpen = true
+        showToast.warning(error?.message || '公演予約があるため退会できません')
+        return
+      }
       showToast.error('アカウントの削除に失敗しました', getSafeErrorMessage(error))
     } finally {
       setDeleting(false)
-      setActiveDialog(null)
-      setConfirmEmail('')
+      if (!leaveDeleteDialogOpen) {
+        setActiveDialog(null)
+        setConfirmEmail('')
+      }
     }
   }
 
@@ -517,7 +586,13 @@ export function SettingsPage() {
 
       {/* アカウント削除 - シャープデザイン */}
       <div
-        onClick={() => setActiveDialog('delete')}
+        onClick={() => {
+          if (hasBlockingPerformanceReservations === true) {
+            setActiveDialog('delete_blocked')
+            return
+          }
+          setActiveDialog('delete')
+        }}
         className="bg-white shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all border border-red-200 hover:border-red-300"
         style={{ borderRadius: 0 }}
       >
@@ -527,7 +602,11 @@ export function SettingsPage() {
           </div>
           <div>
             <h3 className="font-medium text-red-600">退会・アカウント削除</h3>
-            <p className="text-sm text-gray-500">退会するとすべてのデータが削除されます</p>
+            <p className="text-sm text-gray-500">
+              {hasBlockingPerformanceReservations === true
+                ? '公演予約中のため、予約の整理後に退会できます'
+                : '退会するとすべてのデータが削除されます'}
+            </p>
           </div>
         </div>
         <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -766,6 +845,38 @@ export function SettingsPage() {
               className="text-white"
             >
               {changingPassword ? '変更中...' : '変更'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 公演予約ありのため退会不可 */}
+      <Dialog
+        open={activeDialog === 'delete_blocked'}
+        onOpenChange={(open) => {
+          if (!open) setActiveDialog(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              退会できません
+            </DialogTitle>
+            <DialogDescription className="text-left space-y-3 sm:max-w-none">
+              <span className="block">
+                公演日時がまだ来ていない予約（確定・調整中など）があります。退会する前に、該当する予約をキャンセルするか、公演を終えてからお手続きください。
+              </span>
+              <span className="block">マイページの「予約」タブで内容をご確認ください。</span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setActiveDialog(null)}
+              style={{ backgroundColor: THEME.primary }}
+              className="text-white"
+            >
+              閉じる
             </Button>
           </DialogFooter>
         </DialogContent>

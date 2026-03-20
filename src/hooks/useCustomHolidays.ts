@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { organizationSettingsApi } from '@/lib/api/organizationSettingsApi'
 import { isJapaneseHoliday as isJapaneseHolidayBase } from '@/utils/japaneseHolidays'
 import { showToast } from '@/utils/toast'
-import { supabase } from '@/lib/supabase'
+import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 
 interface UseCustomHolidaysOptions {
   organizationSlug?: string // 公開ページ用：組織スラッグから取得
@@ -25,13 +25,10 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
       try {
         // 組織スラッグが指定されている場合は、スラッグから組織IDを取得して休日を取得
         if (organizationSlug) {
-          const { data: orgData } = await supabase
-            .from('organizations')
-            .select('id')
-            .eq('slug', organizationSlug)
-            .eq('is_active', true)
-            .single()
-          
+          const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
+            requireActive: true,
+          })
+
           if (orgData) {
             const settings = await organizationSettingsApi.getByOrganizationId(orgData.id)
             setCustomHolidays(settings?.custom_holidays || [])

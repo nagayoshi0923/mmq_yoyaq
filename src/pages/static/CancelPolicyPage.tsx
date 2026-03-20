@@ -8,6 +8,7 @@ import { AlertTriangle, ChevronRight, Clock, Info } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 
 interface CancellationFee {
   hours_before: number
@@ -132,13 +133,9 @@ export function CancelPolicyPage() {
         // organization_slugから組織IDを取得
         let orgId: string | null = null
         if (organizationSlug) {
-          const { data: orgData } = await supabase
-            .from('organizations')
-            .select('id')
-            .eq('slug', organizationSlug)
-            .eq('is_active', true)
-            .single()
-          
+          const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
+            requireActive: true,
+          })
           if (orgData) {
             orgId = orgData.id
           }
