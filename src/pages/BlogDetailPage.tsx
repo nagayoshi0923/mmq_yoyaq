@@ -13,6 +13,15 @@ import { ArrowLeft, Calendar, Loader2 } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import type { BlogPost } from '@/types'
 
+/** パスセグメントが二重エンコードされている場合のため */
+function normalizeArticleSlug(raw: string): string {
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
+}
+
 interface BlogDetailPageProps {
   slug: string
   /** 例: `/queens-waltz/blog/my-post` のとき組織スラッグ。未指定は従来どおり `/blog/:slug` 相当。 */
@@ -34,39 +43,49 @@ export function BlogDetailPage({ slug, organizationSlug }: BlogDetailPageProps) 
       setLoading(true)
       setNotFound(false)
 
-      let organizationId: string | null = null
+      const articleSlug = normalizeArticleSlug(slug)
+
+      let data: BlogPost | null = null
+
       if (organizationSlug) {
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('slug', organizationSlug)
-          .maybeSingle()
-        if (orgError || !org?.id) {
+        // organizations の RLS で id が取れない環境でも公開記事を表示できるよう RPC を使用
+        const { data: rows, error: rpcError } = await supabase.rpc('get_public_blog_post', {
+          p_org_slug: organizationSlug,
+          p_article_slug: articleSlug,
+        })
+        if (rpcError) {
+          if (rpcError.code === 'PGRST202' || rpcError.message?.includes('get_public_blog_post')) {
+            logger.error(
+              'get_public_blog_post が未デプロイの可能性があります。マイグレーション 20260320030000 を適用してください。',
+              rpcError
+            )
+          }
+          throw rpcError
+        }
+        const row = Array.isArray(rows) ? rows[0] : null
+        if (!row) {
           setNotFound(true)
           return
         }
-        organizationId = org.id
-      }
+        data = row as BlogPost
+      } else {
+        const { data: row, error } = await supabase
+          .from('blog_posts')
+          .select(
+            'id, organization_id, title, slug, excerpt, content, cover_image_url, is_published, published_at, author_id, view_count, created_at, updated_at'
+          )
+          .eq('slug', articleSlug)
+          .eq('is_published', true)
+          .maybeSingle()
 
-      let query = supabase
-        .from('blog_posts')
-        .select(
-          'id, organization_id, title, slug, excerpt, content, cover_image_url, is_published, published_at, author_id, view_count, created_at, updated_at'
-        )
-        .eq('slug', slug)
-        .eq('is_published', true)
-      if (organizationId) {
-        query = query.eq('organization_id', organizationId)
-      }
-      const { data, error } = await query.single()
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          setNotFound(true)
-        } else {
+        if (error) {
           throw error
         }
-        return
+        if (!row) {
+          setNotFound(true)
+          return
+        }
+        data = row as BlogPost
       }
 
       setPost(data)
