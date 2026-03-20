@@ -12,13 +12,14 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import { supabase } from '@/lib/supabase'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
-import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, Building2, RefreshCw } from 'lucide-react'
+import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, Building2, RefreshCw, ChevronDown } from 'lucide-react'
 
 interface ScenarioData {
   id: string
@@ -93,7 +94,7 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
     supabase
       .from('stores')
       .select('id, name, short_name'),
-    // カテゴリ（ジャンル）を取得
+    // カテゴリ（organization_categories）を取得
     supabase
       .from('organization_categories')
       .select('id, name, sort_order')
@@ -172,14 +173,24 @@ export function PlatformScenarioSearch() {
 
   // フィルター状態（URLパラメータと同期）
   const searchTerm = searchParams.get('q') || ''
-  const selectedGenre = searchParams.get('genre') || 'all'
+  /** カテゴリ複数: `genre=A&genre=B`（単一 `genre=X` も getAll で配列になる） */
+  const selectedCategories = useMemo(
+    () => [...new Set(searchParams.getAll('genre').filter(Boolean))],
+    [searchParams]
+  )
   const selectedDuration = searchParams.get('duration') || 'all'
   const selectedPlayerCount = searchParams.get('players') || 'all'
   const selectedOrganization = searchParams.get('org') || 'all'
   
   // フィルターパネルの表示状態（URLパラメータがあれば初期表示）
   const [showFilters, setShowFilters] = useState(() => {
-    return searchParams.has('genre') || searchParams.has('duration') || searchParams.has('players') || searchParams.has('org')
+    const sp = new URLSearchParams(window.location.search)
+    return (
+      sp.getAll('genre').length > 0 ||
+      sp.has('duration') ||
+      sp.has('players') ||
+      sp.has('org')
+    )
   })
   
   // 検索入力用ローカルstate（IME対応）
@@ -206,12 +217,29 @@ export function PlatformScenarioSearch() {
   }, [searchParams, setSearchParams])
 
   const setSearchTerm = useCallback((value: string) => updateFilter('q', value), [updateFilter])
-  const setSelectedGenre = useCallback((value: string) => updateFilter('genre', value), [updateFilter])
+  const toggleCategory = useCallback(
+    (name: string) => {
+      const next = new URLSearchParams(searchParams)
+      const list = next.getAll('genre').filter(Boolean)
+      next.delete('genre')
+      const s = new Set(list)
+      if (s.has(name)) s.delete(name)
+      else s.add(name)
+      ;[...s].sort().forEach((g) => next.append('genre', g))
+      setSearchParams(next, { replace: true })
+    },
+    [searchParams, setSearchParams]
+  )
+  const clearCategories = useCallback(() => {
+    const next = new URLSearchParams(searchParams)
+    next.delete('genre')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
   const setSelectedDuration = useCallback((value: string) => updateFilter('duration', value), [updateFilter])
   const setSelectedPlayerCount = useCallback((value: string) => updateFilter('players', value), [updateFilter])
   const setSelectedOrganization = useCallback((value: string) => updateFilter('org', value), [updateFilter])
 
-  // ジャンル一覧（organization_categoriesから取得）
+  // カテゴリ一覧（organization_categoriesから取得）
   const genres = useMemo(() => {
     return categories.map(c => c.name)
   }, [categories])
@@ -255,9 +283,10 @@ export function PlatformScenarioSearch() {
         if (!matchTitle && !matchAuthor && !matchGenre && !matchOrg) return false
       }
       
-      // ジャンルフィルター
-      if (selectedGenre !== 'all') {
-        if (!scenario.genre?.includes(selectedGenre)) return false
+      // カテゴリフィルター（複数選択時はいずれかを含む）
+      if (selectedCategories.length > 0) {
+        const hit = selectedCategories.some((cat) => scenario.genre?.includes(cat))
+        if (!hit) return false
       }
       
       // 所要時間フィルター（完全一致）
@@ -278,7 +307,7 @@ export function PlatformScenarioSearch() {
       
       return true
     })
-  }, [scenarios, searchTerm, selectedGenre, selectedDuration, selectedPlayerCount, selectedOrganization])
+  }, [scenarios, searchTerm, selectedCategories, selectedDuration, selectedPlayerCount, selectedOrganization])
 
   const handleBack = useCallback(() => {
     navigate('/')
@@ -295,14 +324,22 @@ export function PlatformScenarioSearch() {
   }, [toggleFavorite])
 
   const clearFilters = useCallback(() => {
-    setSearchTerm('')
-    setSelectedGenre('all')
-    setSelectedDuration('all')
-    setSelectedPlayerCount('all')
-    setSelectedOrganization('all')
-  }, [])
+    const next = new URLSearchParams(searchParams)
+    next.delete('q')
+    next.delete('genre')
+    next.delete('duration')
+    next.delete('players')
+    next.delete('org')
+    setSearchParams(next, { replace: true })
+    setLocalSearchTerm('')
+  }, [searchParams, setSearchParams])
 
-  const hasActiveFilters = searchTerm || selectedGenre !== 'all' || selectedDuration !== 'all' || selectedPlayerCount !== 'all' || selectedOrganization !== 'all'
+  const hasActiveFilters =
+    searchTerm ||
+    selectedCategories.length > 0 ||
+    selectedDuration !== 'all' ||
+    selectedPlayerCount !== 'all' ||
+    selectedOrganization !== 'all'
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: THEME.background }}>
@@ -359,7 +396,7 @@ export function PlatformScenarioSearch() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="タイトル、作者、ジャンル、店舗名で検索..."
+                placeholder="タイトル、作者、カテゴリ、店舗名で検索..."
                 value={localSearchTerm}
                 onChange={(e) => {
                   setLocalSearchTerm(e.target.value)
@@ -416,26 +453,26 @@ export function PlatformScenarioSearch() {
           {genres.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-3 pb-1 overflow-x-auto">
               <Badge
-                variant={selectedGenre === 'all' ? "default" : "outline"}
+                variant={selectedCategories.length === 0 ? 'default' : 'outline'}
                 className={`cursor-pointer text-xs px-2 py-1 transition-all ${
-                  selectedGenre === 'all' 
-                    ? 'bg-gray-900 text-white hover:bg-gray-800' 
+                  selectedCategories.length === 0
+                    ? 'bg-gray-900 text-white hover:bg-gray-800'
                     : 'hover:bg-gray-100'
                 }`}
-                onClick={() => setSelectedGenre('all')}
+                onClick={() => clearCategories()}
               >
                 すべて
               </Badge>
               {genres.slice(0, 10).map((genre) => (
                 <Badge
                   key={genre}
-                  variant={selectedGenre === genre ? "default" : "outline"}
+                  variant={selectedCategories.includes(genre) ? 'default' : 'outline'}
                   className={`cursor-pointer text-xs px-2 py-1 transition-all whitespace-nowrap ${
-                    selectedGenre === genre 
-                      ? 'bg-gray-900 text-white hover:bg-gray-800' 
+                    selectedCategories.includes(genre)
+                      ? 'bg-gray-900 text-white hover:bg-gray-800'
                       : 'hover:bg-gray-100'
                   }`}
-                  onClick={() => setSelectedGenre(genre)}
+                  onClick={() => toggleCategory(genre)}
                 >
                   {genre}
                 </Badge>
@@ -446,17 +483,54 @@ export function PlatformScenarioSearch() {
           {/* フィルターパネル */}
           {showFilters && (
             <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="ジャンル" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべてのジャンル</SelectItem>
-                  {genres.map(genre => (
-                    <SelectItem key={genre} value={genre}>{genre}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-[#F6F9FB] px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:ring-offset-0"
+                  >
+                    <span className="truncate text-left">
+                      {selectedCategories.length === 0
+                        ? 'すべてのカテゴリ'
+                        : selectedCategories.length <= 2
+                          ? selectedCategories.join('、')
+                          : `${selectedCategories.length}件のカテゴリ`}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-2 max-h-64 overflow-y-auto" align="start">
+                  {genres.length === 0 ? (
+                    <p className="text-xs text-muted-foreground px-2 py-1.5">カテゴリがありません</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {selectedCategories.length > 0 && (
+                        <button
+                          type="button"
+                          className="w-full rounded px-2 py-1.5 text-left text-xs font-medium text-primary hover:bg-muted"
+                          onClick={() => clearCategories()}
+                        >
+                          すべてクリア
+                        </button>
+                      )}
+                      {genres.map((g) => (
+                        <label
+                          key={g}
+                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+                        >
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300"
+                            checked={selectedCategories.includes(g)}
+                            onChange={() => toggleCategory(g)}
+                          />
+                          <span>{g}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
               
               <Select value={selectedDuration} onValueChange={setSelectedDuration}>
                 <SelectTrigger className="h-9">
@@ -622,7 +696,7 @@ export function PlatformScenarioSearch() {
                       )}
                     </div>
 
-                    {/* ジャンル */}
+                    {/* カテゴリ */}
                     {scenario.genre && scenario.genre.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {scenario.genre.slice(0, 3).map((genre, idx) => (
@@ -632,7 +706,7 @@ export function PlatformScenarioSearch() {
                             className="text-xs px-1.5 py-0.5 h-5 font-normal bg-gray-100 border-0 cursor-pointer hover:bg-gray-200 hover:scale-105 transition-all"
                             onClick={(e) => {
                               e.stopPropagation()
-                              setSelectedGenre(genre)
+                              toggleCategory(genre)
                               setShowFilters(true)
                             }}
                           >

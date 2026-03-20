@@ -475,7 +475,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
               reservationId: reservation.id,
               customerEmail: rejectMailCustomer.email,
               customerName: rejectMailCustomer.name,
-              scenarioTitle: reservation.scenario_title || '',
+              scenarioTitle: reservation.title || '',
               rejectionReason: rejectionReason,
               candidateDates: candidateDates.length > 0 ? candidateDates : undefined
             }

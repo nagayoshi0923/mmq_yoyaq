@@ -142,7 +142,8 @@ export function useReservationData(filters: Filters, pagination: Pagination) {
         
         return {
           ...reservation,
-          scenario_title: reservation.scenarios?.title || reservation.title,
+          scenario_title:
+            (reservation.scenario_masters as { title?: string } | null)?.title || reservation.title,
           store_name: reservation.stores?.name || '',
           event_date: eventDate,
           event_time: eventTime,

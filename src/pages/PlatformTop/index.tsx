@@ -664,23 +664,38 @@ export function PlatformTop() {
           }}
         />
         <div 
-          className="absolute bottom-0 left-0 w-2 h-24"
+          className="absolute bottom-0 left-0 w-2 h-14 md:h-24"
           style={{ backgroundColor: THEME.accent }}
         />
         
-        <div className="max-w-7xl mx-auto px-4 py-12 md:py-20 relative">
+        <div className="max-w-7xl mx-auto px-4 py-7 sm:py-10 md:py-20 relative">
           <div className="text-center text-white">
-            <h1 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight">
-              マーダーミステリー予約するなら<br className="md:hidden" />MMQ
+            <h1 className="text-[1.625rem] leading-snug sm:text-3xl md:text-5xl font-bold mb-3 md:mb-4 tracking-tight">
+              {/* md 未満は自動折り返しで「な／ら」のように分断されやすいので、語の切れ目で固定改行 */}
+              <span className="md:hidden">
+                マーダーミステリー
+                <br />
+                予約するなら
+                <br />
+                MMQ
+              </span>
+              <span className="hidden md:inline">マーダーミステリー予約するなら MMQ</span>
             </h1>
-            <p className="text-lg md:text-xl opacity-90 mb-8 max-w-2xl mx-auto">
-              全国の店舗から、あなたにぴったりの物語を見つけよう
+            <p className="text-[0.9375rem] sm:text-lg md:text-xl opacity-90 mb-5 md:mb-8 max-w-2xl mx-auto leading-relaxed">
+              <span className="md:hidden">
+                全国の店舗から、
+                <br />
+                あなたにぴったりの物語を見つけよう
+              </span>
+              <span className="hidden md:inline">
+                全国の店舗から、あなたにぴったりの物語を見つけよう
+              </span>
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <Button
                 size="lg"
-                className="bg-white hover:bg-gray-100 px-8 h-14 text-lg font-semibold shadow-lg hover:scale-[1.02] transition-transform"
+                className="bg-white hover:bg-gray-100 px-6 sm:px-8 h-12 sm:h-14 text-base sm:text-lg font-semibold shadow-lg hover:scale-[1.02] transition-transform"
                 style={{ color: THEME.primary, borderRadius: 0 }}
                 onClick={() => {
                   saveScrollPositionForCurrentUrl()
@@ -727,7 +742,7 @@ export function PlatformTop() {
             {/* 新規登録キャンペーンバナー（コンパクト版）- 未ログインユーザーのみ表示 */}
             {!user && (
               <div 
-                className="mt-8 cursor-pointer group"
+                className="mt-5 md:mt-8 cursor-pointer group"
                 onClick={() => navigate('/signup')}
               >
                 <div 

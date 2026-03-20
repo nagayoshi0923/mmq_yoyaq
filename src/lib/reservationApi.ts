@@ -9,8 +9,9 @@ const CUSTOMER_SELECT_FIELDS =
   'id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at' as const
 
 /** 予約一覧・モーダル等で共通利用（select('*') 回避用） */
+/** DB に scenario_title 列はない。シナリオ表示名は title（および必要なら schedule_events.scenario）を使う */
 export const RESERVATION_SELECT_FIELDS =
-  'id, organization_id, reservation_number, reservation_page_id, title, scenario_id, scenario_title, scenario_master_id, store_id, customer_id, schedule_event_id, requested_datetime, actual_datetime, duration, participant_count, participant_names, assigned_staff, gm_staff, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, payment_method, payment_datetime, status, customer_notes, staff_notes, special_requests, cancellation_reason, cancelled_at, external_reservation_id, reservation_source, created_by, created_at, updated_at, customer_name, customer_email, customer_phone, private_group_id, candidate_datetimes' as const
+  'id, organization_id, reservation_number, reservation_page_id, title, scenario_id, scenario_master_id, store_id, customer_id, schedule_event_id, requested_datetime, actual_datetime, duration, participant_count, participant_names, assigned_staff, gm_staff, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, payment_method, payment_datetime, status, customer_notes, staff_notes, special_requests, cancellation_reason, cancelled_at, external_reservation_id, reservation_source, created_by, created_at, updated_at, customer_name, customer_email, customer_phone, private_group_id, candidate_datetimes' as const
 
 /** 予約 + customers（貸切・公演モーダル・中止処理など） */
 export const RESERVATION_WITH_CUSTOMER_SELECT_FIELDS =
@@ -632,7 +633,7 @@ export const reservationApi = {
               reservationId: data.id,
               customerEmail: cust?.email,
               customerName: cust?.name,
-              scenarioTitle: data.scenario_title || scheduleEvent?.scenario,
+              scenarioTitle: data.title || scheduleEvent?.scenario,
               reservationNumber: data.reservation_number,
               changes,
               newEventDate: scheduleEvent?.date,
@@ -740,7 +741,7 @@ export const reservationApi = {
             reservationId: reservation.id,
             customerEmail: cancelMailCustomer.email,
             customerName: cancelMailCustomer.name,
-            scenarioTitle: reservation.scenario_title || scheduleEvent?.scenario,
+            scenarioTitle: reservation.title || scheduleEvent?.scenario,
             eventDate: scheduleEvent?.date,
             startTime: scheduleEvent?.start_time,
             endTime: scheduleEvent?.end_time,
@@ -766,12 +767,12 @@ export const reservationApi = {
               customer_id: reservation.customer_id,
               type: 'reservation_cancelled',
               title: '予約がキャンセルされました',
-              message: `「${reservation.scenario_title || scheduleEvent?.scenario}」${eventDateStr} ${eventTimeStr}`,
+              message: `「${reservation.title || scheduleEvent?.scenario}」${eventDateStr} ${eventTimeStr}`,
               link: '/mypage',
               metadata: {
                 reservationId: reservation.id,
                 reservationNumber: reservation.reservation_number,
-                scenarioTitle: reservation.scenario_title || scheduleEvent?.scenario,
+                scenarioTitle: reservation.title || scheduleEvent?.scenario,
                 eventDate: eventDateStr,
                 startTime: eventTimeStr,
                 cancellationReason: cancellationReason || 'キャンセル'
@@ -815,7 +816,7 @@ export const reservationApi = {
               organizationId: orgIdForWaitlist,
               scheduleEventId: reservation.schedule_event_id,
               freedSeats: reservation.participant_count,
-              scenarioTitle: reservation.scenario_title || scheduleEvent?.scenario,
+              scenarioTitle: reservation.title || scheduleEvent?.scenario,
               eventDate: scheduleEvent?.date,
               startTime: scheduleEvent?.start_time,
               endTime: scheduleEvent?.end_time,
@@ -837,7 +838,7 @@ export const reservationApi = {
                 schedule_event_id: reservation.schedule_event_id,
                 organization_id: orgIdForWaitlist,
                 freed_seats: reservation.participant_count,
-                scenario_title: reservation.scenario_title || scheduleEvent?.scenario,
+                scenario_title: reservation.title || scheduleEvent?.scenario,
                 event_date: scheduleEvent?.date,
                 start_time: scheduleEvent?.start_time,
                 end_time: scheduleEvent?.end_time,
@@ -875,7 +876,7 @@ export const reservationApi = {
             scheduleEventId: scheduleEventForGM.id,
             gms: scheduleEventForGM.gms,
             customerName: gmNotifyCustomer?.name || reservation.customer_name || '顧客',
-            scenarioTitle: reservation.scenario_title || scheduleEventForGM.scenario || 'シナリオ未定',
+            scenarioTitle: reservation.title || scheduleEventForGM.scenario || 'シナリオ未定',
             eventDate: scheduleEventForGM.date,
             startTime: scheduleEventForGM.start_time,
             endTime: scheduleEventForGM.end_time,

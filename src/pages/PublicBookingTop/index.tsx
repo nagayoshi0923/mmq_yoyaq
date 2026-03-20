@@ -395,8 +395,10 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">
               {organizationName || 'MMQ'}
             </h1>
-            <p className="text-sm text-white/90 mb-3">
-              リアルな謎解き体験。あなたは事件の真相を暴けるか？
+            <p className="text-sm md:text-[0.95rem] text-white/90 mb-3 max-w-xl leading-relaxed text-pretty">
+              {organizationSlug === 'queens-waltz'
+                ? '都内に3店舗を有するマーダーミステリー専門店クインズワルツ。100種類以上のマーダーミステリーを所有し、あなたの気に入る物語がきっと見つかる！'
+                : 'リアルな謎解き体験。あなたは事件の真相を暴けるか？'}
             </p>
             
             {/* 組織情報 + アクセスボタン */}

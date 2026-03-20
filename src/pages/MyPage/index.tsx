@@ -1043,7 +1043,12 @@ export default function MyPage() {
       return { type: 'full', label: '満席', color: 'bg-green-100 text-green-700' }
     } else if (current >= min) {
       const remaining = max - current
-      return { type: 'confirmed', label: `公演成立（残${remaining}席）`, color: 'bg-blue-100 text-blue-700' }
+      // 最少人数は満た済み。「残○席」だけだと「成立まであと○席」と誤読されやすいので満席までと明示
+      return {
+        type: 'confirmed',
+        label: `公演成立済み（満席まであと${remaining}席）`,
+        color: 'bg-blue-100 text-blue-700',
+      }
     } else {
       const remaining = min - current
       return { type: 'pending', label: `あと${remaining}名で成立`, color: 'bg-amber-100 text-amber-700' }
@@ -1625,7 +1630,7 @@ export default function MyPage() {
                 {/* 予約一覧 */}
                 {upcomingReservations.length > 0 ? (
                   <>
-                    {upcomingReservations.map((reservation, idx) => {
+                    {upcomingReservations.map((reservation) => {
                       const perf = getPerformanceDateTime(reservation)
                       const daysUntil = getDaysUntil(perf.date)
                       const store = reservation.store_id ? stores[reservation.store_id] : null
@@ -1649,14 +1654,14 @@ export default function MyPage() {
                           style={{ borderRadius: 0 }}
                           onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
                         >
-                          {/* カウントダウンバー（最初の予約のみ） */}
-                          {idx === 0 && daysUntil >= 0 && (
+                          {/* カウントダウンバー（各予約・公演日までの日数） */}
+                          {daysUntil >= 0 && (
                             <div 
                               className="px-3 py-1.5 text-white text-sm font-bold flex items-center gap-2"
                               style={{ backgroundColor: THEME.primary }}
                             >
                               <Sparkles className="w-4 h-4" />
-                              あと{daysUntil}日
+                              {daysUntil === 0 ? '本日公演' : `あと${daysUntil}日`}
                             </div>
                           )}
                           

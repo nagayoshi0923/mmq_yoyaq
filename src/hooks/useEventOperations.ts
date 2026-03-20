@@ -1576,7 +1576,7 @@ export function useEventOperations({
                     reservationId: reservation.id,
                     customerEmail: perfCancelCustomer.email,
                     customerName: perfCancelCustomer.name,
-                    scenarioTitle: reservation.scenario_title || cancellingEvent.scenario,
+                    scenarioTitle: reservation.title || cancellingEvent.scenario,
                     eventDate: cancellingEvent.date,
                     startTime: cancellingEvent.start_time,
                     endTime: cancellingEvent.end_time,

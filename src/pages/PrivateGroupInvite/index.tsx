@@ -109,6 +109,7 @@ export function PrivateGroupInvite() {
   const [preferredStoreNames, setPreferredStoreNames] = useState<Array<{ id: string; name: string }>>([])
   const [showStoreEditSheet, setShowStoreEditSheet] = useState(false)
   const [allStores, setAllStores] = useState<Array<{ id: string; name: string; short_name: string }>>([])
+  const [loadingStoresForEdit, setLoadingStoresForEdit] = useState(false)
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [savingStores, setSavingStores] = useState(false)
   
@@ -341,36 +342,52 @@ export function PrivateGroupInvite() {
     fetchStoreNames()
   }, [group?.preferred_store_ids])
 
-  // 店舗編集用: シナリオに対応した全店舗を取得
+  // 店舗編集用: 組織に紐づく店舗を取得（scenario_stores は未整備・scenario_id 未設定でも動くようにする）
   const fetchAllStores = async () => {
-    if (!group?.scenario_id) return
-    
+    if (!group?.organization_id) {
+      setAllStores([])
+      return
+    }
+
+    const mapRow = (s: { id: string; name: string; short_name: string | null }) => ({
+      id: s.id,
+      name: s.name,
+      short_name: s.short_name || s.name,
+    })
+
     try {
       const { data, error } = await supabase
-        .from('scenario_stores')
-        .select(`
-          store_id,
-          stores:store_id (
-            id,
-            name,
-            short_name
-          )
-        `)
-        .eq('scenario_id', group.scenario_id)
-      
+        .from('stores')
+        .select('id, name, short_name')
+        .eq('organization_id', group.organization_id)
+        .eq('status', 'active')
+        .or('ownership_type.neq.office,ownership_type.is.null')
+        .order('name')
+
       if (error) throw error
-      
-      const storeList = (data || [])
-        .filter((ss: any) => ss.stores)
-        .map((ss: any) => ({
-          id: ss.stores.id,
-          name: ss.stores.name,
-          short_name: ss.stores.short_name || ss.stores.name
-        }))
-      
+
+      let storeList = (data || []).map(mapRow)
+
+      // 既に希望に入っているが上記条件で落ちた店舗（仮設・オフィス等）も選択肢に残す
+      const missingIds = (group.preferred_store_ids || []).filter(
+        (id) => !storeList.some((s) => s.id === id)
+      )
+      if (missingIds.length > 0) {
+        const { data: extra, error: err2 } = await supabase
+          .from('stores')
+          .select('id, name, short_name')
+          .in('id', missingIds)
+        if (err2) throw err2
+        if (extra?.length) {
+          storeList = [...storeList, ...extra.map(mapRow)]
+        }
+      }
+
       setAllStores(storeList)
     } catch (err) {
       logger.error('全店舗取得エラー:', err)
+      setAllStores([])
+      toast.error('店舗一覧の取得に失敗しました')
     }
   }
 
@@ -401,8 +418,15 @@ export function PrivateGroupInvite() {
   // 店舗編集シートを開く
   const openStoreEditSheet = () => {
     setSelectedStoreIds(group?.preferred_store_ids || [])
-    fetchAllStores()
     setShowStoreEditSheet(true)
+    setLoadingStoresForEdit(true)
+    void (async () => {
+      try {
+        await fetchAllStores()
+      } finally {
+        setLoadingStoresForEdit(false)
+      }
+    })()
   }
 
   // 料金計算
@@ -1830,7 +1854,12 @@ export function PrivateGroupInvite() {
                   利用を希望する店舗を選択してください。
                 </p>
                 <div className="space-y-2">
-                  {allStores.length > 0 ? (
+                  {loadingStoresForEdit ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+                      店舗を読み込み中...
+                    </div>
+                  ) : allStores.length > 0 ? (
                     allStores.map(store => (
                       <label
                         key={store.id}
@@ -1864,8 +1893,7 @@ export function PrivateGroupInvite() {
                     ))
                   ) : (
                     <div className="text-center py-8 text-muted-foreground text-sm">
-                      <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-                      店舗を読み込み中...
+                      表示できる店舗がありません。しばらくしてから再度お試しください。
                     </div>
                   )}
                 </div>
