@@ -8,6 +8,9 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { supabase } from '@/lib/supabase'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
+import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
+
+export { getOrganizationSlugFromPath }
 
 // コード分割：初期ロードを軽くする（リトライ付き）
 const LoginForm = lazyWithRetry(() =>
@@ -45,62 +48,6 @@ const queryClient = new QueryClient({
     },
   },
 })
-
-/**
- * 現在のURLからorganizationSlugを抽出するヘルパー関数
- */
-export function getOrganizationSlugFromPath(): string {
-  const pathname = window.location.pathname
-  // /queens-waltz や /queens-waltz/scenario/xxx などから抽出
-  const match = pathname.match(/^\/([^/]+)/)
-  if (match) {
-    // 管理ページのパスは除外
-    const adminPaths = [
-      'dashboard',
-      'stores',
-      'staff',
-      'scenarios',
-      'schedule',
-      'shift-submission',
-      'gm-availability',
-      'private-booking-management',
-      'reservations',
-      'accounts',
-      'sales',
-      'settings',
-      'manual',
-      'login',
-      'signup',
-      'reset-password',
-      'set-password',
-      'complete-profile',
-      'coupon-present',
-      'license-management',
-      'staff-profile',
-      'mypage',
-      'author',
-      'external-reports',
-      'accept-invitation',
-      'organization-register',
-      'terms',
-      'privacy',
-      'security',
-      'legal',
-      'contact',
-      'faq',
-      'guide',
-      'cancel-policy',
-      'stores',
-      'company',
-      'about',
-      'blog',
-    ]
-    if (!adminPaths.includes(match[1])) {
-      return match[1]
-    }
-  }
-  return 'queens-waltz'
-}
 
 /**
  * AdminDashboard の parsePath と整合: 先頭が組織スラッグのときの「管理ツール第2セグメント」

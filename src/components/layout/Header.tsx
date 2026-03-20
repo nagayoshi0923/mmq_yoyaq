@@ -66,9 +66,11 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
       const stored = localStorage.getItem(VISITED_ORG_KEY)
       if (stored) {
         try {
-          const parsed = JSON.parse(stored)
-          // 保存されている情報から組織を復元
-          const org = await getOrganizationBySlug(parsed.slug)
+          const parsed = JSON.parse(stored) as { slug?: string; id?: string; name?: string }
+          const storedKey = parsed.slug || parsed.id
+          if (!storedKey) return
+          // slug のみ保存されていない古いデータは id で復元
+          const org = await getOrganizationBySlug(storedKey)
           if (org) {
             setVisitedOrganization(org)
           }

@@ -6,8 +6,78 @@ import { supabase } from './supabase'
 import type { Organization, Staff } from '@/types'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
-const ORGANIZATION_SELECT_FIELDS =
-  'id, name, slug, plan, contact_email, contact_name, is_license_manager, is_active, settings, notes, public_booking_hero_description, theme_color, header_image_url, created_at, updated_at' as const
+/** 古いDBでも必ず存在する列のみ（マイグレーション未適用時のフォールバック用） */
+export const ORGANIZATION_SELECT_CORE =
+  'id, name, slug, plan, contact_email, contact_name, is_license_manager, is_active, settings, notes, created_at, updated_at' as const
+
+/** 公開予約・ヘッダー等で使う標準セット */
+export const ORGANIZATION_SELECT_STANDARD =
+  `${ORGANIZATION_SELECT_CORE}, public_booking_hero_description, theme_color, header_image_url` as const
+
+/** 管理画面（FAQ・アンケ設定等）で使う拡張セット */
+export const ORGANIZATION_SELECT_STAFF_APP =
+  `${ORGANIZATION_SELECT_STANDARD}, faq_items, common_faq_items, post_performance_survey_url, post_performance_survey_enabled` as const
+
+function isMissingColumnOrSchemaSelectError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const o = err as { code?: string; message?: string; details?: string }
+  const msg = `${o.message || ''} ${o.details || ''}`.toLowerCase()
+  const code = String(o.code || '')
+  return (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    (msg.includes('column') && msg.includes('does not exist')) ||
+    msg.includes('schema cache') ||
+    (msg.includes('could not find') && msg.includes('column'))
+  )
+}
+
+/**
+ * 存在しない列を select したときだけ狭い列セットへフォールバック（本番がマイグレーションより古い場合の救済）
+ */
+async function fetchOrganizationRowWithSelectFallback(
+  by: 'id' | 'slug',
+  value: string,
+  tiers: readonly string[],
+  logLabel: 'id' | 'slug'
+): Promise<Organization | null> {
+  let lastError: unknown
+  for (let i = 0; i < tiers.length; i++) {
+    const fields = tiers[i]
+    let q = supabase.from('organizations').select(fields)
+    q = by === 'id' ? q.eq('id', value) : q.eq('slug', value)
+    const { data, error } = await q.maybeSingle()
+    if (!error) {
+      return (data as unknown as Organization) ?? null
+    }
+    lastError = error
+    const canRetry = i < tiers.length - 1 && isMissingColumnOrSchemaSelectError(error)
+    if (!canRetry) {
+      logger.error(
+        logLabel === 'id' ? 'Failed to fetch organization by id:' : 'Failed to fetch organization by slug:',
+        error
+      )
+      return null
+    }
+  }
+  logger.error(
+    logLabel === 'id' ? 'Failed to fetch organization by id:' : 'Failed to fetch organization by slug:',
+    lastError
+  )
+  return null
+}
+
+/**
+ * ログインスタッフの組織行取得（マイグレーション未適用のDBでは列の少ない select に自動フォールバック）
+ */
+export async function fetchOrganizationForStaffSession(orgId: string): Promise<Organization | null> {
+  return fetchOrganizationRowWithSelectFallback(
+    'id',
+    orgId,
+    [ORGANIZATION_SELECT_STAFF_APP, ORGANIZATION_SELECT_STANDARD, ORGANIZATION_SELECT_CORE],
+    'id'
+  )
+}
 
 const STAFF_SELECT_FIELDS =
   'id, organization_id, name, line_name, x_account, discord_id:discord_user_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
@@ -107,13 +177,12 @@ export async function getCurrentOrganization(): Promise<Organization | null> {
   const orgId = await getCurrentOrganizationId()
   if (!orgId) return null
 
-  const { data: org } = await supabase
-    .from('organizations')
-    .select(ORGANIZATION_SELECT_FIELDS)
-    .eq('id', orgId)
-    .single()
-
-  return org as Organization | null
+  return fetchOrganizationRowWithSelectFallback(
+    'id',
+    orgId,
+    [ORGANIZATION_SELECT_STANDARD, ORGANIZATION_SELECT_CORE],
+    'id'
+  )
 }
 
 /**
@@ -128,17 +197,29 @@ export async function isLicenseManager(): Promise<boolean> {
  * 組織一覧を取得（管理者用）
  */
 export async function getOrganizations(): Promise<Organization[]> {
-  const { data, error } = await supabase
+  const r1 = await supabase
     .from('organizations')
-    .select(ORGANIZATION_SELECT_FIELDS)
+    .select(ORGANIZATION_SELECT_STANDARD)
     .order('name')
 
-  if (error) {
-    logger.error('Failed to fetch organizations:', error)
+  if (!r1.error) {
+    return (r1.data as unknown as Organization[]) ?? []
+  }
+
+  if (isMissingColumnOrSchemaSelectError(r1.error)) {
+    const r2 = await supabase
+      .from('organizations')
+      .select(ORGANIZATION_SELECT_CORE)
+      .order('name')
+    if (!r2.error) {
+      return (r2.data as unknown as Organization[]) ?? []
+    }
+    logger.error('Failed to fetch organizations:', r2.error)
     return []
   }
 
-  return data as Organization[]
+  logger.error('Failed to fetch organizations:', r1.error)
+  return []
 }
 
 /**
@@ -227,22 +308,18 @@ export async function getOrganizationById(id: string): Promise<Organization | nu
     return cached.data
   }
 
-  const { data, error } = await supabase
-    .from('organizations')
-    .select(ORGANIZATION_SELECT_FIELDS)
-    .eq('id', trimmed)
-    .maybeSingle()
+  const org = await fetchOrganizationRowWithSelectFallback(
+    'id',
+    trimmed,
+    [ORGANIZATION_SELECT_STANDARD, ORGANIZATION_SELECT_CORE],
+    'id'
+  )
 
-  if (error) {
-    logger.error('Failed to fetch organization by id:', error)
-    return null
+  if (org) {
+    cacheOrganization(org)
   }
 
-  if (data) {
-    cacheOrganization(data as Organization)
-  }
-
-  return (data as Organization) ?? null
+  return org
 }
 
 /**
@@ -274,22 +351,17 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
     return cached.data
   }
 
-  const { data, error } = await supabase
-    .from('organizations')
-    .select(ORGANIZATION_SELECT_FIELDS)
-    .eq('slug', trimmed)
-    .maybeSingle()
+  const org = await fetchOrganizationRowWithSelectFallback(
+    'slug',
+    trimmed,
+    [ORGANIZATION_SELECT_STANDARD, ORGANIZATION_SELECT_CORE],
+    'slug'
+  )
 
-  if (error) {
-    logger.error('Failed to fetch organization by slug:', error)
-    return null
+  if (org) {
+    cacheOrganization(org)
   }
 
-  // キャッシュに保存
-  if (data) {
-    cacheOrganization(data as Organization)
-  }
-
-  return (data as Organization) ?? null
+  return org
 }
 

@@ -17,6 +17,8 @@ export interface ScenarioFormData {
   author: string
   author_email?: string  // 作者メールアドレス（作者ポータル連携用）
   scenario_master_id?: string  // マスタから引用した場合のマスタID
+  /** 所属組織（公開シナリオ詳細URLの slug 解決用） */
+  organization_id?: string | null
   description: string
   duration: number // 分単位
   weekend_duration?: number | null // 土日・祝日の公演時間（分）

@@ -31,6 +31,7 @@ import { staffApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
+import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import type { Staff } from '@/types'
 
 interface ScenarioEditDialogV2Props {
@@ -179,7 +180,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       setCurrentOrgId(currentOrg?.id || null)
 
       let slugForPublic = currentOrg?.slug?.trim() || ''
-      const scenarioOrgId = currentScenario?.organization_id
+      const scenarioOrgId =
+        currentScenario?.organization_id ?? formData.organization_id ?? null
       if (scenarioOrgId) {
         const scenarioOrg = await getOrganizationById(scenarioOrgId)
         if (cancelled) return
@@ -187,15 +189,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           slugForPublic = scenarioOrg.slug.trim()
         }
       }
+      // ローカル等: users.organization が取れない・一覧の organization_id が遅延する場合のフォールバック
+      if (!slugForPublic.trim()) {
+        slugForPublic = getOrganizationSlugFromPath()
+      }
       if (!cancelled) {
-        setPublicBookingOrgSlug(slugForPublic)
+        setPublicBookingOrgSlug(slugForPublic.trim())
       }
     }
     void sync()
     return () => {
       cancelled = true
     }
-  }, [isOpen, scenarioId, currentScenario?.organization_id])
+  }, [isOpen, scenarioId, currentScenario?.organization_id, formData.organization_id])
 
   // マスターデータを取得（相違検出用）
   useEffect(() => {
@@ -616,6 +622,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           author: scenario.author || '',
           author_email: scenario.author_email || '',
           scenario_master_id: scenario.scenario_master_id ?? undefined, // organization_scenarios連携用
+          organization_id: scenario.organization_id ?? null,
           description: scenario.description || '',
           duration: scenario.duration || 120,
           player_count_min: scenario.player_count_min || 4,
@@ -1289,7 +1296,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       <DialogContent size="lg" className="max-w-[95vw] sm:max-w-3xl h-[85vh] sm:h-[min(80vh,600px)] p-0 flex flex-col overflow-hidden [&>button]:z-10">
         <DialogHeader className="px-2 sm:px-3 pt-2 pb-0 shrink-0">
           <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-            <DialogTitle className="text-sm shrink-0 flex items-center gap-1.5">
+            <DialogTitle className="text-sm flex flex-wrap items-center gap-1.5 min-w-0">
               <span>{scenarioId ? 'シナリオ編集' : '新規シナリオ'}</span>
               {organizationName && (
                 <span className="text-[11px] font-normal text-muted-foreground bg-muted px-1 py-0 rounded">
@@ -1336,7 +1343,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   title="予約サイトのシナリオ詳細ページを開く"
                 >
                   <ExternalLink className="w-2.5 h-2.5" />
-                  詳細
+                  シナリオ詳細
                 </Button>
               )}
             </DialogTitle>
@@ -1517,6 +1524,24 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             )}
             {formData.status === 'available' && (
               <span className="text-[11px] bg-green-100 text-green-700 px-1 py-0 rounded">公開中</span>
+            )}
+            {scenarioId && publicBookingOrgSlug && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] gap-1 px-2 shrink-0"
+                onClick={() =>
+                  window.open(
+                    `/${publicBookingOrgSlug}/scenario/${formData.slug || scenarioId}`,
+                    '_blank',
+                  )
+                }
+                title="予約サイトのシナリオ詳細を別タブで開く"
+              >
+                <ExternalLink className="h-3 w-3" />
+                シナリオ詳細
+              </Button>
             )}
             {formData.status === 'unavailable' && (
               <span className="text-[11px] bg-yellow-100 text-yellow-700 px-1 py-0 rounded">非公開</span>

@@ -93,8 +93,8 @@ const REGIONS = [
   { value: '福岡県', label: '福岡県' },
 ]
 
-/** MMQトップ「8日後以降の公演を見る」の展開状態（ブラウザリロード時のみ復元。SPAで戻ったときは閉じる） */
-const PLATFORM_TOP_AFTER7_EXPANDED_KEY = 'platform-top-lineup-after7-expanded'
+/** MMQトップ「2週間より後の公演を見る」の展開状態（ブラウザリロード時のみ復元。SPAで戻ったときは閉じる） */
+const PLATFORM_TOP_AFTER14_EXPANDED_KEY = 'platform-top-lineup-after14-expanded'
 
 function isBrowserReloadNavigation(): boolean {
   if (typeof performance === 'undefined') return false
@@ -176,7 +176,7 @@ export function PlatformTop() {
   const [isExpanded, setIsExpanded] = useState(() => {
     if (!isBrowserReloadNavigation()) return false
     try {
-      return sessionStorage.getItem(PLATFORM_TOP_AFTER7_EXPANDED_KEY) === '1'
+      return sessionStorage.getItem(PLATFORM_TOP_AFTER14_EXPANDED_KEY) === '1'
     } catch {
       return false
     }
@@ -208,11 +208,11 @@ export function PlatformTop() {
     setShowCouponPopup(false)
   }
 
-  const toggleAfter7Expanded = useCallback(() => {
+  const toggleAfter14Expanded = useCallback(() => {
     setIsExpanded((prev) => {
       const next = !prev
       try {
-        sessionStorage.setItem(PLATFORM_TOP_AFTER7_EXPANDED_KEY, next ? '1' : '0')
+        sessionStorage.setItem(PLATFORM_TOP_AFTER14_EXPANDED_KEY, next ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -224,7 +224,7 @@ export function PlatformTop() {
   useEffect(() => {
     const flush = () => {
       try {
-        sessionStorage.setItem(PLATFORM_TOP_AFTER7_EXPANDED_KEY, isExpanded ? '1' : '0')
+        sessionStorage.setItem(PLATFORM_TOP_AFTER14_EXPANDED_KEY, isExpanded ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -586,12 +586,12 @@ export function PlatformTop() {
     return result
   }, [filteredScenarios])
 
-  // 7日以内とそれ以降を分離
-  const { within7Days, after7Days } = useMemo(() => {
+  // 2週間以内とそれ以降を分離（当日を含む14日分: 今日〜今日+13日目まで）
+  const { withinTwoWeeks, afterTwoWeeks } = useMemo(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const sevenDaysLater = new Date(today)
-    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
+    const twoWeeksEndExclusive = new Date(today)
+    twoWeeksEndExclusive.setDate(twoWeeksEndExclusive.getDate() + 14)
     
     const within: ScenarioWithEvents[] = []
     const after: ScenarioWithEvents[] = []
@@ -600,7 +600,7 @@ export function PlatformTop() {
       const nextEventDate = scenario.next_events?.[0]?.date
       if (nextEventDate) {
         const eventDate = new Date(nextEventDate + 'T00:00:00')
-        if (eventDate < sevenDaysLater) {
+        if (eventDate < twoWeeksEndExclusive) {
           within.push(scenario)
         } else {
           after.push(scenario)
@@ -608,7 +608,7 @@ export function PlatformTop() {
       }
     })
     
-    return { within7Days: within, after7Days: after }
+    return { withinTwoWeeks: within, afterTwoWeeks: after }
   }, [filteredScenarios])
 
   // 店舗を地域ごとにグルーピング
@@ -919,14 +919,14 @@ export function PlatformTop() {
           </div>
         ) : (
           <>
-            {/* 7日以内の公演 */}
+            {/* 2週間以内の公演 */}
             <div className="mb-4">
               <p className="text-sm text-gray-500 mb-3">
-                7日以内の公演（{within7Days.length}件）
+                2週間以内の公演（{withinTwoWeeks.length}件）
               </p>
-              {within7Days.length > 0 ? (
+              {withinTwoWeeks.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                  {within7Days.map((scenario, idx) => (
+                  {withinTwoWeeks.map((scenario, idx) => (
                     <ScenarioCard
                       key={scenario.scenario_id}
                       scenario={scenario}
@@ -940,17 +940,17 @@ export function PlatformTop() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground bg-gray-50 rounded-lg">
-                  <p>7日以内の公演予定はありません</p>
+                  <p>2週間以内の公演予定はありません</p>
                 </div>
               )}
             </div>
 
-            {/* 8日後以降の公演（折りたたみ） */}
-            {after7Days.length > 0 && (
+            {/* 2週間より後の公演（折りたたみ） */}
+            {afterTwoWeeks.length > 0 && (
               <div className="mt-6">
                 <Button
                   variant="outline"
-                  onClick={toggleAfter7Expanded}
+                  onClick={toggleAfter14Expanded}
                   className="w-full gap-2"
                   style={{ borderRadius: 0 }}
                 >
@@ -962,14 +962,14 @@ export function PlatformTop() {
                   ) : (
                     <>
                       <ChevronDown className="w-4 h-4" />
-                      8日後以降の公演を見る（{after7Days.length}件）
+                      2週間より後の公演を見る（{afterTwoWeeks.length}件）
                     </>
                   )}
                 </Button>
                 
                 {isExpanded && (
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                    {after7Days.map((scenario) => (
+                    {afterTwoWeeks.map((scenario) => (
                       <ScenarioCard
                         key={scenario.scenario_id}
                         scenario={scenario}

@@ -8,11 +8,12 @@ import { useCallback, useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Organization, Staff } from '@/types'
-import { QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
+import {
+  QUEENS_WALTZ_ORG_ID,
+  fetchOrganizationForStaffSession,
+  getOrganizations,
+} from '@/lib/organization'
 
-// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
-const ORGANIZATION_SELECT_FIELDS =
-  'id, name, slug, plan, contact_email, contact_name, is_license_manager, is_active, settings, notes, faq_items, common_faq_items, public_booking_hero_description, post_performance_survey_url, post_performance_survey_enabled, theme_color, header_image_url, created_at, updated_at' as const
 const STAFF_SELECT_FIELDS =
   'id, organization_id, name, line_name, x_account, discord_id:discord_user_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
 
@@ -55,21 +56,12 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
     return { organization: null, staff: null }
   }
 
-  // 組織情報を取得
+  // 組織情報を取得（DBのマイグレーションが古くてもコア列までフォールバック）
   const orgId = staffData?.organization_id || QUEENS_WALTZ_ORG_ID
-  
-  const { data: orgData, error: orgError } = await supabase
-    .from('organizations')
-    .select(ORGANIZATION_SELECT_FIELDS)
-    .eq('id', orgId)
-    .maybeSingle()
-
-  if (orgError && orgError.code !== 'PGRST116') {
-    logger.warn('Organization not found:', orgId, orgError)
-  }
+  const orgData = await fetchOrganizationForStaffSession(orgId)
 
   return {
-    organization: orgData as Organization | null,
+    organization: orgData,
     staff: staffData as Staff,
   }
 }
@@ -128,14 +120,8 @@ export function useOrganizations(): UseOrganizationsResult {
     try {
       setIsLoading(true)
       setError(null)
-
-      const { data, error: fetchError } = await supabase
-        .from('organizations')
-        .select(ORGANIZATION_SELECT_FIELDS)
-        .order('name')
-
-      if (fetchError) throw fetchError
-      setOrganizations(data as Organization[])
+      const data = await getOrganizations()
+      setOrganizations(data)
     } catch (err) {
       logger.error('Failed to fetch organizations:', err)
       setError(err instanceof Error ? err : new Error('Unknown error'))

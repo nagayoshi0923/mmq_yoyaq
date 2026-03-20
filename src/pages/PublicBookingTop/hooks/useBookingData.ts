@@ -79,6 +79,20 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
 }
 
 /**
+ * 一般客はアクティブな組織のみ。スタッフ/管理者は RLS で許可された行なら非アクティブ組織も表示（404防止）。
+ */
+async function requireActiveOrgForPublicBookingUrl(): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return true
+  const { data: row } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle()
+  const role = row?.role as string | undefined
+  if (role === 'admin' || role === 'staff' || role === 'license_admin') return false
+  const { data: staffRow } = await supabase.from('staff').select('id').eq('user_id', user.id).maybeSingle()
+  if (staffRow) return false
+  return true
+}
+
+/**
  * 公開トップページ用のデータを取得する関数
  * React Queryでキャッシュされる
  */
@@ -92,8 +106,9 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   const organizationNotFound = false
   
   if (organizationSlug) {
+    const requireActive = await requireActiveOrgForPublicBookingUrl()
     const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
-      requireActive: true,
+      requireActive,
     })
 
     if (orgData) {
