@@ -44,7 +44,8 @@ export function StaffManagement() {
   // ページ状態管理
   const { restoreState, saveState } = usePageState({
     pageKey: 'staff',
-    scrollRestoration: true
+    // スクロールは RouteScrollRestorationProvider（URL 単位）に統一
+    scrollRestoration: false,
   })
 
   // React Query でCRUD操作

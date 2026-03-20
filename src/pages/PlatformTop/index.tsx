@@ -16,7 +16,8 @@ import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
-import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
+import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
+import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { ScenarioCard, type ScenarioCardData } from '@/pages/PublicBookingTop/components/ScenarioCard'
 import { HowToUseGuide } from '@/pages/PublicBookingTop/components/HowToUseGuide'
@@ -92,8 +93,14 @@ const REGIONS = [
   { value: '福岡県', label: '福岡県' },
 ]
 
-/** MMQトップ「8日後以降の公演を見る」の展開状態（リロード後も維持） */
+/** MMQトップ「8日後以降の公演を見る」の展開状態（ブラウザリロード時のみ復元。SPAで戻ったときは閉じる） */
 const PLATFORM_TOP_AFTER7_EXPANDED_KEY = 'platform-top-lineup-after7-expanded'
+
+function isBrowserReloadNavigation(): boolean {
+  if (typeof performance === 'undefined') return false
+  const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+  return nav?.type === 'reload'
+}
 
 /** リロード直後も一覧を消さない（stale-while-revalidate） */
 const PLATFORM_TOP_DISPLAY_SNAPSHOT_KEY = 'platform-top-display-v1'
@@ -167,6 +174,7 @@ export function PlatformTop() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedRegion, setSelectedRegion] = useState('all')
   const [isExpanded, setIsExpanded] = useState(() => {
+    if (!isBrowserReloadNavigation()) return false
     try {
       return sessionStorage.getItem(PLATFORM_TOP_AFTER7_EXPANDED_KEY) === '1'
     } catch {
@@ -234,8 +242,7 @@ export function PlatformTop() {
   }, [isExpanded])
 
   // スクロール位置の保存と復元
-  useScrollRestoration({
-    pageKey: 'platform-top',
+  useReportRouteScrollRestoration('platform-top', {
     isLoading: loading,
     isFetching: isRefreshing,
   })
@@ -629,7 +636,7 @@ export function PlatformTop() {
   }
 
   const handleScenarioClick = (slugOrId: string, eventDate?: string, eventTime?: string) => {
-    saveScrollPositionForPage('platform-top')
+    saveScrollPositionForCurrentUrl()
     // 日付・時間パラメータがあれば追加
     const params = new URLSearchParams()
     if (eventDate) params.set('date', eventDate)
@@ -676,7 +683,7 @@ export function PlatformTop() {
                 className="bg-white hover:bg-gray-100 px-8 h-14 text-lg font-semibold shadow-lg hover:scale-[1.02] transition-transform"
                 style={{ color: THEME.primary, borderRadius: 0 }}
                 onClick={() => {
-                  saveScrollPositionForPage('platform-top')
+                  saveScrollPositionForCurrentUrl()
                   navigate('/scenario')
                 }}
               >
@@ -874,7 +881,7 @@ export function PlatformTop() {
               style={{ borderRadius: 0 }}
               disabled={loading || isRefreshing}
               onClick={() => {
-                saveScrollPositionForPage('platform-top')
+                saveScrollPositionForCurrentUrl()
                 void fetchData({ silent: true })
               }}
             >
@@ -978,7 +985,7 @@ export function PlatformTop() {
                 borderWidth: 2,
               }}
               onClick={() => {
-                saveScrollPositionForPage('platform-top')
+                saveScrollPositionForCurrentUrl()
                 navigate('/scenario')
               }}
             >

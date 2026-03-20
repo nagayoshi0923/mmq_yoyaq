@@ -14,7 +14,8 @@ import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, CheckCheck } from 'lucide-react'
 import { logger } from '@/utils/logger'
-import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
+import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
+import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 
 interface ScenarioData {
   id: string
@@ -83,7 +84,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const [categories, setCategories] = useState<CategoryData[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  useScrollRestoration({ pageKey: catalogScrollKey, isLoading })
+  useReportRouteScrollRestoration('scenario-catalog', { isLoading })
   const [searchTerm, setSearchTerm] = useState('')
   // URLパラメータからジャンルを読み取り
   const [selectedGenre, setSelectedGenre] = useState<string>(() => {
@@ -276,7 +277,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   }, [bookingBasePath, navigate])
 
   const handleCardClick = useCallback((scenarioId: string) => {
-    saveScrollPositionForPage(catalogScrollKey)
+    saveScrollPositionForCurrentUrl()
     // 組織slugがあれば予約サイト形式、なければグローバル形式
     if (organizationSlug || organization?.slug) {
       const slug = organizationSlug || organization?.slug

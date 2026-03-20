@@ -21,7 +21,7 @@ const PRIVATE_BOOKING_MENU_ITEMS: SidebarMenuItem[] = [
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { useSessionState } from '@/hooks/useSessionState'
-import { useScrollRestoration } from '@/hooks/useScrollRestoration'
+import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -111,7 +111,7 @@ export function PrivateBookingManagement() {
   } = useStoreAndGMManagement()
 
   // スクロール位置の保存と復元
-  useScrollRestoration({ pageKey: 'privateBooking', isLoading: loading })
+  useReportRouteScrollRestoration('private-booking-management', { isLoading: loading })
 
   // 初期データロード
   useEffect(() => {

@@ -43,19 +43,33 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   
   const scenarioData = scenarioDataResult
   
-  // Step 3: シナリオIDを使ってスケジュールと店舗を並列取得（効率化：シナリオIDでフィルタ）
   const todayJST = formatDateJST(new Date())
   const endDate = new Date()
   endDate.setMonth(endDate.getMonth() + 3)
   const endDateStr = formatDateJST(endDate)
-  
-  // 🚀 シナリオIDで直接フィルタしてスケジュール取得（全イベント取得を回避）
-  const [eventsData, storesData] = await Promise.all([
-    (async () => {
-      let query = supabase
-        .from('schedule_events')
-        .select(`
-          *,
+  const masterId = scenarioData.scenario_master_id
+
+  // Step 3+4 をまとめて並列（従来はイベント取得完了後に注意事項等を取りに行っていた）
+  const [eventsData, storesData, orgScenarioResult, masterCautionResult, relatedScenariosResult] =
+    await Promise.all([
+      (async () => {
+        let query = supabase
+          .from('schedule_events')
+          .select(
+            `
+          id,
+          date,
+          start_time,
+          end_time,
+          category,
+          is_reservation_enabled,
+          is_cancelled,
+          scenario_master_id,
+          organization_id,
+          store_id,
+          current_participants,
+          reservation_deadline_hours,
+          venue,
           stores:store_id (
             id,
             name,
@@ -63,32 +77,90 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
             color,
             address
           )
-        `)
-        .eq('scenario_master_id', scenarioData.id)
-        .gte('date', todayJST)
-        .lte('date', endDateStr)
-        .eq('is_cancelled', false)
-        .order('date', { ascending: true })
-        .order('start_time', { ascending: true })
-      
-      // 組織フィルタ（指定がある場合のみ）
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
-      
-      const { data, error } = await query
-      if (error) {
-        logger.error('スケジュール取得エラー:', error)
+        `
+          )
+          .eq('scenario_master_id', scenarioData.id)
+          .gte('date', todayJST)
+          .lte('date', endDateStr)
+          .eq('is_cancelled', false)
+          .order('date', { ascending: true })
+          .order('start_time', { ascending: true })
+
+        if (orgId) {
+          query = query.eq('organization_id', orgId)
+        }
+
+        const { data, error } = await query
+        if (error) {
+          logger.error('スケジュール取得エラー:', error)
+          return []
+        }
+        return data || []
+      })(),
+      storeApi.getAll(false, orgId).catch((error) => {
+        logger.error('店舗データの取得エラー:', error)
         return []
-      }
-      return data || []
-    })(),
-    storeApi.getAll(false, orgId).catch((error) => {
-      logger.error('店舗データの取得エラー:', error)
-      return []
-    })
-  ])
-  
+      }),
+      (async () => {
+        if (!masterId) return null
+        try {
+          if (orgId) {
+            const { data: orgScenarioData } = await supabase
+              .from('organization_scenarios')
+              .select('custom_caution, characters')
+              .eq('scenario_master_id', masterId)
+              .eq('organization_id', orgId)
+              .maybeSingle()
+            return orgScenarioData
+          }
+          const { data: orgScenarioRows } = await supabase
+            .from('organization_scenarios')
+            .select('custom_caution, characters')
+            .eq('scenario_master_id', masterId)
+            .not('characters', 'is', null)
+            .limit(1)
+          return orgScenarioRows?.[0] || null
+        } catch (e) {
+          logger.error('organization_scenarios取得エラー:', e)
+          return null
+        }
+      })(),
+      (async () => {
+        if (!masterId) return null
+        try {
+          const { data: masterData } = await supabase
+            .from('scenario_masters')
+            .select('caution')
+            .eq('id', masterId)
+            .maybeSingle()
+          return masterData?.caution ?? null
+        } catch (e) {
+          logger.error('マスター注意事項の取得エラー:', e)
+          return null
+        }
+      })(),
+      (async () => {
+        if (!scenarioData.author) return []
+        try {
+          const { data: relatedData } = await supabase
+            .from('scenario_masters')
+            .select('id, title, key_visual_url, author, player_count_min, player_count_max, official_duration')
+            .eq('author', scenarioData.author)
+            .neq('id', masterId || scenarioData.id)
+            .limit(6)
+
+          return (relatedData || []).map((r) => ({
+            ...r,
+            slug: r.id,
+            duration: r.official_duration,
+          }))
+        } catch (error) {
+          logger.error('関連シナリオの取得エラー:', error)
+          return []
+        }
+      })(),
+    ])
+
   // イベントデータを整形
   const scenarioEvents = eventsData
     .filter((event: any) => {
@@ -124,79 +196,6 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
         is_available: available > 0
       }
     })
-  
-  // Step 4: 注意事項・キャラクター・関連シナリオを並列取得（シナリオデータが必要なため）
-  const [orgScenarioResult, masterCautionResult, relatedScenariosResult] = await Promise.all([
-    // organization_scenarios からカスタム注意事項とキャラクターを取得
-    (async () => {
-      if (!scenarioData.scenario_master_id) return null
-      
-      try {
-        if (orgId) {
-          // 組織指定あり: その組織のデータを取得
-          const { data: orgScenarioData } = await supabase
-            .from('organization_scenarios')
-            .select('custom_caution, characters')
-            .eq('scenario_master_id', scenarioData.scenario_master_id)
-            .eq('organization_id', orgId)
-            .maybeSingle()
-          return orgScenarioData
-        } else {
-          // 組織指定なし（MMQプラットフォームビュー）: キャラクターが登録されている組織から取得
-          const { data: orgScenarioRows } = await supabase
-            .from('organization_scenarios')
-            .select('custom_caution, characters')
-            .eq('scenario_master_id', scenarioData.scenario_master_id)
-            .not('characters', 'is', null)
-            .limit(1)
-          return orgScenarioRows?.[0] || null
-        }
-      } catch (e) {
-        logger.error('organization_scenarios取得エラー:', e)
-        return null
-      }
-    })(),
-    
-    // scenario_masters からデフォルト注意事項を取得
-    (async () => {
-      if (!scenarioData.scenario_master_id) return null
-      
-      try {
-        const { data: masterData } = await supabase
-          .from('scenario_masters')
-          .select('caution')
-          .eq('id', scenarioData.scenario_master_id)
-          .maybeSingle()
-        return masterData?.caution
-      } catch (e) {
-        logger.error('マスター注意事項の取得エラー:', e)
-        return null
-      }
-    })(),
-    
-    // 関連シナリオを取得（scenario_masters から基本情報）
-    (async () => {
-      if (!scenarioData.author) return []
-      
-      try {
-        const { data: relatedData } = await supabase
-          .from('scenario_masters')
-          .select('id, title, key_visual_url, author, player_count_min, player_count_max, official_duration')
-          .eq('author', scenarioData.author)
-          .neq('id', scenarioData.scenario_master_id || scenarioData.id)
-          .limit(6)
-        
-        return (relatedData || []).map(r => ({
-          ...r,
-          slug: r.id, // scenario_masters に slug はないため id をフォールバック
-          duration: r.official_duration
-        }))
-      } catch (error) {
-        logger.error('関連シナリオの取得エラー:', error)
-        return []
-      }
-    })()
-  ])
   
   // 注意事項: organization_scenariosのカスタム注意事項を優先、なければマスターから
   const cautionResult = orgScenarioResult?.custom_caution || masterCautionResult

@@ -8,7 +8,7 @@ import { HelpButton } from '@/components/ui/help-button'
 import { StoreEditModal } from '@/components/modals/StoreEditModal'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { storeApi } from '@/lib/api'
-import { useScrollRestoration } from '@/hooks/useScrollRestoration'
+import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import type { Store } from '@/types'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
@@ -32,7 +32,7 @@ export function StoreManagement() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   // スクロール位置の保存と復元（汎用フックを使用）
-  useScrollRestoration({ pageKey: 'store', isLoading: loading })
+  useReportRouteScrollRestoration('store-management', { isLoading: loading })
 
   useEffect(() => {
     loadStores()

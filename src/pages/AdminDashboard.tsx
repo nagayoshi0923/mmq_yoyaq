@@ -381,8 +381,10 @@ export function AdminDashboard() {
   if (currentPage === 'booking' && organizationSlug) {
     if (currentScenarioId) {
       return (
-        <Suspense fallback={<LoadingScreen message="シナリオ詳細を読み込み中..." />}>
-          <ScenarioDetailPage 
+        <Suspense
+          fallback={<div className="min-h-screen bg-background" aria-busy="true" />}
+        >
+          <ScenarioDetailPage
             scenarioId={currentScenarioId}
             onClose={handleScenarioClose}
             organizationSlug={organizationSlug}
@@ -391,9 +393,11 @@ export function AdminDashboard() {
       )
     }
     return (
-      <Suspense fallback={<LoadingScreen message="予約サイトを読み込み中..." />}>
-        <PublicBookingTop 
-          onScenarioSelect={handleScenarioSelect} 
+      <Suspense
+        fallback={<div className="min-h-screen bg-background" aria-busy="true" />}
+      >
+        <PublicBookingTop
+          onScenarioSelect={handleScenarioSelect}
           organizationSlug={organizationSlug}
         />
       </Suspense>

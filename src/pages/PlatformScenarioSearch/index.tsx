@@ -16,7 +16,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import { supabase } from '@/lib/supabase'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
+import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
+import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, Building2, RefreshCw } from 'lucide-react'
 
 interface ScenarioData {
@@ -163,8 +164,7 @@ export function PlatformScenarioSearch() {
   const scenarios = data?.scenarios || []
   const categories = data?.categories || []
 
-  useScrollRestoration({
-    pageKey: 'platform-scenario-search',
+  useReportRouteScrollRestoration('platform-scenario-search', {
     isLoading,
     isFetching,
   })
@@ -284,7 +284,7 @@ export function PlatformScenarioSearch() {
   }, [navigate])
 
   const handleCardClick = useCallback((scenarioSlug: string) => {
-    saveScrollPositionForPage('platform-scenario-search')
+    saveScrollPositionForCurrentUrl()
     navigate(`/scenario/${scenarioSlug}`)
   }, [navigate])
 
@@ -392,7 +392,7 @@ export function PlatformScenarioSearch() {
               className="h-10 px-3 gap-1.5 shrink-0"
               style={{ borderColor: THEME.primary, color: THEME.primary }}
               onClick={() => {
-                saveScrollPositionForPage('platform-scenario-search')
+                saveScrollPositionForCurrentUrl()
                 void refetch()
               }}
             >

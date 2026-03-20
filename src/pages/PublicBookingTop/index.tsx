@@ -15,7 +15,8 @@ import { useListViewData } from './hooks/useListViewData'
 import { useBookingFilters } from './hooks/useBookingFilters'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useStoreFilterPreference } from '@/hooks/useUserPreference'
-import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
+import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
+import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { SearchBar } from './components/SearchBar'
 import { LineupView } from './components/LineupView'
 import { CalendarView } from './components/CalendarView'
@@ -84,11 +85,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     nearlyCompleteGroups
   } = useBookingData(organizationSlug)
   
-  // スクロール位置の保存と復元（一覧→詳細→戻る時に位置を保持）
-  const bookingScrollPageKey = `booking-${organizationSlug || 'platform'}`
-
-  useScrollRestoration({
-    pageKey: bookingScrollPageKey,
+  useReportRouteScrollRestoration('public-booking-top', {
     isLoading,
     isFetching,
   })
@@ -281,7 +278,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   // シナリオカードクリック（メモ化）
   // ScenarioCardからはslug（またはID）が渡される
   const handleCardClick = useCallback((slugOrId: string, eventDate?: string, eventTime?: string) => {
-    saveScrollPositionForPage(bookingScrollPageKey)
+    saveScrollPositionForCurrentUrl()
     if (onScenarioSelect) {
       onScenarioSelect(slugOrId)
     } else {
@@ -297,7 +294,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         navigate(`/scenario-detail/${slugOrId}${query}`)
       }
     }
-  }, [onScenarioSelect, organizationSlug, navigate, bookingScrollPageKey])
+  }, [onScenarioSelect, organizationSlug, navigate])
 
   // 店舗名取得（メモ化）
   const getStoreName = useCallback((event: any): string => {
@@ -455,7 +452,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
               title="ページ先頭に戻らず、公演・シナリオ情報だけ再取得します"
               className="h-10 shrink-0 gap-1.5 px-2 sm:px-3"
               onClick={() => {
-                saveScrollPositionForPage(bookingScrollPageKey)
+                saveScrollPositionForCurrentUrl()
                 void loadData()
               }}
             >

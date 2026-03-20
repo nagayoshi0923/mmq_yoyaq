@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useSessionState } from '@/hooks/useSessionState'
-import { useScrollRestoration } from '@/hooks/useScrollRestoration'
+import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { useReservationData, ReservationWithDetails } from '@/hooks/useReservationData'
 import { useReservationStats } from '@/hooks/useReservationStats'
 import { devDb } from '@/components/ui/DevField'
@@ -78,7 +78,7 @@ export function ReservationManagement() {
 
   const { stats, isLoading: isStatsLoading } = useReservationStats()
 
-  useScrollRestoration({ pageKey: 'reservation', isLoading: isListLoading })
+  useReportRouteScrollRestoration('reservation-management', { isLoading: isListLoading })
 
   // フィルタリングとソート
   const filteredReservations = reservations.filter(r => {

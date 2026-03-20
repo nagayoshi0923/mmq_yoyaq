@@ -3,6 +3,7 @@ import { BrowserRouter, useLocation, useNavigate, useNavigationType } from 'reac
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { RouteScrollRestorationProvider } from '@/contexts/RouteScrollRestorationContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { supabase } from '@/lib/supabase'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
@@ -98,6 +99,106 @@ export function getOrganizationSlugFromPath(): string {
     }
   }
   return 'queens-waltz'
+}
+
+/**
+ * AdminDashboard の parsePath と整合: 先頭が組織スラッグのときの「管理ツール第2セグメント」
+ * /{org}/blog は管理、/{org}/blog/{slug} は公開記事
+ */
+const BOOKING_SHELL_ADMIN_SUB_PATHS = new Set([
+  'dashboard',
+  'stores',
+  'staff',
+  'staff-profile',
+  'scenarios',
+  'scenarios-edit',
+  'schedule',
+  'shift-submission',
+  'gm-availability',
+  'private-booking-management',
+  'reservations',
+  'accounts',
+  'sales',
+  'settings',
+  'manual',
+  'add-demo-participants',
+  'scenario-matcher',
+  'organizations',
+  'external-reports',
+  'license-reports',
+  'license-management',
+  'customer-management',
+  'user-management',
+  'coupons',
+  'blog',
+])
+
+const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
+  'login',
+  'signup',
+  'reset-password',
+  'set-password',
+  'complete-profile',
+  'coupon-present',
+  'register',
+  'about',
+  'accept-invitation',
+  'author-dashboard',
+  'author-login',
+  'mypage',
+  'my-page',
+  'scenario',
+  'terms',
+  'privacy',
+  'security',
+  'legal',
+  'contact',
+  'faq',
+  'guide',
+  'cancel-policy',
+  'stores',
+  'company',
+  'for-business',
+  'pricing',
+  'getting-started',
+  'lp',
+  'blog',
+  'org',
+  'group',
+])
+
+/**
+ * 認証セッション確定前でも予約シェル（MMQトップ・組織トップ等）を先に描画する。
+ * フルページスピナーで「全部消える」時間を短くする。
+ */
+function shouldShowBookingShellWhileAuthPending(pathname: string): boolean {
+  const normalized = pathname.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname
+  const path = normalized.startsWith('/') ? normalized.slice(1) : normalized
+  const segs = path.split('/').filter(Boolean)
+
+  if (segs.length === 0) return true
+
+  if (segs[0] === 'admin' || segs[0] === 'dev') return false
+
+  if (segs[0] === 'scenario') return true
+
+  if (segs.length === 1) {
+    const s = segs[0]
+    if (BOOKING_SHELL_GLOBAL_FIRST_SEGMENT.has(s)) return true
+    if (BOOKING_SHELL_ADMIN_SUB_PATHS.has(s)) return false
+    return true
+  }
+
+  const sub = segs[1]
+  if (!BOOKING_SHELL_ADMIN_SUB_PATHS.has(sub)) return true
+  if (sub === 'blog' && segs.length >= 3) return true
+  if (sub === 'scenarios' && segs[2] === 'edit') return false
+  return false
+}
+
+/** Lazy 読み込み中でもフルスピナーにしない（予約シェル向け） */
+function BookingShellLazyFallback() {
+  return <div className="min-h-screen" style={{ backgroundColor: 'var(--background, #fafafa)' }} aria-busy="true" />
 }
 
 // ページ遷移時にスクロール位置をトップに戻す
@@ -198,6 +299,16 @@ function AppRoutes() {
   const navigate = useNavigate()
 
   const [isProfileCheckRunning, setIsProfileCheckRunning] = React.useState(false)
+
+  const deferFullPageAuthBlock = React.useMemo(
+    () => shouldShowBookingShellWhileAuthPending(location.pathname),
+    [location.pathname]
+  )
+  const adminDashboardSuspenseFallback = deferFullPageAuthBlock ? (
+    <BookingShellLazyFallback />
+  ) : (
+    <FullPageSpinner />
+  )
 
   // 開発者モード: license_adminの場合にbodyにdev-modeクラスを付与
   React.useEffect(() => {
@@ -339,11 +450,11 @@ function AppRoutes() {
     )
   }
 
-  if (loading) {
+  if (loading && !deferFullPageAuthBlock) {
     return <FullPageSpinner />
   }
 
-  if (user?.role === 'customer' && isProfileCheckRunning) {
+  if (user?.role === 'customer' && isProfileCheckRunning && !deferFullPageAuthBlock) {
     return <FullPageSpinner />
   }
 
@@ -369,14 +480,14 @@ function AppRoutes() {
         const slug = getOrganizationSlugFromPath()
         navigate(`/${slug}`, { replace: true })
         return (
-          <Suspense fallback={<FullPageSpinner />}>
+          <Suspense fallback={adminDashboardSuspenseFallback}>
             <AdminDashboard />
           </Suspense>
         )
       }
     }
     return (
-      <Suspense fallback={<FullPageSpinner />}>
+      <Suspense fallback={adminDashboardSuspenseFallback}>
         <AdminDashboard />
       </Suspense>
     )
@@ -384,7 +495,7 @@ function AppRoutes() {
 
   // 管理ツールのユーザー（admin/staff）は通常通りAdminDashboardを表示
   return (
-    <Suspense fallback={<FullPageSpinner />}>
+    <Suspense fallback={adminDashboardSuspenseFallback}>
       <AdminDashboard />
     </Suspense>
   )
@@ -394,9 +505,11 @@ function AppContent() {
   return (
     <>
       <AuthTokenPathRedirect />
-      <ScrollToTop />
-      <HashRedirect />
-      <AppRoutes />
+      <RouteScrollRestorationProvider>
+        <ScrollToTop />
+        <HashRedirect />
+        <AppRoutes />
+      </RouteScrollRestorationProvider>
     </>
   )
 }

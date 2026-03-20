@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, Eye, UserPlus, MoreVertical, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,10 +14,18 @@ import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import { showToast } from '@/utils/toast'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { SettingsPage } from './pages/SettingsPage'
-import { WantToPlayPage } from './pages/LikedScenariosPage'
-import { CouponsPage } from './pages/CouponsPage'
+import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import type { Reservation, Store } from '@/types'
+
+const SettingsPage = lazyWithRetry(() =>
+  import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
+)
+const WantToPlayPage = lazyWithRetry(() =>
+  import('./pages/LikedScenariosPage').then((m) => ({ default: m.WantToPlayPage }))
+)
+const CouponsPage = lazyWithRetry(() =>
+  import('./pages/CouponsPage').then((m) => ({ default: m.CouponsPage }))
+)
 
 interface ScenarioOption {
   id: string
@@ -54,6 +62,13 @@ interface PrivateGroupSummary {
   member_count: number
   is_organizer: boolean
   created_at: string
+  reservation_id?: string | null
+  /** status が confirmed かつ紐づく予約があるとき、公演日時・店舗の1行 */
+  confirmed_schedule_line?: string | null
+  /** 参加中メンバー（表示名） */
+  member_displays?: Array<{ name: string; is_organizer: boolean }>
+  /** 登録済み候補日程の件数（主催者向け案内用） */
+  candidate_dates_count: number
 }
 
 const menuItems = [
@@ -69,6 +84,8 @@ export default function MyPage() {
   const { organizationId } = useOrganization()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<string>('reservations')
+  /** 予約タブ内: 公演予約 vs 貸切（グループ・申込調整） */
+  const [reservationsSubTab, setReservationsSubTab] = useState<'bookings' | 'private'>('bookings')
   
   // データ
   const [reservations, setReservations] = useState<Reservation[]>([])
@@ -125,7 +142,7 @@ export default function MyPage() {
   // 選択肢用データ
   const [scenarioOptions, setScenarioOptions] = useState<ScenarioOption[]>([])
   const [storeOptions, setStoreOptions] = useState<StoreOption[]>([])
-  const [optionsLoading, setOptionsLoading] = useState(true)
+  const [optionsLoading, setOptionsLoading] = useState(false)
   
   // アバター画像
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -215,15 +232,15 @@ export default function MyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
   }, [user])
 
-  // シナリオと店舗の選択肢を取得
-  // 顧客は全組織のシナリオ/店舗を利用可能
-  // シナリオはorganization_scenarios_with_masterビューから取得（公開中のみ）
+  // アルバムの「過去の体験を追加」用オプションのみ必要のため、タブ表示時まで遅延（入室時の重いクエリを回避）
+  const albumOptionsFetchedRef = useRef(false)
   useEffect(() => {
+    if (activeTab !== 'album' || albumOptionsFetchedRef.current) return
+    albumOptionsFetchedRef.current = true
+
     const fetchOptions = async () => {
       setOptionsLoading(true)
       try {
-        // 公開中のシナリオを取得（organization_scenarios_with_masterビューから）
-        // org_status='available' のシナリオのみ取得し、重複を排除
         const { data: scenarios, error: scenarioError } = await supabase
           .from('organization_scenarios_with_master')
           .select('scenario_master_id, title, org_status')
@@ -232,7 +249,6 @@ export default function MyPage() {
 
         if (scenarioError) throw scenarioError
 
-        // 重複を排除（同じシナリオが複数組織で公開されている場合）
         const uniqueScenarios = scenarios?.reduce((acc, s) => {
           if (!acc.find(item => item.id === s.scenario_master_id)) {
             acc.push({ id: s.scenario_master_id, title: s.title })
@@ -242,21 +258,18 @@ export default function MyPage() {
 
         setScenarioOptions(uniqueScenarios)
 
-        // 店舗を取得（RLSで許可された店舗）
-        // 臨時店舗は1つだけ表示（臨時会場1のみ）
         const { data: storesData, error: storeError } = await supabase
           .from('stores')
           .select('id, name, short_name, is_temporary')
           .order('name')
-        
+
         if (storeError) throw storeError
-        
-        // 臨時店舗は「臨時1」（臨時会場1）のみ残し、他は除外
+
         const filteredStores = (storesData || []).filter(store => {
           if (!store.is_temporary) return true
           return store.short_name === '臨時1' || store.name === '臨時会場1'
         })
-        
+
         setStoreOptions(filteredStores.map(s => ({ id: s.id, name: s.name })))
       } catch (error) {
         logger.error('オプション取得エラー:', error)
@@ -266,7 +279,7 @@ export default function MyPage() {
     }
 
     fetchOptions()
-  }, [])
+  }, [activeTab])
 
   const fetchData = async () => {
     if (!user?.email) return
@@ -279,7 +292,7 @@ export default function MyPage() {
       // まずuser_idで検索
       const { data: customerByUserId } = await supabase
         .from('customers')
-        .select('id, name, nickname, avatar_url, user_id')
+        .select('id, name, nickname, avatar_url, user_id, organization_id')
         .eq('user_id', user.id)
         .maybeSingle()
 
@@ -289,7 +302,7 @@ export default function MyPage() {
         // user_idで見つからない場合、emailで検索（大文字/小文字を区別しない）
         const { data: customerByEmail, error: emailError } = await supabase
           .from('customers')
-          .select('id, name, nickname, avatar_url, user_id')
+          .select('id, name, nickname, avatar_url, user_id, organization_id')
           .ilike('email', user.email)
           .maybeSingle()
         
@@ -349,6 +362,7 @@ export default function MyPage() {
               status,
               target_participant_count,
               created_at,
+              reservation_id,
               scenario_masters:scenario_id (id, title, key_visual_url)
             )
           `)
@@ -412,43 +426,81 @@ export default function MyPage() {
           .filter((id): id is string => id !== null && id !== undefined),
         ...manualScenarioIds
       ])]
-      const storeIds = [...new Set((reservationData || []).map(r => r.store_id).filter(Boolean))]
-      
-      // グループIDを抽出（メンバー数を一括取得するため）
+      const storeIdsFromReservations = [...new Set((reservationData || []).map(r => r.store_id).filter(Boolean))]
+
       const memberRecords = privateGroupsResult.data || []
       const groupIds = memberRecords
         .map(r => (r.private_groups as any)?.id)
         .filter(Boolean)
 
-      const [eventsResult, orgsResult, scenariosResult, storesResult, memberCountsResult] = await Promise.all([
-        // スケジュールイベント
-        eventIds.length > 0
-          ? supabase.from('schedule_events')
-              .select('id, date, start_time, category, current_participants, max_participants')
-              .in('id', eventIds)
-          : Promise.resolve({ data: [] }),
-        // 組織情報
-        orgIds.length > 0
-          ? supabase.from('organizations').select('id, slug, name').in('id', orgIds)
-          : Promise.resolve({ data: [] }),
-        // シナリオマスタ（画像・プレイヤー数）
-        scenarioMasterIds.length > 0
-          ? supabase.from('scenario_masters')
-              .select('id, title, key_visual_url, player_count_min, player_count_max')
-              .in('id', scenarioMasterIds)
-          : Promise.resolve({ data: [] }),
-        // 店舗情報
-        storeIds.length > 0
-          ? supabase.from('stores').select('id, name, address, color').in('id', storeIds)
-          : Promise.resolve({ data: [] }),
-        // グループメンバー数を一括取得（N+1問題解消）
-        groupIds.length > 0
-          ? supabase.from('private_group_members')
-              .select('group_id')
-              .in('group_id', groupIds)
-              .eq('status', 'joined')
-          : Promise.resolve({ data: [] })
-      ])
+      const privateGroupReservationIds = [
+        ...new Set(
+          memberRecords
+            .map((r) => (r.private_groups as { reservation_id?: string | null })?.reservation_id)
+            .filter((id): id is string => !!id)
+        )
+      ]
+
+      const [eventsResult, orgsResult, scenariosResult, privateGroupReservationsResult, membersDetailResult, candidateDatesResult] =
+        await Promise.all([
+          eventIds.length > 0
+            ? supabase
+                .from('schedule_events')
+                .select('id, date, start_time, category, current_participants, max_participants')
+                .in('id', eventIds)
+            : Promise.resolve({ data: [] }),
+          orgIds.length > 0
+            ? supabase.from('organizations').select('id, slug, name').in('id', orgIds)
+            : Promise.resolve({ data: [] }),
+          scenarioMasterIds.length > 0
+            ? supabase
+                .from('scenario_masters')
+                .select('id, title, key_visual_url, player_count_min, player_count_max')
+                .in('id', scenarioMasterIds)
+            : Promise.resolve({ data: [] }),
+          privateGroupReservationIds.length > 0
+            ? supabase
+                .from('reservations')
+                .select('id, title, requested_datetime, store_id')
+                .in('id', privateGroupReservationIds)
+            : Promise.resolve({ data: [] }),
+          groupIds.length > 0
+            ? supabase
+                .from('private_group_members')
+                .select('group_id, guest_name, user_id, is_organizer, status, joined_at')
+                .in('group_id', groupIds)
+                .eq('status', 'joined')
+                .order('joined_at', { ascending: true })
+            : Promise.resolve({ data: [] }),
+          groupIds.length > 0
+            ? supabase.from('private_group_candidate_dates').select('group_id').in('group_id', groupIds)
+            : Promise.resolve({ data: [] as { group_id: string }[] })
+        ])
+
+      const privateGroupReservations = (privateGroupReservationsResult.data || []) as Array<{
+        id: string
+        title: string | null
+        requested_datetime: string
+        store_id: string | null
+      }>
+      const privateResById: Record<string, (typeof privateGroupReservations)[0]> = {}
+      privateGroupReservations.forEach((r) => {
+        privateResById[r.id] = r
+      })
+
+      const allStoreIds = [
+        ...new Set([
+          ...storeIdsFromReservations,
+          ...privateGroupReservations.map((r) => r.store_id).filter((id): id is string => !!id)
+        ])
+      ]
+
+      const storesFetchResult =
+        allStoreIds.length > 0
+          ? await supabase.from('stores').select('id, name, address, color').in('id', allStoreIds)
+          : { data: [] }
+
+      const storesData = storesFetchResult.data || []
 
       // スケジュールイベントをマップ化
       if (eventsResult.data && eventsResult.data.length > 0) {
@@ -501,7 +553,6 @@ export default function MyPage() {
       }
 
       // 店舗情報をマップ化
-      const storesData = storesResult.data || []
       if (storesData.length > 0) {
         const storeMap: Record<string, Store> = {}
         storesData.forEach(store => {
@@ -510,11 +561,88 @@ export default function MyPage() {
         setStores(storeMap)
       }
 
-      // メンバー数をカウント（グループIDごと）
+      const membersDetailRows = (membersDetailResult.data || []) as Array<{
+        group_id: string
+        guest_name: string | null
+        user_id: string | null
+        is_organizer: boolean
+        status: string
+        joined_at: string | null
+      }>
+
+      const candidateCountByGroup: Record<string, number> = {}
+      ;(candidateDatesResult.data || []).forEach((row: { group_id: string }) => {
+        if (!row.group_id) return
+        candidateCountByGroup[row.group_id] = (candidateCountByGroup[row.group_id] || 0) + 1
+      })
+
       const memberCountMap: Record<string, number> = {}
-      if (memberCountsResult.data) {
-        memberCountsResult.data.forEach(m => {
-          memberCountMap[m.group_id] = (memberCountMap[m.group_id] || 0) + 1
+      const membersByGroupId: Record<string, typeof membersDetailRows> = {}
+      membersDetailRows.forEach((m) => {
+        memberCountMap[m.group_id] = (memberCountMap[m.group_id] || 0) + 1
+        if (!membersByGroupId[m.group_id]) membersByGroupId[m.group_id] = []
+        membersByGroupId[m.group_id].push(m)
+      })
+
+      const memberUserIds = [...new Set(membersDetailRows.map((m) => m.user_id).filter(Boolean) as string[])]
+      const displayByUserId: Record<string, string> = {}
+      if (memberUserIds.length > 0) {
+        const { data: nameRows, error: nameRpcError } = await supabase.rpc('get_user_display_names', {
+          user_ids: memberUserIds
+        })
+        if (nameRpcError) {
+          logger.warn('get_user_display_names RPC エラー（メンバー名が一部省略される場合があります）:', nameRpcError)
+        } else {
+          ;(nameRows as { user_id: string; display_name: string }[] | null)?.forEach((row) => {
+            if (row.user_id && row.display_name?.trim()) {
+              displayByUserId[row.user_id] = row.display_name.trim()
+            }
+          })
+        }
+      }
+
+      const storeNameById: Record<string, string> = {}
+      storesData.forEach((s: { id: string; name: string }) => {
+        storeNameById[s.id] = s.name
+      })
+
+      const formatConfirmedScheduleLine = (
+        groupStatus: string,
+        resId: string | null | undefined
+      ): string | null => {
+        if (!resId || !['confirmed', 'booking_requested'].includes(groupStatus)) return null
+        const r = privateResById[resId]
+        if (!r?.requested_datetime) return null
+        const raw = r.requested_datetime
+        const iso =
+          raw.includes('+') || raw.endsWith('Z')
+            ? raw
+            : `${raw.slice(0, 10)}T${(raw.match(/T(\d{2}:\d{2})/)?.[1] || '12:00')}:00+09:00`
+        const d = new Date(iso)
+        const dateStr = d.toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          weekday: 'short',
+          timeZone: 'Asia/Tokyo'
+        })
+        const hm = raw.match(/T(\d{2}:\d{2})/)
+        const timeStr = hm ? `${hm[1]}〜` : ''
+        const store = r.store_id ? storeNameById[r.store_id] : ''
+        const line = [dateStr, timeStr, store].filter(Boolean).join(' ')
+        if (groupStatus === 'booking_requested') {
+          return line ? `申込内容: ${line}` : null
+        }
+        return line || null
+      }
+
+      const buildMemberDisplays = (gid: string) => {
+        const rows = membersByGroupId[gid] || []
+        return rows.map((m) => {
+          const fromGuest = m.guest_name?.trim()
+          const fromUser = m.user_id ? displayByUserId[m.user_id] : ''
+          const name = fromGuest || fromUser || '参加者'
+          return { name, is_organizer: m.is_organizer }
         })
       }
 
@@ -609,6 +737,7 @@ export default function MyPage() {
           if (!group || group.status === 'cancelled') continue
           
           const scenario = group.scenario_masters as any
+          const resId = group.reservation_id as string | null | undefined
           groups.push({
             id: group.id,
             name: group.name,
@@ -620,6 +749,10 @@ export default function MyPage() {
             member_count: memberCountMap[group.id] || 0,
             is_organizer: record.is_organizer,
             created_at: group.created_at,
+            reservation_id: resId ?? null,
+            confirmed_schedule_line: formatConfirmedScheduleLine(group.status, resId),
+            member_displays: buildMemberDisplays(group.id),
+            candidate_dates_count: candidateCountByGroup[group.id] || 0
           })
         }
         
@@ -1099,12 +1232,75 @@ export default function MyPage() {
 
       {/* メインコンテンツ */}
       <div className="max-w-4xl mx-auto px-4 py-6 pb-24">
-        {loading && activeTab !== 'settings' ? (
+        {loading && (activeTab === 'reservations' || activeTab === 'album') ? (
           <div className="text-center py-12 text-gray-500">読み込み中...</div>
         ) : (
           <>
             {activeTab === 'reservations' && (
               <div className="space-y-4">
+                {/* 予約タブ内サブナビ */}
+                {(() => {
+                  const activePg = privateGroups.filter((g) =>
+                    ['gathering', 'date_adjusting', 'booking_requested', 'confirmed'].includes(g.status)
+                  )
+                  const privateCount = activePg.length + pendingPrivateBookings.length
+                  return (
+                    <div className="flex border border-gray-200 overflow-hidden bg-white" style={{ borderRadius: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => setReservationsSubTab('bookings')}
+                        className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1 ${
+                          reservationsSubTab === 'bookings' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                        style={
+                          reservationsSubTab === 'bookings'
+                            ? { backgroundColor: THEME.primary }
+                            : undefined
+                        }
+                      >
+                        <Calendar className="w-4 h-4 shrink-0" />
+                        <span className="hidden sm:inline">公演予約</span>
+                        <span className="sm:hidden">予約</span>
+                        {upcomingReservations.length > 0 && (
+                          <span
+                            className={`text-xs tabular-nums px-1.5 py-0.5 rounded ${
+                              reservationsSubTab === 'bookings' ? 'bg-white/20' : 'bg-gray-200 text-gray-700'
+                            }`}
+                          >
+                            {upcomingReservations.length}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReservationsSubTab('private')}
+                        className={`flex-1 py-3 px-2 text-sm font-semibold transition-colors flex items-center justify-center gap-1 border-l border-gray-200 ${
+                          reservationsSubTab === 'private' ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                        style={
+                          reservationsSubTab === 'private'
+                            ? { backgroundColor: THEME.primary }
+                            : undefined
+                        }
+                      >
+                        <Users className="w-4 h-4 shrink-0" />
+                        貸切
+                        {privateCount > 0 && (
+                          <span
+                            className={`text-xs tabular-nums px-1.5 py-0.5 rounded ${
+                              reservationsSubTab === 'private' ? 'bg-white/20' : 'bg-gray-200 text-gray-700'
+                            }`}
+                          >
+                            {privateCount}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  )
+                })()}
+
+                {reservationsSubTab === 'private' && (
+                  <>
                 {/* 貸切リクエスト（グループベース） */}
                 {privateGroups.filter(g => ['gathering', 'date_adjusting', 'booking_requested', 'confirmed'].includes(g.status)).length > 0 && (
                   <>
@@ -1151,6 +1347,34 @@ export default function MyPage() {
                               {group.member_count}/{group.target_participant_count || '?'}名
                             </span>
                           </div>
+
+                          {group.is_organizer &&
+                            group.candidate_dates_count > 0 &&
+                            (group.status === 'gathering' || group.status === 'date_adjusting') && (
+                              <div
+                                className="border-b border-green-200 bg-green-50 px-3 py-2.5"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <p className="text-xs font-semibold text-green-900">
+                                  候補日程が登録されています
+                                </p>
+                                <p className="text-[11px] text-green-800/90 mt-1 leading-snug">
+                                  グループページを開き、画面の「予約リクエストを作成」から店舗へ申し込みを進められます。
+                                </p>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="w-full mt-2 h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                  style={{ borderRadius: 0 }}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    navigate(`/group/invite/${group.invite_code}`)
+                                  }}
+                                >
+                                  グループページを開く
+                                </Button>
+                              </div>
+                            )}
                           
                           <div className="p-3 flex gap-3">
                             <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden" style={{ borderRadius: 0 }}>
@@ -1185,6 +1409,33 @@ export default function MyPage() {
                               </h3>
                               {group.name && (
                                 <p className="text-xs text-gray-500 mt-0.5">{group.name}</p>
+                              )}
+
+                              {group.confirmed_schedule_line && (
+                                <p className="flex items-start gap-1.5 mt-2 text-xs text-purple-900 font-medium leading-snug">
+                                  <Calendar className="w-3.5 h-3.5 shrink-0 mt-0.5 text-purple-600" />
+                                  <span>{group.confirmed_schedule_line}</span>
+                                </p>
+                              )}
+
+                              {group.member_displays && group.member_displays.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {group.member_displays.map((m, i) => (
+                                    <span
+                                      key={`${group.id}-m-${i}`}
+                                      className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 border ${
+                                        m.is_organizer
+                                          ? 'bg-purple-100 border-purple-200 text-purple-900'
+                                          : 'bg-gray-50 border-gray-200 text-gray-700'
+                                      }`}
+                                    >
+                                      {m.is_organizer && (
+                                        <span className="text-purple-600 font-semibold">主催</span>
+                                      )}
+                                      <span className="truncate max-w-[7rem] sm:max-w-[10rem]">{m.name}</span>
+                                    </span>
+                                  ))}
+                                </div>
                               )}
                               
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-2 text-xs text-gray-500">
@@ -1354,6 +1605,23 @@ export default function MyPage() {
                   </>
                 )}
 
+                {activePrivateGroups.length === 0 && pendingPrivateBookings.length === 0 && (
+                  <div
+                    className="bg-white border border-gray-200 p-8 text-center text-gray-500 text-sm"
+                    style={{ borderRadius: 0 }}
+                  >
+                    <Users className="w-8 h-8 mx-auto mb-2 text-purple-300" />
+                    <p>貸切グループ・日程調整中の申込みはまだありません</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      招待ページから参加するか、新しくグループを作成できます
+                    </p>
+                  </div>
+                )}
+                  </>
+                )}
+
+                {reservationsSubTab === 'bookings' && (
+                  <>
                 {/* 予約一覧 */}
                 {upcomingReservations.length > 0 ? (
                   <>
@@ -1488,7 +1756,7 @@ export default function MyPage() {
                       )
                     })}
                   </>
-                ) : pendingPrivateBookings.length === 0 ? (
+                ) : (
                   <div className="bg-white border border-gray-200 p-8 text-center" style={{ borderRadius: 0 }}>
                     <div 
                       className="w-14 h-14 flex items-center justify-center mx-auto mb-3"
@@ -1507,7 +1775,7 @@ export default function MyPage() {
                       公演を探す
                     </Button>
                   </div>
-                ) : null}
+                )}
 
                 {/* 参加履歴へのリンク */}
                 {pastReservations.length > 0 && (
@@ -1523,11 +1791,15 @@ export default function MyPage() {
                     </div>
                   </div>
                 )}
+                  </>
+                )}
               </div>
             )}
 
             {activeTab === 'coupons' && (
-              <CouponsPage />
+              <Suspense fallback={<div className="text-center py-12 text-gray-500">読み込み中...</div>}>
+                <CouponsPage />
+              </Suspense>
             )}
 
             {activeTab === 'album' && (
@@ -1973,11 +2245,15 @@ export default function MyPage() {
             )}
 
             {activeTab === 'wishlist' && (
-              <WantToPlayPage />
+              <Suspense fallback={<div className="text-center py-12 text-gray-500">読み込み中...</div>}>
+                <WantToPlayPage />
+              </Suspense>
             )}
 
             {activeTab === 'settings' && (
-              <SettingsPage />
+              <Suspense fallback={<div className="text-center py-12 text-gray-500">読み込み中...</div>}>
+                <SettingsPage />
+              </Suspense>
             )}
           </>
         )}

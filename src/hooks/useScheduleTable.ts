@@ -74,13 +74,14 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
   // 月間の日付リストを生成
   const monthDays = useMemo(() => generateMonthDays(currentDate), [currentDate])
 
-  // イベント取得ロジック
-  const { getEventsForSlot } = useScheduleEvents(
+  // イベント取得ロジック（1 回だけ: getEventsForSlot とモーダル用メモを共有）
+  const { getEventsForSlot, availableStaffByScenario, allAvailableStaff } = useScheduleEvents(
     events,
     'all', // カテゴリーフィルターなし（全体表示）
     scenarios,
     shiftData,
-    eventOperations
+    eventOperations,
+    stores
   )
 
   // ViewConfig
@@ -119,15 +120,6 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     categoryConfig: customCategoryConfig || CATEGORY_CONFIG,
     getReservationBadgeClass: customReservationBadgeClass || getReservationBadgeClass
   }), [customCategoryConfig, customReservationBadgeClass])
-
-  // モーダル関連の情報も含める
-  const { availableStaffByScenario, allAvailableStaff } = useScheduleEvents(
-    events,
-    'all',
-    scenarios,
-    shiftData,
-    eventOperations
-  )
 
   return {
     viewConfig,
@@ -227,7 +219,8 @@ export function useScheduleTableModals(currentDate: Date) {
     'all',
     scenarios,
     shiftData,
-    eventOperations
+    eventOperations,
+    stores
   )
 
   return {

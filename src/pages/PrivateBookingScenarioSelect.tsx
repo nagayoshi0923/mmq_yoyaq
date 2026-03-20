@@ -11,7 +11,8 @@ import { scenarioApi, storeApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { BookingNotice } from './ScenarioDetailPage/components/BookingNotice'
-import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
+import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
+import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 
 interface Scenario {
   id: string
@@ -33,7 +34,6 @@ interface PrivateBookingScenarioSelectProps {
 
 export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookingScenarioSelectProps) {
   const navigate = useNavigate()
-  const selectScrollKey = `booking-${organizationSlug || 'platform'}-private-booking-select`
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -107,7 +107,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
 
   const allAvailableSelected = allAvailableStoreIds.length > 0 && allAvailableStoreIds.every(id => selectedStoreIds.includes(id))
 
-  useScrollRestoration({ pageKey: selectScrollKey, isLoading: loading })
+  useReportRouteScrollRestoration('private-booking-scenario-select', { isLoading: loading })
 
   useEffect(() => {
     loadScenarios()
@@ -156,7 +156,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     // 複数店舗はカンマ区切りで渡す
     const basePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
     const storeParam = selectedStoreIds.join(',')
-    saveScrollPositionForPage(selectScrollKey)
+    saveScrollPositionForCurrentUrl()
     navigate(
       `${basePath}/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${storeParam}&slot=${preselectedSlot}`
     )

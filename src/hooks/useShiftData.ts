@@ -1,6 +1,6 @@
 // スタッフシフトデータの管理
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { shiftApi } from '@/lib/shiftApi'
 import type { Staff } from '@/types'
 import { logger } from '@/utils/logger'
@@ -11,6 +11,14 @@ export function useShiftData(
   staffLoading: boolean
 ) {
   const [shiftData, setShiftData] = useState<Record<string, Array<Staff & { timeSlot: string }>>>({})
+
+  const staffById = useMemo(() => {
+    const m = new Map<string, Staff>()
+    for (const s of staff) {
+      m.set(s.id, s)
+    }
+    return m
+  }, [staff])
 
   useEffect(() => {
     const loadShiftData = async () => {
@@ -34,7 +42,7 @@ export function useShiftData(
         
         for (const shift of shifts) {
           // staffステートから完全なスタッフデータ（special_scenariosを含む）を取得
-          const fullStaffData = staff.find(s => s.id === shift.staff_id)
+          const fullStaffData = staffById.get(shift.staff_id)
           if (!fullStaffData) {
             unmatchedStaffIds.add(shift.staff_id)
             continue
@@ -81,7 +89,7 @@ export function useShiftData(
     }
     
     loadShiftData()
-  }, [currentDate, staff, staffLoading])
+  }, [currentDate, staff, staffLoading, staffById])
 
   return { shiftData }
 }

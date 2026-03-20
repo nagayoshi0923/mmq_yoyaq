@@ -1,7 +1,9 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
+import { readBookingDataSnapshot, writeBookingDataSnapshot } from '../utils/bookingDataSnapshot'
 
 // 残りわずかで達成の貸切グループ
 export interface NearlyCompleteGroup {
@@ -46,7 +48,7 @@ export interface ScenarioCard {
   release_date?: string     // リリース日（1年以上でロングセラー）
 }
 
-interface BookingDataResult {
+export interface BookingDataResult {
   scenarios: ScenarioCard[]
   allEvents: any[]
   blockedSlots: any[]
@@ -614,14 +616,27 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
  * @param organizationSlug - 組織slug（パス方式用）指定がない場合は全組織のデータを取得
  */
 export function useBookingData(organizationSlug?: string) {
-  const queryClient = useQueryClient()
-  
+  const initialSnapshot = useMemo(
+    () => (organizationSlug ? readBookingDataSnapshot(organizationSlug) : null),
+    [organizationSlug]
+  )
+
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['booking-data', organizationSlug],
     queryFn: () => fetchBookingData(organizationSlug),
+    initialData: initialSnapshot?.data,
+    initialDataUpdatedAt: initialSnapshot?.savedAt,
     staleTime: 2 * 60 * 1000, // 2分間キャッシュ（再訪問時は即座に表示）
     gcTime: 10 * 60 * 1000, // 10分間メモリ保持
+    // グローバル refetchOnMount: false を上書き: スナップショット表示後も必ず裏で再取得
+    refetchOnMount: 'always',
   })
+
+  useEffect(() => {
+    if (data && organizationSlug && !data.organizationNotFound) {
+      writeBookingDataSnapshot(organizationSlug, data)
+    }
+  }, [data, organizationSlug])
 
   return {
     scenarios: data?.scenarios ?? [],

@@ -1,4 +1,7 @@
 // スクロール位置の保存と復元（汎用版）
+//
+// アプリ全体では `RouteScrollRestorationProvider`（AppRoot）が pathname+search ごとに本フックを呼ぶ。
+// データ取得中は各画面から `useReportRouteScrollRestoration` で isLoading / isFetching を報告する。
 
 import { useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 
@@ -11,6 +14,22 @@ interface UseScrollRestorationOptions {
    * バックグラウンド再取得中。レイアウトが一瞬崩れて scrollY=0 が保存されるのを防ぐ
    */
   isFetching?: boolean
+}
+
+/**
+ * ルート単位のスクロール保存キー（`RouteScrollRestorationProvider` と一致させる）
+ * pathname は先頭スラッシュ付き、search は `?foo=bar` 形式（空なら省略）
+ */
+export function scrollRestorationPageKeyFromLocation(pathname: string, search: string): string {
+  return `route:${pathname}${search || ''}`
+}
+
+/** 現在の URL に対応するキーで即座に保存（遷移直前の明示保存用） */
+export function saveScrollPositionForCurrentUrl(): void {
+  if (typeof window === 'undefined') return
+  saveScrollPositionForPage(
+    scrollRestorationPageKeyFromLocation(window.location.pathname, window.location.search || '')
+  )
 }
 
 /** sessionStorage のキーは useScrollRestoration と同じ規則（一覧→詳細の直前に明示保存する用） */

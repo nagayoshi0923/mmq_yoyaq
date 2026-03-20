@@ -1,7 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { getTimeSlot } from '@/utils/scheduleUtils'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff } from '@/types'
+
+const EMPTY_SLOT_EVENTS: ScheduleEvent[] = []
 
 /**
  * time_slot（'朝'/'昼'/'夜'）を英語形式に変換
@@ -16,45 +18,107 @@ function convertTimeSlot(timeSlot: string | undefined): 'morning' | 'afternoon' 
   }
 }
 
+function slotLookupKey(
+  date: string,
+  venue: string,
+  timeSlot: 'morning' | 'afternoon' | 'evening'
+): string {
+  return `${date}\0${venue}\0${timeSlot}`
+}
+
+/** 店舗一覧がまだないときのセル照合用（全イベント走査） */
+function filterEventsForSlotLegacy(
+  events: ScheduleEvent[],
+  selectedCategory: string,
+  date: string,
+  venue: string,
+  timeSlot: 'morning' | 'afternoon' | 'evening'
+): ScheduleEvent[] {
+  return events.filter((event) => {
+    const dateMatch = event.date === date
+    const savedTimeSlot = event.time_slot
+    const eventTimeSlot = convertTimeSlot(savedTimeSlot) || getTimeSlot(event.start_time)
+    const timeSlotMatch = eventTimeSlot === timeSlot
+    const categoryMatch = selectedCategory === 'all' || event.category === selectedCategory
+
+    if (event.is_private_request) {
+      if (event.venue) {
+        const venueMatch = event.venue === venue
+        return dateMatch && timeSlotMatch && venueMatch && categoryMatch
+      }
+      return dateMatch && timeSlotMatch && categoryMatch
+    }
+
+    const venueMatch = event.venue === venue
+    return dateMatch && venueMatch && timeSlotMatch && categoryMatch
+  })
+}
+
 /**
  * スケジュールイベント関連のロジックフック
+ * @param storesForSlotIndex 日×店舗×枠のルックアップ用（貸切・店舗未確定を全店舗セルに展開する）
  */
 export function useScheduleEvents(
   events: ScheduleEvent[],
   selectedCategory: string,
   scenarios: any[],
   shiftData: Record<string, Staff[]>,
-  eventOperations: any
+  eventOperations: any,
+  storesForSlotIndex: { id: string }[] = []
 ) {
-  /**
-   * 特定の日付・店舗・時間帯の公演を取得
-   */
-  const getEventsForSlot = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
-    return events.filter(event => {
-      const dateMatch = event.date === date
-      // time_slot（選択した枠）を優先、なければstart_timeから判定（フォールバック）
-      const savedTimeSlot = event.time_slot
-      const eventTimeSlot = convertTimeSlot(savedTimeSlot) || getTimeSlot(event.start_time)
-      const timeSlotMatch = eventTimeSlot === timeSlot
-      const categoryMatch = selectedCategory === 'all' || event.category === selectedCategory
+  const storeIds = useMemo(
+    () => storesForSlotIndex.map((s) => s.id),
+    [storesForSlotIndex]
+  )
 
-      // 貸切リクエストの場合
-      if (event.is_private_request) {
-        // 店舗が確定している場合はその店舗のセルにのみ表示
-        if (event.venue) {
-          const venueMatch = event.venue === venue
-          return dateMatch && timeSlotMatch && venueMatch && categoryMatch
-        } else {
-          // 店舗未確定の場合は全店舗のセルに表示
-          return dateMatch && timeSlotMatch && categoryMatch
-        }
+  const slotEventsMap = useMemo(() => {
+    const map = new Map<string, ScheduleEvent[]>()
+    if (storeIds.length === 0) {
+      return map
+    }
+
+    const append = (key: string, ev: ScheduleEvent) => {
+      const existing = map.get(key)
+      if (existing) {
+        existing.push(ev)
+      } else {
+        map.set(key, [ev])
+      }
+    }
+
+    for (const event of events) {
+      if (!(selectedCategory === 'all' || event.category === selectedCategory)) {
+        continue
       }
 
-      // 通常の公演
-      const venueMatch = event.venue === venue
-      return dateMatch && venueMatch && timeSlotMatch && categoryMatch
-    })
-  }
+      const eventTimeSlot = convertTimeSlot(event.time_slot) || getTimeSlot(event.start_time)
+
+      if (event.is_private_request) {
+        if (event.venue) {
+          append(slotLookupKey(event.date, event.venue, eventTimeSlot), event)
+        } else {
+          for (const sid of storeIds) {
+            append(slotLookupKey(event.date, sid, eventTimeSlot), event)
+          }
+        }
+        continue
+      }
+
+      append(slotLookupKey(event.date, event.venue, eventTimeSlot), event)
+    }
+
+    return map
+  }, [events, selectedCategory, storeIds])
+
+  const getEventsForSlot = useCallback(
+    (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
+      if (storeIds.length === 0) {
+        return filterEventsForSlotLegacy(events, selectedCategory, date, venue, timeSlot)
+      }
+      return slotEventsMap.get(slotLookupKey(date, venue, timeSlot)) ?? EMPTY_SLOT_EVENTS
+    },
+    [storeIds.length, slotEventsMap, events, selectedCategory]
+  )
 
   /**
    * シナリオごとの出勤可能GMを計算

@@ -326,6 +326,22 @@ async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise
   return eventsWithDemoParticipants
 }
 
+/** スタッフ×担当シナリオ取得の同時リクエスト数（大量並列でブラウザ／DBが詰まるのを防ぐ） */
+const STAFF_ASSIGNMENT_CHUNK = 8
+
+async function mapInChunks<T, R>(
+  items: readonly T[],
+  chunkSize: number,
+  mapper: (item: T) => Promise<R>
+): Promise<R[]> {
+  const out: R[] = []
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const chunk = items.slice(i, i + chunkSize)
+    out.push(...(await Promise.all(chunk.map(mapper))))
+  }
+  return out
+}
+
 interface Store {
   id: string
   name: string
@@ -397,6 +413,15 @@ interface PrivateRequestData {
     }
   }
   scenario_masters?: { title: string; player_count_max: number }
+}
+
+function readInitialScheduleScenariosFromSession(): Scenario[] {
+  try {
+    const cached = sessionStorage.getItem('scheduleScenarios')
+    return cached ? JSON.parse(cached) : []
+  } catch {
+    return []
+  }
 }
 
 export function useScheduleData(currentDate: Date) {
@@ -473,14 +498,9 @@ export function useScheduleData(currentDate: Date) {
   
   // React Queryのデータをstateに同期（後方互換性のため）
   // キャッシュから初期化して即座に表示
-  const [scenarios, setScenarios] = useState<Scenario[]>(() => {
-    try {
-      const cached = sessionStorage.getItem('scheduleScenarios')
-      return cached ? JSON.parse(cached) : []
-    } catch {
-      return []
-    }
-  })
+  const [scenarios, setScenarios] = useState<Scenario[]>(readInitialScheduleScenariosFromSession)
+  /** loadEvents / fetchSchedule 用。React Query 同期済みなら scenarioApi.getAll を省略 */
+  const mergedScenariosForScheduleRef = useRef<Scenario[]>(readInitialScheduleScenariosFromSession())
   const [orgScenarioOverrides, setOrgScenarioOverrides] = useState<Map<string, {
     duration?: number | null
     participation_fee?: number | null
@@ -511,6 +531,7 @@ export function useScheduleData(currentDate: Date) {
     if (mergedScenarios.length !== prevLength || currentString !== newString) {
       scenariosRef.current = scenariosData
       scenariosStringRef.current = newString
+      mergedScenariosForScheduleRef.current = mergedScenarios
       setScenarios(mergedScenarios)
       // sessionStorageへの書き込みは初回のみ、または大幅に変更があった場合のみ（パフォーマンス改善）
       if (mergedScenarios.length > 0 && (prevLength === 0 || Math.abs(mergedScenarios.length - prevLength) > 5)) {
@@ -552,16 +573,34 @@ export function useScheduleData(currentDate: Date) {
     loadOrgScenarioOverrides()
   }, [])
 
-  // イベントデータをキャッシュに保存（変更時のみ、パフォーマンス改善）
+  // イベントデータをキャッシュに保存（アイドル時にまとめて書き、メインスレッドのピークを避ける）
   const eventsStringRef = useRef<string>('')
   useEffect(() => {
-    if (events.length > 0) {
+    if (events.length === 0) return
+    let cancelled = false
+    const flush = () => {
+      if (cancelled) return
       const eventsString = JSON.stringify(events)
-      // 前回と同じ内容の場合はスキップ（不要な書き込みを防ぐ）
       if (eventsStringRef.current !== eventsString) {
         eventsStringRef.current = eventsString
-        sessionStorage.setItem('scheduleEvents', eventsString)
+        try {
+          sessionStorage.setItem('scheduleEvents', eventsString)
+        } catch {
+          /* 容量超過など */
+        }
       }
+    }
+    let cancelScheduled: (() => void) | undefined
+    if (typeof requestIdleCallback !== 'undefined') {
+      const id = requestIdleCallback(flush, { timeout: 2000 })
+      cancelScheduled = () => cancelIdleCallback(id)
+    } else {
+      const id = window.setTimeout(flush, 0)
+      cancelScheduled = () => clearTimeout(id)
+    }
+    return () => {
+      cancelled = true
+      cancelScheduled?.()
     }
   }, [events])
 
@@ -605,9 +644,11 @@ export function useScheduleData(currentDate: Date) {
         }
         setStoresLoading(false)
         
-        // スタッフの担当シナリオを並列で取得（バックグラウンド）
-        const staffWithScenarios = await Promise.all(
-          staffData.map(async (staffMember) => {
+        // スタッフの担当シナリオをチャンク並列で取得（数十人同時だと接続・CPUが重くなるのを緩和）
+        const staffWithScenarios = await mapInChunks(
+          staffData,
+          STAFF_ASSIGNMENT_CHUNK,
+          async (staffMember) => {
             try {
               const assignments = await assignmentApi.getStaffAssignments(staffMember.id, orgId || undefined)
               const scenarioIds = assignments.map((a: { scenario_id: string }) => a.scenario_id)
@@ -615,13 +656,13 @@ export function useScheduleData(currentDate: Date) {
                 ...staffMember,
                 special_scenarios: scenarioIds
               }
-            } catch (error) {
+            } catch {
               return {
                 ...staffMember,
                 special_scenarios: []
               }
             }
-          })
+          }
         )
         
         setStaff(staffWithScenarios)
@@ -656,10 +697,12 @@ export function useScheduleData(currentDate: Date) {
         const year = currentDate.getFullYear()
         const month = currentDate.getMonth() + 1
         
-        const data = await scheduleApi.getByMonth(year, month) as RawEventData[]
-        
-        // シナリオリストを取得（player_count_max取得用のフォールバック）
-        const scenarioList = await scenarioApi.getAll()
+        const data = (await scheduleApi.getByMonth(year, month)) as RawEventData[]
+        let scenarioList = mergedScenariosForScheduleRef.current
+        if (!scenarioList.length) {
+          scenarioList = await scenarioApi.getAll()
+          mergedScenariosForScheduleRef.current = scenarioList
+        }
         const scenarioByTitle = new Map<string, any>()
         scenarioList.forEach((s: any) => {
           scenarioByTitle.set(s.title, s)
@@ -1018,6 +1061,7 @@ export function useScheduleData(currentDate: Date) {
   const refetchScenarios = async () => {
     try {
       const scenarioData = await scenarioApi.getAll()
+      mergedScenariosForScheduleRef.current = scenarioData
       setScenarios(scenarioData)
       sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenarioData))
     } catch (err) {
@@ -1047,10 +1091,12 @@ export function useScheduleData(currentDate: Date) {
       
       logger.log(`🔄 fetchSchedule: ${year}年${month}月のデータを取得`)
       
-      const data = await scheduleApi.getByMonth(year, month) as RawEventData[]
-      
-      // シナリオリストを取得（player_count_max取得用のフォールバック）
-      const scenarioList = await scenarioApi.getAll()
+      const data = (await scheduleApi.getByMonth(year, month)) as RawEventData[]
+      let scenarioList = mergedScenariosForScheduleRef.current
+      if (!scenarioList.length) {
+        scenarioList = await scenarioApi.getAll()
+        mergedScenariosForScheduleRef.current = scenarioList
+      }
       const scenarioByTitle2 = new Map<string, any>()
       scenarioList.forEach((s: any) => {
         scenarioByTitle2.set(s.title, s)

@@ -24,7 +24,8 @@ import {
 import { getColorFromName } from '@/lib/utils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Footer } from '@/components/layout/Footer'
-import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
+import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
+import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 
 interface ScenarioDetailGlobalProps {
   scenarioSlug: string
@@ -109,8 +110,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     scenarioId: string
   }>>([])
 
-  const globalDetailScrollKey = `scenario-detail-global-${scenarioSlug}`
-  useScrollRestoration({ pageKey: globalDetailScrollKey, isLoading: loading })
+  useReportRouteScrollRestoration('scenario-detail-global', { isLoading: loading })
 
   useEffect(() => {
     fetchData()
@@ -544,7 +544,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   }, [events])
 
   const handleEventClick = (event: EventWithOrg) => {
-    saveScrollPositionForPage(globalDetailScrollKey)
+    saveScrollPositionForCurrentUrl()
     // 選択した日付を遷移先に引き継ぐ
     navigate(`/${event.organization_slug}/scenario/${scenarioSlug}?date=${event.date}`)
   }
@@ -1287,7 +1287,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                           <div className="flex gap-2">
                             <button
                               onClick={() => {
-                                saveScrollPositionForPage(globalDetailScrollKey)
+                                saveScrollPositionForCurrentUrl()
                                 navigate(`/${org.slug}`)
                               }}
                               className="flex-1 py-2 px-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
@@ -1299,7 +1299,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                             {orgInfo && (
                               <button
                                 onClick={() => {
-                                  saveScrollPositionForPage(globalDetailScrollKey)
+                                  saveScrollPositionForCurrentUrl()
                                   navigate(`/${org.slug}/scenario/${scenarioSlug}?tab=private`)
                                 }}
                                 className="flex-1 py-2 px-3 text-sm text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"
@@ -1330,7 +1330,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                           <div className="flex gap-2">
                             <button
                               onClick={() => {
-                                saveScrollPositionForPage(globalDetailScrollKey)
+                                saveScrollPositionForCurrentUrl()
                                 navigate(`/${org.slug}`)
                               }}
                               className="flex-1 py-2 px-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
@@ -1341,7 +1341,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                             </button>
                             <button
                               onClick={() => {
-                                saveScrollPositionForPage(globalDetailScrollKey)
+                                saveScrollPositionForCurrentUrl()
                                 navigate(`/${org.slug}/scenario/${scenarioSlug}?tab=private`)
                               }}
                               className="flex-1 py-2 px-3 text-sm text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"

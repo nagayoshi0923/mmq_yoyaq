@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 
 // Custom Hooks
-import { useScrollRestoration } from '@/hooks/useScrollRestoration'
+import { useRouteScrollControls } from '@/contexts/RouteScrollRestorationContext'
 import { useScheduleTable } from '@/hooks/useScheduleTable'
 import { useTemporaryVenues } from '@/hooks/useTemporaryVenues'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -64,8 +64,8 @@ export function ScheduleManager() {
   const isAdminOrLicenseAdmin = user?.role === 'admin' || user?.role === 'license_admin'
   
   // 月ナビゲーション
-  const scrollRestoration = useScrollRestoration({ pageKey: 'schedule', isLoading: false })
-  const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
+  const { clearScrollPosition } = useRouteScrollControls()
+  const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(clearScrollPosition)
 
   // 臨時会場管理
   const { temporaryVenues, availableVenues, getVenueNameForDate, addTemporaryVenue, updateVenueName, removeTemporaryVenue } = useTemporaryVenues(currentDate)

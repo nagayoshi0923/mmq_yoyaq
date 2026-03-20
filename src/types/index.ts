@@ -857,6 +857,21 @@ export interface CouponCampaign {
   updated_at: string
 }
 
+/** マイページ用: customer_coupons にネストした使用履歴＋予約概要 */
+export interface CustomerCouponUsageWithReservation {
+  id: string
+  reservation_id: string
+  used_at: string
+  discount_amount: number
+  reservations?: {
+    id: string
+    title: string | null
+    requested_datetime: string
+    store_id: string | null
+    stores?: { name: string; short_name?: string | null } | null
+  } | null
+}
+
 // 顧客のクーポン保有・使用状況
 export interface CustomerCoupon {
   id: string
@@ -870,6 +885,8 @@ export interface CustomerCoupon {
   updated_at: string
   // JOIN時の拡張フィールド
   coupon_campaigns?: CouponCampaign | null
+  /** getAllCoupons 時のみ: 各使用ごとの予約（公演）情報 */
+  coupon_usages?: CustomerCouponUsageWithReservation[] | null
 }
 
 // クーポン使用履歴

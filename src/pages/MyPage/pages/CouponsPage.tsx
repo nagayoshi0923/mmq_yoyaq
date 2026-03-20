@@ -8,7 +8,37 @@ import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'luc
 import { getAllCoupons, useCoupon, getCurrentReservations } from '@/lib/api/couponApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Button } from '@/components/ui/button'
-import type { CustomerCoupon } from '@/types'
+import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
+
+function cleanScenarioTitleForCoupon(title?: string | null): string {
+  if (!title) return '（タイトル不明）'
+  const t = title
+    .replace(/【貸切希望】/g, '【貸切】')
+    .replace(/（候補\d+件）/g, '')
+    .trim()
+  return t || '（タイトル不明）'
+}
+
+/** 使用履歴1件分の公演表示用テキスト */
+function formatCouponUsagePerformance(usage: CustomerCouponUsageWithReservation): string {
+  const res = usage.reservations
+  if (!res) {
+    return '公演情報を表示できません（予約が削除された場合など）'
+  }
+  const name = cleanScenarioTitleForCoupon(res.title)
+  const store = res.stores?.short_name || res.stores?.name || ''
+  const dt = res.requested_datetime
+  let when = ''
+  if (dt) {
+    const d = new Date(dt)
+    const datePart = d.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' })
+    const hm = dt.match(/T(\d{2}:\d{2})/)
+    const timePart = hm ? hm[1] : ''
+    when = timePart ? `${datePart} ${timePart}〜` : datePart
+  }
+  const parts = [name, store, when].filter(Boolean)
+  return parts.join(' ｜ ')
+}
 
 interface CurrentReservation {
   id: string
@@ -246,6 +276,10 @@ export function CouponsPage() {
                 ? new Date(coupon.updated_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                 : null
 
+              const usageRows = (coupon.coupon_usages ?? [])
+                .slice()
+                .sort((a, b) => new Date(b.used_at).getTime() - new Date(a.used_at).getTime())
+
               return (
                 <div
                   key={coupon.id}
@@ -262,6 +296,19 @@ export function CouponsPage() {
                         </div>
                         {usedAt && coupon.status === 'fully_used' && (
                           <p className="text-xs text-gray-400 mt-0.5">{usedAt} 使用</p>
+                        )}
+                        {usageRows.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
+                            <p className="text-[11px] font-semibold text-gray-500">使用した公演</p>
+                            {usageRows.map((u) => (
+                              <p
+                                key={u.id}
+                                className="text-xs text-gray-600 leading-snug pl-2 border-l-2 border-gray-200"
+                              >
+                                {formatCouponUsagePerformance(u)}
+                              </p>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>
