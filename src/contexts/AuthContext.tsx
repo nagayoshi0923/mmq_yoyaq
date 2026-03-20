@@ -19,6 +19,15 @@ function getOrganizationSlugFromUrl(): string {
 // パスワードリセット中フラグのキー（sessionStorage使用）
 const PASSWORD_RESET_FLAG_KEY = 'MMQ_PASSWORD_RESET_IN_PROGRESS'
 
+/** リフレッシュトークン欠落・無効時は再ログインが必要（古いセッションで UI だけログイン表示になるのを防ぐ） */
+function isFatalAuthRefreshError(message: string | undefined): boolean {
+  if (!message) return false
+  return (
+    message.includes('Invalid Refresh Token') ||
+    message.includes('Refresh Token Not Found')
+  )
+}
+
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean
@@ -197,17 +206,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const { data, error } = await supabase.auth.refreshSession()
       if (error) {
         logger.error('❌ セッションリフレッシュエラー:', error)
-        
-        // リフレッシュに失敗した場合も、直ちにログアウトせずに再確認
-        if (error.message?.includes('Invalid Refresh Token') || 
-            error.message?.includes('Refresh Token Not Found')) {
-          const { data: retrySession } = await supabase.auth.getSession()
-          if (!retrySession.session) {
-            setUser(null)
-            userRef.current = null
-          } else {
-            authTrace('⚠️ リフレッシュ失敗だがセッションは有効: 状態維持')
-          }
+        if (isFatalAuthRefreshError(error.message)) {
+          await supabase.auth.signOut({ scope: 'local' })
+          setUser(null)
+          userRef.current = null
+          setStaffCache(new Map())
+          authTrace('🚪 無効なリフレッシュトークン: ローカルセッションをクリア')
         }
         return
       }
@@ -455,7 +459,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
             if (refreshError) {
               logger.warn('⚠️ リフレッシュ失敗:', refreshError.message)
-              // リフレッシュ失敗でも、既存セッションがあれば続行
+              if (isFatalAuthRefreshError(refreshError.message)) {
+                await supabase.auth.signOut({ scope: 'local' })
+                setUser(null)
+                userRef.current = null
+                setStaffCache(new Map())
+                authTrace('🚪 無効なリフレッシュトークンのためローカルセッションをクリア')
+                return
+              }
+              const { data: latestData } = await supabase.auth.getSession()
+              if (!latestData.session?.user) {
+                await supabase.auth.signOut({ scope: 'local' })
+                setUser(null)
+                userRef.current = null
+                setStaffCache(new Map())
+                authTrace('🚪 リフレッシュ後にセッション消失のためローカルクリア')
+                return
+              }
+              session = latestData.session
             } else if (refreshData.session) {
               session = refreshData.session
               authTrace('✅ セッションリフレッシュ成功')
@@ -472,7 +493,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         authTrace('🔄 セッションなし、リフレッシュで復元を試行')
         try {
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-          if (!refreshError && refreshData.session?.user) {
+          if (refreshError) {
+            if (isFatalAuthRefreshError(refreshError.message)) {
+              await supabase.auth.signOut({ scope: 'local' })
+              setUser(null)
+              userRef.current = null
+              setStaffCache(new Map())
+            }
+            authTrace('⏭️ リフレッシュ復元失敗（未ログイン状態）')
+          } else if (refreshData.session?.user) {
             authTrace('✅ リフレッシュでセッション復元成功:', maskEmail(refreshData.session.user.email))
             await setUserFromSession(refreshData.session.user)
             return

@@ -31,6 +31,13 @@ export function useFavorites() {
         return
       }
 
+      const { data: sessionData } = await supabase.auth.getSession()
+      const sessionUser = sessionData.session?.user
+      if (!sessionUser?.id || sessionUser.id !== user.id) {
+        setCustomerId(null)
+        return
+      }
+
       try {
         // まず既存の顧客を検索（user_idで検索）
         const { data: customerByUserId, error: selectError } = await supabase
