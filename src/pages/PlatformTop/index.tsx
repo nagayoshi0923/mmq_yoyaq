@@ -1227,6 +1227,7 @@ export function PlatformTop() {
               
               <div className="bg-gray-50 rounded-lg p-4 mb-5 text-left">
                 <p className="text-xs text-gray-600 space-y-1">
+                  <span className="block">✓ MMQで予約した公演にご利用いただけます</span>
                   <span className="block">✓ 1回のご予約につき1枚使用可能</span>
                   <span className="block">✓ クーポン有効期限：10月末まで</span>
                   <span className="block">✓ 他のクーポンとの併用不可</span>
