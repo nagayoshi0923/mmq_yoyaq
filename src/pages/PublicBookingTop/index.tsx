@@ -26,9 +26,12 @@ import { Footer } from '@/components/layout/Footer'
 import { HowToUseGuide, HowToUseButton, useHowToUseGuide } from './components/HowToUseGuide'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
-/** 公開トップ（queens-waltz）ヒーロー説明文 */
-const QUEENS_WALTZ_HERO_DESCRIPTION =
+/** DB の紹介文が空のときのデフォルト（queens-waltz） */
+const QUEENS_WALTZ_PUBLIC_BOOKING_HERO_FALLBACK =
   '都内（大久保、高田馬場、大塚）に4店舗、埼玉に1店舗を運営するマーダーミステリー専門店クインズワルツ。160種類以上のマーダーミステリーシナリオをご用意しています。あなたの気に入る物語がきっと見つかる！'
+
+const DEFAULT_PUBLIC_BOOKING_HERO =
+  'リアルな謎解き体験。あなたは事件の真相を暴けるか？'
 
 interface PublicBookingTopProps {
   onScenarioSelect?: (scenarioId: string) => void
@@ -86,8 +89,16 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     organizationNotFound,
     organizationName,
     organizationHeaderImageUrl,
+    organizationPublicBookingHeroDescription,
     nearlyCompleteGroups
   } = useBookingData(organizationSlug)
+
+  const heroDescription = useMemo(() => {
+    const fromDb = organizationPublicBookingHeroDescription?.trim()
+    if (fromDb) return fromDb
+    if (organizationSlug === 'queens-waltz') return QUEENS_WALTZ_PUBLIC_BOOKING_HERO_FALLBACK
+    return DEFAULT_PUBLIC_BOOKING_HERO
+  }, [organizationPublicBookingHeroDescription, organizationSlug])
   
   useReportRouteScrollRestoration('public-booking-top', {
     isLoading,
@@ -400,9 +411,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
               {organizationName || 'MMQ'}
             </h1>
             <p className="text-sm md:text-[0.95rem] text-white/90 mb-3 max-w-xl leading-relaxed text-pretty">
-              {organizationSlug === 'queens-waltz'
-                ? QUEENS_WALTZ_HERO_DESCRIPTION
-                : 'リアルな謎解き体験。あなたは事件の真相を暴けるか？'}
+              {heroDescription}
             </p>
             
             {/* 組織情報 + アクセスボタン */}

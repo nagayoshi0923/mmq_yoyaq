@@ -21,7 +21,8 @@ import {
   Clock,
   RefreshCw,
   ClipboardList,
-  ExternalLink
+  ExternalLink,
+  LayoutTemplate
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -41,6 +42,7 @@ export function OrganizationInfoSettings() {
     contact_name: '',
     contact_email: '',
     notes: '',
+    public_booking_hero_description: '',
     post_performance_survey_url: '',
     post_performance_survey_enabled: false,
   })
@@ -53,6 +55,7 @@ export function OrganizationInfoSettings() {
         contact_name: organization.contact_name || '',
         contact_email: organization.contact_email || '',
         notes: organization.notes || '',
+        public_booking_hero_description: organization.public_booking_hero_description || '',
         post_performance_survey_url: organization.post_performance_survey_url || '',
         post_performance_survey_enabled: organization.post_performance_survey_enabled || false,
       })
@@ -84,6 +87,7 @@ export function OrganizationInfoSettings() {
         contact_name: formData.contact_name.trim() || null,
         contact_email: formData.contact_email.trim() || null,
         notes: formData.notes.trim() || null,
+        public_booking_hero_description: formData.public_booking_hero_description.trim() || null,
         post_performance_survey_url: formData.post_performance_survey_url.trim() || null,
         post_performance_survey_enabled: formData.post_performance_survey_enabled,
       })
@@ -219,6 +223,41 @@ export function OrganizationInfoSettings() {
             />
           </div>
 
+          <div className="flex justify-end">
+            <Button onClick={handleSave} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              <Save className="w-4 h-4 mr-2" />
+              保存
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 公開予約トップのヒーロー紹介文 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <LayoutTemplate className="w-5 h-5" />
+            公開予約トップの紹介文
+          </CardTitle>
+          <CardDescription>
+            お客様向けの予約トップ（/{organization.slug}）ヒーロー直下に表示する説明文です。空にすると組織ごとのデフォルト文言が表示されます。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="public_booking_hero_description">紹介文</Label>
+            <Textarea
+              id="public_booking_hero_description"
+              value={formData.public_booking_hero_description}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, public_booking_hero_description: e.target.value }))
+              }
+              placeholder="店舗の特徴やシナリオ数など、お客様へ伝えたい内容を入力"
+              rows={5}
+              className="resize-y min-h-[120px]"
+            />
+          </div>
           <div className="flex justify-end">
             <Button onClick={handleSave} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

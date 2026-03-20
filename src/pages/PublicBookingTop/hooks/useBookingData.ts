@@ -58,6 +58,8 @@ export interface BookingDataResult {
   organizationName: string | null
   organizationHeaderImageUrl: string | null
   organizationThemeColor: string | null
+  /** DB の public_booking_hero_description（空ならフロントでデフォルト） */
+  organizationPublicBookingHeroDescription: string | null
   organizationNotFound: boolean
   nearlyCompleteGroups: NearlyCompleteGroup[]
 }
@@ -85,12 +87,13 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   let orgName: string | null = null
   let orgHeaderImageUrl: string | null = null
   let orgThemeColor: string | null = null
+  let orgPublicBookingHeroDescription: string | null = null
   const organizationNotFound = false
   
   if (organizationSlug) {
     const { data: orgData } = await supabase
       .from('organizations')
-      .select('id, name, header_image_url, theme_color')
+      .select('id, name, header_image_url, theme_color, public_booking_hero_description')
       .eq('slug', organizationSlug)
       .eq('is_active', true)
       .single()
@@ -100,6 +103,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
       orgName = orgData.name
       orgHeaderImageUrl = orgData.header_image_url
       orgThemeColor = orgData.theme_color
+      orgPublicBookingHeroDescription = orgData.public_booking_hero_description ?? null
     } else {
       return {
         scenarios: [],
@@ -111,6 +115,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         organizationName: null,
         organizationHeaderImageUrl: null,
         organizationThemeColor: null,
+        organizationPublicBookingHeroDescription: null,
         organizationNotFound: true,
         nearlyCompleteGroups: []
       }
@@ -604,6 +609,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     organizationName: orgName,
     organizationHeaderImageUrl: orgHeaderImageUrl,
     organizationThemeColor: orgThemeColor,
+    organizationPublicBookingHeroDescription: orgPublicBookingHeroDescription,
     organizationNotFound,
     nearlyCompleteGroups
   }
@@ -651,6 +657,7 @@ export function useBookingData(organizationSlug?: string) {
     organizationName: data?.organizationName ?? null,
     organizationHeaderImageUrl: data?.organizationHeaderImageUrl ?? null,
     organizationThemeColor: data?.organizationThemeColor ?? null,
+    organizationPublicBookingHeroDescription: data?.organizationPublicBookingHeroDescription ?? null,
     nearlyCompleteGroups: data?.nearlyCompleteGroups ?? []
   }
 }

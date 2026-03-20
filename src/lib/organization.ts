@@ -7,7 +7,7 @@ import type { Organization, Staff } from '@/types'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const ORGANIZATION_SELECT_FIELDS =
-  'id, name, slug, plan, contact_email, contact_name, is_license_manager, is_active, settings, notes, created_at, updated_at' as const
+  'id, name, slug, plan, contact_email, contact_name, is_license_manager, is_active, settings, notes, public_booking_hero_description, created_at, updated_at' as const
 
 const STAFF_SELECT_FIELDS =
   'id, organization_id, name, line_name, x_account, discord_id:discord_user_id, discord_channel_id, role, stores, ng_days, want_to_learn, available_scenarios, notes, phone, email, user_id, availability, experience, special_scenarios, status, avatar_url, avatar_color, created_at, updated_at' as const
@@ -187,6 +187,9 @@ export async function updateOrganization(
     logger.error('Failed to update organization:', error)
     return null
   }
+
+  // slug 解決キャッシュを無効化（公開予約トップ等が即座に新文言を取れるように）
+  orgCacheBySlug.clear()
 
   return data as Organization
 }

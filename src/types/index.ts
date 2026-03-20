@@ -16,6 +16,8 @@ export interface Organization {
   notes?: string | null
   theme_color?: string | null  // 組織のイメージカラー（HEX形式、例: #E60012）
   header_image_url?: string | null  // 組織トップページのヘッダー画像URL
+  /** 公開予約トップ（/{slug}）ヒーロー直下の紹介文。空ならアプリのデフォルト */
+  public_booking_hero_description?: string | null
   post_performance_survey_url?: string | null  // 公演後アンケートURL（組織共通）
   post_performance_survey_enabled?: boolean  // 公演後アンケートを有効にするかどうか
   faq_items?: FAQItem[] | null  // 組織固有のFAQ項目
