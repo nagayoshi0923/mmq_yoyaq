@@ -171,9 +171,9 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         // メール確認リンク後の SIGNED_IN で顧客未登録扱いされサインアウトされる（AuthContext 側も修正済み）
         sessionStorage.removeItem('oauth_mode')
 
-        // 既存メールアドレスチェック：既存ユーザーへの不正なマジックリンク送信を防ぐ
+        // 既存メールアドレスチェック：Auth 済み顧客・app users への二重登録のみブロック
+        // （customers で user_id 未設定のメールのみはブロックしない＝店舗登録のみの人もマジックリンク可）
         // RLS を回避するため SECURITY DEFINER の RPC を使用（anon からでも呼び出し可能）
-        // DB 側インデックス（lower(email)）で高速化可能（マイグレーション参照）
         const { data: isRegistered, error: checkError } = await supabase
           .rpc('check_email_registered', { p_email: email })
 

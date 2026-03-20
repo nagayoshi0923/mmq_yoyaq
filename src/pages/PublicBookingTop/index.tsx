@@ -26,6 +26,10 @@ import { Footer } from '@/components/layout/Footer'
 import { HowToUseGuide, HowToUseButton, useHowToUseGuide } from './components/HowToUseGuide'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
+/** 公開トップ（queens-waltz）ヒーロー説明文 */
+const QUEENS_WALTZ_HERO_DESCRIPTION =
+  '都内（大久保、高田馬場、大塚）に4店舗、埼玉に1店舗を運営するマーダーミステリー専門店クインズワルツ。160種類以上のマーダーミステリーシナリオをご用意しています。あなたの気に入る物語がきっと見つかる！'
+
 interface PublicBookingTopProps {
   onScenarioSelect?: (scenarioId: string) => void
   organizationSlug?: string  // 組織slug（パス方式用）
@@ -397,7 +401,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             </h1>
             <p className="text-sm md:text-[0.95rem] text-white/90 mb-3 max-w-xl leading-relaxed text-pretty">
               {organizationSlug === 'queens-waltz'
-                ? '都内（大久保、高田馬場、大塚）に4店舗、埼玉に1店舗を運営するマーダーミステリー専門店クインズワルツ。160種類以上のマーダーミステリーシナリオをご用意しています。あなたの気に入る物語がきっと見つかる！'
+                ? QUEENS_WALTZ_HERO_DESCRIPTION
                 : 'リアルな謎解き体験。あなたは事件の真相を暴けるか？'}
             </p>
             
