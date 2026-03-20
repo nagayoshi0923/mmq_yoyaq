@@ -63,8 +63,20 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   const [message, setMessage] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  /** Google OAuth など: signInWithOAuth のデフォルト遷移が内部ロックで固まる事例への対策中に表示 */
+  const [isOAuthRedirecting, setIsOAuthRedirecting] = useState(false)
+  const oauthHangTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const { signIn, loading } = useAuth()
   const navigate = useNavigate()
+
+  React.useEffect(() => {
+    return () => {
+      if (oauthHangTimeoutRef.current) {
+        clearTimeout(oauthHangTimeoutRef.current)
+        oauthHangTimeoutRef.current = null
+      }
+    }
+  }, [])
   
   // フィールド別のインラインエラー
   const [emailError, setEmailError] = useState('')
@@ -123,27 +135,61 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   }
 
   // ソーシャルログイン
+  // skipBrowserRedirect で OAuth URL だけ取得し、こちらで location.assign する。
+  // デフォルト（SDK が即リダイレクト）だと GoTrue 内部ロックや環境次第で await が終わらず UI が固まることがある。
   const handleSocialLogin = async (provider: 'google' | 'discord' | 'twitter') => {
+    if (oauthHangTimeoutRef.current) {
+      clearTimeout(oauthHangTimeoutRef.current)
+      oauthHangTimeoutRef.current = null
+    }
     try {
       setError('')
-      // 戻り先URLをsessionStorageから取得（予約フローなどからのリダイレクト対応）
+      setIsOAuthRedirecting(true)
+
+      oauthHangTimeoutRef.current = setTimeout(() => {
+        oauthHangTimeoutRef.current = null
+        setIsOAuthRedirecting(false)
+        setError(
+          '認証サーバーへの接続がタイムアウトしました。ネットワークや広告ブロッカーを確認し、再度お試しください。'
+        )
+      }, 20000)
+
       const safeReturnUrl = validateRedirectUrl(sessionStorage.getItem('returnUrl'))
-      
-      // ログインモードか新規登録モードかを保存（OAuth認証後にチェックするため）
       sessionStorage.setItem('oauth_mode', mode)
-      
-      const { error } = await supabase.auth.signInWithOAuth({
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}${safeReturnUrl}`,
-          // Googleの場合、毎回アカウント選択画面を表示
-          queryParams: provider === 'google' ? {
-            prompt: 'select_account',
-          } : undefined,
+          queryParams:
+            provider === 'google'
+              ? {
+                  prompt: 'select_account',
+                }
+              : undefined,
+          skipBrowserRedirect: true,
         },
       })
-      if (error) throw error
+
+      if (oauthHangTimeoutRef.current) {
+        clearTimeout(oauthHangTimeoutRef.current)
+        oauthHangTimeoutRef.current = null
+      }
+
+      if (error) {
+        setIsOAuthRedirecting(false)
+        throw error
+      }
+
+      const url = data?.url
+      if (!url || typeof url !== 'string') {
+        setIsOAuthRedirecting(false)
+        throw new Error('OAuth URL を取得できませんでした')
+      }
+
+      window.location.assign(url)
     } catch (error: unknown) {
+      setIsOAuthRedirecting(false)
       const message = error instanceof Error ? error.message : 'ソーシャルログインに失敗しました'
       setError(message)
       logger.error('Social login error:', error)
@@ -319,7 +365,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     }
   }
 
-  const isLoading = loading || isSubmitting
+  const isLoading = loading || isSubmitting || isOAuthRedirecting
 
   return (
     <div 
@@ -422,6 +468,12 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
               {mode !== 'forgot' && (
                 <>
                   <div className="space-y-3 mb-6">
+                    {isOAuthRedirecting && (
+                      <p className="text-sm text-center text-gray-600 flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                        Google の画面へ移動しています…
+                      </p>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleSocialLogin('google')}

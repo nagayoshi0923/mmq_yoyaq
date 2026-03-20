@@ -27,7 +27,7 @@
 | Permissions-Policy | `geolocation=(), microphone=(), camera=()` | デバイス機能への不正アクセス禁止 |
 
 ### CORS 制限
-Edge Functions の `_shared/security.ts` で管理。本番環境では `https://mmq.game` と `https://mmq-yoyaq.vercel.app` のみを許可。開発環境の `localhost` は本番では無効化。
+Edge Functions の `_shared/security.ts` で管理。本番環境では `https://mmq.game`・`https://www.mmq.game`・`https://mmq-yoyaq.vercel.app` を許可。開発環境の `localhost` は本番では無効化。
 
 ---
 
