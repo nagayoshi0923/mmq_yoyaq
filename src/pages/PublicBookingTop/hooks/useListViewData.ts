@@ -66,13 +66,8 @@ export function useListViewData(
         }
       }
     })
-    // デバッグ: 臨時会場のオープン公演を確認
-    logger.log('📍 eventDateStoreSet:', Array.from(set).filter(k => k.includes('9729') || k.includes('臨時')))
     return set
   }, [allEvents])
-
-  // デバッグ: 臨時会場の店舗情報
-  logger.log('📍 stores with is_temporary:', stores.filter(s => s.is_temporary).map(s => ({ id: s.id, name: s.name })))
 
   /**
    * 月の日付と店舗の組み合わせを生成

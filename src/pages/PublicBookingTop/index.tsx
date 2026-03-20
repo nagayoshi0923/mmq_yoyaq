@@ -229,49 +229,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
 
   // 初期データロード
   useEffect(() => {
-    const pageLoadStart = performance.now()
-    logger.log('🚀 PublicBookingTop ページロード開始:', new Date().toISOString())
-    logger.log('📊 現在の状態:', {
-      scenariosCount: scenarios.length,
-      allEventsCount: allEvents.length,
-      storesCount: stores.length,
-      isLoading
-    })
-    
-    loadData().then(() => {
-      const loadEnd = performance.now()
-      logger.log(`⏱️ PublicBookingTop データ取得完了: ${((loadEnd - pageLoadStart) / 1000).toFixed(2)}秒`)
-      logger.log('📊 データ取得後の状態:', {
-        scenariosCount: scenarios.length,
-        allEventsCount: allEvents.length,
-        storesCount: stores.length
-      })
-      
-      // レンダリング完了を待つ（複数回チェック）
-      let checkCount = 0
-      const checkRender = () => {
-        checkCount++
-        const renderEnd = performance.now()
-        const elapsed = (renderEnd - pageLoadStart) / 1000
-        
-        // DOMが更新されているか確認
-        const hasContent = document.querySelector('[data-scenario-card]') || document.querySelector('.grid')
-        
-        if (hasContent || checkCount > 20) {
-          logger.log(`⏱️ PublicBookingTop レンダリング完了: ${elapsed.toFixed(2)}秒 (チェック回数: ${checkCount})`)
-          logger.log('📊 最終状態:', {
-            scenariosCount: scenarios.length,
-            allEventsCount: allEvents.length,
-            storesCount: stores.length,
-            hasContent: !!hasContent
-          })
-        } else {
-          setTimeout(checkRender, 100)
-        }
-      }
-      setTimeout(checkRender, 0)
-    }).catch((error) => {
-      logger.error('❌ PublicBookingTop データ取得エラー:', error)
+    loadData().catch((error) => {
+      logger.error('PublicBookingTop データ取得エラー:', error)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadData])

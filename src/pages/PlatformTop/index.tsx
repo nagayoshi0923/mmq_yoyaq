@@ -237,7 +237,7 @@ export function PlatformTop() {
       const today = formatDateJST(new Date())
 
       // 🚀 パフォーマンス最適化: 5つのクエリを並列実行
-      const [orgResult, storeResult, masterResult, eventResult, reservationResult] = await Promise.all([
+      const [orgResult, storeResult, masterResult, eventResult, reservationResult, orgScenarioSlugResult] = await Promise.all([
         // 組織一覧
         supabase
           .from('organizations')
@@ -277,7 +277,12 @@ export function PlatformTop() {
           .from('reservations')
           .select('schedule_event_id, participant_count, status')
           .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-          .in('status', ['confirmed', 'pending', 'checked_in'])
+          .in('status', ['confirmed', 'pending', 'checked_in']),
+        // organization_scenarios の slug を取得（scenario_master_id → slug マッピング用）
+        supabase
+          .from('organization_scenarios')
+          .select('scenario_master_id, slug')
+          .not('slug', 'is', null)
       ])
 
       const { data: orgData, error: orgError } = orgResult
@@ -285,6 +290,17 @@ export function PlatformTop() {
       const { data: approvedMasters, error: masterError } = masterResult
       const { data: eventData, error: eventError } = eventResult
       const { data: reservations } = reservationResult
+      const { data: orgScenarioSlugs } = orgScenarioSlugResult
+
+      // scenario_master_id → slug のマッピング
+      const masterSlugMap: Record<string, string> = {}
+      if (orgScenarioSlugs) {
+        orgScenarioSlugs.forEach(os => {
+          if (os.scenario_master_id && os.slug) {
+            masterSlugMap[os.scenario_master_id] = os.slug
+          }
+        })
+      }
 
       if (orgError) logger.error('組織取得エラー:', orgError)
       if (storeError) logger.error('店舗取得エラー:', storeError)
@@ -377,7 +393,7 @@ export function PlatformTop() {
             scenarioMap[scenarioKey] = {
               scenario_id: scenario.id,
               scenario_title: scenario.title,
-              scenario_slug: scenario.id, // scenario_masters には slug がないため id を使用
+              scenario_slug: masterSlugMap[scenario.id] || scenario.id,
               key_visual_url: scenario.key_visual_url,
               author: scenario.author || '',
               player_count_min: scenario.player_count_min,
