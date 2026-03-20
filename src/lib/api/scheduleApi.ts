@@ -316,7 +316,8 @@ export const scheduleApi = {
   // 指定月の公演を取得（通常公演 + 確定した貸切公演）
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
   // skipOrgFilter: trueの場合、組織フィルタをスキップ（全組織のデータを取得）
-  async getByMonth(year: number, month: number, organizationId?: string, skipOrgFilter?: boolean) {
+  // skipPrivateBookings: trueの場合、確定貸切予約のクエリをスキップ（公開ページ用）
+  async getByMonth(year: number, month: number, organizationId?: string, skipOrgFilter?: boolean, skipPrivateBookings?: boolean) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
     const lastDay = new Date(year, month, 0).getDate()
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
@@ -524,45 +525,48 @@ export const scheduleApi = {
     })
     
     // 確定した貸切公演を取得（組織フィルタ付き）
-    const privateOrgId = organizationId || await getCurrentOrganizationId()
-    let privateQuery = supabase
-      .from('reservations')
-      .select(`
-        id,
-        scenario_id,
-        store_id,
-        gm_staff,
-        participant_count,
-        candidate_datetimes,
-        schedule_event_id,
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          player_count_max
-        ),
-        stores:store_id (
-          id,
-          name,
-          short_name,
-          color,
-          address
-        )
-      `)
-      .eq('reservation_source', 'web_private')
-      .eq('status', 'confirmed')
-      .is('schedule_event_id', null)
-    
-    if (privateOrgId && !skipOrgFilter) {
-      privateQuery = privateQuery.eq('organization_id', privateOrgId)
-    }
-    
-    const { data: confirmedPrivateBookings, error: privateError } = await privateQuery
-    
-    if (privateError) {
-      logger.error('確定貸切公演取得エラー:', privateError)
-    }
-    
+    // 公開ページでは不要なためスキップ可能
     const privateEvents: ScheduleEvent[] = []
+    
+    if (!skipPrivateBookings) {
+      const privateOrgId = organizationId || await getCurrentOrganizationId()
+      let privateQuery = supabase
+        .from('reservations')
+        .select(`
+          id,
+          scenario_id,
+          store_id,
+          gm_staff,
+          participant_count,
+          candidate_datetimes,
+          schedule_event_id,
+          scenario_masters:scenario_master_id (
+            id,
+            title,
+            player_count_max
+          ),
+          stores:store_id (
+            id,
+            name,
+            short_name,
+            color,
+            address
+          )
+        `)
+        .eq('reservation_source', 'web_private')
+        .eq('status', 'confirmed')
+        .is('schedule_event_id', null)
+      
+      if (privateOrgId && !skipOrgFilter) {
+        privateQuery = privateQuery.eq('organization_id', privateOrgId)
+      }
+      
+      const { data: confirmedPrivateBookings, error: privateError } = await privateQuery
+      
+      if (privateError) {
+        logger.error('確定貸切公演取得エラー:', privateError)
+      }
+    
     if (confirmedPrivateBookings) {
       const gmStaffIds = confirmedPrivateBookings
         .map(booking => booking.gm_staff)
@@ -638,6 +642,7 @@ export const scheduleApi = {
         }
       }
     }
+    } // skipPrivateBookings の閉じ括弧
     
     const allEvents = [...(eventsWithActualParticipants || []), ...privateEvents]
     allEvents.sort((a, b) => {

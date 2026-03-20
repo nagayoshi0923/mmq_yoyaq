@@ -133,7 +133,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           const month = targetDate.getMonth() + 1
           
           // organization_idでフィルタリング
-          monthPromises.push(scheduleApi.getByMonth(year, month, orgId))
+          // 公開ページなので確定貸切予約のクエリはスキップ（skipPrivateBookings: true）
+          monthPromises.push(scheduleApi.getByMonth(year, month, orgId, false, true))
         }
         
         const monthResults = await Promise.all(monthPromises)
