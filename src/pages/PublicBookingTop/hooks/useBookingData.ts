@@ -572,45 +572,10 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   
   const scenarioList = Array.from(scenarioMap.values())
   
-  // 残りわずかで達成の貸切グループを取得
+  // 貸切グループの「あと少しで達成」セクションは一時無効化
+  // 理由: 公開/非公開の区別なく全グループが表示される問題（プライバシー漏洩）
+  // TODO: is_public フラグを追加し、明示的に公開設定されたグループのみ表示する
   const nearlyCompleteGroups: NearlyCompleteGroup[] = []
-  
-  if (orgId) {
-    const { data: privateGroups, error: pgError } = await supabase
-      .from('private_groups')
-      .select(`
-        id,
-        invite_code,
-        target_participant_count,
-        scenario_masters:scenario_id (title, key_visual_url),
-        members:private_group_members (id, status, is_organizer, guest_name)
-      `)
-      .eq('organization_id', orgId)
-      .eq('status', 'gathering')
-      .not('target_participant_count', 'is', null)
-
-    if (privateGroups) {
-      privateGroups.forEach((g: any) => {
-        const joinedCount = (g.members || []).filter((m: any) => m.status === 'joined').length
-        const target = g.target_participant_count || 0
-        const remaining = target - joinedCount
-        // 残り1〜2人で達成するグループのみ
-        if (remaining > 0 && remaining <= 2 && joinedCount > 0) {
-          const organizer = (g.members || []).find((m: any) => m.is_organizer && m.status === 'joined')
-          nearlyCompleteGroups.push({
-            id: g.id,
-            invite_code: g.invite_code,
-            scenario_title: g.scenario_masters?.title || '未設定',
-            scenario_key_visual: g.scenario_masters?.key_visual_url,
-            target_count: target,
-            current_count: joinedCount,
-            remaining,
-            organizer_name: organizer?.guest_name || '主催者'
-          })
-        }
-      })
-    }
-  }
   
   return {
     scenarios: scenarioList,
