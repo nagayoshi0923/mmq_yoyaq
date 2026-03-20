@@ -76,6 +76,7 @@ interface StoreData {
   address?: string
   display_order?: number
   organization_id?: string
+  organization_name?: string
 }
 
 interface ScenarioSearchResult {
@@ -104,9 +105,8 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
       .eq('status', 'available')
       .order('title'),
     // 店舗データを取得（available_storesのIDを名前に変換するため + フィルター用）
-    supabase
-      .from('stores')
-      .select('id, name, short_name, ownership_type, region, address, display_order, organization_id'),
+    // RPC経由で取得（anon権限でも安全に取得可能）
+    supabase.rpc('get_all_public_stores'),
     // カテゴリ（organization_categories）を取得
     supabase
       .from('organization_categories')
@@ -611,7 +611,7 @@ export function PlatformScenarioSearch() {
                       <SelectLabel>{region}</SelectLabel>
                       {stores.map(store => (
                         <SelectItem key={store.id} value={store.id}>
-                          {store.short_name || store.name}
+                          {store.organization_name ? `${store.organization_name} - ` : ''}{store.short_name || store.name}
                         </SelectItem>
                       ))}
                     </SelectGroup>
