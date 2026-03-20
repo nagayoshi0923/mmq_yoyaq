@@ -86,6 +86,47 @@ CREATE POLICY "organization_scenarios_select_public" ON public.organization_scen
   );
 
 -- =============================================================================
+-- 7. 公開ページで必要な設定テーブル
+-- =============================================================================
+
+-- business_hours_settings: 営業時間（公開情報）
+GRANT SELECT ON public.business_hours_settings TO anon;
+CREATE POLICY "business_hours_settings_select_public" ON public.business_hours_settings
+  FOR SELECT
+  USING (true);
+
+-- booking_notices: 注意事項（公開情報）
+GRANT SELECT ON public.booking_notices TO anon;
+CREATE POLICY "booking_notices_select_public" ON public.booking_notices
+  FOR SELECT
+  USING (true);
+
+-- =============================================================================
+-- 8. organization_settings: カスタム休日のみ公開（APIキー等は非公開）
+-- =============================================================================
+
+-- カスタム休日のみを返す安全なRPCを作成
+CREATE OR REPLACE FUNCTION public.get_public_custom_holidays(p_organization_id UUID)
+RETURNS TABLE (
+  custom_holidays JSONB
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT os.custom_holidays
+  FROM public.organization_settings os
+  WHERE os.organization_id = p_organization_id;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_public_custom_holidays(UUID) TO anon;
+GRANT EXECUTE ON FUNCTION public.get_public_custom_holidays(UUID) TO authenticated;
+
+COMMENT ON FUNCTION public.get_public_custom_holidays(UUID) IS 
+  '公開予約ページ用: カスタム休日のみを返す（APIキー等の機密情報は除外）';
+
+-- =============================================================================
 -- 完了通知
 -- =============================================================================
 DO $$
@@ -96,4 +137,7 @@ BEGIN
   RAISE NOTICE '  - scenario_masters: 承認済みのみ閲覧可能';
   RAISE NOTICE '  - schedule_events: キャンセルされていないイベントのみ閲覧可能';
   RAISE NOTICE '  - organization_scenarios: 公開中のシナリオのみ閲覧可能';
+  RAISE NOTICE '  - business_hours_settings: 営業時間を閲覧可能';
+  RAISE NOTICE '  - booking_notices: 注意事項を閲覧可能';
+  RAISE NOTICE '  - get_public_custom_holidays: カスタム休日のみ取得可能';
 END $$;

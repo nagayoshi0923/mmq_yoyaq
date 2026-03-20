@@ -9,6 +9,7 @@ import { organizationSettingsApi } from '@/lib/api/organizationSettingsApi'
 import { isJapaneseHoliday as isJapaneseHolidayBase } from '@/utils/japaneseHolidays'
 import { showToast } from '@/utils/toast'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
+import { supabase } from '@/lib/supabase'
 
 interface UseCustomHolidaysOptions {
   organizationSlug?: string // 公開ページ用：組織スラッグから取得
@@ -24,14 +25,20 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
     const load = async () => {
       try {
         // 組織スラッグが指定されている場合は、スラッグから組織IDを取得して休日を取得
+        // 公開ページ用：RPCを使用して機密情報を含まないデータのみ取得
         if (organizationSlug) {
           const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
             requireActive: true,
           })
 
           if (orgData) {
-            const settings = await organizationSettingsApi.getByOrganizationId(orgData.id)
-            setCustomHolidays(settings?.custom_holidays || [])
+            // 公開用RPC（機密情報を含まない）を使用
+            const { data, error } = await supabase
+              .rpc('get_public_custom_holidays', { p_organization_id: orgData.id })
+            
+            if (!error && data && data.length > 0) {
+              setCustomHolidays(data[0].custom_holidays || [])
+            }
             setIsLoading(false)
             return
           }
