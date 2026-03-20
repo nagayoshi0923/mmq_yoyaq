@@ -31,6 +31,16 @@ import { devDb } from '@/components/ui/DevField'
 import { format, isPast } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 
+// 支払い方法を日本語に変換
+const formatPaymentMethod = (method: string | null | undefined): string => {
+  switch (method) {
+    case 'onsite': return '現地決済'
+    case 'online': return '事前決済'
+    case 'staff': return 'スタッフ'
+    default: return method || '現地決済'
+  }
+}
+
 // 異常検知ロジック
 const getReservationAlerts = (reservation: ReservationWithDetails) => {
   const alerts = []
@@ -318,7 +328,7 @@ export function ReservationManagement() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col text-xs">
-                      <span className="text-gray-900" {...devDb('reservations.payment_method')}>{reservation.payment_method || '現地決済'}</span>
+                      <span className="text-gray-900" {...devDb('reservations.payment_method')}>{formatPaymentMethod(reservation.payment_method)}</span>
                       <span className={reservation.payment_status === 'unpaid' ? 'text-red-600 font-bold' : 'text-gray-500'} {...devDb('reservations.total_amount')}>
                         ¥{(reservation.total_amount || 0).toLocaleString()}
                       </span>
@@ -485,7 +495,7 @@ export function ReservationManagement() {
                       </div>
                       <div className="py-4 flex flex-col sm:flex-row sm:items-center">
                         <div className="w-40 text-sm font-bold text-gray-700 mb-1 sm:mb-0">お支払い</div>
-                        <div className="flex-1 text-sm text-gray-900">{selectedReservation.payment_method || '現地決済'}</div>
+                        <div className="flex-1 text-sm text-gray-900">{formatPaymentMethod(selectedReservation.payment_method)}</div>
                       </div>
                       <div className="py-4 flex flex-col sm:flex-row sm:items-center">
                         <div className="w-40 text-sm font-bold text-gray-700 mb-1 sm:mb-0">予約者名</div>
