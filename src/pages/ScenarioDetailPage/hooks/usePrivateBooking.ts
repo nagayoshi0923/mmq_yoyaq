@@ -25,12 +25,13 @@ interface UsePrivateBookingProps {
   scenario?: any // シナリオデータ（available_storesを含む）
   organizationSlug?: string // 組織slug（マルチテナント対応）
   isCustomHoliday?: (date: string) => boolean // カスタム休日判定（GW、年末年始など）
+  isActive?: boolean // 貸切タブがアクティブかどうか（遅延ロード用）
 }
 
 /**
  * 貸切リクエスト関連のロジックを管理するフック
  */
-export function usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug, isCustomHoliday }: UsePrivateBookingProps) {
+export function usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug, isCustomHoliday, isActive = true }: UsePrivateBookingProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   // 店舗選択をアカウントごとに記憶
   const [savedStoreIds, setSavedStoreIds] = usePrivateBookingStorePreference()
@@ -106,9 +107,26 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     }
   }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario])
 
-  // 現在の月から3ヶ月先までの全店舗のイベントを取得（貸切申込可能日判定用）
+  // 表示中の月のイベントを取得（貸切申込可能日判定用）
+  // パフォーマンス最適化: 
+  // - 貸切タブがアクティブになった時のみ取得（遅延ロード）
+  // - 1ヶ月ずつ取得（月が変わったら再取得）
+  const [loadedMonthKey, setLoadedMonthKey] = useState<string | null>(null)
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false)
+  
   useEffect(() => {
-    const loadAllStoreEvents = async () => {
+    // 貸切タブが非アクティブの場合はスキップ
+    if (!isActive) return
+    
+    const year = currentMonth.getFullYear()
+    const month = currentMonth.getMonth() + 1
+    const monthKey = `${year}-${month}`
+    
+    // 既に読み込み済みの月はスキップ
+    if (loadedMonthKey === monthKey) return
+    
+    const loadMonthEvents = async () => {
+      setIsLoadingEvents(true)
       try {
         // organizationSlugからorganization_idを取得
         let orgId: string | undefined = undefined
@@ -121,44 +139,24 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           }
         }
         
-        const currentDate = new Date()
-        const monthPromises = []
+        // 表示中の月のみ取得（公開ページなので確定貸切予約のクエリはスキップ）
+        const events = await scheduleApi.getByMonth(year, month, orgId, false, true)
         
-        // 現在の月から6ヶ月先までの公演を並列取得
-        for (let i = 0; i < 6; i++) {
-          const targetDate = new Date(currentDate)
-          targetDate.setMonth(currentDate.getMonth() + i)
-          
-          const year = targetDate.getFullYear()
-          const month = targetDate.getMonth() + 1
-          
-          // organization_idでフィルタリング
-          // 公開ページなので確定貸切予約のクエリはスキップ（skipPrivateBookings: true）
-          monthPromises.push(scheduleApi.getByMonth(year, month, orgId, false, true))
-        }
+        // キャンセルされたイベントは除外
+        const validEvents = events.filter((event: any) => !event.is_cancelled)
         
-        const monthResults = await Promise.all(monthPromises)
-        const allEvents = monthResults.flat()
-        
-        // 貸切申込可能日判定用：スケジュール管理画面で表示される全てのイベントを含める
-        // カテゴリーフィルターに関係なく、全てのカテゴリのイベントを含める
-        // （ただし、キャンセルされたイベントは除外）
-        const validEvents = allEvents.filter((event: any) => {
-          if (event.is_cancelled) return false
-          return true
-        })
-        
-        logger.log('📅 allStoreEvents loaded:', validEvents.length, '件')
         setAllStoreEvents(validEvents)
+        setLoadedMonthKey(monthKey)
       } catch (error) {
-        logger.error('全店舗イベントの取得エラー:', error)
-        console.error('📅 allStoreEvents取得エラー:', error)
+        logger.error('イベントの取得エラー:', error)
         setAllStoreEvents([])
+      } finally {
+        setIsLoadingEvents(false)
       }
     }
     
-    loadAllStoreEvents()
-  }, [organizationSlug])
+    loadMonthEvents()
+  }, [organizationSlug, isActive, currentMonth, loadedMonthKey])
 
   // 営業時間設定を一括で取得してキャッシュ
   useEffect(() => {

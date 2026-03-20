@@ -99,7 +99,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     changeMonth,
     toggleTimeSlot,
     getTimeSlotsForDate
-  } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug, isCustomHoliday })
+  } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug, isCustomHoliday, isActive: activeTab === 'private' })
 
   // 選択されたイベントの日付に応じた参加費を計算
   const calculatedParticipationFee = useMemo(() => {
