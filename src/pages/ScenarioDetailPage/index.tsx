@@ -493,16 +493,19 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       variant="outline"
                       className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
                       onClick={() => {
-                        if (!user) {
-                          navigate('/login')
-                          return
-                        }
                         const params = new URLSearchParams()
                         const scenarioIdToUse = scenario.scenario_id
                         if (scenarioIdToUse) params.set('scenarioId', scenarioIdToUse)
                         if (organizationSlug) params.set('org', organizationSlug)
                         params.set('mode', 'no-dates')
-                        navigate(`/group/create?${params.toString()}`)
+                        const groupCreateUrl = `/group/create?${params.toString()}`
+                        
+                        if (!user) {
+                          sessionStorage.setItem('returnUrl', groupCreateUrl)
+                          navigate('/login')
+                          return
+                        }
+                        navigate(groupCreateUrl)
                       }}
                     >
                       <Users className="w-4 h-4" />

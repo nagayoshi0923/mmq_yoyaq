@@ -31,15 +31,20 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
   const navigate = useNavigate()
 
   const handleCreateGroupWithoutDates = () => {
-    if (!isLoggedIn) {
-      navigate('/login')
-      return
-    }
+    // グループ作成ページのURLを構築
     const params = new URLSearchParams()
     if (scenarioId) params.set('scenarioId', scenarioId)
     if (organizationSlug) params.set('org', organizationSlug)
     params.set('mode', 'no-dates')
-    navigate(`/group/create?${params.toString()}`)
+    const groupCreateUrl = `/group/create?${params.toString()}`
+    
+    if (!isLoggedIn) {
+      // ログイン後にグループ作成ページに戻るようreturnUrlを設定
+      sessionStorage.setItem('returnUrl', groupCreateUrl)
+      navigate('/login')
+      return
+    }
+    navigate(groupCreateUrl)
   }
 
   return (
