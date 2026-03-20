@@ -131,6 +131,15 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
   ;(storesResult.data || []).forEach((store: any) => {
     storeMap.set(store.id, store.short_name || store.name)
   })
+  
+  // 組織IDから組織名へのマップを作成（シナリオデータから）
+  const orgNameMap = new Map<string, string>()
+  ;(scenariosResult.data || []).forEach((s: any) => {
+    const org = s.organizations as { slug?: string; name?: string } | null
+    if (s.organization_id && org?.name) {
+      orgNameMap.set(s.organization_id, org.name)
+    }
+  })
 
   // 組織の公開ステータスで絞り込み
   const filteredScenarios = (scenariosResult.data || [])
@@ -158,10 +167,16 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
       }
     })
   
+  // 店舗データに組織名を補完（RPCから取得できない場合のフォールバック）
+  const storesWithOrgName = (storesResult.data || []).map((store: any) => ({
+    ...store,
+    organization_name: store.organization_name || orgNameMap.get(store.organization_id) || ''
+  }))
+  
   return {
     scenarios: filteredScenarios,
     categories: categoriesResult.data || [],
-    stores: storesResult.data || []
+    stores: storesWithOrgName
   }
 }
 
