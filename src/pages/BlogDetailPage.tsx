@@ -34,7 +34,9 @@ export function BlogDetailPage({ slug }: BlogDetailPageProps) {
 
       const { data, error } = await supabase
         .from('blog_posts')
-        .select('*')
+        .select(
+          'id, organization_id, title, slug, excerpt, content, cover_image_url, is_published, published_at, author_id, view_count, created_at, updated_at'
+        )
         .eq('slug', slug)
         .eq('is_published', true)
         .single()
