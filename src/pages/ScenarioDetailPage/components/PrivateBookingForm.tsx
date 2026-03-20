@@ -140,7 +140,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
       
       <div className="max-h-[280px] overflow-y-auto border p-2">
         {availableDates.map((date) => {
-          const dateObj = new Date(date)
+          const dateObj = new Date(date + 'T00:00:00')
           const month = dateObj.getMonth() + 1
           const day = dateObj.getDate()
           const weekdays = ['日', '月', '火', '水', '木', '金', '土']
@@ -150,10 +150,17 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const isHoliday = isJapaneseHoliday(date) || isCustomHoliday?.(date)
           const weekdayColor = isHoliday || dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
           
+          // 2週間以内の日付はdisable
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          const twoWeeksLater = new Date(today)
+          twoWeeksLater.setDate(today.getDate() + 14)
+          const isTooSoon = dateObj < twoWeeksLater
+          
           return (
             <div 
               key={date}
-              className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0"
+              className={`flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0 ${isTooSoon ? 'opacity-50' : ''}`}
             >
               <div className="flex-shrink-0 w-10 text-center">
                 <div className="text-sm font-medium">{month}/{day}</div>
@@ -163,7 +170,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
               <div className="flex gap-1.5 flex-1">
                 {timeSlots.map((slot) => {
                   const isBlocked = blockedSlots.includes(slot.label)
-                  const isTimeAvailable = !isBlocked && getAvailability(date, slot)
+                  // 2週間以内またはブロックされている場合は利用不可
+                  const isTimeAvailable = !isTooSoon && !isBlocked && getAvailability(date, slot)
                   const isSelected = isTimeSlotSelected(date, slot)
                   
                   return (

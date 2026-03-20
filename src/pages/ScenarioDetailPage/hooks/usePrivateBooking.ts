@@ -358,10 +358,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     // 店舗データがまだ読み込まれていない場合は、とりあえずtrueを返す（後で再評価される）
     if (stores.length === 0) return true
     
-    // allStoreEventsがまだ読み込まれていない場合
+    // allStoreEventsがまだ読み込まれていない場合は、trueを返す（後で再評価される）
     if (allStoreEvents.length === 0) {
-      // 店舗が選択されている場合は、falseを返す（安全側に倒す）
-      if (storeIds && storeIds.length > 0) return false
       return true
     }
     
@@ -498,7 +496,6 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(year, month, day)
       if (date >= today) {
-        // ローカルタイムゾーンで日付文字列を生成（UTCではなく）
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
         dates.push(dateStr)
       }

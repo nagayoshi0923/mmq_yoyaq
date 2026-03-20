@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useOrganization } from '@/hooks/useOrganization'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -51,6 +52,7 @@ const getReservationAlerts = (reservation: ReservationWithDetails) => {
 export function ReservationManagement() {
   const [selectedReservation, setSelectedReservation] = useState<ReservationWithDetails | null>(null)
   const navigate = useNavigate()
+  const { organization } = useOrganization()
 
   // ページング
   const PAGE_SIZE = 50
@@ -439,12 +441,12 @@ export function ReservationManagement() {
                             </span>
                           )}
                           【{selectedReservation.scenario_title}】
-                          {selectedReservation.scenario_id && (
+                          {(selectedReservation.scenario_master_id || selectedReservation.scenario_id) && organization?.slug && (
                             <Button
                               variant="outline"
                               size="sm"
                               className="ml-2 h-7 px-2 text-xs"
-                              onClick={() => navigate(`/scenario-detail/${selectedReservation.scenario_id}`)}
+                              onClick={() => navigate(`/${organization.slug}/scenario/${selectedReservation.scenario_master_id || selectedReservation.scenario_id}`)}
                             >
                               <ExternalLink className="h-3 w-3 mr-1" />
                               シナリオ詳細
