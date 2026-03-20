@@ -803,7 +803,8 @@ export function PrivateGroupInvite() {
     )
   }
 
-  const scenario = group.scenario_masters
+  const scenario = group.scenario_masters as { id?: string; title?: string; key_visual_url?: string; player_count_max?: number; characters?: unknown[] } | undefined
+  const targetCount = scenario?.player_count_max || group.target_participant_count || null
   const organizerMember = group.members?.find(m => m.is_organizer)
   const organizerName = organizerMember?.guest_name || 'メンバー'
   const memberCount = joinedMembers.length
@@ -2054,7 +2055,7 @@ export function PrivateGroupInvite() {
                     <Users className="w-4 h-4 text-green-600" />
                     参加人数
                   </span>
-                  <span>{joinedMembers.length}名（目標: {group.target_participant_count || '-'}名）</span>
+                  <span>{joinedMembers.length}名（目標: {targetCount || '-'}名）</span>
                 </div>
                 
                 {/* 連絡先電話番号 */}
@@ -2359,7 +2360,7 @@ export function PrivateGroupInvite() {
                 <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Users className="w-4 h-4" />
-                    <span>{memberCount}/{group.target_participant_count || '?'}名</span>
+                    <span>{memberCount}/{targetCount || '?'}名</span>
                   </div>
                 </div>
                 <Badge variant="outline" className="mt-2 bg-purple-100 text-purple-800 border-purple-200 text-xs">

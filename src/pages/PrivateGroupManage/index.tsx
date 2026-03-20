@@ -87,20 +87,22 @@ export function PrivateGroupManage() {
 
   const handleShareLine = () => {
     if (!group) return
-    const scenario = group.scenario_masters
-    const text = `貸切マーダーミステリーに参加しませんか？\n\n🎭 ${scenario?.title || 'シナリオ'}\n👥 ${group.target_participant_count}名で貸切\n\n以下のリンクから参加・日程回答をお願いします👇`
+    const scenario = group.scenario_masters as { title?: string; player_count_max?: number } | undefined
+    const playerCount = scenario?.player_count_max || group.target_participant_count || '?'
+    const text = `貸切マーダーミステリーに参加しませんか？\n\n🎭 ${scenario?.title || 'シナリオ'}\n👥 ${playerCount}名で貸切\n\n以下のリンクから参加・日程回答をお願いします👇`
     const url = getInviteUrl()
     window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
   }
 
   const handleShareProgress = async () => {
     if (!group) return
-    const scenario = group.scenario_masters
+    const scenario = group.scenario_masters as { title?: string; player_count_max?: number } | undefined
     const candidateDates = group.candidate_dates || []
+    const playerCount = scenario?.player_count_max || group.target_participant_count || '?'
 
     let progressText = `📊 貸切リクエスト進捗状況\n\n`
     progressText += `🎭 ${scenario?.title || 'シナリオ'}\n`
-    progressText += `👥 メンバー: ${joinedMembers.length}/${group.target_participant_count}名\n\n`
+    progressText += `👥 メンバー: ${joinedMembers.length}/${playerCount}名\n\n`
 
     if (candidateDates.length > 0) {
       progressText += `📅 候補日の回答状況:\n`
@@ -271,15 +273,16 @@ export function PrivateGroupManage() {
     )
   }
 
-  const scenario = group.scenario_masters
+  const scenario = group.scenario_masters as { title?: string; key_visual_url?: string; player_count_max?: number; characters?: unknown[] } | undefined
+  const targetCount = scenario?.player_count_max || group.target_participant_count || 1
   const allMembersResponded = joinedMembers.every(m => {
     const memberResponses = group.candidate_dates?.every(cd =>
       cd.responses?.some(r => r.member_id === m.id)
     )
     return memberResponses
   })
-  const hasViableDate = responseSummary.some(r => r.isViable && r.okCount >= (group.target_participant_count || 1))
-  const targetReached = joinedMembers.length >= (group.target_participant_count || 1)
+  const hasViableDate = responseSummary.some(r => r.isViable && r.okCount >= targetCount)
+  const targetReached = joinedMembers.length >= targetCount
 
   // 現在のユーザーのメンバーID
   const currentMemberId = group.members?.find(m => m.user_id === user?.id)?.id || null
@@ -524,7 +527,7 @@ export function PrivateGroupManage() {
                       <div className="flex items-center gap-1">
                         <Users className="w-4 h-4" />
                         <span className={targetReached ? 'text-green-600 font-medium' : ''}>
-                          {joinedMembers.length}/{group.target_participant_count || '?'}名
+                          {joinedMembers.length}/{targetCount}名
                         </span>
                       </div>
                     </div>

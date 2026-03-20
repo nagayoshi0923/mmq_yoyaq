@@ -259,7 +259,7 @@ export function usePrivateGroup() {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url),
+          scenario_masters:scenario_id (id, title, key_visual_url, player_count_max),
           members:private_group_members (*),
           candidate_dates:private_group_candidate_dates (
             *,
@@ -313,7 +313,7 @@ export function usePrivateGroup() {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url),
+          scenario_masters:scenario_id (id, title, key_visual_url, player_count_max),
           members:private_group_members (*),
           candidate_dates:private_group_candidate_dates (
             *,
@@ -370,7 +370,7 @@ export function usePrivateGroup() {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url),
+          scenario_masters:scenario_id (id, title, key_visual_url, player_count_max),
           members:private_group_members (*)
         `)
         .eq('organizer_id', user.id)
@@ -633,7 +633,7 @@ export function usePrivateGroupData(groupId: string | null) {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url),
+          scenario_masters:scenario_id (id, title, key_visual_url, player_count_max),
           members:private_group_members (
             *,
             date_responses:private_group_date_responses (*)
@@ -741,7 +741,7 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null) {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url),
+          scenario_masters:scenario_id (id, title, key_visual_url, player_count_max),
           members:private_group_members (
             *,
             date_responses:private_group_date_responses (*)

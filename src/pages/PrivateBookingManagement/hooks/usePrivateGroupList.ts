@@ -16,6 +16,7 @@ export interface PrivateGroupListItem {
     id: string
     title: string
     key_visual_url?: string
+    player_count_max?: number
   } | null
   members: Array<{
     id: string
@@ -77,7 +78,8 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           scenario_masters:scenario_id (
             id,
             title,
-            key_visual_url
+            key_visual_url,
+            player_count_max
           ),
           members:private_group_members (
             id,
