@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
+import { useFavicon } from '@/hooks/useFavicon'
 
 export { getOrganizationSlugFromPath }
 
@@ -265,6 +266,9 @@ function AppRoutes() {
   const { user, loading, isInitialized } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+
+  // 組織のファビコンを動的に設定
+  useFavicon()
 
   const [isProfileCheckRunning, setIsProfileCheckRunning] = React.useState(false)
 

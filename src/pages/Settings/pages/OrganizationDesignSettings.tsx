@@ -17,15 +17,19 @@ export function OrganizationDesignSettings() {
   const { organization, isLoading, refetch: refetchOrg } = useOrganization()
   const [themeColor, setThemeColor] = useState('#E60012')
   const [headerImageUrl, setHeaderImageUrl] = useState('')
+  const [faviconUrl, setFaviconUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [uploadingFavicon, setUploadingFavicon] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const faviconInputRef = useRef<HTMLInputElement>(null)
 
   // 組織のデザイン設定を反映
   useEffect(() => {
     if (organization) {
       setThemeColor(organization.theme_color || '#E60012')
       setHeaderImageUrl(organization.header_image_url || '')
+      setFaviconUrl(organization.favicon_url || '')
     }
   }, [organization])
 
@@ -66,6 +70,43 @@ export function OrganizationDesignSettings() {
     setHeaderImageUrl('')
   }
 
+  // ファビコンアップロード
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // バリデーション（1MB制限、小さい画像なので）
+    const validation = validateImageFile(file, 1)
+    if (!validation.valid) {
+      showToast.error(validation.error || 'ファイルが無効です')
+      return
+    }
+
+    setUploadingFavicon(true)
+    try {
+      const result = await uploadImage(file, 'key-visuals', 'favicons', true)
+      if (result) {
+        setFaviconUrl(result.url)
+        showToast.success('ファビコンをアップロードしました')
+      } else {
+        showToast.error('ファビコンのアップロードに失敗しました')
+      }
+    } catch (error) {
+      logger.error('ファビコンアップロードエラー:', error)
+      showToast.error('ファビコンのアップロードに失敗しました')
+    } finally {
+      setUploadingFavicon(false)
+      if (faviconInputRef.current) {
+        faviconInputRef.current.value = ''
+      }
+    }
+  }
+
+  // ファビコン削除
+  const handleRemoveFavicon = () => {
+    setFaviconUrl('')
+  }
+
   // 保存
   const handleSave = async () => {
     if (!organization) return
@@ -74,7 +115,8 @@ export function OrganizationDesignSettings() {
     try {
       const result = await updateOrganization(organization.id, {
         theme_color: themeColor,
-        header_image_url: headerImageUrl || null
+        header_image_url: headerImageUrl || null,
+        favicon_url: faviconUrl || null
       })
       if (result) {
         showToast.success('デザイン設定を保存しました')
@@ -237,9 +279,77 @@ export function OrganizationDesignSettings() {
         </CardContent>
       </Card>
 
+      {/* ファビコン設定 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Image className="h-5 w-5" />
+            ファビコン
+          </CardTitle>
+          <CardDescription>
+            ブラウザのタブに表示される小さなアイコンです（推奨: 32x32px または 64x64px）
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <input
+            ref={faviconInputRef}
+            type="file"
+            accept="image/png,image/x-icon,image/svg+xml"
+            onChange={handleFaviconUpload}
+            className="hidden"
+            id="favicon-upload"
+          />
+          
+          <div className="flex items-center gap-4">
+            {faviconUrl ? (
+              <div className="relative">
+                <div className="w-16 h-16 rounded border bg-gray-50 flex items-center justify-center overflow-hidden">
+                  <img 
+                    src={faviconUrl} 
+                    alt="ファビコン"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveFavicon}
+                  className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 rounded-full text-white transition-colors"
+                  title="削除"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="w-16 h-16 rounded border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                <span className="text-xs text-gray-400">未設定</span>
+              </div>
+            )}
+            
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => faviconInputRef.current?.click()}
+              disabled={uploadingFavicon}
+            >
+              {uploadingFavicon ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              {faviconUrl ? 'ファビコンを変更' : 'ファビコンをアップロード'}
+            </Button>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            PNG, ICO, SVG形式（1MB以下）。正方形の画像を推奨します。
+          </p>
+        </CardContent>
+      </Card>
+
       {/* 保存ボタン */}
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving || uploading}>
+        <Button onClick={handleSave} disabled={saving || uploading || uploadingFavicon}>
           {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           <Save className="w-4 h-4 mr-2" />
           保存

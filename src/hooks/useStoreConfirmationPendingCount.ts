@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
+import { useAuth } from '@/contexts/AuthContext'
 
 /**
  * 貸切「店舗承認待ち」件数
@@ -11,8 +12,16 @@ import { logger } from '@/utils/logger'
 export function useStoreConfirmationPendingCount() {
   const [count, setCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
 
   useEffect(() => {
+    // 未ログインの場合は実行しない
+    if (!user) {
+      setCount(0)
+      setLoading(false)
+      return
+    }
+
     const fetchCount = async () => {
       try {
         const orgId = await getCurrentOrganizationId()
@@ -94,7 +103,7 @@ export function useStoreConfirmationPendingCount() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [user])
 
   return { count, loading }
 }
