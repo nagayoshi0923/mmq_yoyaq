@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isVerboseDebug } from '@/utils/logger'
 
 // 環境変数のバリデーション
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -22,21 +23,22 @@ if (!supabaseUrl || !supabaseKey) {
 export const SUPABASE_URL = supabaseUrl.replace(/\/+$/, '')
 export const SUPABASE_ANON_KEY = supabaseKey
 
-// デバッグしやすいように「キー種別」だけ出す（値は出さない）
-// ※本番でログが嫌なら VITE_DEBUG=false にしても、これ自体は情報漏洩しない範囲（prefix+長さのみ）
+// キー種別ログは VITE_DEBUG=true の開発時のみ（起動のコンソールノイズ削減）
 try {
-  const key = String(supabaseKey || '')
-  const kind = key.startsWith('sb_publishable_')
-    ? 'publishable'
-    : key.startsWith('eyJ')
-      ? 'legacy_jwt'
-      : 'unknown'
-  const prefix = key ? `${key.slice(0, 12)}…` : 'null'
-  console.info('[supabase] api key kind:', { kind, prefix, len: key.length })
-  if (kind === 'legacy_jwt') {
-    console.warn(
-      '[supabase] Legacy JWT key is configured. If Supabase Legacy API keys are disabled, login/REST will fail. Use sb_publishable_...'
-    )
+  if (isVerboseDebug) {
+    const key = String(supabaseKey || '')
+    const kind = key.startsWith('sb_publishable_')
+      ? 'publishable'
+      : key.startsWith('eyJ')
+        ? 'legacy_jwt'
+        : 'unknown'
+    const prefix = key ? `${key.slice(0, 12)}…` : 'null'
+    console.info('[supabase] api key kind:', { kind, prefix, len: key.length })
+    if (kind === 'legacy_jwt') {
+      console.warn(
+        '[supabase] Legacy JWT key is configured. If Supabase Legacy API keys are disabled, login/REST will fail. Use sb_publishable_...'
+      )
+    }
   }
 } catch {
   // noop

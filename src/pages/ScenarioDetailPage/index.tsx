@@ -489,21 +489,16 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       variant="outline"
                       className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
                       onClick={() => {
-                        console.log('貸切リクエストボタンクリック', { user, scenario, organizationSlug })
                         if (!user) {
-                          console.log('未ログイン、/loginへ遷移')
                           navigate('/login')
                           return
                         }
                         const params = new URLSearchParams()
                         const scenarioIdToUse = scenario.scenario_id
-                        console.log('scenarioId:', scenarioIdToUse)
                         if (scenarioIdToUse) params.set('scenarioId', scenarioIdToUse)
                         if (organizationSlug) params.set('org', organizationSlug)
                         params.set('mode', 'no-dates')
-                        const url = `/group/create?${params.toString()}`
-                        console.log('遷移先:', url)
-                        navigate(url)
+                        navigate(`/group/create?${params.toString()}`)
                       }}
                     >
                       <Users className="w-4 h-4" />

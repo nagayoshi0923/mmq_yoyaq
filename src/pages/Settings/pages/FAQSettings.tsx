@@ -24,11 +24,6 @@ export function FAQSettings() {
   // データロード完了フラグ
   const [dataLoaded, setDataLoaded] = useState(false)
 
-  // デバッグログ
-  useEffect(() => {
-    console.log('[FAQSettings] organization:', organization?.name, 'is_license_manager:', organization?.is_license_manager, 'isLicenseManager:', isLicenseManager, 'faq_items:', organization?.faq_items)
-  }, [organization, isLicenseManager])
-
   useEffect(() => {
     if (organization) {
       // 組織固有FAQ（nullでも空配列として扱う）

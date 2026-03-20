@@ -252,7 +252,6 @@ export function useNotifications() {
             const newRecord = payload.new as { user_id?: string; customer_id?: string }
             // このユーザーに関連する通知のみ処理
             if (newRecord.user_id === user.id || (customer && newRecord.customer_id === customer.id)) {
-              logger.log('🔔 新しい通知を受信:', payload)
               queryClient.invalidateQueries({ queryKey })
             }
           }
@@ -271,11 +270,7 @@ export function useNotifications() {
             }
           }
         )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            logger.log('🔔 通知リアルタイムサブスクリプション開始')
-          }
-        })
+        .subscribe(() => {})
     }
 
     setupSubscription()

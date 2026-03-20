@@ -224,16 +224,14 @@ export default function MyPage() {
       try {
         // 公開中のシナリオを取得（organization_scenarios_with_masterビューから）
         // org_status='available' のシナリオのみ取得し、重複を排除
-        console.log('🎬 [MyPage] Fetching scenarios with org_status=available...')
         const { data: scenarios, error: scenarioError } = await supabase
           .from('organization_scenarios_with_master')
           .select('scenario_master_id, title, org_status')
           .eq('org_status', 'available')
           .order('title')
-        
-        console.log('🎬 [MyPage] Scenarios raw result:', { count: scenarios?.length, error: scenarioError, first5: scenarios?.slice(0, 5) })
+
         if (scenarioError) throw scenarioError
-        
+
         // 重複を排除（同じシナリオが複数組織で公開されている場合）
         const uniqueScenarios = scenarios?.reduce((acc, s) => {
           if (!acc.find(item => item.id === s.scenario_master_id)) {
@@ -241,8 +239,7 @@ export default function MyPage() {
           }
           return acc
         }, [] as ScenarioOption[]) || []
-        
-        console.log('🎬 [MyPage] Unique scenarios:', uniqueScenarios.length, uniqueScenarios.slice(0, 10))
+
         setScenarioOptions(uniqueScenarios)
 
         // 店舗を取得（RLSで許可された店舗）
@@ -558,10 +555,9 @@ export default function MyPage() {
         })
         
         // 手動登録履歴を追加（予約の有無に関わらず常に追加）
-        console.log('🎬 [MyPage] Manual history result:', { data: manualHistoryResult.data, error: manualHistoryResult.error })
         const manualHistory = manualHistoryResult.data
         if (manualHistoryResult.error) {
-          console.error('🎬 [MyPage] Manual history fetch error:', manualHistoryResult.error)
+          logger.error('手動プレイ履歴の取得エラー:', manualHistoryResult.error)
         }
         if (manualHistory && manualHistory.length > 0) {
           manualHistory.forEach((item: any) => {
@@ -664,21 +660,18 @@ export default function MyPage() {
         played_at: newPlayedAt || null,
         venue: storeName,
       }
-      console.log('🎬 [MyPage] Adding manual history:', insertData)
       const { data: insertedData, error } = await supabase
         .from('manual_play_history')
         .insert(insertData)
         .select()
 
-      console.log('🎬 [MyPage] Insert result:', { insertedData, error })
-
       if (error) {
-        console.error('🎬 [MyPage] Insert error details:', error)
+        logger.error('手動プレイ履歴の追加エラー:', error)
         throw error
       }
 
       if (!insertedData || insertedData.length === 0) {
-        console.error('🎬 [MyPage] No data inserted (RLS policy may have blocked)')
+        logger.error('手動プレイ履歴: insert 結果が空（RLS の可能性）')
         throw new Error('データの追加に失敗しました（権限エラーの可能性）')
       }
 
@@ -1695,16 +1688,12 @@ export default function MyPage() {
                           <div 
                             className="aspect-[4/3] relative bg-gray-100 cursor-pointer"
                             onClick={() => {
-                              console.log('🎬 [MyPage] Scenario card clicked:', { scenario_id: scenario.scenario_id, scenario_slug: scenario.scenario_slug, organization_slug: scenario.organization_slug, scenario })
                               if (scenario.scenario_id) {
                                 const scenarioSlug = scenario.scenario_slug || scenario.scenario_id
                                 const url = scenario.organization_slug 
                                   ? `/${scenario.organization_slug}/scenario/${scenarioSlug}`
                                   : `/scenario/${scenarioSlug}`
-                                console.log('🎬 [MyPage] Navigating to:', url)
                                 navigate(url)
-                              } else {
-                                console.log('🎬 [MyPage] No scenario_id, not navigating')
                               }
                             }}
                           >

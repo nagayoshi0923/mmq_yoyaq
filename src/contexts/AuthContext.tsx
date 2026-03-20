@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase, type AuthUser } from '@/lib/supabase'
-import { logger } from '@/utils/logger'
+import { authTrace, logger } from '@/utils/logger'
 import type { User } from '@supabase/supabase-js'
 import { determineUserRole } from '@/utils/authUtils'
 import { maskEmail } from '@/utils/security'
@@ -165,12 +165,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const now = Date.now()
     // 30秒以内に既にリフレッシュした場合はスキップ
     if (now - lastRefreshRef.current < 30000) {
-      logger.log('⏭️ セッションリフレッシュ: 30秒以内に既に実行済み、スキップ')
+      authTrace('⏭️ セッションリフレッシュ: 30秒以内に既に実行済み、スキップ')
       return
     }
     
     lastRefreshRef.current = now
-    logger.log('🔄 セッションリフレッシュ開始')
+    authTrace('🔄 セッションリフレッシュ開始')
     
     try {
       // まず現在のセッション状態を確認（不要なrefreshを避ける）
@@ -182,7 +182,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       const session = sessionData.session
       if (!session) {
-        logger.log('⏭️ セッションなし: リフレッシュをスキップ')
+        authTrace('⏭️ セッションなし: リフレッシュをスキップ')
         return
       }
       
@@ -190,7 +190,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const expiresAt = session.expires_at ? session.expires_at * 1000 : 0
       const refreshThresholdMs = 2 * 60 * 1000 // 2分前のみリフレッシュ
       if (expiresAt && expiresAt - now > refreshThresholdMs) {
-        logger.log('⏭️ セッション有効: リフレッシュ不要')
+        authTrace('⏭️ セッション有効: リフレッシュ不要')
         return
       }
       
@@ -206,14 +206,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setUser(null)
             userRef.current = null
           } else {
-            logger.log('⚠️ リフレッシュ失敗だがセッションは有効: 状態維持')
+            authTrace('⚠️ リフレッシュ失敗だがセッションは有効: 状態維持')
           }
         }
         return
       }
       
       if (data.session) {
-        logger.log('✅ セッションリフレッシュ成功')
+        authTrace('✅ セッションリフレッシュ成功')
       }
     } catch (err) {
       logger.error('❌ セッションリフレッシュ例外:', err)
@@ -222,13 +222,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const authStartTime = performance.now()
-    logger.log('🚀 AuthContext 初期化開始:', new Date().toISOString())
+    authTrace('🚀 AuthContext 初期化開始:', new Date().toISOString())
     
     // パフォーマンス最適化: 認証処理を非ブロッキング化
     // 2秒後にloadingをfalseにして、ページを表示開始（ロール取得に時間がかかる場合の保険）
     const loadingTimeout = setTimeout(() => {
       if (loading) {
-        logger.log('⏱️ 認証処理タイムアウト（2秒）、ページ表示を開始')
+        authTrace('⏱️ 認証処理タイムアウト（2秒）、ページ表示を開始')
         setLoading(false)
       }
     }, 2000)
@@ -237,7 +237,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     getInitialSession().then(() => {
       clearTimeout(loadingTimeout)
       const authEndTime = performance.now()
-      logger.log(`⏱️ AuthContext 初期認証完了: ${((authEndTime - authStartTime) / 1000).toFixed(2)}秒`)
+      authTrace(`⏱️ AuthContext 初期認証完了: ${((authEndTime - authStartTime) / 1000).toFixed(2)}秒`)
       setLoading(false)
       setIsInitialized(true)  // 認証完了をマーク
     }).catch(() => {
@@ -250,23 +250,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         const eventStartTime = performance.now()
-        logger.log('🔄 認証状態変更:', event, session?.user?.email ? maskEmail(session.user.email) : 'N/A', `(経過時間: ${((eventStartTime - authStartTime) / 1000).toFixed(2)}秒)`)
+        authTrace('🔄 認証状態変更:', event, session?.user?.email ? maskEmail(session.user.email) : 'N/A', `(経過時間: ${((eventStartTime - authStartTime) / 1000).toFixed(2)}秒)`)
         
         // 処理中の場合はスキップ（重複実行防止）
         if (isProcessingRef.current) {
-          logger.log('⏭️ 認証処理中のためスキップ:', event)
+          authTrace('⏭️ 認証処理中のためスキップ:', event)
           return
         }
         
         // パスワードリセット中はロール更新をスキップ（一時セッションでロールが変わるのを防ぐ）
         if (sessionStorage.getItem(PASSWORD_RESET_FLAG_KEY)) {
-          logger.log('⏭️ パスワードリセット中のためスキップ:', event)
+          authTrace('⏭️ パスワードリセット中のためスキップ:', event)
           return
         }
         
         // 既に同じユーザーが設定されている場合はスキップ（重複実行防止）
         if (session?.user && userRef.current && userRef.current.id === session.user.id) {
-          logger.log('⏭️ 既に同じユーザーが設定されているためスキップ:', event)
+          authTrace('⏭️ 既に同じユーザーが設定されているためスキップ:', event)
           setLoading(false)
           setIsInitialized(true)  // 認証完了をマーク
           return
@@ -275,7 +275,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // TOKEN_REFRESHEDイベントの場合は、既存のユーザー情報を保持（ロールを維持）
         if (event === 'TOKEN_REFRESHED' && session?.user && userRef.current) {
           // トークンリフレッシュ時は、既存のユーザー情報があればロールを維持
-          logger.log('🔄 トークンリフレッシュ検出、既存ロールを維持:', userRef.current.role)
+          authTrace('🔄 トークンリフレッシュ検出、既存ロールを維持:', userRef.current.role)
           setLoading(false)
           setIsInitialized(true)  // 認証完了をマーク
           return
@@ -283,7 +283,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         // INITIAL_SESSIONイベントの場合は、getInitialSessionで処理済みの可能性があるためスキップ
         if (event === 'INITIAL_SESSION' && userRef.current) {
-          logger.log('⏭️ 初期セッションは既に処理済みのためスキップ')
+          authTrace('⏭️ 初期セッションは既に処理済みのためスキップ')
           setLoading(false)
           setIsInitialized(true)  // 認証完了をマーク
           return
@@ -296,7 +296,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // OAuthログインモードで未登録ユーザーの場合はログアウトしてエラー表示
             if (event === 'SIGNED_IN') {
               const oauthMode = sessionStorage.getItem('oauth_mode')
-              logger.log('🔑 OAuth mode:', oauthMode)
+              authTrace('🔑 OAuth mode:', oauthMode)
               
               if (oauthMode === 'login') {
                 // ログインモードの場合、顧客レコードの存在をチェック
@@ -308,7 +308,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 
                 if (!customer) {
                   // 未登録ユーザー → ログアウトしてエラー表示
-                  logger.log('⚠️ ログインモードで未登録ユーザーを検出、ログアウト')
+                  authTrace('⚠️ ログインモードで未登録ユーザーを検出、ログアウト')
                   sessionStorage.removeItem('oauth_mode')
                   sessionStorage.setItem('auth_error', 'このアカウントは登録されていません。新規登録からお進みください。')
                   await supabase.auth.signOut()
@@ -331,7 +331,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               if (rawReturnUrl) {
                 sessionStorage.removeItem('returnUrl')
                 const safeReturnUrl = validateRedirectUrl(rawReturnUrl)
-                logger.log('🔄 OAuth後のリダイレクト:', safeReturnUrl)
+                authTrace('🔄 OAuth後のリダイレクト:', safeReturnUrl)
                 // 現在のパスと異なる場合のみリダイレクト
                 if (window.location.pathname !== safeReturnUrl && !safeReturnUrl.startsWith(window.location.pathname)) {
                   window.location.href = safeReturnUrl
@@ -356,7 +356,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // タブがアクティブになったときにセッションをリフレッシュ（バックグラウンドでの期限切れ対策）
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && userRef.current) {
-        logger.log('👁️ タブがアクティブになりました、セッションを確認')
+        authTrace('👁️ タブがアクティブになりました、セッションを確認')
         // 非同期でリフレッシュ（UIをブロックしない）
         setTimeout(() => {
           refreshSession()
@@ -369,7 +369,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // フォーカス時にもセッションを確認（visibilitychangeが発火しない場合の対策）
     const handleFocus = () => {
       if (userRef.current) {
-        logger.log('🎯 ウィンドウにフォーカス、セッションを確認')
+        authTrace('🎯 ウィンドウにフォーカス、セッションを確認')
         setTimeout(() => {
           refreshSession()
         }, 100)
@@ -383,12 +383,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       broadcastChannelRef.current = new BroadcastChannel(AUTH_CHANNEL_NAME)
       broadcastChannelRef.current.onmessage = (event) => {
         const { type, payload } = event.data
-        logger.log('📡 他タブからの認証イベント受信:', type)
+        authTrace('📡 他タブからの認証イベント受信:', type)
         
         switch (type) {
           case 'SIGNED_OUT':
             // 他のタブでログアウトした場合、このタブもログアウト状態にする
-            logger.log('🚪 他タブでログアウト検出、このタブもログアウト')
+            authTrace('🚪 他タブでログアウト検出、このタブもログアウト')
             setUser(null)
             userRef.current = null
             setStaffCache(new Map())  // キャッシュもクリア
@@ -399,17 +399,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
             break
           case 'SIGNED_IN':
             // 他のタブでログインした場合、セッションをリフレッシュ
-            logger.log('🔑 他タブでログイン検出、セッションをリフレッシュ')
+            authTrace('🔑 他タブでログイン検出、セッションをリフレッシュ')
             refreshSession()
             break
           case 'ROLE_CHANGED':
             // ロール変更があった場合、セッションをリフレッシュ
-            logger.log('👤 他タブでロール変更検出:', payload?.role)
+            authTrace('👤 他タブでロール変更検出:', payload?.role)
             refreshSession()
             break
         }
       }
-      logger.log('📡 BroadcastChannel初期化完了:', AUTH_CHANNEL_NAME)
+      authTrace('📡 BroadcastChannel初期化完了:', AUTH_CHANNEL_NAME)
     }
 
     return () => {
@@ -427,13 +427,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   async function getInitialSession() {
     const startTime = performance.now()
-    logger.log('🚀 初期セッション取得開始')
+    authTrace('🚀 初期セッション取得開始')
     try {
       const sessionStartTime = performance.now()
       const { data: { session: initialSession }, error } = await supabase.auth.getSession()
       let session = initialSession
       const sessionEndTime = performance.now()
-      logger.log(`⏱️ getSession 完了: ${((sessionEndTime - sessionStartTime) / 1000).toFixed(2)}秒`)
+      authTrace(`⏱️ getSession 完了: ${((sessionEndTime - sessionStartTime) / 1000).toFixed(2)}秒`)
       
       if (error) {
         logger.error('❌ セッション取得エラー:', error)
@@ -447,7 +447,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const refreshThresholdMs = 60 * 60 * 1000 // 1時間
         
         if (expiresAt && expiresAt - now < refreshThresholdMs) {
-          logger.log('🔄 セッション有効期限が近いため、リフレッシュを試行')
+          authTrace('🔄 セッション有効期限が近いため、リフレッシュを試行')
           try {
             const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
             if (refreshError) {
@@ -455,36 +455,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
               // リフレッシュ失敗でも、既存セッションがあれば続行
             } else if (refreshData.session) {
               session = refreshData.session
-              logger.log('✅ セッションリフレッシュ成功')
+              authTrace('✅ セッションリフレッシュ成功')
             }
           } catch (refreshErr) {
             logger.warn('⚠️ リフレッシュ例外:', refreshErr)
           }
         }
         
-        logger.log('👤 セッションユーザー発見:', maskEmail(session.user.email))
+        authTrace('👤 セッションユーザー発見:', maskEmail(session.user.email))
         await setUserFromSession(session.user)
       } else {
         // セッションがない場合、Refresh Tokenからの復元を試みる
-        logger.log('🔄 セッションなし、リフレッシュで復元を試行')
+        authTrace('🔄 セッションなし、リフレッシュで復元を試行')
         try {
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
           if (!refreshError && refreshData.session?.user) {
-            logger.log('✅ リフレッシュでセッション復元成功:', maskEmail(refreshData.session.user.email))
+            authTrace('✅ リフレッシュでセッション復元成功:', maskEmail(refreshData.session.user.email))
             await setUserFromSession(refreshData.session.user)
             return
           }
         } catch (refreshErr) {
-          logger.log('⏭️ リフレッシュ復元失敗（未ログイン状態）')
+          authTrace('⏭️ リフレッシュ復元失敗（未ログイン状態）')
         }
-        logger.log('👤 セッションユーザーなし')
+        authTrace('👤 セッションユーザーなし')
       }
     } catch (error) {
       logger.error('❌ 初期セッション取得エラー:', error)
     } finally {
       const endTime = performance.now()
-      logger.log('✅ 初期セッション処理完了')
-      logger.log(`⏱️ getInitialSession 総時間: ${((endTime - startTime) / 1000).toFixed(2)}秒`)
+      authTrace('✅ 初期セッション処理完了')
+      authTrace(`⏱️ getInitialSession 総時間: ${((endTime - startTime) / 1000).toFixed(2)}秒`)
       setLoading(false)
     }
   }
@@ -493,14 +493,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // 既に処理中の場合はスキップ（重複呼び出し防止）
     // ただし、userがまだセットされていない場合は処理を続行する（初期化時の競合対策）
     if (isProcessingRef.current && userRef.current) {
-      logger.log('⏭️ 処理中のためスキップ:', maskEmail(supabaseUser.email))
+      authTrace('⏭️ 処理中のためスキップ:', maskEmail(supabaseUser.email))
       return
     }
     
     const startTime = performance.now()
     isProcessingRef.current = true
-    logger.log('🔐 ユーザーセッション設定開始:', maskEmail(supabaseUser.email))
-    logger.log(`⏱️ setUserFromSession 開始: ${maskEmail(supabaseUser.email)} (${new Date().toISOString()})`)
+    authTrace('🔐 ユーザーセッション設定開始:', maskEmail(supabaseUser.email))
+    authTrace(`⏱️ setUserFromSession 開始: ${maskEmail(supabaseUser.email)} (${new Date().toISOString()})`)
     
     // 既存のユーザー情報を保持（エラー時のフォールバック用）
     // useStateのクロージャー問題を回避するため、refから取得
@@ -510,7 +510,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // データベースからユーザーのロールを取得
       let role: 'admin' | 'staff' | 'customer' | 'license_admin' = 'customer'
       
-      logger.log('📊 usersテーブルからロール取得開始')
+      authTrace('📊 usersテーブルからロール取得開始')
       try {
         // パフォーマンス最適化: リトライなし、タイムアウト5秒で早期フォールバック
         // RLS有効化後はクエリが少し遅くなるため、タイムアウトを延長
@@ -547,7 +547,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               
           if (userData?.role) {
           role = userData.role as 'admin' | 'staff' | 'customer' | 'license_admin'
-          logger.log('✅ データベースからロール取得:', role)
+          authTrace('✅ データベースからロール取得:', role)
           } else if (roleError) {
             throw roleError
           }
@@ -557,7 +557,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         // レコードが存在しない場合のみ、作成する（既存のロールを上書きしない）
         if (error?.code === 'PGRST116') {
-          logger.log('📝 usersテーブルにレコードが存在しないため、作成します')
+          authTrace('📝 usersテーブルにレコードが存在しないため、作成します')
           
           // 🔴 重要: スタッフテーブルにメールアドレスが存在するか確認
           // 招待済みスタッフが自己登録した場合も、スタッフとして紐付ける
@@ -573,7 +573,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             
             if (staffByUserId) {
               newRole = 'staff'
-              logger.log('✅ スタッフテーブルにuser_id紐付けあり: staffロールを設定')
+              authTrace('✅ スタッフテーブルにuser_id紐付けあり: staffロールを設定')
             } else {
               // user_idで見つからない場合、メールアドレスで検索
               // （招待済みだが自己登録したケース、または招待期限切れ後の自己登録）
@@ -584,7 +584,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 .maybeSingle()
               
               if (staffByEmail) {
-                logger.log('✅ スタッフテーブルにメールアドレス一致あり:', staffByEmail.name)
+                authTrace('✅ スタッフテーブルにメールアドレス一致あり:', staffByEmail.name)
                 
                 // staffテーブルのuser_idを確認
                 if (!staffByEmail.user_id) {
@@ -598,12 +598,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
                   if (updateError) {
                     logger.warn('⚠️ スタッフテーブルのuser_id更新エラー:', updateError)
                   } else {
-                    logger.log('✅ スタッフテーブルにuser_idを紐付けました:', supabaseUser.id)
+                    authTrace('✅ スタッフテーブルにuser_idを紐付けました:', supabaseUser.id)
                   }
                 } else if (staffByEmail.user_id === supabaseUser.id) {
                   // 既に同じユーザーに紐付いている場合はstaffロールを維持
                   newRole = 'staff'
-                  logger.log('✅ 既に同じユーザーに紐付け済み')
+                  authTrace('✅ 既に同じユーザーに紐付け済み')
                 } else {
                   // 既に別のユーザーに紐付いている場合は上書きしない（顧客として扱う）
                   logger.warn('⚠️ スタッフレコードは既に別のユーザーに紐付いています。上書きしません。user_id:', staffByEmail.user_id)
@@ -628,7 +628,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (insertError) {
             // 重複エラーの場合は既存レコードがあるので、再取得を試みる
             if (insertError.code === '23505') {
-              logger.log('📋 既存レコードあり、再取得を試みます')
+              authTrace('📋 既存レコードあり、再取得を試みます')
               const { data: retryData } = await supabase
                 .from('users')
                 .select('role')
@@ -637,7 +637,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           
               if (retryData?.role) {
                 role = retryData.role as 'admin' | 'staff' | 'customer' | 'license_admin'
-                logger.log('✅ 既存ロールを取得:', role)
+                authTrace('✅ 既存ロールを取得:', role)
               } else {
                 role = newRole
               }
@@ -647,13 +647,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
           } else {
             role = newRole
-            logger.log('✅ usersテーブルにレコードを作成しました:', role)
+            authTrace('✅ usersテーブルにレコードを作成しました:', role)
           }
         } else if (error?.message?.includes('ロール取得タイムアウト')) {
           // タイムアウトの場合: 既存のロールを保持、なければスタッフチェック
           if (existingUser && existingUser.id === supabaseUser.id) {
             role = existingUser.role
-            logger.log('🔄 タイムアウト: 既存のロールを保持:', role)
+            authTrace('🔄 タイムアウト: 既存のロールを保持:', role)
           } else {
             // スタッフテーブルをチェック（user_idとemailの両方で検索）
             try {
@@ -665,7 +665,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               
               if (staffByUserId) {
                 role = 'staff'
-                logger.log('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
+                authTrace('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
               } else {
                 // メールアドレスでも検索
                 const { data: staffByEmail } = await supabase
@@ -676,22 +676,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 
                 if (staffByEmail) {
                   role = 'staff'
-                  logger.log('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
+                  authTrace('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
                 } else {
                   role = determineUserRole(supabaseUser.email)
-                  logger.log('🔄 タイムアウトフォールバック:', role)
+                  authTrace('🔄 タイムアウトフォールバック:', role)
                 }
               }
             } catch {
               role = determineUserRole(supabaseUser.email)
-              logger.log('🔄 タイムアウトフォールバック:', role)
+              authTrace('🔄 タイムアウトフォールバック:', role)
             }
           }
         } else {
           // その他のエラー: 既存のユーザー情報があればそのロールを保持
           if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
             role = existingUser.role
-            logger.log('🔄 例外発生、既存のロールを保持:', role)
+            authTrace('🔄 例外発生、既存のロールを保持:', role)
           } else {
             // スタッフテーブルをチェック（user_idとemailの両方で検索）
             try {
@@ -703,7 +703,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               
               if (staffByUserId) {
                 role = 'staff'
-                logger.log('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
+                authTrace('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
               } else {
                 // メールアドレスでも検索
                 const { data: staffByEmail } = await supabase
@@ -714,15 +714,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 
                 if (staffByEmail) {
                   role = 'staff'
-                  logger.log('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
+                  authTrace('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
                 } else {
                   role = determineUserRole(supabaseUser.email)
-                  logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
+                  authTrace('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
                 }
               }
             } catch {
               role = determineUserRole(supabaseUser.email)
-              logger.log('🔄 例外フォールバック:', role)
+              authTrace('🔄 例外フォールバック:', role)
             }
           }
         }
@@ -742,10 +742,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const cachedName = staffCache.get(supabaseUser.id)
       if (cachedName) {
         staffName = cachedName
-        logger.log('📋 ⚡ キャッシュからスタッフ名取得:', staffName)
+        authTrace('📋 ⚡ キャッシュからスタッフ名取得:', staffName)
       } else if (role === 'customer') {
         // 顧客の場合、customersテーブルから名前を取得（バックグラウンド）
-        logger.log('📋 顧客情報をバックグラウンドで取得開始')
+        authTrace('📋 顧客情報をバックグラウンドで取得開始')
         ;(async () => {
           try {
             const { data } = await supabase
@@ -758,7 +758,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               // ニックネーム優先、なければ名前
               const name = data.nickname || data.name
               if (name) {
-                logger.log('📋 ✅ バックグラウンドで顧客名取得成功:', name)
+                authTrace('📋 ✅ バックグラウンドで顧客名取得成功:', name)
                 // ユーザー情報も更新してヘッダーに反映
                 setUser(prev => prev ? { ...prev, customerName: name, name: name } : prev)
               }
@@ -775,7 +775,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               if (customerByEmail) {
                 const name = customerByEmail.nickname || customerByEmail.name
                 if (name) {
-                  logger.log('📋 🔗 メールアドレスで顧客発見、自動紐付け:', name)
+                  authTrace('📋 🔗 メールアドレスで顧客発見、自動紐付け:', name)
                   // user_idを設定して紐付け
                   const { error: updateError } = await supabase
                     .from('customers')
@@ -783,7 +783,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     .eq('id', customerByEmail.id)
                   
                   if (!updateError) {
-                    logger.log('📋 ✅ 顧客自動紐付け成功:', name)
+                    authTrace('📋 ✅ 顧客自動紐付け成功:', name)
                     setUser(prev => prev ? { ...prev, customerName: name, name: name } : prev)
                   } else {
                     logger.warn('📋 ⚠️ 顧客紐付けエラー:', updateError)
@@ -794,13 +794,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
               }
             }
           } catch (error) {
-            logger.log('📋 顧客情報の取得エラー（バックグラウンド）:', error)
+            authTrace('📋 顧客情報の取得エラー（バックグラウンド）:', error)
           }
         })()
       } else {
         // バックグラウンドで非同期取得（認証完了を待たない）
         if (role === 'staff' || role === 'admin') {
-          logger.log('📋 スタッフ情報をバックグラウンドで取得開始')
+          authTrace('📋 スタッフ情報をバックグラウンドで取得開始')
           // 非同期で取得（await しない）
           const staffPromise = supabase
             .from('staff')
@@ -811,12 +811,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           Promise.resolve(staffPromise).then(async ({ data }) => {
               if (data?.name) {
                 setStaffCache(prev => new Map(prev.set(supabaseUser.id, data.name)))
-                logger.log('📋 ✅ バックグラウンドでスタッフ名取得成功:', data.name)
+                authTrace('📋 ✅ バックグラウンドでスタッフ名取得成功:', data.name)
                 // ユーザー情報も更新してヘッダーに反映
                 setUser(prev => prev ? { ...prev, staffName: data.name } : prev)
               } else {
                 // user_idで見つからない場合、メールアドレスで検索して自動紐付け
-                logger.log('📋 user_idで見つからないため、メールアドレスで検索:', maskEmail(supabaseUser.email))
+                authTrace('📋 user_idで見つからないため、メールアドレスで検索:', maskEmail(supabaseUser.email))
                 const { data: staffByEmail } = await supabase
                   .from('staff')
                   .select('id, name, user_id')
@@ -825,7 +825,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                   .maybeSingle()
                 
                 if (staffByEmail) {
-                  logger.log('📋 🔗 メールアドレスでスタッフ発見、自動紐付け:', staffByEmail.name)
+                  authTrace('📋 🔗 メールアドレスでスタッフ発見、自動紐付け:', staffByEmail.name)
                   // user_idを設定して紐付け
                   const { error: updateError } = await supabase
                     .from('staff')
@@ -834,7 +834,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                   
                   if (!updateError) {
                     setStaffCache(prev => new Map(prev.set(supabaseUser.id, staffByEmail.name)))
-                    logger.log('📋 ✅ スタッフ自動紐付け成功:', staffByEmail.name)
+                    authTrace('📋 ✅ スタッフ自動紐付け成功:', staffByEmail.name)
                     setUser(prev => prev ? { ...prev, staffName: staffByEmail.name } : prev)
                     
                     // usersテーブルのroleをstaffに更新（adminの場合は降格させない）
@@ -846,13 +846,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
                       .maybeSingle()
                     
                     if (existingUserData?.role === 'admin') {
-                      logger.log('📋 ⏭️ 既存ロールがadminのため、降格をスキップ')
+                      authTrace('📋 ⏭️ 既存ロールがadminのため、降格をスキップ')
                     } else if (role !== 'admin') {
                       await supabase
                         .from('users')
                         .update({ role: 'staff' })
                         .eq('id', supabaseUser.id)
-                      logger.log('📋 ✅ ユーザーロールをstaffに更新')
+                      authTrace('📋 ✅ ユーザーロールをstaffに更新')
                     }
                   } else {
                     logger.warn('📋 ⚠️ スタッフ紐付けエラー:', updateError)
@@ -860,14 +860,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 }
               }
           }).catch((error) => {
-              logger.log('📋 スタッフ情報の取得エラー（バックグラウンド）:', error)
+              authTrace('📋 スタッフ情報の取得エラー（バックグラウンド）:', error)
             })
         }
       }
 
       // ロール変更を検出してログに記録
       if (existingUser && existingUser.role !== role) {
-        logger.log('🔄 ロール変更検出:', { 
+        authTrace('🔄 ロール変更検出:', { 
           old: existingUser.role, 
           new: role 
         })
@@ -886,7 +886,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         role: role
       }
       
-      logger.log('✅ ユーザー情報設定完了:', { 
+      authTrace('✅ ユーザー情報設定完了:', { 
         email: userData.email, 
         name: userData.name, 
         staffName: userData.staffName, 
@@ -900,7 +900,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       logger.error('❌ ユーザーセッション設定エラー:', error)
       // エラー時も既存のユーザー情報を保持（ロールを維持）
       if (existingUser && existingUser.id === supabaseUser.id) {
-        logger.log('🔄 エラー発生、既存のユーザー情報を保持:', existingUser.role)
+        authTrace('🔄 エラー発生、既存のユーザー情報を保持:', existingUser.role)
         setUser(existingUser)
         userRef.current = existingUser
       } else {
@@ -918,14 +918,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
           role: 'customer' as const
         }
         
-        logger.log('🔄 フォールバックユーザー情報設定:', fallbackUserData)
+        authTrace('🔄 フォールバックユーザー情報設定:', fallbackUserData)
         setUser(fallbackUserData)
         userRef.current = fallbackUserData
       }
     } finally {
       const endTime = performance.now()
       isProcessingRef.current = false
-      logger.log(`⏱️ setUserFromSession 完了: ${maskEmail(supabaseUser.email)} (${((endTime - startTime) / 1000).toFixed(2)}秒)`)
+      authTrace(`⏱️ setUserFromSession 完了: ${maskEmail(supabaseUser.email)} (${((endTime - startTime) / 1000).toFixed(2)}秒)`)
     }
   }
 
@@ -936,7 +936,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // これにより、期限切れセッションが干渉することを防ぐ
       const { data: currentSession } = await supabase.auth.getSession()
       if (currentSession.session) {
-        logger.log('🔄 既存セッションを検出、クリアします')
+        authTrace('🔄 既存セッションを検出、クリアします')
         await supabase.auth.signOut({ scope: 'local' })
       }
       
@@ -966,7 +966,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error('Email not confirmed')
       }
 
-      logger.log('✅ ログイン成功:', data.user?.email ? maskEmail(data.user.email) : 'N/A')
+      authTrace('✅ ログイン成功:', data.user?.email ? maskEmail(data.user.email) : 'N/A')
       
       // ログイン成功をログに記録
       if (data.user) {
@@ -980,7 +980,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // 他のタブにログインを通知
       if (broadcastChannelRef.current) {
         broadcastChannelRef.current.postMessage({ type: 'SIGNED_IN' })
-        logger.log('📡 他タブにログインを通知')
+        authTrace('📡 他タブにログインを通知')
       }
     } catch (error) {
       throw error
@@ -1021,7 +1021,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // 他のタブにログアウトを通知
       if (broadcastChannelRef.current) {
         broadcastChannelRef.current.postMessage({ type: 'SIGNED_OUT' })
-        logger.log('📡 他タブにログアウトを通知')
+        authTrace('📡 他タブにログアウトを通知')
       }
       
       // 予約サイトにリダイレクト（現在の組織を維持）

@@ -10,6 +10,21 @@
 const isDevelopment = import.meta.env.DEV
 const isDebugMode = import.meta.env.VITE_DEBUG === 'true'
 
+/** VITE_DEBUG=true 時の詳細ログ（他モジュールから参照可） */
+export const isVerboseDebug = isDevelopment && isDebugMode
+
+const isAuthTrace = isDevelopment && import.meta.env.VITE_AUTH_DEBUG === 'true'
+
+/**
+ * AuthContext 用の詳細トレース。既定では出さない（VITE_AUTH_DEBUG=true のときのみ）。
+ * VITE_DEBUG だけでは認証ログは増えないようにする。
+ */
+export function authTrace(...args: unknown[]): void {
+  if (isAuthTrace) {
+    console.log('[auth]', ...args)
+  }
+}
+
 export const logger = {
   /**
    * デバッグログ（VITE_DEBUG=true の時のみ）
