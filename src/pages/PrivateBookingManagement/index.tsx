@@ -321,14 +321,24 @@ export function PrivateBookingManagement() {
     }
   }
 
+  // GMが回答済みかどうかを判定（1人以上が出勤可能な候補を選択している）
+  const isGMConfirmed = (r: PrivateBookingRequest): boolean => {
+    if (!r.gm_responses || r.gm_responses.length === 0) return false
+    // 1人以上のGMが出勤可能な候補を選択している場合はGM確認済み
+    return r.gm_responses.some(response => 
+      response.available_candidates && response.available_candidates.length > 0
+    )
+  }
+  
   // フィルタリング
-  // GM確認中: pending, pending_gm
+  // GM確認中: pending/pending_gm かつ GM回答がまだない
   const gmPendingRequests = requests.filter(r => 
-    r.status === 'pending' || r.status === 'pending_gm'
+    (r.status === 'pending' || r.status === 'pending_gm') && !isGMConfirmed(r)
   )
-  // 店舗承認待ち: gm_confirmed, pending_store
+  // 店舗承認待ち: gm_confirmed/pending_store、または pending/pending_gm でGM回答済み
   const storePendingRequests = requests.filter(r => 
-    r.status === 'gm_confirmed' || r.status === 'pending_store'
+    r.status === 'gm_confirmed' || r.status === 'pending_store' ||
+    ((r.status === 'pending' || r.status === 'pending_gm') && isGMConfirmed(r))
   )
   
   // 期間でフィルタリング（候補日の最初の日付でフィルター）
