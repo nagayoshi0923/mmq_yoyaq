@@ -16,8 +16,8 @@ port = 54323
 [auth]
 enabled = true
 site_url = "https://mmq.game"
-# JWT有効期限: 14日（1209600秒）
-jwt_expiry = 1209600
+# JWT有効期限: 7日（604800秒）- Supabase Cloud最大値
+jwt_expiry = 604800
 additional_redirect_urls = [
   "https://mmq.game/**",
   "https://mmq-yoyaq.vercel.app/**",
