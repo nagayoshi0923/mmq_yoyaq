@@ -164,6 +164,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
       // 貸切予約確定メールを送信
+      let gmStaffData: { name: string; email?: string; discord_channel_id?: string } | null = null
       try {
         // 承認後の予約データを取得（total_priceを含む）
         const { data: updatedReservation, error: reservationError } = await supabase
@@ -179,16 +180,17 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         const customerEmail = selectedRequest?.customer_email || updatedReservation?.customer_email
         const customerName = selectedRequest?.customer_name
         if (customerEmail && customerName) {
-          // GMの名前を取得
+          // GMの名前とメールを取得
           const { data: gmStaff, error: gmError } = await supabase
             .from('staff')
-            .select('name')
+            .select('name, email, discord_channel_id')
             .eq('id', selectedGMId)
             .single()
 
           if (gmError) {
             logger.error('GM情報取得エラー:', gmError)
           }
+          gmStaffData = gmStaff
 
           // 店舗の住所を取得
           const selectedStore = stores.find(s => s.id === selectedStoreId)
@@ -222,6 +224,47 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       } catch (emailError) {
         logger.error('メール送信エラー:', emailError)
         // メール送信失敗しても承認処理は続行
+      }
+
+      // GMへの確定通知を送信（Discord / メール）
+      try {
+        if (gmStaffData || selectedGMId) {
+          // GMデータが取得できていない場合は再取得
+          if (!gmStaffData) {
+            const { data: gmStaff } = await supabase
+              .from('staff')
+              .select('name, email, discord_channel_id')
+              .eq('id', selectedGMId)
+              .single()
+            gmStaffData = gmStaff
+          }
+
+          if (gmStaffData) {
+            const storeName = stores.find(s => s.id === selectedStoreId)?.name || ''
+            
+            await supabase.functions.invoke('notify-gm-private-booking-confirmed', {
+              body: {
+                organizationId,
+                gmId: selectedGMId,
+                gmName: gmStaffData.name,
+                gmEmail: gmStaffData.email,
+                gmDiscordChannelId: gmStaffData.discord_channel_id,
+                scenarioTitle: selectedRequest?.scenario_title || '',
+                eventDate: selectedCandidate.date,
+                startTime: selectedCandidate.startTime,
+                endTime: selectedCandidate.endTime,
+                storeName,
+                customerName: selectedRequest?.customer_name || '',
+                participantCount: selectedRequest?.participant_count || 0,
+                reservationId: requestId
+              }
+            })
+            logger.log('GM確定通知送信成功:', gmStaffData.name)
+          }
+        }
+      } catch (gmNotifyError) {
+        logger.error('GM通知送信エラー:', gmNotifyError)
+        // GM通知失敗しても承認処理は続行
       }
 
       // グループチャットに日程確定のシステムメッセージを送信
