@@ -47,7 +47,7 @@ export function PrivateGroupManage() {
   }, [location.pathname])
   
   const { user } = useAuth()
-  const { group, loading: groupLoading, error: groupError, refetch } = usePrivateGroupData(id || null)
+  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus } = usePrivateGroupData(id || null)
   const { updateGroupStatus, getDateResponsesSummary, removeMember, loading: actionLoading } = usePrivateGroup()
 
   // 統合ページにリダイレクト
@@ -199,6 +199,11 @@ export function PrivateGroupManage() {
     return group?.members?.filter(m => m.status === 'joined') || []
   }, [group?.members])
 
+  const isScheduleConfirmedUi = useMemo(
+    () => Boolean(group && (group.status === 'confirmed' || linkedReservationStatus === 'confirmed')),
+    [group, linkedReservationStatus]
+  )
+
   const isOrganizer = user && group?.organizer_id === user.id
   
   // メンバーかどうかをチェック（ログインユーザーがメンバーに含まれているか）
@@ -287,7 +292,7 @@ export function PrivateGroupManage() {
     isBookingRequested || (group.candidate_dates?.length || 0) > 0,
     isBookingRequested || allMembersResponded,
     isBookingRequested,
-    group.status === 'confirmed'
+    isScheduleConfirmedUi
   ].filter(Boolean).length
 
   // チャットモード時は専用レイアウト
@@ -315,8 +320,8 @@ export function PrivateGroupManage() {
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{joinedMembers.length}名参加</span>
                 <span>•</span>
-                <span className={group.status === 'confirmed' ? 'text-green-600' : group.status === 'booking_requested' ? 'text-blue-600' : ''}>
-                  {group.status === 'confirmed' ? '確定' : group.status === 'booking_requested' ? '確定待ち' : `進捗 ${completedSteps}/5`}
+                <span className={isScheduleConfirmedUi ? 'text-green-600' : group.status === 'booking_requested' ? 'text-blue-600' : ''}>
+                  {isScheduleConfirmedUi ? '確定' : group.status === 'booking_requested' ? '確定待ち' : `進捗 ${completedSteps}/5`}
                 </span>
               </div>
             </div>
@@ -367,8 +372,8 @@ export function PrivateGroupManage() {
                     {group.status !== 'gathering' ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
                     予約申込
                   </div>
-                  <div className={`flex items-center gap-2 text-xs ${group.status === 'confirmed' ? 'text-green-600' : 'text-gray-500'}`}>
-                    {group.status === 'confirmed' ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+                  <div className={`flex items-center gap-2 text-xs ${isScheduleConfirmedUi ? 'text-green-600' : 'text-gray-500'}`}>
+                    {isScheduleConfirmedUi ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
                     日程確定
                   </div>
                 </div>
@@ -483,16 +488,16 @@ export function PrivateGroupManage() {
             className={
               group.status === 'gathering'
                 ? 'bg-purple-100 text-purple-800 border-purple-200'
+                : isScheduleConfirmedUi
+                ? 'bg-green-100 text-green-800 border-green-200'
                 : group.status === 'booking_requested'
                 ? 'bg-blue-100 text-blue-800 border-blue-200'
-                : group.status === 'confirmed'
-                ? 'bg-green-100 text-green-800 border-green-200'
                 : 'bg-gray-100 text-gray-800 border-gray-200'
             }
           >
             {group.status === 'gathering' && '募集中'}
-            {group.status === 'booking_requested' && '予約申込済'}
-            {group.status === 'confirmed' && '確定'}
+            {group.status === 'booking_requested' && !isScheduleConfirmedUi && '予約申込済'}
+            {isScheduleConfirmedUi && '確定'}
             {group.status === 'cancelled' && 'キャンセル'}
           </Badge>
         </div>
@@ -777,10 +782,10 @@ export function PrivateGroupManage() {
                           申込準備中（{[joinedMembers.length >= 1, (group.candidate_dates?.length || 0) > 0, allMembersResponded].filter(Boolean).length}/3 完了）
                         </div>
                       )}
-                      {group.status === 'booking_requested' && (
+                      {group.status === 'booking_requested' && !isScheduleConfirmedUi && (
                         <div className="text-xs text-blue-600 font-medium">日程確定待ち</div>
                       )}
-                      {group.status === 'confirmed' && (
+                      {isScheduleConfirmedUi && (
                         <div className="text-xs text-green-600 font-medium">公演日まであと少し！</div>
                       )}
                     </div>
@@ -882,25 +887,25 @@ export function PrivateGroupManage() {
 
                       {/* STEP 5: 日程確定 */}
                       <div className={`flex items-start gap-3 p-2.5 rounded-lg border ${
-                        group.status === 'confirmed'
+                        isScheduleConfirmedUi
                           ? 'bg-green-50 border-green-200' 
                           : group.status === 'booking_requested'
                             ? 'bg-blue-50 border-blue-200'
                             : 'bg-gray-50 border-gray-200'
                       }`}>
                         <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                          group.status === 'confirmed'
+                          isScheduleConfirmedUi
                             ? 'bg-green-600 text-white' 
                             : group.status === 'booking_requested'
                               ? 'bg-blue-600 text-white animate-pulse'
                               : 'bg-gray-400 text-white'
                         }`}>
-                          {group.status === 'confirmed' ? <Check className="w-3 h-3" /> : '5'}
+                          {isScheduleConfirmedUi ? <Check className="w-3 h-3" /> : '5'}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium">日程確定</div>
                           <div className="text-xs text-muted-foreground">
-                            {group.status === 'confirmed'
+                            {isScheduleConfirmedUi
                               ? '確定しました！' 
                               : group.status === 'booking_requested'
                                 ? '店舗からの連絡待ち'
@@ -912,12 +917,12 @@ export function PrivateGroupManage() {
                       {/* STEP 6: 事前アンケート（キャラクター設定がある場合のみ表示） */}
                       {group.scenario_masters?.characters && (group.scenario_masters.characters as unknown[]).length > 0 && (
                         <div className={`flex items-start gap-3 p-2.5 rounded-lg border ${
-                          group.status === 'confirmed'
+                          isScheduleConfirmedUi
                             ? 'bg-amber-50 border-amber-200'
                             : 'bg-gray-50 border-gray-200'
                         }`}>
                           <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                            group.status === 'confirmed'
+                            isScheduleConfirmedUi
                               ? 'bg-amber-500 text-white'
                               : 'bg-gray-400 text-white'
                           }`}>
@@ -926,7 +931,7 @@ export function PrivateGroupManage() {
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium">事前アンケート</div>
                             <div className="text-xs text-muted-foreground">
-                              {group.status === 'confirmed' ? '回答してください' : '確定後'}
+                              {isScheduleConfirmedUi ? '回答してください' : '確定後'}
                             </div>
                           </div>
                         </div>
@@ -994,7 +999,7 @@ export function PrivateGroupManage() {
                     )}
 
                     {/* booking_requested 状態のアクション */}
-                    {group.status === 'booking_requested' && (
+                    {group.status === 'booking_requested' && !isScheduleConfirmedUi && (
                       <div className="pt-2 border-t space-y-2">
                         <p className="text-sm text-center text-muted-foreground">
                           店舗からの確定連絡をお待ちください
@@ -1003,7 +1008,7 @@ export function PrivateGroupManage() {
                     )}
 
                     {/* confirmed 状態のアクション */}
-                    {group.status === 'confirmed' && (
+                    {isScheduleConfirmedUi && (
                       <div className="pt-2 border-t space-y-2">
                         <Button
                           variant="outline"

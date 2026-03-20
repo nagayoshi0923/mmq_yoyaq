@@ -10,11 +10,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { BLOG_POST_SELECT_COLUMNS } from '@/lib/blogPublicFetch'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId } from '@/lib/organization'
+import { getCurrentOrganization, getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
-import { Plus, Edit2, Trash2, Eye, EyeOff, Calendar, FileText, Loader2 } from 'lucide-react'
+import { Plus, Edit2, Trash2, Eye, EyeOff, Calendar, FileText, Loader2, ExternalLink } from 'lucide-react'
 import type { BlogPost } from '@/types'
 
 export function BlogSettings() {
@@ -23,6 +24,7 @@ export function BlogSettings() {
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [organizationSlug, setOrganizationSlug] = useState<string | null>(null)
 
   // フォーム状態
   const [formData, setFormData] = useState({
@@ -38,6 +40,22 @@ export function BlogSettings() {
     fetchPosts()
   }, [])
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const org = await getCurrentOrganization()
+        setOrganizationSlug(org?.slug ?? null)
+      } catch {
+        setOrganizationSlug(null)
+      }
+    })()
+  }, [])
+
+  const publicBlogPostHref = (postSlug: string) => {
+    const encoded = encodeURIComponent(postSlug)
+    return organizationSlug ? `/${organizationSlug}/blog/${encoded}` : `/blog/${encoded}`
+  }
+
   const fetchPosts = async () => {
     try {
       setLoading(true)
@@ -46,7 +64,7 @@ export function BlogSettings() {
 
       const { data, error } = await supabase
         .from('blog_posts')
-        .select('*')
+        .select(BLOG_POST_SELECT_COLUMNS)
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false })
 
@@ -269,7 +287,18 @@ export function BlogSettings() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-2 ml-4 shrink-0">
+                    {post.is_published ? (
+                      <Button variant="ghost" size="sm" asChild title="公開ページを新しいタブで開く">
+                        <a
+                          href={publicBlogPostHref(post.slug)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </Button>
+                    ) : null}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -337,7 +366,11 @@ export function BlogSettings() {
                 className="font-mono text-sm"
               />
               <p className="text-xs text-gray-500 mt-1">
-                URLに使用されます（例: /blog/{formData.slug || 'slug'}）
+                URLに使用されます（例:{' '}
+                {organizationSlug
+                  ? `/${organizationSlug}/blog/${formData.slug || 'slug'}`
+                  : `/blog/${formData.slug || 'slug'}`}
+                ）
               </p>
             </div>
 

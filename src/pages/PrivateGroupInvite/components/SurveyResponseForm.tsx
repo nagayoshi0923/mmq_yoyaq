@@ -41,7 +41,6 @@ export function SurveyResponseForm({
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null)
-  const [isExpired, setIsExpired] = useState(false)
   const [localCharacters, setLocalCharacters] = useState<Array<{ id: string; name: string; gender?: string }>>(characters)
   const [surveyStatus, setSurveyStatus] = useState<'loading' | 'not_found' | 'disabled' | 'no_questions' | 'ready'>('loading')
 
@@ -106,7 +105,8 @@ export function SurveyResponseForm({
           perfDate.setDate(perfDate.getDate() - orgScenario.survey_deadline_days)
           perfDate.setHours(23, 59, 59, 999)
           setDeadlineDate(perfDate)
-          setIsExpired(new Date() > perfDate)
+        } else {
+          setDeadlineDate(null)
         }
 
         // キャラクター情報を設定（propsより優先）
@@ -281,25 +281,7 @@ export function SurveyResponseForm({
     )
   }
 
-  if (isExpired) {
-    return (
-      <Card className="mb-6 border-gray-300 bg-gray-50">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <Clock className="w-5 h-5 text-gray-500" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">アンケートの回答期限が過ぎました</p>
-              {submitted && (
-                <p className="text-xs text-gray-500 mt-1">
-                  回答済みの内容は保存されています
-                </p>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
+  const isPastDeadline = Boolean(deadlineDate && new Date() > deadlineDate)
 
   return (
     <Card className="mb-6 border-purple-200">
@@ -320,8 +302,13 @@ export function SurveyResponseForm({
         {deadlineDate && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="w-4 h-4" />
-            <span>回答期限: {formatDeadline(deadlineDate)}</span>
+            <span>回答期限（目安）: {formatDeadline(deadlineDate)}</span>
           </div>
+        )}
+        {isPastDeadline && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
+            目安の期限を過ぎていますが、引き続き回答・更新できます。
+          </p>
         )}
 
         <div className="space-y-4 pt-2">

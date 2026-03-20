@@ -76,16 +76,19 @@ export class ErrorBoundary extends Component<Props, State> {
 
       // チャンクエラー専用の画面（リトライ＋モジュールグラフ更新でも解決できなかった場合）
       if (this.state.isChunkError) {
+        const isDev = import.meta.env.DEV
         return (
           <div className="min-h-screen flex items-center justify-center bg-background px-4">
             <div className="max-w-md w-full text-center space-y-6">
               <div className="space-y-2">
-                <div className="text-6xl">✨</div>
+                <div className="text-6xl">{isDev ? '🛠️' : '✨'}</div>
                 <h1 className="text-2xl font-bold text-foreground">
-                  新しいバージョンがあります
+                  {isDev ? '開発サーバーとブラウザのキャッシュがずれています' : '新しいバージョンがあります'}
                 </h1>
-                <p className="text-muted-foreground">
-                  アプリが更新されました。お手数ですが、ページを読み込み直してください。
+                <p className="text-muted-foreground text-left text-sm whitespace-pre-line">
+                  {isDev
+                    ? 'Vite の「Outdated Optimize Dep」や動的 import 失敗は、依存のプリバンドルが古いときに起きます。\n\n1. ターミナルで dev サーバーを停止\n2. プロジェクト直下で rm -rf node_modules/.vite\n3. npm run dev を再起動\n4. ブラウザでスーパーリロード（Cmd+Shift+R）\n\nそれでもダメなときは npx vite --force で起動してみてください。'
+                    : 'アプリが更新されました。お手数ですが、ページを読み込み直してください。'}
                 </p>
               </div>
 
@@ -94,7 +97,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   onClick={this.handleReload}
                   className="inline-flex items-center justify-center rounded-md text-sm font-medium h-10 px-6 py-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
-                  最新版を読み込む
+                  {isDev ? 'ページを再読み込み' : '最新版を読み込む'}
                 </button>
                 <button
                   onClick={this.handleGoHome}
@@ -103,6 +106,11 @@ export class ErrorBoundary extends Component<Props, State> {
                   トップページへ
                 </button>
               </div>
+              {isDev && this.state.error && (
+                <p className="font-mono text-xs text-muted-foreground break-all text-left">
+                  {this.state.error.message}
+                </p>
+              )}
             </div>
           </div>
         )

@@ -55,7 +55,9 @@ export function UserSearchInvite({
     try {
       const { data, error } = await supabase
         .from('private_group_invitations')
-        .select('*')
+        .select(
+          'id, group_id, invited_user_id, invited_email, invited_by, status, created_at, responded_at'
+        )
         .eq('group_id', groupId)
         .order('created_at', { ascending: false })
 

@@ -4,7 +4,7 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
 /**
- * 店舗確認待ちの貸切リクエスト件数を取得するフック
+ * 貸切「店舗承認待ち」件数（貸切予約管理の「店舗承認待ち」タブと同じ: gm_confirmed / pending_store）
  */
 export function useStoreConfirmationPendingCount() {
   const [count, setCount] = useState(0)
@@ -16,12 +16,11 @@ export function useStoreConfirmationPendingCount() {
         // 組織フィルタリング
         const orgId = await getCurrentOrganizationId()
         
-        // 未対応の貸切リクエストをすべてカウント
         let query = supabase
           .from('reservations')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('reservation_source', 'web_private')
-          .in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'])
+          .in('status', ['gm_confirmed', 'pending_store'])
         
         if (orgId) {
           query = query.eq('organization_id', orgId)
@@ -30,13 +29,13 @@ export function useStoreConfirmationPendingCount() {
         const { count: pendingCount, error } = await query
 
         if (error) {
-          logger.error('店舗確認待ち件数取得エラー:', error)
+          logger.error('貸切・店舗承認待ち件数取得エラー:', error)
           return
         }
 
         setCount(pendingCount || 0)
       } catch (error) {
-        logger.error('店舗確認待ち件数取得エラー:', error)
+        logger.error('貸切・店舗承認待ち件数取得エラー:', error)
       } finally {
         setLoading(false)
       }

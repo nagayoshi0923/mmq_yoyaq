@@ -1,18 +1,30 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { logger } from '@/utils/logger'
+import { getCurrentOrganizationId } from '@/lib/organization'
+import { logger, privateBookingTrace } from '@/utils/logger'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 
 interface UseBookingRequestsProps {
   userId?: string
   userRole?: string
-  activeTab: 'gm_pending' | 'store_pending' | 'all'
 }
+
+/** 貸切管理で扱う status（タブの件数表示のため、常にまとめて取得する） */
+const PRIVATE_BOOKING_LIST_STATUSES = [
+  'pending',
+  'pending_gm',
+  'gm_confirmed',
+  'pending_store',
+  'confirmed',
+  'cancelled',
+  'completed',
+  'no_show',
+] as const
 
 /**
  * 貸切リクエストのデータ取得を管理するフック
  */
-export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRequestsProps) {
+export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps) {
   const [requests, setRequests] = useState<PrivateBookingRequest[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -31,12 +43,21 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
   const loadRequests = useCallback(async () => {
     try {
       setLoading(true)
+
+      // Auth 復元前に userId / role が undefined のまま走ると、誤ってスタッフ扱いになり空になる
+      if (userId == null || userRole == null) {
+        privateBookingTrace('ユーザー情報未確定のため取得をスキップ')
+        return
+      }
+
+      // admin / license_admin は組織内の全リクエスト（RLS と organization_id で制限）
+      const isOrgWideAccess = userRole === 'admin' || userRole === 'license_admin'
       
-      // 管理者以外の場合、自分が担当しているシナリオのIDを取得
+      // スタッフの場合のみ、自分が担当しているシナリオのIDを取得
       let allowedScenarioIds: string[] | null = null
       
-      if (userRole !== 'admin') {
-        logger.log('📋 スタッフユーザー - 担当シナリオのみ表示')
+      if (!isOrgWideAccess) {
+        privateBookingTrace('スタッフユーザー - 担当シナリオのみ表示')
         
         // ログインユーザーのstaffレコードを取得
         const { data: staffData } = await supabase
@@ -55,17 +76,24 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
           if (assignments && assignments.length > 0) {
             // scenario_id は scenario_master_id を参照
             allowedScenarioIds = assignments.map(a => a.scenario_id)
-            logger.log(`✅ ${allowedScenarioIds.length}件の担当シナリオを検出`)
+            privateBookingTrace(`${allowedScenarioIds.length}件の担当シナリオを検出`)
           } else {
-            logger.log('⚠️ 担当シナリオなし - 空の結果を返します')
+            privateBookingTrace('担当シナリオなし - 空の結果を返します')
             allowedScenarioIds = [] // 空配列で何も表示しない
           }
         } else {
-          logger.log('⚠️ スタッフレコード未紐づけ - 空の結果を返します')
+          privateBookingTrace('スタッフレコード未紐づけ - 空の結果を返します')
           allowedScenarioIds = [] // 空配列で何も表示しない
         }
       } else {
-        logger.log('👑 管理者ユーザー - 全てのリクエスト表示')
+        privateBookingTrace('管理者 / ライセンス管理者 - 組織内の全リクエスト表示')
+      }
+
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) {
+        logger.warn('📋 貸切リクエスト: organization_id を取得できません')
+        setRequests([])
+        return
       }
       
       // reservationsテーブルから貸切リクエストを取得（private_groupsのinvite_codeとscenario_idも含む）
@@ -77,6 +105,7 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
           customers:customer_id(name, phone),
           private_groups:private_group_id(invite_code, scenario_id)
         `)
+        .eq('organization_id', orgId)
         .eq('reservation_source', 'web_private')
         .order('created_at', { ascending: false })
 
@@ -90,14 +119,8 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
         query = query.in('scenario_master_id', allowedScenarioIds)
       }
 
-      // タブによってフィルター
-      if (activeTab === 'gm_pending') {
-        query = query.in('status', ['pending', 'pending_gm'])
-      } else if (activeTab === 'store_pending') {
-        query = query.in('status', ['gm_confirmed', 'pending_store'])
-      } else {
-        query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store', 'confirmed', 'cancelled'])
-      }
+      // タブごとに API で絞らない（絞ると他タブの件数が 0 表示になる）。表示は親で activeTab フィルタ。
+      query = query.in('status', [...PRIVATE_BOOKING_LIST_STATUSES])
 
       const { data, error } = await query
 
@@ -105,6 +128,8 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
         logger.error('Supabaseエラー:', error)
         throw error
       }
+
+      privateBookingTrace(`取得: ${data?.length ?? 0} 件（organization_id=${orgId}）`)
 
       // 各リクエストに対してGM回答を取得
       const formattedData: PrivateBookingRequest[] = await Promise.all(
@@ -138,11 +163,13 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
             originalCandidates = candidateDatesData || []
           }
           
-          logger.log(`📋 予約 ${req.id}: 現在の候補数=${currentCandidates.length}, 元の候補数=${originalCandidates.length}`)
+          privateBookingTrace(
+            `予約 ${req.id}: 現在の候補数=${currentCandidates.length}, 元の候補数=${originalCandidates.length}`
+          )
           
           // 元の候補日が多い場合は復元
           if (originalCandidates.length > currentCandidates.length) {
-            logger.log(`🔄 候補日を復元: ${originalCandidates.map((c: any) => c.date).join(', ')}`)
+            privateBookingTrace(`候補日を復元: ${originalCandidates.map((c: any) => c.date).join(', ')}`)
             // 確定された候補を特定
             const confirmedCandidate = currentCandidates.find((c: any) => c.status === 'confirmed')
             
@@ -171,7 +198,9 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
           // scenario_master_id のフォールバック: private_groups.scenario_id を使用
           const scenarioMasterId = req.scenario_master_id || req.private_groups?.scenario_id
           if (!scenarioMasterId) {
-            logger.log(`⚠️ 予約 ${req.id}: scenario_master_id が未設定（private_groups.scenario_id も未設定）`)
+            privateBookingTrace(
+              `予約 ${req.id}: scenario_master_id 未設定（private_groups.scenario_id も未設定）`
+            )
           }
           
           return {
@@ -199,7 +228,7 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
     } finally {
       setLoading(false)
     }
-  }, [userId, userRole, activeTab])
+  }, [userId, userRole])
 
   return {
     requests,

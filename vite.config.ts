@@ -16,7 +16,14 @@ export default defineConfig({
   },
   optimizeDeps: {
     // lucide-react の Tree-shaking を最適化
-    include: ['lucide-react', 'react', 'react-dom', '@radix-ui/react-switch'],
+    // Radix は個別 import されるため明示 include しておくと、504 Outdated Optimize Dep が起きにくい
+    include: [
+      'lucide-react',
+      'react',
+      'react-dom',
+      '@radix-ui/react-switch',
+      '@radix-ui/react-tooltip',
+    ],
   },
   build: {
     // チャンクサイズ警告のしきい値を上げる（KB単位）

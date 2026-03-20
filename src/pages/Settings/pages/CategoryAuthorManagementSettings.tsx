@@ -99,7 +99,7 @@ function MasterListManager({
       // 1. マスタ一覧取得
       const { data: masterData, error: masterError } = await supabase
         .from(tableName)
-        .select('*')
+        .select('id, organization_id, name, sort_order, created_at, updated_at')
         .eq('organization_id', organizationId)
         .order('sort_order', { ascending: true })
 

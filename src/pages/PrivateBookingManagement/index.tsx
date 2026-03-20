@@ -75,7 +75,6 @@ export function PrivateBookingManagement() {
   const { requests, loading, loadRequests } = useBookingRequests({
     userId: user?.id,
     userRole: user?.role,
-    activeTab
   })
 
   // 承認・却下・削除処理
@@ -119,7 +118,7 @@ export function PrivateBookingManagement() {
     loadRequests()
     loadStores()
     loadAllGMs()
-  }, [activeTab, loadRequests, loadStores, loadAllGMs])
+  }, [loadRequests, loadStores, loadAllGMs])
 
   // 選択されたリクエストの初期化
   useEffect(() => {

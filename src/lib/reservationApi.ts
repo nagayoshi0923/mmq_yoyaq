@@ -729,11 +729,11 @@ export const reservationApi = {
         })
         logger.log('キャンセル確認メール送信成功')
 
-        // 通知ダイアログ用にuser_notificationsテーブルにも挿入
+        // 通知ダイアログ用（RLS でクライアント直接 INSERT が禁止の環境では 403 になる → メール送信は上で成功していれば続行）
         try {
           const eventDateStr = scheduleEvent?.date || ''
           const eventTimeStr = scheduleEvent?.start_time?.slice(0, 5) || ''
-          await supabase
+          const { error: notifInsertError } = await supabase
             .from('user_notifications')
             .insert({
               customer_id: reservation.customer_id,
@@ -750,7 +750,14 @@ export const reservationApi = {
                 cancellationReason: cancellationReason || 'キャンセル'
               }
             })
-          logger.log('キャンセル通知をuser_notificationsに挿入')
+          if (notifInsertError) {
+            logger.warn(
+              'キャンセル通知の user_notifications 挿入をスキップ（RLS または権限）:',
+              notifInsertError
+            )
+          } else {
+            logger.log('キャンセル通知をuser_notificationsに挿入')
+          }
         } catch (notifError) {
           logger.warn('キャンセル通知の挿入に失敗（続行）:', notifError)
         }

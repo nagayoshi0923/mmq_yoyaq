@@ -18,8 +18,8 @@ interface ResponseData {
 
 interface MemberData {
   id: string
+  /** 表示用（guest / customers のニックネーム等を解決済み） */
   guest_name?: string | null
-  users?: { email: string } | null
 }
 
 export function SurveyResponsesView({
@@ -41,16 +41,18 @@ export function SurveyResponsesView({
       }
 
       try {
-        // reservation_id から private_groups を取得
-        const { data: groupData } = await supabase
+        // reservation_id から private_groups を取得（メンバーは別クエリ: user_id は auth.users 参照のためネスト users(email) が 400 になる）
+        const { data: groupData, error: groupError } = await supabase
           .from('private_groups')
-          .select(`
-            id,
-            organization_id,
-            members:private_group_members(id, guest_name, user_id, users:user_id(email))
-          `)
+          .select('id, organization_id')
           .eq('reservation_id', reservationId)
           .maybeSingle()
+
+        if (groupError) {
+          logger.warn('アンケート: private_groups 取得エラー:', groupError)
+          setLoading(false)
+          return
+        }
 
         if (!groupData) {
           setLoading(false)
@@ -60,21 +62,67 @@ export function SurveyResponsesView({
         const groupId = groupData.id
         const organizationId = groupData.organization_id
 
-        // メンバー情報を設定
-        const membersData = (groupData.members || []).map((m: any) => ({
-          id: m.id,
-          guest_name: m.guest_name,
-          users: m.users ? { email: m.users.email } : null,
-        }))
+        const { data: membersRaw, error: membersError } = await supabase
+          .from('private_group_members')
+          .select('id, guest_name, guest_email, user_id')
+          .eq('group_id', groupId)
+
+        if (membersError) {
+          logger.warn('アンケート: メンバー取得エラー:', membersError)
+        }
+
+        const userIds = (membersRaw || [])
+          .filter((m: { user_id: string | null }) => m.user_id)
+          .map((m: { user_id: string | null }) => m.user_id as string)
+
+        const customerNicknames: Record<string, string> = {}
+        if (userIds.length > 0) {
+          const { data: customers, error: custError } = await supabase
+            .from('customers')
+            .select('user_id, nickname, name, email')
+            .in('user_id', userIds)
+
+          if (custError) {
+            logger.warn('アンケート: 顧客名取得エラー:', custError)
+          } else if (customers) {
+            customers.forEach((c: { user_id: string; nickname: string | null; name: string | null; email: string | null }) => {
+              customerNicknames[c.user_id] = c.nickname || c.name || c.email?.split('@')[0] || ''
+            })
+          }
+        }
+
+        const membersData: MemberData[] = (membersRaw || []).map((m: {
+          id: string
+          guest_name: string | null
+          guest_email: string | null
+          user_id: string | null
+        }) => {
+          let name: string | null = null
+          if (m.user_id && customerNicknames[m.user_id]) {
+            name = customerNicknames[m.user_id] || null
+          }
+          if (!name && m.guest_name) name = m.guest_name
+          if (!name && m.guest_email) name = m.guest_email.split('@')[0]
+          return { id: m.id, guest_name: name || '参加者' }
+        })
         setMembers(membersData)
 
         // organization_scenariosからorg_scenario_idを取得
-        const { data: orgScenario } = await supabase
+        let { data: orgScenario } = await supabase
           .from('organization_scenarios')
           .select('id, survey_enabled, characters')
           .eq('scenario_master_id', scenarioId)
           .eq('organization_id', organizationId)
           .maybeSingle()
+
+        if (!orgScenario) {
+          const { data: byOrgScenarioId } = await supabase
+            .from('organization_scenarios')
+            .select('id, survey_enabled, characters')
+            .eq('id', scenarioId)
+            .maybeSingle()
+          orgScenario = byOrgScenarioId
+        }
 
         if (!orgScenario?.survey_enabled || !orgScenario.id) {
           setLoading(false)
@@ -92,7 +140,9 @@ export function SurveyResponsesView({
         // 質問を取得
         const { data: questionsData } = await supabase
           .from('org_scenario_survey_questions')
-          .select('*')
+          .select(
+            'id, org_scenario_id, question_text, question_type, options, is_required, order_num, created_at, updated_at'
+          )
           .eq('org_scenario_id', orgScenario.id)
           .order('order_num', { ascending: true })
 
@@ -128,7 +178,7 @@ export function SurveyResponsesView({
 
   const getMemberName = (memberId: string) => {
     const member = members.find(m => m.id === memberId)
-    return member?.guest_name || member?.users?.email || '不明'
+    return member?.guest_name || '不明'
   }
 
   const getResponseValue = (questionId: string, memberId: string): string => {
@@ -194,7 +244,7 @@ export function SurveyResponsesView({
               <span>
                 {members
                   .filter(m => !responses.some(r => r.member_id === m.id))
-                  .map(m => m.guest_name || m.users?.email || '不明')
+                  .map(m => m.guest_name || '不明')
                   .join('、')
                 }さんが未回答です
               </span>

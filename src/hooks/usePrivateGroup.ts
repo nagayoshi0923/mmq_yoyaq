@@ -48,7 +48,9 @@ async function getSystemMessageSettings(orgId: string) {
     // まず全カラムを取得してから必要なものを抽出
     const { data, error } = await supabase
       .from('global_settings')
-      .select('*')
+      .select(
+        'system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body'
+      )
       .eq('organization_id', orgId)
       .maybeSingle()
     
@@ -614,10 +616,12 @@ export function usePrivateGroupData(groupId: string | null) {
   const [group, setGroup] = useState<PrivateGroup | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [linkedReservationStatus, setLinkedReservationStatus] = useState<string | null>(null)
 
   const fetchGroup = useCallback(async () => {
     if (!groupId) {
       setLoading(false)
+      setLinkedReservationStatus(null)
       return
     }
 
@@ -662,6 +666,17 @@ export function usePrivateGroupData(groupId: string | null) {
         }
       }
 
+      let resStatus: string | null = null
+      if (data?.reservation_id) {
+        const { data: resRow } = await supabase
+          .from('reservations')
+          .select('status')
+          .eq('id', data.reservation_id)
+          .maybeSingle()
+        resStatus = resRow?.status ?? null
+      }
+      setLinkedReservationStatus(resStatus)
+
       setGroup(data as PrivateGroup)
 
     } catch (err: any) {
@@ -676,17 +691,45 @@ export function usePrivateGroupData(groupId: string | null) {
     fetchGroup()
   }, [fetchGroup])
 
-  return { group, loading, error, refetch: fetchGroup }
+  // 店舗承認で status が confirmed に変わった直後に進捗を同期（開いたままの画面向け）
+  useEffect(() => {
+    const gid = group?.id
+    if (!gid) return
+
+    const channel = supabase
+      .channel(`private_group_status:${gid}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'private_groups',
+          filter: `id=eq.${gid}`,
+        },
+        () => {
+          void fetchGroup()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [group?.id, fetchGroup])
+
+  return { group, loading, error, refetch: fetchGroup, linkedReservationStatus }
 }
 
 export function usePrivateGroupByInviteCode(inviteCode: string | null) {
   const [group, setGroup] = useState<PrivateGroup | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [linkedReservationStatus, setLinkedReservationStatus] = useState<string | null>(null)
 
   const fetchGroup = useCallback(async () => {
     if (!inviteCode) {
       setLoading(false)
+      setLinkedReservationStatus(null)
       return
     }
 
@@ -714,6 +757,8 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null) {
       if (error) {
         if (error.code === 'PGRST116') {
           setError('招待コードが無効です')
+          setGroup(null)
+          setLinkedReservationStatus(null)
           return
         }
         throw error
@@ -737,6 +782,17 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null) {
         }
       }
 
+      let resStatus: string | null = null
+      if (data?.reservation_id) {
+        const { data: resRow } = await supabase
+          .from('reservations')
+          .select('status')
+          .eq('id', data.reservation_id)
+          .maybeSingle()
+        resStatus = resRow?.status ?? null
+      }
+      setLinkedReservationStatus(resStatus)
+
       setGroup(data as PrivateGroup)
 
     } catch (err: any) {
@@ -751,5 +807,30 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null) {
     fetchGroup()
   }, [fetchGroup])
 
-  return { group, loading, error, refetch: fetchGroup }
+  useEffect(() => {
+    const gid = group?.id
+    if (!gid) return
+
+    const channel = supabase
+      .channel(`private_group_invite_status:${gid}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'private_groups',
+          filter: `id=eq.${gid}`,
+        },
+        () => {
+          void fetchGroup()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [group?.id, fetchGroup])
+
+  return { group, loading, error, refetch: fetchGroup, linkedReservationStatus }
 }
