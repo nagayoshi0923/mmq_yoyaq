@@ -358,15 +358,17 @@ export function PrivateGroupInvite() {
     try {
       const { data, error } = await supabase
         .from('stores')
-        .select('id, name, short_name')
+        .select('id, name, short_name, ownership_type')
         .eq('organization_id', group.organization_id)
         .eq('status', 'active')
-        .or('ownership_type.neq.office,ownership_type.is.null')
         .order('name')
 
       if (error) throw error
 
-      let storeList = (data || []).map(mapRow)
+      // office（オフィス）とtemporary（臨時会場）を除外
+      let storeList = (data || [])
+        .filter(s => s.ownership_type !== 'office' && s.ownership_type !== 'temporary')
+        .map(mapRow)
 
       // 既に希望に入っているが上記条件で落ちた店舗（仮設・オフィス等）も選択肢に残す
       const missingIds = (group.preferred_store_ids || []).filter(
