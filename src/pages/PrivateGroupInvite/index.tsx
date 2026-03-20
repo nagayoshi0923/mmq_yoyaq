@@ -1182,12 +1182,11 @@ export function PrivateGroupInvite() {
                 </span>
               )}
             </button>
-            {/* 設定（主催者のみ） */}
-            {isOrganizer && (
-              <button 
-                onClick={() => {
-                  const statusText = isScheduleConfirmedUi ? '確定' : group.status === 'booking_requested' ? '確定待ち' : '日程調整中'
-                  setContactMessage(`【予約情報】
+            {/* 設定 */}
+            <button 
+              onClick={() => {
+                const statusText = isScheduleConfirmedUi ? '確定' : group.status === 'booking_requested' ? '確定待ち' : '日程調整中'
+                setContactMessage(`【予約情報】
 招待コード: ${group.invite_code}
 シナリオ: ${scenario?.title || '-'}
 参加人数: ${memberCount}名
@@ -1195,13 +1194,12 @@ export function PrivateGroupInvite() {
 
 【お問い合わせ内容】
 `)
-                  setShowSettingsSheet(true)
-                }}
-                className="p-1.5 hover:bg-gray-100 rounded"
-              >
-                <Settings className="w-5 h-5 text-gray-600" />
-              </button>
-            )}
+                setShowSettingsSheet(true)
+              }}
+              className="p-1.5 hover:bg-gray-100 rounded"
+            >
+              <Settings className="w-5 h-5 text-gray-600" />
+            </button>
           </div>
         </div>
 
@@ -1580,7 +1578,7 @@ export function PrivateGroupInvite() {
         )}
 
         {/* グループ設定シート */}
-        {showSettingsSheet && isOrganizer && (
+        {showSettingsSheet && (
           <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowSettingsSheet(false)}>
             <div 
               className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
@@ -1630,8 +1628,8 @@ export function PrivateGroupInvite() {
                   </div>
                 </div>
                 
-                {/* 削除オプション（gatheringまたはcancelledステータスのみ） */}
-                {((group.status as string) === 'gathering' || (group.status as string) === 'cancelled') && (
+                {/* 主催者用: 削除オプション（gatheringまたはcancelledステータスのみ） */}
+                {isOrganizer && ((group.status as string) === 'gathering' || (group.status as string) === 'cancelled') && (
                   <div className="space-y-2">
                     <h4 className="font-medium text-sm text-red-600">危険な操作</h4>
                     <Button
@@ -1659,12 +1657,53 @@ export function PrivateGroupInvite() {
                   </div>
                 )}
                 
-                {/* 削除不可の場合の説明 */}
-                {(group.status as string) !== 'gathering' && (group.status as string) !== 'cancelled' && (
+                {/* 主催者用: 削除不可の場合の説明 */}
+                {isOrganizer && (group.status as string) !== 'gathering' && (group.status as string) !== 'cancelled' && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p className="text-sm text-amber-800">
                       日程リクエスト送信済みのグループは削除できません。
                       キャンセルをご希望の場合は店舗にお問い合わせください。
+                    </p>
+                  </div>
+                )}
+
+                {/* 非主催者用: 退出オプション */}
+                {!isOrganizer && (existingMemberId || (user && group?.members?.some(m => m.user_id === user.id))) && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm text-red-600">グループから退出</h4>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                      onClick={async () => {
+                        if (!confirm('本当にこのグループから退出しますか？')) return
+                        try {
+                          if (existingMemberId) {
+                            const { error: deleteError } = await supabase.rpc('delete_guest_member', {
+                              p_member_id: existingMemberId,
+                            })
+                            if (deleteError) throw deleteError
+                            toast.success('グループから退出しました')
+                            setExistingMemberId(null)
+                            clearGuestSession()
+                            setShowSettingsSheet(false)
+                            refetch()
+                          } else if (user && group) {
+                            await leaveGroup(group.id)
+                            toast.success('グループから退出しました')
+                            navigate('/mypage')
+                          }
+                        } catch (err) {
+                          logger.error('Failed to leave group', err)
+                          toast.error('退出に失敗しました')
+                        }
+                      }}
+                      disabled={actionLoading}
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>このグループから退出する</span>
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      退出すると、このグループの情報にアクセスできなくなります。
                     </p>
                   </div>
                 )}
