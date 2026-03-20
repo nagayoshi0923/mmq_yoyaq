@@ -82,49 +82,31 @@ export function BookingConfirmation({
   const [paymentMethodLabel, setPaymentMethodLabel] = useState('現地決済')
   const [paymentMethodDescription, setPaymentMethodDescription] = useState('ご来店時にお支払いください')
 
-  // 利用可能クーポンを取得 & 支払い方法設定を取得
+  // 支払い方法設定を取得（クーポン機能は一時無効）
   useEffect(() => {
-    const fetchCouponsAndSettings = async () => {
-      if (!user) return
-      setCouponsLoading(true)
+    const fetchSettings = async () => {
+      if (!storeId) return
       try {
-        // 組織IDを取得（公演のorganization_id）
-        const { data: eventData } = await supabase
-          .from('schedule_events')
-          .select('organization_id')
-          .eq('id', eventId)
-          .single()
+        const { data: settingsData } = await supabase
+          .from('reservation_settings')
+          .select('payment_method_label, payment_method_description')
+          .eq('store_id', storeId)
+          .maybeSingle()
 
-        if (eventData?.organization_id) {
-          const coupons = await getAvailableCoupons(eventData.organization_id)
-          setAvailableCoupons(coupons)
-        }
-
-        // 支払い方法設定を取得
-        if (storeId) {
-          const { data: settingsData } = await supabase
-            .from('reservation_settings')
-            .select('payment_method_label, payment_method_description')
-            .eq('store_id', storeId)
-            .maybeSingle()
-
-          if (settingsData) {
-            if (settingsData.payment_method_label) {
-              setPaymentMethodLabel(settingsData.payment_method_label)
-            }
-            if (settingsData.payment_method_description) {
-              setPaymentMethodDescription(settingsData.payment_method_description)
-            }
+        if (settingsData) {
+          if (settingsData.payment_method_label) {
+            setPaymentMethodLabel(settingsData.payment_method_label)
+          }
+          if (settingsData.payment_method_description) {
+            setPaymentMethodDescription(settingsData.payment_method_description)
           }
         }
       } catch (err) {
-        logger.error('クーポン取得エラー:', err)
-      } finally {
-        setCouponsLoading(false)
+        logger.error('設定取得エラー:', err)
       }
     }
-    fetchCouponsAndSettings()
-  }, [user, eventId, storeId])
+    fetchSettings()
+  }, [storeId])
 
   // キャンセル待ち用のstate
   const [waitlistMode, setWaitlistMode] = useState(false)
@@ -730,68 +712,8 @@ export function BookingConfirmation({
               </Card>
             </div>
 
-            {/* クーポン選択 */}
-            {!isSoldOut && (
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">クーポン</h3>
-                <Card>
-                  <CardContent className="p-2">
-                    {couponsLoading ? (
-                      <p className="text-xs text-muted-foreground">クーポンを確認中...</p>
-                    ) : availableCoupons.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">利用可能なクーポンはありません</p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {availableCoupons.map(coupon => {
-                          const campaign = coupon.coupon_campaigns
-                          if (!campaign) return null
-                          const isSelected = selectedCouponId === coupon.id
-                          const discountLabel = campaign.discount_type === 'fixed'
-                            ? `¥${formatPrice(campaign.discount_amount)} OFF`
-                            : `${campaign.discount_amount}% OFF`
-
-                          return (
-                            <button
-                              key={coupon.id}
-                              type="button"
-                              onClick={() => setSelectedCouponId(isSelected ? null : coupon.id)}
-                              className={`w-full text-left p-2 rounded-md border transition-colors ${
-                                isSelected
-                                  ? 'border-green-500 bg-green-50 ring-1 ring-green-500'
-                                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <Ticket className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-green-600' : 'text-muted-foreground'}`} />
-                                  <div className="min-w-0">
-                                    <div className="text-xs font-medium truncate">{campaign.name}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                      残り{coupon.uses_remaining}枚
-                                      {coupon.expires_at && (
-                                        <> / {new Date(coupon.expires_at).toLocaleDateString('ja-JP')}まで</>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <span className={`text-xs font-bold ${isSelected ? 'text-green-700' : 'text-primary'}`}>
-                                    {discountLabel}
-                                  </span>
-                                  {isSelected && (
-                                    <X className="w-3.5 h-3.5 text-green-600" />
-                                  )}
-                                </div>
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+            {/* クーポン選択 - 一時的に無効化 */}
+            {/* TODO: クーポン機能を再度有効にする場合はコメントを解除 */}
 
             {/* お支払い方法 */}
             <div>

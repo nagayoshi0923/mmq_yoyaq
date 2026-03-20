@@ -119,7 +119,6 @@ export function ReservationsPage() {
     setLoading(true)
     try {
       // 顧客情報を取得（user_idまたはemailで検索）
-      // まずuser_idで検索（RLSポリシーに準拠）
       let customer = null
       const { data: customerByUserId } = await supabase
         .from('customers')
@@ -130,7 +129,6 @@ export function ReservationsPage() {
       if (customerByUserId) {
         customer = customerByUserId
       } else {
-        // user_idで見つからない場合、emailで検索（大文字/小文字を区別しない）
         const { data: customerByEmail, error: emailError } = await supabase
           .from('customers')
           .select('id, user_id')
@@ -142,13 +140,12 @@ export function ReservationsPage() {
         if (customerByEmail) {
           customer = customerByEmail
           
-          // user_idが設定されていない場合は更新（RLSで更新可能にするため）
           if (!customerByEmail.user_id && user.id) {
-            await supabase
+            supabase
               .from('customers')
               .update({ user_id: user.id })
               .eq('id', customerByEmail.id)
-            logger.log('顧客レコードにuser_idを設定しました:', customerByEmail.id)
+              .then(() => {})
           }
         }
       }
@@ -159,140 +156,130 @@ export function ReservationsPage() {
         return
       }
 
-      // キャンセル待ちを取得
-      const { data: waitlistData, error: waitlistError } = await supabase
-        .from('waitlist')
-        .select(`
-          *,
-          schedule_events(id, date, start_time, end_time, venue, scenario)
-        `)
-        .eq('customer_email', user.email)
-        .in('status', ['waiting', 'notified'])
-        .order('created_at', { ascending: false })
+      // キャンセル待ちと予約を並列取得
+      const [waitlistResult, reservationsResult] = await Promise.all([
+        supabase
+          .from('waitlist')
+          .select(`
+            *,
+            schedule_events(id, date, start_time, end_time, venue, scenario)
+          `)
+          .eq('customer_email', user.email)
+          .in('status', ['waiting', 'notified'])
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('reservations')
+          .select(`
+            *, 
+            payment_method, 
+            payment_status,
+            schedule_events!schedule_event_id(
+              id, 
+              date,
+              start_time,
+              current_participants, 
+              max_participants,
+              category
+            )
+          `)
+          .eq('customer_id', customer.id)
+          .order('requested_datetime', { ascending: false })
+      ])
 
-      if (waitlistError) {
-        logger.error('キャンセル待ち取得エラー:', waitlistError)
+      if (waitlistResult.error) {
+        logger.error('キャンセル待ち取得エラー:', waitlistResult.error)
       } else {
-        setWaitlist(waitlistData || [])
+        setWaitlist(waitlistResult.data || [])
       }
 
-      // 予約を取得（決済方法・公演情報も含む）
-      const { data, error } = await supabase
-        .from('reservations')
-        .select(`
-          *, 
-          payment_method, 
-          payment_status,
-          schedule_events!schedule_event_id(
-            id, 
-            date,
-            start_time,
-            current_participants, 
-            max_participants,
-            category
-          )
-        `)
-        .eq('customer_id', customer.id)
-        .order('requested_datetime', { ascending: false })
+      if (reservationsResult.error) throw reservationsResult.error
+      const data = reservationsResult.data || []
+      setReservations(data)
 
-      if (error) throw error
-      setReservations(data || [])
-
-      // シナリオの画像を取得（scenario_master_id を使用）
+      // 関連データを並列取得
       if (data && data.length > 0) {
         const scenarioMasterIds = data
           .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
           .filter((id): id is string => id !== null && id !== undefined)
         
-        if (scenarioMasterIds.length > 0) {
-          const { data: scenarioMasters, error: scenariosError } = await supabase
-            .from('scenario_masters')
-            .select('id, key_visual_url, player_count_min, player_count_max')
-            .in('id', scenarioMasterIds)
-          
-          if (scenariosError) {
-            logger.error('シナリオ画像取得エラー:', scenariosError)
-          } else if (scenarioMasters) {
-            const imageMap: Record<string, string> = {}
-            const scenarioInfoMap: Record<string, { min: number; max: number }> = {}
-            scenarioMasters.forEach(s => {
-              if (s.key_visual_url) {
-                imageMap[s.id] = s.key_visual_url
-              }
-              scenarioInfoMap[s.id] = {
-                min: s.player_count_min || 1,
-                max: s.player_count_max || 8
-              }
-            })
-            setScenarioImages(imageMap)
-            setScenarioInfo(scenarioInfoMap)
-          }
-        }
-
-        // 店舗情報を取得
         const storeIds = new Set<string>()
         data.forEach(r => {
-          // 確定済み店舗ID
-          if (r.store_id) {
-            storeIds.add(r.store_id)
-          }
-          // 貸切予約の候補店舗
+          if (r.store_id) storeIds.add(r.store_id)
           if (r.candidate_datetimes) {
-            const candidateDatetimes = r.candidate_datetimes
-            if (candidateDatetimes.confirmedStore?.storeId) {
-              storeIds.add(candidateDatetimes.confirmedStore.storeId)
-            }
-            if (candidateDatetimes.requestedStores) {
-              candidateDatetimes.requestedStores.forEach((store: any) => {
-                if (store.storeId) {
-                  storeIds.add(store.storeId)
-                }
+            const cd = r.candidate_datetimes
+            if (cd.confirmedStore?.storeId) storeIds.add(cd.confirmedStore.storeId)
+            if (cd.requestedStores) {
+              cd.requestedStores.forEach((store: any) => {
+                if (store.storeId) storeIds.add(store.storeId)
               })
             }
           }
         })
 
-        if (storeIds.size > 0) {
-          const { data: storesData, error: storesError } = await supabase
-            .from('stores')
-            .select('id, name, address, color')
-            .in('id', Array.from(storeIds))
-          
-          if (storesError) {
-            logger.error('店舗情報取得エラー:', storesError)
-          } else if (storesData) {
-            const storeMap: Record<string, Store> = {}
-            storesData.forEach(store => {
-              storeMap[store.id] = store as Store
-            })
-            setStores(storeMap)
-          }
+        const storeIdsArray = Array.from(storeIds)
+        
+        // シナリオ、店舗、設定を並列取得
+        const [scenarioResult, storesResult, settingsResult] = await Promise.all([
+          scenarioMasterIds.length > 0
+            ? supabase
+                .from('scenario_masters')
+                .select('id, key_visual_url, player_count_min, player_count_max')
+                .in('id', scenarioMasterIds)
+            : Promise.resolve({ data: null, error: null }),
+          storeIdsArray.length > 0
+            ? supabase
+                .from('stores')
+                .select('id, name, address, color')
+                .in('id', storeIdsArray)
+            : Promise.resolve({ data: null, error: null }),
+          storeIdsArray.length > 0
+            ? supabase
+                .from('reservation_settings')
+                .select('store_id, cancellation_deadline_hours, private_cancellation_deadline_hours')
+                .in('store_id', storeIdsArray)
+            : Promise.resolve({ data: null, error: null })
+        ])
 
-          // キャンセル期限を取得
-          const { data: settingsData, error: settingsError } = await supabase
-            .from('reservation_settings')
-            .select(
-              'store_id, cancellation_deadline_hours, private_cancellation_deadline_hours'
-            )
-            .in('store_id', Array.from(storeIds))
-          
-          if (!settingsError && settingsData) {
-            const deadlineMap: Record<string, number> = {}
-            const privateDeadlineMap: Record<string, number> = {}
-            settingsData.forEach(setting => {
-              if (setting.store_id != null) {
-                if (setting.cancellation_deadline_hours != null) {
-                  deadlineMap[setting.store_id] = setting.cancellation_deadline_hours
-                }
-                if (setting.private_cancellation_deadline_hours != null) {
-                  privateDeadlineMap[setting.store_id] =
-                    setting.private_cancellation_deadline_hours
-                }
+        // シナリオ情報処理
+        if (scenarioResult.data) {
+          const imageMap: Record<string, string> = {}
+          const scenarioInfoMap: Record<string, { min: number; max: number }> = {}
+          scenarioResult.data.forEach(s => {
+            if (s.key_visual_url) imageMap[s.id] = s.key_visual_url
+            scenarioInfoMap[s.id] = {
+              min: s.player_count_min || 1,
+              max: s.player_count_max || 8
+            }
+          })
+          setScenarioImages(imageMap)
+          setScenarioInfo(scenarioInfoMap)
+        }
+
+        // 店舗情報処理
+        if (storesResult.data) {
+          const storeMap: Record<string, Store> = {}
+          storesResult.data.forEach(store => {
+            storeMap[store.id] = store as Store
+          })
+          setStores(storeMap)
+        }
+
+        // キャンセル期限処理
+        if (settingsResult.data) {
+          const deadlineMap: Record<string, number> = {}
+          const privateDeadlineMap: Record<string, number> = {}
+          settingsResult.data.forEach(setting => {
+            if (setting.store_id != null) {
+              if (setting.cancellation_deadline_hours != null) {
+                deadlineMap[setting.store_id] = setting.cancellation_deadline_hours
               }
-            })
-            setStoreDeadlines(deadlineMap)
-            setStorePrivateDeadlines(privateDeadlineMap)
-          }
+              if (setting.private_cancellation_deadline_hours != null) {
+                privateDeadlineMap[setting.store_id] = setting.private_cancellation_deadline_hours
+              }
+            }
+          })
+          setStoreDeadlines(deadlineMap)
+          setStorePrivateDeadlines(privateDeadlineMap)
         }
       }
     } catch (error) {
@@ -453,20 +440,6 @@ export function ReservationsPage() {
       : sid != null && storeDeadlines[sid] !== undefined
         ? storeDeadlines[sid]
         : DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
-    
-    // デバッグログ
-    logger.log('キャンセル判定:', {
-      reservationNumber: reservation.reservation_number,
-      scheduleDate: scheduleEvent?.date,
-      scheduleTime: scheduleEvent?.start_time,
-      eventDateTime: eventDateTime.toISOString(),
-      now: now.toISOString(),
-      hoursUntilEvent: hoursUntilEvent.toFixed(2),
-      deadlineHours,
-      storeId: reservation.store_id,
-      storeDeadlinesLoaded: Object.keys(storeDeadlines).length,
-      canCancel: hoursUntilEvent >= deadlineHours && reservation.status === 'confirmed'
-    })
     
     return hoursUntilEvent >= deadlineHours && reservation.status === 'confirmed'
   }
