@@ -25,21 +25,6 @@ function normalizeArticleSlug(raw: string): string {
   }
 }
 
-/** PostgREST が RPC 未定義などで 404 / schema に無い旨を返す場合 */
-function isRpcUnavailableError(err: { code?: string; message?: string; status?: number } | null): boolean {
-  if (!err) return false
-  const m = (err.message || '').toLowerCase()
-  const c = err.code || ''
-  if (err.status === 404) return true
-  return (
-    c === 'PGRST202' ||
-    c === '42883' ||
-    m.includes('could not find the function') ||
-    m.includes('404') ||
-    m.includes('not found')
-  )
-}
-
 interface BlogDetailPageProps {
   slug: string
   /** 例: `/queens-waltz/blog/my-post` のとき組織スラッグ。未指定は従来どおり `/blog/:slug` 相当。 */
@@ -66,57 +51,54 @@ export function BlogDetailPage({ slug, organizationSlug }: BlogDetailPageProps) 
       let data: BlogPost | null = null
 
       if (organizationSlug) {
-        const { data: rows, error: rpcError } = await supabase.rpc('get_public_blog_post', {
-          p_org_slug: organizationSlug,
-          p_article_slug: articleSlug,
-        })
-
-        const rpcRow = Array.isArray(rows) ? rows[0] : null
-        if (!rpcError && rpcRow) {
-          data = rpcRow as BlogPost
-        } else {
-          if (rpcError) {
-            logger.warn(
-              isRpcUnavailableError(rpcError)
-                ? 'get_public_blog_post がDBに未適用の可能性 — フォールバック取得を試行（マイグレーション 20260320030000 適用推奨）'
-                : 'get_public_blog_post が失敗 — フォールバック取得を試行',
-              rpcError
-            )
-          }
-
-          const { data: org, error: orgError } = await supabase
-            .from('organizations')
-            .select('id')
-            .eq('slug', organizationSlug)
+        // 1) 通常: organizations → blog_posts（ログイン済み・RLS で org が見える場合はここで完結 → RPC を呼ばず 404 も出ない）
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('slug', organizationSlug)
+          .maybeSingle()
+        if (!orgError && org?.id) {
+          const { data: row, error: postError } = await supabase
+            .from('blog_posts')
+            .select(BLOG_POST_COLUMNS)
+            .eq('organization_id', org.id)
+            .eq('slug', articleSlug)
+            .eq('is_published', true)
             .maybeSingle()
-          if (!orgError && org?.id) {
-            const { data: row, error: postError } = await supabase
-              .from('blog_posts')
-              .select(BLOG_POST_COLUMNS)
-              .eq('organization_id', org.id)
-              .eq('slug', articleSlug)
-              .eq('is_published', true)
-              .maybeSingle()
-            if (!postError && row) {
-              data = row as BlogPost
-            }
+          if (!postError && row) {
+            data = row as BlogPost
           }
+        }
 
-          if (!data) {
-            const { data: joined, error: joinError } = await supabase
-              .from('blog_posts')
-              .select(`${BLOG_POST_COLUMNS}, organizations!inner(slug)`)
-              .eq('slug', articleSlug)
-              .eq('is_published', true)
-              .eq('organizations.slug', organizationSlug)
-              .maybeSingle()
-            if (!joinError && joined) {
-              const j = joined as unknown as BlogPost & {
-                organizations: { slug: string } | { slug: string }[]
-              }
-              const { organizations: _o, ...postOnly } = j
-              data = postOnly as BlogPost
+        // 2) 結合クエリ（1 が取れない場合の別経路）
+        if (!data) {
+          const { data: joined, error: joinError } = await supabase
+            .from('blog_posts')
+            .select(`${BLOG_POST_COLUMNS}, organizations!inner(slug)`)
+            .eq('slug', articleSlug)
+            .eq('is_published', true)
+            .eq('organizations.slug', organizationSlug)
+            .maybeSingle()
+          if (!joinError && joined) {
+            const j = joined as unknown as BlogPost & {
+              organizations: { slug: string } | { slug: string }[]
             }
+            const { organizations: _o, ...postOnly } = j
+            data = postOnly as BlogPost
+          }
+        }
+
+        // 3) 匿名＋organizations が RLS で見えない等の最終手段（マイグレーション適用後のみ有効）
+        if (!data) {
+          const { data: rows, error: rpcError } = await supabase.rpc('get_public_blog_post', {
+            p_org_slug: organizationSlug,
+            p_article_slug: articleSlug,
+          })
+          const rpcRow = Array.isArray(rows) ? rows[0] : null
+          if (!rpcError && rpcRow) {
+            data = rpcRow as BlogPost
+          } else if (rpcError && import.meta.env.DEV) {
+            logger.debug('get_public_blog_post:', rpcError.message || rpcError)
           }
         }
 
