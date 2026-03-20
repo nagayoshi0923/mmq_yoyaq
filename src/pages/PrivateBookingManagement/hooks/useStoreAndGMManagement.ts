@@ -156,12 +156,12 @@ export function useStoreAndGMManagement() {
       
       logger.log('📊 取得したスケジュールイベント:', scheduleEvents?.length, '件')
 
-      // 時間帯判定関数（候補日時の timeSlot と一致させるため 午前/午後/夜間 を使用）
+      // 時間帯判定関数（候補日時の timeSlot と一致させるため 午前/午後/夜 を使用）
       const getTimeSlot = (startTime: string): string => {
         const hour = parseInt(startTime.split(':')[0])
         if (hour < 12) return '午前'
         if (hour < 17) return '午後'
-        return '夜間'
+        return '夜'
       }
 
       scheduleEvents?.forEach(event => {

@@ -971,7 +971,7 @@ export function ScheduleManager() {
           </div>
           <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午前</div>
           <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午後</div>
-          <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">夜間</div>
+          <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">夜</div>
           <div className="w-[160px] shrink-0 text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">メモ</div>
         </div>
         

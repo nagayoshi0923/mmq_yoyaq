@@ -172,7 +172,7 @@ export function ScheduleTable({
               </TableHead>
               <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午前</TableHead>
               <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午後</TableHead>
-              <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">夜間</TableHead>
+              <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">夜</TableHead>
               <TableHead className="bg-muted text-sm font-bold !p-0 !h-auto text-center">メモ</TableHead>
             </TableRow>
           </TableHeader>
@@ -299,7 +299,7 @@ export function ScheduleTable({
                     isBlocked={isSlotBlocked?.(day.date, venue.id, 'afternoon')}
                   />
                   
-                  {/* 夜間セル */}
+                  {/* 夜セル */}
                   <TimeSlotCell
                     events={getEventsForSlot(day.date, venue.id, 'evening')}
                     date={day.date}

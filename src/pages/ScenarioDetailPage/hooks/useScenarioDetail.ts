@@ -104,7 +104,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
           if (orgId) {
             const { data: orgScenarioData } = await supabase
               .from('organization_scenarios')
-              .select('custom_caution, characters')
+              .select('custom_caution, characters, private_booking_blocked_slots')
               .eq('scenario_master_id', masterId)
               .eq('organization_id', orgId)
               .maybeSingle()
@@ -112,7 +112,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
           }
           const { data: orgScenarioRows } = await supabase
             .from('organization_scenarios')
-            .select('custom_caution, characters')
+            .select('custom_caution, characters, private_booking_blocked_slots')
             .eq('scenario_master_id', masterId)
             .not('characters', 'is', null)
             .limit(1)
@@ -221,6 +221,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     available_stores: scenarioData.available_stores || [],
     extra_preparation_time: scenarioData.extra_preparation_time || 0,
     private_booking_time_slots: scenarioData.private_booking_time_slots || undefined,
+    private_booking_blocked_slots: orgScenarioResult?.private_booking_blocked_slots || undefined,
     characters: charactersResult
   }
   

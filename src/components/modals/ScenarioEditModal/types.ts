@@ -107,6 +107,8 @@ export interface ScenarioFormData {
   extra_preparation_time?: number
   // 貸切受付可能時間枠（'朝公演', '昼公演', '夜公演'）
   private_booking_time_slots?: string[]
+  // 貸切受付不可時間帯（'午前', '午後', '夜'）
+  private_booking_blocked_slots?: string[]
   // アンケート設定
   survey_url?: string | null
   survey_enabled?: boolean

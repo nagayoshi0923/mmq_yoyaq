@@ -351,7 +351,7 @@ export const ListView = memo(function ListView({
               if (event.timeSlot) {
                 return event.timeSlot === '夜'
               }
-              // フォールバック：start_timeから判定（18時以降が夜間）
+              // フォールバック：start_timeから判定（18時以降が夜）
               const hour = parseInt(event.start_time?.split(':')[0] || '0')
               return hour >= 18
             })

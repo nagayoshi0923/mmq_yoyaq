@@ -215,11 +215,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     return new Set(validStores.map(s => s.id))
   }, [scenario, stores])
   
-  // 時間枠のラベル（朝/昼/夜 または 朝公演/昼公演/夜公演 または 午前/午後/夜間）を実際の時間帯（morning/afternoon/evening）にマッピング
+  // 時間枠のラベル（朝/昼/夜 または 朝公演/昼公演/夜公演 または 午前/午後/夜）を実際の時間帯（morning/afternoon/evening）にマッピング
   const getTimeSlotFromLabel = useCallback((label: string): 'morning' | 'afternoon' | 'evening' => {
     if (label === '朝' || label === '朝公演' || label === '午前') return 'morning'
     if (label === '昼' || label === '昼公演' || label === '午後') return 'afternoon'
-    if (label === '夜' || label === '夜公演' || label === '夜間') return 'evening'
+    if (label === '夜' || label === '夜公演') return 'evening'
     return 'morning' // デフォルト
   }, [])
 
@@ -784,11 +784,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     }
     
     // 時間枠を生成（有効な公演枠のみ）
-    // ラベルはデータベース制約 ('午前', '午後', '夜間') と一致させる
+    // ラベルはデータベース制約 ('午前', '午後', '夜') と一致させる
     const slotDefinitions: { key: 'morning' | 'afternoon' | 'evening'; label: string }[] = [
       { key: 'morning', label: '午前' },
       { key: 'afternoon', label: '午後' },
-      { key: 'evening', label: '夜間' }
+      { key: 'evening', label: '夜' }
     ]
     const hardDayLimit = timeToMinutes('23:00')
     

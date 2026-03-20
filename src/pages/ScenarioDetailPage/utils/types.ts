@@ -52,6 +52,7 @@ export interface ScenarioDetail {
   available_stores?: string[]  // 公演可能店舗IDリスト
   extra_preparation_time?: number  // 追加準備時間（分）
   private_booking_time_slots?: string[]  // 貸切受付可能時間枠
+  private_booking_blocked_slots?: string[]  // 貸切受付不可時間帯
   characters?: ScenarioCharacter[]  // キャラクター情報
 }
 
@@ -81,10 +82,10 @@ export interface TimeSlot {
 
 // デフォルトの時間枠（4時間公演想定）
 // 実際の終了時間はシナリオの公演時間から計算される
-// ラベルはデータベース制約 ('午前', '午後', '夜間') と一致させる必要がある
+// ラベルはデータベース制約 ('午前', '午後', '夜') と一致させる必要がある
 export const TIME_SLOTS: TimeSlot[] = [
   { label: '午前', startTime: '09:00', endTime: '13:00' },
   { label: '午後', startTime: '14:00', endTime: '18:00' },
-  { label: '夜間', startTime: '19:00', endTime: '23:00' },
+  { label: '夜', startTime: '19:00', endTime: '23:00' },
 ]
 

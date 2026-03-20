@@ -161,7 +161,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         const slotMap = {
           morning: { label: '午前', startTime: '09:00', endTime: '12:00' },
           afternoon: { label: '午後', startTime: '12:00', endTime: '17:00' },
-          evening: { label: '夜間', startTime: '17:00', endTime: '22:00' }
+          evening: { label: '夜', startTime: '17:00', endTime: '22:00' }
         }
         
         const slot = slotMap[slotParam as keyof typeof slotMap]
@@ -525,9 +525,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     onTimeSlotToggle={toggleTimeSlot}
                     checkTimeSlotAvailability={checkTimeSlotAvailability}
                     maxSelections={MAX_SELECTIONS}
-                    scenarioDuration={scenario.duration}
-                    getTimeSlotsForDate={getTimeSlotsForDate}
                     isCustomHoliday={isCustomHoliday}
+                    blockedSlots={scenario?.private_booking_blocked_slots}
                   />
                   
                   {/* 選択された時間枠の表示 */}

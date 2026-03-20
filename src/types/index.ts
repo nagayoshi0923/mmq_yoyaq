@@ -973,7 +973,7 @@ export interface PrivateGroupCandidateDate {
   id: string
   group_id: string
   date: string
-  time_slot: '午前' | '午後' | '夜間'
+  time_slot: '午前' | '午後' | '夜'
   start_time: string
   end_time: string
   order_num: number

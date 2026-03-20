@@ -24,7 +24,7 @@ const MAX_TIME_SLOTS = 6
 const TIME_SLOT_OPTIONS: TimeSlot[] = [
   { label: '午前', startTime: '09:00', endTime: '12:00' },
   { label: '午後', startTime: '12:00', endTime: '17:00' },
-  { label: '夜間', startTime: '17:00', endTime: '22:00' }
+  { label: '夜', startTime: '17:00', endTime: '22:00' }
 ]
 
 export function PrivateBookingRequest({
@@ -179,7 +179,7 @@ export function PrivateBookingRequest({
           preferredStoreIds: selectedStoreIds,
           candidateDates: editableTimeSlots.map((ts, idx) => ({
             date: ts.date,
-            time_slot: ts.slot.label as '午前' | '午後' | '夜間',
+            time_slot: ts.slot.label as '午前' | '午後' | '夜',
             start_time: ts.slot.startTime,
             end_time: ts.slot.endTime,
             order_num: idx + 1

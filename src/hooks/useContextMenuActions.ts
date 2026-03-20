@@ -107,7 +107,7 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
       // 🚨 CRITICAL: ペースト先の重複チェック
       const conflict = checkConflict(targetDate, targetVenue, targetTimeSlot)
       if (conflict) {
-        const timeSlotLabel = targetTimeSlot === 'morning' ? '午前' : targetTimeSlot === 'afternoon' ? '午後' : '夜間'
+        const timeSlotLabel = targetTimeSlot === 'morning' ? '午前' : targetTimeSlot === 'afternoon' ? '午後' : '夜'
         const storeName = stores.find(s => s.id === targetVenue)?.name || targetVenue
         
         if (!confirm(

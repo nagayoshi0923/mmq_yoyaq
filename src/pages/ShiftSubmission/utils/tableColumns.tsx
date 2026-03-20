@@ -131,13 +131,13 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
     },
     {
       key: 'evening',
-      header: '夜間',
+      header: '夜',
       width: 'w-[81px] sm:w-32 md:w-44',
       sortable: false,
       align: 'center',
       renderHeader: () => (
         <div className="flex flex-col items-center space-y-0.5 sm:space-y-1 w-full">
-          <span className="text-xs">夜間</span>
+          <span className="text-xs">夜</span>
           <span className="text-xs text-muted-foreground hidden sm:inline">(17:00~)</span>
           <div className="flex space-x-0.5 sm:space-x-1">
             <Button

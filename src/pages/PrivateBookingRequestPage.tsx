@@ -66,11 +66,11 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     // 英語キー（従来の形式）
     morning: { label: '午前', startTime: '09:00', endTime: '12:00' },
     afternoon: { label: '午後', startTime: '12:00', endTime: '17:00' },
-    evening: { label: '夜間', startTime: '17:00', endTime: '22:00' },
+    evening: { label: '夜', startTime: '17:00', endTime: '22:00' },
     // 日本語キー（貸切グループからの遷移用）
     '午前': { label: '午前', startTime: '10:00', endTime: '13:00' },
     '午後': { label: '午後', startTime: '13:00', endTime: '17:00' },
-    '夜間': { label: '夜間', startTime: '18:00', endTime: '22:00' }
+    '夜': { label: '夜', startTime: '18:00', endTime: '22:00' }
   }
 
   useEffect(() => {

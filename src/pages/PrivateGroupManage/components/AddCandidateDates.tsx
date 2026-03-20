@@ -10,7 +10,7 @@ import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import type { PrivateGroupCandidateDate } from '@/types'
 
 interface TimeSlot {
-  label: '午前' | '午後' | '夜間'
+  label: '午前' | '午後' | '夜'
   startTime: string
   endTime: string
 }
@@ -18,7 +18,7 @@ interface TimeSlot {
 const TIME_SLOTS: TimeSlot[] = [
   { label: '午前', startTime: '10:00', endTime: '13:00' },
   { label: '午後', startTime: '13:00', endTime: '17:00' },
-  { label: '夜間', startTime: '18:00', endTime: '22:00' },
+  { label: '夜', startTime: '18:00', endTime: '22:00' },
 ]
 
 interface AddCandidateDatesProps {
@@ -201,7 +201,7 @@ export function AddCandidateDates({
       }
       return [...prev, { date, slot }].sort((a, b) => {
         if (a.date !== b.date) return a.date.localeCompare(b.date)
-        const slotOrder = { '午前': 0, '午後': 1, '夜間': 2 }
+        const slotOrder = { '午前': 0, '午後': 1, '夜': 2 }
         return slotOrder[a.slot.label] - slotOrder[b.slot.label]
       })
     })

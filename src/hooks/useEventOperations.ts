@@ -354,7 +354,7 @@ export function useEventOperations({
       // 🚨 CRITICAL: 移動先の重複チェック
       const conflict = checkConflict(dropTarget.date, dropTarget.venue, dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening', draggedEvent.id)
       if (conflict) {
-        const timeSlotLabel = dropTarget.timeSlot === 'morning' ? '午前' : dropTarget.timeSlot === 'afternoon' ? '午後' : '夜間'
+        const timeSlotLabel = dropTarget.timeSlot === 'morning' ? '午前' : dropTarget.timeSlot === 'afternoon' ? '午後' : '夜'
         const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
         
         if (!confirm(
@@ -490,7 +490,7 @@ export function useEventOperations({
       const targetTimeSlot = dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening'
       const conflict = checkConflict(dropTarget.date, dropTarget.venue, targetTimeSlot)
       if (conflict) {
-        const timeSlotLabel = targetTimeSlot === 'morning' ? '午前' : targetTimeSlot === 'afternoon' ? '午後' : '夜間'
+        const timeSlotLabel = targetTimeSlot === 'morning' ? '午前' : targetTimeSlot === 'afternoon' ? '午後' : '夜'
         const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
         
         if (!confirm(
@@ -621,7 +621,7 @@ export function useEventOperations({
     
     if (slotConflictingEvents.length > 0) {
       const conflictingEvent = slotConflictingEvents[0]
-      const timeSlotLabel = timeSlot === 'morning' ? '午前' : timeSlot === 'afternoon' ? '午後' : '夜間'
+      const timeSlotLabel = timeSlot === 'morning' ? '午前' : timeSlot === 'afternoon' ? '午後' : '夜'
       const storeName = stores.find(s => s.id === performanceData.venue)?.name || performanceData.venue
       
       // 重複警告モーダルを表示

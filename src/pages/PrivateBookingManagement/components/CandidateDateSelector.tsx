@@ -111,17 +111,17 @@ const getGMBadgeStyle = (avatarColor?: string | null, name?: string): { bgColor:
   }
 }
 
-// 時間帯を正規化する関数（「夜公演」→「夜間」、「朝公演」→「午前」など）
+// 時間帯を正規化する関数（「夜公演」→「夜」、「朝公演」→「午前」など）
 // 競合チェック時のキーと一致させる必要がある
 const normalizeTimeSlot = (timeSlot: string): string => {
-  // 標準ラベル（午前/午後/夜間）をそのまま使用
-  if (timeSlot === '午前' || timeSlot === '午後' || timeSlot === '夜間') {
+  // 標準ラベル（午前/午後/夜）をそのまま使用
+  if (timeSlot === '午前' || timeSlot === '午後' || timeSlot === '夜') {
     return timeSlot
   }
   // 朝/昼/夜が含まれる場合は標準ラベルに変換
   if (timeSlot.includes('朝') || timeSlot.includes('午前')) return '午前'
   if (timeSlot.includes('昼') || timeSlot.includes('午後')) return '午後'
-  if (timeSlot.includes('夜')) return '夜間'
+  if (timeSlot.includes('夜')) return '夜'
   // それ以外はそのまま返す
   return timeSlot
 }

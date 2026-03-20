@@ -67,7 +67,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
   const slotLabels: { [key: string]: string } = {
     morning: '午前',
     afternoon: '午後',
-    evening: '夜間'
+    evening: '夜'
   }
 
   // 表示する全有効店舗（オフィス除外）

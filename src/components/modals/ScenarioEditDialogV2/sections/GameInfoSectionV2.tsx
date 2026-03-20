@@ -375,6 +375,35 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
               <p className={hintStyle}>ONにすると予約時に「事前に資料を読む必要があります」と表示されます</p>
             </div>
           </div>
+
+          {/* 貸切受付不可時間帯 */}
+          <div className="mt-5 pt-4 border-t">
+            <Label className={labelStyle}>貸切受付不可時間帯</Label>
+            <p className={hintStyle}>チェックした時間帯は貸切予約を受け付けません</p>
+            <div className="flex gap-4 mt-2">
+              {['午前', '午後', '夜'].map((slot) => (
+                <div key={slot} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`blocked-slot-${slot}`}
+                    checked={(formData.private_booking_blocked_slots || []).includes(slot)}
+                    onCheckedChange={(checked) => {
+                      setFormData(prev => {
+                        const current = prev.private_booking_blocked_slots || []
+                        if (checked) {
+                          return { ...prev, private_booking_blocked_slots: [...current, slot] }
+                        } else {
+                          return { ...prev, private_booking_blocked_slots: current.filter(s => s !== slot) }
+                        }
+                      })
+                    }}
+                  />
+                  <Label htmlFor={`blocked-slot-${slot}`} className="text-sm cursor-pointer">
+                    {slot}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

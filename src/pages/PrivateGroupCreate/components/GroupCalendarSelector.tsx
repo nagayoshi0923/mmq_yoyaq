@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 
 interface TimeSlot {
-  label: '午前' | '午後' | '夜間'
+  label: '午前' | '午後' | '夜'
   startTime: string
   endTime: string
 }
@@ -23,7 +23,7 @@ interface GroupCalendarSelectorProps {
 const TIME_SLOTS: TimeSlot[] = [
   { label: '午前', startTime: '09:00', endTime: '12:00' },
   { label: '午後', startTime: '12:00', endTime: '17:00' },
-  { label: '夜間', startTime: '17:00', endTime: '22:00' },
+  { label: '夜', startTime: '17:00', endTime: '22:00' },
 ]
 
 export const GroupCalendarSelector = memo(function GroupCalendarSelector({

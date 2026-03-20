@@ -5,12 +5,12 @@ import { logger } from '@/utils/logger'
 
 // 時間帯を正規化する関数（競合キーの一貫性を保つため）
 const normalizeTimeSlot = (timeSlot: string): string => {
-  if (timeSlot === '午前' || timeSlot === '午後' || timeSlot === '夜間') {
+  if (timeSlot === '午前' || timeSlot === '午後' || timeSlot === '夜') {
     return timeSlot
   }
   if (timeSlot.includes('朝') || timeSlot.includes('午前')) return '午前'
   if (timeSlot.includes('昼') || timeSlot.includes('午後')) return '午後'
-  if (timeSlot.includes('夜')) return '夜間'
+  if (timeSlot.includes('夜')) return '夜'
   return timeSlot
 }
 

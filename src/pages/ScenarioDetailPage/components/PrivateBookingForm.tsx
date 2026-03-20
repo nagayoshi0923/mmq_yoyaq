@@ -17,51 +17,13 @@ interface PrivateBookingFormProps {
   currentMonth: Date
   onMonthChange: (delta: number) => void
   availableDates: string[]
-  timeSlots: TimeSlot[] // フォールバック用（デフォルト時間枠）
+  timeSlots: TimeSlot[]
   selectedSlots: Array<{ date: string; slot: TimeSlot }>
   onTimeSlotToggle: (date: string, slot: TimeSlot) => void
   checkTimeSlotAvailability: (date: string, slot: TimeSlot, storeIds?: string[]) => Promise<boolean>
   maxSelections: number
-  scenarioDuration: number // シナリオの所要時間（分）
-  getTimeSlotsForDate?: (date: string) => TimeSlot[] // 日付ごとの時間枠取得（営業時間設定反映）
-  isCustomHoliday?: (date: string) => boolean // カスタム休日判定（GW、年末年始など）
-}
-
-/**
- * 貸切リクエストフォーム
- */
-// 開始時間から終了時間を計算する関数
-const calculateEndTime = (startTime: string, durationMinutes: number): string => {
-  const [hours, minutes] = startTime.split(':').map(Number)
-  const totalMinutes = hours * 60 + minutes + durationMinutes
-  const endHours = Math.floor(totalMinutes / 60) % 24
-  const endMinutes = totalMinutes % 60
-  return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`
-}
-
-// 営業終了時間から逆算して開始時間を計算する関数（夜公演用）
-const calculateReverseStartTime = (endTimeLimit: string, durationMinutes: number): string => {
-  const [hours, minutes] = endTimeLimit.split(':').map(Number)
-  const totalMinutes = hours * 60 + minutes - durationMinutes
-  const startHours = Math.floor(totalMinutes / 60)
-  const startMinutes = totalMinutes % 60
-  return `${startHours.toString().padStart(2, '0')}:${startMinutes.toString().padStart(2, '0')}`
-}
-
-// デフォルトの開始時間を取得（スロット種別と公演時間に応じて調整）
-const getDefaultStartTime = (slotLabel: string, isWeekendOrHoliday: boolean, durationMinutes: number): string => {
-  if (slotLabel === '朝公演' || slotLabel === '午前') {
-    return '09:00'
-  } else if (slotLabel === '昼公演' || slotLabel === '午後') {
-    return isWeekendOrHoliday ? '14:00' : '13:00'
-  } else if (slotLabel === '夜公演' || slotLabel === '夜間') {
-    // 夜公演は23:00終了から逆算
-    const reverseStart = calculateReverseStartTime('23:00', durationMinutes)
-    const defaultStart = '19:00'  // 夜公演は19:00開始がデフォルト
-    // 逆算した開始時間がデフォルト（19:00）より早い場合は逆算値を使用
-    return reverseStart < defaultStart ? reverseStart : defaultStart
-  }
-  return '09:00'
+  isCustomHoliday?: (date: string) => boolean
+  blockedSlots?: string[]
 }
 
 export const PrivateBookingForm = memo(function PrivateBookingForm({
@@ -76,12 +38,10 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   onTimeSlotToggle,
   checkTimeSlotAvailability,
   maxSelections,
-  scenarioDuration,
-  getTimeSlotsForDate,
-  isCustomHoliday
+  isCustomHoliday,
+  blockedSlots = []
 }: PrivateBookingFormProps) {
   const remainingSelections = maxSelections - selectedSlots.length
-  // 各時間枠の可用性を管理する状態
   const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
   
   const isTimeSlotSelected = (date: string, slot: TimeSlot): boolean => {
@@ -90,33 +50,17 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   
   // 各時間枠の可用性を非同期で取得
   useEffect(() => {
+    let isCancelled = false
+    
     const updateAvailability = async () => {
       const newAvailabilityMap: Record<string, boolean> = {}
       
-        // 各日付・時間枠の可用性を並列で取得（常に3枠チェック）
-        const promises = availableDates.flatMap(date => {
-          // 日付ごとの開始時間と終了時間を取得
-          const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
-          const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
-          
-          // 曜日に応じたデフォルト開始時間（公演時間から計算、夜公演は営業終了から逆算）
-          const dateObj = new Date(date)
-          const dayOfWeek = dateObj.getDay()
-          const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(date) || isCustomHoliday?.(date)
-          
-          return timeSlots.map(async (slot) => {
-            // 日付ごとの開始時間と終了時間を適用（公演時間に応じたデフォルト）
-            const slotTimes = slotTimesMap.get(slot.label)
-            // デフォルト開始時間は公演時間と曜日から計算（夜公演は営業終了から逆算）
-            const defaultStart = getDefaultStartTime(slot.label, isWeekendOrHoliday ?? false, scenarioDuration)
-            const startTime = slotTimes?.startTime || defaultStart
-            // 終了時間はシナリオの公演時間から計算（固定値のフォールバックを避ける）
-            const endTime = slotTimes?.endTime || calculateEndTime(startTime, scenarioDuration)
-            const slotWithTime = { ...slot, startTime, endTime }
+      const promises = availableDates.flatMap(date => {
+        return timeSlots.map(async (slot) => {
           const key = `${date}-${slot.label}`
           const isAvailable = await checkTimeSlotAvailability(
             date,
-            slotWithTime,
+            slot,
             selectedStoreIds.length > 0 ? selectedStoreIds : undefined
           )
           newAvailabilityMap[key] = isAvailable
@@ -124,19 +68,23 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
       })
       
       await Promise.all(promises)
-      setAvailabilityMap(newAvailabilityMap)
+      
+      if (!isCancelled) {
+        setAvailabilityMap(newAvailabilityMap)
+      }
     }
     
     updateAvailability()
-  }, [availableDates, timeSlots, selectedStoreIds, checkTimeSlotAvailability, getTimeSlotsForDate, isCustomHoliday, scenarioDuration])
+    
+    return () => {
+      isCancelled = true
+    }
+  }, [availableDates, timeSlots, selectedStoreIds, checkTimeSlotAvailability])
   
-  // 時間枠の可用性を取得
   const getAvailability = (date: string, slot: TimeSlot): boolean => {
     const key = `${date}-${slot.label}`
-    // まだ取得されていない場合は、デフォルトでfalse（安全側に倒す）
     return availabilityMap[key] ?? false
   }
-
 
   // 店舗が1つしかない場合は自動選択
   useEffect(() => {
@@ -147,7 +95,6 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
 
   return (
     <div>
-      {/* 店舗選択 */}
       <StoreSelector
         stores={stores}
         selectedStoreIds={selectedStoreIds}
@@ -156,10 +103,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         placeholder="店舗を選択してください"
       />
       
-      {/* 希望日程ラベル */}
       <h3 className="text-sm font-medium text-muted-foreground mt-4 mb-1.5">希望日程を選択</h3>
 
-      {/* 月切り替え + 選択状況 */}
       <div className="flex items-center justify-between mb-2">
         <button
           onClick={() => onMonthChange(-1)}
@@ -179,7 +124,6 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         </button>
       </div>
       
-      {/* 選択状況 */}
       <div className="text-xs text-muted-foreground mb-2 text-center">
         {selectedSlots.length === 0 ? (
           <span>候補日時を選択してください（最大{maxSelections}件）</span>
@@ -202,60 +146,41 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const weekdays = ['日', '月', '火', '水', '木', '金', '土']
           const weekday = weekdays[dateObj.getDay()]
           
-          // 曜日の色分け（祝日・カスタム休日は赤）
           const dayOfWeek = dateObj.getDay()
           const isHoliday = isJapaneseHoliday(date) || isCustomHoliday?.(date)
           const weekdayColor = isHoliday || dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
-          
-          // 日付ごとの時間枠を取得（営業時間設定反映）
-          // 開始時間と終了時間を取得（表示は常に3枠固定）
-          const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
-          
-          const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
-          
-          // 曜日に応じたデフォルト開始時間（公演時間から計算、夜公演は営業終了から逆算）
-          const isWeekendOrHoliday = dayOfWeek === 0 || dayOfWeek === 6 || isJapaneseHoliday(date) || isCustomHoliday?.(date)
           
           return (
             <div 
               key={date}
               className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0"
             >
-              {/* 日付 */}
               <div className="flex-shrink-0 w-10 text-center">
                 <div className="text-sm font-medium">{month}/{day}</div>
                 <div className={`text-xs ${weekdayColor}`}>({weekday})</div>
               </div>
               
-              {/* 時間枠ボタン（常に3枠表示、幅固定） */}
               <div className="flex gap-1.5 flex-1">
                 {timeSlots.map((slot) => {
-                  // 日付ごとの開始時間と終了時間を取得（設定がなければ公演時間に応じたデフォルト）
-                  const slotTimes = slotTimesMap.get(slot.label)
-                  // デフォルト開始時間は公演時間と曜日から計算（夜公演は営業終了から逆算）
-                  const defaultStart = getDefaultStartTime(slot.label, isWeekendOrHoliday ?? false, scenarioDuration)
-                  const startTime = slotTimes?.startTime || defaultStart
-                  // 終了時間はシナリオの公演時間から計算（固定値のフォールバックを避ける）
-                  const endTime = slotTimes?.endTime || calculateEndTime(startTime, scenarioDuration)
-                  const slotWithTime = { ...slot, startTime, endTime }
-                  const isAvailable = getAvailability(date, slotWithTime)
-                  const isSelected = isTimeSlotSelected(date, slotWithTime)
+                  const isBlocked = blockedSlots.includes(slot.label)
+                  const isTimeAvailable = !isBlocked && getAvailability(date, slot)
+                  const isSelected = isTimeSlotSelected(date, slot)
                   
                   return (
                     <button
                       key={slot.label}
                       className={`flex-1 py-1 px-1 border text-center transition-colors ${
-                        !isAvailable 
+                        !isTimeAvailable 
                           ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
                           : isSelected
                           ? 'bg-[#E60012] text-white border-[#E60012]'
                           : 'border-gray-200 hover:border-red-300 hover:bg-red-50'
                       }`}
-                      disabled={!isAvailable}
-                      onClick={() => isAvailable && onTimeSlotToggle(date, slotWithTime)}
+                      disabled={!isTimeAvailable}
+                      onClick={() => isTimeAvailable && onTimeSlotToggle(date, slot)}
                     >
                       <div className="text-xs font-medium">{slot.label}</div>
-                      <div className="text-[10px] opacity-70">{startTime}〜{endTime}</div>
+                      <div className="text-[10px] opacity-70">{slot.startTime}〜{slot.endTime}</div>
                     </button>
                   )
                 })}
@@ -267,4 +192,3 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
     </div>
   )
 })
-
