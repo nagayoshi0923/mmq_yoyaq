@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
-import { determineUserRole } from '@/utils/authUtils'
 import { validateRedirectUrl } from '@/lib/utils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link } from 'react-router-dom'
@@ -17,9 +16,6 @@ import {
   Sparkles, AlertCircle, CheckCircle, Loader2
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-
-// デフォルト組織ID（クインズワルツ）
-const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 
 // ソーシャルログインアイコン
 function GoogleIcon({ className }: { className?: string }) {
@@ -161,11 +157,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         provider,
         options: {
           redirectTo: `${window.location.origin}${safeReturnUrl}`,
+          // ログインはアカウント選択を毎回出さず、再利用セッションで速くする（新規登録のみ明示選択）
           queryParams:
-            provider === 'google'
-              ? {
-                  prompt: 'select_account',
-                }
+            provider === 'google' && mode === 'signup'
+              ? { prompt: 'select_account' }
               : undefined,
           skipBrowserRedirect: true,
         },
@@ -194,10 +189,8 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         options: {
           redirectTo: `${window.location.origin}${safeReturnUrl}`,
           queryParams:
-            provider === 'google'
-              ? {
-                  prompt: 'select_account',
-                }
+            provider === 'google' && mode === 'signup'
+              ? { prompt: 'select_account' }
               : undefined,
         },
       })
@@ -271,73 +264,91 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         setMessage('確認メールを送信しました。メールのリンクをクリックして登録を完了してください。')
         
       } else {
-        // ログイン
-        await signIn(email, password)
-        
-        // ログイン成功メッセージを表示
+        // ログイン（signIn は getUser を挟まずセッション確定まで返す）
+        const { user: signedUser } = await signIn(email, password)
+
         setMessage('ログイン成功！リダイレクト中...')
-        setError('') // エラーをクリア
-        
-        // 次ティックでリダイレクト（signIn 完了済み・500ms 待ちは体感を悪化させるため廃止）
+        setError('')
+
+        // リダイレクトは getUser の代わりに signIn 直後の user.id で1クエリにまとめる
         setTimeout(async () => {
           try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-              const { data: staffData } = await supabase
+            let staffData: {
+              organization_id: string | null
+              role: string | null
+              organizations?: { slug: string } | null
+            } | null = null
+            let orgSlug: string | undefined
+
+            const nested = await supabase
+              .from('staff')
+              .select('organization_id, role, organizations(slug)')
+              .eq('user_id', signedUser.id)
+              .maybeSingle()
+
+            if (nested.error) {
+              logger.warn('Login redirect: staff+org nested select failed, falling back', nested.error)
+              const { data: staffOnly } = await supabase
                 .from('staff')
                 .select('organization_id, role')
-                .eq('user_id', user.id)
+                .eq('user_id', signedUser.id)
                 .maybeSingle()
-              
-              if (staffData?.organization_id) {
-                const { data: orgData } = await supabase
+              staffData = staffOnly
+              if (staffOnly?.organization_id) {
+                const { data: orgRow } = await supabase
                   .from('organizations')
                   .select('slug')
-                  .eq('id', staffData.organization_id)
-                  .single()
-                
-                if (staffData.role === 'admin' || staffData.role === 'staff') {
-                  // スタッフ/管理者はログイン後にスケジュールページを開く
-                  const slug = orgData?.slug || 'queens-waltz'
-                  // 既存の returnUrl（例: /dashboard）より優先してスケジュールへ
-                  sessionStorage.removeItem('returnUrl')
-                  navigate(`/${slug}/schedule`, { replace: true })
-                } else {
-                  // 戻り先URLがある場合はそこへ、なければ通常のリダイレクト
-                  const rawReturnUrl1 = sessionStorage.getItem('returnUrl')
-                  if (rawReturnUrl1) {
-                    sessionStorage.removeItem('returnUrl') // クリア
-                    navigate(validateRedirectUrl(rawReturnUrl1), { replace: true })
-                    return
-                  }
-
-                  navigate(`/${orgData?.slug || 'queens-waltz'}`, { replace: true })
-                }
-              } else {
-                // 戻り先URLがある場合はそこへ、なければトップへ
-                const rawReturnUrl2 = sessionStorage.getItem('returnUrl')
-                if (rawReturnUrl2) {
-                  sessionStorage.removeItem('returnUrl')
-                  navigate(validateRedirectUrl(rawReturnUrl2), { replace: true })
-                  return
-                }
-                navigate('/', { replace: true })
+                  .eq('id', staffOnly.organization_id)
+                  .maybeSingle()
+                orgSlug = orgRow?.slug
               }
             } else {
-              // 戻り先URLがある場合はそこへ、なければトップへ
-              const rawReturnUrl3 = sessionStorage.getItem('returnUrl')
-              if (rawReturnUrl3) {
+              const row = nested.data
+              if (row) {
+                const orgRaw = row.organizations
+                const orgOne = Array.isArray(orgRaw) ? orgRaw[0] : orgRaw
+                staffData = {
+                  organization_id: row.organization_id,
+                  role: row.role,
+                  organizations: orgOne ?? null,
+                }
+                orgSlug =
+                  orgOne && typeof orgOne === 'object' && 'slug' in orgOne
+                    ? (orgOne as { slug: string }).slug
+                    : undefined
+              } else {
+                staffData = null
+              }
+            }
+
+            if (staffData?.organization_id) {
+              const slug = orgSlug || 'queens-waltz'
+
+              if (staffData.role === 'admin' || staffData.role === 'staff') {
                 sessionStorage.removeItem('returnUrl')
-                navigate(validateRedirectUrl(rawReturnUrl3), { replace: true })
+                navigate(`/${slug}/schedule`, { replace: true })
+              } else {
+                const rawReturnUrl1 = sessionStorage.getItem('returnUrl')
+                if (rawReturnUrl1) {
+                  sessionStorage.removeItem('returnUrl')
+                  navigate(validateRedirectUrl(rawReturnUrl1), { replace: true })
+                  return
+                }
+                navigate(`/${slug}`, { replace: true })
+              }
+            } else {
+              const rawReturnUrl2 = sessionStorage.getItem('returnUrl')
+              if (rawReturnUrl2) {
+                sessionStorage.removeItem('returnUrl')
+                navigate(validateRedirectUrl(rawReturnUrl2), { replace: true })
                 return
               }
+              navigate('/', { replace: true })
+            }
+          } catch (err) {
+            logger.error('Redirect error:', err)
             navigate('/', { replace: true })
           }
-        } catch (err) {
-          // リダイレクト処理でエラーが発生しても、とりあえずトップに遷移
-          logger.error('Redirect error:', err)
-          navigate('/', { replace: true })
-        }
         }, 0)
       }
     } catch (error: unknown) {

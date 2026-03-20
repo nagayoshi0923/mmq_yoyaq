@@ -23,7 +23,7 @@ interface AuthContextType {
   user: AuthUser | null
   loading: boolean
   isInitialized: boolean  // 初期認証が完了したか（タイムアウトではなく、実際に完了）
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (email: string, password: string) => Promise<{ user: User }>
   signOut: () => Promise<void>
   refreshSession: () => Promise<void>  // 手動でセッションをリフレッシュ
 }
@@ -223,13 +223,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     authTrace('🚀 AuthContext 初期化開始:', new Date().toISOString())
     
     // パフォーマンス最適化: 認証処理を非ブロッキング化
-    // 2秒後にloadingをfalseにして、ページを表示開始（ロール取得に時間がかかる場合の保険）
+    // 1.2秒後に loading を落とし、ロール取得が遅い環境でも画面を先に出す
     const loadingTimeout = setTimeout(() => {
       if (loading) {
-        authTrace('⏱️ 認証処理タイムアウト（2秒）、ページ表示を開始')
+        authTrace('⏱️ 認証処理タイムアウト（1.2秒）、ページ表示を開始')
         setLoading(false)
       }
-    }, 2000)
+    }, 1200)
     
     // 初期認証状態の確認（バックグラウンドで実行）
     getInitialSession().then(() => {
@@ -514,8 +514,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       authTrace('📊 usersテーブルからロール取得開始')
       try {
-        // 遅い場合でも 5s 待つとログインが重いので短めに切る（成功時は通常数百ms）
-        const timeoutMs = 2800
+        // 遅い場合でも長く待つとログインが重いので短めに切る（成功時は通常数百ms）
+        const timeoutMs = 2000
             
             const rolePromise = supabase
               .from('users')
@@ -930,62 +930,61 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  async function signIn(email: string, password: string) {
-    setLoading(true)
+  async function signIn(email: string, password: string): Promise<{ user: User }> {
+    // グローバル loading は立てない（全アプリのスピナーでログインが重く見えるため）。
+    // LoginForm の isSubmitting で十分。onAuthStateChange が user を流し込む。
     try {
-      // ログイン前に古いセッションをクリア（セッション切れ後のログイン問題対策）
-      // これにより、期限切れセッションが干渉することを防ぐ
+      // セッションが無いときは signOut をスキップし、往復を1回減らす
       const { data: currentSession } = await supabase.auth.getSession()
       if (currentSession.session) {
         authTrace('🔄 既存セッションを検出、クリアします')
         await supabase.auth.signOut({ scope: 'local' })
-        // ストレージ反映と競合すると signInWithPassword が不安定になることがある
-        await new Promise(r => setTimeout(r, 50))
+        // ストレージ反映を1ティック譲る（50ms 固定待ちは体感を悪化させる）
+        await new Promise<void>(resolve => queueMicrotask(resolve))
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-      
+
       if (error) {
         logger.error('❌ ログインエラー:', error.message)
-        // ログイン失敗をログに記録（エラー時は user は null）
         logAuthEvent('login', null, {
           success: false,
           errorMessage: error.message,
         })
         throw error
       }
-      
+
+      const signedUser = data.user
+      if (!signedUser) {
+        throw new Error('ログインに失敗しました')
+      }
+
       // メール未確認ユーザーはログイン不可
-      const emailConfirmedAt = data.user?.email_confirmed_at || data.user?.confirmed_at
+      const emailConfirmedAt = signedUser.email_confirmed_at || signedUser.confirmed_at
       if (!emailConfirmedAt) {
-        logger.warn('⚠️ メール未確認のためログイン拒否:', data.user?.email ? maskEmail(data.user.email) : 'N/A')
+        logger.warn('⚠️ メール未確認のためログイン拒否:', signedUser.email ? maskEmail(signedUser.email) : 'N/A')
         await supabase.auth.signOut({ scope: 'local' })
         throw new Error('Email not confirmed')
       }
 
-      authTrace('✅ ログイン成功:', data.user?.email ? maskEmail(data.user.email) : 'N/A')
-      
-      // ログイン成功をログに記録
-      if (data.user) {
-        const userData = userRef.current
-        logAuthEvent('login', data.user.id, {
-          newRole: userData?.role,
-          success: true,
-        })
-      }
-      
-      // 他のタブにログインを通知
+      authTrace('✅ ログイン成功:', signedUser.email ? maskEmail(signedUser.email) : 'N/A')
+
+      logAuthEvent('login', signedUser.id, {
+        newRole: userRef.current?.role,
+        success: true,
+      })
+
       if (broadcastChannelRef.current) {
         broadcastChannelRef.current.postMessage({ type: 'SIGNED_IN' })
         authTrace('📡 他タブにログインを通知')
       }
+
+      return { user: signedUser }
     } catch (error) {
       throw error
-    } finally {
-      setLoading(false)
     }
   }
 
