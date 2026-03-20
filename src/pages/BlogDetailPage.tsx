@@ -7,23 +7,15 @@ import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { Button } from '@/components/ui/button'
-import { supabase } from '@/lib/supabase'
+import {
+  fetchPublishedBlogPost,
+  incrementBlogViewCount,
+  normalizeArticleSlug,
+} from '@/lib/blogPublicFetch'
 import { logger } from '@/utils/logger'
 import { ArrowLeft, Calendar, Loader2 } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import type { BlogPost } from '@/types'
-
-const BLOG_POST_COLUMNS =
-  'id, organization_id, title, slug, excerpt, content, cover_image_url, is_published, published_at, author_id, view_count, created_at, updated_at'
-
-/** パスセグメントが二重エンコードされている場合のため */
-function normalizeArticleSlug(raw: string): string {
-  try {
-    return decodeURIComponent(raw)
-  } catch {
-    return raw
-  }
-}
 
 interface BlogDetailPageProps {
   slug: string
@@ -46,92 +38,18 @@ export function BlogDetailPage({ slug, organizationSlug }: BlogDetailPageProps) 
       setLoading(true)
       setNotFound(false)
 
-      const articleSlug = normalizeArticleSlug(slug)
+      const data = await fetchPublishedBlogPost({
+        articleSlug: normalizeArticleSlug(slug),
+        organizationSlug,
+      })
 
-      let data: BlogPost | null = null
-
-      if (organizationSlug) {
-        // 1) 通常: organizations → blog_posts（ログイン済み・RLS で org が見える場合はここで完結 → RPC を呼ばず 404 も出ない）
-        const { data: org, error: orgError } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('slug', organizationSlug)
-          .maybeSingle()
-        if (!orgError && org?.id) {
-          const { data: row, error: postError } = await supabase
-            .from('blog_posts')
-            .select(BLOG_POST_COLUMNS)
-            .eq('organization_id', org.id)
-            .eq('slug', articleSlug)
-            .eq('is_published', true)
-            .maybeSingle()
-          if (!postError && row) {
-            data = row as BlogPost
-          }
-        }
-
-        // 2) 結合クエリ（1 が取れない場合の別経路）
-        if (!data) {
-          const { data: joined, error: joinError } = await supabase
-            .from('blog_posts')
-            .select(`${BLOG_POST_COLUMNS}, organizations!inner(slug)`)
-            .eq('slug', articleSlug)
-            .eq('is_published', true)
-            .eq('organizations.slug', organizationSlug)
-            .maybeSingle()
-          if (!joinError && joined) {
-            const j = joined as unknown as BlogPost & {
-              organizations: { slug: string } | { slug: string }[]
-            }
-            const { organizations: _o, ...postOnly } = j
-            data = postOnly as BlogPost
-          }
-        }
-
-        // 3) 匿名＋organizations が RLS で見えない等の最終手段（マイグレーション適用後のみ有効）
-        if (!data) {
-          const { data: rows, error: rpcError } = await supabase.rpc('get_public_blog_post', {
-            p_org_slug: organizationSlug,
-            p_article_slug: articleSlug,
-          })
-          const rpcRow = Array.isArray(rows) ? rows[0] : null
-          if (!rpcError && rpcRow) {
-            data = rpcRow as BlogPost
-          } else if (rpcError && import.meta.env.DEV) {
-            logger.debug('get_public_blog_post:', rpcError.message || rpcError)
-          }
-        }
-
-        if (!data) {
-          setNotFound(true)
-          return
-        }
-      } else {
-        const { data: row, error } = await supabase
-          .from('blog_posts')
-          .select(BLOG_POST_COLUMNS)
-          .eq('slug', articleSlug)
-          .eq('is_published', true)
-          .maybeSingle()
-
-        if (error) {
-          throw error
-        }
-        if (!row) {
-          setNotFound(true)
-          return
-        }
-        data = row as BlogPost
+      if (!data) {
+        setNotFound(true)
+        return
       }
 
       setPost(data)
-
-      // 閲覧数をインクリメント
-      await supabase
-        .from('blog_posts')
-        .update({ view_count: (data.view_count || 0) + 1 })
-        .eq('id', data.id)
-
+      await incrementBlogViewCount(data.id, data.view_count || 0)
     } catch (err) {
       logger.error('ブログ記事取得エラー:', err)
       setNotFound(true)
