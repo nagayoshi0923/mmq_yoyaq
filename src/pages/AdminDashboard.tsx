@@ -199,6 +199,12 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
     if (subPage === 'scenario' && segments[2]) {
       return { page: 'booking', scenarioId: segments[2], organizationSlug: orgSlug }
     }
+
+    // /{org}/blog/{article-slug} - ブログ記事詳細（組織プレフィックス付きURL）
+    // ※ /{org}/blog の2セグメントは ADMIN_PATHS の blog 管理画面へ
+    if (subPage === 'blog' && segments[2]) {
+      return { page: 'blog-detail', scenarioId: segments[2], organizationSlug: orgSlug }
+    }
     
     // /{slug}/{admin-path} - 組織付き管理ページ
     if (ADMIN_PATHS.includes(subPage)) {
@@ -441,11 +447,11 @@ export function AdminDashboard() {
 
   // ブログ記事詳細ページ
   if (currentPage === 'blog-detail') {
-    const { scenarioId: slug } = parsePath(location.pathname)
+    const { scenarioId: slug, organizationSlug: blogOrgSlug } = parsePath(location.pathname)
     if (slug) {
       return (
         <Suspense fallback={<LoadingScreen message="記事を読み込み中..." />}>
-          <BlogDetailPage slug={slug} />
+          <BlogDetailPage slug={slug} organizationSlug={blogOrgSlug} />
         </Suspense>
       )
     }

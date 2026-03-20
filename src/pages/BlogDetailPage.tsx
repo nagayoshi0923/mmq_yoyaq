@@ -1,6 +1,6 @@
 /**
  * ブログ記事詳細ページ
- * @path /blog/:slug
+ * @path /blog/:slug または /{orgSlug}/blog/:slug
  */
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -15,9 +15,11 @@ import type { BlogPost } from '@/types'
 
 interface BlogDetailPageProps {
   slug: string
+  /** 例: `/queens-waltz/blog/my-post` のとき組織スラッグ。未指定は従来どおり `/blog/:slug` 相当。 */
+  organizationSlug?: string | null
 }
 
-export function BlogDetailPage({ slug }: BlogDetailPageProps) {
+export function BlogDetailPage({ slug, organizationSlug }: BlogDetailPageProps) {
   const navigate = useNavigate()
   const [post, setPost] = useState<BlogPost | null>(null)
   const [loading, setLoading] = useState(true)
@@ -25,21 +27,38 @@ export function BlogDetailPage({ slug }: BlogDetailPageProps) {
 
   useEffect(() => {
     fetchPost()
-  }, [slug])
+  }, [slug, organizationSlug])
 
   const fetchPost = async () => {
     try {
       setLoading(true)
       setNotFound(false)
 
-      const { data, error } = await supabase
+      let organizationId: string | null = null
+      if (organizationSlug) {
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('slug', organizationSlug)
+          .maybeSingle()
+        if (orgError || !org?.id) {
+          setNotFound(true)
+          return
+        }
+        organizationId = org.id
+      }
+
+      let query = supabase
         .from('blog_posts')
         .select(
           'id, organization_id, title, slug, excerpt, content, cover_image_url, is_published, published_at, author_id, view_count, created_at, updated_at'
         )
         .eq('slug', slug)
         .eq('is_published', true)
-        .single()
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId)
+      }
+      const { data, error } = await query.single()
 
       if (error) {
         if (error.code === 'PGRST116') {
