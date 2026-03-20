@@ -186,11 +186,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // 有効期限まで十分余裕がある場合はリフレッシュしない
       const expiresAt = session.expires_at ? session.expires_at * 1000 : 0
-      const refreshThresholdMs = 2 * 60 * 1000 // 2分前のみリフレッシュ
+      const refreshThresholdMs = 15 * 60 * 1000 // 15分前からリフレッシュ開始
       if (expiresAt && expiresAt - now > refreshThresholdMs) {
-        authTrace('⏭️ セッション有効: リフレッシュ不要')
+        authTrace('⏭️ セッション有効: リフレッシュ不要（残り', Math.round((expiresAt - now) / 60000), '分）')
         return
       }
+      
+      authTrace('🔄 セッション有効期限が近いためリフレッシュ開始（残り', Math.round((expiresAt - now) / 60000), '分）')
       
       const { data, error } = await supabase.auth.refreshSession()
       if (error) {
@@ -378,6 +380,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     
     window.addEventListener('focus', handleFocus)
+    
+    // 定期的なセッションリフレッシュ（10分ごと）
+    // Supabaseのデフォルト有効期限は1時間のため、余裕を持ってリフレッシュ
+    const refreshInterval = setInterval(() => {
+      if (userRef.current) {
+        authTrace('⏰ 定期セッションリフレッシュ（10分間隔）')
+        refreshSession()
+      }
+    }, 10 * 60 * 1000) // 10分
 
     // 複数タブ間の認証状態同期（BroadcastChannel API）
     if (typeof BroadcastChannel !== 'undefined') {
@@ -417,6 +428,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       subscription.unsubscribe()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
+      clearInterval(refreshInterval)
       // BroadcastChannelをクローズ
       if (broadcastChannelRef.current) {
         broadcastChannelRef.current.close()
