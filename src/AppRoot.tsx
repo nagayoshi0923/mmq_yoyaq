@@ -116,6 +116,26 @@ const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
 ])
 
 /**
+ * `/login`・`/signup` および `/{orgSlug}/login`・`/{orgSlug}/signup`
+ * 予約サイトのURLに組織プレフィックスが付いてもログイン画面を表示する。
+ */
+function parseAuthPageFromPath(pathname: string): 'login' | 'signup' | null {
+  const normalized =
+    pathname.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname
+  if (normalized === '/login') return 'login'
+  if (normalized === '/signup') return 'signup'
+  const m = normalized.match(/^\/([^/]+)\/(login|signup)$/)
+  if (!m) return null
+  const first = m[1]
+  const sub = m[2] as 'login' | 'signup'
+  if (first === 'admin' || first === 'dev') return null
+  if (BOOKING_SHELL_GLOBAL_FIRST_SEGMENT.has(first) || BOOKING_SHELL_ADMIN_SUB_PATHS.has(first)) {
+    return null
+  }
+  return sub
+}
+
+/**
  * 認証セッション確定前でも予約シェル（MMQトップ・組織トップ等）を先に描画する。
  * フルページスピナーで「全部消える」時間を短くする。
  */
@@ -375,17 +395,16 @@ function AppRoutes() {
     )
   }
 
-  // ログインページ（loadingに関係なく表示 - エラー表示が消えるのを防ぐ）
-  if (location.pathname === '/login') {
+  // ログイン・新規登録（/login と /{org}/login など。loading に関係なく表示）
+  const authPage = parseAuthPageFromPath(location.pathname)
+  if (authPage === 'login') {
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <LoginForm />
       </Suspense>
     )
   }
-
-  // 新規登録ページ（loadingに関係なく表示）
-  if (location.pathname === '/signup') {
+  if (authPage === 'signup') {
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <LoginForm signup={true} />
