@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
@@ -68,6 +69,61 @@ interface ScenarioCatalogProps {
   organizationSlug?: string
 }
 
+async function fetchScenarioCatalogBundle(): Promise<{
+  scenarios: ScenarioData[]
+  stores: StoreData[]
+  categories: CategoryData[]
+}> {
+  const { getCurrentOrganizationId } = await import('@/lib/organization')
+  const orgId = await getCurrentOrganizationId()
+  let scenariosQuery = supabase
+    .from('organization_scenarios_with_master')
+    .select(
+      'id, org_scenario_id, slug, title, author, key_visual_url, duration, player_count_min, player_count_max, genre, participation_fee, difficulty, release_date, status, scenario_master_id, available_stores, is_recommended, scenario_type, organization_id'
+    )
+    .eq('status', 'available')
+    .neq('scenario_type', 'gm_test')
+    .order('title', { ascending: true })
+  if (orgId) {
+    scenariosQuery = scenariosQuery.eq('organization_id', orgId)
+  }
+  const [scenariosResult, availableKeysResult, storesResult, categoriesResult] = await Promise.all([
+    scenariosQuery,
+    supabase.rpc('get_public_available_scenario_keys'),
+    supabase.from('stores').select('id, name, short_name'),
+    supabase.from('organization_categories').select('id, name, sort_order').order('sort_order'),
+  ])
+
+  const stores = (storesResult.data || []) as StoreData[]
+  const categories = (categoriesResult.data || []) as CategoryData[]
+
+  const storeMap = new Map<string, string>()
+  stores.forEach((store: StoreData) => {
+    storeMap.set(store.id, store.short_name || store.name)
+  })
+
+  const keysData = availableKeysResult.data || []
+  const availableOrgKeys = new Set(keysData.map((k: any) => `${k.organization_id}_${k.scenario_master_id}`))
+  const shouldFilter = !availableKeysResult.error && keysData.length > 0
+
+  if (scenariosResult.error) throw scenariosResult.error
+
+  const availableScenarios = (scenariosResult.data || [])
+    .filter((s: any) => {
+      if (!shouldFilter) return true
+      if (!s.scenario_master_id) return true
+      return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
+    })
+    .map((s: any) => ({
+      ...s,
+      available_stores: (s.available_stores || [])
+        .map((storeId: string) => storeMap.get(storeId))
+        .filter((name: string | undefined): name is string => !!name),
+    })) as ScenarioData[]
+
+  return { scenarios: availableScenarios, stores, categories }
+}
+
 export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const { user } = useAuth()
   const { organization } = useOrganization()
@@ -76,15 +132,33 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   
   // 予約サイトのベースパス（propsから優先、なければorganizationから）
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : (organization?.slug ? `/${organization.slug}` : '/queens-waltz')
-  const catalogScrollKey = `booking-${organizationSlug || organization?.slug || 'platform'}-catalog`
+  const catalogQueryScope = organizationSlug ?? organization?.slug ?? 'global'
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
 
-  const [scenarios, setScenarios] = useState<ScenarioData[]>([])
-  const [stores, setStores] = useState<StoreData[]>([])
-  const [categories, setCategories] = useState<CategoryData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const {
+    data: catalogData,
+    isPending,
+    isFetching,
+    error: catalogQueryError,
+  } = useQuery({
+    queryKey: ['scenario-catalog', catalogQueryScope],
+    queryFn: fetchScenarioCatalogBundle,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  })
 
-  useReportRouteScrollRestoration('scenario-catalog', { isLoading })
+  const scenarios = catalogData?.scenarios ?? []
+  const stores = catalogData?.stores ?? []
+  const categories = catalogData?.categories ?? []
+
+  useEffect(() => {
+    if (catalogQueryError) logger.error('シナリオ取得エラー:', catalogQueryError)
+  }, [catalogQueryError])
+
+  useReportRouteScrollRestoration('scenario-catalog', {
+    isLoading: isPending,
+    isFetching,
+  })
   const [searchTerm, setSearchTerm] = useState('')
   // URLパラメータからジャンルを読み取り
   const [selectedGenre, setSelectedGenre] = useState<string>(() => {
@@ -111,83 +185,6 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     }
     setSearchParams(searchParams, { replace: true })
   }, [selectedGenre, searchParams, setSearchParams])
-
-  // データ取得
-  useEffect(() => {
-    const loadScenarios = async () => {
-      try {
-        setIsLoading(true)
-        
-        // シナリオ、公開リスト、店舗、カテゴリを並列取得
-        const orgId = await import('@/lib/organization').then(m => m.getCurrentOrganizationId())
-        let scenariosQuery = supabase
-          .from('organization_scenarios_with_master')
-          .select('id, org_scenario_id, slug, title, author, key_visual_url, duration, player_count_min, player_count_max, genre, participation_fee, difficulty, release_date, status, scenario_master_id, available_stores, is_recommended, scenario_type, organization_id')
-          .eq('status', 'available')
-          .neq('scenario_type', 'gm_test')
-          .order('title', { ascending: true })
-        if (orgId) {
-          scenariosQuery = scenariosQuery.eq('organization_id', orgId)
-        }
-        const [scenariosResult, availableKeysResult, storesResult, categoriesResult] = await Promise.all([
-          scenariosQuery,
-          // 🔐 公開中かつ承認済みのシナリオキーを取得（RPC: RLSバイパス、匿名OK）
-          supabase.rpc('get_public_available_scenario_keys'),
-          // 店舗データを取得
-          supabase.from('stores').select('id, name, short_name'),
-          // カテゴリ（ジャンル）を取得
-          supabase.from('organization_categories').select('id, name, sort_order').order('sort_order')
-        ])
-        
-        // 店舗データをセット
-        if (storesResult.data) {
-          setStores(storesResult.data)
-        }
-        
-        // カテゴリデータをセット
-        if (categoriesResult.data) {
-          setCategories(categoriesResult.data)
-        }
-        
-        // 店舗IDから名前へのマップを作成
-        const storeMap = new Map<string, string>()
-        ;(storesResult.data || []).forEach((store: StoreData) => {
-          storeMap.set(store.id, store.short_name || store.name)
-        })
-        
-        // 公開中の組織シナリオのキーセット
-        const keysData = availableKeysResult.data || []
-        const availableOrgKeys = new Set(
-          keysData.map((k: any) => `${k.organization_id}_${k.scenario_master_id}`)
-        )
-        
-        // RPCエラーまたはデータ0件の場合はフィルタをスキップ
-        const shouldFilter = !availableKeysResult.error && keysData.length > 0
-        
-        if (scenariosResult.error) throw scenariosResult.error
-        
-        // 組織で公開されているシナリオのみ表示（available + coming_soon）
-        // DBレベルで既に unavailable を除外済み。RPCで二重チェック。
-        const availableScenarios = (scenariosResult.data || []).filter((s: any) => {
-          if (!shouldFilter) return true // DBフィルタ済みなのでフォールバックは全件OK
-          if (!s.scenario_master_id) return true
-          return availableOrgKeys.has(`${s.organization_id}_${s.scenario_master_id}`)
-        }).map((s: any) => ({
-          ...s,
-          // available_storesのIDを店舗名に変換
-          available_stores: (s.available_stores || [])
-            .map((storeId: string) => storeMap.get(storeId))
-            .filter((name: string | undefined): name is string => !!name)
-        }))
-        setScenarios(availableScenarios as unknown as ScenarioData[])
-      } catch (error) {
-        logger.error('シナリオ取得エラー:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadScenarios()
-  }, [])
 
   // ジャンル一覧（シナリオの登録数が多い順にソート）
   const genres = useMemo(() => {
@@ -285,7 +282,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     } else {
       navigate(`/scenario-detail/${scenarioId}`)
     }
-  }, [catalogScrollKey, organizationSlug, organization?.slug, navigate])
+  }, [organizationSlug, organization?.slug, navigate])
 
   const handleToggleFavorite = useCallback((scenarioId: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -483,7 +480,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
           </p>
         )}
 
-        {isLoading ? (
+        {isPending ? (
           <div className="flex justify-center py-12">
             <div 
               className="animate-spin h-8 w-8 border-4 border-t-transparent"

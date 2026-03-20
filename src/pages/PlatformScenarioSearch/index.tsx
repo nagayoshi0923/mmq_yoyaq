@@ -154,7 +154,7 @@ export function PlatformScenarioSearch() {
   const [searchParams, setSearchParams] = useSearchParams()
   
   // React Queryでデータ取得（キャッシュ活用）
-  const { data, isLoading, isFetching, refetch } = useQuery({
+  const { data, isPending, isFetching, refetch } = useQuery({
     queryKey: ['scenario-search'],
     queryFn: fetchScenarioSearchData,
     staleTime: 5 * 60 * 1000, // 5分間キャッシュ
@@ -164,8 +164,9 @@ export function PlatformScenarioSearch() {
   const scenarios = data?.scenarios || []
   const categories = data?.categories || []
 
+  // isPending: 初回未取得のみ。キャッシュ再利用時はグリッドを消さず isFetching でスクロール保存を抑制する
   useReportRouteScrollRestoration('platform-scenario-search', {
-    isLoading,
+    isLoading: isPending,
     isFetching,
   })
 
@@ -505,7 +506,7 @@ export function PlatformScenarioSearch() {
           </p>
         )}
 
-        {isLoading ? (
+        {isPending ? (
           <div className="flex justify-center py-12">
             <div 
               className="animate-spin h-8 w-8 border-4 border-t-transparent"
