@@ -11,11 +11,13 @@ import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertCircle, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { logger } from '@/utils/logger'
+import { maskEmail } from '@/utils/security'
 import { validateRedirectUrl } from '@/lib/utils'
 import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
 import { grantRegistrationCoupon } from '@/lib/api/couponApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link, useNavigate } from 'react-router-dom'
+import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 
 // デフォルト組織ID（クインズワルツ）
 const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
@@ -49,6 +51,10 @@ export function CompleteProfile() {
   const [prefecture, setPrefecture] = useState('')
   const [acceptNewsletter, setAcceptNewsletter] = useState(true)
   const [acceptTerms, setAcceptTerms] = useState(false)
+  const [resendEmailInput, setResendEmailInput] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendMessage, setResendMessage] = useState('')
+  const [resendError, setResendError] = useState('')
   /** セッション確定後: プロフィール要否・重複メールの判定（userId がある間は resolving から開始） */
   const [profileGate, setProfileGate] = useState<
     'resolving' | 'form' | 'duplicate_account' | 'leaving'
@@ -483,7 +489,7 @@ export function CompleteProfile() {
         if (insertCustErr) {
           // 一意制約違反: メールは別アカウント／店舗登録済み等。RLS では衝突行が見えないことがある
           if (insertCustErr.code === '23505') {
-            logger.warn('⚠️ customers INSERT unique 違反:', userEmail, insertCustErr.message)
+            logger.warn('⚠️ customers INSERT unique 違反:', maskEmail(userEmail), insertCustErr.message)
             const { data: byEmail } = await supabase
               .from('customers')
               .select('id, user_id')
@@ -585,7 +591,12 @@ export function CompleteProfile() {
       } else {
         const savedOk = Boolean(verify.name) && Boolean(verify.phone)
         if (!savedOk) {
-          logger.error('❌ 保存データが不完全:', verify)
+          logger.error('❌ 保存データが不完全:', {
+            customerId: verify.id,
+            hasName: Boolean(verify.name),
+            hasPhone: Boolean(verify.phone),
+            hasEmail: Boolean(verify.email),
+          })
           throw new Error('プロフィールの保存が不完全です。もう一度お試しください。')
         }
         logger.log('✅ 保存検証OK:', { name: verify.name, phone: verify.phone, email: verify.email })
@@ -690,8 +701,60 @@ export function CompleteProfile() {
                 <li>そのブラウザに貼り付けて開く</li>
               </ol>
             </div>
+            <div className="border border-gray-200 rounded-lg p-4 text-left space-y-2 bg-white">
+              <p className="text-sm font-medium text-gray-800">確認メールを再送する</p>
+              <p className="text-xs text-gray-600">
+                登録時のメールアドレスを入力して送信してください（登録途中の場合に再送できます）。
+              </p>
+              <Input
+                type="email"
+                placeholder="登録したメールアドレス"
+                value={resendEmailInput}
+                onChange={(e) => {
+                  setResendEmailInput(e.target.value)
+                  setResendError('')
+                  setResendMessage('')
+                }}
+                className="h-10"
+              />
+              {resendMessage && (
+                <p className="text-xs text-green-700">{resendMessage}</p>
+              )}
+              {resendError && (
+                <p className="text-xs text-red-600">{resendError}</p>
+              )}
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                disabled={resendLoading}
+                onClick={async () => {
+                  setResendError('')
+                  setResendMessage('')
+                  const redirect = `${window.location.origin}/complete-profile`
+                  setResendLoading(true)
+                  try {
+                    const result = await resendSignupConfirmationEmail(
+                      resendEmailInput,
+                      redirect
+                    )
+                    if (result.ok) {
+                      setResendMessage(
+                        '送信しました。メールをご確認ください（迷惑メールフォルダもご確認ください）。'
+                      )
+                    } else {
+                      setResendError(result.message)
+                    }
+                  } finally {
+                    setResendLoading(false)
+                  }
+                }}
+              >
+                {resendLoading ? '送信中…' : '確認メールを再送'}
+              </Button>
+            </div>
             <p className="text-xs text-gray-500">
-              解決しない場合は、新規登録からやり直してください。
+              別のメールでやり直す場合は新規登録画面へ。
             </p>
             <Button 
               onClick={() => navigate('/signup', { replace: true })}

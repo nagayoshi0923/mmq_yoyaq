@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
-import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, Users, Target, FileText, X, Gift, RefreshCw } from 'lucide-react'
+import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, FileText, X, Gift, RefreshCw } from 'lucide-react'
 import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -58,18 +58,6 @@ interface StoreWithOrg {
   organization_name?: string
 }
 
-// 残りわずかで達成の貸切グループ
-interface NearlyCompleteGroup {
-  id: string
-  invite_code: string
-  scenario_title: string
-  scenario_key_visual?: string
-  target_count: number
-  current_count: number
-  remaining: number
-  organizer_name?: string
-}
-
 // ブログ記事
 interface BlogPostSummary {
   id: string
@@ -112,7 +100,6 @@ interface PlatformTopDisplaySnapshot {
   scenariosWithEvents: ScenarioWithEvents[]
   organizations: Organization[]
   stores: StoreWithOrg[]
-  nearlyCompleteGroups: NearlyCompleteGroup[]
   blogPosts: BlogPostSummary[]
 }
 
@@ -129,9 +116,6 @@ function readPlatformTopDisplaySnapshot(): PlatformTopDisplaySnapshot | null {
       scenariosWithEvents: o.scenariosWithEvents as ScenarioWithEvents[],
       organizations: Array.isArray(o.organizations) ? (o.organizations as Organization[]) : [],
       stores: Array.isArray(o.stores) ? (o.stores as StoreWithOrg[]) : [],
-      nearlyCompleteGroups: Array.isArray(o.nearlyCompleteGroups)
-        ? (o.nearlyCompleteGroups as NearlyCompleteGroup[])
-        : [],
       blogPosts: Array.isArray(o.blogPosts) ? (o.blogPosts as BlogPostSummary[]) : [],
     }
   } catch {
@@ -181,9 +165,6 @@ export function PlatformTop() {
       return false
     }
   })
-  const [nearlyCompleteGroups, setNearlyCompleteGroups] = useState<NearlyCompleteGroup[]>(
-    () => displaySnapshotOnMount?.nearlyCompleteGroups ?? []
-  )
   const [blogPosts, setBlogPosts] = useState<BlogPostSummary[]>(
     () => displaySnapshotOnMount?.blogPosts ?? []
   )
@@ -446,11 +427,6 @@ export function PlatformTop() {
         setScenariosWithEvents(scenarioList)
       }
 
-      // 貸切グループの「あと少しで達成」セクションは一時無効化
-      // 理由: 公開/非公開の区別なく全グループが表示される問題（プライバシー漏洩）
-      // TODO: is_public フラグを追加し、明示的に公開設定されたグループのみ表示する
-      setNearlyCompleteGroups([])
-
       // ブログ記事を取得（最新3件）
       const { data: blogData } = await supabase
         .from('blog_posts')
@@ -488,14 +464,12 @@ export function PlatformTop() {
       scenariosWithEvents.length === 0 &&
       organizations.length === 0 &&
       stores.length === 0 &&
-      nearlyCompleteGroups.length === 0 &&
       blogPosts.length === 0
     if (empty) return
     writePlatformTopDisplaySnapshot({
       scenariosWithEvents,
       organizations,
       stores,
-      nearlyCompleteGroups,
       blogPosts,
     })
   }, [
@@ -504,7 +478,6 @@ export function PlatformTop() {
     scenariosWithEvents,
     organizations,
     stores,
-    nearlyCompleteGroups,
     blogPosts,
   ])
 
@@ -764,67 +737,6 @@ export function PlatformTop() {
                 onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
                 organizationName={scenario.organization_name}
               />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* 残りわずかで達成 - 貸切グループ */}
-      {!loading && nearlyCompleteGroups.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 pt-6 md:pt-8">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-            <h2 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-3">
-              <Target className="w-5 h-5 text-emerald-500" />
-              あと少しで達成
-              <span 
-                className="w-10 h-1 ml-2"
-                style={{ backgroundColor: '#10b981' }}
-              />
-              <span className="text-xs font-normal text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                貸切グループ
-              </span>
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {nearlyCompleteGroups.map((group) => (
-              <div 
-                key={group.id}
-                className="bg-white border border-emerald-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => navigate(`/group/invite/${group.invite_code}`)}
-              >
-                <div className="flex gap-3">
-                  {group.scenario_key_visual ? (
-                    <img 
-                      src={group.scenario_key_visual} 
-                      alt={group.scenario_title}
-                      className="w-16 h-16 object-cover rounded"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center">
-                      <Users className="w-6 h-6 text-gray-400" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{group.scenario_title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{group.organizer_name}さんの募集</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-emerald-500 rounded-full transition-all"
-                          style={{ width: `${(group.current_count / group.target_count) * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-medium text-emerald-600">
-                        {group.current_count}/{group.target_count}
-                      </span>
-                    </div>
-                    <p className="text-xs text-emerald-600 font-medium mt-1">
-                      あと{group.remaining}人で達成！
-                    </p>
-                  </div>
-                </div>
-              </div>
             ))}
           </div>
         </section>

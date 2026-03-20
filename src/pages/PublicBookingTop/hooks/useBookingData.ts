@@ -6,18 +6,6 @@ import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
 import { readBookingDataSnapshot, writeBookingDataSnapshot } from '../utils/bookingDataSnapshot'
 
-// 残りわずかで達成の貸切グループ
-export interface NearlyCompleteGroup {
-  id: string
-  invite_code: string
-  scenario_title: string
-  scenario_key_visual?: string
-  target_count: number
-  current_count: number
-  remaining: number
-  organizer_name?: string
-}
-
 export interface ScenarioCard {
   scenario_id: string
   scenario_slug?: string  // URL用のslug（あればこちらを使用）
@@ -62,7 +50,6 @@ export interface BookingDataResult {
   /** DB の public_booking_hero_description（空ならフロントでデフォルト） */
   organizationPublicBookingHeroDescription: string | null
   organizationNotFound: boolean
-  nearlyCompleteGroups: NearlyCompleteGroup[]
 }
 
 /**
@@ -129,8 +116,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         organizationHeaderImageUrl: null,
         organizationThemeColor: null,
         organizationPublicBookingHeroDescription: null,
-        organizationNotFound: true,
-        nearlyCompleteGroups: []
+        organizationNotFound: true
       }
     }
   }
@@ -572,11 +558,6 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   
   const scenarioList = Array.from(scenarioMap.values())
   
-  // 貸切グループの「あと少しで達成」セクションは一時無効化
-  // 理由: 公開/非公開の区別なく全グループが表示される問題（プライバシー漏洩）
-  // TODO: is_public フラグを追加し、明示的に公開設定されたグループのみ表示する
-  const nearlyCompleteGroups: NearlyCompleteGroup[] = []
-  
   return {
     scenarios: scenarioList,
     allEvents: enrichedEvents,
@@ -588,8 +569,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     organizationHeaderImageUrl: orgHeaderImageUrl,
     organizationThemeColor: orgThemeColor,
     organizationPublicBookingHeroDescription: orgPublicBookingHeroDescription,
-    organizationNotFound,
-    nearlyCompleteGroups
+    organizationNotFound
   }
 }
 
@@ -635,7 +615,6 @@ export function useBookingData(organizationSlug?: string) {
     organizationName: data?.organizationName ?? null,
     organizationHeaderImageUrl: data?.organizationHeaderImageUrl ?? null,
     organizationThemeColor: data?.organizationThemeColor ?? null,
-    organizationPublicBookingHeroDescription: data?.organizationPublicBookingHeroDescription ?? null,
-    nearlyCompleteGroups: data?.nearlyCompleteGroups ?? []
+    organizationPublicBookingHeroDescription: data?.organizationPublicBookingHeroDescription ?? null
   }
 }

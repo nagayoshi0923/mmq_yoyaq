@@ -9,6 +9,10 @@ import { Link, useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
+import {
+  DEFAULT_OPEN_CANCELLATION_FEES,
+  DEFAULT_PRIVATE_CANCELLATION_FEES,
+} from '@/constants/cancellationPolicyDefaults'
 
 interface CancellationFee {
   hours_before: number
@@ -43,19 +47,10 @@ interface PolicyData {
   policy_updated_at: string
 }
 
-// デフォルト値
+// デフォルト値（DB 未設定時・マイグレーションと同一）
 const DEFAULT_POLICY: PolicyData = {
-  cancellation_fees: [
-    { hours_before: 24, fee_percentage: 0, description: '24時間前まで無料' },
-    { hours_before: 0, fee_percentage: 50, description: '24時間前〜当日50%' },
-    { hours_before: -1, fee_percentage: 100, description: '公演開始後・無断キャンセル100%' }
-  ],
-  private_cancellation_fees: [
-    { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
-    { hours_before: 168, fee_percentage: 30, description: '1週間前まで30%' },
-    { hours_before: 72, fee_percentage: 50, description: '3日前まで50%' },
-    { hours_before: 0, fee_percentage: 100, description: '当日100%' }
-  ],
+  cancellation_fees: DEFAULT_OPEN_CANCELLATION_FEES,
+  private_cancellation_fees: DEFAULT_PRIVATE_CANCELLATION_FEES,
   organizer_cancel_reasons: [
     { id: '1', content: '最少催行人数に満たない場合' },
     { id: '2', content: '自然災害、感染症の流行など不可抗力の場合' },
@@ -77,8 +72,11 @@ const DEFAULT_POLICY: PolicyData = {
   policy_updated_at: new Date().toISOString().split('T')[0]
 }
 
-// キャンセル料を表示用にフォーマット
-function formatCancellationFees(fees: CancellationFee[]): Array<{ timing: string; fee: string; color: string }> {
+// キャンセル料を表示用にフォーマット（amountLabel: オープン=参加料金、貸切=公演価格全額 など）
+function formatCancellationFees(
+  fees: CancellationFee[],
+  amountLabel = '参加料金'
+): Array<{ timing: string; fee: string; color: string }> {
   const sorted = [...fees].sort((a, b) => b.hours_before - a.hours_before)
   return sorted.map((fee, index) => {
     let timing = ''
@@ -105,7 +103,8 @@ function formatCancellationFees(fees: CancellationFee[]): Array<{ timing: string
       color = 'text-red-600'
     }
 
-    const feeText = fee.fee_percentage === 0 ? '無料' : `参加料金の${fee.fee_percentage}%`
+    const feeText =
+      fee.fee_percentage === 0 ? '無料' : `${amountLabel}の${fee.fee_percentage}%`
 
     return { timing, fee: feeText, color }
   })
@@ -222,7 +221,11 @@ export function CancelPolicyPage() {
     fetchPolicy()
   }, [organizationSlug])
 
-  const formattedFees = formatCancellationFees(policy.cancellation_fees)
+  const formattedOpenFees = formatCancellationFees(policy.cancellation_fees, '参加料金')
+  const formattedPrivateFees = formatCancellationFees(
+    policy.private_cancellation_fees,
+    '公演価格全額'
+  )
   const formattedDate = policy.policy_updated_at 
     ? new Date(policy.policy_updated_at).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
     : ''
@@ -282,31 +285,66 @@ export function CancelPolicyPage() {
                 <div className="text-gray-700 space-y-3">
                   <p>
                     ご予約のキャンセルは、マイページから行うことができます。
-                    キャンセル時期によって、以下のキャンセル料が発生します。
+                    公演の種類に応じて、キャンセル時期によって以下のキャンセル料が発生します。
                   </p>
-                  
-                  <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2 font-semibold">キャンセル時期</th>
-                          <th className="text-right py-2 font-semibold">キャンセル料</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {formattedFees.map((item, index) => (
-                          <tr key={index} className={index < formattedFees.length - 1 ? 'border-b' : ''}>
-                            <td className="py-2">{item.timing}</td>
-                            <td className={`text-right py-2 font-medium ${item.color}`}>{item.fee}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
 
-                  <p className="text-sm text-gray-500">
-                    ※ 貸切公演の場合は、別途貸切料金に対するキャンセル料が発生する場合があります。
-                  </p>
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="font-bold text-gray-900 mb-2">オープン公演</h3>
+                      <p className="text-sm text-gray-700 mb-2">
+                        1日前よりお支払い対象額（参加料金）の50%、当日は100%です。
+                      </p>
+                      <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 font-semibold">キャンセル時期</th>
+                              <th className="text-right py-2 font-semibold">キャンセル料</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {formattedOpenFees.map((item, index) => (
+                              <tr
+                                key={index}
+                                className={index < formattedOpenFees.length - 1 ? 'border-b' : ''}
+                              >
+                                <td className="py-2">{item.timing}</td>
+                                <td className={`text-right py-2 font-medium ${item.color}`}>{item.fee}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="font-bold text-gray-900 mb-2">貸切公演</h3>
+                      <p className="text-sm text-gray-700 mb-2">
+                        公演価格の全額を基準とし、7日前より50%、3日前より100%です。
+                      </p>
+                      <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 font-semibold">キャンセル時期</th>
+                              <th className="text-right py-2 font-semibold">キャンセル料</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {formattedPrivateFees.map((item, index) => (
+                              <tr
+                                key={index}
+                                className={index < formattedPrivateFees.length - 1 ? 'border-b' : ''}
+                              >
+                                <td className="py-2">{item.timing}</td>
+                                <td className={`text-right py-2 font-medium ${item.color}`}>{item.fee}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </article>
 

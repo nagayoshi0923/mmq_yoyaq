@@ -2,6 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import path from 'path'
 
+// 0.0.0.0 は LAN 公開に便利だが、OS によっては os.networkInterfaces() が失敗し Vite 起動が落ちる（uv_interface_addresses 等）
+const devHost = process.env.VITE_DEV_HOST === 'all' ? '0.0.0.0' : '127.0.0.1'
+const devLan = devHost === '0.0.0.0'
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
@@ -57,17 +61,15 @@ export default defineConfig({
   },
   // 開発サーバーの最適化
   server: {
-    // ローカルネットワークからのアクセスを許可（スマホからもアクセス可能）
-    host: '0.0.0.0',
+    // 既定 127.0.0.1（起動安定）。スマホ等から繋ぐときは VITE_DEV_HOST=all npm run dev
+    host: devHost,
     port: 5173,
     strictPort: true, // 5173固定（別ポートに逃がさない）
     // CORS設定（ネットワーク経由アクセス対応）
     cors: true,
-    // タイムアウト設定（応答時間の改善）
     hmr: {
       overlay: true,
-      // ネットワーク経由でのHMRを最適化
-      clientPort: 5173
+      ...(devLan ? { clientPort: 5173 } : {}),
     },
     // ウォッチャーの最適化
     watch: {

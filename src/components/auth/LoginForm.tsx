@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { validateRedirectUrl } from '@/lib/utils'
+import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link } from 'react-router-dom'
 import { 
@@ -238,9 +239,22 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
           logger.error('Email check error:', checkError)
           // RPC が失敗した場合でも登録フローを止めない（フォールバック）
         } else if (isRegistered) {
+          // Auth / users あり・登録途中で確認メールを再送したいケースが多いため、ブロックせず再送する
+          const redirectTo = `${window.location.origin}/complete-profile`
+          const resent = await resendSignupConfirmationEmail(email, redirectTo)
+          if (resent.ok) {
+            setMessage(
+              '確認メールを再送信しました。メールのリンクから登録を完了してください。届かない場合は迷惑メールフォルダもご確認ください。'
+            )
+            setError('')
+            return
+          }
           setMode('login')
           setPassword('')
-          setError('このメールアドレスは既に登録されています。ログインするか、「パスワードを忘れた場合」からパスワードリセットをお試しください。')
+          setError(
+            'このメールアドレスは既に登録されています。ログインするか、「パスワードを忘れた場合」からパスワードリセットをお試しください。'
+          )
+          logger.warn('登録済みメールへの再送失敗:', resent.message)
           return
         }
 

@@ -10,6 +10,12 @@ import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import {
+  DEFAULT_OPEN_CANCELLATION_FEES,
+  DEFAULT_PRIVATE_CANCELLATION_FEES,
+  DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+  DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
+} from '@/constants/cancellationPolicyDefaults'
 
 const RESERVATION_SETTINGS_SELECT_FIELDS =
   'id, store_id, cancellation_policy, cancellation_policy_items, cancellation_deadline_hours, cancellation_fees, private_cancellation_policy, private_cancellation_policy_items, private_cancellation_deadline_hours, private_cancellation_fees, organizer_cancel_reasons, organizer_cancel_refund_note, cancellation_judgment_rules, cancellation_notice_note, reservation_change_deadline_hours, reservation_change_note, private_reservation_change_deadline_hours, private_reservation_change_note, refund_method_note, auto_refund_enabled, refund_processing_days, policy_updated_at' as const
@@ -340,22 +346,13 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
     // 通常公演
     cancellation_policy: '',
     cancellation_policy_items: DEFAULT_POLICY_ITEMS,
-    cancellation_deadline_hours: 24,
-    cancellation_fees: [
-      { hours_before: 24, fee_percentage: 0, description: '24時間前まで無料' },
-      { hours_before: 0, fee_percentage: 50, description: '24時間前〜当日50%' },
-      { hours_before: -1, fee_percentage: 100, description: '公演開始後・無断キャンセル100%' }
-    ],
+    cancellation_deadline_hours: DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+    cancellation_fees: [...DEFAULT_OPEN_CANCELLATION_FEES],
     // 貸切公演
     private_cancellation_policy: '',
     private_cancellation_policy_items: DEFAULT_PRIVATE_POLICY_ITEMS,
-    private_cancellation_deadline_hours: 48,
-    private_cancellation_fees: [
-      { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
-      { hours_before: 168, fee_percentage: 30, description: '1週間前まで30%' },
-      { hours_before: 72, fee_percentage: 50, description: '3日前まで50%' },
-      { hours_before: 0, fee_percentage: 100, description: '当日100%' }
-    ],
+    private_cancellation_deadline_hours: DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
+    private_cancellation_fees: [...DEFAULT_PRIVATE_CANCELLATION_FEES],
     // 店舗都合キャンセル
     organizer_cancel_reasons: DEFAULT_ORGANIZER_CANCEL_REASONS,
     organizer_cancel_refund_note: '参加料金は全額返金いたします。',
@@ -447,20 +444,15 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
               store_id: '',
               cancellation_policy: data.cancellation_policy || '',
               cancellation_policy_items: policyItems,
-              cancellation_deadline_hours: data.cancellation_deadline_hours || 24,
-              cancellation_fees: data.cancellation_fees || [
-                { hours_before: 24, fee_percentage: 0, description: '24時間前まで無料' },
-                { hours_before: 0, fee_percentage: 50, description: '24時間前〜当日50%' },
-                { hours_before: -1, fee_percentage: 100, description: '公演開始後・無断キャンセル100%' }
-              ],
+              cancellation_deadline_hours:
+                data.cancellation_deadline_hours ?? DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+              cancellation_fees: data.cancellation_fees || [...DEFAULT_OPEN_CANCELLATION_FEES],
               private_cancellation_policy: data.private_cancellation_policy || '',
               private_cancellation_policy_items: privatePolicyItems,
-              private_cancellation_deadline_hours: data.private_cancellation_deadline_hours || 48,
+              private_cancellation_deadline_hours:
+                data.private_cancellation_deadline_hours ?? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
               private_cancellation_fees: data.private_cancellation_fees || [
-                { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
-                { hours_before: 168, fee_percentage: 30, description: '1週間前まで30%' },
-                { hours_before: 72, fee_percentage: 50, description: '3日前まで50%' },
-                { hours_before: 0, fee_percentage: 100, description: '当日100%' }
+                ...DEFAULT_PRIVATE_CANCELLATION_FEES,
               ],
               // 新しいフィールド
               organizer_cancel_reasons: data.organizer_cancel_reasons || DEFAULT_ORGANIZER_CANCEL_REASONS,
@@ -534,20 +526,15 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           store_id: data.store_id,
           cancellation_policy: data.cancellation_policy || '',
           cancellation_policy_items: policyItems,
-          cancellation_deadline_hours: data.cancellation_deadline_hours || 24,
-          cancellation_fees: data.cancellation_fees || [
-            { hours_before: 24, fee_percentage: 0, description: '24時間前まで無料' },
-            { hours_before: 0, fee_percentage: 50, description: '24時間前〜当日50%' },
-            { hours_before: -1, fee_percentage: 100, description: '公演開始後・無断キャンセル100%' }
-          ],
+          cancellation_deadline_hours:
+            data.cancellation_deadline_hours ?? DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+          cancellation_fees: data.cancellation_fees || [...DEFAULT_OPEN_CANCELLATION_FEES],
           private_cancellation_policy: data.private_cancellation_policy || '',
           private_cancellation_policy_items: privatePolicyItems,
-          private_cancellation_deadline_hours: data.private_cancellation_deadline_hours || 48,
+          private_cancellation_deadline_hours:
+            data.private_cancellation_deadline_hours ?? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
           private_cancellation_fees: data.private_cancellation_fees || [
-            { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
-            { hours_before: 168, fee_percentage: 30, description: '1週間前まで30%' },
-            { hours_before: 72, fee_percentage: 50, description: '3日前まで50%' },
-            { hours_before: 0, fee_percentage: 100, description: '当日100%' }
+            ...DEFAULT_PRIVATE_CANCELLATION_FEES,
           ],
           // 新しいフィールド
           organizer_cancel_reasons: data.organizer_cancel_reasons || DEFAULT_ORGANIZER_CANCEL_REASONS,
@@ -716,21 +703,12 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
       ...prev,
       // 通常公演
       cancellation_policy_items: DEFAULT_POLICY_ITEMS,
-      cancellation_deadline_hours: 24,
-      cancellation_fees: [
-        { hours_before: 24, fee_percentage: 0, description: '24時間前まで無料' },
-        { hours_before: 0, fee_percentage: 50, description: '24時間前〜当日50%' },
-        { hours_before: -1, fee_percentage: 100, description: '公演開始後・無断キャンセル100%' }
-      ],
+      cancellation_deadline_hours: DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+      cancellation_fees: [...DEFAULT_OPEN_CANCELLATION_FEES],
       // 貸切公演
       private_cancellation_policy_items: DEFAULT_PRIVATE_POLICY_ITEMS,
-      private_cancellation_deadline_hours: 168,
-      private_cancellation_fees: [
-        { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
-        { hours_before: 168, fee_percentage: 30, description: '1週間前まで30%' },
-        { hours_before: 72, fee_percentage: 50, description: '3日前まで50%' },
-        { hours_before: 0, fee_percentage: 100, description: '当日100%' }
-      ],
+      private_cancellation_deadline_hours: DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
+      private_cancellation_fees: [...DEFAULT_PRIVATE_CANCELLATION_FEES],
       // 店舗都合キャンセル
       organizer_cancel_reasons: DEFAULT_ORGANIZER_CANCEL_REASONS,
       organizer_cancel_refund_note: '参加料金は全額返金いたします。',

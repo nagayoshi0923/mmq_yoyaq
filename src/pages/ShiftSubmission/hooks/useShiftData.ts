@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { logger } from '@/utils/logger'
+import { maskEmail } from '@/utils/security'
 import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
 import { shiftApi } from '@/lib/shiftApi'
@@ -36,8 +37,11 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
         if (staffData) {
           setCurrentStaffId(staffData.id)
         } else {
-          logger.error('❌ スタッフデータが見つかりません:', user.email)
-          showToast.error('スタッフ情報が見つかりません', `ログイン中: ${user.email}。管理者に連絡してスタッフ登録を依頼してください。`)
+          logger.error('❌ スタッフデータが見つかりません:', maskEmail(user.email))
+          showToast.error(
+            'スタッフ情報が見つかりません',
+            'このアカウントはスタッフとして登録されていません。管理者に連絡してスタッフ登録を依頼してください。'
+          )
         }
       }
     }

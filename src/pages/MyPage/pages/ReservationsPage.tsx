@@ -33,9 +33,22 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import type { Reservation, Waitlist } from '@/types'
 import type { Store } from '@/types'
+import {
+  DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+  DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
+} from '@/constants/cancellationPolicyDefaults'
 
-// デフォルトのキャンセル期限（設定がない場合）
-const DEFAULT_CANCEL_DEADLINE_HOURS = 24
+/** 貸切・オープンでキャンセル料テーブル・受付期限を切り替える */
+function isPrivateReservation(reservation: Reservation): boolean {
+  if (reservation.private_group_id) return true
+  if (reservation.reservation_source === 'web_private') return true
+  const raw = reservation.schedule_events
+  const ev = Array.isArray(raw) ? raw[0] : raw
+  if (ev && typeof ev === 'object' && 'is_private_booking' in ev && ev.is_private_booking) return true
+  const cat = (ev as { category?: string } | undefined)?.category
+  if (cat === 'private') return true
+  return false
+}
 
 // キャンセルポリシー情報
 interface CancellationPolicy {
@@ -61,6 +74,7 @@ export function ReservationsPage() {
   
   // 店舗ごとのキャンセル期限をキャッシュ
   const [storeDeadlines, setStoreDeadlines] = useState<Record<string, number>>({})
+  const [storePrivateDeadlines, setStorePrivateDeadlines] = useState<Record<string, number>>({})
   
   // 人数変更ダイアログ
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -257,17 +271,27 @@ export function ReservationsPage() {
           // キャンセル期限を取得
           const { data: settingsData, error: settingsError } = await supabase
             .from('reservation_settings')
-            .select('store_id, cancellation_deadline_hours')
+            .select(
+              'store_id, cancellation_deadline_hours, private_cancellation_deadline_hours'
+            )
             .in('store_id', Array.from(storeIds))
           
           if (!settingsError && settingsData) {
             const deadlineMap: Record<string, number> = {}
+            const privateDeadlineMap: Record<string, number> = {}
             settingsData.forEach(setting => {
-              if (setting.store_id && setting.cancellation_deadline_hours) {
-                deadlineMap[setting.store_id] = setting.cancellation_deadline_hours
+              if (setting.store_id != null) {
+                if (setting.cancellation_deadline_hours != null) {
+                  deadlineMap[setting.store_id] = setting.cancellation_deadline_hours
+                }
+                if (setting.private_cancellation_deadline_hours != null) {
+                  privateDeadlineMap[setting.store_id] =
+                    setting.private_cancellation_deadline_hours
+                }
               }
             })
             setStoreDeadlines(deadlineMap)
+            setStorePrivateDeadlines(privateDeadlineMap)
           }
         }
       }
@@ -420,10 +444,15 @@ export function ReservationsPage() {
     
     const now = new Date()
     const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
-    // 店舗ごとの設定があればそれを使用、なければデフォルト
-    const deadlineHours = reservation.store_id && storeDeadlines[reservation.store_id] 
-      ? storeDeadlines[reservation.store_id] 
-      : DEFAULT_CANCEL_DEADLINE_HOURS
+    const isPrivate = isPrivateReservation(reservation)
+    const sid = reservation.store_id
+    const deadlineHours = isPrivate
+      ? sid != null && storePrivateDeadlines[sid] !== undefined
+        ? storePrivateDeadlines[sid]
+        : DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
+      : sid != null && storeDeadlines[sid] !== undefined
+        ? storeDeadlines[sid]
+        : DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
     
     // デバッグログ
     logger.log('キャンセル判定:', {
@@ -444,9 +473,16 @@ export function ReservationsPage() {
 
   // キャンセルの期限時間を取得
   const getCancelDeadlineHours = (reservation: Reservation) => {
-    return reservation.store_id && storeDeadlines[reservation.store_id] 
-      ? storeDeadlines[reservation.store_id] 
-      : DEFAULT_CANCEL_DEADLINE_HOURS
+    const isPrivate = isPrivateReservation(reservation)
+    const sid = reservation.store_id
+    if (isPrivate) {
+      return sid != null && storePrivateDeadlines[sid] !== undefined
+        ? storePrivateDeadlines[sid]
+        : DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
+    }
+    return sid != null && storeDeadlines[sid] !== undefined
+      ? storeDeadlines[sid]
+      : DEFAULT_OPEN_CANCEL_DEADLINE_HOURS
   }
 
   // 人数を減らせるかどうか（キャンセル期限内のみ減少可能）
@@ -455,22 +491,34 @@ export function ReservationsPage() {
   }
 
   // キャンセルポリシーを取得
-  const fetchCancellationPolicy = async (storeId: string | null | undefined): Promise<CancellationPolicy | null> => {
+  const fetchCancellationPolicy = async (
+    storeId: string | null | undefined,
+    reservation: Reservation
+  ): Promise<CancellationPolicy | null> => {
     if (!storeId) return null
     
     try {
       const { data, error } = await supabase
         .from('reservation_settings')
-        .select('cancellation_policy, cancellation_deadline_hours, cancellation_fees')
+        .select(
+          'cancellation_policy, private_cancellation_policy, cancellation_deadline_hours, private_cancellation_deadline_hours, cancellation_fees, private_cancellation_fees'
+        )
         .eq('store_id', storeId)
         .maybeSingle()
       
       if (error || !data) return null
-      
+
+      const isPrivate = isPrivateReservation(reservation)
       return {
-        policy: data.cancellation_policy || '',
-        deadlineHours: data.cancellation_deadline_hours || DEFAULT_CANCEL_DEADLINE_HOURS,
-        fees: data.cancellation_fees || []
+        policy: isPrivate
+          ? data.private_cancellation_policy || ''
+          : data.cancellation_policy || '',
+        deadlineHours: isPrivate
+          ? data.private_cancellation_deadline_hours ?? DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS
+          : data.cancellation_deadline_hours ?? DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
+        fees: isPrivate
+          ? data.private_cancellation_fees || []
+          : data.cancellation_fees || [],
       }
     } catch (error) {
       logger.error('キャンセルポリシー取得エラー:', error)
@@ -482,7 +530,7 @@ export function ReservationsPage() {
   const handleCancelClick = async (reservation: Reservation) => {
     setCancelTarget(reservation)
     // キャンセルポリシーを取得
-    const policy = await fetchCancellationPolicy(reservation.store_id)
+    const policy = await fetchCancellationPolicy(reservation.store_id, reservation)
     setCancellationPolicy(policy)
     setCancelDialogOpen(true)
   }
@@ -1134,7 +1182,9 @@ export function ReservationsPage() {
                         ) : (
                           <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
                             <AlertTriangle className="h-3 w-3 mr-1" />
-                            {getCancelDeadlineHours(reservation)}時間前を過ぎたためキャンセル不可
+                            {getCancelDeadlineHours(reservation) <= 0
+                              ? '公演開始後はキャンセルできません'
+                              : `${getCancelDeadlineHours(reservation)}時間前を過ぎたためキャンセル不可`}
                           </div>
                         )}
                       </div>
@@ -1429,20 +1479,28 @@ export function ReservationsPage() {
                           {[...cancellationPolicy.fees]
                             .sort((a, b) => b.hours_before - a.hours_before)
                             .map((fee, index) => {
-                              const days = Math.floor(fee.hours_before / 24)
-                              const hours = fee.hours_before % 24
-                              let timeText = ''
-                              if (days > 0) {
-                                timeText = `${days}日`
-                                if (hours > 0) timeText += `${hours}時間`
-                              } else if (hours > 0) {
-                                timeText = `${hours}時間`
+                              let label: string
+                              if (fee.hours_before < 0) {
+                                label = '公演開始後・無断'
+                              } else if (fee.hours_before === 0) {
+                                label = '開演時刻まで（当日含む）'
                               } else {
-                                timeText = '当日'
+                                const days = Math.floor(fee.hours_before / 24)
+                                const hours = fee.hours_before % 24
+                                let timeText = ''
+                                if (days > 0) {
+                                  timeText = `${days}日`
+                                  if (hours > 0) timeText += `${hours}時間`
+                                } else if (hours > 0) {
+                                  timeText = `${hours}時間`
+                                } else {
+                                  timeText = '当日'
+                                }
+                                label = `${timeText}前まで`
                               }
                               return (
                                 <li key={index} className="text-muted-foreground">
-                                  • {timeText}前: {fee.fee_percentage}%
+                                  • {label}: {fee.fee_percentage}%
                                   {fee.description && ` (${fee.description})`}
                                 </li>
                               )
