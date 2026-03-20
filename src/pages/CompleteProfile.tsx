@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertCircle, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { validateRedirectUrl } from '@/lib/utils'
+import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
 import { grantRegistrationCoupon } from '@/lib/api/couponApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link, useNavigate } from 'react-router-dom'
@@ -48,6 +49,10 @@ export function CompleteProfile() {
   const [prefecture, setPrefecture] = useState('')
   const [acceptNewsletter, setAcceptNewsletter] = useState(true)
   const [acceptTerms, setAcceptTerms] = useState(false)
+  /** セッション確定後: プロフィール要否・重複メールの判定（userId がある間は resolving から開始） */
+  const [profileGate, setProfileGate] = useState<
+    'resolving' | 'form' | 'duplicate_account' | 'leaving'
+  >('resolving')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -180,30 +185,71 @@ export function CompleteProfile() {
     }
   }, [])
 
-  // 既に登録済みの場合はマイページにリダイレクト
+  // AppRoot と同じ基準で「プロフィール完了」なら next へ。未完了でメールが他アカウントの顧客に取られていれば案内
   useEffect(() => {
-    if (!userId || isCheckingSession) return
-
-    const checkExistingCustomer = async () => {
-      try {
-        const { data: existingCustomer } = await supabase
-          .from('customers')
-          .select('id, name')
-          .eq('user_id', userId)
-          .maybeSingle()
-
-        if (existingCustomer && existingCustomer.name) {
-          // 既に登録完了済み → マイページへリダイレクト
-          logger.log('✅ 既に登録済みのユーザー:', existingCustomer.name)
-          navigate('/mypage', { replace: true })
-        }
-      } catch (err) {
-        logger.error('既存顧客チェックエラー:', err)
-      }
+    if (isCheckingSession || !userId) {
+      return
     }
 
-    checkExistingCustomer()
-  }, [userId, isCheckingSession, navigate])
+    let cancelled = false
+    setProfileGate('resolving')
+
+    ;(async () => {
+      try {
+        const { data: rows, error } = await supabase
+          .from('customers')
+          .select('id, name, phone, email')
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+
+        if (cancelled) return
+
+        if (error) {
+          logger.error('プロフィールゲート: 顧客取得エラー:', error)
+          setProfileGate('form')
+          return
+        }
+
+        const customer = rows?.[0] ?? null
+        if (isCustomerProfileComplete(customer, userEmail)) {
+          logger.log('✅ プロフィール済みのため complete-profile をスキップ')
+          setProfileGate('leaving')
+          const nextParam = new URLSearchParams(window.location.search).get('next')
+          const dest = validateRedirectUrl(nextParam, '/mypage')
+          navigate(dest, { replace: true })
+          return
+        }
+
+        if (!customer && userEmail.trim()) {
+          const { data: linkedElsewhere, error: rpcErr } = await supabase.rpc(
+            'is_customer_email_linked_to_other_user',
+            { p_email: userEmail.trim() }
+          )
+          if (cancelled) return
+          if (rpcErr) {
+            logger.warn('is_customer_email_linked_to_other_user RPC エラー（フォームへ）:', rpcErr)
+            setProfileGate('form')
+            return
+          }
+          if (linkedElsewhere === true) {
+            logger.log('⚠️ メールは既に別アカウントの顧客として登録済み')
+            setProfileGate('duplicate_account')
+            return
+          }
+        }
+
+        setProfileGate('form')
+      } catch (err) {
+        logger.error('プロフィールゲート例外:', err)
+        if (!cancelled) setProfileGate('form')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [userId, userEmail, isCheckingSession, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -384,6 +430,18 @@ export function CompleteProfile() {
         campaign_notifications: acceptNewsletter
       }
 
+      const customerProfilePayload = {
+        name: name.trim(),
+        nickname: nickname.trim() || null,
+        email: userEmail,
+        phone: phone.trim(),
+        prefecture: prefecture,
+        birth_date: birthDateForDB,
+        organization_id: organizationId,
+        notification_settings: notificationSettings,
+        updated_at: new Date().toISOString()
+      }
+
       // 新規登録かどうかを判定（クーポンページ遷移の判断に使用）
       // メールアドレスで既存顧客が見つかった場合は新規扱いしない
       let isNewCustomer = false
@@ -393,17 +451,7 @@ export function CompleteProfile() {
         // 自分のレコードがある → UPDATE（既存ユーザー）
         const { error: updateCustErr } = await supabase
           .from('customers')
-          .update({
-            name: name.trim(),
-            nickname: nickname.trim() || null,
-            email: userEmail,
-            phone: phone.trim(),
-            prefecture: prefecture,
-            birth_date: birthDateForDB,
-            organization_id: organizationId,
-            notification_settings: notificationSettings,
-            updated_at: new Date().toISOString()
-          })
+          .update(customerProfilePayload)
           .eq('id', existingByUserId.id)
           .eq('user_id', userId)
 
@@ -433,10 +481,9 @@ export function CompleteProfile() {
           })
 
         if (insertCustErr) {
-          // email重複エラーの場合、既存レコードのuser_idを自分に紐付けてリトライ
+          // 一意制約違反: メールは別アカウント／店舗登録済み等。RLS では衝突行が見えないことがある
           if (insertCustErr.code === '23505') {
-            logger.warn('⚠️ email重複のためuser_id紐付けを試行:', userEmail)
-            // メールアドレスでuser_id未設定のレコードを探して紐付け
+            logger.warn('⚠️ customers INSERT unique 違反:', userEmail, insertCustErr.message)
             const { data: byEmail } = await supabase
               .from('customers')
               .select('id, user_id')
@@ -444,47 +491,68 @@ export function CompleteProfile() {
               .maybeSingle()
 
             if (byEmail && !byEmail.user_id) {
-              // user_idが未設定なら紐付けて更新（既存顧客扱い）
               const { error: linkErr } = await supabase
                 .from('customers')
                 .update({
                   user_id: userId,
-                  name: name.trim(),
-                  phone: phone.trim(),
-                  prefecture: prefecture,
-                  organization_id: organizationId,
-                  updated_at: new Date().toISOString()
+                  ...customerProfilePayload
                 })
                 .eq('id', byEmail.id)
                 .is('user_id', null)
-              
+
               if (linkErr) {
                 throw linkErr
               }
               logger.log('✅ 既存メール顧客にuser_idを紐付けました')
-              isNewCustomer = false // 既存顧客への紐付け
-            } else {
-              // 別のuser_idに紐付いている場合は新規で作成（emailなし）
-              logger.warn('⚠️ 既存メール顧客は別ユーザーに紐付け済み、email除外で新規作成')
-              const { error: insertNoEmail } = await supabase
+              isNewCustomer = false
+            } else if (byEmail?.user_id === userId) {
+              // 同時送信などで INSERT は失敗したが、自分の行は既にある
+              const { error: raceUpdErr } = await supabase
                 .from('customers')
-                .insert({
-                  user_id: userId,
-                  name: name.trim(),
-                  phone: phone.trim(),
-                  prefecture: prefecture,
-                  visit_count: 0,
-                  total_spent: 0,
-                  organization_id: organizationId,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                })
-              if (insertNoEmail) {
-                throw insertNoEmail
+                .update(customerProfilePayload)
+                .eq('id', byEmail.id)
+                .eq('user_id', userId)
+              if (raceUpdErr) {
+                throw raceUpdErr
               }
-              logger.log('✅ 新規顧客レコードを作成しました（email除外）')
-              // メールまたは電話で既存顧客が見つかっている場合はクーポン付与対象外
-              isNewCustomer = !hasExistingCustomer
+              logger.log('✅ 重複INSERT後に既存行を更新（競合解消）')
+              isNewCustomer = false
+            } else if (byEmail?.user_id && byEmail.user_id !== userId) {
+              throw new Error(
+                'このメールアドレスは既に別のアカウントで登録されています。' +
+                  'そのメールでログインするか、別のメールアドレスをお使いください。'
+              )
+            } else {
+              // byEmail が取れない: 他ユーザーの行は RLS で非表示。メールなしの二重顧客を作ると検証・連携が壊れるため禁止
+              const { data: myRows } = await supabase
+                .from('customers')
+                .select('id')
+                .eq('user_id', userId)
+                .order('updated_at', { ascending: false })
+                .limit(1)
+
+              if (myRows && myRows.length > 0) {
+                const { error: raceUpdErr } = await supabase
+                  .from('customers')
+                  .update(customerProfilePayload)
+                  .eq('id', myRows[0].id)
+                  .eq('user_id', userId)
+                if (raceUpdErr) {
+                  if (raceUpdErr.code === '23505') {
+                    throw new Error(
+                      'このメールアドレスは既に登録に使用されています。ログインをお試しください。'
+                    )
+                  }
+                  throw raceUpdErr
+                }
+                logger.log('✅ unique 違反後に自分の行を更新（RLS で衝突行非表示のケース）')
+                isNewCustomer = false
+              } else {
+                throw new Error(
+                  'このメールアドレスは既に登録に使用されています（別アカウントの可能性があります）。' +
+                    'ログインをお試しください。解決しない場合はお問い合わせください。'
+                )
+              }
             }
           } else {
             throw insertCustErr
@@ -499,14 +567,18 @@ export function CompleteProfile() {
       logger.log('✅ customersテーブル作成/更新完了')
       
       // 保存結果を検証（RLSで静かにブロックされるケースを検出）
-      const { data: verify, error: verifyErr } = await supabase
+      // maybeSingle は同一 user_id が複数あると PostgREST がエラーを返すため limit(1) で最新行を使う
+      const { data: verifyRows, error: verifyErr } = await supabase
         .from('customers')
-        .select('id, name, phone, email')
+        .select('id, name, phone, email, updated_at')
         .eq('user_id', userId)
-        .maybeSingle()
-      
+        .order('updated_at', { ascending: false })
+        .limit(1)
+
+      const verify = verifyRows?.[0]
+
       if (verifyErr) {
-        logger.warn('⚠️ 保存検証クエリエラー:', verifyErr)
+        logger.warn('⚠️ 保存検証クエリエラー:', verifyErr.message, verifyErr)
       } else if (!verify) {
         logger.error('❌ 顧客レコードが見つかりません（RLSブロックの可能性）')
         throw new Error('プロフィールの保存に失敗しました。もう一度お試しください。')
@@ -627,6 +699,59 @@ export function CompleteProfile() {
               variant="outline"
             >
               新規登録画面に戻る
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (profileGate === 'resolving' || profileGate === 'leaving') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">アカウント情報を確認しています...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (profileGate === 'duplicate_account') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 sm:p-8 text-center space-y-4">
+            <AlertCircle className="w-16 h-16 text-amber-500 mx-auto" />
+            <h2 className="text-xl font-bold text-amber-800">このメールは既に登録されています</h2>
+            <p className="text-muted-foreground text-sm">
+              <span className="font-mono text-xs break-all">{userEmail}</span>
+              <br />
+              <br />
+              は<strong>別のアカウントですでに顧客登録</strong>されています。新規登録フローを続けるとデータが分かれてしまうため、
+              <strong>元のアカウントでログイン</strong>してください。
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded p-3 text-left text-sm text-amber-900">
+              <p className="font-medium mb-1">手順</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>下のボタンでログアウトする</li>
+                <li>ログイン画面で、以前お使いの方法（メール・Google 等）でログイン</li>
+              </ol>
+            </div>
+            <Button
+              type="button"
+              onClick={async () => {
+                await supabase.auth.signOut()
+                sessionStorage.removeItem('oauth_mode')
+                navigate('/login', { replace: true })
+              }}
+              className="w-full"
+              style={{ backgroundColor: THEME.primary }}
+            >
+              ログアウトしてログイン画面へ
+            </Button>
+            <Button asChild variant="outline" className="w-full">
+              <Link to="/">トップページへ</Link>
             </Button>
           </CardContent>
         </Card>

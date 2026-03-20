@@ -397,7 +397,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             </h1>
             <p className="text-sm md:text-[0.95rem] text-white/90 mb-3 max-w-xl leading-relaxed text-pretty">
               {organizationSlug === 'queens-waltz'
-                ? '都内に3店舗を有するマーダーミステリー専門店クインズワルツ。100種類以上のマーダーミステリーを所有し、あなたの気に入る物語がきっと見つかる！'
+                ? '都内（大久保、高田馬場、大塚）に4店舗、埼玉に1店舗を運営するマーダーミステリー専門店クインズワルツ。160種類以上のマーダーミステリーシナリオをご用意しています。あなたの気に入る物語がきっと見つかる！'
                 : 'リアルな謎解き体験。あなたは事件の真相を暴けるか？'}
             </p>
             

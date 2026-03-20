@@ -45,6 +45,9 @@ Edge Functions の `_shared/security.ts` で管理。本番環境では `https:/
 ### 新規登録時の重複メール事前チェック
 `check_email_registered` RPC により、既存メールへのマジックリンク送信を抑制。**本番で効くのはマイグレーション適用後**。副作用としてメールの登録有無が推測可能（列挙リスク）になる点は許容と判断している。
 
+### complete-profile 用: メールが他 auth ユーザーの顧客に紐付いているか
+`is_customer_email_linked_to_other_user`（`authenticated` のみ）。`check_email_registered` は `public.users` も参照するためログイン済みセッションでは常に真になり得ず、**二重アカウント案内**には使わない。メール列挙リスクは `check_email_registered` と同種。
+
 ### Edge Functions の認可チェック
 現状 **37 本**の Edge Function があり、エンドポイントごとに次のいずれか（または併用）で保護している。
 

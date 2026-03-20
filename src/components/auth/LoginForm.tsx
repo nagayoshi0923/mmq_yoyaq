@@ -167,8 +167,13 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         setMessage('パスワードリセット用のメールを送信しました。メールをご確認ください。')
         
       } else if (mode === 'signup') {
+        // 以前「Googleでログイン」を試したときの oauth_mode=login が残っていると、
+        // メール確認リンク後の SIGNED_IN で顧客未登録扱いされサインアウトされる（AuthContext 側も修正済み）
+        sessionStorage.removeItem('oauth_mode')
+
         // 既存メールアドレスチェック：既存ユーザーへの不正なマジックリンク送信を防ぐ
         // RLS を回避するため SECURITY DEFINER の RPC を使用（anon からでも呼び出し可能）
+        // DB 側インデックス（lower(email)）で高速化可能（マイグレーション参照）
         const { data: isRegistered, error: checkError } = await supabase
           .rpc('check_email_registered', { p_email: email })
 
@@ -184,6 +189,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
 
         // 新規登録（Magic Link 方式）
         // signInWithOtp を使用：PKCE の code_verifier 問題を回避
+        // Supabase Auth のメール送信は SMTP 次第で数十秒かかることがある
         const { error } = await supabase.auth.signInWithOtp({
           email,
           options: {
@@ -467,6 +473,18 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                 <div className="mb-4 p-4 bg-green-50 border border-green-200 flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-green-700">{message}</p>
+                </div>
+              )}
+
+              {mode === 'signup' && isSubmitting && !message && (
+                <div className="mb-4 p-3 bg-slate-50 border border-slate-200 flex items-start gap-3">
+                  <Loader2 className="w-5 h-5 animate-spin text-slate-500 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-slate-700">
+                    <p>登録確認と確認メールの送信中です。</p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      メールサーバの混雑時は 1 分ほどかかることがあります。この画面を閉じないでください。
+                    </p>
+                  </div>
                 </div>
               )}
 

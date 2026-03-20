@@ -7,6 +7,7 @@ import { RouteScrollRestorationProvider } from '@/contexts/RouteScrollRestoratio
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { supabase } from '@/lib/supabase'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
+import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
 
 // コード分割：初期ロードを軽くする（リトライ付き）
 const LoginForm = lazyWithRetry(() =>
@@ -340,11 +341,14 @@ function AppRoutes() {
     ;(async () => {
       setIsProfileCheckRunning(true)
       try {
-        const { data: customer, error } = await supabase
+        const { data: customerRows, error } = await supabase
           .from('customers')
           .select('id, name, phone, email')
           .eq('user_id', user.id)
-          .maybeSingle()
+          .order('updated_at', { ascending: false })
+          .limit(1)
+
+        const customer = customerRows?.[0] ?? null
 
         if (cancelled) return
 
@@ -354,15 +358,7 @@ function AppRoutes() {
           return
         }
 
-        const nameOk = Boolean(customer?.name && String(customer.name).trim().length > 0)
-        const phoneOk = Boolean(customer?.phone && String(customer.phone).trim().length > 0)
-        // OAuth ユーザーは auth session にメールがあるので、customer レコードに無くても OK
-        const emailOk = Boolean(
-          (customer?.email && String(customer.email).trim().length > 0) ||
-          (user.email && String(user.email).trim().length > 0)
-        )
-
-        const isComplete = nameOk && phoneOk && emailOk
+        const isComplete = isCustomerProfileComplete(customer, user.email)
         if (!isComplete) {
           const next = `${location.pathname}${location.search}`
           navigate(`/complete-profile?next=${encodeURIComponent(next)}`, { replace: true })

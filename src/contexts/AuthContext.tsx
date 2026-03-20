@@ -297,18 +297,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
             if (event === 'SIGNED_IN') {
               const oauthMode = sessionStorage.getItem('oauth_mode')
               authTrace('🔑 OAuth mode:', oauthMode)
-              
-              if (oauthMode === 'login') {
-                // ログインモードの場合、顧客レコードの存在をチェック
+              // Google 等のソーシャルログイン時のみ「顧客レコード必須」を検証する。
+              // メールのマジックリンク/OTP は app_metadata.provider が 'email' のためここでは除外。
+              // oauth_mode=login が前回の試行で残っていると、新規登録→確認メール直後に
+              // 顧客未作成のままサインアウトされ /login へ飛ばされるバグになる。
+              const authProvider = session.user.app_metadata?.provider as string | undefined
+              const isOAuthSocialSignIn = Boolean(authProvider && authProvider !== 'email')
+
+              if (oauthMode === 'login' && isOAuthSocialSignIn) {
                 const { data: customer } = await supabase
                   .from('customers')
                   .select('id')
                   .eq('user_id', session.user.id)
                   .maybeSingle()
-                
+
                 if (!customer) {
-                  // 未登録ユーザー → ログアウトしてエラー表示
-                  authTrace('⚠️ ログインモードで未登録ユーザーを検出、ログアウト')
+                  authTrace('⚠️ OAuthログインで未登録ユーザーを検出、ログアウト')
                   sessionStorage.removeItem('oauth_mode')
                   sessionStorage.setItem('auth_error', 'このアカウントは登録されていません。新規登録からお進みください。')
                   await supabase.auth.signOut()
@@ -318,7 +322,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
                   return
                 }
               }
-              // 使用済みのoauth_modeをクリア
               sessionStorage.removeItem('oauth_mode')
             }
             

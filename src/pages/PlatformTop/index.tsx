@@ -647,12 +647,12 @@ export function PlatformTop() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: THEME.background }}>
+    <div className="min-h-screen w-full" style={{ backgroundColor: THEME.background }}>
       <Header />
 
       {/* ヒーローセクション - シャープデザイン */}
       <section 
-        className="relative overflow-hidden"
+        className="relative w-full overflow-hidden"
         style={{ backgroundColor: THEME.primary }}
       >
         {/* アクセント装飾 */}
