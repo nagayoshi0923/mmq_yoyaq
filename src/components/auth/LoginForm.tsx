@@ -182,12 +182,30 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
       }
 
       const url = data?.url
-      if (!url || typeof url !== 'string') {
-        setIsOAuthRedirecting(false)
-        throw new Error('OAuth URL を取得できませんでした')
+      if (url && typeof url === 'string') {
+        window.location.assign(url)
+        return
       }
 
-      window.location.assign(url)
+      // 一部のキー／SDK組み合わせで url が返らない場合がある → 従来のブラウザリダイレクトにフォールバック
+      logger.warn('OAuth: URL が返らなかったため skipBrowserRedirect なしで再試行します')
+      const { error: fallbackError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}${safeReturnUrl}`,
+          queryParams:
+            provider === 'google'
+              ? {
+                  prompt: 'select_account',
+                }
+              : undefined,
+        },
+      })
+      if (fallbackError) {
+        setIsOAuthRedirecting(false)
+        throw fallbackError
+      }
+      // 成功時はページが Google 等へ遷移する
     } catch (error: unknown) {
       setIsOAuthRedirecting(false)
       const message = error instanceof Error ? error.message : 'ソーシャルログインに失敗しました'

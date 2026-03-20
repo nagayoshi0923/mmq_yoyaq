@@ -939,6 +939,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (currentSession.session) {
         authTrace('🔄 既存セッションを検出、クリアします')
         await supabase.auth.signOut({ scope: 'local' })
+        // ストレージ反映と競合すると signInWithPassword が不安定になることがある
+        await new Promise(r => setTimeout(r, 50))
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
