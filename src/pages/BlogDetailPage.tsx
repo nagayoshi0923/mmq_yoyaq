@@ -13,6 +13,9 @@ import { ArrowLeft, Calendar, Loader2 } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import type { BlogPost } from '@/types'
 
+const BLOG_POST_COLUMNS =
+  'id, organization_id, title, slug, excerpt, content, cover_image_url, is_published, published_at, author_id, view_count, created_at, updated_at'
+
 /** パスセグメントが二重エンコードされている場合のため */
 function normalizeArticleSlug(raw: string): string {
   try {
@@ -20,6 +23,21 @@ function normalizeArticleSlug(raw: string): string {
   } catch {
     return raw
   }
+}
+
+/** PostgREST が RPC 未定義などで 404 / schema に無い旨を返す場合 */
+function isRpcUnavailableError(err: { code?: string; message?: string; status?: number } | null): boolean {
+  if (!err) return false
+  const m = (err.message || '').toLowerCase()
+  const c = err.code || ''
+  if (err.status === 404) return true
+  return (
+    c === 'PGRST202' ||
+    c === '42883' ||
+    m.includes('could not find the function') ||
+    m.includes('404') ||
+    m.includes('not found')
+  )
 }
 
 interface BlogDetailPageProps {
@@ -48,32 +66,68 @@ export function BlogDetailPage({ slug, organizationSlug }: BlogDetailPageProps) 
       let data: BlogPost | null = null
 
       if (organizationSlug) {
-        // organizations の RLS で id が取れない環境でも公開記事を表示できるよう RPC を使用
         const { data: rows, error: rpcError } = await supabase.rpc('get_public_blog_post', {
           p_org_slug: organizationSlug,
           p_article_slug: articleSlug,
         })
-        if (rpcError) {
-          if (rpcError.code === 'PGRST202' || rpcError.message?.includes('get_public_blog_post')) {
-            logger.error(
-              'get_public_blog_post が未デプロイの可能性があります。マイグレーション 20260320030000 を適用してください。',
+
+        const rpcRow = Array.isArray(rows) ? rows[0] : null
+        if (!rpcError && rpcRow) {
+          data = rpcRow as BlogPost
+        } else {
+          if (rpcError) {
+            logger.warn(
+              isRpcUnavailableError(rpcError)
+                ? 'get_public_blog_post がDBに未適用の可能性 — フォールバック取得を試行（マイグレーション 20260320030000 適用推奨）'
+                : 'get_public_blog_post が失敗 — フォールバック取得を試行',
               rpcError
             )
           }
-          throw rpcError
+
+          const { data: org, error: orgError } = await supabase
+            .from('organizations')
+            .select('id')
+            .eq('slug', organizationSlug)
+            .maybeSingle()
+          if (!orgError && org?.id) {
+            const { data: row, error: postError } = await supabase
+              .from('blog_posts')
+              .select(BLOG_POST_COLUMNS)
+              .eq('organization_id', org.id)
+              .eq('slug', articleSlug)
+              .eq('is_published', true)
+              .maybeSingle()
+            if (!postError && row) {
+              data = row as BlogPost
+            }
+          }
+
+          if (!data) {
+            const { data: joined, error: joinError } = await supabase
+              .from('blog_posts')
+              .select(`${BLOG_POST_COLUMNS}, organizations!inner(slug)`)
+              .eq('slug', articleSlug)
+              .eq('is_published', true)
+              .eq('organizations.slug', organizationSlug)
+              .maybeSingle()
+            if (!joinError && joined) {
+              const j = joined as unknown as BlogPost & {
+                organizations: { slug: string } | { slug: string }[]
+              }
+              const { organizations: _o, ...postOnly } = j
+              data = postOnly as BlogPost
+            }
+          }
         }
-        const row = Array.isArray(rows) ? rows[0] : null
-        if (!row) {
+
+        if (!data) {
           setNotFound(true)
           return
         }
-        data = row as BlogPost
       } else {
         const { data: row, error } = await supabase
           .from('blog_posts')
-          .select(
-            'id, organization_id, title, slug, excerpt, content, cover_image_url, is_published, published_at, author_id, view_count, created_at, updated_at'
-          )
+          .select(BLOG_POST_COLUMNS)
           .eq('slug', articleSlug)
           .eq('is_published', true)
           .maybeSingle()
