@@ -11,7 +11,7 @@ import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/Survey
 
 interface SystemMessage {
   type: 'system'
-  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled'
+  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message'
   count?: number
   dates?: Array<{ date: string; time_slot: string }>
   confirmedDate?: string
@@ -617,6 +617,34 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                           <p className="text-xs text-gray-600 mt-2">
                             {systemMsg.body || '誠に申し訳ございませんが、やむを得ない事情によりご予約がキャンセルとなりました。'}
                           </p>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // システムメッセージ（店舗からのお知らせ）
+                  if (systemMsg && systemMsg.action === 'staff_message') {
+                    return (
+                      <div key={msg.id} className="flex justify-center my-4">
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 w-full max-w-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-amber-600 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs">📢</span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-amber-800">
+                                {systemMsg.title || '店舗からのお知らせ'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(msg.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 mt-2 border border-amber-100">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {systemMsg.body}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     )

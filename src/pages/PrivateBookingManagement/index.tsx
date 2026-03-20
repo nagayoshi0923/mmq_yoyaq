@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { Calendar, CheckCircle, Clock, Settings, MapPin } from 'lucide-react'
+import { Calendar, CheckCircle, Clock, Settings, MapPin, Users } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
 const PRIVATE_BOOKING_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'booking-list', label: '貸切確認一覧', icon: Calendar },
+  { id: 'groups', label: 'グループ一覧', icon: Users },
   { id: 'pending', label: '承認待ち', icon: Clock },
   { id: 'approved', label: '承認済み', icon: CheckCircle },
   { id: 'settings', label: '設定', icon: Settings }
@@ -32,6 +33,7 @@ import { CustomerInfo } from './components/CustomerInfo'
 import { CandidateDateSelector } from './components/CandidateDateSelector'
 import { ActionButtons } from './components/ActionButtons'
 import { SurveyResponsesView } from './components/SurveyResponsesView'
+import { PrivateGroupList } from './components/PrivateGroupList'
 
 // 分離されたフック
 import type { PrivateBookingRequest } from './hooks/usePrivateBookingData'
@@ -54,10 +56,19 @@ const normalizeTimeSlot = (timeSlot: string): string => {
 
 export function PrivateBookingManagement() {
   const { user } = useAuth()
-  const [sidebarActiveTab, setSidebarActiveTab] = useState('booking-management')
+  const [sidebarActiveTab, setSidebarActiveTab] = useState('booking-list')
   
   // タブ状態（sessionStorageと同期）
-  const [activeTab, setActiveTab] = useSessionState<'gm_pending' | 'store_pending' | 'all'>('privateBookingActiveTab', 'store_pending')
+  const [activeTab, setActiveTab] = useSessionState<'gm_pending' | 'store_pending' | 'all' | 'groups'>('privateBookingActiveTab', 'store_pending')
+  
+  // タブとサイドバーを同期
+  useEffect(() => {
+    if (activeTab === 'groups') {
+      setSidebarActiveTab('groups')
+    } else {
+      setSidebarActiveTab('booking-list')
+    }
+  }, [activeTab])
   
   // 選択状態
   const [selectedRequest, setSelectedRequest] = useState<PrivateBookingRequest | null>(null)
@@ -392,7 +403,14 @@ export function PrivateBookingManagement() {
           mode="list"
           menuItems={PRIVATE_BOOKING_MENU_ITEMS}
           activeTab={sidebarActiveTab}
-          onTabChange={setSidebarActiveTab}
+          onTabChange={(tab) => {
+            setSidebarActiveTab(tab)
+            if (tab === 'groups') {
+              setActiveTab('groups')
+            } else if (tab === 'booking-list') {
+              setActiveTab('all')
+            }
+          }}
         />
       }
       maxWidth="max-w-[1440px]"
@@ -410,39 +428,48 @@ export function PrivateBookingManagement() {
           description="貸切予約リクエストの承認・却下・店舗調整を行います"
         />
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'gm_pending' | 'store_pending' | 'all')}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'gm_pending' | 'store_pending' | 'all' | 'groups')}>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
-            <TabsList className="w-full sm:w-auto">
+            <TabsList className="w-full sm:w-auto flex-wrap">
               <TabsTrigger value="gm_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">GM確認中 ({gmPendingRequests.length})</TabsTrigger>
               <TabsTrigger value="store_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">店舗承認待ち ({storePendingRequests.length})</TabsTrigger>
               <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
+              <TabsTrigger value="groups" className="flex-1 sm:flex-initial text-xs sm:text-sm">グループ一覧</TabsTrigger>
             </TabsList>
             
-            <div className="w-full sm:w-auto flex justify-center sm:justify-end gap-2">
-              <DateRangePopover
-                startDate={dateRangeStart}
-                endDate={dateRangeEnd}
-                onDateChange={handleDateRangeChange}
-                label={dateRangeStart || dateRangeEnd 
-                  ? `${dateRangeStart || ''}〜${dateRangeEnd || ''}` 
-                  : '期間指定'}
-                buttonClassName="w-[160px]"
-              />
-              <Select value={displayLimit} onValueChange={setDisplayLimit}>
-                <SelectTrigger className="w-[120px] text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="20">最新20件</SelectItem>
-                  <SelectItem value="50">最新50件</SelectItem>
-                  <SelectItem value="100">最新100件</SelectItem>
-                  <SelectItem value="all">全件表示</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {activeTab !== 'groups' && (
+              <div className="w-full sm:w-auto flex justify-center sm:justify-end gap-2">
+                <DateRangePopover
+                  startDate={dateRangeStart}
+                  endDate={dateRangeEnd}
+                  onDateChange={handleDateRangeChange}
+                  label={dateRangeStart || dateRangeEnd 
+                    ? `${dateRangeStart || ''}〜${dateRangeEnd || ''}` 
+                    : '期間指定'}
+                  buttonClassName="w-[160px]"
+                />
+                <Select value={displayLimit} onValueChange={setDisplayLimit}>
+                  <SelectTrigger className="w-[120px] text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="20">最新20件</SelectItem>
+                    <SelectItem value="50">最新50件</SelectItem>
+                    <SelectItem value="100">最新100件</SelectItem>
+                    <SelectItem value="all">全件表示</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
-          <TabsContent value={activeTab} className="mt-0">
+          {/* グループ一覧タブ */}
+          <TabsContent value="groups" className="mt-0">
+            <PrivateGroupList />
+          </TabsContent>
+
+          {/* 予約リクエストタブ */}
+          <TabsContent value={activeTab === 'groups' ? '' : activeTab} className="mt-0">
 
             {filteredRequests.length === 0 ? (
               <Card className="shadow-none border">
