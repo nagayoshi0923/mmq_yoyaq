@@ -6,7 +6,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -40,6 +40,10 @@ interface StoreData {
   id: string
   name: string
   short_name?: string
+  ownership_type?: string
+  region?: string
+  address?: string
+  display_order?: number
 }
 
 interface CategoryData {
@@ -91,7 +95,7 @@ async function fetchScenarioCatalogBundle(): Promise<{
   const [scenariosResult, availableKeysResult, storesResult, categoriesResult] = await Promise.all([
     scenariosQuery,
     supabase.rpc('get_public_available_scenario_keys'),
-    supabase.from('stores').select('id, name, short_name'),
+    supabase.from('stores').select('id, name, short_name, ownership_type, region, address, display_order'),
     supabase.from('organization_categories').select('id, name, sort_order').order('sort_order'),
   ])
 
@@ -229,13 +233,43 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     return `${h}時間${m}分`
   }
 
-  // 通常店舗のみ（臨時・仮設を除外）
+  // オフィスと臨時会場を除外した店舗一覧
   const regularStores = useMemo(() => {
     return stores.filter(s => {
-      const name = s.short_name || s.name
-      return !name.includes('臨時') && !name.includes('仮設')
+      const name = s.short_name || s.name || ''
+      const isOffice = s.ownership_type === 'office' || name.includes('オフィス')
+      const isTemporary = s.ownership_type === 'temporary' || name.includes('臨時')
+      return !isOffice && !isTemporary
     })
   }, [stores])
+
+  // 地域から抽出するヘルパー関数
+  const extractRegionFromAddress = (address?: string): string => {
+    if (!address) return 'その他'
+    const match = address.match(/^(東京都|大阪府|京都府|北海道|.{2,3}県)/)
+    return match ? match[1] : 'その他'
+  }
+
+  // 地域ごとにグループ化した店舗（display_orderでソート）
+  const storesByRegion = useMemo(() => {
+    const groups = new Map<string, StoreData[]>()
+    // display_orderでソート
+    const sortedStores = [...regularStores].sort((a: any, b: any) => 
+      (a.display_order || 999) - (b.display_order || 999)
+    )
+    sortedStores.forEach(store => {
+      const region = store.region || extractRegionFromAddress(store.address) || 'その他'
+      if (!groups.has(region)) {
+        groups.set(region, [])
+      }
+      groups.get(region)!.push(store)
+    })
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === 'その他') return 1
+      if (b === 'その他') return -1
+      return a.localeCompare(b)
+    })
+  }, [regularStores])
 
   // フィルタリング
   const filteredScenarios = useMemo(() => {
@@ -517,8 +551,13 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">すべての店舗</SelectItem>
-                  {regularStores.map(store => (
-                    <SelectItem key={store.id} value={store.id}>{store.short_name || store.name}</SelectItem>
+                  {storesByRegion.map(([region, regionStores]) => (
+                    <SelectGroup key={region}>
+                      <SelectLabel className="text-xs text-muted-foreground">{region}</SelectLabel>
+                      {regionStores.map(store => (
+                        <SelectItem key={store.id} value={store.id}>{store.short_name || store.name}</SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>

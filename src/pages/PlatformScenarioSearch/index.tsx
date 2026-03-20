@@ -11,7 +11,7 @@ import { Footer } from '@/components/layout/Footer'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -39,6 +39,7 @@ interface ScenarioData {
   organization_name?: string
   scenario_master_id?: string | null
   available_stores?: string[] // 公演可能店舗名リスト
+  available_store_ids?: string[] // 公演可能店舗IDリスト（フィルタ用）
   is_recommended?: boolean
 }
 
@@ -66,9 +67,21 @@ function getScenarioBadge(scenario: ScenarioData): { label: string; bgColor: str
   return null
 }
 
+interface StoreData {
+  id: string
+  name: string
+  short_name?: string
+  ownership_type?: string
+  region?: string
+  address?: string
+  display_order?: number
+  organization_id?: string
+}
+
 interface ScenarioSearchResult {
   scenarios: ScenarioData[]
   categories: CategoryData[]
+  stores: StoreData[]
 }
 
 /**
@@ -90,10 +103,10 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
       `)
       .eq('status', 'available')
       .order('title'),
-    // 店舗データを取得（available_storesのIDを名前に変換するため）
+    // 店舗データを取得（available_storesのIDを名前に変換するため + フィルター用）
     supabase
       .from('stores')
-      .select('id, name, short_name'),
+      .select('id, name, short_name, ownership_type, region, address, display_order, organization_id'),
     // カテゴリ（organization_categories）を取得
     supabase
       .from('organization_categories')
@@ -130,8 +143,9 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
     })
     .map(s => {
       const org = s.organizations as { slug?: string; name?: string } | null
+      const storeIds = s.available_stores || []
       // available_storesのIDを店舗名に変換
-      const storeNames = (s.available_stores || [])
+      const storeNames = storeIds
         .map((storeId: string) => storeMap.get(storeId))
         .filter((name: string | undefined): name is string => !!name)
       return {
@@ -140,12 +154,14 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
         organization_slug: org?.slug || '',
         organization_name: org?.name || '',
         available_stores: storeNames,
+        available_store_ids: storeIds,
       }
     })
   
   return {
     scenarios: filteredScenarios,
-    categories: categoriesResult.data || []
+    categories: categoriesResult.data || [],
+    stores: storesResult.data || []
   }
 }
 
@@ -164,6 +180,7 @@ export function PlatformScenarioSearch() {
   
   const scenarios = data?.scenarios || []
   const categories = data?.categories || []
+  const allStores = data?.stores || []
 
   // isPending: 初回未取得のみ。キャッシュ再利用時はグリッドを消さず isFetching でスクロール保存を抑制する
   useReportRouteScrollRestoration('platform-scenario-search', {
@@ -180,7 +197,7 @@ export function PlatformScenarioSearch() {
   )
   const selectedDuration = searchParams.get('duration') || 'all'
   const selectedPlayerCount = searchParams.get('players') || 'all'
-  const selectedOrganization = searchParams.get('org') || 'all'
+  const selectedStore = searchParams.get('store') || 'all'
   
   // フィルターパネルの表示状態（URLパラメータがあれば初期表示）
   const [showFilters, setShowFilters] = useState(() => {
@@ -189,7 +206,7 @@ export function PlatformScenarioSearch() {
       sp.getAll('genre').length > 0 ||
       sp.has('duration') ||
       sp.has('players') ||
-      sp.has('org')
+      sp.has('store')
     )
   })
   
@@ -237,23 +254,50 @@ export function PlatformScenarioSearch() {
   }, [searchParams, setSearchParams])
   const setSelectedDuration = useCallback((value: string) => updateFilter('duration', value), [updateFilter])
   const setSelectedPlayerCount = useCallback((value: string) => updateFilter('players', value), [updateFilter])
-  const setSelectedOrganization = useCallback((value: string) => updateFilter('org', value), [updateFilter])
+  const setSelectedStore = useCallback((value: string) => updateFilter('store', value), [updateFilter])
 
   // カテゴリ一覧（organization_categoriesから取得）
   const genres = useMemo(() => {
     return categories.map(c => c.name)
   }, [categories])
 
-  // 組織一覧を取得
-  const organizations = useMemo(() => {
-    const orgMap = new Map<string, string>()
-    scenarios.forEach(s => {
-      if (s.organization_id && s.organization_name) {
-        orgMap.set(s.organization_id, s.organization_name)
-      }
+  // 地域から抽出するヘルパー関数
+  const extractRegionFromAddress = (address?: string): string => {
+    if (!address) return 'その他'
+    const match = address.match(/^(東京都|大阪府|京都府|北海道|.{2,3}県)/)
+    return match ? match[1] : 'その他'
+  }
+
+  // オフィスと臨時会場を除外した店舗一覧
+  const filteredStores = useMemo(() => {
+    return allStores.filter((s: StoreData) => {
+      const name = s.short_name || s.name || ''
+      const isOffice = s.ownership_type === 'office' || name.includes('オフィス')
+      const isTemporary = s.ownership_type === 'temporary' || name.includes('臨時')
+      return !isOffice && !isTemporary
     })
-    return Array.from(orgMap.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
-  }, [scenarios])
+  }, [allStores])
+
+  // 地域ごとにグループ化した店舗（display_orderでソート）
+  const storesByRegion = useMemo(() => {
+    const groups = new Map<string, StoreData[]>()
+    // display_orderでソート
+    const sortedStores = [...filteredStores].sort((a, b) => 
+      (a.display_order || 999) - (b.display_order || 999)
+    )
+    sortedStores.forEach(store => {
+      const region = store.region || extractRegionFromAddress(store.address) || 'その他'
+      if (!groups.has(region)) {
+        groups.set(region, [])
+      }
+      groups.get(region)!.push(store)
+    })
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === 'その他') return 1
+      if (b === 'その他') return -1
+      return a.localeCompare(b)
+    })
+  }, [filteredStores])
 
   // 実際に存在する所要時間の選択肢を動的生成
   const availableDurations = useMemo(() => {
@@ -300,14 +344,14 @@ export function PlatformScenarioSearch() {
         if (count < scenario.player_count_min || count > scenario.player_count_max) return false
       }
       
-      // 組織フィルター
-      if (selectedOrganization !== 'all') {
-        if (scenario.organization_id !== selectedOrganization) return false
+      // 店舗フィルター
+      if (selectedStore !== 'all') {
+        if (!scenario.available_store_ids?.includes(selectedStore)) return false
       }
       
       return true
     })
-  }, [scenarios, searchTerm, selectedCategories, selectedDuration, selectedPlayerCount, selectedOrganization])
+  }, [scenarios, searchTerm, selectedCategories, selectedDuration, selectedPlayerCount, selectedStore])
 
   const handleBack = useCallback(() => {
     navigate('/')
@@ -329,7 +373,7 @@ export function PlatformScenarioSearch() {
     next.delete('genre')
     next.delete('duration')
     next.delete('players')
-    next.delete('org')
+    next.delete('store')
     setSearchParams(next, { replace: true })
     setLocalSearchTerm('')
   }, [searchParams, setSearchParams])
@@ -339,7 +383,7 @@ export function PlatformScenarioSearch() {
     selectedCategories.length > 0 ||
     selectedDuration !== 'all' ||
     selectedPlayerCount !== 'all' ||
-    selectedOrganization !== 'all'
+    selectedStore !== 'all'
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: THEME.background }}>
@@ -556,14 +600,21 @@ export function PlatformScenarioSearch() {
                 </SelectContent>
               </Select>
               
-              <Select value={selectedOrganization} onValueChange={setSelectedOrganization}>
+              <Select value={selectedStore} onValueChange={setSelectedStore}>
                 <SelectTrigger className="h-9">
                   <SelectValue placeholder="店舗" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">すべての店舗</SelectItem>
-                  {organizations.map(org => (
-                    <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                  {storesByRegion.map(([region, stores]) => (
+                    <SelectGroup key={region}>
+                      <SelectLabel>{region}</SelectLabel>
+                      {stores.map(store => (
+                        <SelectItem key={store.id} value={store.id}>
+                          {store.short_name || store.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>

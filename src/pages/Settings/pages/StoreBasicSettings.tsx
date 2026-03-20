@@ -81,8 +81,8 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
 
   // 店舗の並び順を変更
   const moveStore = async (index: number, direction: 'up' | 'down') => {
-    // 通常店舗のみ（臨時会場とオフィスは除外）
-    const regularStores = stores.filter(s => !s.is_temporary && s.ownership_type !== 'office')
+    // 通常店舗と仮設店舗を含む（オフィスのみ除外）
+    const regularStores = stores.filter(s => s.ownership_type !== 'office')
     const targetIndex = regularStores.findIndex(s => s.id === stores[index].id)
     
     if (targetIndex === -1) return
@@ -180,12 +180,12 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
       <Card>
         <CardHeader>
           <CardTitle>店舗の表示順序</CardTitle>
-          <CardDescription>スケジュール管理や予約サイトでの店舗の表示順を設定します（通常店舗のみ）</CardDescription>
+          <CardDescription>スケジュール管理や予約サイトでの店舗の表示順を設定します</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
             {stores
-              .filter(s => !s.is_temporary && s.ownership_type !== 'office')
+              .filter(s => s.ownership_type !== 'office')
               .map((store, index, filteredStores) => (
                 <div 
                   key={store.id} 

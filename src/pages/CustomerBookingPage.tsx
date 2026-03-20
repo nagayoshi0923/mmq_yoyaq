@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, MapPin, Search } from 'lucide-react'
@@ -161,6 +161,44 @@ export function CustomerBookingPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [storeFilter, setStoreFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('all')
+
+  // 地域から抽出するヘルパー関数
+  const extractRegionFromAddress = (address?: string): string => {
+    if (!address) return 'その他'
+    const match = address.match(/^(東京都|大阪府|京都府|北海道|.{2,3}県)/)
+    return match ? match[1] : 'その他'
+  }
+
+  // オフィスと臨時会場を除外した店舗一覧
+  const filteredStores = useMemo(() => {
+    return stores.filter((s: any) => {
+      const name = s.short_name || s.name || ''
+      const isOffice = s.ownership_type === 'office' || name.includes('オフィス')
+      const isTemporary = s.ownership_type === 'temporary' || name.includes('臨時')
+      return !isOffice && !isTemporary
+    })
+  }, [stores])
+
+  // 地域ごとにグループ化した店舗（display_orderでソート）
+  const storesByRegion = useMemo(() => {
+    const groups = new Map<string, any[]>()
+    // display_orderでソート
+    const sortedStores = [...filteredStores].sort((a: any, b: any) => 
+      (a.display_order || 999) - (b.display_order || 999)
+    )
+    sortedStores.forEach((store: any) => {
+      const region = store.region || extractRegionFromAddress(store.address) || 'その他'
+      if (!groups.has(region)) {
+        groups.set(region, [])
+      }
+      groups.get(region)!.push(store)
+    })
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === 'その他') return 1
+      if (b === 'その他') return -1
+      return a.localeCompare(b)
+    })
+  }, [filteredStores])
 
   const loadStores = useCallback(async () => {
     try {
@@ -368,10 +406,15 @@ export function CustomerBookingPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">すべての店舗</SelectItem>
-                    {stores.map((store) => (
-                      <SelectItem key={store.id} value={store.short_name}>
-                        {store.name}
-                      </SelectItem>
+                    {storesByRegion.map(([region, regionStores]) => (
+                      <SelectGroup key={region}>
+                        <SelectLabel className="text-xs text-muted-foreground">{region}</SelectLabel>
+                        {regionStores.map((store: any) => (
+                          <SelectItem key={store.id} value={store.short_name}>
+                            {store.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     ))}
                   </SelectContent>
                 </Select>
