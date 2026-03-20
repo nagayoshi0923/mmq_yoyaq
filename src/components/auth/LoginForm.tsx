@@ -214,7 +214,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         setMessage('ログイン成功！リダイレクト中...')
         setError('') // エラーをクリア
         
-        // AuthContextがユーザー情報を更新するのを少し待ってからリダイレクト
+        // 次ティックでリダイレクト（signIn 完了済み・500ms 待ちは体感を悪化させるため廃止）
         setTimeout(async () => {
           try {
             const { data: { user } } = await supabase.auth.getUser()
@@ -267,14 +267,14 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                 navigate(validateRedirectUrl(rawReturnUrl3), { replace: true })
                 return
               }
-              navigate('/', { replace: true })
-            }
-          } catch (err) {
-            // リダイレクト処理でエラーが発生しても、とりあえずトップに遷移
-            logger.error('Redirect error:', err)
             navigate('/', { replace: true })
           }
-        }, 500)
+        } catch (err) {
+          // リダイレクト処理でエラーが発生しても、とりあえずトップに遷移
+          logger.error('Redirect error:', err)
+          navigate('/', { replace: true })
+        }
+        }, 0)
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : ''

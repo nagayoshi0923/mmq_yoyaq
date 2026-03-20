@@ -67,7 +67,7 @@ async function getClientIpAddress(): Promise<string | null> {
     try {
       // ipify APIを使用（無料、HTTPS対応）
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3000) // 3秒タイムアウト
+      const timeoutId = setTimeout(() => controller.abort(), 1200) // ログ用のため短めに切る
       
       const response = await fetch('https://api.ipify.org?format=json', {
         signal: controller.signal
@@ -91,9 +91,9 @@ async function getClientIpAddress(): Promise<string | null> {
 }
 
 /**
- * 認証イベントをログに記録
+ * 認証イベントをログに記録（ログイン・ログアウトの体感速度を優先し、呼び出し元は待たない）
  */
-async function logAuthEvent(
+function logAuthEvent(
   eventType: 'login' | 'logout' | 'role_change' | 'password_reset' | 'password_set' | 'signup',
   userId: string | null,
   options?: {
@@ -104,32 +104,30 @@ async function logAuthEvent(
     metadata?: Record<string, unknown>
   }
 ) {
-  try {
-    // クライアント側でIPアドレスとUser-Agentを取得
-    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null
-    
-    // IPアドレスを非同期で取得（失敗してもログ記録は続行）
-    const ipAddress = await getClientIpAddress()
-    
-    const { error } = await supabase.from('auth_logs').insert({
-      user_id: userId,
-      event_type: eventType,
-      old_role: options?.oldRole,
-      new_role: options?.newRole,
-      ip_address: ipAddress,
-      user_agent: userAgent,
-      success: options?.success ?? true,
-      error_message: options?.errorMessage,
-      metadata: options?.metadata ?? {},
-    })
-    
-    if (error) {
-      logger.warn('⚠️ 認証ログ記録エラー:', error)
+  void (async () => {
+    try {
+      const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null
+      const ipAddress = await getClientIpAddress()
+
+      const { error } = await supabase.from('auth_logs').insert({
+        user_id: userId,
+        event_type: eventType,
+        old_role: options?.oldRole,
+        new_role: options?.newRole,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        success: options?.success ?? true,
+        error_message: options?.errorMessage,
+        metadata: options?.metadata ?? {},
+      })
+
+      if (error) {
+        logger.warn('⚠️ 認証ログ記録エラー:', error)
+      }
+    } catch (err) {
+      logger.warn('⚠️ 認証ログ記録例外:', err)
     }
-  } catch (err) {
-    // ログ記録の失敗は認証処理を阻害しない
-    logger.warn('⚠️ 認証ログ記録例外:', err)
-  }
+  })()
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -444,12 +442,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       if (session?.user) {
-        // セッションがあるが、Access Tokenの有効期限が1時間以内の場合は即座にリフレッシュ
+        // 残り1時間未満で毎回 refresh すると約1時間寿命のJWTでほぼ常に走り、起動・ログインが重くなる。
+        // 直前（5分）だけ手動リフレッシュ（SDK の autoRefreshToken に任せる）
         const now = Date.now()
         const expiresAt = session.expires_at ? session.expires_at * 1000 : 0
-        const refreshThresholdMs = 60 * 60 * 1000 // 1時間
-        
-        if (expiresAt && expiresAt - now < refreshThresholdMs) {
+        const refreshIfRemainingLessThanMs = 5 * 60 * 1000
+
+        if (expiresAt && expiresAt - now < refreshIfRemainingLessThanMs) {
           authTrace('🔄 セッション有効期限が近いため、リフレッシュを試行')
           try {
             const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
@@ -515,9 +514,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       authTrace('📊 usersテーブルからロール取得開始')
       try {
-        // パフォーマンス最適化: リトライなし、タイムアウト5秒で早期フォールバック
-        // RLS有効化後はクエリが少し遅くなるため、タイムアウトを延長
-        const timeoutMs = 5000
+        // 遅い場合でも 5s 待つとログインが重いので短めに切る（成功時は通常数百ms）
+        const timeoutMs = 2800
             
             const rolePromise = supabase
               .from('users')
@@ -874,7 +872,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           old: existingUser.role, 
           new: role 
         })
-        await logAuthEvent('role_change', supabaseUser.id, {
+        logAuthEvent('role_change', supabaseUser.id, {
           oldRole: existingUser.role,
           newRole: role,
           success: true,
@@ -942,10 +940,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         authTrace('🔄 既存セッションを検出、クリアします')
         await supabase.auth.signOut({ scope: 'local' })
       }
-      
-      // 少し待機してからログイン（セッションクリアの完了を確実にする）
-      await new Promise(resolve => setTimeout(resolve, 100))
-      
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -954,7 +949,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (error) {
         logger.error('❌ ログインエラー:', error.message)
         // ログイン失敗をログに記録（エラー時は user は null）
-        await logAuthEvent('login', null, {
+        logAuthEvent('login', null, {
           success: false,
           errorMessage: error.message,
         })
@@ -974,7 +969,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // ログイン成功をログに記録
       if (data.user) {
         const userData = userRef.current
-        await logAuthEvent('login', data.user.id, {
+        logAuthEvent('login', data.user.id, {
           newRole: userData?.role,
           success: true,
         })
@@ -1001,7 +996,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const { error } = await supabase.auth.signOut()
       if (error) {
         // ログアウト失敗をログに記録
-        await logAuthEvent('logout', currentUserId, {
+        logAuthEvent('logout', currentUserId, {
           success: false,
           errorMessage: error.message,
         })
@@ -1009,7 +1004,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       // ログアウト成功をログに記録
-      await logAuthEvent('logout', currentUserId, {
+      logAuthEvent('logout', currentUserId, {
         oldRole: currentUserRole,
         success: true,
       })
