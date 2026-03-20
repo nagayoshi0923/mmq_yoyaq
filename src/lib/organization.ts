@@ -18,7 +18,8 @@ export const ORGANIZATION_SELECT_STANDARD =
 export const ORGANIZATION_SELECT_STAFF_APP =
   `${ORGANIZATION_SELECT_STANDARD}, faq_items, common_faq_items, post_performance_survey_url, post_performance_survey_enabled` as const
 
-function isMissingColumnOrSchemaSelectError(err: unknown): boolean {
+/** PostgREST / Postgres の「列なし・スキーマキャッシュ」系エラー（select フォールバック用） */
+export function isMissingColumnOrSchemaSelectError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false
   const o = err as { code?: string; message?: string; details?: string }
   const msg = `${o.message || ''} ${o.details || ''}`.toLowerCase()

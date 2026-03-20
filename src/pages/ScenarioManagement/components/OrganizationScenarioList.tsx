@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId } from '@/lib/organization'
+import { getCurrentOrganizationId, isMissingColumnOrSchemaSelectError } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import {
@@ -64,6 +64,74 @@ interface OrganizationScenarioWithMaster {
   gm_costs: any[] | null
   gm_count: number | null
   play_count: number | null
+}
+
+/** organization_scenarios_with_master の一覧用 select（ビュー列が増えたとき古いDBでは PGRST204 になり得る） */
+const ORG_SCENARIOS_WITH_MASTER_LIST_SELECT = `
+            id,
+            org_scenario_id,
+            organization_id,
+            scenario_master_id,
+            slug,
+            org_status,
+            pricing_patterns,
+            gm_assignments,
+            created_at,
+            updated_at,
+            extra_preparation_time,
+            title,
+            author,
+            author_id,
+            key_visual_url,
+            description,
+            synopsis,
+            caution,
+            player_count_min,
+            player_count_max,
+            duration,
+            genre,
+            difficulty,
+            participation_fee,
+            master_status,
+            play_count,
+            available_gms,
+            available_stores,
+            gm_costs,
+            gm_count,
+            license_amount,
+            gm_test_license_amount,
+            experienced_staff
+          ` as const
+
+function logPostgrestError(label: string, err: unknown) {
+  if (!err || typeof err !== 'object') {
+    logger.error(label, err)
+    return
+  }
+  const o = err as { code?: string; message?: string; details?: string; hint?: string }
+  logger.error(label, {
+    code: o.code,
+    message: o.message,
+    details: o.details,
+    hint: o.hint,
+  })
+}
+
+function isSessionOrRlsScenarioFetchError(err: unknown): 'session' | 'rls' | null {
+  if (!err || typeof err !== 'object') return null
+  const o = err as { code?: string; message?: string }
+  const code = String(o.code || '')
+  const msg = (o.message || '').toLowerCase()
+  if (code === '42501' || msg.includes('row-level security')) return 'rls'
+  if (
+    code === 'PGRST301' ||
+    msg.includes('jwt') ||
+    msg.includes('not authorized') ||
+    msg.includes('invalid refresh')
+  ) {
+    return 'session'
+  }
+  return null
 }
 
 const STATUS_LABELS = {
@@ -132,9 +200,15 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         return
       }
 
+      const { data: authSession } = await supabase.auth.getSession()
+      if (!authSession.session) {
+        setError('ログインセッションがありません。再度ログインしてください。')
+        return
+      }
+
       // 組織名、店舗一覧、シナリオ一覧を並列取得（パフォーマンス改善）
       // ※ 担当GM・体験済みスタッフはビューで staff_scenario_assignments から動的に計算される
-      const [orgResult, storesResult, scenariosResult] = await Promise.all([
+      const [orgResult, storesResult, scenariosFirst] = await Promise.all([
         // 組織名を取得
         supabase
           .from('organizations')
@@ -150,44 +224,26 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         // ※ available_gms, experienced_staff はビューで staff_scenario_assignments から動的に計算
         supabase
           .from('organization_scenarios_with_master')
-          .select(`
-            id,
-            org_scenario_id,
-            organization_id,
-            scenario_master_id,
-            slug,
-            org_status,
-            pricing_patterns,
-            gm_assignments,
-            created_at,
-            updated_at,
-            extra_preparation_time,
-            title,
-            author,
-            author_id,
-            key_visual_url,
-            description,
-            synopsis,
-            caution,
-            player_count_min,
-            player_count_max,
-            duration,
-            genre,
-            difficulty,
-            participation_fee,
-            master_status,
-            play_count,
-            available_gms,
-            available_stores,
-            gm_costs,
-            gm_count,
-            license_amount,
-            gm_test_license_amount,
-            experienced_staff
-          `)
+          .select(ORG_SCENARIOS_WITH_MASTER_LIST_SELECT)
           .eq('organization_id', organizationId)
           .order('title', { ascending: true }),
       ])
+
+      let scenariosResult = scenariosFirst
+      if (
+        scenariosResult.error &&
+        isMissingColumnOrSchemaSelectError(scenariosResult.error)
+      ) {
+        logger.warn(
+          'organization_scenarios_with_master: 明示列 select が失敗したため select(*) にフォールバック',
+          scenariosResult.error
+        )
+        scenariosResult = await supabase
+          .from('organization_scenarios_with_master')
+          .select('*')
+          .eq('organization_id', organizationId)
+          .order('title', { ascending: true })
+      }
 
       if (orgResult.data?.name) {
         setOrganizationName(orgResult.data.name)
@@ -213,8 +269,17 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       const fetchError = scenariosResult.error
 
       if (fetchError) {
-        logger.error('Failed to fetch organization scenarios:', fetchError)
-        setError('シナリオの取得に失敗しました')
+        logPostgrestError('Failed to fetch organization scenarios:', fetchError)
+        const kind = isSessionOrRlsScenarioFetchError(fetchError)
+        if (kind === 'session') {
+          setError('セッションが無効です。ログアウトしてから再度ログインしてください。')
+        } else if (kind === 'rls') {
+          setError(
+            'シナリオ一覧を参照する権限がありません。スタッフ／管理者アカウントでログインしているか確認してください。'
+          )
+        } else {
+          setError('シナリオの取得に失敗しました')
+        }
         return
       }
 
@@ -249,7 +314,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
 
       // シナリオに対応店舗をマージ
       // ※ 担当GMと体験済みスタッフはビューで直接取得される（staff_scenario_assignmentsから動的に計算）
-      const scenariosWithAssignments = (data || []).map(scenario => {
+      const scenariosWithAssignments = (data || []).map((scenario: OrganizationScenarioWithMaster) => {
         // 対応店舗: ビュー → organization_scenarios直接 → scenarios のどれかから取得
         const viewStores = scenario.available_stores && scenario.available_stores.length > 0 ? scenario.available_stores : null
         const mapStores = availableStoresMap.get(scenario.scenario_master_id)

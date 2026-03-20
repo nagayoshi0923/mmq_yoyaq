@@ -207,6 +207,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (error) {
         logger.error('❌ セッションリフレッシュエラー:', error)
         if (isFatalAuthRefreshError(error.message)) {
+          await new Promise(r => setTimeout(r, 400))
+          const { data: recheck } = await supabase.auth.getSession()
+          if (recheck.session?.user) {
+            authTrace('✅ リフレッシュ失敗後もセッション継続（競合の可能性）')
+            return
+          }
           await supabase.auth.signOut({ scope: 'local' })
           setUser(null)
           userRef.current = null
@@ -448,35 +454,51 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       if (session?.user) {
-        // セッションがあるが、Access Tokenの有効期限が1時間以内の場合は即座にリフレッシュ
+        // 残り時間が「1時間未満」でリフレッシュすると、通常1時間寿命のJWTでは
+        // ほぼ常に refresh が走り autoRefreshToken と二重になり、Refresh Token が失効して即ログアウトしやすい。
+        // 直前（数分）だけ手動リフレッシュする。
         const now = Date.now()
         const expiresAt = session.expires_at ? session.expires_at * 1000 : 0
-        const refreshThresholdMs = 60 * 60 * 1000 // 1時間
-        
-        if (expiresAt && expiresAt - now < refreshThresholdMs) {
+        const refreshIfRemainingLessThanMs = 5 * 60 * 1000 // 残り5分未満のときのみ
+
+        if (expiresAt && expiresAt - now < refreshIfRemainingLessThanMs) {
           authTrace('🔄 セッション有効期限が近いため、リフレッシュを試行')
           try {
             const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
             if (refreshError) {
               logger.warn('⚠️ リフレッシュ失敗:', refreshError.message)
               if (isFatalAuthRefreshError(refreshError.message)) {
-                await supabase.auth.signOut({ scope: 'local' })
-                setUser(null)
-                userRef.current = null
-                setStaffCache(new Map())
-                authTrace('🚪 無効なリフレッシュトークンのためローカルセッションをクリア')
-                return
+                await new Promise(r => setTimeout(r, 400))
+                const { data: afterFatal } = await supabase.auth.getSession()
+                if (afterFatal.session?.user) {
+                  session = afterFatal.session
+                  authTrace('✅ リフレッシュエラー後もセッション継続（他経路の更新と競合の可能性）')
+                } else {
+                  await supabase.auth.signOut({ scope: 'local' })
+                  setUser(null)
+                  userRef.current = null
+                  setStaffCache(new Map())
+                  authTrace('🚪 無効なリフレッシュトークンのためローカルセッションをクリア')
+                  return
+                }
+              } else {
+                const { data: latestData } = await supabase.auth.getSession()
+                if (!latestData.session?.user) {
+                  await new Promise(r => setTimeout(r, 400))
+                  const { data: retryLatest } = await supabase.auth.getSession()
+                  if (!retryLatest.session?.user) {
+                    await supabase.auth.signOut({ scope: 'local' })
+                    setUser(null)
+                    userRef.current = null
+                    setStaffCache(new Map())
+                    authTrace('🚪 リフレッシュ後にセッション消失のためローカルクリア')
+                    return
+                  }
+                  session = retryLatest.session
+                } else {
+                  session = latestData.session
+                }
               }
-              const { data: latestData } = await supabase.auth.getSession()
-              if (!latestData.session?.user) {
-                await supabase.auth.signOut({ scope: 'local' })
-                setUser(null)
-                userRef.current = null
-                setStaffCache(new Map())
-                authTrace('🚪 リフレッシュ後にセッション消失のためローカルクリア')
-                return
-              }
-              session = latestData.session
             } else if (refreshData.session) {
               session = refreshData.session
               authTrace('✅ セッションリフレッシュ成功')
@@ -544,45 +566,49 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       authTrace('📊 usersテーブルからロール取得開始')
       try {
-        // パフォーマンス最適化: リトライなし、タイムアウト5秒で早期フォールバック
-        // RLS有効化後はクエリが少し遅くなるため、タイムアウトを延長
-        const timeoutMs = 5000
-            
-            const rolePromise = supabase
-              .from('users')
-              .select('role')
-              .eq('id', supabaseUser.id)
-              .maybeSingle()
+        // タイムアウト付きの1回目。遅延時は catch 側で race なしの再取得を行い、
+        // staff テーブル推定で admin を staff に落とさない。
+        const timeoutMs = 8000
 
-            const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('ロール取得タイムアウト')), timeoutMs)
+        const rolePromise = supabase
+          .from('users')
+          .select('role')
+          .eq('id', supabaseUser.id)
+          .maybeSingle()
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('ロール取得タイムアウト')), timeoutMs)
+        )
+
+        const result = (await Promise.race([rolePromise, timeoutPromise])) as {
+          data: { role: string | null } | null
+          error: { message?: string; code?: string } | null
+        }
+
+        const userData = result.data
+        const roleError = result.error
+
+        if (roleError) {
+          logger.warn('⚠️ ロール取得エラー:', roleError)
+          if (
+            roleError.message?.includes('permission') ||
+            roleError.message?.includes('RLS')
+          ) {
+            logger.warn(
+              '⚠️ RLSポリシーエラーの可能性があります。データベースのRLSポリシーを確認してください。'
             )
+          }
+          throw roleError
+        }
 
-            const result = await Promise.race([
-              rolePromise,
-              timeoutPromise
-            ]) as { data: { role: string } | null; error: Error | null } | undefined
-            
-            // Supabaseのレスポンス形式を確認
-            if (result && (result.data !== undefined || result.error !== undefined)) {
-          const userData = result.data
-          const roleError = result.error
-              
-              // エラーがある場合は詳細をログに記録
-              if (result.error) {
-                logger.warn('⚠️ ロール取得エラー:', result.error)
-                // RLSポリシーエラーの場合は特別に処理
-                if (result.error.message?.includes('permission') || result.error.message?.includes('RLS')) {
-                  logger.warn('⚠️ RLSポリシーエラーの可能性があります。データベースのRLSポリシーを確認してください。')
-                }
-              }
-              
-          if (userData?.role) {
+        if (userData?.role) {
           role = userData.role as 'admin' | 'staff' | 'customer' | 'license_admin'
           authTrace('✅ データベースからロール取得:', role)
-          } else if (roleError) {
-            throw roleError
-          }
+        } else if (userData === null) {
+          // maybeSingle: 0 行 → 例外にせず customer のまま進んでいた（バグ）
+          const missing: any = new Error('users row missing')
+          missing.code = 'PGRST116'
+          throw missing
         }
       } catch (error: any) {
         logger.warn('⚠️ ロール取得失敗（タイムアウト/エラー）:', error?.message || error)
@@ -682,33 +708,60 @@ export function AuthProvider({ children }: AuthProviderProps) {
             authTrace('✅ usersテーブルにレコードを作成しました:', role)
           }
         } else if (error?.message?.includes('ロール取得タイムアウト')) {
-          // タイムアウトの場合: 既存のロールを保持、なければスタッフチェック
-          if (existingUser && existingUser.id === supabaseUser.id) {
+          // race で先にタイムアウトしただけで、直後の users 取得が成功することが多い
+          const { data: directAfterTimeout } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', supabaseUser.id)
+            .maybeSingle()
+          if (directAfterTimeout?.role) {
+            role = directAfterTimeout.role as 'admin' | 'staff' | 'customer' | 'license_admin'
+            authTrace('🔄 タイムアウト後の users 再取得でロール確定:', role)
+          } else if (existingUser && existingUser.id === supabaseUser.id) {
             role = existingUser.role
             authTrace('🔄 タイムアウト: 既存のロールを保持:', role)
           } else {
-            // スタッフテーブルをチェック（user_idとemailの両方で検索）
+            // 管理者は staff 行も持つことが多い — staff だけ見て staff に落とさない
             try {
               const { data: staffByUserId } = await supabase
                 .from('staff')
                 .select('id')
                 .eq('user_id', supabaseUser.id)
                 .maybeSingle()
-              
+
               if (staffByUserId) {
-                role = 'staff'
-                authTrace('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
+                const { data: urow } = await supabase
+                  .from('users')
+                  .select('role')
+                  .eq('id', supabaseUser.id)
+                  .maybeSingle()
+                if (urow?.role === 'admin' || urow?.role === 'license_admin') {
+                  role = urow.role as 'admin' | 'license_admin'
+                  authTrace('✅ staff 行ありだが users が管理者のため維持:', role)
+                } else {
+                  role = 'staff'
+                  authTrace('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
+                }
               } else {
-                // メールアドレスでも検索
                 const { data: staffByEmail } = await supabase
                   .from('staff')
                   .select('id')
                   .eq('email', supabaseUser.email)
                   .maybeSingle()
-                
+
                 if (staffByEmail) {
-                  role = 'staff'
-                  authTrace('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
+                  const { data: urow } = await supabase
+                    .from('users')
+                    .select('role')
+                    .eq('id', supabaseUser.id)
+                    .maybeSingle()
+                  if (urow?.role === 'admin' || urow?.role === 'license_admin') {
+                    role = urow.role as 'admin' | 'license_admin'
+                    authTrace('✅ メールで staff 行ありだが users が管理者のため維持:', role)
+                  } else {
+                    role = 'staff'
+                    authTrace('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
+                  }
                 } else {
                   role = determineUserRole(supabaseUser.email)
                   authTrace('🔄 タイムアウトフォールバック:', role)
@@ -720,33 +773,62 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
           }
         } else {
-          // その他のエラー: 既存のユーザー情報があればそのロールを保持
-          if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
+          const { data: directOnError } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', supabaseUser.id)
+            .maybeSingle()
+          if (directOnError?.role) {
+            role = directOnError.role as 'admin' | 'staff' | 'customer' | 'license_admin'
+            authTrace('🔄 エラー経路で users からロール再取得:', role)
+          } else if (
+            existingUser &&
+            existingUser.id === supabaseUser.id &&
+            existingUser.role !== 'customer'
+          ) {
             role = existingUser.role
             authTrace('🔄 例外発生、既存のロールを保持:', role)
           } else {
-            // スタッフテーブルをチェック（user_idとemailの両方で検索）
             try {
               const { data: staffByUserId } = await supabase
                 .from('staff')
                 .select('id')
                 .eq('user_id', supabaseUser.id)
                 .maybeSingle()
-              
+
               if (staffByUserId) {
-                role = 'staff'
-                authTrace('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
+                const { data: urow } = await supabase
+                  .from('users')
+                  .select('role')
+                  .eq('id', supabaseUser.id)
+                  .maybeSingle()
+                if (urow?.role === 'admin' || urow?.role === 'license_admin') {
+                  role = urow.role as 'admin' | 'license_admin'
+                  authTrace('✅ staff 行ありだが users が管理者のため維持:', role)
+                } else {
+                  role = 'staff'
+                  authTrace('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
+                }
               } else {
-                // メールアドレスでも検索
                 const { data: staffByEmail } = await supabase
                   .from('staff')
                   .select('id')
                   .eq('email', supabaseUser.email)
                   .maybeSingle()
-                
+
                 if (staffByEmail) {
-                  role = 'staff'
-                  authTrace('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
+                  const { data: urow } = await supabase
+                    .from('users')
+                    .select('role')
+                    .eq('id', supabaseUser.id)
+                    .maybeSingle()
+                  if (urow?.role === 'admin' || urow?.role === 'license_admin') {
+                    role = urow.role as 'admin' | 'license_admin'
+                    authTrace('✅ メールで staff 行ありだが users が管理者のため維持:', role)
+                  } else {
+                    role = 'staff'
+                    authTrace('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
+                  }
                 } else {
                   role = determineUserRole(supabaseUser.email)
                   authTrace('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
