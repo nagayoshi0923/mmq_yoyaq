@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScenarioCard } from './ScenarioCard'
-import { memo, useState, useMemo } from 'react'
+import { memo, useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BookOpen, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -45,9 +45,59 @@ export const LineupView = memo(function LineupView({
 }: LineupViewProps) {
   // 検索中かどうか
   const isSearching = searchTerm.length > 0
-  
-  // 「もっと見る」の展開状態
-  const [isExpanded, setIsExpanded] = useState(false)
+
+  const lineupAfter7ExpandedKey = `booking-${organizationSlug || 'platform'}-lineup-after7-expanded`
+
+  // 「8日後以降の公演を見る」の展開状態（リロード後も維持）
+  const [isExpanded, setIsExpanded] = useState(() => {
+    try {
+      return sessionStorage.getItem(lineupAfter7ExpandedKey) === '1'
+    } catch {
+      return false
+    }
+  })
+
+  const toggleAfter7Expanded = useCallback(() => {
+    setIsExpanded((prev) => {
+      const next = !prev
+      try {
+        sessionStorage.setItem(lineupAfter7ExpandedKey, next ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
+  }, [lineupAfter7ExpandedKey])
+
+  // 初回マウント時 organizationSlug が遅れて付与されると storage キーがずれるため同期
+  useEffect(() => {
+    try {
+      setIsExpanded(sessionStorage.getItem(lineupAfter7ExpandedKey) === '1')
+    } catch {
+      setIsExpanded(false)
+    }
+  }, [lineupAfter7ExpandedKey])
+
+  // リロード直前に展開状態を確実に書き込み
+  useEffect(() => {
+    const flush = () => {
+      try {
+        sessionStorage.setItem(lineupAfter7ExpandedKey, isExpanded ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onVisibility)
+      flush() // カレンダー等へタブ切替でアンマウントすると pagehide が無いことがある
+    }
+  }, [lineupAfter7ExpandedKey, isExpanded])
   
   // 体験済みシナリオ
   const { isPlayed } = usePlayedScenarios()
@@ -258,7 +308,7 @@ export const LineupView = memo(function LineupView({
             <div className="mt-4">
               <Button
                 variant="outline"
-                onClick={() => setIsExpanded(!isExpanded)}
+                onClick={toggleAfter7Expanded}
                 className="w-full gap-2"
               >
                 {isExpanded ? (

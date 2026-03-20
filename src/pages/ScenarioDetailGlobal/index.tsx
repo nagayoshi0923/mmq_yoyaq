@@ -24,6 +24,7 @@ import {
 import { getColorFromName } from '@/lib/utils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Footer } from '@/components/layout/Footer'
+import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
 
 interface ScenarioDetailGlobalProps {
   scenarioSlug: string
@@ -107,6 +108,9 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     name: string
     scenarioId: string
   }>>([])
+
+  const globalDetailScrollKey = `scenario-detail-global-${scenarioSlug}`
+  useScrollRestoration({ pageKey: globalDetailScrollKey, isLoading: loading })
 
   useEffect(() => {
     fetchData()
@@ -540,6 +544,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   }, [events])
 
   const handleEventClick = (event: EventWithOrg) => {
+    saveScrollPositionForPage(globalDetailScrollKey)
     // 選択した日付を遷移先に引き継ぐ
     navigate(`/${event.organization_slug}/scenario/${scenarioSlug}?date=${event.date}`)
   }
@@ -1013,61 +1018,68 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                     {[...characters].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((char, index) => (
                       <div
                         key={char.id ?? index}
-                        className={`relative overflow-hidden ${char.is_npc ? 'ring-2 ring-amber-300' : ''}`}
+                        className={`flex flex-col ${char.is_npc ? 'ring-2 ring-amber-300' : ''}`}
                         style={{ borderRadius: 0 }}
                       >
-                        {/* キャラクター画像（全面） */}
-                        {char.image_url ? (
-                          <div
-                            className="w-full aspect-[3/4] overflow-hidden"
-                            style={{ backgroundColor: char.background_color || '#e5e7eb' }}
+                        <div className="relative w-full overflow-hidden" style={{ borderRadius: 0 }}>
+                          {/* キャラクター画像（全面） */}
+                          {char.image_url ? (
+                            <div
+                              className="w-full aspect-[3/4] overflow-hidden"
+                              style={{ backgroundColor: char.background_color || '#e5e7eb' }}
+                            >
+                              <img
+                                src={char.image_url}
+                                alt={char.name}
+                                className="w-full h-full object-cover"
+                                style={{
+                                  objectPosition: char.image_position
+                                    ? (char.image_position.includes(' ')
+                                        ? `${char.image_position.split(' ')[0]}% ${char.image_position.split(' ')[1]}%`
+                                        : `center ${char.image_position}`)
+                                    : '50% 50%',
+                                  transform: char.image_scale ? `scale(${char.image_scale / 100})` : undefined
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-full aspect-[3/4] bg-gray-200 flex items-center justify-center">
+                              <Users className="w-10 h-10 text-gray-400" />
+                            </div>
+                          )}
+
+                          {/* NPC バッジ（左上） */}
+                          {char.is_npc && (
+                            <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-sm shadow z-[1]">
+                              NPC
+                            </span>
+                          )}
+
+                          {/* 名前・属性のみオーバーレイ */}
+                          <div className="absolute bottom-0 left-0 right-0 px-2 pt-6 pb-2"
+                            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
                           >
-                            <img
-                              src={char.image_url}
-                              alt={char.name}
-                              className="w-full h-full object-cover"
-                              style={{
-                                objectPosition: char.image_position
-                                  ? (char.image_position.includes(' ')
-                                      ? `${char.image_position.split(' ')[0]}% ${char.image_position.split(' ')[1]}%`
-                                      : `center ${char.image_position}`)
-                                  : '50% 50%',
-                                transform: char.image_scale ? `scale(${char.image_scale / 100})` : undefined
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-full aspect-[3/4] bg-gray-200 flex items-center justify-center">
-                            <Users className="w-10 h-10 text-gray-400" />
-                          </div>
-                        )}
-
-                        {/* NPC バッジ（左上） */}
-                        {char.is_npc && (
-                          <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-sm shadow">
-                            NPC
-                          </span>
-                        )}
-
-                        {/* テキストオーバーレイ（下部グラデーション） */}
-                        <div className="absolute bottom-0 left-0 right-0 px-2 pt-6 pb-2"
-                          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
-                        >
-                          <p className="font-semibold text-white text-xs leading-tight drop-shadow">
-                            {char.name}
-                            {char.first_person && (
-                              <span className="ml-1 font-normal text-white/70">（{char.first_person}）</span>
-                            )}
-                          </p>
-                          {(char.age || char.occupation) && (
-                            <p className="text-[10px] text-white/80 mt-0.5 leading-tight">
-                              {[char.age, char.occupation].filter(Boolean).join(' / ')}
+                            <p className="font-semibold text-white text-xs leading-tight drop-shadow">
+                              {char.name}
+                              {char.first_person && (
+                                <span className="ml-1 font-normal text-white/70">（{char.first_person}）</span>
+                              )}
                             </p>
-                          )}
-                          {char.description && (
-                            <p className="text-[10px] text-white/70 mt-1 leading-snug line-clamp-2">{char.description}</p>
-                          )}
+                            {(char.age || char.occupation) && (
+                              <p className="text-[10px] text-white/80 mt-0.5 leading-tight">
+                                {[char.age, char.occupation].filter(Boolean).join(' / ')}
+                              </p>
+                            )}
+                          </div>
                         </div>
+
+                        {char.description && (
+                          <div className="px-2 py-2 bg-zinc-900 border-t border-zinc-800">
+                            <p className="text-[10px] text-zinc-300 leading-relaxed whitespace-pre-wrap break-words">
+                              {char.description}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1274,7 +1286,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                           </div>
                           <div className="flex gap-2">
                             <button
-                              onClick={() => navigate(`/${org.slug}`)}
+                              onClick={() => {
+                                saveScrollPositionForPage(globalDetailScrollKey)
+                                navigate(`/${org.slug}`)
+                              }}
                               className="flex-1 py-2 px-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
                               style={{ borderRadius: 0 }}
                             >
@@ -1283,7 +1298,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                             </button>
                             {orgInfo && (
                               <button
-                                onClick={() => navigate(`/${org.slug}/scenario/${scenarioSlug}?tab=private`)}
+                                onClick={() => {
+                                  saveScrollPositionForPage(globalDetailScrollKey)
+                                  navigate(`/${org.slug}/scenario/${scenarioSlug}?tab=private`)
+                                }}
                                 className="flex-1 py-2 px-3 text-sm text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"
                                 style={{ borderRadius: 0 }}
                               >
@@ -1311,7 +1329,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                           </div>
                           <div className="flex gap-2">
                             <button
-                              onClick={() => navigate(`/${org.slug}`)}
+                              onClick={() => {
+                                saveScrollPositionForPage(globalDetailScrollKey)
+                                navigate(`/${org.slug}`)
+                              }}
                               className="flex-1 py-2 px-3 text-sm text-gray-700 bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
                               style={{ borderRadius: 0 }}
                             >
@@ -1319,7 +1340,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                               店舗トップ
                             </button>
                             <button
-                              onClick={() => navigate(`/${org.slug}/scenario/${scenarioSlug}?tab=private`)}
+                              onClick={() => {
+                                saveScrollPositionForPage(globalDetailScrollKey)
+                                navigate(`/${org.slug}/scenario/${scenarioSlug}?tab=private`)
+                              }}
                               className="flex-1 py-2 px-3 text-sm text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"
                               style={{ borderRadius: 0 }}
                             >

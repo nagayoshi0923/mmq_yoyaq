@@ -2,7 +2,11 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { useOrganization } from '@/hooks/useOrganization'
-import { reservationApi } from '@/lib/reservationApi'
+import {
+  reservationApi,
+  RESERVATION_WITH_CUSTOMER_SELECT_FIELDS,
+  joinedCustomerFromReservation,
+} from '@/lib/reservationApi'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 
 interface UseBookingApprovalProps {
@@ -256,7 +260,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             // 設定からメッセージ文言を取得
             const { data: msgSettings } = await supabase
               .from('global_settings')
-              .select('*')
+              .select('system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body')
               .eq('organization_id', organizationId)
               .maybeSingle()
             
@@ -290,7 +294,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 // 全体設定から事前読み込み通知メッセージを取得
                 const { data: globalSettings } = await supabase
                   .from('global_settings')
-                  .select('*')
+                  .select('pre_reading_notice_message')
                   .eq('organization_id', organizationId)
                   .maybeSingle()
 
@@ -410,7 +414,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       // 予約情報を取得（メール送信用）
       const { data: reservation, error: fetchError } = await supabase
         .from('reservations')
-        .select('*, customers(*), private_group_id')
+        .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
         .eq('id', rejectRequestId)
         .single()
 
@@ -455,7 +459,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
 
       // 却下メール（貸切専用）を送信
-      if (reservation && reservation.customers) {
+      const rejectMailCustomer = joinedCustomerFromReservation(reservation?.customers)
+      if (reservation && rejectMailCustomer) {
         try {
           // 候補日時を取得
           const candidateDates = reservation.candidate_datetimes?.candidates?.map((c: any) => ({
@@ -468,8 +473,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             body: {
               organizationId,
               reservationId: reservation.id,
-              customerEmail: reservation.customers.email,
-              customerName: reservation.customers.name,
+              customerEmail: rejectMailCustomer.email,
+              customerName: rejectMailCustomer.name,
               scenarioTitle: reservation.scenario_title || '',
               rejectionReason: rejectionReason,
               candidateDates: candidateDates.length > 0 ? candidateDates : undefined

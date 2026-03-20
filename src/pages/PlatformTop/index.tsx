@@ -3,7 +3,7 @@
  * @path /
  * @purpose 顧客向けトップページ - シャープデザイン
  */
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
@@ -11,12 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
-import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, Users, Target, FileText, X, Gift } from 'lucide-react'
+import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, Users, Target, FileText, X, Gift, RefreshCw } from 'lucide-react'
 import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
-import { useScrollRestoration } from '@/hooks/useScrollRestoration'
+import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { ScenarioCard, type ScenarioCardData } from '@/pages/PublicBookingTop/components/ScenarioCard'
 import { HowToUseGuide } from '@/pages/PublicBookingTop/components/HowToUseGuide'
@@ -92,19 +92,93 @@ const REGIONS = [
   { value: '福岡県', label: '福岡県' },
 ]
 
+/** MMQトップ「8日後以降の公演を見る」の展開状態（リロード後も維持） */
+const PLATFORM_TOP_AFTER7_EXPANDED_KEY = 'platform-top-lineup-after7-expanded'
+
+/** リロード直後も一覧を消さない（stale-while-revalidate） */
+const PLATFORM_TOP_DISPLAY_SNAPSHOT_KEY = 'platform-top-display-v1'
+const SNAPSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+
+interface PlatformTopDisplaySnapshot {
+  v: 1
+  savedAt: number
+  scenariosWithEvents: ScenarioWithEvents[]
+  organizations: Organization[]
+  stores: StoreWithOrg[]
+  nearlyCompleteGroups: NearlyCompleteGroup[]
+  blogPosts: BlogPostSummary[]
+}
+
+function readPlatformTopDisplaySnapshot(): PlatformTopDisplaySnapshot | null {
+  try {
+    const raw = sessionStorage.getItem(PLATFORM_TOP_DISPLAY_SNAPSHOT_KEY)
+    if (!raw) return null
+    const o = JSON.parse(raw) as Partial<PlatformTopDisplaySnapshot>
+    if (o.v !== 1 || !Array.isArray(o.scenariosWithEvents)) return null
+    if (typeof o.savedAt !== 'number' || Date.now() - o.savedAt > SNAPSHOT_MAX_AGE_MS) return null
+    return {
+      v: 1,
+      savedAt: o.savedAt,
+      scenariosWithEvents: o.scenariosWithEvents as ScenarioWithEvents[],
+      organizations: Array.isArray(o.organizations) ? (o.organizations as Organization[]) : [],
+      stores: Array.isArray(o.stores) ? (o.stores as StoreWithOrg[]) : [],
+      nearlyCompleteGroups: Array.isArray(o.nearlyCompleteGroups)
+        ? (o.nearlyCompleteGroups as NearlyCompleteGroup[])
+        : [],
+      blogPosts: Array.isArray(o.blogPosts) ? (o.blogPosts as BlogPostSummary[]) : [],
+    }
+  } catch {
+    return null
+  }
+}
+
+function writePlatformTopDisplaySnapshot(payload: Omit<PlatformTopDisplaySnapshot, 'v' | 'savedAt'>): void {
+  try {
+    const snap: PlatformTopDisplaySnapshot = {
+      v: 1,
+      savedAt: Date.now(),
+      ...payload,
+    }
+    sessionStorage.setItem(PLATFORM_TOP_DISPLAY_SNAPSHOT_KEY, JSON.stringify(snap))
+  } catch {
+    /* 容量超過等は無視 */
+  }
+}
+
 export function PlatformTop() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { favorites, toggleFavorite } = useFavorites()
   const { isPlayed } = usePlayedScenarios()
-  const [scenariosWithEvents, setScenariosWithEvents] = useState<ScenarioWithEvents[]>([])
-  const [organizations, setOrganizations] = useState<Organization[]>([])
-  const [stores, setStores] = useState<StoreWithOrg[]>([])
-  const [loading, setLoading] = useState(true)
+
+  const [boot] = useState<{ snap: PlatformTopDisplaySnapshot | null }>(() => ({
+    snap: readPlatformTopDisplaySnapshot(),
+  }))
+  const displaySnapshotOnMount = boot.snap
+
+  const [scenariosWithEvents, setScenariosWithEvents] = useState<ScenarioWithEvents[]>(
+    () => displaySnapshotOnMount?.scenariosWithEvents ?? []
+  )
+  const [organizations, setOrganizations] = useState<Organization[]>(
+    () => displaySnapshotOnMount?.organizations ?? []
+  )
+  const [stores, setStores] = useState<StoreWithOrg[]>(() => displaySnapshotOnMount?.stores ?? [])
+  const [loading, setLoading] = useState(() => displaySnapshotOnMount == null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedRegion, setSelectedRegion] = useState('all')
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [nearlyCompleteGroups, setNearlyCompleteGroups] = useState<NearlyCompleteGroup[]>([])
-  const [blogPosts, setBlogPosts] = useState<BlogPostSummary[]>([])
+  const [isExpanded, setIsExpanded] = useState(() => {
+    try {
+      return sessionStorage.getItem(PLATFORM_TOP_AFTER7_EXPANDED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const [nearlyCompleteGroups, setNearlyCompleteGroups] = useState<NearlyCompleteGroup[]>(
+    () => displaySnapshotOnMount?.nearlyCompleteGroups ?? []
+  )
+  const [blogPosts, setBlogPosts] = useState<BlogPostSummary[]>(
+    () => displaySnapshotOnMount?.blogPosts ?? []
+  )
   const [showCouponPopup, setShowCouponPopup] = useState(false)
   const [isGuideOpen, setIsGuideOpen] = useState(false)
 
@@ -126,19 +200,51 @@ export function PlatformTop() {
     setShowCouponPopup(false)
   }
 
-  // スクロール位置の保存と復元
-  useScrollRestoration({ 
-    pageKey: 'platform-top',
-    isLoading: loading 
-  })
-
-  useEffect(() => {
-    fetchData()
+  const toggleAfter7Expanded = useCallback(() => {
+    setIsExpanded((prev) => {
+      const next = !prev
+      try {
+        sessionStorage.setItem(PLATFORM_TOP_AFTER7_EXPANDED_KEY, next ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
   }, [])
 
-  const fetchData = async () => {
+  // リロード直前に展開状態を確実に書き込み（スクロール復元と高さの整合用）
+  useEffect(() => {
+    const flush = () => {
+      try {
+        sessionStorage.setItem(PLATFORM_TOP_AFTER7_EXPANDED_KEY, isExpanded ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onVisibility)
+      flush()
+    }
+  }, [isExpanded])
+
+  // スクロール位置の保存と復元
+  useScrollRestoration({
+    pageKey: 'platform-top',
+    isLoading: loading,
+    isFetching: isRefreshing,
+  })
+
+  const fetchData = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true
     try {
-      setLoading(true)
+      if (silent) setIsRefreshing(true)
+      else setLoading(true)
 
       const today = formatDateJST(new Date())
 
@@ -389,9 +495,43 @@ export function PlatformTop() {
     } catch (error) {
       logger.error('データ取得エラー:', error)
     } finally {
-      setLoading(false)
+      if (silent) setIsRefreshing(false)
+      else setLoading(false)
     }
   }
+
+  useEffect(() => {
+    void fetchData(displaySnapshotOnMount != null ? { silent: true } : undefined)
+    // 初回のみ。表示は boot 時点のスナップショットと同期
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount のみ
+  }, [])
+
+  // 取得完了後にスナップショット保存（リロード時のチラつき防止用）
+  useEffect(() => {
+    if (loading || isRefreshing) return
+    const empty =
+      scenariosWithEvents.length === 0 &&
+      organizations.length === 0 &&
+      stores.length === 0 &&
+      nearlyCompleteGroups.length === 0 &&
+      blogPosts.length === 0
+    if (empty) return
+    writePlatformTopDisplaySnapshot({
+      scenariosWithEvents,
+      organizations,
+      stores,
+      nearlyCompleteGroups,
+      blogPosts,
+    })
+  }, [
+    loading,
+    isRefreshing,
+    scenariosWithEvents,
+    organizations,
+    stores,
+    nearlyCompleteGroups,
+    blogPosts,
+  ])
 
   // 地域フィルター適用
   const filteredScenarios = useMemo(() => {
@@ -489,8 +629,7 @@ export function PlatformTop() {
   }
 
   const handleScenarioClick = (slugOrId: string, eventDate?: string, eventTime?: string) => {
-    // ナビゲーション前にスクロール位置を保存（ScrollToTopに上書きされる前に）
-    sessionStorage.setItem('platform-topScrollY', window.scrollY.toString())
+    saveScrollPositionForPage('platform-top')
     // 日付・時間パラメータがあれば追加
     const params = new URLSearchParams()
     if (eventDate) params.set('date', eventDate)
@@ -536,7 +675,10 @@ export function PlatformTop() {
                 size="lg"
                 className="bg-white hover:bg-gray-100 px-8 h-14 text-lg font-semibold shadow-lg hover:scale-[1.02] transition-transform"
                 style={{ color: THEME.primary, borderRadius: 0 }}
-                onClick={() => navigate('/scenario')}
+                onClick={() => {
+                  saveScrollPositionForPage('platform-top')
+                  navigate('/scenario')
+                }}
               >
                 <Search className="w-5 h-5 mr-2" />
                 シナリオを探す
@@ -712,7 +854,7 @@ export function PlatformTop() {
           </h2>
           
           {/* 地域フィルター */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Filter className="w-4 h-4 text-gray-500" />
             <Select value={selectedRegion} onValueChange={setSelectedRegion}>
               <SelectTrigger className="w-32" style={{ borderRadius: 0 }}>
@@ -724,6 +866,21 @@ export function PlatformTop() {
                 ))}
               </SelectContent>
             </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              style={{ borderRadius: 0 }}
+              disabled={loading || isRefreshing}
+              onClick={() => {
+                saveScrollPositionForPage('platform-top')
+                void fetchData({ silent: true })
+              }}
+            >
+              <RefreshCw className={`h-4 w-4 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
+              更新
+            </Button>
           </div>
         </div>
 
@@ -771,7 +928,7 @@ export function PlatformTop() {
               <div className="mt-6">
                 <Button
                   variant="outline"
-                  onClick={() => setIsExpanded(!isExpanded)}
+                  onClick={toggleAfter7Expanded}
                   className="w-full gap-2"
                   style={{ borderRadius: 0 }}
                 >
@@ -820,7 +977,10 @@ export function PlatformTop() {
                 borderRadius: 0,
                 borderWidth: 2,
               }}
-              onClick={() => navigate('/scenario')}
+              onClick={() => {
+                saveScrollPositionForPage('platform-top')
+                navigate('/scenario')
+              }}
             >
               すべてのシナリオを見る
               <ChevronRight className="w-4 h-4" />

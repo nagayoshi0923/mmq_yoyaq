@@ -405,6 +405,7 @@ export function CompleteProfile() {
             updated_at: new Date().toISOString()
           })
           .eq('id', existingByUserId.id)
+          .eq('user_id', userId)
 
         if (updateCustErr) {
           throw updateCustErr
@@ -455,6 +456,7 @@ export function CompleteProfile() {
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', byEmail.id)
+                .is('user_id', null)
               
               if (linkErr) {
                 throw linkErr

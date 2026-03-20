@@ -4,6 +4,7 @@
 // 顧客向けページ
 export { TermsPage } from './TermsPage'
 export { PrivacyPage } from './PrivacyPage'
+export { SecurityPage } from './SecurityPage'
 export { LegalPage } from './LegalPage'
 export { ContactPage } from './ContactPage'
 export { FAQPage } from './FAQPage'

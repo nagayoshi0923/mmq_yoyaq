@@ -451,17 +451,21 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       let customerId: string | null = null
       
       try {
-        const { data: existingCustomer } = await supabase
+        // 公演の organization_id と一致する顧客行のみ（同一 user_id の複数組織行の取り違え防止）
+        let findCustomer = supabase
           .from('customers')
           .select('id')
           .eq('user_id', props.userId)
-          .single()
+        if (organizationId) {
+          findCustomer = findCustomer.eq('organization_id', organizationId)
+        }
+        const { data: existingCustomer } = await findCustomer.maybeSingle()
         
         if (existingCustomer) {
           customerId = existingCustomer.id
           
           // 顧客情報を更新
-          await supabase
+          let upd = supabase
             .from('customers')
             .update({
               name: customerName,
@@ -470,6 +474,11 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
               email: customerEmail
             })
             .eq('id', customerId)
+            .eq('user_id', props.userId)
+          if (organizationId) {
+            upd = upd.eq('organization_id', organizationId)
+          }
+          await upd
         } else {
           // 新規顧客レコードを作成
           const { data: newCustomer, error: customerError } = await supabase

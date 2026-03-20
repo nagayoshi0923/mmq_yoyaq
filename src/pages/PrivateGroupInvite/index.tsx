@@ -255,14 +255,19 @@ export function PrivateGroupInvite() {
         setCoupons([])
         return
       }
+      if (!group?.organization_id) {
+        setCoupons([])
+        return
+      }
 
       setCouponLoading(true)
       try {
-        // 顧客IDを取得
+        // 顧客IDを取得（グループ所属組織の顧客行に限定）
         const { data: customer } = await supabase
           .from('customers')
           .select('id')
           .eq('user_id', user.id)
+          .eq('organization_id', group.organization_id)
           .maybeSingle()
 
         if (!customer) {
@@ -309,7 +314,7 @@ export function PrivateGroupInvite() {
     }
 
     fetchCoupons()
-  }, [user])
+  }, [user, group?.organization_id])
 
   // 希望店舗の名前を取得
   useEffect(() => {
@@ -831,11 +836,12 @@ export function PrivateGroupInvite() {
     
     // 既存の電話番号を取得
     let phone = organizerMember?.guest_phone || ''
-    if (!phone) {
+    if (!phone && group.organization_id) {
       const { data: customer } = await supabase
         .from('customers')
         .select('phone')
         .eq('user_id', user.id)
+        .eq('organization_id', group.organization_id)
         .maybeSingle()
       phone = customer?.phone || ''
     }
@@ -876,6 +882,12 @@ export function PrivateGroupInvite() {
     setIsSubmittingBooking(true)
     
     try {
+      const orgId = group.organization_id
+      if (!orgId) {
+        toast.error('組織情報が取得できません。ページを再読み込みしてください。')
+        return
+      }
+
       // 顧客情報を取得または作成
       let customerId: string | null = null
       const customerName = organizerMember?.guest_name || user.email?.split('@')[0] || ''
@@ -886,7 +898,8 @@ export function PrivateGroupInvite() {
         .from('customers')
         .select('id')
         .eq('user_id', user.id)
-        .single()
+        .eq('organization_id', orgId)
+        .maybeSingle()
       
       if (existingCustomer) {
         customerId = existingCustomer.id
@@ -894,6 +907,8 @@ export function PrivateGroupInvite() {
           .from('customers')
           .update({ name: customerName, phone: customerPhone, email: customerEmail })
           .eq('id', customerId)
+          .eq('user_id', user.id)
+          .eq('organization_id', orgId)
       } else {
         const { data: newCustomer } = await supabase
           .from('customers')
@@ -902,7 +917,7 @@ export function PrivateGroupInvite() {
             name: customerName,
             phone: customerPhone,
             email: customerEmail,
-            organization_id: group.organization_id
+            organization_id: orgId
           })
           .select('id')
           .single()

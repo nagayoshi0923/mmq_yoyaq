@@ -16,7 +16,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import { supabase } from '@/lib/supabase'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, Building2 } from 'lucide-react'
+import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
+import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, Building2, RefreshCw } from 'lucide-react'
 
 interface ScenarioData {
   id: string
@@ -152,7 +153,7 @@ export function PlatformScenarioSearch() {
   const [searchParams, setSearchParams] = useSearchParams()
   
   // React Queryでデータ取得（キャッシュ活用）
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['scenario-search'],
     queryFn: fetchScenarioSearchData,
     staleTime: 5 * 60 * 1000, // 5分間キャッシュ
@@ -161,6 +162,12 @@ export function PlatformScenarioSearch() {
   
   const scenarios = data?.scenarios || []
   const categories = data?.categories || []
+
+  useScrollRestoration({
+    pageKey: 'platform-scenario-search',
+    isLoading,
+    isFetching,
+  })
 
   // フィルター状態（URLパラメータと同期）
   const searchTerm = searchParams.get('q') || ''
@@ -277,6 +284,7 @@ export function PlatformScenarioSearch() {
   }, [navigate])
 
   const handleCardClick = useCallback((scenarioSlug: string) => {
+    saveScrollPositionForPage('platform-scenario-search')
     navigate(`/scenario/${scenarioSlug}`)
   }, [navigate])
 
@@ -374,6 +382,22 @@ export function PlatformScenarioSearch() {
               style={showFilters ? { backgroundColor: THEME.primary } : { borderColor: THEME.primary, color: THEME.primary }}
             >
               <Filter className="w-4 h-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isFetching}
+              title="スクロール位置を維持したまま、一覧データだけ再取得します"
+              className="h-10 px-3 gap-1.5 shrink-0"
+              style={{ borderColor: THEME.primary, color: THEME.primary }}
+              onClick={() => {
+                saveScrollPositionForPage('platform-scenario-search')
+                void refetch()
+              }}
+            >
+              <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline text-xs">更新</span>
             </Button>
             {hasActiveFilters && (
               <Button

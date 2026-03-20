@@ -688,7 +688,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   if (osData.id) {
                     const { data: questionsData } = await supabase
                       .from('org_scenario_survey_questions')
-                      .select('*')
+                      .select(
+                        'id, org_scenario_id, question_text, question_type, options, is_required, order_num, created_at, updated_at'
+                      )
                       .eq('org_scenario_id', osData.id)
                       .order('order_num', { ascending: true })
                     surveyQuestions = questionsData || []

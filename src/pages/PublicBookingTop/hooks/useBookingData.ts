@@ -616,7 +616,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
 export function useBookingData(organizationSlug?: string) {
   const queryClient = useQueryClient()
   
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['booking-data', organizationSlug],
     queryFn: () => fetchBookingData(organizationSlug),
     staleTime: 2 * 60 * 1000, // 2分間キャッシュ（再訪問時は即座に表示）
@@ -630,6 +630,7 @@ export function useBookingData(organizationSlug?: string) {
     stores: data?.stores ?? [],
     privateBookingDeadlineDays: data?.privateBookingDeadlineDays ?? 7,
     isLoading,
+    isFetching,
     loadData: refetch,
     organizationNotFound: data?.organizationNotFound ?? false,
     organizationName: data?.organizationName ?? null,

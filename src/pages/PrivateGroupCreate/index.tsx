@@ -66,7 +66,9 @@ export function PrivateGroupCreate() {
 
         const { data: scenarioData, error: scenarioError } = await supabase
           .from('organization_scenarios_with_master')
-          .select('*')
+          .select(
+            'id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max'
+          )
           .eq('scenario_master_id', scenarioId)
           .eq('organization_id', organizationId)
           .single()
@@ -76,7 +78,7 @@ export function PrivateGroupCreate() {
 
         const { data: storesData, error: storesError } = await supabase
           .from('stores')
-          .select('*')
+          .select('id, name, address, region')
           .eq('organization_id', organizationId)
           .eq('status', 'active')
           .neq('is_temporary', true)

@@ -9,7 +9,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AutocompleteInput } from '@/components/ui/autocomplete-input'
 import { Mail, ChevronDown, ChevronUp } from 'lucide-react'
-import { reservationApi } from '@/lib/reservationApi'
+import {
+  reservationApi,
+  RESERVATION_SELECT_FIELDS,
+  RESERVATION_WITH_CUSTOMER_SELECT_FIELDS,
+} from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
@@ -175,7 +179,7 @@ ${content.organizationName || '店舗'}
               // 仮想IDの場合はreservation_idから直接取得
               const { data, error } = await supabase
                 .from('reservations')
-                .select('*, customers(*)')
+                .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
                 .eq('id', event.reservation_id)
                 .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
               
@@ -195,7 +199,7 @@ ${content.organizationName || '店舗'}
                 logger.log('schedule_event_idで取得できず、reservation_idで取得を試みます')
                 const { data, error } = await supabase
                   .from('reservations')
-                  .select('*, customers(*)')
+                  .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
                 .eq('id', event.reservation_id)
                 .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
                 
@@ -778,7 +782,8 @@ ${content.organizationName || '店舗'}
       // 参加者名から顧客を検索して customer_id を設定
       // マイページで予約を表示するために必要
       let customerId: string | null = null
-      const organizationId = await getCurrentOrganizationId()
+      const organizationId =
+        (await getCurrentOrganizationId()) || event?.organization_id || undefined
       
       if (participantName === 'デモ参加者') {
         // デモ参加者の場合はデモ顧客を取得
@@ -840,7 +845,7 @@ ${content.organizationName || '店舗'}
         .from('reservations')
         .insert({
           schedule_event_id: event.id,
-          organization_id: organizationId,
+          organization_id: organizationId ?? event?.organization_id ?? null,
           title: currentEventData.scenario || '',
           scenario_id: scenarioObj?.id || null,
           store_id: storeObj?.id || null,
@@ -863,7 +868,7 @@ ${content.organizationName || '店舗'}
           status: 'confirmed',
           reservation_source: reservationSource
         })
-        .select('*')
+        .select(RESERVATION_SELECT_FIELDS)
 
       if (insertError) throw insertError
       const createdReservation = insertedRows?.[0] || null
@@ -959,7 +964,8 @@ ${content.organizationName || '店舗'}
                   onClick={async () => {
                     if (!event?.id) return
                     try {
-                      const organizationId = await getCurrentOrganizationId()
+                      const organizationId =
+                        (await getCurrentOrganizationId()) || event?.organization_id || undefined
                       
                       // デモ顧客を取得
                       let customerId: string | null = null
@@ -996,7 +1002,7 @@ ${content.organizationName || '店舗'}
                         .from('reservations')
                         .insert({
                           schedule_event_id: event.id,
-                          organization_id: organizationId,
+                          organization_id: organizationId ?? event?.organization_id ?? null,
                           scenario_id: scenarioObj?.id || null,
                           store_id: storeObj?.id || null,
                           customer_id: customerId,

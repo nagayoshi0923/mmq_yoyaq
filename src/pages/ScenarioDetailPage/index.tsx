@@ -32,6 +32,7 @@ import { RelatedScenarios } from './components/RelatedScenarios'
 import { StoreSelector } from './components/StoreSelector'
 import { ScenarioAbout } from './components/ScenarioAbout'
 import { Footer } from '@/components/layout/Footer'
+import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -59,6 +60,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   
   // データ取得フック（organization_idでフィルタリング）
   const { scenario, events, stores, relatedScenarios, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId, organizationSlug)
+
+  const scenarioDetailScrollKey = `booking-scenario-detail-${organizationSlug || 'platform'}-${scenarioId}`
+  useScrollRestoration({ pageKey: scenarioDetailScrollKey, isLoading })
   
   // 予約・貸切リクエストアクションフック
   const {
@@ -612,6 +616,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               scenarios={relatedScenarios}
               authorName={scenario.author}
               onScenarioClick={(id) => {
+                saveScrollPositionForPage(scenarioDetailScrollKey)
                 // 組織slugがあれば予約サイト形式、なければグローバル形式
                 if (organizationSlug) {
                   navigate(`/${organizationSlug}/scenario/${id}`)

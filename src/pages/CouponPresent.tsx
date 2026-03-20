@@ -12,6 +12,7 @@ import { logger } from '@/utils/logger'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link, useSearchParams } from 'react-router-dom'
 import { validateRedirectUrl } from '@/lib/utils'
+import { getCurrentOrganizationId } from '@/lib/organization'
 
 interface CouponInfo {
   id: string
@@ -46,12 +47,15 @@ export function CouponPresent() {
           return
         }
 
-        // 顧客情報を取得
-        const { data: customer } = await supabase
+        const orgForCustomer = await getCurrentOrganizationId()
+        let customerQuery = supabase
           .from('customers')
           .select('id, name')
           .eq('user_id', session.user.id)
-          .maybeSingle()
+        if (orgForCustomer) {
+          customerQuery = customerQuery.eq('organization_id', orgForCustomer)
+        }
+        const { data: customer } = await customerQuery.maybeSingle()
 
         if (customer) {
           setUserName(customer.name || '')

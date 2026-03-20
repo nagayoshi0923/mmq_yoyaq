@@ -14,6 +14,7 @@ import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen, CheckCheck } from 'lucide-react'
 import { logger } from '@/utils/logger'
+import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
 
 interface ScenarioData {
   id: string
@@ -74,12 +75,15 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   
   // 予約サイトのベースパス（propsから優先、なければorganizationから）
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : (organization?.slug ? `/${organization.slug}` : '/queens-waltz')
+  const catalogScrollKey = `booking-${organizationSlug || organization?.slug || 'platform'}-catalog`
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
-  
+
   const [scenarios, setScenarios] = useState<ScenarioData[]>([])
   const [stores, setStores] = useState<StoreData[]>([])
   const [categories, setCategories] = useState<CategoryData[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  useScrollRestoration({ pageKey: catalogScrollKey, isLoading })
   const [searchTerm, setSearchTerm] = useState('')
   // URLパラメータからジャンルを読み取り
   const [selectedGenre, setSelectedGenre] = useState<string>(() => {
@@ -268,10 +272,11 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   }, [scenarios, searchTerm, selectedGenre, selectedDuration, selectedPlayerCount, selectedStore, stores])
 
   const handleBack = useCallback(() => {
-    window.location.href = bookingBasePath
-  }, [bookingBasePath])
+    navigate(bookingBasePath)
+  }, [bookingBasePath, navigate])
 
   const handleCardClick = useCallback((scenarioId: string) => {
+    saveScrollPositionForPage(catalogScrollKey)
     // 組織slugがあれば予約サイト形式、なければグローバル形式
     if (organizationSlug || organization?.slug) {
       const slug = organizationSlug || organization?.slug
@@ -279,7 +284,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     } else {
       navigate(`/scenario-detail/${scenarioId}`)
     }
-  }, [organizationSlug, organization?.slug, navigate])
+  }, [catalogScrollKey, organizationSlug, organization?.slug, navigate])
 
   const handleToggleFavorite = useCallback((scenarioId: string, e: React.MouseEvent) => {
     e.stopPropagation()

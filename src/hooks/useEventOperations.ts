@@ -3,7 +3,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { scheduleApi } from '@/lib/api'
-import { reservationApi } from '@/lib/reservationApi' // 追加
+import {
+  reservationApi,
+  RESERVATION_WITH_CUSTOMER_SELECT_FIELDS,
+  joinedCustomerFromReservation,
+} from '@/lib/reservationApi' // 追加
 import { supabase } from '@/lib/supabase'
 import { saveEmptySlotMemo } from '@/components/schedule/SlotMemoInput'
 import { logger } from '@/utils/logger'
@@ -1483,7 +1487,7 @@ export function useEventOperations({
         // 予約情報を取得
         let reservationQuery = supabase
           .from('reservations')
-          .select('*, customers(*)')
+          .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
           .eq('id', cancellingEvent.reservation_id)
         if (organizationId) {
           reservationQuery = reservationQuery.eq('organization_id', organizationId)
@@ -1536,7 +1540,7 @@ export function useEventOperations({
         try {
           let reservationsQuery = supabase
             .from('reservations')
-            .select('*, customers(*)')
+            .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
             .eq('schedule_event_id', cancellingEvent.id)
             .in('status', ['confirmed', 'pending'])
           if (organizationId) {
@@ -1561,17 +1565,17 @@ export function useEventOperations({
                 logger.error(`予約${reservation.reservation_number}のキャンセル更新エラー:`, cancelError)
               }
               
-              // メール送信
-              if (!reservation.customers) return
-              
+              const perfCancelCustomer = joinedCustomerFromReservation(reservation.customers)
+              if (!perfCancelCustomer) return
+
               try {
                 await supabase.functions.invoke('send-cancellation-confirmation', {
                   body: {
                     organizationId: organizationId,
                     storeId: cancellingEvent.store_id,
                     reservationId: reservation.id,
-                    customerEmail: reservation.customers.email,
-                    customerName: reservation.customers.name,
+                    customerEmail: perfCancelCustomer.email,
+                    customerName: perfCancelCustomer.name,
                     scenarioTitle: reservation.scenario_title || cancellingEvent.scenario,
                     eventDate: cancellingEvent.date,
                     startTime: cancellingEvent.start_time,

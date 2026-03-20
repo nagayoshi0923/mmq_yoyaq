@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -10,6 +11,7 @@ import { scenarioApi, storeApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { BookingNotice } from './ScenarioDetailPage/components/BookingNotice'
+import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
 
 interface Scenario {
   id: string
@@ -30,6 +32,8 @@ interface PrivateBookingScenarioSelectProps {
 }
 
 export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookingScenarioSelectProps) {
+  const navigate = useNavigate()
+  const selectScrollKey = `booking-${organizationSlug || 'platform'}-private-booking-select`
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -103,6 +107,8 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
 
   const allAvailableSelected = allAvailableStoreIds.length > 0 && allAvailableStoreIds.every(id => selectedStoreIds.includes(id))
 
+  useScrollRestoration({ pageKey: selectScrollKey, isLoading: loading })
+
   useEffect(() => {
     loadScenarios()
     loadStores()
@@ -148,9 +154,12 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     
     // 貸切リクエスト確認ページへ遷移（組織slugがあれば予約サイト形式）
     // 複数店舗はカンマ区切りで渡す
-    const basePath = organizationSlug ? `/${organizationSlug}` : ''
+    const basePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
     const storeParam = selectedStoreIds.join(',')
-    window.location.href = `${basePath}/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${storeParam}&slot=${preselectedSlot}`
+    saveScrollPositionForPage(selectScrollKey)
+    navigate(
+      `${basePath}/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${storeParam}&slot=${preselectedSlot}`
+    )
   }
 
   return (

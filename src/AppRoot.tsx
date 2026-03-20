@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react'
+import React, { Suspense, useLayoutEffect } from 'react'
 import { BrowserRouter, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
@@ -80,6 +80,18 @@ export function getOrganizationSlugFromPath(): string {
       'external-reports',
       'accept-invitation',
       'organization-register',
+      'terms',
+      'privacy',
+      'security',
+      'legal',
+      'contact',
+      'faq',
+      'guide',
+      'cancel-policy',
+      'stores',
+      'company',
+      'about',
+      'blog',
     ]
     if (!adminPaths.includes(match[1])) {
       return match[1]
@@ -88,15 +100,26 @@ export function getOrganizationSlugFromPath(): string {
   return 'queens-waltz'
 }
 
-// ページ遷移時にスクロール位置をトップに戻す（「戻る」操作時はスキップ）
+// ページ遷移時にスクロール位置をトップに戻す
+// - POP（戻る/進む）: 何もしない（各ページの sessionStorage 復元に任せる）
+// - 初回マウント（リロード・新規タブの直リンク）: トップへ飛ばさない
+//   → さもないと navType が POP 以外になり、scrollTo(0,0) が sessionStorage 復元より後に効いて潰す
+// - それ以外の同一タブ内のパス変更（PUSH/REPLACE）: トップへ
 function ScrollToTop() {
   const { pathname } = useLocation()
   const navType = useNavigationType()
+  const prevPathRef = React.useRef<string | null>(null)
 
-  React.useEffect(() => {
-    // POP = ブラウザの戻る/進む → スクロール復元に任せる
-    if (navType === 'POP') return
-    window.scrollTo(0, 0)
+  useLayoutEffect(() => {
+    if (navType === 'POP') {
+      prevPathRef.current = pathname
+      return
+    }
+    const prev = prevPathRef.current
+    if (prev !== null && prev !== pathname) {
+      window.scrollTo(0, 0)
+    }
+    prevPathRef.current = pathname
   }, [pathname, navType])
 
   return null

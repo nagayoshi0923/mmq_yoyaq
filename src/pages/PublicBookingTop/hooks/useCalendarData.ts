@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { formatDateJST } from '@/utils/dateUtils'
+import { readPersistedBookingMonth, writePersistedBookingMonth } from '../utils/bookingViewPersistence'
 
 interface CalendarDay {
   date: Date
@@ -9,8 +10,24 @@ interface CalendarDay {
 /**
  * カレンダー表示のロジックを管理するフック
  */
-export function useCalendarData(allEvents: any[], selectedStoreIds: string[], stores: any[] = []) {
-  const [currentMonth, setCurrentMonth] = useState(new Date())
+export function useCalendarData(
+  allEvents: any[],
+  selectedStoreIds: string[],
+  stores: any[] = [],
+  persistMonthKey?: string
+) {
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    if (persistMonthKey) {
+      const saved = readPersistedBookingMonth(persistMonthKey)
+      if (saved) return saved
+    }
+    return new Date()
+  })
+
+  useEffect(() => {
+    if (!persistMonthKey) return
+    writePersistedBookingMonth(persistMonthKey, currentMonth)
+  }, [persistMonthKey, currentMonth])
 
   /**
    * 月を変更（過去月へのナビゲーションを防止）

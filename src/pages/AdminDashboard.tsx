@@ -87,6 +87,7 @@ function ScenarioEditRedirect({ organizationSlug, scenarioId }: { organizationSl
 // 静的ページ（公開ページ）
 const TermsPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.TermsPage })))
 const PrivacyPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.PrivacyPage })))
+const SecurityPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.SecurityPage })))
 const LegalPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.LegalPage })))
 const ContactPage = lazyWithRetry(() => import('./static').then(m => ({ default: m.ContactPage })))
 const OrganizationContactPage = lazyWithRetry(() => import('./org/ContactPage').then(m => ({ default: m.OrganizationContactPage })))
@@ -158,7 +159,7 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'complete-profile', 'coupon-present', 'register', 'about', 
     'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page', 'scenario',
     // 静的ページ
-    'terms', 'privacy', 'legal', 'contact', 'faq', 'guide', 'cancel-policy', 'stores', 'company',
+    'terms', 'privacy', 'security', 'legal', 'contact', 'faq', 'guide', 'cancel-policy', 'stores', 'company',
     // 組織向けページ
     'for-business', 'pricing', 'getting-started',
     // ランディングページ
@@ -692,6 +693,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <PrivacyPage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'security') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <SecurityPage />
       </Suspense>
     )
   }

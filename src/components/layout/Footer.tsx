@@ -42,6 +42,7 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
             <div className="flex items-center gap-4 text-sm">
               <Link to="/terms" className="hover:text-white transition-colors">利用規約</Link>
               <Link to="/privacy" className="hover:text-white transition-colors">プライバシーポリシー</Link>
+              <Link to="/security" className="hover:text-white transition-colors">セキュリティ</Link>
             </div>
           </div>
         </div>
@@ -143,6 +144,11 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
                   </Link>
                 </li>
                 <li>
+                  <Link to="/security" className="text-sm hover:text-white transition-colors">
+                    セキュリティ・データ保護
+                  </Link>
+                </li>
+                <li>
                   <Link to={`/org/${organizationSlug}/contact`} className="text-sm hover:text-white transition-colors">
                     お問い合わせ
                   </Link>
@@ -162,6 +168,7 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
               <div className="flex items-center gap-6 text-sm text-gray-500">
                 <Link to="/terms" className="hover:text-gray-300 transition-colors">利用規約</Link>
                 <Link to="/privacy" className="hover:text-gray-300 transition-colors">プライバシーポリシー</Link>
+                <Link to="/security" className="hover:text-gray-300 transition-colors">セキュリティ</Link>
                 <Link to="/contact" className="hover:text-gray-300 transition-colors">MMQへ問い合わせ</Link>
               </div>
             </div>
@@ -196,6 +203,7 @@ export function Footer({ organizationSlug, organizationName, stores = [], minima
             <Link to="/faq" className="hover:text-gray-300 transition-colors">よくある質問</Link>
             <Link to="/terms" className="hover:text-gray-300 transition-colors">利用規約</Link>
             <Link to="/privacy" className="hover:text-gray-300 transition-colors">プライバシー</Link>
+            <Link to="/security" className="hover:text-gray-300 transition-colors">セキュリティ</Link>
             <Link to="/contact" className="hover:text-gray-300 transition-colors">お問い合わせ</Link>
           </div>
         </div>

@@ -24,69 +24,74 @@ function CharacterCard({ character }: { character: ScenarioCharacter }) {
   const isNpc = character.is_npc
   return (
     <div
-      className={`relative overflow-hidden ${isNpc ? 'ring-2 ring-amber-300' : ''}`}
+      className={`flex flex-col ${isNpc ? 'ring-2 ring-amber-300' : ''}`}
       style={{ borderRadius: 0 }}
     >
-      {/* キャラクター画像（全面） */}
-      {character.image_url ? (
+      <div className="relative w-full overflow-hidden" style={{ borderRadius: 0 }}>
+        {/* キャラクター画像（全面） */}
+        {character.image_url ? (
+          <div
+            className="w-full aspect-[3/4] overflow-hidden"
+            style={{ backgroundColor: character.background_color || '#e5e7eb' }}
+          >
+            <OptimizedImage
+              src={character.image_url}
+              alt={character.name}
+              className="w-full h-full object-cover"
+              style={{
+                objectPosition: character.image_position
+                  ? (character.image_position.includes(' ')
+                      ? `${character.image_position.split(' ')[0]}% ${character.image_position.split(' ')[1]}%`
+                      : `center ${character.image_position}`)
+                  : '50% 50%',
+                transform: character.image_scale ? `scale(${character.image_scale / 100})` : undefined
+              }}
+            />
+          </div>
+        ) : (
+          <div className="w-full aspect-[3/4] bg-gray-200 flex items-center justify-center">
+            <User className="w-10 h-10 text-gray-400" />
+          </div>
+        )}
+
+        {/* NPC バッジ（左上） */}
+        {isNpc && (
+          <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-sm shadow z-[1]">
+            NPC
+          </span>
+        )}
+
+        {/* 名前・属性のみオーバーレイ（説明は下段で全文表示） */}
         <div
-          className="w-full aspect-[3/4] overflow-hidden"
-          style={{ backgroundColor: character.background_color || '#e5e7eb' }}
+          className="absolute bottom-0 left-0 right-0 px-2 pt-6 pb-2"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
         >
-          <OptimizedImage
-            src={character.image_url}
-            alt={character.name}
-            className="w-full h-full object-cover"
-            style={{
-              objectPosition: character.image_position
-                ? (character.image_position.includes(' ')
-                    ? `${character.image_position.split(' ')[0]}% ${character.image_position.split(' ')[1]}%`
-                    : `center ${character.image_position}`)
-                : '50% 50%',
-              transform: character.image_scale ? `scale(${character.image_scale / 100})` : undefined
-            }}
-          />
+          <p className="font-semibold text-white text-xs leading-tight drop-shadow">
+            {character.name}
+            {character.first_person && (
+              <span className="ml-1 font-normal text-white/70">（{character.first_person}）</span>
+            )}
+          </p>
+          <div className="text-[10px] text-white/80 mt-0.5 leading-tight">
+            {(character.gender !== 'unknown' || character.age) && (
+              <p>
+                {genderLabel[character.gender]}
+                {character.gender !== 'unknown' && character.age && ' / '}
+                {character.age}
+              </p>
+            )}
+            {character.occupation && <p>{character.occupation}</p>}
+          </div>
         </div>
-      ) : (
-        <div className="w-full aspect-[3/4] bg-gray-200 flex items-center justify-center">
-          <User className="w-10 h-10 text-gray-400" />
-        </div>
-      )}
+      </div>
 
-      {/* NPC バッジ（左上） */}
-      {isNpc && (
-        <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-sm shadow">
-          NPC
-        </span>
-      )}
-
-      {/* テキストオーバーレイ（下部グラデーション） */}
-        <div
-        className="absolute bottom-0 left-0 right-0 px-2 pt-6 pb-2"
-        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
-      >
-        <p className="font-semibold text-white text-xs leading-tight drop-shadow">
-          {character.name}
-          {character.first_person && (
-            <span className="ml-1 font-normal text-white/70">（{character.first_person}）</span>
-          )}
-        </p>
-        <div className="text-[10px] text-white/80 mt-0.5 leading-tight">
-          {(character.gender !== 'unknown' || character.age) && (
-            <p>
-              {genderLabel[character.gender]}
-              {character.gender !== 'unknown' && character.age && ' / '}
-              {character.age}
-            </p>
-          )}
-          {character.occupation && <p>{character.occupation}</p>}
-        </div>
-        {character.description && (
-          <p className="text-[10px] text-white/70 mt-1 leading-snug line-clamp-2">
+      {character.description && (
+        <div className="px-2 py-2 bg-zinc-900 border-t border-zinc-800">
+          <p className="text-[10px] text-zinc-300 leading-relaxed whitespace-pre-wrap break-words">
             {character.description}
           </p>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

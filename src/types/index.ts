@@ -573,6 +573,10 @@ export interface Reservation {
   reservation_page_id?: string | null
   title: string
   scenario_id?: string | null
+  /** 貸切フロー等で設定（シナリオ表示用） */
+  scenario_title?: string | null
+  scenario_master_id?: string | null
+  private_group_id?: string | null
   store_id?: string | null
   customer_id?: string | null
   schedule_event_id?: string | null // 新規追加
@@ -611,6 +615,33 @@ export interface Reservation {
   coupon_usage_id?: string | null
   // Supabaseのjoinクエリで取得される拡張フィールド
   customers?: Customer | Customer[] | null
+  /** schedule_events 埋め込み（PostgREST / 型推論で object または 1要素相当の array になり得る） */
+  schedule_events?:
+    | {
+        id?: string
+        date?: string
+        start_time?: string
+        end_time?: string
+        venue?: string
+        scenario?: string
+        store_id?: string | null
+        organization_id?: string
+        is_private_booking?: boolean
+        gms?: string[]
+      }
+    | Array<{
+        id?: string
+        date?: string
+        start_time?: string
+        end_time?: string
+        venue?: string
+        scenario?: string
+        store_id?: string | null
+        organization_id?: string
+        is_private_booking?: boolean
+        gms?: string[]
+      }>
+    | null
   // 貸切予約の候補日時情報
   candidate_datetimes?: CandidateDatetimes | null
 }

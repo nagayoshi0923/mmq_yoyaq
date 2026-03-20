@@ -1,8 +1,10 @@
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, BookOpen } from 'lucide-react'
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
 
 interface SearchBarProps {
   searchTerm: string
@@ -18,10 +20,14 @@ export const SearchBar = memo(function SearchBar({
   onSearchChange,
   organizationSlug
 }: SearchBarProps) {
-  const handleCatalogClick = () => {
+  const navigate = useNavigate()
+  const bookingScrollKey = `booking-${organizationSlug || 'platform'}`
+
+  const handleCatalogClick = useCallback(() => {
+    saveScrollPositionForPage(bookingScrollKey)
     const catalogPath = organizationSlug ? `/${organizationSlug}/catalog` : '/catalog'
-    window.location.href = catalogPath
-  }
+    navigate(catalogPath)
+  }, [bookingScrollKey, navigate, organizationSlug])
 
   return (
     <div className="max-w-xl mx-auto w-full flex gap-2">

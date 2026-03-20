@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { PrivateBookingRequest } from './PrivateBookingRequest/index'
 import { scenarioApi, storeApi } from '@/lib/api'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -16,6 +17,7 @@ interface PrivateBookingRequestPageProps {
 }
 
 export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRequestPageProps) {
+  const navigate = useNavigate()
   const { organization } = useOrganization()
   const [loading, setLoading] = useState(true)
   const [scenario, setScenario] = useState<any>(null)
@@ -138,7 +140,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       }
     }
     // 完了後の処理（トップページへ遷移など）
-    window.location.href = bookingBasePath
+    navigate(bookingBasePath)
   }
 
   if (loading) {

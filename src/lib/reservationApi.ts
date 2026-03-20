@@ -8,11 +8,35 @@ import type { Reservation, Customer, ReservationSummary } from '@/types'
 const CUSTOMER_SELECT_FIELDS =
   'id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at' as const
 
-const RESERVATION_SELECT_FIELDS =
-  'id, organization_id, reservation_number, reservation_page_id, title, scenario_id, store_id, customer_id, schedule_event_id, requested_datetime, actual_datetime, duration, participant_count, participant_names, assigned_staff, gm_staff, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, payment_method, payment_datetime, status, customer_notes, staff_notes, special_requests, cancellation_reason, cancelled_at, external_reservation_id, reservation_source, created_by, created_at, updated_at, customer_name, customer_email, customer_phone, candidate_datetimes' as const
+/** 予約一覧・モーダル等で共通利用（select('*') 回避用） */
+export const RESERVATION_SELECT_FIELDS =
+  'id, organization_id, reservation_number, reservation_page_id, title, scenario_id, scenario_title, scenario_master_id, store_id, customer_id, schedule_event_id, requested_datetime, actual_datetime, duration, participant_count, participant_names, assigned_staff, gm_staff, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, payment_method, payment_datetime, status, customer_notes, staff_notes, special_requests, cancellation_reason, cancelled_at, external_reservation_id, reservation_source, created_by, created_at, updated_at, customer_name, customer_email, customer_phone, private_group_id, candidate_datetimes' as const
 
-const RESERVATION_WITH_CUSTOMER_SELECT =
-  'id, organization_id, reservation_number, reservation_page_id, title, scenario_id, store_id, customer_id, schedule_event_id, requested_datetime, actual_datetime, duration, participant_count, participant_names, assigned_staff, gm_staff, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, payment_method, payment_datetime, status, customer_notes, staff_notes, special_requests, cancellation_reason, cancelled_at, external_reservation_id, reservation_source, created_by, created_at, updated_at, customer_name, customer_email, customer_phone, candidate_datetimes, customers(id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at)' as const
+/** 予約 + customers（貸切・公演モーダル・中止処理など） */
+export const RESERVATION_WITH_CUSTOMER_SELECT_FIELDS =
+  `${RESERVATION_SELECT_FIELDS}, customers(${CUSTOMER_SELECT_FIELDS})` as const
+
+const SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL =
+  'schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, store_id)'
+
+/** 予約変更メール用（予約 + 顧客 + 公演スナップショット） */
+const RESERVATION_FOR_UPDATE_WITH_RELATIONS_SELECT =
+  `${RESERVATION_WITH_CUSTOMER_SELECT_FIELDS}, ${SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL}` as const
+
+const SCHEDULE_EVENT_EMBED_FOR_CANCEL =
+  'schedule_events!schedule_event_id(id, date, start_time, end_time, venue, scenario, organization_id, is_private_booking, gms, store_id)'
+
+/** キャンセルフロー初期取得（メール・GM・貸切グループ用） */
+const RESERVATION_FOR_CANCEL_FETCH_SELECT =
+  `${RESERVATION_WITH_CUSTOMER_SELECT_FIELDS}, ${SCHEDULE_EVENT_EMBED_FOR_CANCEL}` as const
+
+/** customers 埋め込みが PostgREST の型推論で配列になる場合があるため正規化 */
+export function joinedCustomerFromReservation(
+  c: Customer | Customer[] | null | undefined
+): Customer | null {
+  if (c == null) return null
+  return Array.isArray(c) ? c[0] ?? null : c
+}
 
 type CreateReservationWithLockParams = Omit<
   Reservation,
@@ -193,22 +217,29 @@ export const reservationApi = {
       return await query.order('created_at', { ascending: true })
     }
 
-    // NOTE:
-    // このプロジェクトは環境（migration差分/列追加の進行状況）によって
-    // 予約テーブルの列が揃っていないケースがあり、固定の列リスト select だと 400 になることがある。
-    // 管理画面の公演ダイアログでは安定性を優先し、まずは安全な * を使う。
-    const safe = await run('*, customers(*)')
-    if (!safe.error) {
-      return (safe.data as unknown as Reservation[]) || []
+    const explicit = await run(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
+    if (!explicit.error) {
+      return (explicit.data as unknown as Reservation[]) || []
     }
 
-    // それでも失敗する場合のみ、詳細ログを出してエラーにする
-    logger.error('getByScheduleEvent: safe select failed', {
+    // migration 未適用などで列不足の環境では明示列が 400 になることがあるためフォールバック
+    logger.warn('getByScheduleEvent: explicit select failed, falling back to *', {
       scheduleEventId,
       orgId,
-      error: safe.error,
+      error: explicit.error,
     })
-    throw safe.error
+    const fallback = await run('*, customers(*)')
+    if (!fallback.error) {
+      return (fallback.data as unknown as Reservation[]) || []
+    }
+
+    logger.error('getByScheduleEvent: both selects failed', {
+      scheduleEventId,
+      orgId,
+      explicitError: explicit.error,
+      fallbackError: fallback.error,
+    })
+    throw fallback.error
   },
 
   // 顧客IDで予約を取得
@@ -397,21 +428,12 @@ export const reservationApi = {
 
   // 参加人数を変更（顧客向けシンプルAPI）
   async updateParticipantCount(reservationId: string, newCount: number, sendEmail: boolean = true): Promise<boolean> {
-    // 現在のユーザーのcustomer_idを取得
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       throw new Error('ログインが必要です')
     }
 
-    // 顧客IDを取得
-    const { data: customer } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
-
-    const customerId = customer?.id || null
-    logger.log('人数変更開始:', { reservationId, newCount, customerId })
+    logger.log('人数変更開始:', { reservationId, newCount })
 
     // 予約情報を取得して料金を再計算
     const { data: reservation, error: fetchError } = await supabase
@@ -431,8 +453,23 @@ export const reservationApi = {
 
     logger.log('予約情報取得:', reservation)
 
+    // 同一 user_id で複数組織の customers 行がある場合に誤マッチしないよう、予約の organization_id で絞る
+    let customerQuery = supabase
+      .from('customers')
+      .select('id')
+      .eq('user_id', user.id)
+    if (reservation.organization_id) {
+      customerQuery = customerQuery.eq('organization_id', reservation.organization_id)
+    }
+    const { data: customerRow, error: customerErr } = await customerQuery.maybeSingle()
+    if (customerErr) {
+      logger.error('顧客ID取得エラー:', customerErr)
+      throw new Error('顧客情報の取得に失敗しました')
+    }
+    const scopedCustomerId = customerRow?.id ?? null
+
     // 予約の所有者を確認
-    if (reservation.customer_id && reservation.customer_id !== customerId) {
+    if (reservation.customer_id && reservation.customer_id !== scopedCustomerId) {
       throw new Error('この予約を変更する権限がありません')
     }
 
@@ -453,7 +490,7 @@ export const reservationApi = {
     })
 
     // RPC を呼び出して人数を変更（在庫ロック + 料金再計算含む）
-    const result = await this.updateParticipantsWithLock(reservationId, newCount, customerId)
+    const result = await this.updateParticipantsWithLock(reservationId, newCount, scopedCustomerId)
     if (!result) {
       throw new Error('人数変更に失敗しました')
     }
@@ -529,11 +566,7 @@ export const reservationApi = {
     if (sendEmail) {
       const { data: original, error: fetchError } = await supabase
         .from('reservations')
-        .select(`
-          *,
-          customers(*),
-          schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, store_id)
-        `)
+        .select(RESERVATION_FOR_UPDATE_WITH_RELATIONS_SELECT)
         .eq('id', id)
         .single()
 
@@ -553,18 +586,14 @@ export const reservationApi = {
     // 更新後のデータを取得
     const { data, error } = await supabase
       .from('reservations')
-      .select(`
-        *,
-        customers(*),
-        schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, store_id)
-      `)
+      .select(RESERVATION_FOR_UPDATE_WITH_RELATIONS_SELECT)
       .eq('id', id)
       .single()
 
     if (error) throw error
 
     // 変更確認メールを送信（sendEmail=trueの場合のみ）
-    if (sendEmail && originalReservation && data.customers) {
+    if (sendEmail && originalReservation && joinedCustomerFromReservation(data.customers)) {
       try {
         const changes: Array<{field: string; label: string; oldValue: string; newValue: string}> = []
 
@@ -594,14 +623,15 @@ export const reservationApi = {
           const priceDifference = updates.total_price 
             ? updates.total_price - (originalReservation.total_price || 0)
             : 0
+          const cust = joinedCustomerFromReservation(data.customers)
 
           await supabase.functions.invoke('send-booking-change-confirmation', {
             body: {
               organizationId: data.organization_id,
               storeId: scheduleEvent?.store_id,
               reservationId: data.id,
-              customerEmail: data.customers.email,
-              customerName: data.customers.name,
+              customerEmail: cust?.email,
+              customerName: cust?.name,
               scenarioTitle: data.scenario_title || scheduleEvent?.scenario,
               reservationNumber: data.reservation_number,
               changes,
@@ -622,7 +652,7 @@ export const reservationApi = {
       }
     }
 
-    return data
+    return data as Reservation
   },
 
   // 予約をキャンセル
@@ -634,11 +664,7 @@ export const reservationApi = {
     // 予約情報を取得（メール送信用、GM通知用にis_private_bookingとgmsも取得）
     const { data: reservation, error: fetchError } = await supabase
       .from('reservations')
-      .select(`
-        *,
-        customers(*),
-        schedule_events!schedule_event_id(id, date, start_time, end_time, venue, scenario, organization_id, is_private_booking, gms, store_id)
-      `)
+      .select(RESERVATION_FOR_CANCEL_FETCH_SELECT)
       .eq('id', id)
       .single()
 
@@ -686,14 +712,15 @@ export const reservationApi = {
 
     const { data, error } = await supabase
       .from('reservations')
-      .select()
+      .select(RESERVATION_SELECT_FIELDS)
       .eq('id', id)
       .single()
 
     if (error) throw error
 
     // キャンセル確認メールを送信
-    if (reservation && reservation.customers) {
+    const cancelMailCustomer = joinedCustomerFromReservation(reservation.customers)
+    if (reservation && cancelMailCustomer) {
       try {
         const scheduleEvent = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
         const storeName = scheduleEvent?.venue || '店舗不明'
@@ -711,8 +738,8 @@ export const reservationApi = {
             organizationId: orgIdForEmail,
             storeId: scheduleEvent?.store_id,
             reservationId: reservation.id,
-            customerEmail: reservation.customers.email,
-            customerName: reservation.customers.name,
+            customerEmail: cancelMailCustomer.email,
+            customerName: cancelMailCustomer.name,
             scenarioTitle: reservation.scenario_title || scheduleEvent?.scenario,
             eventDate: scheduleEvent?.date,
             startTime: scheduleEvent?.start_time,
@@ -840,13 +867,14 @@ export const reservationApi = {
     if (scheduleEventForGM?.is_private_booking && scheduleEventForGM?.gms?.length > 0) {
       try {
         const orgId = reservation.organization_id || scheduleEventForGM.organization_id
-        
+        const gmNotifyCustomer = joinedCustomerFromReservation(reservation.customers)
+
         await supabase.functions.invoke('notify-private-booking-cancelled-discord', {
           body: {
             organizationId: orgId,
             scheduleEventId: scheduleEventForGM.id,
             gms: scheduleEventForGM.gms,
-            customerName: reservation.customers?.name || reservation.customer_name || '顧客',
+            customerName: gmNotifyCustomer?.name || reservation.customer_name || '顧客',
             scenarioTitle: reservation.scenario_title || scheduleEventForGM.scenario || 'シナリオ未定',
             eventDate: scheduleEventForGM.date,
             startTime: scheduleEventForGM.start_time,
@@ -863,7 +891,7 @@ export const reservationApi = {
       }
     }
 
-    return data
+    return data as Reservation
   },
 
   // 予約を削除

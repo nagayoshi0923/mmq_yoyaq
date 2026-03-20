@@ -11,6 +11,9 @@ import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
+const RESERVATION_SETTINGS_SELECT_FIELDS =
+  'id, store_id, cancellation_policy, cancellation_policy_items, cancellation_deadline_hours, cancellation_fees, private_cancellation_policy, private_cancellation_policy_items, private_cancellation_deadline_hours, private_cancellation_fees, organizer_cancel_reasons, organizer_cancel_refund_note, cancellation_judgment_rules, cancellation_notice_note, reservation_change_deadline_hours, reservation_change_note, private_reservation_change_deadline_hours, private_reservation_change_note, refund_method_note, auto_refund_enabled, refund_processing_days, policy_updated_at' as const
+
 interface CancellationFee {
   hours_before: number
   fee_percentage: number
@@ -401,7 +404,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           const firstStoreId = allStores[0].id
           const { data, error } = await supabase
             .from('reservation_settings')
-            .select('*')
+            .select(RESERVATION_SETTINGS_SELECT_FIELDS)
             .eq('store_id', firstStoreId)
             .maybeSingle()
 
@@ -487,7 +490,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
 
       const { data, error } = await supabase
         .from('reservation_settings')
-        .select('*')
+        .select(RESERVATION_SETTINGS_SELECT_FIELDS)
         .eq('store_id', storeId)
         .maybeSingle()
 

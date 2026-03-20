@@ -232,7 +232,7 @@ export function PrivateBookingRequest({
                 )}
                 <Button
                   variant="outline"
-                  onClick={() => window.location.href = bookingBasePath}
+                  onClick={() => navigate(bookingBasePath)}
                 >
                   予約サイトトップに戻る
                 </Button>

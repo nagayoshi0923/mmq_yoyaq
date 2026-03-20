@@ -100,10 +100,14 @@ export function SurveyResponsesTab({
         const customerNicknames: Record<string, string> = {}
         if (userIds.length > 0) {
           try {
-            const { data: customers, error: custError } = await supabase
+            let custQ = supabase
               .from('customers')
               .select('user_id, nickname, name')
               .in('user_id', userIds)
+            if (organizationId) {
+              custQ = custQ.eq('organization_id', organizationId)
+            }
+            const { data: customers, error: custError } = await custQ
             
             if (custError) {
               logger.warn('📋 SurveyTab: 顧客ニックネーム取得エラー:', custError)

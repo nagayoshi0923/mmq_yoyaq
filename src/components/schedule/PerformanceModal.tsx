@@ -291,6 +291,12 @@ export function PerformanceModal({
     .map(({ sortPriority, scenarioTitle, ...rest }) => rest)
   }, [scenarios, formData.venue, staff, allAvailableStaff])
 
+  /** アンケートタブ用 scenario_master_id（レンダー内 IIFE + logger だと毎回ログが爆発するため useMemo） */
+  const surveyTabScenarioId = useMemo(() => {
+    const selectedScenario = scenarios.find(s => s.title === event?.scenario)
+    return selectedScenario?.scenario_master_id || selectedScenario?.id || undefined
+  }, [scenarios, event?.scenario])
+
   // 閉店時刻選択肢（開始時刻より後の時間のみ）
   const getEndTimeOptions = (startTime: string) => {
     const options = businessHours
@@ -1349,21 +1355,9 @@ export function PerformanceModal({
           </TabsContent>
 
           <TabsContent value="survey" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
-            <SurveyResponsesTab 
+            <SurveyResponsesTab
               reservationId={event?.reservation_id}
-              scenarioId={(() => {
-                const selectedScenario = scenarios.find(s => s.title === event?.scenario)
-                logger.log('📋 PerformanceModal: Survey tab scenario lookup', {
-                  eventScenario: event?.scenario,
-                  selectedScenario: selectedScenario ? { 
-                    id: selectedScenario.id, 
-                    scenario_master_id: selectedScenario.scenario_master_id,
-                    title: selectedScenario.title 
-                  } : null,
-                  reservationId: event?.reservation_id
-                })
-                return selectedScenario?.scenario_master_id || selectedScenario?.id
-              })()}
+              scenarioId={surveyTabScenarioId}
             />
           </TabsContent>
 

@@ -77,10 +77,14 @@ export function SurveyResponsesView({
 
         const customerNicknames: Record<string, string> = {}
         if (userIds.length > 0) {
-          const { data: customers, error: custError } = await supabase
+          let custQ = supabase
             .from('customers')
             .select('user_id, nickname, name, email')
             .in('user_id', userIds)
+          if (organizationId) {
+            custQ = custQ.eq('organization_id', organizationId)
+          }
+          const { data: customers, error: custError } = await custQ
 
           if (custError) {
             logger.warn('アンケート: 顧客名取得エラー:', custError)

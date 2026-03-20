@@ -7,14 +7,15 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
 import { getColorFromName } from '@/lib/utils'
 import { BOOKING_THEME, MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Sparkles, MapPin, Store, BookOpen, Target, Users, Flame } from 'lucide-react'
+import { Sparkles, MapPin, Store, BookOpen, Target, Users, Flame, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useBookingData } from './hooks/useBookingData'
 import { useCalendarData } from './hooks/useCalendarData'
 import { useListViewData } from './hooks/useListViewData'
 import { useBookingFilters } from './hooks/useBookingFilters'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useStoreFilterPreference } from '@/hooks/useUserPreference'
-import { useScrollRestoration } from '@/hooks/useScrollRestoration'
+import { useScrollRestoration, saveScrollPositionForPage } from '@/hooks/useScrollRestoration'
 import { SearchBar } from './components/SearchBar'
 import { LineupView } from './components/LineupView'
 import { CalendarView } from './components/CalendarView'
@@ -34,6 +35,11 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   const navigate = useNavigate()
   const location = useLocation()
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
+
+  // 詳細ページから戻ったときカレンダー／リストの表示月を維持する（sessionStorage）
+  const bookingViewPersistSlug = organizationSlug ?? 'platform'
+  const calendarMonthStorageKey = `booking-${bookingViewPersistSlug}-calendar-month`
+  const listMonthStorageKey = `booking-${bookingViewPersistSlug}-list-month`
   
   // 使い方ガイド
   const { isGuideOpen, openGuide, closeGuide } = useHowToUseGuide()
@@ -69,7 +75,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     blockedSlots, 
     stores, 
     privateBookingDeadlineDays, 
-    isLoading, 
+    isLoading,
+    isFetching,
     loadData,
     organizationNotFound,
     organizationName,
@@ -78,9 +85,12 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   } = useBookingData(organizationSlug)
   
   // スクロール位置の保存と復元（一覧→詳細→戻る時に位置を保持）
-  useScrollRestoration({ 
-    pageKey: `booking-${organizationSlug || 'platform'}`,
-    isLoading 
+  const bookingScrollPageKey = `booking-${organizationSlug || 'platform'}`
+
+  useScrollRestoration({
+    pageKey: bookingScrollPageKey,
+    isLoading,
+    isFetching,
   })
   
   // 店舗データがロードされたら、保存されたフィルターを検証（存在しない店舗IDの場合はリセット）
@@ -111,7 +121,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate, canGoToPrevMonth } = useCalendarData(
     allEvents,
     selectedStoreIds,
-    stores
+    stores,
+    calendarMonthStorageKey
   )
 
   // 過去月へのナビゲーションを防止するラッパー関数
@@ -131,7 +142,9 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(
     allEvents,
     stores,
-    selectedStoreIds
+    selectedStoreIds,
+    blockedSlots,
+    listMonthStorageKey
   )
 
   // リストビュー用の過去月ナビゲーション防止
@@ -146,8 +159,26 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     setListViewMonth(newMonth)
   }, [setListViewMonth])
 
-  // 検索キーワード
-  const [searchTerm, setSearchTerm] = useState('')
+  // 検索キーワード（詳細から戻ったときに復元）
+  const lineupSearchStorageKey = `booking-${bookingViewPersistSlug}-lineup-search`
+  const [searchTerm, setSearchTerm] = useState(() => {
+    try {
+      return sessionStorage.getItem(lineupSearchStorageKey) ?? ''
+    } catch {
+      return ''
+    }
+  })
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        sessionStorage.setItem(lineupSearchStorageKey, searchTerm)
+      } catch {
+        /* ignore */
+      }
+    }, 300)
+    return () => window.clearTimeout(t)
+  }, [searchTerm, lineupSearchStorageKey])
   
   // お気に入り機能
   const { isFavorite, toggleFavorite } = useFavorites()
@@ -250,8 +281,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   // シナリオカードクリック（メモ化）
   // ScenarioCardからはslug（またはID）が渡される
   const handleCardClick = useCallback((slugOrId: string, eventDate?: string, eventTime?: string) => {
-    // ナビゲーション前にスクロール位置を保存（ScrollToTopに上書きされる前に）
-    sessionStorage.setItem(`booking-${organizationSlug || 'platform'}ScrollY`, window.scrollY.toString())
+    saveScrollPositionForPage(bookingScrollPageKey)
     if (onScenarioSelect) {
       onScenarioSelect(slugOrId)
     } else {
@@ -267,7 +297,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         navigate(`/scenario-detail/${slugOrId}${query}`)
       }
     }
-  }, [onScenarioSelect, organizationSlug, navigate])
+  }, [onScenarioSelect, organizationSlug, navigate, bookingScrollPageKey])
 
   // 店舗名取得（メモ化）
   const getStoreName = useCallback((event: any): string => {
@@ -414,9 +444,24 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
       <div className="bg-white border-b sticky top-0 z-30 shadow-sm">
         <div className="container mx-auto max-w-7xl px-4 md:px-6 py-2">
           <div className="flex items-center gap-2">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} organizationSlug={organizationSlug} />
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isFetching}
+              title="ページ先頭に戻らず、公演・シナリオ情報だけ再取得します"
+              className="h-10 shrink-0 gap-1.5 px-2 sm:px-3"
+              onClick={() => {
+                saveScrollPositionForPage(bookingScrollPageKey)
+                void loadData()
+              }}
+            >
+              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline text-xs">更新</span>
+            </Button>
             <HowToUseButton onClick={openGuide} />
           </div>
         </div>

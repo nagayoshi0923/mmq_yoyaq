@@ -11,6 +11,9 @@ import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
+const EMAIL_SETTINGS_SELECT_FIELDS =
+  'id, store_id, from_email, from_name, company_name, company_phone, company_email, company_address, reminder_enabled, reminder_schedule, reminder_time, reminder_send_time, reservation_confirmation_template, cancellation_template, reminder_template, booking_change_template, private_request_template, private_confirm_template, private_cancellation_template, private_rejection_template, waitlist_notify_template, waitlist_registration_template, performance_cancellation_template, event_cancellation_template, performance_extension_template' as const
+
 // ========== デフォルトテンプレート ==========
 
 function getDefaultReservationTemplate(companyName = 'クイーンズワルツ', companyPhone = '', companyEmail = '') {
@@ -882,7 +885,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
     try {
       const { data, error } = await supabase
         .from('email_settings')
-        .select('*')
+        .select(EMAIL_SETTINGS_SELECT_FIELDS)
         .eq('store_id', storeId)
         .maybeSingle()
 

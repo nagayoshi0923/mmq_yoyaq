@@ -1,6 +1,7 @@
 import { logger } from '@/utils/logger'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { formatDateJST } from '@/utils/dateUtils'
+import { readPersistedBookingMonth, writePersistedBookingMonth } from '../utils/bookingViewPersistence'
 
 interface ListViewDataItem {
   date: number
@@ -10,8 +11,25 @@ interface ListViewDataItem {
 /**
  * リスト表示のロジックを管理するフック
  */
-export function useListViewData(allEvents: any[], stores: any[], selectedStoreIds: string[], blockedSlots: any[] = []) {
-  const [listViewMonth, setListViewMonth] = useState(new Date())
+export function useListViewData(
+  allEvents: any[],
+  stores: any[],
+  selectedStoreIds: string[],
+  blockedSlots: any[] = [],
+  persistMonthKey?: string
+) {
+  const [listViewMonth, setListViewMonth] = useState(() => {
+    if (persistMonthKey) {
+      const saved = readPersistedBookingMonth(persistMonthKey)
+      if (saved) return saved
+    }
+    return new Date()
+  })
+
+  useEffect(() => {
+    if (!persistMonthKey) return
+    writePersistedBookingMonth(persistMonthKey, listViewMonth)
+  }, [persistMonthKey, listViewMonth])
 
   /**
    * 月を変更

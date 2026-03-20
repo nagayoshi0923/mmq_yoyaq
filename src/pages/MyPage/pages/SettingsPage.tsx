@@ -151,7 +151,7 @@ export function SettingsPage() {
     setSaving(true)
     try {
       if (customerInfo) {
-        const { error } = await supabase
+        let profileUpdate = supabase
           .from('customers')
           .update({
             name: formData.name,
@@ -164,6 +164,13 @@ export function SettingsPage() {
             updated_at: new Date().toISOString(),
           })
           .eq('id', customerInfo.id)
+        if (user?.id) {
+          profileUpdate = profileUpdate.eq('user_id', user.id)
+        }
+        if (organizationId) {
+          profileUpdate = profileUpdate.eq('organization_id', organizationId)
+        }
+        const { error } = await profileUpdate
 
         if (error) throw error
         showToast.success('プロフィールを更新しました')
@@ -192,6 +199,7 @@ export function SettingsPage() {
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existingCust.id)
+              .eq('user_id', user.id)
           : await supabase
               .from('customers')
               .insert({
@@ -344,7 +352,10 @@ export function SettingsPage() {
     setDeleting(true)
     try {
       if (customerInfo?.id) {
-        await supabase.from('customers').delete().eq('id', customerInfo.id)
+        let del = supabase.from('customers').delete().eq('id', customerInfo.id)
+        if (user?.id) del = del.eq('user_id', user.id)
+        if (organizationId) del = del.eq('organization_id', organizationId)
+        await del
       }
 
       await deleteMyAccount()

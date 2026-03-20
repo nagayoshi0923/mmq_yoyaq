@@ -167,10 +167,23 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         setMessage('パスワードリセット用のメールを送信しました。メールをご確認ください。')
         
       } else if (mode === 'signup') {
+        // 既存メールアドレスチェック：既存ユーザーへの不正なマジックリンク送信を防ぐ
+        // RLS を回避するため SECURITY DEFINER の RPC を使用（anon からでも呼び出し可能）
+        const { data: isRegistered, error: checkError } = await supabase
+          .rpc('check_email_registered', { p_email: email })
+
+        if (checkError) {
+          logger.error('Email check error:', checkError)
+          // RPC が失敗した場合でも登録フローを止めない（フォールバック）
+        } else if (isRegistered) {
+          setMode('login')
+          setPassword('')
+          setError('このメールアドレスは既に登録されています。ログインするか、「パスワードを忘れた場合」からパスワードリセットをお試しください。')
+          return
+        }
+
         // 新規登録（Magic Link 方式）
         // signInWithOtp を使用：PKCE の code_verifier 問題を回避
-        // 既存ユーザーでもメール送信される（/complete-profile で登録済みチェック）
-        
         const { error } = await supabase.auth.signInWithOtp({
           email,
           options: {
@@ -599,6 +612,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         <div className="max-w-md mx-auto flex items-center justify-center gap-6 text-xs text-gray-400">
           <Link to="/terms" className="hover:text-gray-600">利用規約</Link>
           <Link to="/privacy" className="hover:text-gray-600">プライバシー</Link>
+          <Link to="/security" className="hover:text-gray-600">セキュリティ</Link>
           <Link to="/contact" className="hover:text-gray-600">お問い合わせ</Link>
         </div>
       </footer>

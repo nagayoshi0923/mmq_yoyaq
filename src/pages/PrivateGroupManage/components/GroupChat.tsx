@@ -76,11 +76,15 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
       const customerNicknames: Record<string, string> = {}
       
       if (userIds.length > 0) {
-        const { data: customers } = await supabase
+        let customerQuery = supabase
           .from('customers')
           .select('user_id, nickname, name')
           .in('user_id', userIds)
-        
+        if (organizationId) {
+          customerQuery = customerQuery.eq('organization_id', organizationId)
+        }
+        const { data: customers } = await customerQuery
+
         if (customers) {
           customers.forEach((c: { user_id: string; nickname: string | null; name: string | null }) => {
             customerNicknames[c.user_id] = c.nickname || c.name || ''
@@ -100,7 +104,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     } catch (err) {
       logger.error('Failed to fetch members for chat', err)
     }
-  }, [groupId, initialMembers])
+  }, [groupId, initialMembers, organizationId])
 
   useEffect(() => {
     fetchMembers()
@@ -160,7 +164,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
       try {
         const { data, error } = await supabase
           .from('private_group_messages')
-          .select('*')
+          .select('id, group_id, member_id, message, created_at')
           .eq('group_id', groupId)
           .order('created_at', { ascending: true })
           .limit(100)

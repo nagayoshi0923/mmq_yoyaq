@@ -58,13 +58,15 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
     try {
       // 顧客レコードを取得または作成
       let customerId: string | null = null
+      const organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
       
       try {
         const { data: existingCustomer } = await supabase
           .from('customers')
           .select('id')
           .eq('user_id', props.userId)
-          .single()
+          .eq('organization_id', organizationId)
+          .maybeSingle()
         
         if (existingCustomer) {
           customerId = existingCustomer.id
@@ -78,10 +80,9 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
               email: customerEmail
             })
             .eq('id', customerId)
+            .eq('user_id', props.userId)
+            .eq('organization_id', organizationId)
         } else {
-          // organization_idを取得（ログインユーザーから、またはデフォルト）
-          const organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
-          
           const { data: newCustomer, error: customerError } = await supabase
             .from('customers')
             .insert({
@@ -90,7 +91,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
               nickname: customerNickname || null,
               phone: customerPhone,
               email: customerEmail,
-              organization_id: organizationId
+              organization_id: organizationId,
             })
             .select('id')
             .single()
@@ -185,13 +186,6 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       // 予約IDを取得（RPC戻り値からの取得）
       const parentReservationId = reservationId as string
       console.log('[貸切リクエスト] RPC成功', { reservationId: parentReservationId, effectiveGroupId })
-      
-      // 予約情報を取得（メール送信用）
-      const { data: parentReservation } = await supabase
-        .from('reservations')
-        .select('*')
-        .eq('id', parentReservationId)
-        .single()
 
       // GM確認レコードはRPC関数内で作成済み
 
@@ -229,7 +223,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
               const msgOrgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
               const { data: msgSettings } = await supabase
                 .from('global_settings')
-                .select('*')
+                .select('system_msg_booking_requested_title, system_msg_booking_requested_body')
                 .eq('organization_id', msgOrgId)
                 .maybeSingle()
               
