@@ -148,6 +148,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
             <div>
               <h4 className="mb-2 font-bold text-sm">顧客情報</h4>
               <div className="space-y-1 text-sm">
+                <div className="break-all"><span className="text-muted-foreground">メール:</span> {customer.email || '未登録'}</div>
                 <div><span className="text-muted-foreground">LINE ID:</span> {customer.line_id || '未登録'}</div>
                 <div><span className="text-muted-foreground">登録日:</span> {formatDate(customer.created_at)}</div>
                 {customer.preferences && customer.preferences.length > 0 && (
