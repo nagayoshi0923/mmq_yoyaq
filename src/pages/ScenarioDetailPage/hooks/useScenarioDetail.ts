@@ -202,6 +202,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   
   const scenario: ScenarioDetail = {
     scenario_id: scenarioData.id,
+    slug: scenarioData.slug,
     scenario_title: scenarioData.title,
     key_visual_url: scenarioData.key_visual_url,
     synopsis: scenarioData.synopsis || scenarioData.description,
