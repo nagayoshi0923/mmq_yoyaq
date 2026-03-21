@@ -2,26 +2,45 @@ import { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronDown, ChevronUp, Edit2, Mail, Phone, Calendar } from 'lucide-react'
+import { ChevronDown, ChevronUp, Edit2, Mail, Phone, Calendar, Ticket } from 'lucide-react'
 import type { Customer, Reservation } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { devDb } from '@/components/ui/DevField'
+import type { CustomerCouponStats } from '../hooks/useCustomerData'
 
 interface CustomerRowProps {
   customer: Customer
   isExpanded: boolean
   onToggleExpand: () => void
   onEdit: () => void
+  couponStats?: CustomerCouponStats
 }
 
-export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: CustomerRowProps) {
+interface CouponUsageHistory {
+  id: string
+  discount_amount: number
+  used_at: string
+  reservation?: {
+    id: string
+    title: string
+    requested_datetime: string
+  }
+}
+
+export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, couponStats }: CustomerRowProps) {
   const [reservations, setReservations] = useState<Reservation[]>([])
+  const [couponUsages, setCouponUsages] = useState<CouponUsageHistory[]>([])
   const [loading, setLoading] = useState(false)
 
-  // 展開時に予約履歴を取得
+  // 展開時に予約履歴とクーポン使用履歴を取得
   useEffect(() => {
-    if (isExpanded && reservations.length === 0) {
-      fetchReservations()
+    if (isExpanded) {
+      if (reservations.length === 0) {
+        fetchReservations()
+      }
+      if (couponUsages.length === 0) {
+        fetchCouponUsages()
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded])
@@ -41,6 +60,45 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
       logger.error('予約履歴の取得エラー:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchCouponUsages = async () => {
+    try {
+      // 顧客のクーポンIDを取得
+      const { data: customerCoupons } = await supabase
+        .from('customer_coupons')
+        .select('id')
+        .eq('customer_id', customer.id)
+      
+      if (!customerCoupons || customerCoupons.length === 0) return
+
+      const couponIds = customerCoupons.map(c => c.id)
+      
+      // クーポン使用履歴を取得
+      const { data: usages, error } = await supabase
+        .from('coupon_usages')
+        .select(`
+          id,
+          discount_amount,
+          used_at,
+          reservations:reservation_id (id, title, requested_datetime)
+        `)
+        .in('customer_coupon_id', couponIds)
+        .order('used_at', { ascending: false })
+
+      if (error) throw error
+      
+      const formattedUsages = (usages || []).map((u: any) => ({
+        id: u.id,
+        discount_amount: u.discount_amount,
+        used_at: u.used_at,
+        reservation: u.reservations
+      }))
+      
+      setCouponUsages(formattedUsages)
+    } catch (error) {
+      logger.error('クーポン使用履歴の取得エラー:', error)
     }
   }
 
@@ -88,9 +146,19 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
           <Badge variant="outline" className="font-normal">{customer.reservation_count || 0}件</Badge>
         </div>
         <div className="col-span-1 text-center">
+          {couponStats ? (
+            <Badge variant="outline" className="font-normal text-xs">
+              <Ticket className="h-3 w-3 mr-1" />
+              {couponStats.remaining_coupons}/{couponStats.total_coupons}
+            </Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground/50">-</span>
+          )}
+        </div>
+        <div className="col-span-1 text-center">
           <Badge variant="secondary" className="font-normal" {...devDb('customers.visit_count')}>{customer.visit_count}回</Badge>
         </div>
-        <div className="col-span-2 text-right font-medium" {...devDb('customers.total_spent')}>
+        <div className="col-span-1 text-right font-medium text-sm" {...devDb('customers.total_spent')}>
           {formatCurrency(customer.total_spent)}
         </div>
         <div className="col-span-2 text-xs text-muted-foreground truncate">
@@ -171,6 +239,50 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
               <p className="text-xs text-muted-foreground whitespace-pre-wrap bg-white p-2 rounded border min-h-[60px]">
                 {customer.notes || 'メモなし'}
               </p>
+            </div>
+          </div>
+
+          {/* クーポン情報 */}
+          <div>
+            <h4 className="mb-2 font-bold text-sm flex items-center gap-2">
+              <Ticket className="h-4 w-4" />
+              クーポン情報
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* クーポン残高 */}
+              <div className="p-3 bg-background rounded-lg border">
+                <div className="text-xs text-muted-foreground mb-1">クーポン残高</div>
+                {couponStats ? (
+                  <div className="flex items-center gap-3">
+                    <div className="text-lg font-bold text-primary">{couponStats.remaining_coupons}枚</div>
+                    <div className="text-xs text-muted-foreground">
+                      (取得: {couponStats.total_coupons}枚 / 使用済: {couponStats.used_coupons}枚)
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">クーポンなし</div>
+                )}
+              </div>
+              
+              {/* クーポン使用履歴 */}
+              <div className="p-3 bg-background rounded-lg border">
+                <div className="text-xs text-muted-foreground mb-1">使用履歴</div>
+                {couponUsages.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">使用履歴なし</div>
+                ) : (
+                  <div className="space-y-1 max-h-[100px] overflow-y-auto">
+                    {couponUsages.map((usage) => (
+                      <div key={usage.id} className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">{formatDate(usage.used_at)}</span>
+                          <span className="truncate max-w-[150px]">{usage.reservation?.title || '予約'}</span>
+                        </div>
+                        <span className="font-medium text-red-500">-¥{usage.discount_amount.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

@@ -5,9 +5,16 @@ import type { Customer } from '@/types'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
+export interface CustomerCouponStats {
+  total_coupons: number      // 取得したクーポン総数（uses_remaining の初期値の合計）
+  used_coupons: number       // 使用済みクーポン数
+  remaining_coupons: number  // 残りクーポン数
+}
+
 export function useCustomerData() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
+  const [couponStats, setCouponStats] = useState<Record<string, CustomerCouponStats>>({})
 
   const fetchCustomers = async () => {
     setLoading(true)
@@ -31,6 +38,7 @@ export function useCustomerData() {
       // 予約データから累計支払額と予約数を集計
       const customerIds = (data || []).map(c => c.id)
       let reservationStats: Record<string, { total_paid: number; reservation_count: number }> = {}
+      let couponStatsMap: Record<string, CustomerCouponStats> = {}
       
       if (customerIds.length > 0) {
         let resQuery = supabase
@@ -56,6 +64,41 @@ export function useCustomerData() {
             }
           })
         }
+
+        // クーポン情報を取得
+        let couponQuery = supabase
+          .from('customer_coupons')
+          .select(`
+            id,
+            customer_id,
+            uses_remaining,
+            status,
+            coupon_campaigns!inner (max_uses_per_customer)
+          `)
+          .in('customer_id', customerIds)
+        
+        if (orgId) {
+          couponQuery = couponQuery.eq('organization_id', orgId)
+        }
+        
+        const { data: coupons } = await couponQuery
+        
+        if (coupons) {
+          coupons.forEach((coupon: any) => {
+            if (coupon.customer_id) {
+              if (!couponStatsMap[coupon.customer_id]) {
+                couponStatsMap[coupon.customer_id] = { total_coupons: 0, used_coupons: 0, remaining_coupons: 0 }
+              }
+              const maxUses = coupon.coupon_campaigns?.max_uses_per_customer || 0
+              const remaining = coupon.uses_remaining || 0
+              const used = maxUses - remaining
+              
+              couponStatsMap[coupon.customer_id].total_coupons += maxUses
+              couponStatsMap[coupon.customer_id].used_coupons += used
+              couponStatsMap[coupon.customer_id].remaining_coupons += remaining
+            }
+          })
+        }
       }
 
       // 顧客データに予約統計をマージ
@@ -67,6 +110,7 @@ export function useCustomerData() {
 
       logger.log('顧客データ取得完了:', customersWithStats.length)
       setCustomers(customersWithStats)
+      setCouponStats(couponStatsMap)
     } catch (error) {
       logger.error('顧客データ取得エラー:', error)
       showToast.error('顧客データの取得に失敗しました')
@@ -86,6 +130,7 @@ export function useCustomerData() {
   return {
     customers,
     loading,
+    couponStats,
     refreshCustomers,
   }
 }
