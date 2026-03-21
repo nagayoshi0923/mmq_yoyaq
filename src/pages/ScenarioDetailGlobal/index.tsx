@@ -19,7 +19,7 @@ import { useFavorites } from '@/hooks/useFavorites'
 import { showToast } from '@/utils/toast'
 import { 
   ArrowLeft, Users, Clock, Calendar, MapPin, Building2, ChevronRight, ChevronDown, ChevronUp,
-  Sparkles, BookOpen, Heart, Info, ExternalLink, Star, AlertCircle, MessageSquare, Zap, CheckCheck
+  Sparkles, BookOpen, Heart, Info, ExternalLink, AlertCircle, MessageSquare, CheckCheck
 } from 'lucide-react'
 import { getColorFromName } from '@/lib/utils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -43,7 +43,6 @@ interface ScenarioMaster {
   player_count_max: number
   official_duration: number
   genre: string[]
-  difficulty: string | null
   synopsis: string | null
   master_status: string
   participation_fee?: number
@@ -192,7 +191,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       if (!useLegacyTable) {
         const { data, error } = await supabase
           .from('scenario_masters')
-          .select('id, title, author, author_id, key_visual_url, description, player_count_min, player_count_max, official_duration, genre, difficulty, synopsis, caution, required_items, master_status, created_at, updated_at, gallery_images')
+          .select('id, title, author, author_id, key_visual_url, description, player_count_min, player_count_max, official_duration, genre, synopsis, caution, required_items, master_status, created_at, updated_at, gallery_images')
           .eq('id', masterId)
           .limit(1)
         
@@ -246,7 +245,6 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           participation_fee: legacyData.participation_fee,
           synopsis: legacyData.synopsis,
           // 以下はselectに含まれていないため、デフォルト値を使用
-          difficulty: null,
           has_pre_reading: false,
           gm_comment: null
         }
@@ -664,21 +662,6 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   const synopsisLength = scenario?.synopsis?.length || 0
   const shouldTruncateSynopsis = synopsisLength > 200
 
-  // 難易度に応じた色を返す
-  const getDifficultyColor = (difficulty: string): { bg: string, text: string } => {
-    const difficultyLower = difficulty.toLowerCase()
-    if (difficultyLower.includes('初心者') || difficultyLower.includes('easy') || difficultyLower.includes('初級')) {
-      return { bg: '#dcfce7', text: '#166534' } // 緑
-    } else if (difficultyLower.includes('中級') || difficultyLower.includes('medium') || difficultyLower.includes('普通')) {
-      return { bg: '#fef9c3', text: '#854d0e' } // 黄
-    } else if (difficultyLower.includes('上級') || difficultyLower.includes('hard') || difficultyLower.includes('難')) {
-      return { bg: '#fed7aa', text: '#c2410c' } // オレンジ
-    } else if (difficultyLower.includes('最難') || difficultyLower.includes('expert') || difficultyLower.includes('エキスパート')) {
-      return { bg: '#fecaca', text: '#dc2626' } // 赤
-    }
-    return { bg: '#f3f4f6', text: '#374151' } // グレー（デフォルト）
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: THEME.background }}>
@@ -822,15 +805,6 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                       <p className="font-medium text-gray-900">{formatDuration(scenario.official_duration)}</p>
                     </div>
                   </div>
-                  {scenario.difficulty && (
-                    <div className="flex items-center gap-3">
-                      <Star className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <span className="text-xs text-gray-500">難易度</span>
-                        <p className="font-medium text-gray-900">{scenario.difficulty}</p>
-                      </div>
-                    </div>
-                  )}
                   {scenario.participation_fee && (
                     <div className="flex items-center gap-3">
                       <span className="w-4 h-4 text-gray-400 text-center font-bold">¥</span>
@@ -897,7 +871,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                 {scenario.title}
               </h1>
               
-              {/* ジャンル・難易度・事前読解バッジ */}
+              {/* ジャンル・事前読解バッジ */}
               <div className="flex flex-wrap items-center gap-2">
                 {scenario.genre && scenario.genre.map((g, i) => (
                   <Badge 
@@ -909,19 +883,6 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                     {g}
                   </Badge>
                 ))}
-                {scenario.difficulty && (
-                  <Badge 
-                    className="text-xs px-2.5 py-1 flex items-center gap-1"
-                    style={{ 
-                      backgroundColor: getDifficultyColor(scenario.difficulty).bg,
-                      color: getDifficultyColor(scenario.difficulty).text,
-                      border: 'none'
-                    }}
-                  >
-                    <Zap className="w-3 h-3" />
-                    {scenario.difficulty}
-                  </Badge>
-                )}
                 {scenario.has_pre_reading && (
                   <Badge 
                     className="text-xs px-2.5 py-1 flex items-center gap-1 bg-blue-100 text-blue-700"
