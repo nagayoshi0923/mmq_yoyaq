@@ -47,7 +47,12 @@ export const LineupView = memo(function LineupView({
   const isSearching = searchTerm.length > 0
 
   // 体験済みシナリオ
-  const { isPlayed } = usePlayedScenarios()
+  const { isPlayed, togglePlayed } = usePlayedScenarios()
+
+  const handleTogglePlayed = (scenarioId: string, scenarioTitle: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    togglePlayed(scenarioId, scenarioTitle)
+  }
   
   // 臨時会場を除外した店舗リスト
   const filteredStores = useMemo(() => stores.filter(store => !store.is_temporary), [stores])
@@ -116,6 +121,7 @@ export const LineupView = memo(function LineupView({
                   isFavorite={isFavorite(scenario.scenario_id)}
                   isPlayed={isPlayed(scenario.scenario_id)}
                   onToggleFavorite={onToggleFavorite}
+                  onTogglePlayed={handleTogglePlayed}
                   organizationName={organizationName}
                 />
               ))}
@@ -163,6 +169,7 @@ export const LineupView = memo(function LineupView({
                 isFavorite={isFavorite(scenario.scenario_id)}
                 isPlayed={isPlayed(scenario.scenario_id)}
                 onToggleFavorite={onToggleFavorite}
+                onTogglePlayed={handleTogglePlayed}
                 organizationName={organizationName}
               />
             ))}
@@ -213,6 +220,7 @@ export const LineupView = memo(function LineupView({
                   isFavorite={isFavorite(scenario.scenario_id)}
                   isPlayed={isPlayed(scenario.scenario_id)}
                   onToggleFavorite={onToggleFavorite}
+                  onTogglePlayed={handleTogglePlayed}
                   organizationName={organizationName}
                 />
               ))}

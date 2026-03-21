@@ -140,7 +140,7 @@ export function PlatformTop() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { favorites, toggleFavorite } = useFavorites()
-  const { isPlayed } = usePlayedScenarios()
+  const { isPlayed, togglePlayed } = usePlayedScenarios()
 
   const [boot] = useState<{ snap: PlatformTopDisplaySnapshot | null }>(() => ({
     snap: readPlatformTopDisplaySnapshot(),
@@ -592,6 +592,11 @@ export function PlatformTop() {
     toggleFavorite(scenarioId)
   }
 
+  const handlePlayedClick = (scenarioId: string, scenarioTitle: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    togglePlayed(scenarioId, scenarioTitle)
+  }
+
   const handleScenarioClick = (slugOrId: string, eventDate?: string, eventTime?: string) => {
     saveScrollPositionForCurrentUrl()
     // 日付・時間パラメータがあれば追加
@@ -751,6 +756,7 @@ export function PlatformTop() {
                 isFavorite={favorites.has(scenario.scenario_id)}
                 isPlayed={isPlayed(scenario.scenario_id)}
                 onToggleFavorite={(scenarioId, e) => handleFavoriteClick(e, scenarioId)}
+                onTogglePlayed={handlePlayedClick}
                 organizationName={scenario.organization_name}
               />
             ))}
@@ -830,6 +836,7 @@ export function PlatformTop() {
                       isFavorite={favorites.has(scenario.scenario_id)}
                       isPlayed={isPlayed(scenario.scenario_id)}
                       onToggleFavorite={(scenarioId, e) => handleFavoriteClick(e, scenarioId)}
+                      onTogglePlayed={handlePlayedClick}
                       organizationName={scenario.organization_name}
                     />
                   ))}
@@ -873,6 +880,7 @@ export function PlatformTop() {
                         isFavorite={favorites.has(scenario.scenario_id)}
                         isPlayed={isPlayed(scenario.scenario_id)}
                         onToggleFavorite={(scenarioId, e) => handleFavoriteClick(e, scenarioId)}
+                        onTogglePlayed={handlePlayedClick}
                         organizationName={scenario.organization_name}
                       />
                     ))}
