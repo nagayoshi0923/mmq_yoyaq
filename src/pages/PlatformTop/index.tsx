@@ -750,7 +750,7 @@ export function PlatformTop() {
                 }}
                 isFavorite={favorites.has(scenario.scenario_id)}
                 isPlayed={isPlayed(scenario.scenario_id)}
-                onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
+                onToggleFavorite={(scenarioId, e) => handleFavoriteClick(e, scenarioId)}
                 organizationName={scenario.organization_name}
               />
             ))}
@@ -829,7 +829,7 @@ export function PlatformTop() {
                       onClick={handleScenarioClick}
                       isFavorite={favorites.has(scenario.scenario_id)}
                       isPlayed={isPlayed(scenario.scenario_id)}
-                      onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
+                      onToggleFavorite={(scenarioId, e) => handleFavoriteClick(e, scenarioId)}
                       organizationName={scenario.organization_name}
                     />
                   ))}
@@ -872,7 +872,7 @@ export function PlatformTop() {
                         onClick={handleScenarioClick}
                         isFavorite={favorites.has(scenario.scenario_id)}
                         isPlayed={isPlayed(scenario.scenario_id)}
-                        onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
+                        onToggleFavorite={(scenarioId, e) => handleFavoriteClick(e, scenarioId)}
                         organizationName={scenario.organization_name}
                       />
                     ))}

@@ -96,7 +96,7 @@ async function fetchScenarioCatalogBundle(): Promise<{
     scenariosQuery,
     supabase.rpc('get_public_available_scenario_keys'),
     supabase.from('stores').select('id, name, short_name, ownership_type, region, address, display_order'),
-    supabase.from('organization_categories').select('id, name, sort_order').order('sort_order'),
+    supabase.rpc('get_all_public_categories'),
   ])
 
   const stores = (storesResult.data || []) as StoreData[]

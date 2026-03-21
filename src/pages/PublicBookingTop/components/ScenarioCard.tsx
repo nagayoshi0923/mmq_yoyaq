@@ -112,6 +112,7 @@ interface ScenarioCardProps {
   isFavorite?: boolean
   isPlayed?: boolean
   onToggleFavorite?: (scenarioId: string, e: React.MouseEvent) => void
+  onTogglePlayed?: (scenarioId: string, scenarioTitle: string, e: React.MouseEvent) => void
   organizationName?: string | null
 }
 
@@ -123,7 +124,8 @@ export const ScenarioCard = memo(function ScenarioCard({
   onClick, 
   isFavorite = false, 
   isPlayed = false,
-  onToggleFavorite, 
+  onToggleFavorite,
+  onTogglePlayed,
   organizationName
 }: ScenarioCardProps) {
   const { prefetchScenario } = usePrefetch()
@@ -131,6 +133,11 @@ export const ScenarioCard = memo(function ScenarioCard({
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     onToggleFavorite?.(scenario.scenario_id, e)
+  }
+
+  const handlePlayedClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onTogglePlayed?.(scenario.scenario_id, scenario.scenario_title, e)
   }
   
   const formatDate = (dateStr?: string): { date: string, weekday: string, dayOfWeek: number } => {
@@ -247,15 +254,15 @@ export const ScenarioCard = memo(function ScenarioCard({
               <p className="text-xs text-gray-500" {...devDb('scenarios.author')}>{scenario.author}</p>
             )}
             <div className="flex items-center gap-0.5">
-              {/* 体験済みマーク */}
+              {/* 体験済みボタン */}
               <button 
                 type="button"
-                onClick={(e) => e.stopPropagation()}
+                onClick={handlePlayedClick}
                 onTouchEnd={(e) => e.stopPropagation()}
-                className="flex-shrink-0 p-1 cursor-default"
-                title={isPlayed ? '体験済み' : '未体験'}
+                className={`flex-shrink-0 p-1 transition-colors rounded ${onTogglePlayed ? 'hover:bg-green-50 cursor-pointer' : 'cursor-default'}`}
+                title={isPlayed ? '体験済み' : '未体験（クリックで登録）'}
               >
-                <CheckCheck className={`h-4 w-4 ${isPlayed ? 'text-green-500' : 'text-gray-300'}`} />
+                <CheckCheck className={`h-4 w-4 ${isPlayed ? 'text-green-500' : 'text-gray-300 hover:text-green-300'}`} />
               </button>
               {/* お気に入りボタン */}
               {onToggleFavorite && (

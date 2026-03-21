@@ -107,11 +107,8 @@ async function fetchScenarioSearchData(): Promise<ScenarioSearchResult> {
     // 店舗データを取得（available_storesのIDを名前に変換するため + フィルター用）
     // RPC経由で取得（anon権限でも安全に取得可能）
     supabase.rpc('get_all_public_stores'),
-    // カテゴリ（organization_categories）を取得
-    supabase
-      .from('organization_categories')
-      .select('id, name, sort_order')
-      .order('sort_order')
+    // カテゴリを取得（RPC経由で匿名ユーザーにも安全に返す）
+    supabase.rpc('get_all_public_categories')
   ])
 
   const availableKeys = keysResult.data || []
@@ -723,16 +720,14 @@ export function PlatformScenarioSearch() {
                           <span className="truncate">{scenario.organization_name}</span>
                         </div>
                       )}
-                      {user && (
-                        <button
-                          onClick={(e) => handleToggleFavorite(scenario.id, e)}
-                          className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
-                        >
-                          <Heart className={`h-4 w-4 fill-current text-red-500 ${
-                            isFavorite(scenario.id) ? 'opacity-100' : 'opacity-30 hover:opacity-50'
-                          }`} />
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => handleToggleFavorite(scenario.id, e)}
+                        className="flex-shrink-0 p-1 transition-colors hover:bg-red-50 rounded"
+                      >
+                        <Heart className={`h-4 w-4 fill-current text-red-500 ${
+                          isFavorite(scenario.id) ? 'opacity-100' : 'opacity-30 hover:opacity-50'
+                        }`} />
+                      </button>
                     </div>
                     
                     {/* 著者 */}

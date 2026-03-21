@@ -442,7 +442,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         .select(`
           id, date, start_time, time_slot, current_participants, category, is_cancelled, organization_id,
           scenario_masters:scenario_master_id (id, title, player_count_max),
-          stores:store_id (id, name, short_name, color, region, store_type),
+          stores:store_id (id, name, short_name, color, region),
           organizations:organization_id (id, slug, name)
         `)
         .eq('scenario_master_id', masterId)
@@ -454,12 +454,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         .limit(50)
 
       if (eventError) {
-        logger.error('Failed to fetch events:', eventError)
+        logger.error('Failed to fetch events:', eventError, 'message:', eventError.message, 'code:', eventError.code)
       }
 
       const formattedEvents: EventWithOrg[] = (eventData || [])
-        // オフィス店舗を除外
-        .filter((e: any) => e.stores?.store_type !== 'office')
         .map((e: any) => {
           const scenario = e.scenario_masters
           const store = e.stores
