@@ -14,6 +14,9 @@ import { useCalendarData } from './hooks/useCalendarData'
 import { useListViewData } from './hooks/useListViewData'
 import { useBookingFilters } from './hooks/useBookingFilters'
 import { useFavorites } from '@/hooks/useFavorites'
+import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
+import { PlayedRegistrationDialog } from '@/components/modals/PlayedRegistrationDialog'
+import { showToast } from '@/utils/toast'
 import { useStoreFilterPreference } from '@/hooks/useUserPreference'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
@@ -193,6 +196,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   
   // お気に入り機能
   const { isFavorite, toggleFavorite } = useFavorites()
+  const { isPlayed, customerId: playedCustomerId, markAsPlayed } = usePlayedScenarios()
+  const [playedDialogTarget, setPlayedDialogTarget] = useState<{ id: string; title: string } | null>(null)
   
   // 組織情報（店舗数・所在地）
   const orgInfo = useMemo(() => {
@@ -472,7 +477,14 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                   handleCardClick(slugOrId, nearlyFullEvent?.date, nearlyFullEvent?.time)
                 }}
                 isFavorite={isFavorite(scenario.scenario_id)}
+                isPlayed={isPlayed(scenario.scenario_id)}
                 onToggleFavorite={handleToggleFavorite}
+                onTogglePlayed={(id, title, e) => {
+                  e.stopPropagation()
+                  if (!user) { showToast.error('ログインが必要です'); return }
+                  if (isPlayed(id)) { showToast.info('既に体験済みとして登録されています'); return }
+                  setPlayedDialogTarget({ id, title })
+                }}
               />
             ))}
           </div>
@@ -549,6 +561,17 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
 
       {/* フッター */}
       <Footer organizationSlug={organizationSlug} organizationName={organizationName ?? undefined} stores={stores} />
+
+      {playedDialogTarget && (
+        <PlayedRegistrationDialog
+          open={!!playedDialogTarget}
+          onOpenChange={(open) => { if (!open) setPlayedDialogTarget(null) }}
+          scenarioTitle={playedDialogTarget.title}
+          scenarioMasterId={playedDialogTarget.id}
+          customerId={playedCustomerId}
+          onRegistered={() => markAsPlayed(playedDialogTarget.id)}
+        />
+      )}
     </div>
   )
 }

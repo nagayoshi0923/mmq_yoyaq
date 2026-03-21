@@ -16,6 +16,8 @@ import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import { usePlayedScenarios } from '@/hooks/usePlayedScenarios'
+import { PlayedRegistrationDialog } from '@/components/modals/PlayedRegistrationDialog'
+import { showToast } from '@/utils/toast'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -140,7 +142,8 @@ export function PlatformTop() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { favorites, toggleFavorite } = useFavorites()
-  const { isPlayed, togglePlayed } = usePlayedScenarios()
+  const { isPlayed, customerId, markAsPlayed } = usePlayedScenarios()
+  const [playedDialogTarget, setPlayedDialogTarget] = useState<{ id: string; title: string } | null>(null)
 
   const [boot] = useState<{ snap: PlatformTopDisplaySnapshot | null }>(() => ({
     snap: readPlatformTopDisplaySnapshot(),
@@ -594,7 +597,15 @@ export function PlatformTop() {
 
   const handlePlayedClick = (scenarioId: string, scenarioTitle: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    togglePlayed(scenarioId, scenarioTitle)
+    if (!user) {
+      showToast.error('ログインが必要です')
+      return
+    }
+    if (isPlayed(scenarioId)) {
+      showToast.info('既に体験済みとして登録されています')
+      return
+    }
+    setPlayedDialogTarget({ id: scenarioId, title: scenarioTitle })
   }
 
   const handleScenarioClick = (slugOrId: string, eventDate?: string, eventTime?: string) => {
@@ -1164,6 +1175,17 @@ export function PlatformTop() {
             </div>
           </div>
         </div>
+      )}
+
+      {playedDialogTarget && (
+        <PlayedRegistrationDialog
+          open={!!playedDialogTarget}
+          onOpenChange={(open) => { if (!open) setPlayedDialogTarget(null) }}
+          scenarioTitle={playedDialogTarget.title}
+          scenarioMasterId={playedDialogTarget.id}
+          customerId={customerId}
+          onRegistered={() => markAsPlayed(playedDialogTarget.id)}
+        />
       )}
     </div>
   )
