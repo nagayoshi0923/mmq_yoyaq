@@ -74,7 +74,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
             <span className="text-muted-foreground/50">未登録</span>
           )}
         </div>
-        <div className="col-span-2 text-xs text-muted-foreground truncate flex items-center gap-2">
+        <div className="col-span-1 text-xs text-muted-foreground truncate flex items-center gap-2">
           {customer.phone ? (
             <>
               <Phone className="h-3 w-3 flex-shrink-0" />
@@ -83,6 +83,9 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
           ) : (
             <span className="text-muted-foreground/50">未登録</span>
           )}
+        </div>
+        <div className="col-span-1 text-center">
+          <Badge variant="outline" className="font-normal">{customer.reservation_count || 0}件</Badge>
         </div>
         <div className="col-span-1 text-center">
           <Badge variant="secondary" className="font-normal" {...devDb('customers.visit_count')}>{customer.visit_count}回</Badge>

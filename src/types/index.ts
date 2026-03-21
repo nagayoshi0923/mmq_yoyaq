@@ -554,6 +554,7 @@ export interface Customer {
   birth_date?: string | null  // 生年月日（YYYY-MM-DD）
   visit_count: number
   total_spent: number
+  reservation_count?: number  // 予約数（予約テーブルから集計）
   last_visit?: string | null
   preferences?: string[]
   notification_settings?: CustomerNotificationSettings | null
