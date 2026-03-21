@@ -904,25 +904,26 @@ async function sendBusinessSummaryNotification(
   const jstDate = now.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' })
   const jstTime = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })
   
-  // 対象日を計算（PostgreSQLのCURRENT_DATEと同じUTCベース）
-  // RPCは CURRENT_DATE + INTERVAL '1 day' を使用するため、UTCベースで計算
-  // 2026-03-10 修正: UTC日付を正しく計算
-  const getTargetDateUTC = (checkTypeArg: string): string => {
+  // 対象日を計算（日本時間ベース）
+  // schedule_eventsのdateは日本時間の日付として保存されているため、JSTベースで計算
+  const getTargetDateJST = (checkTypeArg: string): string => {
     const currentTime = new Date()
-    const y = currentTime.getUTCFullYear()
-    const m = currentTime.getUTCMonth()
-    const d = currentTime.getUTCDate()
+    // JSTオフセット（+9時間）を適用
+    const jstTime = new Date(currentTime.getTime() + 9 * 60 * 60 * 1000)
+    const y = jstTime.getUTCFullYear()
+    const m = jstTime.getUTCMonth()
+    const d = jstTime.getUTCDate()
     
-    console.log(`🕐 UTC計算: year=${y}, month=${m}, date=${d}, checkType=${checkTypeArg}`)
+    console.log(`🕐 JST計算: year=${y}, month=${m + 1}, date=${d}, checkType=${checkTypeArg}`)
     
     if (checkTypeArg === 'day_before') {
-      // CURRENT_DATE + 1 day (UTC)
+      // 翌日（JST）
       const targetDate = new Date(Date.UTC(y, m, d + 1))
       const result = targetDate.toISOString().split('T')[0]
       console.log(`📅 day_before計算結果: ${result}`)
       return result
     } else {
-      // CURRENT_DATE (UTC) - 4時間前判定は当日
+      // 当日（JST）- 4時間前判定は当日
       const targetDate = new Date(Date.UTC(y, m, d))
       const result = targetDate.toISOString().split('T')[0]
       console.log(`📅 four_hours_before計算結果: ${result}`)
@@ -935,8 +936,8 @@ async function sendBusinessSummaryNotification(
     // 処理されたイベントがあればその日付を使用
     targetDateForQuery = result.details[0].date
   } else {
-    // RPCと同じ日付を計算（UTCベース）
-    targetDateForQuery = getTargetDateUTC(checkType)
+    // RPCと同じ日付を計算（JSTベース）
+    targetDateForQuery = getTargetDateJST(checkType)
   }
   
   console.log(`📅 クエリ対象日: ${targetDateForQuery} (checkType: ${checkType})`)
