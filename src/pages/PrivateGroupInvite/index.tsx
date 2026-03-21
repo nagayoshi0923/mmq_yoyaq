@@ -19,6 +19,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
+import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { SurveyResponseForm } from './components/SurveyResponseForm'
 
 interface Coupon {
@@ -956,6 +957,17 @@ export function PrivateGroupInvite() {
       
       if (!customerId) {
         throw new Error('顧客情報の取得に失敗しました')
+      }
+
+      const { data: phoneRow, error: phoneVerifyError } = await supabase
+        .from('customers')
+        .select('phone')
+        .eq('id', customerId)
+        .eq('user_id', user.id)
+        .eq('organization_id', orgId)
+        .maybeSingle()
+      if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
+        throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
       }
       
       // 予約番号を生成

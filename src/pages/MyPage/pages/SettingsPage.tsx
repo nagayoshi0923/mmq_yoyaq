@@ -23,6 +23,10 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { RESERVATION_STATUSES_BLOCKING_WITHDRAWAL } from '@/lib/reservationWithdrawalGuard'
+import {
+  MSG_CANNOT_CLEAR_REGISTERED_PHONE,
+  hasNonEmptyCustomerPhone,
+} from '@/lib/customerPhonePolicy'
 
 type DialogType =
   | 'profile'
@@ -198,6 +202,11 @@ export function SettingsPage() {
       return
     }
 
+    if (hasNonEmptyCustomerPhone(customerInfo?.phone) && !hasNonEmptyCustomerPhone(formData.phone)) {
+      showToast.warning(MSG_CANNOT_CLEAR_REGISTERED_PHONE)
+      return
+    }
+
     setSaving(true)
     try {
       if (customerInfo) {
@@ -206,7 +215,7 @@ export function SettingsPage() {
           .update({
             name: formData.name,
             nickname: formData.nickname || null,
-            phone: formData.phone || null,
+            phone: formData.phone.trim() || null,
             address: formData.address || null,
             line_id: formData.lineId || null,
             notes: formData.notes || null,
@@ -240,7 +249,7 @@ export function SettingsPage() {
               .update({
                 name: formData.name,
                 nickname: formData.nickname || null,
-                phone: formData.phone || null,
+                phone: formData.phone.trim() || null,
                 address: formData.address || null,
                 line_id: formData.lineId || null,
                 notes: formData.notes || null,
@@ -256,7 +265,7 @@ export function SettingsPage() {
                 user_id: user.id,
                 name: formData.name,
                 nickname: formData.nickname || null,
-                phone: formData.phone || null,
+                phone: formData.phone.trim() || null,
                 address: formData.address || null,
                 line_id: formData.lineId || null,
                 notes: formData.notes || null,
@@ -664,6 +673,11 @@ export function SettingsPage() {
                 placeholder="090-1234-5678"
                 className="mt-1"
               />
+              {hasNonEmptyCustomerPhone(customerInfo?.phone) && (
+                <p className="text-xs text-gray-500 mt-1">
+                  登録済みの電話番号は空にできません（変更は可能です）
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="address" className="flex items-center gap-2">

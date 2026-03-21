@@ -5,6 +5,7 @@ import { logger } from '@/utils/logger'
 import { formatDate } from '../utils/bookingFormatters'
 import { getCurrentParticipantsCount } from '@/lib/participantUtils'
 import { reservationApi } from '@/lib/reservationApi'
+import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 
 /**
  * 参加費を計算する関数
@@ -407,6 +408,10 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       throw new Error('ログインが必要です')
     }
 
+    if (!hasNonEmptyCustomerPhone(customerPhone)) {
+      throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -504,6 +509,19 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       
       if (!customerId) {
         throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
+      }
+
+      let phoneVerifyQuery = supabase
+        .from('customers')
+        .select('phone')
+        .eq('id', customerId)
+        .eq('user_id', props.userId)
+      if (organizationId) {
+        phoneVerifyQuery = phoneVerifyQuery.eq('organization_id', organizationId)
+      }
+      const { data: phoneRow, error: phoneVerifyError } = await phoneVerifyQuery.maybeSingle()
+      if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
+        throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
       }
 
       // 冪等性: 予約番号（YYMMDD-XXXX）を1回だけ生成してリトライでも固定

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
+import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import type { TimeSlot } from '../types'
 
 // 貸切予約用RPCエラーコード → ユーザー向けメッセージのマッピング
@@ -51,6 +52,10 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
     const effectiveGroupId = groupIdOverride || props.groupId
     if (!props.userId) {
       throw new Error('ログインが必要です')
+    }
+
+    if (!hasNonEmptyCustomerPhone(customerPhone)) {
+      throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
     }
 
     setIsSubmitting(true)
@@ -106,6 +111,17 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
 
       if (!customerId) {
         throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
+      }
+
+      const { data: phoneRow, error: phoneVerifyError } = await supabase
+        .from('customers')
+        .select('phone')
+        .eq('id', customerId)
+        .eq('user_id', props.userId)
+        .eq('organization_id', organizationId)
+        .maybeSingle()
+      if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
+        throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
       }
 
       // 候補日時のバリデーション

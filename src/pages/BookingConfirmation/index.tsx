@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import type { BookingConfirmationProps } from './types'
+import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 
 export function BookingConfirmation({
   eventId,
@@ -244,6 +245,16 @@ export function BookingConfirmation({
       return
     }
 
+    if (!hasNonEmptyCustomerPhone(customerPhone)) {
+      setError('電話番号を入力してください')
+      return
+    }
+    const phoneDigits = customerPhone.replace(/[-\s]/g, '')
+    if (!/^\d{10,11}$/.test(phoneDigits)) {
+      setError('電話番号は10〜11桁で入力してください')
+      return
+    }
+
     if (!user) {
       setError('ログインが必要です')
       return
@@ -270,16 +281,29 @@ export function BookingConfirmation({
 
       if (eventError) throw eventError
 
-      // 顧客IDを取得または作成（ログインユーザー基準）
+      // 顧客IDを取得または作成（ログインユーザー・組織で一意）
       let customerId: string | null = null
       const { data: existingCustomer } = await supabase
         .from('customers')
         .select('id')
         .eq('user_id', user.id)
+        .eq('organization_id', eventData.organization_id)
         .maybeSingle()
 
       if (existingCustomer) {
         customerId = existingCustomer.id
+        const { error: custUpdErr } = await supabase
+          .from('customers')
+          .update({
+            name: customerName,
+            nickname: customerNickname || null,
+            phone: customerPhone.trim(),
+            email: customerEmail,
+          })
+          .eq('id', customerId)
+          .eq('user_id', user.id)
+          .eq('organization_id', eventData.organization_id)
+        if (custUpdErr) throw custUpdErr
       } else {
         const { data: newCustomer, error: customerError } = await supabase
           .from('customers')
@@ -287,7 +311,7 @@ export function BookingConfirmation({
             user_id: user.id,
             name: customerName,
             nickname: customerNickname || null,
-            phone: customerPhone || null,
+            phone: customerPhone.trim(),
             email: customerEmail,
             organization_id: eventData.organization_id
           })
@@ -302,6 +326,17 @@ export function BookingConfirmation({
         throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
       }
 
+      const { data: phoneRow, error: phoneVerifyError } = await supabase
+        .from('customers')
+        .select('phone')
+        .eq('id', customerId)
+        .eq('user_id', user.id)
+        .eq('organization_id', eventData.organization_id)
+        .maybeSingle()
+      if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
+        throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
+      }
+
       // キャンセル待ちに登録
       const { error: insertError } = await supabase
         .from('waitlist')
@@ -311,7 +346,7 @@ export function BookingConfirmation({
           customer_id: customerId,
           customer_name: customerName,
           customer_email: customerEmail,
-          customer_phone: customerPhone || null,
+          customer_phone: customerPhone.trim(),
           participant_count: waitlistParticipantCount,
           status: 'waiting'
         })
@@ -819,7 +854,13 @@ export function BookingConfirmation({
                     </div>
                     <Button
                       onClick={handleWaitlistSubmit}
-                      disabled={waitlistSubmitting || !customerName || !customerEmail}
+                      disabled={
+                        waitlistSubmitting ||
+                        !customerName ||
+                        !customerEmail ||
+                        !hasNonEmptyCustomerPhone(customerPhone) ||
+                        !/^\d{10,11}$/.test(customerPhone.replace(/[-\s]/g, ''))
+                      }
                       className="w-full h-9 text-sm"
                     >
                       <Bell className="w-4 h-4 mr-2" />
