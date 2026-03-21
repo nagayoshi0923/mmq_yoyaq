@@ -98,6 +98,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   const [favoriteScenarioId, setFavoriteScenarioId] = useState<string | null>(null)
   // 体験済み登録用ステート
   const [isPlayed, setIsPlayed] = useState(false)
+  const [isPlayedChecked, setIsPlayedChecked] = useState(false)
   const [isPlayedDialogOpen, setIsPlayedDialogOpen] = useState(false)
   const [playedDate, setPlayedDate] = useState('')
   const [isPlayedSubmitting, setIsPlayedSubmitting] = useState(false)
@@ -112,6 +113,9 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
   useReportRouteScrollRestoration('scenario-detail-global', { isLoading: loading })
 
   useEffect(() => {
+    // シナリオが変わったら状態をリセット
+    setIsPlayed(false)
+    setIsPlayedChecked(false)
     fetchData()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenarioSlug])
@@ -368,7 +372,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       
       // scenario_mastersからシナリオを見つけた場合、関連するscenariosのIDを取得
       let scenarioIdsForEvents: string[] = [masterId]
-      let favoriteId: string | null = useLegacyTable ? masterId : null
+      // お気に入りは常にscenario_masters.idを使用（外部キー制約のため）
+      const favoriteId: string = masterId
       
       // 貸切可能な組織リストを作成
       const availableOrgs: Array<{ id: string; slug: string; name: string; scenarioId: string; scenarioSlug: string }> = []
@@ -383,8 +388,6 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         
         if (relatedScenarios && relatedScenarios.length > 0) {
           scenarioIdsForEvents = relatedScenarios.map(s => s.id)
-          // お気に入り用に最初のシナリオIDを使用
-          favoriteId = relatedScenarios[0].id
           
           // 組織リストを作成
           relatedScenarios.forEach(s => {
@@ -556,10 +559,12 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     }
   }
 
-  // 体験済みかどうかチェック
+  // 体験済みかどうかチェック（初回のみ、user.emailとscenario.idが確定したとき）
   useEffect(() => {
     const checkPlayed = async () => {
-      if (!user?.email || !scenario) return
+      if (!user?.email || !scenario?.id) return
+      // 既にチェック済みならスキップ
+      if (isPlayedChecked) return
       
       try {
         const { data: customer } = await supabase
@@ -568,7 +573,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           .eq('email', user.email)
           .maybeSingle()
         
-        if (!customer) return
+        if (!customer) {
+          setIsPlayedChecked(true)
+          return
+        }
         
         // 予約から体験済みか確認
         const { data: reservation } = await supabase
@@ -583,6 +591,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         
         if (reservation) {
           setIsPlayed(true)
+          setIsPlayedChecked(true)
           return
         }
         
@@ -598,13 +607,16 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         if (manual) {
           setIsPlayed(true)
         }
+        setIsPlayedChecked(true)
       } catch (error) {
         logger.error('体験済みチェックエラー:', error)
+        setIsPlayedChecked(true)
       }
     }
     
     checkPlayed()
-  }, [user, scenario])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.email, scenario?.id])
 
   const handlePlayedClick = () => {
     if (!user) {

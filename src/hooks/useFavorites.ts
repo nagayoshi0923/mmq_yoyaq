@@ -201,8 +201,14 @@ export function useFavorites() {
 
           if (error) throw error
         }
-      } catch (error) {
-        logger.error('Failed to update favorites in DB:', { error, customerId, scenarioId })
+      } catch (error: any) {
+        logger.error('Failed to update favorites in DB:', { 
+          error, 
+          errorMessage: error?.message,
+          errorCode: error?.code,
+          customerId, 
+          scenarioId 
+        })
         // エラー時はロールバック
         setFavorites(prev => {
           const newFavorites = new Set(prev)
