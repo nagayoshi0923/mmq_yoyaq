@@ -118,7 +118,9 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     try {
       setLoading(true)
       const data = await scenarioApi.getAll()
-      setScenarios(data)
+      // 貸切リクエストでは公開中（status: available）のシナリオのみ表示
+      const publicScenarios = data.filter(s => s.status === 'available')
+      setScenarios(publicScenarios)
     } catch (error) {
       logger.error('シナリオの読み込みエラー:', error)
     } finally {
