@@ -278,11 +278,11 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
             setError('')
             return
           }
+          // 再送信失敗時はエラーメッセージを表示して再送信オプションを提供
           setMode('login')
           setPassword('')
-          setError(
-            'このメールアドレスは既に登録されています。ログインするか、「パスワードを忘れた場合」からパスワードリセットをお試しください。'
-          )
+          setShowResendOption(true)
+          setError(resent.message || 'このメールアドレスは既に登録されています。ログインするか、確認メールを再送信してください。')
           logger.warn('登録済みメールへの再送失敗:', resent.message)
           return
         }

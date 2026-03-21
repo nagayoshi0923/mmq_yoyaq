@@ -36,9 +36,14 @@ export async function resendSignupConfirmationEmail(
     return { ok: true }
   }
 
-  const msg =
-    otpErr.message ||
-    resendErr.message ||
-    'メールの送信に失敗しました。しばらくしてからお試しください。'
-  return { ok: false, message: msg }
+  const errorMessage = otpErr.message || resendErr.message || ''
+  
+  // レート制限エラーを日本語化
+  if (errorMessage.includes('security purposes') || errorMessage.includes('after') && errorMessage.includes('seconds')) {
+    const match = errorMessage.match(/after (\d+) seconds/)
+    const seconds = match ? match[1] : '30'
+    return { ok: false, message: `セキュリティのため、${seconds}秒後に再度お試しください。` }
+  }
+  
+  return { ok: false, message: errorMessage || 'メールの送信に失敗しました。しばらくしてからお試しください。' }
 }
