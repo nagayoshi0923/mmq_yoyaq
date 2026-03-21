@@ -23,6 +23,7 @@ export interface ScenarioDetail {
   id?: string  // organization_scenarios.id
   scenario_id: string
   scenario_master_id?: string  // scenario_masters.id
+  slug?: string  // organization_scenarios.slug
   scenario_title: string
   key_visual_url?: string
   synopsis?: string

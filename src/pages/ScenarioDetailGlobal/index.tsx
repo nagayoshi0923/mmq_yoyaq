@@ -378,6 +378,9 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       // 貸切可能な組織リストを作成
       const availableOrgs: Array<{ id: string; slug: string; name: string; scenarioId: string; scenarioSlug: string }> = []
       
+      // シナリオのslugを取得（リダイレクト用）
+      let scenarioSlugForRedirect: string | null = null
+      
       if (!useLegacyTable) {
         // scenario_master_idが一致するorganization_scenariosのID、組織ID、slugを全て取得
         const { data: relatedScenarios } = await supabase
@@ -388,6 +391,11 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         
         if (relatedScenarios && relatedScenarios.length > 0) {
           scenarioIdsForEvents = relatedScenarios.map(s => s.id)
+          // 最初に見つかったslugをリダイレクト用に保存
+          const firstWithSlug = relatedScenarios.find(s => s.slug)
+          if (firstWithSlug) {
+            scenarioSlugForRedirect = firstWithSlug.slug
+          }
           
           // 組織リストを作成
           relatedScenarios.forEach(s => {
@@ -417,6 +425,15 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       
       setAvailableOrganizations(availableOrgs)
       setFavoriteScenarioId(favoriteId)
+      
+      // URLがUUIDでslugが存在する場合、slugのURLにリダイレクト
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (uuidPattern.test(scenarioSlug) && scenarioSlugForRedirect) {
+        const searchParams = new URLSearchParams(window.location.search)
+        const queryString = searchParams.toString()
+        const newPath = `/scenario/${scenarioSlugForRedirect}${queryString ? '?' + queryString : ''}`
+        window.history.replaceState(null, '', newPath)
+      }
       
       // 公演データを取得（組織情報も含めてJOIN）
       const { data: eventData, error: eventError } = await supabase

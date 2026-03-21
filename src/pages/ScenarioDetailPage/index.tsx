@@ -62,6 +62,24 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   // データ取得フック（organization_idでフィルタリング）
   const { scenario, events, stores, relatedScenarios, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId, organizationSlug)
 
+  // URLがUUIDでシナリオにslugがある場合、slugのURLにリダイレクト
+  useEffect(() => {
+    if (!scenario || isLoading) return
+    
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const isUuid = uuidPattern.test(scenarioId)
+    
+    if (isUuid && scenario.slug && scenario.slug !== scenarioId) {
+      // クエリパラメータを保持してリダイレクト
+      const searchParams = new URLSearchParams(window.location.search)
+      const queryString = searchParams.toString()
+      const newPath = organizationSlug 
+        ? `/${organizationSlug}/scenario/${scenario.slug}${queryString ? '?' + queryString : ''}`
+        : `/scenario/${scenario.slug}${queryString ? '?' + queryString : ''}`
+      navigate(newPath, { replace: true })
+    }
+  }, [scenario, scenarioId, organizationSlug, isLoading, navigate])
+
   useReportRouteScrollRestoration('scenario-detail-page', { isLoading })
   
   // 予約・貸切リクエストアクションフック
