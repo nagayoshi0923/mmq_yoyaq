@@ -432,7 +432,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         const searchParams = new URLSearchParams(window.location.search)
         const queryString = searchParams.toString()
         const newPath = `/scenario/${scenarioSlugForRedirect}${queryString ? '?' + queryString : ''}`
-        window.history.replaceState(null, '', newPath)
+        navigate(newPath, { replace: true })
+        return // リダイレクト後はこの関数の実行を中断
       }
       
       // 公演データを取得（組織情報も含めてJOIN）
