@@ -65,23 +65,22 @@ export function useCustomerData() {
           })
         }
 
-        // クーポン情報を取得
-        let couponQuery = supabase
+        // クーポン情報を取得（組織フィルタなし - クーポンは複数組織で共有される可能性がある）
+        const { data: coupons, error: couponError } = await supabase
           .from('customer_coupons')
           .select(`
             id,
             customer_id,
             uses_remaining,
             status,
-            coupon_campaigns!inner (max_uses_per_customer)
+            coupon_campaigns (max_uses_per_customer)
           `)
           .in('customer_id', customerIds)
         
-        if (orgId) {
-          couponQuery = couponQuery.eq('organization_id', orgId)
+        if (couponError) {
+          logger.error('クーポン取得エラー:', couponError)
         }
-        
-        const { data: coupons } = await couponQuery
+        logger.log('取得したクーポン数:', coupons?.length, coupons)
         
         if (coupons) {
           coupons.forEach((coupon: any) => {
