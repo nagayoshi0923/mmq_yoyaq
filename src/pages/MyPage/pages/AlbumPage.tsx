@@ -43,6 +43,7 @@ interface LikedScenario {
   created_at: string
   scenario: {
     id: string
+    slug?: string
     title: string
     description: string
     author: string
@@ -844,7 +845,7 @@ export function AlbumPage() {
                 <div
                   key={item.id}
                   className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/scenario/${item.scenario.id}`)}
+                  onClick={() => navigate(`/scenario/${item.scenario.slug || item.scenario.id}`)}
                 >
                   <div className="flex items-start gap-3 sm:gap-4 mb-3">
                     {/* シナリオ画像 */}

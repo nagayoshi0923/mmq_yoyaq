@@ -805,7 +805,7 @@ export function PrivateGroupInvite() {
     )
   }
 
-  const scenario = group.scenario_masters as { id?: string; title?: string; key_visual_url?: string; player_count_max?: number; characters?: unknown[] } | undefined
+  const scenario = group.scenario_masters as { id?: string; slug?: string; title?: string; key_visual_url?: string; player_count_max?: number; characters?: unknown[] } | undefined
   const targetCount = scenario?.player_count_max || group.target_participant_count || null
   const organizerMember = group.members?.find(m => m.is_organizer)
   const organizerName = organizerMember?.guest_name || 'メンバー'
@@ -1144,13 +1144,13 @@ export function PrivateGroupInvite() {
                   src={scenario.key_visual_url}
                   alt={scenario.title || ''}
                   className="w-8 h-8 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
+                  onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
                 />
               )}
               <div className="flex-1 min-w-0">
                 <h2 
                   className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
+                  onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
                 >
                   {scenario?.title || 'グループチャット'}
                 </h2>
@@ -1610,13 +1610,13 @@ export function PrivateGroupInvite() {
                         src={scenario.key_visual_url}
                         alt={scenario.title || ''}
                         className="w-12 h-12 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
+                        onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
                       />
                     )}
                     <div>
                       <h4 
                         className="font-medium cursor-pointer hover:text-primary transition-colors"
-                        onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
+                        onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
                       >
                         {scenario?.title || 'グループ'}
                       </h4>
@@ -2385,13 +2385,13 @@ export function PrivateGroupInvite() {
                   src={scenario.key_visual_url}
                   alt={scenario.title || ''}
                   className="w-20 h-28 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
+                  onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
                 />
               )}
               <div className="flex-1">
                 <h2 
                   className="text-base font-medium cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => scenario?.id && navigate(`/scenario/${scenario.id}`)}
+                  onClick={() => scenario && navigate(`/scenario/${scenario.slug || scenario.id}`)}
                 >
                   {scenario?.title || 'シナリオ'}
                 </h2>
