@@ -42,7 +42,7 @@ export const ListView = memo(function ListView({
   scenarios,
   onCardClick,
   blockedSlots = [],
-  privateBookingDeadlineDays = 7,
+  privateBookingDeadlineDays = 14,
   organizationSlug
 }: ListViewProps) {
   const navigate = useNavigate()

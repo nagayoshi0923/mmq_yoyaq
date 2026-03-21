@@ -42,7 +42,7 @@ export const CalendarView = memo(function CalendarView({
   getStoreName,
   getStoreColor,
   blockedSlots = [],
-  privateBookingDeadlineDays = 7,
+  privateBookingDeadlineDays = 14,
   organizationSlug
 }: CalendarViewProps) {
   const navigate = useNavigate()

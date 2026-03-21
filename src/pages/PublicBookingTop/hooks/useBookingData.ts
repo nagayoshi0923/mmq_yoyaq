@@ -110,7 +110,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         allEvents: [],
         blockedSlots: [],
         stores: [],
-        privateBookingDeadlineDays: 7,
+        privateBookingDeadlineDays: 14,
         organizationId: null,
         organizationName: null,
         organizationHeaderImageUrl: null,
@@ -300,7 +300,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   })
   
   const storesData = storesResult?.data || []
-  const privateBookingDeadlineDays = settingsResult?.data?.private_booking_deadline_days || 7
+  const privateBookingDeadlineDays = settingsResult?.data?.private_booking_deadline_days || 14
   const allEventsData = eventsResult?.data || []
   
   // 予約可能な通常公演のみフィルタリング
@@ -607,7 +607,7 @@ export function useBookingData(organizationSlug?: string) {
     allEvents: data?.allEvents ?? [],
     blockedSlots: data?.blockedSlots ?? [],
     stores: data?.stores ?? [],
-    privateBookingDeadlineDays: data?.privateBookingDeadlineDays ?? 7,
+    privateBookingDeadlineDays: data?.privateBookingDeadlineDays ?? 14,
     isLoading,
     isFetching,
     loadData: refetch,
