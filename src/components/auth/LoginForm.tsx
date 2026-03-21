@@ -258,17 +258,22 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         // メール確認リンク後の SIGNED_IN で顧客未登録扱いされサインアウトされる（AuthContext 側も修正済み）
         sessionStorage.removeItem('oauth_mode')
 
-        // 既存メールアドレスチェック：Auth 済み顧客・app users への二重登録のみブロック
-        // （customers で user_id 未設定のメールのみはブロックしない＝店舗登録のみの人もマジックリンク可）
+        // 既存メールアドレスチェック：登録状態を詳細に確認
         // RLS を回避するため SECURITY DEFINER の RPC を使用（anon からでも呼び出し可能）
-        const { data: isRegistered, error: checkError } = await supabase
-          .rpc('check_email_registered', { p_email: email })
+        const { data: registrationStatus, error: checkError } = await supabase
+          .rpc('check_email_registration_status', { p_email: email })
 
         if (checkError) {
           logger.error('Email check error:', checkError)
           // RPC が失敗した場合でも登録フローを止めない（フォールバック）
-        } else if (isRegistered) {
-          // Auth / users あり・登録途中で確認メールを再送したいケースが多いため、ブロックせず再送する
+        } else if (registrationStatus === 'confirmed') {
+          // 登録済み・確認済み → ログインを促す
+          setMode('login')
+          setPassword('')
+          setError('このメールアドレスは既に登録されています。ログインしてください。')
+          return
+        } else if (registrationStatus === 'pending_confirmation') {
+          // 登録済み・未確認 → 確認メールを再送信
           const redirectTo = `${window.location.origin}/complete-profile`
           const resent = await resendSignupConfirmationEmail(email, redirectTo)
           if (resent.ok) {
@@ -282,8 +287,8 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
           setMode('login')
           setPassword('')
           setShowResendOption(true)
-          setError(resent.message || 'このメールアドレスは既に登録されています。ログインするか、確認メールを再送信してください。')
-          logger.warn('登録済みメールへの再送失敗:', resent.message)
+          setError(resent.message || '確認メールの再送信に失敗しました。しばらくしてから再度お試しください。')
+          logger.warn('確認メール再送失敗:', resent.message)
           return
         }
 
