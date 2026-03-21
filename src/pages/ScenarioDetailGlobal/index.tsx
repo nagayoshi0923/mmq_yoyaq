@@ -424,7 +424,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         .select(`
           id, date, start_time, time_slot, current_participants, category, is_cancelled, organization_id,
           scenario_masters:scenario_master_id (id, title, player_count_max),
-          stores:store_id (id, name, short_name, color, region),
+          stores:store_id (id, name, short_name, color, region, store_type),
           organizations:organization_id (id, slug, name)
         `)
         .eq('scenario_master_id', masterId)
@@ -439,30 +439,33 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         logger.error('Failed to fetch events:', eventError)
       }
 
-      const formattedEvents: EventWithOrg[] = (eventData || []).map((e: any) => {
-        const scenario = e.scenario_masters
-        const store = e.stores
-        // 直接JOINした組織情報を優先、なければorgMapから取得
-        const orgFromJoin = e.organizations
-        const org = orgFromJoin || (e.organization_id ? orgMap[e.organization_id] : null)
+      const formattedEvents: EventWithOrg[] = (eventData || [])
+        // オフィス店舗を除外
+        .filter((e: any) => e.stores?.store_type !== 'office')
+        .map((e: any) => {
+          const scenario = e.scenario_masters
+          const store = e.stores
+          // 直接JOINした組織情報を優先、なければorgMapから取得
+          const orgFromJoin = e.organizations
+          const org = orgFromJoin || (e.organization_id ? orgMap[e.organization_id] : null)
 
-        return {
-          id: e.id,
-          date: e.date,
-          start_time: e.start_time || '',
-          time_slot: e.time_slot || '',
-          current_participants: e.current_participants || 0,
-          player_count_max: scenario?.player_count_max || masterData.player_count_max,
-          organization_id: e.organization_id || '',
-          organization_slug: org?.slug || '',
-          organization_name: org?.name || '不明',
-          store_id: store?.id || '',
-          store_name: store?.name || '',
-          store_short_name: store?.short_name || store?.name || '',
-          store_color: store?.color || null,
-          store_region: store?.region || null
-        }
-      })
+          return {
+            id: e.id,
+            date: e.date,
+            start_time: e.start_time || '',
+            time_slot: e.time_slot || '',
+            current_participants: e.current_participants || 0,
+            player_count_max: scenario?.player_count_max || masterData.player_count_max,
+            organization_id: e.organization_id || '',
+            organization_slug: org?.slug || '',
+            organization_name: org?.name || '不明',
+            store_id: store?.id || '',
+            store_name: store?.name || '',
+            store_short_name: store?.short_name || store?.name || '',
+            store_color: store?.color || null,
+            store_region: store?.region || null
+          }
+        })
       
       // organization_slugがあるイベントのみ表示（is_activeな組織のみ）
       const filteredEvents = formattedEvents.filter((e: EventWithOrg) => e.organization_slug)
