@@ -522,26 +522,26 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     return Object.values(grouped)
   }, [events])
 
-  // 7日以内のイベントとそれ以降を分離
-  const { eventsWithin7Days, eventsAfter7Days } = useMemo(() => {
+  // 1ヶ月以内のイベントとそれ以降を分離
+  const { eventsWithinMonth, eventsAfterMonth } = useMemo(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const sevenDaysLater = new Date(today)
-    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
+    const oneMonthLater = new Date(today)
+    oneMonthLater.setDate(oneMonthLater.getDate() + 30)
     
     const within: EventWithOrg[] = []
     const after: EventWithOrg[] = []
     
     events.forEach(event => {
       const eventDate = new Date(event.date + 'T00:00:00')
-      if (eventDate < sevenDaysLater) {
+      if (eventDate < oneMonthLater) {
         within.push(event)
       } else {
         after.push(event)
       }
     })
     
-    return { eventsWithin7Days: within, eventsAfter7Days: after }
+    return { eventsWithinMonth: within, eventsAfterMonth: after }
   }, [events])
 
   const handleEventClick = (event: EventWithOrg) => {
@@ -1071,7 +1071,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                   <h3 className="font-semibold text-white text-sm">公演日程</h3>
                 </div>
                 <span className="text-white/70 text-xs">
-                  7日以内: {eventsWithin7Days.length}件
+                  1ヶ月以内: {eventsWithinMonth.length}件
                 </span>
               </div>
               <div className="p-4">
@@ -1081,10 +1081,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {/* 7日以内の公演 */}
-                    {eventsWithin7Days.length > 0 ? (
+                    {/* 1ヶ月以内の公演 */}
+                    {eventsWithinMonth.length > 0 ? (
                       <div className="space-y-2">
-                        {eventsWithin7Days.map(event => {
+                        {eventsWithinMonth.map(event => {
                           const dateInfo = formatDate(event.date)
                           const available = event.player_count_max - event.current_participants
                           const isFull = available <= 0
@@ -1141,12 +1141,12 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                       </div>
                     ) : (
                       <div className="text-center py-6 bg-gray-50 text-muted-foreground">
-                        7日以内の公演予定はありません
+                        1ヶ月以内の公演予定はありません
                       </div>
                     )}
 
-                    {/* 8日後以降の公演（折りたたみ） */}
-                    {eventsAfter7Days.length > 0 && (
+                    {/* 1ヶ月後以降の公演（折りたたみ） */}
+                    {eventsAfterMonth.length > 0 && (
                       <div className="mt-4">
                         <Button
                           variant="outline"
@@ -1162,14 +1162,14 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                           ) : (
                             <>
                               <ChevronDown className="w-4 h-4" />
-                              8日後以降の公演を見る（{eventsAfter7Days.length}件）
+                              1ヶ月後以降の公演を見る（{eventsAfterMonth.length}件）
                             </>
                           )}
                         </Button>
                         
                         {isEventsExpanded && (
                           <div className="mt-3 space-y-2">
-                            {eventsAfter7Days.map(event => {
+                            {eventsAfterMonth.map(event => {
                               const dateInfo = formatDate(event.date)
                               const available = event.player_count_max - event.current_participants
                               const isFull = available <= 0
