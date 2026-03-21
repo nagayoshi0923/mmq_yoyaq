@@ -60,6 +60,8 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   const [message, setMessage] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isResendingConfirmation, setIsResendingConfirmation] = useState(false)
+  const [showResendOption, setShowResendOption] = useState(false)
   /** Google OAuth など: signInWithOAuth のデフォルト遷移が内部ロックで固まる事例への対策中に表示 */
   const [isOAuthRedirecting, setIsOAuthRedirecting] = useState(false)
   const oauthHangTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -129,6 +131,33 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     setPassword('')
     setEmailError('')
     setPasswordError('')
+    setShowResendOption(false)
+  }
+
+  // 確認メール再送信
+  const handleResendConfirmation = async () => {
+    if (!email.trim()) {
+      setError('メールアドレスを入力してください')
+      return
+    }
+    setIsResendingConfirmation(true)
+    setError('')
+    setMessage('')
+    try {
+      const redirectTo = `${window.location.origin}/complete-profile`
+      const result = await resendSignupConfirmationEmail(email.trim(), redirectTo)
+      if (result.ok) {
+        setMessage('確認メールを再送信しました。メールのリンクから登録を完了してください。届かない場合は迷惑メールフォルダもご確認ください。')
+        setShowResendOption(false)
+      } else {
+        setError(result.message || '確認メールの再送信に失敗しました。しばらくしてから再度お試しください。')
+      }
+    } catch (err) {
+      logger.error('Resend confirmation error:', err)
+      setError('確認メールの再送信に失敗しました。しばらくしてから再度お試しください。')
+    } finally {
+      setIsResendingConfirmation(false)
+    }
   }
 
   // ソーシャルログイン
@@ -374,10 +403,11 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
       } else if (mode === 'signup') {
         // 新規登録エラーを適切に表示
         if (errorMessage.includes('already registered') || errorMessage.includes('already exists') || errorMessage.includes('既に登録')) {
-          // 既に登録済みの場合はログインモードに切り替え（エラーメッセージは維持）
+          // 既に登録済みの場合は再送信オプションを表示
           setMode('login')
           setPassword('')
-          setError('このメールアドレスは既に登録されています。ログインするか、下記の「パスワードを忘れた場合」からパスワードリセットをお試しください。')
+          setShowResendOption(true)
+          setError('このメールアドレスは既に登録されています。ログインするか、確認メールを再送信してください。')
         } else if (errorMessage.includes('Invalid email')) {
           setError('有効なメールアドレスを入力してください')
         } else if (errorMessage.includes('Password')) {
@@ -395,7 +425,8 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         if (errorMessage.includes('Invalid login credentials')) {
           setError('メールアドレスまたはパスワードが正しくありません')
         } else if (errorMessage.includes('Email not confirmed')) {
-          setError('メールアドレスが確認されていません。確認メールのリンクをクリックしてください')
+          setShowResendOption(true)
+          setError('メールアドレスが確認されていません。確認メールを再送信してください。')
         } else if (errorMessage.includes('too many requests')) {
           setError('ログイン試行回数が多すぎます。しばらく待ってから再度お試しください')
         } else {
@@ -669,9 +700,28 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
 
                 {/* エラー表示（ボタン直前に表示して見逃し防止） */}
                 {error && (
-                  <div className="p-3 bg-red-50 border border-red-300 rounded flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                    <p className="text-sm text-red-700">{error}</p>
+                  <div className="p-3 bg-red-50 border border-red-300 rounded">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                      <p className="text-sm text-red-700">{error}</p>
+                    </div>
+                    {showResendOption && (
+                      <button
+                        type="button"
+                        onClick={handleResendConfirmation}
+                        disabled={isResendingConfirmation}
+                        className="mt-2 w-full text-sm text-blue-600 hover:text-blue-800 underline flex items-center justify-center gap-1"
+                      >
+                        {isResendingConfirmation ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            再送信中...
+                          </>
+                        ) : (
+                          '確認メールを再送信する'
+                        )}
+                      </button>
+                    )}
                   </div>
                 )}
 
