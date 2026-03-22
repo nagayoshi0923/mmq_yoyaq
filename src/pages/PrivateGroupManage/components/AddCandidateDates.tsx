@@ -57,15 +57,15 @@ export function AddCandidateDates({
       setCheckingAvailability(true)
       try {
         const today = new Date()
-        const threeMonthsLater = new Date(today)
-        threeMonthsLater.setMonth(today.getMonth() + 3)
+        const windowEnd = new Date(today)
+        windowEnd.setDate(today.getDate() + 180)
 
         const { data, error } = await supabase
           .from('schedule_events')
           .select('*, stores(id, name)')
           .in('store_id', storeIds)
           .gte('date', today.toISOString().split('T')[0])
-          .lte('date', threeMonthsLater.toISOString().split('T')[0])
+          .lte('date', windowEnd.toISOString().split('T')[0])
           .eq('is_cancelled', false)
 
         if (error) throw error
@@ -92,15 +92,15 @@ export function AddCandidateDates({
     const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
     const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
 
-    // 90日後まで
+    // 180日後まで
     const maxFuture = new Date(jstNow)
-    maxFuture.setDate(maxFuture.getDate() + 90)
+    maxFuture.setDate(maxFuture.getDate() + 180)
     const maxFutureStr = `${maxFuture.getFullYear()}-${String(maxFuture.getMonth() + 1).padStart(2, '0')}-${String(maxFuture.getDate()).padStart(2, '0')}`
 
     const d = new Date(start)
     while (d <= end) {
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      // 今日以降かつ90日以内
+      // 今日以降かつ180日以内
       if (dateStr >= todayStr && dateStr <= maxFutureStr) {
         dates.push(dateStr)
       }
