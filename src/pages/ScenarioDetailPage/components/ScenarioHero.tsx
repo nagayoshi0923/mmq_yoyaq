@@ -343,7 +343,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
                 className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors"
                 onClick={() => {
                   const url = window.location.href
-                  const text = `${scenario.scenario_title} - マーダーミステリークエスト`
+                  const text = `${scenario.scenario_title} - MMQ`
                   window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'width=550,height=420')
                 }}
               >
