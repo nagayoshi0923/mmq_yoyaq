@@ -14,26 +14,12 @@ import {
   type BusinessHoursSettingRow,
   type PrivateGroupCandidateTimeSlot,
 } from '@/lib/privateGroupCandidateSlots'
-import {
-  fetchScenarioTimingFromDb,
-  getPrivateBookingDisplayEndTime,
-  getPerformanceDurationMinutesForDate,
-  performanceConflictsWithScheduledEvent,
-  type ScenarioTimingFromDb,
-} from '@/lib/privateBookingScenarioTime'
+import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime, type ScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
+import { isPrivateBookingSlotAvailableOnAnyStore } from '@/lib/privateBookingSlotAvailability'
 import { showToast } from '@/utils/toast'
 
 /** 列の並び（設定で枠が無い日は該当セルを無効表示） */
 const COLUMN_LABELS: ('午前' | '午後' | '夜')[] = ['午前', '午後', '夜']
-
-function parseTimeToMinutes(t: unknown): number | null {
-  if (t == null || typeof t !== 'string' || !t.includes(':')) return null
-  const parts = t.trim().slice(0, 8).split(':')
-  const h = parseInt(parts[0] || '0', 10)
-  const m = parseInt(parts[1] || '0', 10)
-  if (Number.isNaN(h) || Number.isNaN(m)) return null
-  return h * 60 + m
-}
 
 interface AddCandidateDatesProps {
   groupId: string
@@ -258,32 +244,16 @@ export function AddCandidateDates({
           parseInt(slot.endTime.split(':')[0], 10) * 60 +
           parseInt(slot.endTime.split(':')[1] || '0', 10)
 
-        const durationMin = getPerformanceDurationMinutesForDate(date, scenarioTiming, isCustomHoliday)
-        const extraPrep = scenarioTiming.extra_preparation_time || 0
-        const perfOccEnd = slotStart + durationMin + extraPrep
-
-        // 通常貸切と同様: 枠の終了前に「公演+準備」が収まらない候補は不可
-        if (perfOccEnd > slotEnd) {
-          newMap[key] = false
-          continue
-        }
-
-        // storeIds が空のとき every は true になるため長さチェック必須
-        const allStoresBlocked =
-          storeIds.length > 0 &&
-          storeIds.every(storeId =>
-            allStoreEvents.some(event => {
-              if (event.date !== date || event.store_id !== storeId) return false
-
-              const eventStart = parseTimeToMinutes(event.start_time)
-              if (eventStart === null) return false
-              const eventEnd = parseTimeToMinutes(event.end_time) ?? eventStart + 240
-
-              return performanceConflictsWithScheduledEvent(slotStart, perfOccEnd, eventStart, eventEnd)
-            })
-          )
-
-        newMap[key] = !allStoresBlocked
+        // 通常貸切（シナリオ詳細）と同一の空き判定
+        newMap[key] = isPrivateBookingSlotAvailableOnAnyStore(
+          date,
+          slotStart,
+          slotEnd,
+          scenarioTiming,
+          storeIds,
+          allStoreEvents,
+          isCustomHoliday
+        )
       }
     }
 
