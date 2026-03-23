@@ -17,7 +17,19 @@ import { getTimeSlot } from '@/utils/scheduleUtils'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 import { createEventHistory } from '@/lib/api/eventHistoryApi'
+import {
+  diffScheduleSnapshotsForCustomerEmail,
+  sendPrivateBookingCustomerChangeEmail,
+} from '@/lib/privateBookingCustomerChangeEmail'
 import type { ScheduleEvent } from '@/types/schedule'
+
+/** 貸切の予約変更通知メール送信前の確認（OK=送信 / キャンセル=送信しない） */
+function confirmSendPrivateBookingChangeEmail(): boolean {
+  return confirm(
+    'お客様へ予約変更の通知メールを送信しますか？\n\n' +
+      '「キャンセル」を選ぶと、保存した内容はそのままでメールだけ送りません。'
+  )
+}
 
 /**
  * time_slot（'朝'/'昼'/'夜'）を英語形式に変換
@@ -430,6 +442,50 @@ export function useEventOperations({
 
       if (isRealEventId) {
         const savedEvent = await scheduleApi.update(draggedEvent.id, newEventData)
+
+        const shouldNotifyPrivateMove =
+          (draggedEvent.is_private_request || draggedEvent.is_private_booking) &&
+          !!draggedEvent.reservation_id
+        if (shouldNotifyPrivateMove && draggedEvent.reservation_id) {
+          const oldVenueName =
+            stores.find((s) => s.id === draggedEvent.venue)?.name || draggedEvent.venue || '—'
+          const newVenueName =
+            savedEvent.venue ||
+            stores.find((s) => s.id === savedEvent.store_id)?.name ||
+            newEventData.venue ||
+            '—'
+          const oldSnap = {
+            date: draggedEvent.date,
+            start_time: draggedEvent.start_time,
+            end_time: draggedEvent.end_time,
+            venueDisplay: oldVenueName,
+            scenario: draggedEvent.scenario,
+            store_id: draggedEvent.store_id || undefined,
+          }
+          const newSnap = {
+            date: savedEvent.date,
+            start_time: savedEvent.start_time,
+            end_time: savedEvent.end_time,
+            venueDisplay: newVenueName,
+            scenario: savedEvent.scenario || draggedEvent.scenario,
+            store_id: savedEvent.store_id,
+          }
+          const moveChanges = diffScheduleSnapshotsForCustomerEmail(oldSnap, newSnap)
+          if (moveChanges.length > 0 && confirmSendPrivateBookingChangeEmail()) {
+            try {
+              await sendPrivateBookingCustomerChangeEmail({
+                reservationId: draggedEvent.reservation_id,
+                organizationId,
+                changes: moveChanges,
+                currentSchedule: newSnap,
+                scenarioTitleHint: newSnap.scenario || draggedEvent.scenario,
+              })
+            } catch (notifyErr) {
+              logger.error('貸切公演移動後の顧客メール送信エラー:', notifyErr)
+            }
+          }
+        }
+
         // ローカル状態を更新（scenariosは元のイベントから保持）
         setEvents(prev => prev.map(event => {
           if (event.id !== draggedEvent.id) return event
@@ -912,6 +968,28 @@ export function useEventOperations({
           reservation_name: performanceData.reservation_name 
         })
         if (performanceData.is_private_request && performanceData.reservation_id) {
+          let beforeQuery = supabase
+            .from('reservations')
+            .select(
+              `
+              store_id,
+              display_customer_name,
+              schedule_events!schedule_event_id (
+                date,
+                start_time,
+                end_time,
+                venue,
+                scenario,
+                store_id
+              )
+            `
+            )
+            .eq('id', performanceData.reservation_id)
+          if (organizationId) {
+            beforeQuery = beforeQuery.eq('organization_id', organizationId)
+          }
+          const { data: beforeRow } = await beforeQuery.maybeSingle()
+
           // performanceData.venueは店舗ID（UUID）
           // 店舗の存在確認（通常の店舗 or 臨時会場）
           let storeQuery = supabase
@@ -941,6 +1019,58 @@ export function useEventOperations({
           }
           
           logger.log('✅ reservations更新成功:', { reservation_id: performanceData.reservation_id })
+
+          const reservationChanges: Array<{ field: string; label: string; oldValue: string; newValue: string }> = []
+          if ((beforeRow?.store_id || '') !== storeId) {
+            const oldStoreLabel = beforeRow?.store_id
+              ? stores.find((s) => s.id === beforeRow.store_id)?.name || beforeRow.store_id
+              : '—'
+            reservationChanges.push({
+              field: 'store',
+              label: '店舗',
+              oldValue: oldStoreLabel,
+              newValue: storeData?.name || storeId,
+            })
+          }
+
+          const oldDisplay = (beforeRow?.display_customer_name ?? '').trim()
+          const newDisplay = (performanceData.reservation_name ?? '').trim()
+          if (oldDisplay !== newDisplay) {
+            reservationChanges.push({
+              field: 'display_customer_name',
+              label: '表示予約者名',
+              oldValue: oldDisplay || '—',
+              newValue: newDisplay || '—',
+            })
+          }
+
+          const seRaw = beforeRow?.schedule_events
+          const se = Array.isArray(seRaw) ? seRaw[0] : seRaw
+          const currentSchedule =
+            se != null
+              ? {
+                  date: se.date,
+                  start_time: se.start_time,
+                  end_time: se.end_time,
+                  venueDisplay: storeData?.name || se.venue || '—',
+                  scenario: se.scenario || undefined,
+                  store_id: storeId,
+                }
+              : null
+
+          if (reservationChanges.length > 0 && confirmSendPrivateBookingChangeEmail()) {
+            try {
+              await sendPrivateBookingCustomerChangeEmail({
+                reservationId: performanceData.reservation_id,
+                organizationId,
+                changes: reservationChanges,
+                currentSchedule,
+                scenarioTitleHint: performanceData.scenario || se?.scenario,
+              })
+            } catch (notifyErr) {
+              logger.error('貸切予約更新後の顧客メール送信エラー:', notifyErr)
+            }
+          }
           
           // ローカル状態を更新（店舗と予約者名）
           setEvents(prev => prev.map(event => 
@@ -1076,6 +1206,42 @@ export function useEventOperations({
           }
           
           await scheduleApi.update(performanceData.id, updateData)
+
+          const notifySchedulePrivateCustomer =
+            !!performanceData.reservation_id &&
+            (performanceData.category === 'private' || oldEventData?.category === 'private')
+          if (notifySchedulePrivateCustomer && oldEventData) {
+            const oldSnap = {
+              date: oldEventData.date,
+              start_time: oldEventData.start_time,
+              end_time: oldEventData.end_time,
+              venueDisplay: oldEventData.venue || '—',
+              scenario: oldEventData.scenario || undefined,
+              store_id: oldEventData.store_id,
+            }
+            const newSnap = {
+              date: updateData.date,
+              start_time: updateData.start_time,
+              end_time: updateData.end_time,
+              venueDisplay: updateData.venue || '—',
+              scenario: updateData.scenario || undefined,
+              store_id: updateData.store_id,
+            }
+            const scheduleChanges = diffScheduleSnapshotsForCustomerEmail(oldSnap, newSnap)
+            if (scheduleChanges.length > 0 && confirmSendPrivateBookingChangeEmail()) {
+              try {
+                await sendPrivateBookingCustomerChangeEmail({
+                  reservationId: performanceData.reservation_id!,
+                  organizationId,
+                  changes: scheduleChanges,
+                  currentSchedule: newSnap,
+                  scenarioTitleHint: newSnap.scenario || performanceData.scenario,
+                })
+              } catch (notifyErr) {
+                logger.error('貸切公演（スケジュール更新）後の顧客メール送信エラー:', notifyErr)
+              }
+            }
+          }
           
           // 履歴を記録（更新）
           if (organizationId) {
