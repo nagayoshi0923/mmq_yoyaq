@@ -1,5 +1,49 @@
 const TZ = 'Asia/Tokyo';
 
+/** en-US 曜日名 → getDay() 互換（0=日 … 6=土） */
+const LONG_WEEKDAY_TO_NUM: Record<string, number> = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+}
+
+const SHORT_WEEKDAY_TO_NUM: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+}
+
+/**
+ * YYYY-MM-DD を日本（Asia/Tokyo）の暦としての曜日で返す（0=日 … 6=土）。
+ * `Date#getDay()` は端末のローカルTZに依存するため、営業日・公演枠判定にはこちらを使う。
+ */
+export function getDayOfWeekJST(dateStr: string): number {
+  const instant = new Date(`${dateStr}T12:00:00+09:00`)
+  const longWd = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    timeZone: TZ,
+  }).format(instant)
+  const nLong = LONG_WEEKDAY_TO_NUM[longWd]
+  if (nLong !== undefined) return nLong
+
+  const shortWd = new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    timeZone: TZ,
+  }).format(instant)
+  const nShort = SHORT_WEEKDAY_TO_NUM[shortWd]
+  if (nShort !== undefined) return nShort
+
+  return instant.getUTCDay()
+}
+
 // YYYY-MM のような指定からJSTの月範囲を返す
 export function getMonthRangeJST(year: number, month1to12: number) {
   // JSのmonthは0始まりなので-1

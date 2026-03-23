@@ -8,18 +8,16 @@ import { logger } from '@/utils/logger'
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import type { PrivateGroupCandidateDate } from '@/types'
+import { privateGroupTimeSlotFromDb, privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
+import {
+  getPrivateGroupCandidateSlotsForDate,
+  type BusinessHoursSettingRow,
+  type PrivateGroupCandidateTimeSlot,
+} from '@/lib/privateGroupCandidateSlots'
+import { showToast } from '@/utils/toast'
 
-interface TimeSlot {
-  label: '午前' | '午後' | '夜'
-  startTime: string
-  endTime: string
-}
-
-const TIME_SLOTS: TimeSlot[] = [
-  { label: '午前', startTime: '10:00', endTime: '13:00' },
-  { label: '午後', startTime: '13:00', endTime: '17:00' },
-  { label: '夜', startTime: '18:00', endTime: '22:00' },
-]
+/** 列の並び（設定で枠が無い日は該当セルを無効表示） */
+const COLUMN_LABELS: ('午前' | '午後' | '夜')[] = ['午前', '午後', '夜']
 
 interface AddCandidateDatesProps {
   groupId: string
@@ -40,21 +38,42 @@ export function AddCandidateDates({
 }: AddCandidateDatesProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(() => new Date())
-  const [selectedSlots, setSelectedSlots] = useState<Array<{ date: string; slot: TimeSlot }>>([])
+  const [selectedSlots, setSelectedSlots] = useState<
+    Array<{ date: string; slot: PrivateGroupCandidateTimeSlot }>
+  >([])
   const [saving, setSaving] = useState(false)
   const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
-  const [checkingAvailability, setCheckingAvailability] = useState(false)
+  const [eventsLoading, setEventsLoading] = useState(false)
+  const [eventsLoaded, setEventsLoaded] = useState(false)
   const [allStoreEvents, setAllStoreEvents] = useState<any[]>([])
-  
+  const [businessHoursByStore, setBusinessHoursByStore] = useState<Map<string, BusinessHoursSettingRow>>(
+    new Map()
+  )
+  const [businessHoursLoaded, setBusinessHoursLoaded] = useState(false)
+
   const { isCustomHoliday } = useCustomHolidays()
   // 候補日の制限なし（メンバー調整用のため自由に追加可能）
   const MAX_SELECTIONS = 100
 
   useEffect(() => {
+    if (!isOpen) {
+      setEventsLoaded(false)
+      setBusinessHoursLoaded(false)
+      return
+    }
+    if (storeIds.length === 0) {
+      setAllStoreEvents([])
+      setBusinessHoursByStore(new Map())
+      setEventsLoaded(true)
+      setBusinessHoursLoaded(true)
+      return
+    }
+
+    let cancelled = false
+
     const loadEvents = async () => {
-      if (!isOpen || storeIds.length === 0) return
-      
-      setCheckingAvailability(true)
+      setEventsLoading(true)
+      setEventsLoaded(false)
       try {
         const today = new Date()
         const windowEnd = new Date(today)
@@ -69,15 +88,53 @@ export function AddCandidateDates({
           .eq('is_cancelled', false)
 
         if (error) throw error
-        setAllStoreEvents(data || [])
+        if (!cancelled) {
+          setAllStoreEvents(data || [])
+          setEventsLoaded(true)
+        }
       } catch (err) {
         logger.error('Failed to load events', err)
+        if (!cancelled) {
+          setAllStoreEvents([])
+          setEventsLoaded(true)
+        }
       } finally {
-        setCheckingAvailability(false)
+        if (!cancelled) setEventsLoading(false)
+      }
+    }
+
+    const loadBusinessHours = async () => {
+      setBusinessHoursLoaded(false)
+      try {
+        const { data, error } = await supabase
+          .from('business_hours_settings')
+          .select('store_id, opening_hours, holidays, special_open_days, special_closed_days')
+          .in('store_id', storeIds)
+
+        if (error) throw error
+        if (!cancelled) {
+          const m = new Map<string, BusinessHoursSettingRow>()
+          for (const row of data || []) {
+            m.set(row.store_id, row as BusinessHoursSettingRow)
+          }
+          setBusinessHoursByStore(m)
+          setBusinessHoursLoaded(true)
+        }
+      } catch (err) {
+        logger.error('Failed to load business hours', err)
+        if (!cancelled) {
+          setBusinessHoursByStore(new Map())
+          setBusinessHoursLoaded(true)
+        }
       }
     }
 
     loadEvents()
+    loadBusinessHours()
+
+    return () => {
+      cancelled = true
+    }
   }, [isOpen, storeIds])
 
   const availableDates = useMemo(() => {
@@ -110,63 +167,82 @@ export function AddCandidateDates({
     return dates
   }, [currentMonth])
 
+  const slotsByDate = useMemo(() => {
+    const map: Record<string, PrivateGroupCandidateTimeSlot[]> = {}
+    for (const date of availableDates) {
+      map[date] = getPrivateGroupCandidateSlotsForDate(
+        date,
+        storeIds,
+        businessHoursByStore,
+        isCustomHoliday
+      )
+    }
+    return map
+  }, [availableDates, storeIds, businessHoursByStore, isCustomHoliday])
+
   useEffect(() => {
-    if (!isOpen || allStoreEvents.length === 0) return
+    if (!isOpen || !businessHoursLoaded || !eventsLoaded) return
 
-    const checkAvailability = async () => {
-      const newMap: Record<string, boolean> = {}
+    const newMap: Record<string, boolean> = {}
 
-      for (const date of availableDates) {
-        for (const slot of TIME_SLOTS) {
-          const key = `${date}-${slot.label}`
-          
-          const isAlreadySelected = existingDates.some(
-            ed => ed.date === date && ed.time_slot === slot.label
-          )
-          if (isAlreadySelected) {
-            newMap[key] = false
-            continue
-          }
+    for (const date of availableDates) {
+      const daySlots = slotsByDate[date] || []
+      for (const slot of daySlots) {
+        const key = `${date}-${slot.label}`
 
-          const hasConflict = allStoreEvents.some(event => {
-            if (event.date !== date) return false
-            
-            const eventStart = event.start_time ? 
-              parseInt(event.start_time.split(':')[0]) * 60 + parseInt(event.start_time.split(':')[1] || '0') : 0
-            const eventEnd = event.end_time ?
-              parseInt(event.end_time.split(':')[0]) * 60 + parseInt(event.end_time.split(':')[1] || '0') : eventStart + 240
+        const isAlreadySelected = existingDates.some(
+          ed =>
+            ed.date === date &&
+            privateGroupTimeSlotFromDb(ed.time_slot) === slot.label
+        )
+        if (isAlreadySelected) {
+          newMap[key] = false
+          continue
+        }
 
-            const slotStart = parseInt(slot.startTime.split(':')[0]) * 60 + parseInt(slot.startTime.split(':')[1])
-            const slotEnd = parseInt(slot.endTime.split(':')[0]) * 60 + parseInt(slot.endTime.split(':')[1])
+        const slotStart =
+          parseInt(slot.startTime.split(':')[0], 10) * 60 +
+          parseInt(slot.startTime.split(':')[1] || '0', 10)
+        const slotEnd =
+          parseInt(slot.endTime.split(':')[0], 10) * 60 +
+          parseInt(slot.endTime.split(':')[1] || '0', 10)
 
-            return eventStart < slotEnd && eventEnd > slotStart
-          })
-
-          const allStoresHaveConflict = storeIds.every(storeId => {
+        const allStoresHaveConflict =
+          storeIds.length > 0 &&
+          storeIds.every(storeId => {
             return allStoreEvents.some(event => {
               if (event.date !== date || event.store_id !== storeId) return false
-              
-              const eventStart = event.start_time ? 
-                parseInt(event.start_time.split(':')[0]) * 60 + parseInt(event.start_time.split(':')[1] || '0') : 0
-              const eventEnd = event.end_time ?
-                parseInt(event.end_time.split(':')[0]) * 60 + parseInt(event.end_time.split(':')[1] || '0') : eventStart + 240
 
-              const slotStart = parseInt(slot.startTime.split(':')[0]) * 60 + parseInt(slot.startTime.split(':')[1])
-              const slotEnd = parseInt(slot.endTime.split(':')[0]) * 60 + parseInt(slot.endTime.split(':')[1])
+              const eventStart = event.start_time
+                ? parseInt(event.start_time.split(':')[0], 10) * 60 +
+                  parseInt(event.start_time.split(':')[1] || '0', 10)
+                : 0
+              const eventEnd = event.end_time
+                ? parseInt(event.end_time.split(':')[0], 10) * 60 +
+                  parseInt(event.end_time.split(':')[1] || '0', 10)
+                : eventStart + 240
 
               return eventStart < slotEnd && eventEnd > slotStart
             })
           })
 
-          newMap[key] = !allStoresHaveConflict
-        }
+        newMap[key] = !allStoresHaveConflict
       }
-
-      setAvailabilityMap(newMap)
     }
 
-    checkAvailability()
-  }, [isOpen, availableDates, allStoreEvents, existingDates, storeIds])
+    setAvailabilityMap(newMap)
+  }, [
+    isOpen,
+    availableDates,
+    allStoreEvents,
+    existingDates,
+    storeIds,
+    businessHoursLoaded,
+    eventsLoaded,
+    slotsByDate,
+  ])
+
+  const loadingData = eventsLoading || !businessHoursLoaded
 
   const handleMonthChange = (delta: number) => {
     setCurrentMonth(prev => {
@@ -184,11 +260,11 @@ export function AddCandidateDates({
     )
   }, [currentMonth])
 
-  const isSlotSelected = (date: string, slot: TimeSlot): boolean => {
+  const isSlotSelected = (date: string, slot: PrivateGroupCandidateTimeSlot): boolean => {
     return selectedSlots.some(s => s.date === date && s.slot.label === slot.label)
   }
 
-  const handleSlotToggle = useCallback((date: string, slot: TimeSlot) => {
+  const handleSlotToggle = useCallback((date: string, slot: PrivateGroupCandidateTimeSlot) => {
     setSelectedSlots(prev => {
       const existingIndex = prev.findIndex(
         s => s.date === date && s.slot.label === slot.label
@@ -219,7 +295,7 @@ export function AddCandidateDates({
       const newDates = selectedSlots.map((slot, index) => ({
         group_id: groupId,
         date: slot.date,
-        time_slot: slot.slot.label,
+        time_slot: privateGroupTimeSlotToDb(slot.slot.label),
         start_time: slot.slot.startTime,
         end_time: slot.slot.endTime,
         order_num: nextOrderNum + index,
@@ -256,8 +332,13 @@ export function AddCandidateDates({
       setSelectedSlots([])
       setIsOpen(false)
       onDatesAdded()
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error('Failed to save candidate dates', err)
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: string }).message)
+          : '候補日の保存に失敗しました'
+      showToast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -296,10 +377,10 @@ export function AddCandidateDates({
           </Button>
         </div>
 
-        {checkingAvailability ? (
+        {loadingData ? (
           <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
             <Loader2 className="w-5 h-5 animate-spin" />
-            空き状況を確認中...
+            営業時間・空き状況を読み込み中...
           </div>
         ) : (
           <>
@@ -339,13 +420,16 @@ export function AddCandidateDates({
               {/* ヘッダー行 */}
               <div className="flex items-center gap-3 pb-2 border-b border-gray-200 mb-2">
                 <div className="w-14"></div>
-                {TIME_SLOTS.map(slot => (
-                  <div key={slot.label} className="flex-1 text-center text-xs text-muted-foreground">
-                    {slot.startTime}〜
+                {COLUMN_LABELS.map(label => (
+                  <div key={label} className="flex-1 text-center text-xs text-muted-foreground">
+                    {label}
                   </div>
                 ))}
               </div>
-              
+              <p className="text-[10px] text-muted-foreground text-center -mt-1 mb-2">
+                各枠の時刻は店舗の営業時間設定（公演枠・開始時刻）に基づきます
+              </p>
+
               {availableDates.map(date => {
                 const dateObj = new Date(date + 'T00:00:00+09:00')
                 const month = dateObj.getMonth() + 1
@@ -362,6 +446,8 @@ export function AddCandidateDates({
                     ? 'text-blue-600'
                     : ''
 
+                const daySlots = slotsByDate[date] || []
+
                 return (
                   <div
                     key={date}
@@ -372,7 +458,19 @@ export function AddCandidateDates({
                       <div className={`text-xs ${weekdayColor}`}>({weekday})</div>
                     </div>
 
-                    {TIME_SLOTS.map(slot => {
+                    {COLUMN_LABELS.map(label => {
+                      const slot = daySlots.find(s => s.label === label)
+                      if (!slot) {
+                        return (
+                          <div
+                            key={label}
+                            className="flex-1 py-2.5 px-2 border border-gray-100 bg-gray-50 text-center rounded-lg opacity-40 cursor-not-allowed"
+                          >
+                            <div className="text-xs text-muted-foreground">—</div>
+                          </div>
+                        )
+                      }
+
                       const key = `${date}-${slot.label}`
                       const isAvailable = availabilityMap[key] ?? true
                       const isSelected = isSlotSelected(date, slot)
@@ -381,6 +479,7 @@ export function AddCandidateDates({
                       return (
                         <button
                           key={slot.label}
+                          type="button"
                           className={`flex-1 py-2.5 px-2 border text-center rounded-lg transition-colors ${
                             !isAvailable
                               ? 'border-gray-100 bg-gray-100 cursor-not-allowed opacity-50'
@@ -394,6 +493,13 @@ export function AddCandidateDates({
                           onClick={() => canSelect && handleSlotToggle(date, slot)}
                         >
                           <div className="text-sm font-medium">{slot.label}</div>
+                          <div
+                            className={`text-[10px] mt-0.5 ${
+                              isSelected ? 'text-purple-100' : 'text-muted-foreground'
+                            }`}
+                          >
+                            {slot.startTime}〜{slot.endTime}
+                          </div>
                         </button>
                       )
                     })}

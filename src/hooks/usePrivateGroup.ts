@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
+import { privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
 import type {
   PrivateGroup,
   PrivateGroupMember,
@@ -224,7 +225,7 @@ export function usePrivateGroup() {
         const candidateDatesData = params.candidateDates.map((cd, index) => ({
           group_id: group.id,
           date: cd.date,
-          time_slot: cd.time_slot,
+          time_slot: privateGroupTimeSlotToDb(cd.time_slot),
           start_time: cd.start_time,
           end_time: cd.end_time,
           order_num: cd.order_num || index + 1,
