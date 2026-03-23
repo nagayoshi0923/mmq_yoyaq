@@ -127,18 +127,15 @@ export async function fetchScenarioTimingFromDb(
   }
 
   const masterId = scenarioMasterId || lookup
+  // scenario_masters には extra_preparation_time が無い環境がある（準備時間は organization_scenarios のみ）
   const { data: sm } = await supabase
     .from('scenario_masters')
-    .select('official_duration, extra_preparation_time')
+    .select('official_duration')
     .eq('id', masterId)
     .maybeSingle()
 
   if (sm && typeof sm.official_duration === 'number' && sm.official_duration > 0) {
-    const prep =
-      typeof sm.extra_preparation_time === 'number' && sm.extra_preparation_time > 0
-        ? sm.extra_preparation_time
-        : 0
-    return { duration: sm.official_duration, weekend_duration: null, extra_preparation_time: prep }
+    return { duration: sm.official_duration, weekend_duration: null, extra_preparation_time: 0 }
   }
 
   return { duration: fallback, weekend_duration: null, extra_preparation_time: 0 }
