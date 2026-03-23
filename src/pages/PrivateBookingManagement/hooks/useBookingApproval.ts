@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { useOrganization } from '@/hooks/useOrganization'
+import { useCustomHolidays } from '@/hooks/useCustomHolidays'
+import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import {
   reservationApi,
   RESERVATION_WITH_CUSTOMER_SELECT_FIELDS,
@@ -19,6 +21,7 @@ interface UseBookingApprovalProps {
 export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
   // 組織IDを取得（マルチテナント対応）
   const { organizationId } = useOrganization()
+  const { isCustomHoliday } = useCustomHolidays()
   
   const [submitting, setSubmitting] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
@@ -52,6 +55,18 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         return { success: false, error: '候補日時が見つかりません' }
       }
 
+      const resolveEndTime = (c: { startTime: string; endTime: string; date: string }) =>
+        selectedRequest?.scenario_timing
+          ? getPrivateBookingDisplayEndTime(
+              c.startTime,
+              c.date,
+              selectedRequest.scenario_timing,
+              isCustomHoliday
+            )
+          : c.endTime
+
+      const selectedEndTime = resolveEndTime(selectedCandidate)
+
       // 🚨 CRITICAL: 同じ日時・店舗に既存の公演がないかチェック
       // 再承認の場合は、この予約に紐づくイベントを除外する
       const existingEventsQuery = supabase
@@ -68,7 +83,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       } else if (existingEvents && existingEvents.length > 0) {
         // 時間帯の重複チェック
         const candidateStart = selectedCandidate.startTime
-        const candidateEnd = selectedCandidate.endTime
+        const candidateEnd = selectedEndTime
 
         for (const event of existingEvents) {
           // 再承認の場合、同じ予約のイベントは競合チェックから除外
@@ -93,6 +108,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       // 全候補日を保持し、選択された候補のみ 'confirmed' にする
       const updatedCandidates = (selectedRequest?.candidate_datetimes?.candidates || []).map((c: any) => ({
         ...c,
+        endTime: resolveEndTime(c),
         status: c.order === selectedCandidateOrder ? 'confirmed' : 'pending'
       }))
 
@@ -119,7 +135,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         p_reservation_id: requestId,
         p_selected_date: selectedCandidate.date,
         p_selected_start_time: selectedCandidate.startTime,
-        p_selected_end_time: selectedCandidate.endTime,
+        p_selected_end_time: selectedEndTime,
         p_selected_store_id: selectedStoreId,
         p_selected_gm_id: selectedGMId,
         p_candidate_datetimes: updatedCandidateDatetimes,
@@ -209,7 +225,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
               scenarioTitle: selectedRequest?.scenario_title || '',
               eventDate: selectedCandidate.date,
               startTime: selectedCandidate.startTime,
-              endTime: selectedCandidate.endTime,
+              endTime: selectedEndTime,
               storeName: stores.find(s => s.id === selectedStoreId)?.name || '',
               storeAddress,
               participantCount: selectedRequest?.participant_count || 0,
@@ -252,7 +268,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 scenarioTitle: selectedRequest?.scenario_title || '',
                 eventDate: selectedCandidate.date,
                 startTime: selectedCandidate.startTime,
-                endTime: selectedCandidate.endTime,
+                endTime: selectedEndTime,
                 storeName,
                 customerName: selectedRequest?.customer_name || '',
                 participantCount: selectedRequest?.participant_count || 0,
@@ -312,7 +328,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
               type: 'system',
               action: 'schedule_confirmed',
               confirmedDate: selectedCandidate.date,
-              confirmedTimeSlot: selectedCandidate.timeSlot || `${selectedCandidate.startTime}〜${selectedCandidate.endTime}`,
+              confirmedTimeSlot: selectedCandidate.timeSlot || `${selectedCandidate.startTime}〜${selectedEndTime}`,
               storeName: stores.find(s => s.id === selectedStoreId)?.name || '',
               // 設定されたメッセージ文言を含める
               title: msgSettings?.system_msg_schedule_confirmed_title || '日程が確定いたしました',
@@ -431,7 +447,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     } finally {
       setSubmitting(false)
     }
-  }, [onSuccess, organizationId])
+  }, [onSuccess, organizationId, isCustomHoliday])
 
   // 却下クリック
   const handleRejectClick = useCallback((requestId: string) => {

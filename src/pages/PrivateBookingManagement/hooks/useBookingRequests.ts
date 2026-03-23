@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger, privateBookingTrace } from '@/utils/logger'
+import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
+import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 
 interface UseBookingRequestsProps {
@@ -25,6 +27,7 @@ const PRIVATE_BOOKING_LIST_STATUSES = [
  * 貸切リクエストのデータ取得を管理するフック
  */
 export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps) {
+  const { isCustomHoliday } = useCustomHolidays()
   const [requests, setRequests] = useState<PrivateBookingRequest[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -101,7 +104,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
         .from('reservations')
         .select(`
           *,
-          scenario_masters:scenario_master_id(title),
+          scenario_masters:scenario_master_id(title, official_duration),
           customers:customer_id(name, phone),
           private_groups:private_group_id(invite_code, scenario_id)
         `)
@@ -202,11 +205,43 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
               `予約 ${req.id}: scenario_master_id 未設定（private_groups.scenario_id も未設定）`
             )
           }
-          
+
+          let scenario_timing = await fetchScenarioTimingFromDb(supabase, {
+            organizationId: orgId,
+            scenarioLookupId: req.scenario_id,
+            scenarioMasterId,
+          })
+          if (
+            (!scenario_timing.duration || scenario_timing.duration <= 0) &&
+            typeof req.scenario_masters?.official_duration === 'number' &&
+            req.scenario_masters.official_duration > 0
+          ) {
+            scenario_timing = {
+              duration: req.scenario_masters.official_duration,
+              weekend_duration: scenario_timing.weekend_duration,
+            }
+          }
+
+          const candidatesWithScenarioEnd = (candidateDatetimes.candidates || []).map((c: any) => ({
+            ...c,
+            endTime: getPrivateBookingDisplayEndTime(
+              c.startTime,
+              c.date,
+              scenario_timing,
+              isCustomHoliday
+            ),
+          }))
+          candidateDatetimes = {
+            ...candidateDatetimes,
+            candidates: candidatesWithScenarioEnd,
+          }
+
           return {
             id: req.id,
             reservation_number: req.reservation_number || '',
+            scenario_id: req.scenario_id,
             scenario_master_id: scenarioMasterId,
+            scenario_timing,
             scenario_title: req.scenario_masters?.title || req.title || 'シナリオ名不明',
             customer_name: req.customers?.name || '顧客名不明',
             customer_email: req.customer_email || '',
@@ -228,7 +263,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
     } finally {
       setLoading(false)
     }
-  }, [userId, userRole])
+  }, [userId, userRole, isCustomHoliday])
 
   return {
     requests,

@@ -20,6 +20,8 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
+import { useCustomHolidays } from '@/hooks/useCustomHolidays'
+import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { SurveyResponseForm } from './components/SurveyResponseForm'
 
 interface Coupon {
@@ -35,6 +37,7 @@ type ResponseValue = DateResponse | null
 export function PrivateGroupInvite() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { isCustomHoliday } = useCustomHolidays()
   
   // URLから招待コードを抽出: /group/invite/{code}
   const code = useMemo(() => {
@@ -976,14 +979,25 @@ export function PrivateGroupInvite() {
       const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
       const baseReservationNumber = `${dateStr}-${randomStr}`
       
-      // 候補日時をJSONB形式で準備
+      const scenarioTiming = await fetchScenarioTimingFromDb(supabase, {
+        organizationId: orgId,
+        scenarioLookupId: group.scenario_id,
+        scenarioMasterId: group.scenario_id,
+      })
+
+      // 候補日時をJSONB形式で準備（終了は営業枠ではなくシナリオ公演時間）
       const candidateDatetimes = {
         candidates: selectedCandidateDates.map((cd, index) => ({
           order: index + 1,
           date: cd.date,
           timeSlot: cd.time_slot,
           startTime: cd.start_time,
-          endTime: cd.end_time,
+          endTime: getPrivateBookingDisplayEndTime(
+            cd.start_time,
+            cd.date,
+            scenarioTiming,
+            isCustomHoliday
+          ),
           status: 'pending'
         })),
         requestedStores: preferredStoreNames.map(store => ({
@@ -1314,6 +1328,7 @@ export function PrivateGroupInvite() {
                   <div className="mb-4">
                     <AddCandidateDates
                       groupId={group.id}
+                      organizationId={group.organization_id || ''}
                       scenarioId={group.scenario_id || ''}
                       storeIds={group.preferred_store_ids || []}
                       existingDates={group.candidate_dates || []}
@@ -2840,6 +2855,7 @@ export function PrivateGroupInvite() {
                   {group.status === 'gathering' && (
                     <AddCandidateDates
                       groupId={group.id}
+                      organizationId={group.organization_id || ''}
                       scenarioId={group.scenario_id || ''}
                       storeIds={group.preferred_store_ids || []}
                       existingDates={group.candidate_dates || []}

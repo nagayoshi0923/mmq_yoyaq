@@ -663,6 +663,7 @@ export function PrivateGroupManage() {
                       {isOrganizer && group.status === 'gathering' && (
                         <AddCandidateDates
                           groupId={group.id}
+                          organizationId={group.organization_id || ''}
                           scenarioId={group.scenario_id || ''}
                           storeIds={group.preferred_store_ids || []}
                           existingDates={group.candidate_dates || []}

@@ -14,6 +14,7 @@ import {
   type BusinessHoursSettingRow,
   type PrivateGroupCandidateTimeSlot,
 } from '@/lib/privateGroupCandidateSlots'
+import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { showToast } from '@/utils/toast'
 
 /** 列の並び（設定で枠が無い日は該当セルを無効表示） */
@@ -21,6 +22,7 @@ const COLUMN_LABELS: ('午前' | '午後' | '夜')[] = ['午前', '午後', '夜
 
 interface AddCandidateDatesProps {
   groupId: string
+  organizationId: string
   scenarioId: string
   storeIds: string[]
   existingDates: PrivateGroupCandidateDate[]
@@ -30,6 +32,7 @@ interface AddCandidateDatesProps {
 
 export function AddCandidateDates({
   groupId,
+  organizationId,
   scenarioId,
   storeIds,
   existingDates,
@@ -288,6 +291,12 @@ export function AddCandidateDates({
 
     setSaving(true)
     try {
+      const scenarioTiming = await fetchScenarioTimingFromDb(supabase, {
+        organizationId,
+        scenarioLookupId: scenarioId,
+        scenarioMasterId: scenarioId,
+      })
+
       const nextOrderNum = existingDates.length > 0 
         ? Math.max(...existingDates.map(d => d.order_num)) + 1 
         : 1
@@ -297,7 +306,12 @@ export function AddCandidateDates({
         date: slot.date,
         time_slot: privateGroupTimeSlotToDb(slot.slot.label),
         start_time: slot.slot.startTime,
-        end_time: slot.slot.endTime,
+        end_time: getPrivateBookingDisplayEndTime(
+          slot.slot.startTime,
+          slot.date,
+          scenarioTiming,
+          isCustomHoliday
+        ),
         order_num: nextOrderNum + index,
       }))
 
