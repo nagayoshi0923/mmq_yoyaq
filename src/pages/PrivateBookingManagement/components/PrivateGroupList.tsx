@@ -14,11 +14,13 @@ import {
   AlertCircle,
   MessageCircle,
   Loader2,
-  Send
+  Send,
+  History,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
 import { usePrivateGroupList, type PrivateGroupListItem } from '../hooks/usePrivateGroupList'
+import { PrivateGroupAnnouncementHistoryDialog } from './PrivateGroupAnnouncementHistoryDialog'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   'draft': { label: '下書き', color: 'bg-gray-100 text-gray-700', icon: <Clock className="w-3 h-3" /> },
@@ -79,6 +81,9 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
   const [selectedGroup, setSelectedGroup] = useState<PrivateGroupListItem | null>(null)
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
+
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
+  const [historyGroup, setHistoryGroup] = useState<PrivateGroupListItem | null>(null)
 
   const handleSendMessage = async () => {
     if (!selectedGroup || !message.trim()) return
@@ -281,6 +286,18 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
+                          setHistoryGroup(group)
+                          setHistoryDialogOpen(true)
+                        }}
+                      >
+                        <History className="w-4 h-4 mr-1" />
+                        履歴
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
                           setSelectedGroup(group)
                           setMessageDialogOpen(true)
                         }}
@@ -298,6 +315,16 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       )}
 
       {/* メッセージ送信ダイアログ */}
+      <PrivateGroupAnnouncementHistoryDialog
+        open={historyDialogOpen}
+        onOpenChange={(o) => {
+          setHistoryDialogOpen(o)
+          if (!o) setHistoryGroup(null)
+        }}
+        groupId={historyGroup?.id ?? null}
+        scenarioTitle={historyGroup?.scenario_masters?.title || '(シナリオ未設定)'}
+      />
+
       <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
