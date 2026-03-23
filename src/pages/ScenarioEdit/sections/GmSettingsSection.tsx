@@ -135,35 +135,31 @@ export function GmSettingsSection({
               スタッフデータが見つかりません。
             </div>
           ) : (() => {
-            // 通常のGMスタッフ（安全なフィルタリング）
-            const activeGMs = staff.filter(s => {
-              const roles = Array.isArray(s.role) ? s.role : (s.role ? [s.role] : [])
-              return roles.includes('gm') && s.status === 'active'
-            })
-            
-            // 既に担当GMとして設定されているスタッフ（role/statusに関係なく含める）
-            const assignedStaff = staff.filter(s => selectedStaffIds.includes(s.id))
-            
-            // 重複を除いて結合
-            const allAvailableStaff = [...activeGMs]
-            assignedStaff.forEach(assignedStaff => {
-              if (!allAvailableStaff.some(s => s.id === assignedStaff.id)) {
+            const activeStaff = staff.filter((s) => s.status === 'active')
+
+            const assignedStaff = staff.filter((s) => selectedStaffIds.includes(s.id))
+
+            const allAvailableStaff = [...activeStaff]
+            assignedStaff.forEach((assignedStaff) => {
+              if (!allAvailableStaff.some((s) => s.id === assignedStaff.id)) {
                 allAvailableStaff.push(assignedStaff)
               }
             })
-            
-            const gmOptions = allAvailableStaff.map(staffMember => {
-              const roles = Array.isArray(staffMember.role) ? staffMember.role : (staffMember.role ? [staffMember.role] : [])
+
+            const gmOptions = allAvailableStaff.map((staffMember) => {
+              const roles = Array.isArray(staffMember.role)
+                ? staffMember.role
+                : staffMember.role
+                  ? [staffMember.role]
+                  : []
               const isGm = roles.includes('gm')
-              
+              const inactiveNote = staffMember.status !== 'active' ? '（非アクティブ）' : ''
+              const roleNote = !isGm ? '（GMロールなし）' : ''
+
               return {
                 id: staffMember.id,
                 name: staffMember.name,
-                displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name || ''}${
-                  !isGm || staffMember.status !== 'active' 
-                    ? ' (非アクティブGM)' 
-                    : ''
-                }`
+                displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name || ''}${roleNote}${inactiveNote}`,
               }
             })
             

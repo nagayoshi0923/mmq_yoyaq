@@ -1084,28 +1084,32 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                   担当開始時期は自動的に記録されます
                 </div>
               {(() => {
-                // GMまたはスタッフロールを持つアクティブなスタッフ
-                const activeStaff = staff.filter(s => {
-                  const roles = Array.isArray(s.role) ? s.role : []
-                  return (roles.includes('gm') || roles.includes('staff')) && s.status === 'active'
-                })
-                
-                // 既に担当GMとして設定されているスタッフ（role/statusに関係なく含める）
-                const assignedStaff = staff.filter(s => selectedStaffIds.includes(s.id))
-                
-                // 重複を除いて結合
+                const activeStaff = staff.filter((s) => s.status === 'active')
+
+                const assignedStaff = staff.filter((s) => selectedStaffIds.includes(s.id))
+
                 const allAvailableStaff = [...activeStaff]
-                assignedStaff.forEach(assignedStaff => {
-                  if (!allAvailableStaff.some(s => s.id === assignedStaff.id)) {
+                assignedStaff.forEach((assignedStaff) => {
+                  if (!allAvailableStaff.some((s) => s.id === assignedStaff.id)) {
                     allAvailableStaff.push(assignedStaff)
                   }
                 })
-                
-                const gmOptions = allAvailableStaff.map(staffMember => ({
-                  id: staffMember.id,
-                  name: staffMember.name,
-                  displayInfo: `${staffMember.status !== 'active' ? '(非アクティブ)' : ''}`
-                }))
+
+                const gmOptions = allAvailableStaff.map((staffMember) => {
+                  const roles = Array.isArray(staffMember.role)
+                    ? staffMember.role
+                    : staffMember.role
+                      ? [staffMember.role]
+                      : []
+                  const isGm = roles.includes('gm')
+                  const inactiveNote = staffMember.status !== 'active' ? '（非アクティブ）' : ''
+                  const roleNote = !isGm ? '（GMロールなし）' : ''
+                  return {
+                    id: staffMember.id,
+                    name: staffMember.name,
+                    displayInfo: `${roleNote}${inactiveNote}`,
+                  }
+                })
                 
                 return (
                   <MultiSelect

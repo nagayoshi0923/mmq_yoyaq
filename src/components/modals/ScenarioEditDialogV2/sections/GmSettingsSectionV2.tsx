@@ -79,29 +79,32 @@ export function GmSettingsSectionV2({
     }))
   }
 
-  // GMスタッフオプションを生成
+  // 担当GM候補: アクティブな組織スタッフは全員表示（ロールが gm でない人も選べる）
   const gmOptions = React.useMemo(() => {
-    const activeGMs = staff.filter(s => {
-      const roles = Array.isArray(s.role) ? s.role : (s.role ? [s.role] : [])
-      return roles.includes('gm') && s.status === 'active'
-    })
-    
-    const assignedStaff = staff.filter(s => selectedStaffIds.includes(s.id))
-    const allAvailableStaff = [...activeGMs]
-    assignedStaff.forEach(assigned => {
-      if (!allAvailableStaff.some(s => s.id === assigned.id)) {
+    const activeStaff = staff.filter((s) => s.status === 'active')
+
+    const assignedStaff = staff.filter((s) => selectedStaffIds.includes(s.id))
+    const allAvailableStaff = [...activeStaff]
+    assignedStaff.forEach((assigned) => {
+      if (!allAvailableStaff.some((s) => s.id === assigned.id)) {
         allAvailableStaff.push(assigned)
       }
     })
-    
-    return allAvailableStaff.map(staffMember => {
-      const roles = Array.isArray(staffMember.role) ? staffMember.role : (staffMember.role ? [staffMember.role] : [])
+
+    return allAvailableStaff.map((staffMember) => {
+      const roles = Array.isArray(staffMember.role)
+        ? staffMember.role
+        : staffMember.role
+          ? [staffMember.role]
+          : []
       const isGm = roles.includes('gm')
-      
+      const inactiveNote = staffMember.status !== 'active' ? '（非アクティブ）' : ''
+      const roleNote = !isGm ? '（GMロールなし）' : ''
+
       return {
         id: staffMember.id,
         name: staffMember.name,
-        displayInfo: `経験値${staffMember.experience}${!isGm || staffMember.status !== 'active' ? ' (非アクティブ)' : ''}`
+        displayInfo: `経験値${staffMember.experience}${roleNote}${inactiveNote}`,
       }
     })
   }, [staff, selectedStaffIds])
