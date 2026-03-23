@@ -104,7 +104,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
         .from('reservations')
         .select(`
           *,
-          scenario_masters:scenario_master_id(title, official_duration),
+          scenario_masters:scenario_master_id(title, official_duration, extra_preparation_time),
           customers:customer_id(name, phone),
           private_groups:private_group_id(invite_code, scenario_id)
         `)
@@ -216,9 +216,15 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
             typeof req.scenario_masters?.official_duration === 'number' &&
             req.scenario_masters.official_duration > 0
           ) {
+            const prepFromMaster =
+              typeof req.scenario_masters?.extra_preparation_time === 'number' &&
+              req.scenario_masters.extra_preparation_time > 0
+                ? req.scenario_masters.extra_preparation_time
+                : scenario_timing.extra_preparation_time
             scenario_timing = {
               duration: req.scenario_masters.official_duration,
               weekend_duration: scenario_timing.weekend_duration,
+              extra_preparation_time: prepFromMaster,
             }
           }
 

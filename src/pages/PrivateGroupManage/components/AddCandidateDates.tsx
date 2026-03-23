@@ -14,11 +14,26 @@ import {
   type BusinessHoursSettingRow,
   type PrivateGroupCandidateTimeSlot,
 } from '@/lib/privateGroupCandidateSlots'
-import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
+import {
+  fetchScenarioTimingFromDb,
+  getPrivateBookingDisplayEndTime,
+  getPerformanceDurationMinutesForDate,
+  performanceConflictsWithScheduledEvent,
+  type ScenarioTimingFromDb,
+} from '@/lib/privateBookingScenarioTime'
 import { showToast } from '@/utils/toast'
 
 /** 列の並び（設定で枠が無い日は該当セルを無効表示） */
 const COLUMN_LABELS: ('午前' | '午後' | '夜')[] = ['午前', '午後', '夜']
+
+function parseTimeToMinutes(t: unknown): number | null {
+  if (t == null || typeof t !== 'string' || !t.includes(':')) return null
+  const parts = t.trim().slice(0, 8).split(':')
+  const h = parseInt(parts[0] || '0', 10)
+  const m = parseInt(parts[1] || '0', 10)
+  if (Number.isNaN(h) || Number.isNaN(m)) return null
+  return h * 60 + m
+}
 
 interface AddCandidateDatesProps {
   groupId: string
@@ -53,6 +68,8 @@ export function AddCandidateDates({
     new Map()
   )
   const [businessHoursLoaded, setBusinessHoursLoaded] = useState(false)
+  const [scenarioTiming, setScenarioTiming] = useState<ScenarioTimingFromDb | null>(null)
+  const [scenarioTimingLoaded, setScenarioTimingLoaded] = useState(false)
 
   const { isCustomHoliday } = useCustomHolidays()
   // 候補日の制限なし（メンバー調整用のため自由に追加可能）
@@ -62,6 +79,8 @@ export function AddCandidateDates({
     if (!isOpen) {
       setEventsLoaded(false)
       setBusinessHoursLoaded(false)
+      setScenarioTiming(null)
+      setScenarioTimingLoaded(false)
       return
     }
     if (storeIds.length === 0) {
@@ -140,6 +159,35 @@ export function AddCandidateDates({
     }
   }, [isOpen, storeIds])
 
+  useEffect(() => {
+    if (!isOpen) return
+    if (!organizationId || !scenarioId) {
+      setScenarioTiming(null)
+      setScenarioTimingLoaded(true)
+      return
+    }
+    let cancelled = false
+    setScenarioTimingLoaded(false)
+    ;(async () => {
+      try {
+        const t = await fetchScenarioTimingFromDb(supabase, {
+          organizationId,
+          scenarioLookupId: scenarioId,
+          scenarioMasterId: scenarioId,
+        })
+        if (!cancelled) setScenarioTiming(t)
+      } catch (e) {
+        logger.error('Failed to load scenario timing for candidate slots', e)
+        if (!cancelled) setScenarioTiming(null)
+      } finally {
+        if (!cancelled) setScenarioTimingLoaded(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, organizationId, scenarioId])
+
   const availableDates = useMemo(() => {
     const dates: string[] = []
     
@@ -184,7 +232,7 @@ export function AddCandidateDates({
   }, [availableDates, storeIds, businessHoursByStore, isCustomHoliday])
 
   useEffect(() => {
-    if (!isOpen || !businessHoursLoaded || !eventsLoaded) return
+    if (!isOpen || !businessHoursLoaded || !eventsLoaded || !scenarioTimingLoaded || !scenarioTiming) return
 
     const newMap: Record<string, boolean> = {}
 
@@ -210,26 +258,32 @@ export function AddCandidateDates({
           parseInt(slot.endTime.split(':')[0], 10) * 60 +
           parseInt(slot.endTime.split(':')[1] || '0', 10)
 
-        const allStoresHaveConflict =
+        const durationMin = getPerformanceDurationMinutesForDate(date, scenarioTiming, isCustomHoliday)
+        const extraPrep = scenarioTiming.extra_preparation_time || 0
+        const perfOccEnd = slotStart + durationMin + extraPrep
+
+        // 通常貸切と同様: 枠の終了前に「公演+準備」が収まらない候補は不可
+        if (perfOccEnd > slotEnd) {
+          newMap[key] = false
+          continue
+        }
+
+        // storeIds が空のとき every は true になるため長さチェック必須
+        const allStoresBlocked =
           storeIds.length > 0 &&
-          storeIds.every(storeId => {
-            return allStoreEvents.some(event => {
+          storeIds.every(storeId =>
+            allStoreEvents.some(event => {
               if (event.date !== date || event.store_id !== storeId) return false
 
-              const eventStart = event.start_time
-                ? parseInt(event.start_time.split(':')[0], 10) * 60 +
-                  parseInt(event.start_time.split(':')[1] || '0', 10)
-                : 0
-              const eventEnd = event.end_time
-                ? parseInt(event.end_time.split(':')[0], 10) * 60 +
-                  parseInt(event.end_time.split(':')[1] || '0', 10)
-                : eventStart + 240
+              const eventStart = parseTimeToMinutes(event.start_time)
+              if (eventStart === null) return false
+              const eventEnd = parseTimeToMinutes(event.end_time) ?? eventStart + 240
 
-              return eventStart < slotEnd && eventEnd > slotStart
+              return performanceConflictsWithScheduledEvent(slotStart, perfOccEnd, eventStart, eventEnd)
             })
-          })
+          )
 
-        newMap[key] = !allStoresHaveConflict
+        newMap[key] = !allStoresBlocked
       }
     }
 
@@ -243,9 +297,12 @@ export function AddCandidateDates({
     businessHoursLoaded,
     eventsLoaded,
     slotsByDate,
+    scenarioTiming,
+    scenarioTimingLoaded,
+    isCustomHoliday,
   ])
 
-  const loadingData = eventsLoading || !businessHoursLoaded
+  const loadingData = eventsLoading || !businessHoursLoaded || !scenarioTimingLoaded
 
   const handleMonthChange = (delta: number) => {
     setCurrentMonth(prev => {

@@ -8,7 +8,11 @@ export interface PrivateBookingRequest {
   scenario_id?: string
   scenario_master_id?: string
   /** 候補の終了表示・承認時に使用（organization_scenarios 優先） */
-  scenario_timing?: { duration: number; weekend_duration: number | null } | null
+  scenario_timing?: {
+    duration: number
+    weekend_duration: number | null
+    extra_preparation_time?: number
+  } | null
   scenario_title: string
   customer_name: string
   customer_email: string

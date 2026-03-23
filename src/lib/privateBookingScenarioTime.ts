@@ -53,6 +53,33 @@ export function getPrivateBookingDisplayEndTime(
 export type ScenarioTimingFromDb = {
   duration: number
   weekend_duration: number | null
+  /** 追加準備分。通常貸切と同様にインターバル60分に加算して空き判定する */
+  extra_preparation_time: number
+}
+
+/** 通常貸切（usePrivateBooking）と同じく公演間に最低これだけ空ける（分） */
+export const PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES = 60
+
+/**
+ * 既存スケジュール上の公演と、貸切の占有 [perfStart, perfOccupancyEnd] が
+ * 重なりまたはインターバル不足で両立しないか。
+ *
+ * perfOccupancyEnd = 開始 + 公演所要 + 追加準備（店舗占有が途切れる想定時刻）
+ */
+export function performanceConflictsWithScheduledEvent(
+  perfStartMin: number,
+  perfOccupancyEndMin: number,
+  eventStartMin: number,
+  eventEndMin: number,
+  intervalMin: number = PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+): boolean {
+  if (perfStartMin >= eventEndMin) {
+    return perfStartMin < eventEndMin + intervalMin
+  }
+  if (perfOccupancyEndMin <= eventStartMin) {
+    return perfOccupancyEndMin + intervalMin > eventStartMin
+  }
+  return true
 }
 
 /**
@@ -71,25 +98,30 @@ export async function fetchScenarioTimingFromDb(
   const { organizationId, scenarioLookupId, scenarioMasterId } = params
   const lookup = scenarioLookupId || scenarioMasterId
   if (!lookup) {
-    return { duration: fallback, weekend_duration: null }
+    return { duration: fallback, weekend_duration: null, extra_preparation_time: 0 }
   }
 
   if (organizationId) {
     const { data: os } = await supabase
       .from('organization_scenarios')
-      .select('duration, weekend_duration')
+      .select('duration, weekend_duration, extra_preparation_time')
       .eq('organization_id', organizationId)
       .or(`id.eq.${lookup},scenario_master_id.eq.${lookup}`)
       .limit(1)
       .maybeSingle()
 
     if (os && typeof os.duration === 'number' && os.duration > 0) {
+      const prep =
+        typeof os.extra_preparation_time === 'number' && os.extra_preparation_time > 0
+          ? os.extra_preparation_time
+          : 0
       return {
         duration: os.duration,
         weekend_duration:
           typeof os.weekend_duration === 'number' && os.weekend_duration > 0
             ? os.weekend_duration
             : null,
+        extra_preparation_time: prep,
       }
     }
   }
@@ -97,13 +129,17 @@ export async function fetchScenarioTimingFromDb(
   const masterId = scenarioMasterId || lookup
   const { data: sm } = await supabase
     .from('scenario_masters')
-    .select('official_duration')
+    .select('official_duration, extra_preparation_time')
     .eq('id', masterId)
     .maybeSingle()
 
   if (sm && typeof sm.official_duration === 'number' && sm.official_duration > 0) {
-    return { duration: sm.official_duration, weekend_duration: null }
+    const prep =
+      typeof sm.extra_preparation_time === 'number' && sm.extra_preparation_time > 0
+        ? sm.extra_preparation_time
+        : 0
+    return { duration: sm.official_duration, weekend_duration: null, extra_preparation_time: prep }
   }
 
-  return { duration: fallback, weekend_duration: null }
+  return { duration: fallback, weekend_duration: null, extra_preparation_time: 0 }
 }
