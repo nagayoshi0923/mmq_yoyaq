@@ -33,6 +33,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     requestId: string,
     selectedRequest: PrivateBookingRequest | null,
     selectedGMId: string,
+    selectedSubGmId: string | null,
     selectedStoreId: string,
     selectedCandidateOrder: number | null,
     stores: any[]
@@ -44,11 +45,12 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
     const requiredGm = selectedRequest?.required_gm_count ?? 1
     if (requiredGm >= 2) {
-      const ok = window.confirm(
-        'このシナリオは必要GM数が2人以上です。現在の確定処理ではスケジュールに「選択した担当GM」1名のみが登録されます。2人目は別途スケジュールで手動追加してください。続行しますか？'
-      )
-      if (!ok) {
-        return { success: false, error: 'キャンセルしました' }
+      if (!selectedSubGmId?.trim() || selectedSubGmId === selectedGMId) {
+        return {
+          success: false,
+          error:
+            '必要GM数が2名のシナリオです。メインGMとサブGMで、異なる2名を選択してください。',
+        }
       }
     }
 
@@ -150,7 +152,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         p_selected_gm_id: selectedGMId,
         p_candidate_datetimes: updatedCandidateDatetimes,
         p_scenario_title: cleanScenarioTitle,
-        p_customer_name: selectedRequest?.customer_name || ''
+        p_customer_name: selectedRequest?.customer_name || '',
+        p_selected_sub_gm_id: requiredGm >= 2 ? selectedSubGmId : null,
       }
       logger.log('貸切承認RPCパラメータ:', rpcParams)
       
@@ -173,6 +176,13 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             error: '選択した担当GMはこの時間帯に既に別の予定があります。別のGMまたは候補日時を選んでください。'
           }
         }
+        if (approveError.code === 'P0026') {
+          setSubmitting(false)
+          return {
+            success: false,
+            error: 'メインGMとサブGMに同じ人は指定できません。別々のスタッフを選んでください。',
+          }
+        }
         if (approveError.code === 'P0018') {
           setSubmitting(false)
           return {
@@ -190,7 +200,6 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
       // 貸切予約確定メールを送信
-      let gmStaffData: { name: string; email?: string; discord_channel_id?: string } | null = null
       try {
         // 承認後の予約データを取得（total_priceを含む）
         const { data: updatedReservation, error: reservationError } = await supabase
@@ -206,23 +215,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         const customerEmail = selectedRequest?.customer_email || updatedReservation?.customer_email
         const customerName = selectedRequest?.customer_name
         if (customerEmail && customerName) {
-          // GMの名前とメールを取得
-          const { data: gmStaff, error: gmError } = await supabase
-            .from('staff')
-            .select('name, email, discord_channel_id')
-            .eq('id', selectedGMId)
-            .single()
-
-          if (gmError) {
-            logger.error('GM情報取得エラー:', gmError)
-          }
-          gmStaffData = gmStaff
-
-          // 店舗の住所を取得
           const selectedStore = stores.find(s => s.id === selectedStoreId)
           const storeAddress = selectedStore?.address || undefined
-
-          // total_priceまたはfinal_priceを使用（優先順位: final_price > total_price）
           const priceToUse = updatedReservation?.final_price || updatedReservation?.total_price || 0
 
           await supabase.functions.invoke('send-private-booking-confirmation', {
@@ -241,7 +235,6 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
               participantCount: selectedRequest?.participant_count || 0,
               totalPrice: priceToUse,
               reservationNumber: selectedRequest?.reservation_number || updatedReservation?.reservation_number || '',
-              gmName: gmStaff?.name || undefined,
               notes: selectedRequest?.notes || updatedReservation?.customer_notes || undefined
             }
           })
@@ -252,40 +245,48 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         // メール送信失敗しても承認処理は続行
       }
 
-      // GMへの確定通知を送信（Discord / メール）
+      // GMへの確定通知を送信（Discord / メール）— 2名必要ならメイン・サブ両方へ
       try {
-        if (gmStaffData || selectedGMId) {
-          // GMデータが取得できていない場合は再取得
-          if (!gmStaffData) {
-            const { data: gmStaff } = await supabase
-              .from('staff')
-              .select('name, email, discord_channel_id')
-              .eq('id', selectedGMId)
-              .single()
-            gmStaffData = gmStaff
-          }
+        const gmIdsToNotify: string[] =
+          requiredGm >= 2 && selectedSubGmId ? [selectedGMId, selectedSubGmId] : [selectedGMId]
 
-          if (gmStaffData) {
-            const storeName = stores.find(s => s.id === selectedStoreId)?.name || ''
-            
-            await supabase.functions.invoke('notify-gm-private-booking-confirmed', {
-              body: {
-                organizationId,
-                gmId: selectedGMId,
-                gmName: gmStaffData.name,
-                gmEmail: gmStaffData.email,
-                gmDiscordChannelId: gmStaffData.discord_channel_id,
-                scenarioTitle: selectedRequest?.scenario_title || '',
-                eventDate: selectedCandidate.date,
-                startTime: selectedCandidate.startTime,
-                endTime: selectedEndTime,
-                storeName,
-                customerName: selectedRequest?.customer_name || '',
-                participantCount: selectedRequest?.participant_count || 0,
-                reservationId: requestId
+        const { data: notifyStaffRows, error: notifyStaffError } = await supabase
+          .from('staff')
+          .select('id, name, email, discord_channel_id, discord_user_id')
+          .in('id', gmIdsToNotify)
+
+        if (notifyStaffError) {
+          logger.error('GM通知用スタッフ取得エラー:', notifyStaffError)
+        } else {
+          const storeName = stores.find(s => s.id === selectedStoreId)?.name || ''
+          for (const row of notifyStaffRows || []) {
+            if (!row?.id) continue
+            const { error: notifyFnError } = await supabase.functions.invoke(
+              'notify-gm-private-booking-confirmed',
+              {
+                body: {
+                  organizationId,
+                  gmId: row.id,
+                  gmName: row.name,
+                  gmEmail: row.email,
+                  gmDiscordChannelId: row.discord_channel_id ?? undefined,
+                  gmDiscordUserId: row.discord_user_id ?? undefined,
+                  scenarioTitle: selectedRequest?.scenario_title || '',
+                  eventDate: selectedCandidate.date,
+                  startTime: selectedCandidate.startTime,
+                  endTime: selectedEndTime,
+                  storeName,
+                  customerName: selectedRequest?.customer_name || '',
+                  participantCount: selectedRequest?.participant_count || 0,
+                  reservationId: requestId,
+                },
               }
-            })
-            logger.log('GM確定通知送信成功:', gmStaffData.name)
+            )
+            if (notifyFnError) {
+              logger.error('GM確定通知Edge Functionエラー:', notifyFnError)
+            } else {
+              logger.log('GM確定通知リクエスト完了:', row.name)
+            }
           }
         }
       } catch (gmNotifyError) {

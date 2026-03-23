@@ -75,6 +75,7 @@ export function PrivateBookingManagement() {
   // 選択状態
   const [selectedRequest, setSelectedRequest] = useState<PrivateBookingRequest | null>(null)
   const [selectedGMId, setSelectedGMId] = useState<string>('')
+  const [selectedSubGmId, setSelectedSubGmId] = useState<string>('')
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
   const [displayLimit, setDisplayLimit] = useState<string>('50')  // 表示件数
@@ -105,6 +106,7 @@ export function PrivateBookingManagement() {
     onSuccess: () => {
       setSelectedRequest(null)
       setSelectedGMId('')
+      setSelectedSubGmId('')
       setSelectedStoreId('')
       setSelectedCandidateOrder(null)
       loadRequests()
@@ -746,7 +748,7 @@ export function PrivateBookingManagement() {
                       GM確認では、同一候補に対して必要人数が揃い、メイン／サブの両方を担えるスタッフが含まれるまで「店舗確認待ち」に上がりません（サブのみの人だけでは足りません）。
                     </p>
                     <p>
-                      店舗で確定するときは、ここで選ぶ担当はスケジュールに1名だけ登録されます。2人目は公演スケジュール側で手動追加してください。
+                      承認時は、下のプルダウンでメインGMとサブGMの2名を選んで確定してください。公演のスケジュールには両名が登録されます。
                     </p>
                   </AlertDescription>
                 </Alert>
@@ -754,23 +756,64 @@ export function PrivateBookingManagement() {
 
               {/* 担当GMの選択（ネイティブ select: 候補が多いときも OS 標準のスクロールで全件表示） */}
               <div className="pt-3 border-t">
-                <h3 className="mb-2 text-sm font-medium text-purple-800">担当GMを選択してください</h3>
+                <h3 className="mb-2 text-sm font-medium text-purple-800">
+                  {(selectedRequest.required_gm_count ?? 1) >= 2
+                    ? 'メインGM・サブGMをそれぞれ選択してください'
+                    : '担当GMを選択してください'}
+                </h3>
                 <label htmlFor="private-booking-gm-select" className="sr-only">
-                  担当GM
+                  メインGM
                 </label>
                 <select
                   id="private-booking-gm-select"
                   className="flex h-9 w-full rounded-md border border-input bg-[#F6F9FB] px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
                   value={selectedGMId}
-                  onChange={(e) => setSelectedGMId(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setSelectedGMId(v)
+                    setSelectedSubGmId((prev) => (prev === v ? '' : prev))
+                  }}
                 >
-                  <option value="">GMを選択してください</option>
+                  <option value="">
+                    {(selectedRequest.required_gm_count ?? 1) >= 2 ? 'メインGMを選択' : 'GMを選択してください'}
+                  </option>
                   {gmSelectOptions.map(({ gm, isGMDisabled, label }) => (
-                    <option key={gm.id} value={gm.id} disabled={isGMDisabled}>
+                    <option
+                      key={gm.id}
+                      value={gm.id}
+                      disabled={
+                        isGMDisabled ||
+                        ((selectedRequest.required_gm_count ?? 1) >= 2 && gm.id === selectedSubGmId)
+                      }
+                    >
                       {label}
                     </option>
                   ))}
                 </select>
+                {(selectedRequest.required_gm_count ?? 1) >= 2 && (
+                  <div className="mt-4">
+                    <label htmlFor="private-booking-sub-gm-select" className="sr-only">
+                      サブGM
+                    </label>
+                    <select
+                      id="private-booking-sub-gm-select"
+                      className="flex h-9 w-full rounded-md border border-input bg-[#F6F9FB] px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
+                      value={selectedSubGmId}
+                      onChange={(e) => setSelectedSubGmId(e.target.value)}
+                    >
+                      <option value="">サブGMを選択</option>
+                      {gmSelectOptions.map(({ gm, isGMDisabled, label }) => (
+                        <option
+                          key={gm.id}
+                          value={gm.id}
+                          disabled={isGMDisabled || gm.id === selectedGMId}
+                        >
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 {(assignedGMIds.length > 0 || availableGMs.length > 0) && (
                   <div className="mt-2 text-xs text-muted-foreground">
                     ℹ️ <span className="inline-flex items-center px-1 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">担当</span> このシナリオの担当GM / <span className="inline-flex items-center px-1 py-0.5 text-xs bg-green-100 text-green-700 rounded">対応可能</span> 今回対応可能と回答したGM
@@ -786,10 +829,12 @@ export function PrivateBookingManagement() {
                       const confirmed = window.confirm('この予約は既に承認済みです。内容を変更しますか？\n\n変更すると、お客様に再度確定メールが送信されます。')
                       if (!confirmed) return
                     }
+                    const needTwoGms = (selectedRequest.required_gm_count ?? 1) >= 2
                     const result = await handleApprove(
                       selectedRequest.id,
                       selectedRequest,
                       selectedGMId,
+                      needTwoGms ? selectedSubGmId : null,
                       selectedStoreId,
                       selectedCandidateOrder,
                       stores
@@ -802,11 +847,18 @@ export function PrivateBookingManagement() {
                   onCancel={() => {
                     setSelectedRequest(null)
                     setSelectedGMId('')
+                    setSelectedSubGmId('')
                     setSelectedStoreId('')
                     setSelectedCandidateOrder(null)
                   }}
                   onDelete={() => handleDelete(selectedRequest.id)}
-                  disabled={submitting || !selectedGMId || !selectedStoreId || !selectedCandidateOrder}
+                  disabled={
+                    submitting ||
+                    !selectedGMId ||
+                    !selectedStoreId ||
+                    !selectedCandidateOrder ||
+                    ((selectedRequest.required_gm_count ?? 1) >= 2 && !selectedSubGmId)
+                  }
                   submitting={submitting}
                 />
               </div>

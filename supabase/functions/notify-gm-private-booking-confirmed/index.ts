@@ -15,7 +15,10 @@ interface GMNotificationRequest {
   gmId: string
   gmName: string
   gmEmail?: string
+  /** スタッフ個人のDiscordチャンネル（あれば最優先で投稿） */
   gmDiscordChannelId?: string
+  /** DiscordユーザーID（スノーフレーク）。個人チャンネルが無い場合はDM、失敗時は貸切用チャンネルでメンション */
+  gmDiscordUserId?: string
   scenarioTitle: string
   eventDate: string
   startTime: string
@@ -24,6 +27,46 @@ interface GMNotificationRequest {
   customerName: string
   participantCount: number
   reservationId: string
+}
+
+async function postDiscordChannelMessage(
+  botToken: string,
+  channelId: string,
+  payload: Record<string, unknown>
+): Promise<boolean> {
+  const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bot ${botToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (response.ok) {
+    return true
+  }
+  const errorText = await response.text()
+  console.error('❌ Discord API メッセージ送信失敗:', channelId, errorText)
+  return false
+}
+
+/** DM用チャンネルIDを取得（ボットとユーザーが共通サーバーにいる必要あり） */
+async function createDiscordDmChannel(botToken: string, recipientUserId: string): Promise<string | null> {
+  const response = await fetch('https://discord.com/api/v10/users/@me/channels', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bot ${botToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ recipient_id: recipientUserId }),
+  })
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('❌ Discord DMチャンネル作成失敗:', recipientUserId, errorText)
+    return null
+  }
+  const data = await response.json()
+  return data?.id || null
 }
 
 serve(async (req) => {
@@ -49,46 +92,80 @@ serve(async (req) => {
     const formattedDate = `${eventDateObj.getMonth() + 1}/${eventDateObj.getDate()}(${weekdays[eventDateObj.getDay()]})`
     const formattedTime = `${data.startTime.substring(0, 5)}〜${data.endTime.substring(0, 5)}`
 
-    // Discord通知
-    if (data.gmDiscordChannelId) {
-      try {
-        const discordSettings = await getDiscordSettings(supabase, data.organizationId)
-        const botToken = discordSettings?.botToken || Deno.env.get('DISCORD_BOT_TOKEN')
+    // Discord通知（個人チャンネル → DM → 組織の貸切用チャンネル＋メンション の順）
+    try {
+      const discordSettings = await getDiscordSettings(supabase, data.organizationId)
+      const botToken = discordSettings?.botToken || Deno.env.get('DISCORD_BOT_TOKEN')
+      const personalCh = (data.gmDiscordChannelId || '').trim()
+      const discordUserId = (data.gmDiscordUserId || '').trim()
+      const fallbackPrivateBookingCh = (discordSettings?.privateBookingChannelId || '').trim()
 
-        if (botToken) {
-          const embed = {
-            title: '🎉 貸切公演が確定しました',
-            color: 0x10b981, // green
-            fields: [
-              { name: '📚 シナリオ', value: data.scenarioTitle, inline: false },
-              { name: '📅 日程', value: `${formattedDate} ${formattedTime}`, inline: true },
-              { name: '📍 会場', value: data.storeName, inline: true },
-              { name: '👤 代表者', value: data.customerName, inline: true },
-              { name: '👥 人数', value: `${data.participantCount}名`, inline: true },
-            ],
-            footer: { text: '貸切予約確定通知' },
-            timestamp: new Date().toISOString()
-          }
+      if (botToken) {
+        const embed = {
+          title: '🎉 貸切公演が確定しました',
+          description: `**担当GM:** ${data.gmName}`,
+          color: 0x10b981,
+          fields: [
+            { name: '📚 シナリオ', value: data.scenarioTitle, inline: false },
+            { name: '📅 日程', value: `${formattedDate} ${formattedTime}`, inline: true },
+            { name: '📍 会場', value: data.storeName, inline: true },
+            { name: '👤 代表者', value: data.customerName, inline: true },
+            { name: '👥 人数', value: `${data.participantCount}名`, inline: true },
+          ],
+          footer: { text: '貸切予約確定通知（担当GM向け）' },
+          timestamp: new Date().toISOString(),
+        }
 
-          const response = await fetch(`https://discord.com/api/v10/channels/${data.gmDiscordChannelId}/messages`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bot ${botToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ embeds: [embed] }),
-          })
+        let discordSent = false
 
-          if (response.ok) {
-            console.log('✅ Discord通知送信成功:', data.gmDiscordChannelId)
-          } else {
-            const errorText = await response.text()
-            console.error('❌ Discord通知送信失敗:', errorText)
+        if (personalCh) {
+          discordSent = await postDiscordChannelMessage(botToken, personalCh, { embeds: [embed] })
+          if (discordSent) {
+            console.log('✅ Discord通知送信成功（個人チャンネル）:', personalCh)
           }
         }
-      } catch (discordError) {
-        console.error('Discord通知エラー:', discordError)
+
+        if (!discordSent && discordUserId) {
+          const dmId = await createDiscordDmChannel(botToken, discordUserId)
+          if (dmId) {
+            discordSent = await postDiscordChannelMessage(botToken, dmId, { embeds: [embed] })
+            if (discordSent) {
+              console.log('✅ Discord通知送信成功（DM）:', data.gmName)
+            }
+          }
+        }
+
+        if (!discordSent && fallbackPrivateBookingCh) {
+          const content = discordUserId ? `<@${discordUserId}>` : undefined
+          const payload: Record<string, unknown> = { embeds: [embed] }
+          if (content) payload.content = content
+          discordSent = await postDiscordChannelMessage(botToken, fallbackPrivateBookingCh, payload)
+          if (discordSent) {
+            console.log(
+              '✅ Discord通知送信成功（貸切用チャンネル）:',
+              fallbackPrivateBookingCh,
+              discordUserId ? 'with mention' : 'no user id'
+            )
+          }
+        }
+
+        if (!discordSent && (personalCh || discordUserId || fallbackPrivateBookingCh)) {
+          console.warn('⚠️ Discord通知を送信できませんでした（トークン・権限・チャンネルIDを確認）', {
+            gmName: data.gmName,
+            hadPersonalCh: !!personalCh,
+            hadUserId: !!discordUserId,
+            hadFallbackCh: !!fallbackPrivateBookingCh,
+          })
+        } else if (!discordSent) {
+          console.log('ℹ️ Discord通知スキップ（個人チャンネル・ユーザーID・貸切用チャンネルいずれも未設定）', {
+            gmName: data.gmName,
+          })
+        }
+      } else {
+        console.warn('⚠️ DISCORD_BOT_TOKEN / 組織の bot token が未設定のためDiscord通知スキップ')
       }
+    } catch (discordError) {
+      console.error('Discord通知エラー:', discordError)
     }
 
     // メール通知

@@ -19,7 +19,6 @@ interface PrivateBookingConfirmationRequest {
   participantCount: number
   totalPrice: number
   reservationNumber: string
-  gmName?: string
   notes?: string
 }
 
@@ -164,12 +163,6 @@ serve(async (req) => {
         <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; font-weight: bold; color: #6b7280;">参加人数</td>
         <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; color: #1f2937;">${bookingData.participantCount}名</td>
       </tr>
-      ${bookingData.gmName ? `
-      <tr>
-        <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; font-weight: bold; color: #6b7280;">担当GM</td>
-        <td style="padding: 12px 0; border-bottom: 1px solid #f3f4f6; color: #1f2937;">${bookingData.gmName}</td>
-      </tr>
-      ` : ''}
       <tr>
         <td style="padding: 12px 0; font-weight: bold; color: #6b7280;">お支払い金額</td>
         <td style="padding: 12px 0; color: #10b981; font-size: 18px; font-weight: bold;">¥${bookingData.totalPrice.toLocaleString()}</td>
@@ -236,7 +229,7 @@ ${bookingData.customerName} 様
 シナリオ: ${bookingData.scenarioTitle}
 日時: ${formatDate(bookingData.eventDate)} ${formatTime(bookingData.startTime)} - ${formatTime(bookingData.endTime)}
 会場: ${bookingData.storeName}${bookingData.storeAddress ? '\n' + bookingData.storeAddress : ''}
-参加人数: ${bookingData.participantCount}名${bookingData.gmName ? '\n担当GM: ' + bookingData.gmName : ''}
+参加人数: ${bookingData.participantCount}名
 お支払い金額: ¥${bookingData.totalPrice.toLocaleString()}
 
 ${bookingData.notes ? `━━━━━━━━━━━━━━━━━━━━
@@ -298,8 +291,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         .replace(/{company_name}/g, companyName)
         .replace(/{company_phone}/g, companyPhone || '')
         .replace(/{company_email}/g, companyEmail || '')
-        // 貸切専用の追加変数
-        .replace(/{gm_name}/g, bookingData.gmName || '')
+        // 貸切専用（顧客メールではGM名を出さない）
+        .replace(/{gm_name}/g, '')
         .replace(/{notes}/g, bookingData.notes || '')
     }
 

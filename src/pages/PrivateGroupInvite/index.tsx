@@ -815,6 +815,9 @@ export function PrivateGroupInvite() {
   const organizerName = organizerMember?.guest_name || 'メンバー'
   const memberCount = joinedMembers.length
 
+  // 参加人数が上限に達しているか
+  const isGroupFull = targetCount !== null && memberCount >= targetCount
+
   // 主催者判定
   const isOrganizer = user && group?.organizer_id === user.id
 
@@ -3143,20 +3146,29 @@ export function PrivateGroupInvite() {
 
         {/* 送信ボタン（新規参加時のみ表示） */}
         {!existingMemberId && (
-          <Button
-            onClick={() => handleSubmit()}
-            disabled={actionLoading}
-            className="w-full bg-purple-600 hover:bg-purple-700"
-          >
-            {actionLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                送信中...
-              </>
-            ) : (
-              '参加する'
+          <>
+            {isGroupFull && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm text-center mb-2">
+                参加人数が上限（{targetCount}名）に達しています
+              </div>
             )}
-          </Button>
+            <Button
+              onClick={() => handleSubmit()}
+              disabled={actionLoading || isGroupFull}
+              className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  送信中...
+                </>
+              ) : isGroupFull ? (
+                '参加人数上限に達しています'
+              ) : (
+                '参加する'
+              )}
+            </Button>
+          </>
         )}
 
         {/* 退出ボタン（参加済みメンバー用、主催者以外） */}

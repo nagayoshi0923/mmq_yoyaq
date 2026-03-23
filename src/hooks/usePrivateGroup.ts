@@ -405,6 +405,33 @@ export function usePrivateGroup() {
         throw new Error('既にグループに参加しています')
       }
 
+      // 参加人数の上限チェック
+      const { data: groupData } = await supabase
+        .from('private_groups')
+        .select(`
+          target_participant_count,
+          scenario_masters:scenario_id (player_count_max)
+        `)
+        .eq('id', params.groupId)
+        .single()
+
+      if (groupData) {
+        const scenarioMaster = groupData.scenario_masters as { player_count_max?: number } | null
+        const maxParticipants = scenarioMaster?.player_count_max || groupData.target_participant_count || null
+
+        if (maxParticipants) {
+          const { count: currentMemberCount } = await supabase
+            .from('private_group_members')
+            .select('id', { count: 'exact', head: true })
+            .eq('group_id', params.groupId)
+            .eq('status', 'joined')
+
+          if (currentMemberCount !== null && currentMemberCount >= maxParticipants) {
+            throw new Error(`参加人数が上限（${maxParticipants}名）に達しています`)
+          }
+        }
+      }
+
       // ログインユーザーの場合、ニックネームを取得（customersテーブルから）
       let guestName = params.guestName || null
       if (params.userId && !guestName) {
