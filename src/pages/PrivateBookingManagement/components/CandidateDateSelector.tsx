@@ -1,5 +1,6 @@
 import { Calendar, Clock, XCircle, CheckCircle2, MapPin } from 'lucide-react'
 import { logger } from '@/utils/logger'
+import { isGmAvailableForCandidate } from '../utils/gmAvailabilityStatus'
 
 /**
  * 候補日時の日付をフォーマット
@@ -219,10 +220,7 @@ export const CandidateDateSelector = ({
                   {gmResponses.length > 0 && (
                     <div className="flex items-center gap-1 flex-wrap">
                       {gmResponses
-                        .filter(gm => 
-                          gm.response_status === 'available' && 
-                          gm.available_candidates?.includes(candidate.order - 1) // 0始まり
-                        )
+                        .filter((gm) => isGmAvailableForCandidate(gm, candidate.order - 1))
                         .map((gm) => {
                           const colors = getGMBadgeStyle(gm.avatar_color, gm.gm_name)
                           return (
@@ -241,10 +239,8 @@ export const CandidateDateSelector = ({
                           )
                         })
                       }
-                      {gmResponses.filter(gm => 
-                        gm.response_status === 'available' && 
-                        gm.available_candidates?.includes(candidate.order - 1)
-                      ).length === 0 && (
+                      {gmResponses.filter((gm) => isGmAvailableForCandidate(gm, candidate.order - 1))
+                        .length === 0 && (
                         <span className="text-xs text-gray-400">GM回答なし</span>
                       )}
                     </div>

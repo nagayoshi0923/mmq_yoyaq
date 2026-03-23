@@ -40,6 +40,7 @@ import type { PrivateBookingRequest } from './hooks/usePrivateBookingData'
 import { useBookingRequests } from './hooks/useBookingRequests'
 import { useBookingApproval } from './hooks/useBookingApproval'
 import { useStoreAndGMManagement } from './hooks/useStoreAndGMManagement'
+import { isGmMarkedAvailable } from './utils/gmAvailabilityStatus'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
 
@@ -124,6 +125,69 @@ export function PrivateBookingManagement() {
   // スクロール位置の保存と復元
   useReportRouteScrollRestoration('private-booking-management', { isLoading: loading })
 
+  // スタッフマスタ＋GM回答のみにいるIDを統合（一覧の取りこぼし防止）
+  const mergedGmOptions = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; avatar_color?: string | null }>()
+    for (const gm of allGMs) {
+      if (gm?.id) byId.set(String(gm.id), gm)
+    }
+    for (const ag of availableGMs) {
+      const sid = ag.gm_id != null ? String(ag.gm_id) : ''
+      if (!sid || byId.has(sid)) continue
+      byId.set(sid, {
+        id: sid,
+        name: ag.gm_name || '（スタッフ名不明）',
+        avatar_color: ag.avatar_color ?? null,
+      })
+    }
+    return [...byId.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, 'ja', { sensitivity: 'base' })
+    )
+  }, [allGMs, availableGMs])
+
+  // Radix Select はダイアログ内＋長い候補でビューポートが不安定になりがちなため、ネイティブ select で全件・確実にスクロール表示する
+  const gmSelectOptions = useMemo(() => {
+    const candidates = selectedRequest?.candidate_datetimes?.candidates
+    const selectedCandidate =
+      selectedCandidateOrder != null && candidates
+        ? candidates.find((c: { order: number }) => c.order === selectedCandidateOrder)
+        : undefined
+
+    return mergedGmOptions
+      .map((gm) => {
+        const availableGM = availableGMs.find((ag) => String(ag.gm_id) === String(gm.id))
+        const isAvailable = availableGM ? isGmMarkedAvailable(availableGM) : false
+        const isAssigned = assignedGMIds.some((id) => String(id) === String(gm.id))
+        let isGMDisabled = false
+        if (selectedCandidate?.date && selectedCandidate?.timeSlot) {
+          const conflictKey = `${gm.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
+          isGMDisabled = conflictInfo.gmDateConflicts.has(conflictKey)
+        }
+        const gmNotes = (availableGM?.notes || '').trim()
+        const tagParts: string[] = []
+        if (isAssigned) tagParts.push('担当')
+        if (isAvailable) tagParts.push('対応可能')
+        if (isGMDisabled) tagParts.push('予約済み')
+        let label = gm.name
+        if (tagParts.length) label += ` [${tagParts.join('・')}]`
+        if (gmNotes) label += ` — ${gmNotes}`
+        const score = (isAssigned ? 2 : 0) + (isAvailable ? 1 : 0)
+        return { gm, isGMDisabled, label, score }
+      })
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          a.gm.name.localeCompare(b.gm.name, 'ja', { sensitivity: 'base' })
+      )
+  }, [
+    mergedGmOptions,
+    availableGMs,
+    assignedGMIds,
+    selectedCandidateOrder,
+    selectedRequest?.candidate_datetimes?.candidates,
+    conflictInfo,
+  ])
+
   // 初期データロード
   useEffect(() => {
     loadRequests()
@@ -136,6 +200,7 @@ export function PrivateBookingManagement() {
     let timer: NodeJS.Timeout | undefined
     const initializeRequest = async () => {
       if (selectedRequest) {
+        loadAllGMs()
         loadAvailableGMs(selectedRequest.id)
         await loadConflictInfo(selectedRequest.id)
         
@@ -325,9 +390,7 @@ export function PrivateBookingManagement() {
   const isGMConfirmed = (r: PrivateBookingRequest): boolean => {
     if (!r.gm_responses || r.gm_responses.length === 0) return false
     // 1人以上のGMが出勤可能な候補を選択している場合はGM確認済み
-    return r.gm_responses.some(response => 
-      response.available_candidates && response.available_candidates.length > 0
-    )
+    return r.gm_responses.some((response) => isGmMarkedAvailable(response))
   }
   
   // フィルタリング
@@ -536,18 +599,14 @@ export function PrivateBookingManagement() {
                 selectedGMId={selectedGMId}
                 conflictInfo={conflictInfo}
                 gmSelectedCandidates={
-                  // 選択されたGMが回答した候補を参考表示（紫色で表示）
+                  // loadAvailableGMs と同じソースで参照（一覧の gm_responses フィルタとズレないようにする）
                   (() => {
-                    if (!selectedRequest.gm_responses || selectedRequest.gm_responses.length === 0) {
-                      return undefined
-                    }
-                    // 選択されたGMの回答を取得
-                    const selectedGMResponse = selectedGMId 
-                      ? selectedRequest.gm_responses.find(r => r.staff_id === selectedGMId)
-                      : selectedRequest.gm_responses[0]
-                    return selectedGMResponse?.available_candidates 
-                      ? selectedGMResponse.available_candidates.map(idx => idx + 1) // 0始まり→1始まりに変換
-                      : undefined
+                    if (!availableGMs.length) return undefined
+                    const selectedGMResponse = selectedGMId
+                      ? availableGMs.find((r) => String(r.gm_id) === String(selectedGMId))
+                      : availableGMs.find((r) => isGmMarkedAvailable(r))
+                    const ac = selectedGMResponse?.available_candidates
+                    return ac?.length ? ac.map((idx: number) => idx + 1) : undefined
                   })()
                 }
                 gmResponses={availableGMs} // 全GMの回答情報を渡す
@@ -675,67 +734,25 @@ export function PrivateBookingManagement() {
                 </div>
               )}
 
-              {/* 担当GMの選択 */}
+              {/* 担当GMの選択（ネイティブ select: 候補が多いときも OS 標準のスクロールで全件表示） */}
               <div className="pt-3 border-t">
                 <h3 className="mb-2 text-sm font-medium text-purple-800">担当GMを選択してください</h3>
-                <Select value={selectedGMId} onValueChange={setSelectedGMId}>
-                  <SelectTrigger className="w-full text-sm">
-                    <SelectValue placeholder="GMを選択してください" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[...allGMs]
-                      .map((gm) => {
-                        const availableGM = availableGMs.find(ag => ag.gm_id === gm.id)
-                        const isAvailable = availableGM?.response_status === 'available'
-                        const isAssigned = assignedGMIds.includes(gm.id)
-                        return { gm, availableGM, isAvailable, isAssigned }
-                      })
-                      .sort((a, b) => {
-                        // 担当かつ対応可能 > 対応可能 > 担当 > その他
-                        const scoreA = (a.isAssigned ? 2 : 0) + (a.isAvailable ? 1 : 0)
-                        const scoreB = (b.isAssigned ? 2 : 0) + (b.isAvailable ? 1 : 0)
-                        return scoreB - scoreA
-                      })
-                      .map(({ gm, availableGM, isAvailable, isAssigned }) => {
-                        const gmNotes = availableGM?.notes || ''
-                        
-                        let isGMDisabled = false
-                        if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
-                          const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
-                            c => c.order === selectedCandidateOrder
-                          )
-                          if (selectedCandidate) {
-                            const conflictKey = `${gm.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
-                            isGMDisabled = conflictInfo.gmDateConflicts.has(conflictKey)
-                          }
-                        }
-                        
-                        return (
-                          <SelectItem 
-                            key={gm.id} 
-                            value={gm.id}
-                            disabled={isGMDisabled}
-                          >
-                            <span className="flex items-center gap-2">
-                              {gm.name}
-                              {isAssigned && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded">
-                                  担当
-                                </span>
-                              )}
-                              {isAvailable && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded">
-                                  対応可能
-                                </span>
-                              )}
-                              {gmNotes && <span className="text-muted-foreground">- {gmNotes}</span>}
-                              {isGMDisabled && <span className="text-destructive">- 予約済み</span>}
-                            </span>
-                          </SelectItem>
-                        )
-                      })}
-                  </SelectContent>
-                </Select>
+                <label htmlFor="private-booking-gm-select" className="sr-only">
+                  担当GM
+                </label>
+                <select
+                  id="private-booking-gm-select"
+                  className="flex h-9 w-full rounded-md border border-input bg-[#F6F9FB] px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
+                  value={selectedGMId}
+                  onChange={(e) => setSelectedGMId(e.target.value)}
+                >
+                  <option value="">GMを選択してください</option>
+                  {gmSelectOptions.map(({ gm, isGMDisabled, label }) => (
+                    <option key={gm.id} value={gm.id} disabled={isGMDisabled}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
                 {(assignedGMIds.length > 0 || availableGMs.length > 0) && (
                   <div className="mt-2 text-xs text-muted-foreground">
                     ℹ️ <span className="inline-flex items-center px-1 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">担当</span> このシナリオの担当GM / <span className="inline-flex items-center px-1 py-0.5 text-xs bg-green-100 text-green-700 rounded">対応可能</span> 今回対応可能と回答したGM

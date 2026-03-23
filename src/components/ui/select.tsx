@@ -85,9 +85,10 @@ const SelectContent = React.forwardRef<
       <SelectScrollUpButton />
       <SelectPrimitive.Viewport
         className={cn(
-          "p-1",
-          position === "popper" &&
-            "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+          // 旧: h=[--radix-select-trigger-height] だとビューポートがトリガーと同じ高さになり、
+          // 長い候補リストがスクロールしづらく「全員出ていない」ように見える。
+          "max-h-72 w-full overflow-y-auto p-1",
+          position === "popper" && "min-w-[var(--radix-select-trigger-width)]"
         )}
       >
         {children}

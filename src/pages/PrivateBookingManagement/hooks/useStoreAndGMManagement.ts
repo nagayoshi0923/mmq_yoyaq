@@ -1,9 +1,11 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
+import { staffApi } from '@/lib/api/staffApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
+import { shouldIncludeGmResponseRow } from '../utils/gmAvailabilityStatus'
 
 /**
  * 既存イベント情報
@@ -213,23 +215,17 @@ export function useStoreAndGMManagement() {
     }
   }, [])
 
-  // 担当候補の読み込み（組織内のアクティブスタッフ全員。GMロールのみだと sub_gm / スタッフのみの人が漏れる）
+  // 担当候補の読み込み（スタッフマスタと同じ一覧＝組織内の全スタッフ。status や GM ロールで絞らない）
   const loadAllGMs = useCallback(async () => {
     try {
-      const orgId = await getCurrentOrganizationId()
-      let query = supabase
-        .from('staff')
-        .select('id, name, avatar_color')
-        .eq('status', 'active')
-
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
-
-      const { data, error } = await query.order('name')
-
-      if (error) throw error
-      setAllGMs(data || [])
+      const data = await staffApi.getAll()
+      setAllGMs(
+        (data || []).map((s) => ({
+          id: s.id,
+          name: s.name,
+          avatar_color: s.avatar_color ?? null,
+        }))
+      )
     } catch (error) {
       logger.error('GM情報取得エラー:', error)
     }
@@ -251,9 +247,9 @@ export function useStoreAndGMManagement() {
         throw error
       }
 
-      // クライアント側でフィルタリング（CORSエラー回避のため）
-      const filteredResponses = (responses || []).filter(
-        (response: any) => response.response_status === 'available' || response.response_status === 'unavailable'
+      // 回答済み・意思表示がある行のみ（pending かつ未回答は除外）
+      const filteredResponses = (responses || []).filter((response: any) =>
+        shouldIncludeGmResponseRow(response)
       )
 
       const sorted = sortGmResponsesByReplyTime(filteredResponses)

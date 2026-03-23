@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
+import { shouldIncludeGmResponseRow } from '../utils/gmAvailabilityStatus'
 
 export interface PrivateBookingRequest {
   id: string
@@ -190,11 +191,10 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
               'staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name)'
             )
             .eq('reservation_id', req.id)
-            .in('response_status', ['available', 'unavailable'])
 
           // GM名がnullの場合はスタッフテーブルの名前を使用。表示は回答が早い順
           const transformedGMResponses = sortGmResponsesByReplyTime(
-            (gmResponses || []).map((gm: any) => ({
+            (gmResponses || []).filter((gm: any) => shouldIncludeGmResponseRow(gm)).map((gm: any) => ({
               ...gm,
               gm_name: gm.gm_name || gm.staff?.name || '',
             }))

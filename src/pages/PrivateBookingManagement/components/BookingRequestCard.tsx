@@ -12,6 +12,7 @@ import {
   getElapsedDays,
   getCardClassName
 } from '../utils/bookingFormatters'
+import { isGmAvailableForCandidate, isGmMarkedAvailable } from '../utils/gmAvailabilityStatus'
 
 interface Candidate {
   order: number
@@ -119,7 +120,7 @@ export const BookingRequestCard = ({
                     <div key={index} className="text-sm text-purple-800">
                       <div>
                         {response.gm_name || 'GM名不明'}:{' '}
-                        {response.response_status === 'available' ? '✅ 出勤可能' : '❌ 出勤不可'}
+                        {isGmMarkedAvailable(response) ? '✅ 出勤可能' : '❌ 出勤不可'}
                         {response.available_candidates && response.available_candidates.length > 0 && (
                           <span className="ml-2 text-purple-600">
                             (候補{response.available_candidates.map((idx) => idx + 1).join(', ')})
@@ -160,9 +161,8 @@ export const BookingRequestCard = ({
             <div className="space-y-2">
               {request.candidate_datetimes?.candidates?.map((candidate) => {
                 // GMが回答した候補かどうかをチェック
-                const isGMSelected = request.gm_responses?.some(response => 
-                  response.response_status === 'available' && 
-                  response.available_candidates?.includes(candidate.order - 1) // 0始まりなので-1
+                const isGMSelected = request.gm_responses?.some((response) =>
+                  isGmAvailableForCandidate(response, candidate.order - 1)
                 )
                 
                 // ステータスに応じたアイコンとスタイルを決定
