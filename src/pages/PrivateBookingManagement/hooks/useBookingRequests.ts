@@ -7,6 +7,7 @@ import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
 import { shouldIncludeGmResponseRow } from '../utils/gmAvailabilityStatus'
+import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
 
 interface UseBookingRequestsProps {
   userId?: string
@@ -136,6 +137,32 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
 
       privateBookingTrace(`取得: ${data?.length ?? 0} 件（organization_id=${orgId}）`)
 
+      const masterIdsForGmCount = [
+        ...new Set(
+          (data || [])
+            .map((r: { scenario_master_id?: string; private_groups?: { scenario_id?: string } }) =>
+              r.scenario_master_id || r.private_groups?.scenario_id
+            )
+            .filter(Boolean)
+        ),
+      ] as string[]
+      const gmCountByMasterId = new Map<string, number>()
+      if (masterIdsForGmCount.length > 0) {
+        const { data: osRows } = await supabase
+          .from('organization_scenarios')
+          .select('scenario_master_id, gm_count')
+          .eq('organization_id', orgId)
+          .in('scenario_master_id', masterIdsForGmCount)
+        for (const row of osRows || []) {
+          if (row.scenario_master_id) {
+            gmCountByMasterId.set(
+              row.scenario_master_id,
+              resolveStaffProfileGmSlotCount({ gm_count: row.gm_count })
+            )
+          }
+        }
+      }
+
       // 各リクエストに対してGM回答を取得
       const formattedData: PrivateBookingRequest[] = await Promise.all(
         (data || []).map(async (req: any) => {
@@ -247,6 +274,9 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
             reservation_number: req.reservation_number || '',
             scenario_id: req.scenario_id,
             scenario_master_id: scenarioMasterId,
+            required_gm_count: scenarioMasterId
+              ? (gmCountByMasterId.get(scenarioMasterId) ?? 1)
+              : 1,
             scenario_timing,
             scenario_title: req.scenario_masters?.title || req.title || 'シナリオ名不明',
             customer_name: req.customers?.name || '顧客名不明',

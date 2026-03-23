@@ -30,6 +30,11 @@ import { AddFromMasterDialog } from '@/components/modals/AddFromMasterDialog'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
 import type { Column } from '@/components/patterns/table'
+import {
+  buildGmListBadgeMap,
+  gmScenarioBadgeClassNames,
+  type GmListBadgeEntry,
+} from '@/lib/gmScenarioMode'
 
 interface OrganizationScenarioWithMaster {
   id: string           // = scenario_master_id（ビューの id）
@@ -59,6 +64,8 @@ interface OrganizationScenarioWithMaster {
   license_amount: number | null
   gm_test_license_amount: number | null
   available_gms: string[] | null
+  /** staff_scenario_assignments から組み立て（メイン／サブで色・ラベル分け）。取得後マージで付与 */
+  gm_list_badges?: GmListBadgeEntry[] | null
   experienced_staff: string[] | null
   available_stores: string[] | null
   gm_costs: any[] | null
@@ -312,6 +319,37 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         }
       }
 
+      // 担当GM: メイン／サブでバッジ色分けするため assignments を一括取得（ビューの名前配列だけでは役割が分からない）
+      const uniqueMasterIds = [...new Set(scenarioMasterIds as string[])]
+      let gmBadgeMap: Map<string, GmListBadgeEntry[]> | null = null
+      if (uniqueMasterIds.length > 0) {
+        gmBadgeMap = new Map()
+        const chunkSize = 120
+        try {
+          for (let i = 0; i < uniqueMasterIds.length; i += chunkSize) {
+            const chunk = uniqueMasterIds.slice(i, i + chunkSize)
+            const { data: gmRows, error: gmErr } = await supabase
+              .from('staff_scenario_assignments')
+              .select(
+                'scenario_id, can_main_gm, can_sub_gm, staff:staff_id ( name )'
+              )
+              .eq('organization_id', organizationId)
+              .in('scenario_id', chunk)
+              .or('can_main_gm.eq.true,can_sub_gm.eq.true')
+            if (gmErr) throw gmErr
+            buildGmListBadgeMap(gmRows || []).forEach((entries, sid) => {
+              gmBadgeMap!.set(sid, entries)
+            })
+          }
+        } catch (gmFetchErr) {
+          logger.warn(
+            '担当GMのメイン／サブ情報取得に失敗。担当GM列は従来表示にフォールバックします',
+            gmFetchErr
+          )
+          gmBadgeMap = null
+        }
+      }
+
       // シナリオに対応店舗をマージ
       // ※ 担当GMと体験済みスタッフはビューで直接取得される（staff_scenario_assignmentsから動的に計算）
       const scenariosWithAssignments = (data || []).map((scenario: OrganizationScenarioWithMaster) => {
@@ -321,6 +359,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
         
         return {
           ...scenario,
+          gm_list_badges: gmBadgeMap?.get(scenario.scenario_master_id) ?? null,
           // 担当GM・体験済み: ビューから直接取得（上書きしない）
           // 対応店舗: ビュー > organization_scenarios直接 > scenarios > 空配列
           available_stores: viewStores || mapStores || []
@@ -790,26 +829,47 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
     {
       key: 'available_gms',
       header: '担当GM',
-      helpText: 'このシナリオを担当できるGM一覧（組織で設定）',
+      helpText:
+        'メインGM可＝青、メイン・サブ両方＝紫、サブのみ＝水色。サブのみのスタッフは「サブ＋名前」表示（組織で設定）',
       width: 'w-40',
       headerClassName: ORG_HEADER_CLASS,
       cellClassName: ORG_CELL_CLASS + ' overflow-hidden',
       render: (scenario) => {
-        const gms: string[] = scenario.available_gms || []
+        const badges = scenario.gm_list_badges
+        const fallbackNames: string[] = scenario.available_gms || []
         const maxDisplay = 4
-        
-        if (gms.length === 0) {
+
+        type CellItem = { key: string; label: string; badgeClass: string }
+        let items: CellItem[] = []
+        if (badges && badges.length > 0) {
+          items = badges.map((b, i) => ({
+            key: `${b.name}-${b.mode}-${i}`,
+            label: b.displayLabel,
+            badgeClass: gmScenarioBadgeClassNames(b.mode),
+          }))
+        } else if (fallbackNames.length > 0) {
+          items = fallbackNames.map((name, i) => ({
+            key: `fb-${name}-${i}`,
+            label: name,
+            badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+          }))
+        }
+
+        if (items.length === 0) {
           return <span className="text-[10px] text-muted-foreground">-</span>
         }
-        
-        const displayed = gms.slice(0, maxDisplay)
-        const remaining = gms.length - maxDisplay
-        
+
+        const displayed = items.slice(0, maxDisplay)
+        const remaining = items.length - maxDisplay
+
         const content = (
           <div className="flex flex-wrap gap-0.5">
-            {displayed.map((name: string, i: number) => (
-              <span key={i} className="text-[10px] px-1 py-0 bg-blue-50 text-blue-700 rounded-sm border border-blue-200">
-                {name}
+            {displayed.map((item) => (
+              <span
+                key={item.key}
+                className={`text-[10px] px-1 py-0 rounded-sm border ${item.badgeClass}`}
+              >
+                {item.label}
               </span>
             ))}
             {remaining > 0 && (
@@ -817,9 +877,9 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
             )}
           </div>
         )
-        
+
         if (remaining <= 0) return content
-        
+
         return (
           <TooltipProvider delayDuration={100}>
             <Tooltip>
@@ -828,8 +888,10 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
               </TooltipTrigger>
               <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5">
                 <div className="flex flex-col gap-0.5">
-                  {gms.map((name: string, i: number) => (
-                    <span key={i} className="text-xs">{name}</span>
+                  {items.map((item) => (
+                    <span key={item.key} className="text-xs">
+                      {item.label}
+                    </span>
                   ))}
                 </div>
               </TooltipContent>

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
+import { isReservationReadyForStoreAfterGmResponses } from '@/pages/PrivateBookingManagement/utils/privateBookingGmReadiness'
 import type { GMRequest } from './useGMRequests'
 
 interface UseResponseSubmitProps {
@@ -63,27 +65,44 @@ export function useResponseSubmit({
         return
       }
       
-      // GMが1つでも出勤可能な候補を選択した場合、ステータスを更新
-      // 注意：候補は削除せず全て保持する（複数GMの回答を考慮）
+      // 必要GM数が2人以上のシナリオは、同一候補で人数が揃いメイン／サブ役がカバーできるまで店舗確認待ちにしない
       if (availableCandidates.length > 0) {
         const request = requests.find(r => r.id === requestId)
         if (request) {
-          // GMが回答したら店側確認待ちステータスに
-          const newStatus = 'gm_confirmed'
-          
-          // 候補は削除せず、そのまま保持（available_candidatesで表示を制御）
-          const updateData: any = {
-            status: newStatus,
-            updated_at: new Date().toISOString()
+          const { data: curRow } = await supabase
+            .from('reservations')
+            .select('status')
+            .eq('id', request.reservation_id)
+            .maybeSingle()
+          const prevStatus = curRow?.status || 'pending'
+
+          const readyForStore = await isReservationReadyForStoreAfterGmResponses(request.reservation_id)
+          // validate_reservation_status_transition: gm_confirmed → pending_gm は不可のため、店側待ち済みは据え置き
+          let newStatus: string
+          if (readyForStore) {
+            newStatus = 'gm_confirmed'
+          } else if (prevStatus === 'gm_confirmed') {
+            newStatus = 'gm_confirmed'
+          } else {
+            newStatus = 'pending_gm'
           }
-          
+
+          const updateData: Record<string, unknown> = {
+            status: newStatus,
+            updated_at: new Date().toISOString(),
+          }
+
           const { error: reservationError } = await supabase.rpc('admin_update_reservation_fields', {
             p_reservation_id: request.reservation_id,
-            p_updates: updateData
+            p_updates: updateData,
           })
-          
+
           if (reservationError) {
             logger.error('予約更新エラー:', reservationError)
+          } else if (!readyForStore && prevStatus !== 'gm_confirmed') {
+            showToast.info(
+              '回答を保存しました。2人以上GMが必要な作品は、同一候補で必要人数が揃い、メイン／サブの両方を担える人が含まれるまで店舗確認待ちになりません。'
+            )
           }
         }
       }

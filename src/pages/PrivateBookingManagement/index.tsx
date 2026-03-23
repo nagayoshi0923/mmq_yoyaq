@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { Calendar, CheckCircle, Clock, Settings, MapPin, Users } from 'lucide-react'
+import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 // サイドバーのメニュー項目定義
 const PRIVATE_BOOKING_MENU_ITEMS: SidebarMenuItem[] = [
@@ -732,6 +733,23 @@ export function PrivateBookingManagement() {
                     <p className="text-sm whitespace-pre-wrap">{selectedRequest.notes}</p>
                   </div>
                 </div>
+              )}
+
+              {(selectedRequest.required_gm_count ?? 1) >= 2 && (
+                <Alert className="border-amber-200 bg-amber-50/80 text-amber-950">
+                  <AlertCircle className="h-4 w-4 text-amber-700" />
+                  <AlertTitle className="text-sm font-semibold text-amber-900">
+                    必要GM数が{selectedRequest.required_gm_count}人のシナリオです
+                  </AlertTitle>
+                  <AlertDescription className="text-xs text-amber-900/90 mt-1 space-y-1">
+                    <p>
+                      GM確認では、同一候補に対して必要人数が揃い、メイン／サブの両方を担えるスタッフが含まれるまで「店舗確認待ち」に上がりません（サブのみの人だけでは足りません）。
+                    </p>
+                    <p>
+                      店舗で確定するときは、ここで選ぶ担当はスケジュールに1名だけ登録されます。2人目は公演スケジュール側で手動追加してください。
+                    </p>
+                  </AlertDescription>
+                </Alert>
               )}
 
               {/* 担当GMの選択（ネイティブ select: 候補が多いときも OS 標準のスクロールで全件表示） */}

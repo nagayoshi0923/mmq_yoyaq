@@ -42,6 +42,16 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       return { success: false, error: '承認に必要な情報が不足しています' }
     }
 
+    const requiredGm = selectedRequest?.required_gm_count ?? 1
+    if (requiredGm >= 2) {
+      const ok = window.confirm(
+        'このシナリオは必要GM数が2人以上です。現在の確定処理ではスケジュールに「選択した担当GM」1名のみが登録されます。2人目は別途スケジュールで手動追加してください。続行しますか？'
+      )
+      if (!ok) {
+        return { success: false, error: 'キャンセルしました' }
+      }
+    }
+
     try {
       setSubmitting(true)
 

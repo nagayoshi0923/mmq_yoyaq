@@ -4,6 +4,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -11,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { assignmentApi } from '@/lib/assignmentApi'
+import { resolveStaffProfileGmSlotCount } from '@/lib/gmScenarioMode'
 // scenarioApi は不要（organization_scenarios_with_master ビューを直接使用）
 import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
 import { scenarioKeys } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
@@ -21,9 +23,10 @@ interface CircleCheckProps {
   checked: boolean
   onChange: () => void
   color: 'blue' | 'green'
+  disabled?: boolean
 }
 
-function CircleCheck({ checked, onChange, color }: CircleCheckProps) {
+function CircleCheck({ checked, onChange, color, disabled }: CircleCheckProps) {
   const colorClasses = {
     blue: checked 
       ? 'bg-blue-100 border-blue-400 text-blue-600' 
@@ -36,8 +39,9 @@ function CircleCheck({ checked, onChange, color }: CircleCheckProps) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onChange}
-      className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors ${colorClasses[color]}`}
+      className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors ${colorClasses[color]} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
     >
       {checked && <Check className="w-4 h-4" />}
     </button>
@@ -49,6 +53,12 @@ interface Scenario {
   title: string
   author: string
   scenario_master_id: string
+  /** 表示用の必要GM数（organization_scenarios.gm_count。未設定は1） */
+  gm_slot_count: number
+}
+
+function needsTwoGmRoles(gmSlotCount: number): boolean {
+  return gmSlotCount >= 2
 }
 
 interface Assignment {
@@ -103,7 +113,7 @@ export function StaffProfile() {
         const organizationId = await getCurrentOrganizationId()
         const { data: orgScenarios, error: orgError } = await supabase
           .from('organization_scenarios_with_master')
-          .select('scenario_master_id, title, author')
+          .select('scenario_master_id, title, author, gm_count')
           .eq('organization_id', organizationId!)
           .order('title', { ascending: true })
         
@@ -115,13 +125,25 @@ export function StaffProfile() {
             id: s.scenario_master_id,
             title: s.title || '',
             author: s.author || '',
-            scenario_master_id: s.scenario_master_id
+            scenario_master_id: s.scenario_master_id,
+            gm_slot_count: resolveStaffProfileGmSlotCount({ gm_count: s.gm_count }),
           }))
         setScenarios(scenariosList)
 
         // 現在のアサインメントを取得（scenario_id = scenario_master_id）
         const assignmentsData = await assignmentApi.getAllStaffAssignments(staffData.id)
-        setAssignments(assignmentsData)
+        setAssignments(
+          (assignmentsData || []).map((row) => {
+            const r = row as Assignment
+            return {
+              scenario_id: r.scenario_id,
+              can_main_gm: r.can_main_gm === true,
+              can_sub_gm: r.can_sub_gm === true,
+              is_experienced: r.is_experienced === true,
+              scenario_masters: r.scenario_masters,
+            }
+          })
+        )
 
       } catch (error) {
         logger.error('データ読み込みエラー:', error)
@@ -148,73 +170,91 @@ export function StaffProfile() {
     return assignments.find(a => a.scenario_id === scenarioId)
   }, [assignments])
 
-  // 体験済みかどうか
-  const isExperienced = useCallback((scenarioId: string) => {
-    const assignment = getAssignment(scenarioId)
-    if (!assignment) return false
-    return assignment.is_experienced || assignment.can_main_gm || assignment.can_sub_gm
-  }, [getAssignment])
+  /** 体験済みのみ（メイン・サブともにオフ） */
+  const isExperiencedOnly = useCallback(
+    (scenarioId: string) => {
+      const assignment = getAssignment(scenarioId)
+      return Boolean(
+        assignment?.is_experienced && !assignment.can_main_gm && !assignment.can_sub_gm
+      )
+    },
+    [getAssignment]
+  )
 
-  // GM可能かどうか
-  const canGM = useCallback((scenarioId: string) => {
-    const assignment = getAssignment(scenarioId)
-    if (!assignment) return false
-    return assignment.can_main_gm || assignment.can_sub_gm
-  }, [getAssignment])
-
-  // 体験済みをトグル
+  /** メイン／サブがオンなら体験済トグルは無効（シナリオ編集・DB制約と整合） */
   const toggleExperienced = useCallback((scenarioId: string) => {
-    setAssignments(prev => {
-      const existing = prev.find(a => a.scenario_id === scenarioId)
-      
-      if (existing) {
-        // 既存のアサインメントがある場合
-        if (existing.is_experienced || existing.can_main_gm || existing.can_sub_gm) {
-          // 体験済み→未体験に変更（削除）- GM可能も一緒に解除
-          return prev.filter(a => a.scenario_id !== scenarioId)
-        }
+    setAssignments((prev) => {
+      const existing = prev.find((a) => a.scenario_id === scenarioId)
+      if (existing?.can_main_gm || existing?.can_sub_gm) return prev
+      if (existing?.is_experienced) {
+        return prev.filter((a) => a.scenario_id !== scenarioId)
       }
-      
-      // 未体験→体験済みに変更（追加）
-      return [...prev, {
-        scenario_id: scenarioId,
-        can_main_gm: false,
-        can_sub_gm: false,
-        is_experienced: true
-      }]
+      return [
+        ...prev,
+        {
+          scenario_id: scenarioId,
+          can_main_gm: false,
+          can_sub_gm: false,
+          is_experienced: true,
+        },
+      ]
     })
   }, [])
 
-  // GM可能をトグル（GM可能にすると自動的に体験済みになる）
-  const toggleGM = useCallback((scenarioId: string) => {
-    setAssignments(prev => {
-      const existing = prev.find(a => a.scenario_id === scenarioId)
-      
-      if (existing) {
-        if (existing.can_main_gm || existing.can_sub_gm) {
-          // GM可能→体験済みのみに変更
-          return prev.map(a => 
-            a.scenario_id === scenarioId 
-              ? { ...a, can_main_gm: false, can_sub_gm: false, is_experienced: true }
-              : a
-          )
-        } else {
-          // 体験済み→GM可能に変更
-          return prev.map(a => 
-            a.scenario_id === scenarioId 
-              ? { ...a, can_main_gm: true, can_sub_gm: true, is_experienced: false }
-              : a
-          )
+  /**
+   * 1人体制シナリオ用: GM可1チェック（メインのみ true、サブは false）
+   * シナリオ編集の1枠GMと整合（gm_slot_count=1 の行）
+   */
+  const setSingleGmCapability = useCallback((scenarioId: string, checked: boolean) => {
+    setAssignments((prev) => {
+      const idx = prev.findIndex((a) => a.scenario_id === scenarioId)
+      const prevRow = idx >= 0 ? prev[idx] : null
+      if (checked) {
+        const next: Assignment = {
+          scenario_id: scenarioId,
+          can_main_gm: true,
+          can_sub_gm: false,
+          is_experienced: false,
         }
+        if (!prevRow) return [...prev, next]
+        const copy = [...prev]
+        copy[idx] = next
+        return copy
       }
-      
-      // 新規追加（GM可能 = 自動的に体験済みも含む）
-      return [...prev, {
+      const next: Assignment = {
         scenario_id: scenarioId,
-        can_main_gm: true,
-        can_sub_gm: true,
-        is_experienced: false
-      }]
+        can_main_gm: false,
+        can_sub_gm: false,
+        is_experienced: true,
+      }
+      if (!prevRow) return prev
+      const copy = [...prev]
+      copy[idx] = next
+      return copy
+    })
+  }, [])
+
+  /** メイン／サブ（staff_scenario_assignments。シナリオ編集の担当GMと同一） */
+  const setGmRole = useCallback((scenarioId: string, role: 'main' | 'sub', checked: boolean) => {
+    setAssignments((prev) => {
+      const idx = prev.findIndex((a) => a.scenario_id === scenarioId)
+      const prevRow = idx >= 0 ? prev[idx] : null
+      const can_main_gm = role === 'main' ? checked : Boolean(prevRow?.can_main_gm)
+      const can_sub_gm = role === 'sub' ? checked : Boolean(prevRow?.can_sub_gm)
+      const hasGm = can_main_gm || can_sub_gm
+      const next: Assignment = {
+        scenario_id: scenarioId,
+        can_main_gm,
+        can_sub_gm,
+        is_experienced: hasGm ? false : true,
+      }
+      if (!prevRow) {
+        if (!hasGm) return prev
+        return [...prev, next]
+      }
+      const copy = [...prev]
+      copy[idx] = next
+      return copy
     })
   }, [])
 
@@ -303,7 +343,7 @@ export function StaffProfile() {
               <span className="text-lg font-bold">担当作品</span>
             </div>
           }
-          description={`${staffName}さんの体験リストとGM可能作品を管理`}
+          description={`${staffName}さんの体験リストとGM可否を管理。シナリオ編集の「GM」タブで必要GM数が2人以上の作品だけ、ここでメイン／サブを分けて設定できます`}
         >
           <Button onClick={handleSave} disabled={saving}>
             {saving ? (
@@ -355,48 +395,92 @@ export function StaffProfile() {
           <CardHeader className="py-3">
             <CardTitle className="text-base">シナリオを選択</CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              体験済み・GM可能を設定してください
+              1人体制は「GM可」1つ。2人でメイン／サブを分けたい場合はシナリオ編集 → GM →「必要GM数」を2以上にして保存してください（報酬枠の行数では判定しません）
             </p>
           </CardHeader>
           <CardContent className="p-0">
             {/* ヘッダー */}
-            <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
-              <div className="flex-1">シナリオ</div>
-              <div className="flex items-center gap-6">
-                <span className="w-16 text-center">体験済</span>
-                <span className="w-16 text-center">GM可</span>
+            <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground gap-2">
+              <div className="flex-1 min-w-0">シナリオ</div>
+              <div className="flex items-center shrink-0 gap-3 sm:gap-4">
+                <span className="w-12 sm:w-14 text-center">体験済</span>
+                <span className="w-[7rem] sm:w-[8.5rem] text-center">GM</span>
               </div>
             </div>
             <div className="max-h-[500px] overflow-y-auto">
-              {filteredScenarios.map(scenario => {
-                const experienced = isExperienced(scenario.id)
-                const gm = canGM(scenario.id)
+              {filteredScenarios.map((scenario) => {
+                const assignment = getAssignment(scenario.id)
+                const hasGmRole = Boolean(assignment?.can_main_gm || assignment?.can_sub_gm)
+                const experiencedOnly = isExperiencedOnly(scenario.id)
+                const twoGm = needsTwoGmRoles(scenario.gm_slot_count)
 
                 return (
                   <div
                     key={scenario.id}
-                    className="flex items-center justify-between px-4 py-3 border-b last:border-b-0 hover:bg-muted/50"
+                    className="flex items-center justify-between px-4 py-3 border-b last:border-b-0 hover:bg-muted/50 gap-2"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{scenario.title}</p>
-                      <p className="text-xs text-muted-foreground">{scenario.author}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {scenario.author}
+                        {twoGm && (
+                          <span className="text-muted-foreground/80"> · 2人体制</span>
+                        )}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-6">
-                      {/* 体験済みチェックボックス */}
-                      <div className="w-16 flex justify-center">
+                    <div className="flex items-center shrink-0 gap-3 sm:gap-4">
+                      <div
+                        className="w-12 sm:w-14 flex justify-center"
+                        title={
+                          hasGmRole
+                            ? 'GM可（メイン／サブ）がオンのときは体験済のみにできません。先にGMをオフにしてください'
+                            : undefined
+                        }
+                      >
                         <CircleCheck
-                          checked={experienced}
+                          checked={experiencedOnly}
                           onChange={() => toggleExperienced(scenario.id)}
                           color="green"
+                          disabled={hasGmRole}
                         />
                       </div>
-                      {/* GM可能チェックボックス */}
-                      <div className="w-16 flex justify-center">
-                        <CircleCheck
-                          checked={gm}
-                          onChange={() => toggleGM(scenario.id)}
-                          color="blue"
-                        />
+                      <div className="w-[7rem] sm:w-[8.5rem] flex justify-center">
+                        {twoGm ? (
+                          <div className="flex items-start justify-center gap-2 sm:gap-3">
+                            <div className="flex flex-col items-center gap-0.5">
+                              <Checkbox
+                                checked={Boolean(assignment?.can_main_gm)}
+                                onCheckedChange={(v) =>
+                                  setGmRole(scenario.id, 'main', v === true)
+                                }
+                                aria-label={`${scenario.title} メインGM可`}
+                              />
+                              <span className="text-[10px] text-muted-foreground leading-none">
+                                メイン
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-center gap-0.5">
+                              <Checkbox
+                                checked={Boolean(assignment?.can_sub_gm)}
+                                onCheckedChange={(v) =>
+                                  setGmRole(scenario.id, 'sub', v === true)
+                                }
+                                aria-label={`${scenario.title} サブGM可`}
+                              />
+                              <span className="text-[10px] text-muted-foreground leading-none">
+                                サブ
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <Checkbox
+                            checked={hasGmRole}
+                            onCheckedChange={(v) =>
+                              setSingleGmCapability(scenario.id, v === true)
+                            }
+                            aria-label={`${scenario.title} GM可`}
+                          />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -413,7 +497,7 @@ export function StaffProfile() {
         </Card>
 
         <p className="text-xs text-muted-foreground mt-2">
-          ※ GM可能にチェックすると自動的に体験済みになります
+          ※ 1人体制で「GM可」をオフにすると体験済のみのレコードになります。2人体制ではメイン／サブをどちらもオフにしたとき同様です。GMをオンにすると体験済フラグはオフになります（シナリオ編集の担当GMと同じDB制約）
         </p>
       </div>
     </AppLayout>

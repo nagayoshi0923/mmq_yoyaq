@@ -9,6 +9,8 @@ export interface PrivateBookingRequest {
   reservation_number: string
   scenario_id?: string
   scenario_master_id?: string
+  /** organization_scenarios.gm_count（担当作品と同じ解釈）。一覧取得時に付与、未設定は1 */
+  required_gm_count?: number
   /** 候補の終了表示・承認時に使用（organization_scenarios 優先） */
   scenario_timing?: {
     duration: number

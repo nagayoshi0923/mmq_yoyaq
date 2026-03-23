@@ -1028,6 +1028,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               available_stores: scenarioData.available_stores || [],
               participation_costs: scenarioData.participation_costs || [],
               gm_costs: scenarioData.gm_costs || [],
+              // 必要GM数（担当作品ページのメイン／サブ表示やシフト計算用。organization_scenarios に必ず同期する）
+              gm_count: formData.gm_count ?? 1,
               // ライセンス関連フィールド
               license_amount: scenarioData.license_amount,
               gm_test_license_amount: scenarioData.gm_test_license_amount,
