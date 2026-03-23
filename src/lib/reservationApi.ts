@@ -701,7 +701,7 @@ export const reservationApi = {
         .insert({
           group_id: reservation.private_group_id,
           sender_type: 'system',
-          content: JSON.stringify({
+          message: JSON.stringify({
             type: 'system',
             action: 'booking_cancelled',
             title,

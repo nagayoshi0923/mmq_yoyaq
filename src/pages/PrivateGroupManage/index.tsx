@@ -206,6 +206,17 @@ export function PrivateGroupManage() {
     [group, linkedReservationStatus]
   )
 
+  /** 紐づく未キャンセル予約がある間は候補追加などを禁止（invite ページと同じ基準） */
+  const canMutateScheduleBeforeStoreReply = useMemo(() => {
+    if (!group) return false
+    if (group.status === 'booking_requested' || group.status === 'confirmed') return false
+    if (!(group.status === 'gathering' || group.status === 'date_adjusting')) return false
+    if (group.reservation_id) {
+      return linkedReservationStatus === 'cancelled'
+    }
+    return true
+  }, [group, linkedReservationStatus])
+
   const isOrganizer = user && group?.organizer_id === user.id
   
   // メンバーかどうかをチェック（ログインユーザーがメンバーに含まれているか）
@@ -660,7 +671,7 @@ export function PrivateGroupManage() {
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">候補日時（{group.candidate_dates?.length || 0}件）</h3>
-                      {isOrganizer && group.status === 'gathering' && (
+                      {isOrganizer && canMutateScheduleBeforeStoreReply && (
                         <AddCandidateDates
                           groupId={group.id}
                           organizationId={group.organization_id || ''}

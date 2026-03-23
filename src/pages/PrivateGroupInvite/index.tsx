@@ -58,6 +58,20 @@ export function PrivateGroupInvite() {
     [group, linkedReservationStatus]
   )
 
+  /**
+   * 店舗への貸切リクエスト送付済み（未キャンセルの予約が紐づく）の間は、
+   * 候補日追加・希望店舗編集・予約リクエスト作成を禁止（グループ status の更新遅延にも対応）
+   */
+  const canMutateScheduleBeforeStoreReply = useMemo(() => {
+    if (!group) return false
+    if (group.status === 'booking_requested' || group.status === 'confirmed') return false
+    if (!(group.status === 'gathering' || group.status === 'date_adjusting')) return false
+    if (group.reservation_id) {
+      return linkedReservationStatus === 'cancelled'
+    }
+    return true
+  }, [group, linkedReservationStatus])
+
   // デバッグログ
   if (group) {
     logger.log('📋 PrivateGroupInvite: group data', { 
@@ -400,7 +414,11 @@ export function PrivateGroupInvite() {
   // 希望店舗を保存
   const handleSavePreferredStores = async () => {
     if (!group) return
-    
+    if (!canMutateScheduleBeforeStoreReply) {
+      toast.error('店舗の返答待ちのため、希望店舗を変更できません')
+      return
+    }
+
     setSavingStores(true)
     try {
       const { error } = await supabase
@@ -423,6 +441,10 @@ export function PrivateGroupInvite() {
 
   // 店舗編集シートを開く
   const openStoreEditSheet = () => {
+    if (!canMutateScheduleBeforeStoreReply) {
+      toast.error('店舗の返答待ちのため、希望店舗を変更できません')
+      return
+    }
     setSelectedStoreIds(group?.preferred_store_ids || [])
     setShowStoreEditSheet(true)
     setLoadingStoresForEdit(true)
@@ -453,23 +475,45 @@ export function PrivateGroupInvite() {
     return group?.members?.filter(m => m.status === 'joined') || []
   }, [group?.members])
 
+  /** 却下済みは日程調整の対象外（status 未設定は従来どおり有効） */
+  const activeCandidateDates = useMemo(
+    () => group?.candidate_dates?.filter(cd => cd.status !== 'rejected') ?? [],
+    [group?.candidate_dates]
+  )
+
   const allMembersResponded = useMemo(() => {
-    if (!group?.candidate_dates?.length || !joinedMembers.length) return false
-    return joinedMembers.every(member => 
-      group.candidate_dates?.every(cd => 
+    if (!activeCandidateDates.length || !joinedMembers.length) return false
+    return joinedMembers.every(member =>
+      activeCandidateDates.every(cd =>
         cd.responses?.some(r => r.member_id === member.id)
       )
     )
-  }, [group?.candidate_dates, joinedMembers])
+  }, [activeCandidateDates, joinedMembers])
 
+  /** 全員が同一の「有効」候補日に OK */
   const hasViableDate = useMemo(() => {
-    if (!group?.candidate_dates?.length || !joinedMembers.length) return false
-    return group.candidate_dates.some(cd => 
-      joinedMembers.every(member => 
+    if (!activeCandidateDates.length || !joinedMembers.length) return false
+    return activeCandidateDates.some(cd =>
+      joinedMembers.every(member =>
         cd.responses?.some(r => r.member_id === member.id && r.response === 'ok')
       )
     )
-  }, [group?.candidate_dates, joinedMembers])
+  }, [activeCandidateDates, joinedMembers])
+
+  /**
+   * 進捗の「申込可能」表示用。
+   * 却下後の再調整では、新候補にまだ全員OKが付く前に refetch で rejected が付くと
+   * hasViableDate だけだと一瞬 true→false になるため、
+   * date_adjusting かつ有効候補があれば再申請可能として表示する。
+   */
+  const bookingProgressReady = useMemo(
+    () =>
+      hasViableDate ||
+      (group?.status === 'date_adjusting' &&
+        activeCandidateDates.length > 0 &&
+        joinedMembers.length > 0),
+    [hasViableDate, group?.status, activeCandidateDates.length, joinedMembers.length]
+  )
 
   const hasCharacters = useMemo(() => {
     const scenario = group?.scenario_masters
@@ -865,6 +909,10 @@ export function PrivateGroupInvite() {
   // 貸切申込ダイアログを開く
   const handleOpenBookingDialog = async () => {
     if (!isOrganizer || !group || !user) return
+    if (!canMutateScheduleBeforeStoreReply) {
+      toast.error('店舗の返答待ちのため、候補日の追加や予約リクエストの作成はできません')
+      return
+    }
     setBookingSelectedDates(new Set())
     setBookingNotes('')
     
@@ -899,11 +947,22 @@ export function PrivateGroupInvite() {
   // 貸切申込を実行
   const handleSubmitBooking = async () => {
     if (!isOrganizer || !group || !user) return
-    
-    const selectedCandidateDates = group.candidate_dates?.filter(cd => bookingSelectedDates.has(cd.id)) || []
-    
+    if (!canMutateScheduleBeforeStoreReply) {
+      toast.error('店舗の返答待ちのため、予約リクエストを送信できません')
+      return
+    }
+
+    const selectedCandidateDates =
+      group.candidate_dates?.filter(
+        cd => bookingSelectedDates.has(cd.id) && cd.status !== 'rejected'
+      ) || []
+
     if (selectedCandidateDates.length === 0) {
-      toast.error('申請する日程を選択してください')
+      toast.error(
+        bookingSelectedDates.size > 0
+          ? '却下済みの日程は申請に含められません。有効な候補を選び直してください'
+          : '申請する日程を選択してください'
+      )
       return
     }
     
@@ -1092,9 +1151,8 @@ export function PrivateGroupInvite() {
         .from('private_group_messages')
         .insert({
           group_id: group.id,
-          sender_id: organizerMember?.id,
-          sender_type: 'system',
-          content: JSON.stringify({
+          member_id: organizerMember?.id,
+          message: JSON.stringify({
             type: 'system',
             action: 'booking_requested',
             title,
@@ -1242,16 +1300,16 @@ export function PrivateGroupInvite() {
         {showMobileDates && (
           <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowMobileDates(false)}>
             <div 
-              className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[520px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
+              className="absolute bottom-0 left-0 right-0 flex max-h-[85vh] flex-col overflow-hidden rounded-t-2xl bg-white lg:bottom-4 lg:left-auto lg:right-4 lg:w-[520px] lg:rounded-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* ハンドル（モバイルのみ） */}
-              <div className="flex justify-center py-2 shrink-0 lg:hidden">
-                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+              <div className="flex shrink-0 justify-center py-1 lg:hidden">
+                <div className="h-1 w-10 rounded-full bg-gray-300" />
               </div>
               
               {/* ヘッダー */}
-              <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
+              <div className="flex shrink-0 items-center justify-between border-b px-3 pb-1.5 pt-0 sm:px-4 sm:pb-2">
                 <h3 className="font-semibold">日程・進捗</h3>
                 <button 
                   onClick={() => setShowMobileDates(false)}
@@ -1261,37 +1319,42 @@ export function PrivateGroupInvite() {
                 </button>
               </div>
               
-              {/* コンテンツ */}
-              <div className="overflow-y-auto flex-1 p-4 space-y-4">
+              {/* コンテンツ（min-h-0 で子の flex / sticky が効く） */}
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-2 sm:space-y-4 sm:p-4">
+                {isOrganizer && !canMutateScheduleBeforeStoreReply && (group.status === 'gathering' || group.status === 'date_adjusting') && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] leading-snug text-amber-900">
+                    店舗の返答待ちのため、候補日の追加・希望店舗の変更・予約リクエストの作成はできません。
+                  </div>
+                )}
                 {/* 進捗ステップ */}
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <h4 className="font-medium text-sm mb-2">進捗状況</h4>
-                  <div className="grid grid-cols-5 gap-1">
-                    <div className={`text-center p-1.5 rounded ${joinedMembers.length >= 1 || group.status !== 'gathering' ? 'bg-green-100' : 'bg-gray-200'}`}>
+                <div className="rounded-lg bg-gray-50 p-2 sm:p-3">
+                  <h4 className="mb-1 text-xs font-medium sm:text-sm">進捗状況</h4>
+                  <div className="grid grid-cols-5 gap-0.5 sm:gap-1">
+                    <div className={`rounded p-1 text-center sm:p-1.5 ${joinedMembers.length >= 1 || group.status !== 'gathering' ? 'bg-green-100' : 'bg-gray-200'}`}>
                       <div className={`text-xs font-medium ${joinedMembers.length >= 1 || group.status !== 'gathering' ? 'text-green-700' : 'text-gray-500'}`}>
                         {joinedMembers.length >= 1 || group.status !== 'gathering' ? '✓' : '1'}
                       </div>
                       <div className="text-[10px] text-muted-foreground">招待</div>
                     </div>
-                    <div className={`text-center p-1.5 rounded ${(group.candidate_dates?.length || 0) > 0 ? 'bg-green-100' : 'bg-gray-200'}`}>
+                    <div className={`rounded p-1 text-center sm:p-1.5 ${(group.candidate_dates?.length || 0) > 0 ? 'bg-green-100' : 'bg-gray-200'}`}>
                       <div className={`text-xs font-medium ${(group.candidate_dates?.length || 0) > 0 ? 'text-green-700' : 'text-gray-500'}`}>
                         {(group.candidate_dates?.length || 0) > 0 ? '✓' : '2'}
                       </div>
                       <div className="text-[10px] text-muted-foreground">候補日</div>
                     </div>
-                    <div className={`text-center p-1.5 rounded ${allMembersResponded || group.status !== 'gathering' ? 'bg-green-100' : 'bg-gray-200'}`}>
+                    <div className={`rounded p-1 text-center sm:p-1.5 ${allMembersResponded || group.status !== 'gathering' ? 'bg-green-100' : 'bg-gray-200'}`}>
                       <div className={`text-xs font-medium ${allMembersResponded || group.status !== 'gathering' ? 'text-green-700' : 'text-gray-500'}`}>
                         {allMembersResponded || group.status !== 'gathering' ? '✓' : '3'}
                       </div>
                       <div className="text-[10px] text-muted-foreground">回答</div>
                     </div>
-                    <div className={`text-center p-1.5 rounded ${group.status !== 'gathering' ? 'bg-green-100' : 'bg-gray-200'}`}>
+                    <div className={`rounded p-1 text-center sm:p-1.5 ${group.status !== 'gathering' ? 'bg-green-100' : 'bg-gray-200'}`}>
                       <div className={`text-xs font-medium ${group.status !== 'gathering' ? 'text-green-700' : 'text-gray-500'}`}>
                         {group.status !== 'gathering' ? '✓' : '4'}
                       </div>
                       <div className="text-[10px] text-muted-foreground">申込</div>
                     </div>
-                    <div className={`text-center p-1.5 rounded ${isScheduleConfirmedUi ? 'bg-green-100' : 'bg-gray-200'}`}>
+                    <div className={`rounded p-1 text-center sm:p-1.5 ${isScheduleConfirmedUi ? 'bg-green-100' : 'bg-gray-200'}`}>
                       <div className={`text-xs font-medium ${isScheduleConfirmedUi ? 'text-green-700' : 'text-gray-500'}`}>
                         {isScheduleConfirmedUi ? '✓' : '5'}
                       </div>
@@ -1301,40 +1364,40 @@ export function PrivateGroupInvite() {
                 </div>
 
                 {/* 希望店舗 */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-sm">希望店舗（{preferredStoreNames.length}件）</h4>
-                    {isOrganizer && (group.status === 'gathering' || group.status === 'date_adjusting') && (
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <h4 className="text-xs font-medium sm:text-sm">希望店舗（{preferredStoreNames.length}件）</h4>
+                    {isOrganizer && canMutateScheduleBeforeStoreReply && (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs h-7"
+                        className="h-6 text-[11px]"
                         onClick={openStoreEditSheet}
                       >
-                        <Settings className="w-3 h-3 mr-1" />
+                        <Settings className="mr-0.5 h-3 w-3" />
                         編集
                       </Button>
                     )}
                   </div>
                   {preferredStoreNames.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1">
                       {preferredStoreNames.map(store => (
                         <span
                           key={store.id}
-                          className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium"
+                          className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700 sm:text-xs"
                         >
                           {store.name}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">店舗が指定されていません</p>
+                    <p className="text-xs text-muted-foreground sm:text-sm">店舗が指定されていません</p>
                   )}
                 </div>
 
                 {/* 候補日追加 */}
-                {isOrganizer && (group.status === 'gathering' || group.status === 'date_adjusting') && (
-                  <div className="mb-4">
+                {isOrganizer && canMutateScheduleBeforeStoreReply && (
+                  <div className="mb-1">
                     <AddCandidateDates
                       groupId={group.id}
                       organizationId={group.organization_id || ''}
@@ -1352,8 +1415,8 @@ export function PrivateGroupInvite() {
 
                 {/* 候補日リスト */}
                 <div>
-                  <h4 className="font-medium text-sm mb-2">候補日程（{group.candidate_dates?.length || 0}件）</h4>
-                  <div className="space-y-2">
+                  <h4 className="font-medium text-xs sm:text-sm mb-1.5">候補日程（{group.candidate_dates?.length || 0}件）</h4>
+                  <div className="space-y-1.5">
                     {group.candidate_dates && group.candidate_dates.length > 0 ? (
                       group.candidate_dates.map((cd, index) => {
                         const currentResponse = responses[cd.id]
@@ -1363,44 +1426,54 @@ export function PrivateGroupInvite() {
                         const ngCount = dateResponses.filter(r => r.response === 'ng').length
                         const totalMembers = joinedMembers.length
                         const respondedCount = dateResponses.length
+                        const isRejected = cd.status === 'rejected'
+                        const showResponseRow = existingMemberId && group.status === 'gathering' && !isRejected
                         
                         return (
                           <div 
                             key={cd.id} 
-                            className="p-3 rounded-lg bg-gray-50"
+                            className={`px-2 py-1.5 rounded-md ${isRejected ? 'bg-gray-100/90 opacity-70' : 'bg-gray-50'}`}
                           >
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
-                                    {index + 1}
-                                  </span>
-                                  <span className="font-medium text-sm">
+                            <div className={`flex items-center gap-2 ${showResponseRow ? 'mb-1.5' : ''}`}>
+                              <div className="flex-1 min-w-0 leading-tight">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {isRejected ? (
+                                    <span className="text-[10px] leading-none bg-red-100 text-red-700 px-1 py-0.5 rounded shrink-0">
+                                      却下
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] leading-none bg-purple-100 text-purple-700 px-1 py-0.5 rounded shrink-0">
+                                      {index + 1}
+                                    </span>
+                                  )}
+                                  <span className={`font-medium text-xs ${isRejected ? 'line-through text-muted-foreground' : ''}`}>
                                     {new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}
                                   </span>
                                 </div>
-                                <div className="text-xs text-muted-foreground mt-0.5">
+                                <div className={`text-[10px] text-muted-foreground mt-0.5 ${isRejected ? 'line-through' : ''}`}>
                                   {cd.time_slot} {cd.start_time} - {cd.end_time}
                                 </div>
                               </div>
-                              {/* 回答状況サマリー */}
-                              <div className="text-right">
-                                <div className="flex items-center gap-1 text-xs">
-                                  <span className="text-green-600">○{okCount}</span>
-                                  <span className="text-amber-600">△{maybeCount}</span>
-                                  <span className="text-red-600">×{ngCount}</span>
+                              {/* 回答状況サマリー（却下された場合は非表示） */}
+                              {!isRejected && (
+                                <div className="text-right shrink-0">
+                                  <div className="flex items-center justify-end gap-0.5 text-[10px]">
+                                    <span className="text-green-600">○{okCount}</span>
+                                    <span className="text-amber-600">△{maybeCount}</span>
+                                    <span className="text-red-600">×{ngCount}</span>
+                                  </div>
+                                  <div className="text-[9px] text-muted-foreground leading-none mt-0.5">
+                                    {respondedCount}/{totalMembers}人
+                                  </div>
                                 </div>
-                                <div className="text-[10px] text-muted-foreground">
-                                  {respondedCount}/{totalMembers}人回答
-                                </div>
-                              </div>
+                              )}
                             </div>
-                            {/* 回答ボタン（日程申込前のみ表示） */}
-                            {existingMemberId && group.status === 'gathering' && (
-                              <div className="flex gap-2">
+                            {/* 回答ボタン（日程申込前かつ却下されていない場合のみ表示） */}
+                            {showResponseRow && (
+                              <div className="flex gap-1.5">
                                 <button
                                   onClick={() => handleResponseChange(cd.id, 'ok')}
-                                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                  className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
                                     currentResponse === 'ok'
                                       ? 'bg-green-500 text-white'
                                       : 'bg-white border border-gray-200 text-gray-600 hover:bg-green-50'
@@ -1410,7 +1483,7 @@ export function PrivateGroupInvite() {
                                 </button>
                                 <button
                                   onClick={() => handleResponseChange(cd.id, 'maybe')}
-                                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                  className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
                                     currentResponse === 'maybe'
                                       ? 'bg-amber-500 text-white'
                                       : 'bg-white border border-gray-200 text-gray-600 hover:bg-amber-50'
@@ -1420,7 +1493,7 @@ export function PrivateGroupInvite() {
                                 </button>
                                 <button
                                   onClick={() => handleResponseChange(cd.id, 'ng')}
-                                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                  className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
                                     currentResponse === 'ng'
                                       ? 'bg-red-500 text-white'
                                       : 'bg-white border border-gray-200 text-gray-600 hover:bg-red-50'
@@ -1434,7 +1507,7 @@ export function PrivateGroupInvite() {
                         )
                       })
                     ) : (
-                      <div className="text-center text-muted-foreground py-8">
+                      <div className="text-center text-muted-foreground py-6 text-sm">
                         候補日がまだ追加されていません
                       </div>
                     )}
@@ -1481,8 +1554,8 @@ export function PrivateGroupInvite() {
                   </Button>
                 )}
                 
-                {/* 主催者向け申請ボタン */}
-                {isOrganizer && group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
+                {/* 主催者向け申請ボタン（日程調整中・再調整中の両方） */}
+                {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (
                   <Button
                     onClick={() => {
                       setShowMobileDates(false)
@@ -2038,51 +2111,53 @@ export function PrivateGroupInvite() {
                   </h4>
                   <div className="space-y-2">
                     {group.candidate_dates && group.candidate_dates.length > 0 ? (
-                      group.candidate_dates.map((cd) => {
-                        const isSelected = bookingSelectedDates.has(cd.id)
-                        const dateResponses = cd.responses || []
-                        const okCount = dateResponses.filter(r => r.response === 'ok').length
-                        const maybeCount = dateResponses.filter(r => r.response === 'maybe').length
-                        const ngCount = dateResponses.filter(r => r.response === 'ng').length
-                        
-                        return (
-                          <label
-                            key={cd.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
-                              isSelected
-                                ? 'bg-purple-50 border-purple-500'
-                                : 'bg-gray-50 border-transparent hover:border-gray-300'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleBookingDate(cd.id)}
-                              className="sr-only"
-                            />
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
-                              isSelected
-                                ? 'bg-purple-500 border-purple-500 text-white'
-                                : 'border-gray-300'
-                            }`}>
-                              {isSelected && <Check className="w-3.5 h-3.5" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm">
-                                {new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}
+                      group.candidate_dates
+                        .filter(cd => cd.status !== 'rejected')
+                        .map((cd) => {
+                          const isSelected = bookingSelectedDates.has(cd.id)
+                          const dateResponses = cd.responses || []
+                          const okCount = dateResponses.filter(r => r.response === 'ok').length
+                          const maybeCount = dateResponses.filter(r => r.response === 'maybe').length
+                          const ngCount = dateResponses.filter(r => r.response === 'ng').length
+                          
+                          return (
+                            <label
+                              key={cd.id}
+                              className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                                isSelected
+                                  ? 'bg-purple-50 border-purple-500'
+                                  : 'bg-gray-50 border-transparent hover:border-gray-300'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleBookingDate(cd.id)}
+                                className="sr-only"
+                              />
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                                isSelected
+                                  ? 'bg-purple-500 border-purple-500 text-white'
+                                  : 'border-gray-300'
+                              }`}>
+                                {isSelected && <Check className="w-3.5 h-3.5" />}
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                {cd.time_slot} {cd.start_time}-{cd.end_time}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-sm">
+                                  {new Date(cd.date + 'T00:00:00+09:00').toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' })}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {cd.time_slot} {cd.start_time}-{cd.end_time}
+                                </div>
                               </div>
-                            </div>
-                            <div className="text-xs text-right shrink-0">
-                              <span className="text-green-600">○{okCount}</span>
-                              <span className="text-amber-600 ml-1">△{maybeCount}</span>
-                              <span className="text-red-600 ml-1">×{ngCount}</span>
-                            </div>
-                          </label>
-                        )
-                      })
+                              <div className="text-xs text-right shrink-0">
+                                <span className="text-green-600">○{okCount}</span>
+                                <span className="text-amber-600 ml-1">△{maybeCount}</span>
+                                <span className="text-red-600 ml-1">×{ngCount}</span>
+                              </div>
+                            </label>
+                          )
+                        })
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-4">
                         候補日程がありません
@@ -2098,15 +2173,19 @@ export function PrivateGroupInvite() {
                       <MapPin className="w-4 h-4 text-blue-600" />
                       希望店舗
                     </h4>
-                    <button
-                      onClick={() => {
-                        setShowBookingDialog(false)
-                        openStoreEditSheet()
-                      }}
-                      className="text-xs text-purple-600 hover:underline"
-                    >
-                      変更
-                    </button>
+                    {canMutateScheduleBeforeStoreReply ? (
+                      <button
+                        onClick={() => {
+                          setShowBookingDialog(false)
+                          openStoreEditSheet()
+                        }}
+                        className="text-xs text-purple-600 hover:underline"
+                      >
+                        変更
+                      </button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">変更不可</span>
+                    )}
                   </div>
                   {preferredStoreNames.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
@@ -2257,7 +2336,7 @@ export function PrivateGroupInvite() {
               <div className="bg-white rounded-lg p-3 border">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold text-sm">希望店舗</h3>
-                  {isOrganizer && (group.status === 'gathering' || group.status === 'date_adjusting') && (
+                  {isOrganizer && canMutateScheduleBeforeStoreReply && (
                     <button
                       onClick={openStoreEditSheet}
                       className="text-xs text-purple-600 hover:underline"
@@ -2331,8 +2410,8 @@ export function PrivateGroupInvite() {
                 </div>
               </div>
 
-              {/* 主催者向け機能 */}
-              {isOrganizer && group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
+              {/* 主催者向け機能（日程調整中・再調整中の両方） */}
+              {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (
                 <div className="pt-2 border-t">
                   <Button
                     size="sm"
@@ -2545,14 +2624,14 @@ export function PrivateGroupInvite() {
                 <div className={`flex items-center gap-3 p-2 rounded-lg border ${
                   group.status === 'booking_requested' || group.status === 'confirmed'
                     ? 'bg-green-50 border-green-200' 
-                    : group.status === 'gathering' && hasViableDate
+                    : (group.status === 'gathering' || group.status === 'date_adjusting') && bookingProgressReady
                       ? 'bg-purple-50 border-purple-200'
                       : 'bg-gray-50 border-gray-200'
                 }`}>
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                     group.status === 'booking_requested' || group.status === 'confirmed'
                       ? 'bg-green-600 text-white' 
-                      : group.status === 'gathering' && hasViableDate
+                      : (group.status === 'gathering' || group.status === 'date_adjusting') && bookingProgressReady
                         ? 'bg-purple-600 text-white'
                         : 'bg-gray-400 text-white'
                   }`}>
@@ -2563,7 +2642,7 @@ export function PrivateGroupInvite() {
                     <span className="text-xs text-muted-foreground ml-2">
                       {group.status === 'booking_requested' || group.status === 'confirmed'
                         ? '申込完了' 
-                        : hasViableDate ? '申込可能！' : '調整中'}
+                        : bookingProgressReady ? '申込可能！' : '調整中'}
                     </span>
                   </div>
                 </div>
@@ -2679,8 +2758,8 @@ export function PrivateGroupInvite() {
 
             {/* 日程タブ */}
             <TabsContent value="schedule">
-              <div className="space-y-3">
-                <h3 className="text-base font-semibold">参加可能な日時を選んでください</h3>
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold">参加可能な日時を選んでください</h3>
                 {group.candidate_dates?.map((cd, index) => {
                   const dateResponses = cd.responses || []
                   const okCount = dateResponses.filter(r => r.response === 'ok').length
@@ -2688,38 +2767,48 @@ export function PrivateGroupInvite() {
                   const ngCount = dateResponses.filter(r => r.response === 'ng').length
                   const totalMembers = joinedMembers.length
                   const respondedCount = dateResponses.length
+                  const isRejected = cd.status === 'rejected'
+                  const showIcons = group.status === 'gathering' && !isRejected
                   
                   return (
-                    <Card key={cd.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                                候補 {index + 1}
-                              </Badge>
-                              <Calendar className="w-4 h-4 text-muted-foreground" />
-                              <span>{formatDate(cd.date)}</span>
+                    <Card key={cd.id} className={isRejected ? 'opacity-70 bg-gray-50' : ''}>
+                      <CardContent className="p-2.5 sm:p-3">
+                        <div className={`flex items-center gap-2 ${showIcons ? 'mb-1.5' : ''}`}>
+                          <div className="flex-1 min-w-0 leading-tight">
+                            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                              {isRejected ? (
+                                <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px] bg-red-100 text-red-800 border-red-200">
+                                  却下
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px] bg-purple-100 text-purple-800 border-purple-200">
+                                  {index + 1}
+                                </Badge>
+                              )}
+                              <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
+                              <span className={`font-medium ${isRejected ? 'line-through text-muted-foreground' : ''}`}>{formatDate(cd.date)}</span>
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Clock className="w-4 h-4" />
-                              <span>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
-                            </div>
-                          </div>
-                          {/* 回答状況サマリー */}
-                          <div className="text-right">
-                            <div className="flex items-center gap-1 text-xs">
-                              <span className="text-green-600">○{okCount}</span>
-                              <span className="text-amber-600">△{maybeCount}</span>
-                              <span className="text-red-600">×{ngCount}</span>
-                            </div>
-                            <div className="text-[10px] text-muted-foreground">
-                              {respondedCount}/{totalMembers}人回答
+                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                              <Clock className="w-3 h-3 shrink-0" />
+                              <span className={isRejected ? 'line-through' : ''}>{cd.time_slot} {cd.start_time} - {cd.end_time}</span>
                             </div>
                           </div>
+                          {/* 回答状況サマリー（却下された場合は非表示） */}
+                          {!isRejected && (
+                            <div className="text-right shrink-0">
+                              <div className="flex items-center justify-end gap-0.5 text-[10px]">
+                                <span className="text-green-600">○{okCount}</span>
+                                <span className="text-amber-600">△{maybeCount}</span>
+                                <span className="text-red-600">×{ngCount}</span>
+                              </div>
+                              <div className="text-[9px] text-muted-foreground leading-none mt-0.5">
+                                {respondedCount}/{totalMembers}人
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        {/* 回答ボタン（日程申込前のみ表示） */}
-                        {group.status === 'gathering' && (
+                        {/* 回答ボタン（日程申込前かつ却下されていない場合のみ表示） */}
+                        {showIcons && (
                           <div className="flex gap-2">
                             <div onClick={() => handleResponseChange(cd.id, 'ok')}>
                               {getResponseIcon(responses[cd.id], 'ok')}
@@ -2773,8 +2862,8 @@ export function PrivateGroupInvite() {
                   </Button>
                 )}
                 
-                {/* 主催者向け申請ボタン */}
-                {isOrganizer && group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
+                {/* 主催者向け申請ボタン（日程調整中・再調整中の両方） */}
+                {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (
                   <Button
                     onClick={handleOpenBookingDialog}
                     className="w-full bg-green-600 hover:bg-green-700 mt-3"
@@ -2871,7 +2960,7 @@ export function PrivateGroupInvite() {
                   </Card>
 
                   {/* 候補日追加 */}
-                  {group.status === 'gathering' && (
+                  {isOrganizer && canMutateScheduleBeforeStoreReply && (
                     <AddCandidateDates
                       groupId={group.id}
                       organizationId={group.organization_id || ''}
@@ -2884,7 +2973,7 @@ export function PrivateGroupInvite() {
                   )}
 
                   {/* 申込ガイダンス */}
-                  {isOrganizer && group.status === 'gathering' && (group.candidate_dates?.length || 0) > 0 && (
+                  {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (
                     <Card className="border-green-200 bg-green-50">
                       <CardContent className="p-4 text-center text-sm text-muted-foreground">
                         ↑ 上の候補日から採用する日程を選んで「この日程で申請する」を押してください

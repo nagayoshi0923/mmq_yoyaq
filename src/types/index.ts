@@ -983,6 +983,8 @@ export interface PrivateGroupCandidateDate {
   end_time: string
   order_num: number
   created_at: string
+  /** 候補日のステータス: active=有効, rejected=却下済み */
+  status?: 'active' | 'rejected'
   // JOIN時の拡張フィールド
   responses?: PrivateGroupDateResponse[]
 }

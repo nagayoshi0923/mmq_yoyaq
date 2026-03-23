@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -97,6 +98,8 @@ export function PrivateBookingManagement() {
     showRejectDialog,
     rejectionReason,
     setRejectionReason,
+    sendRescheduleNotification,
+    setSendRescheduleNotification,
     handleApprove,
     handleRejectClick,
     handleRejectConfirm,
@@ -883,6 +886,28 @@ export function PrivateBookingManagement() {
                   placeholder="却下理由を入力してください"
                   className="text-sm"
                 />
+              </div>
+              
+              {/* 日程再調整の通知オプション */}
+              <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <Checkbox
+                  id="sendRescheduleNotification"
+                  checked={sendRescheduleNotification}
+                  onCheckedChange={(checked) => setSendRescheduleNotification(checked === true)}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <Label 
+                    htmlFor="sendRescheduleNotification" 
+                    className="text-sm font-medium cursor-pointer"
+                  >
+                    グループに日程再調整の案内を送信する
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    チェックすると、グループチャットとメールで日程再調整の案内が送信されます。
+                    グループは再度候補日を選択して申請できるようになります。
+                  </p>
+                </div>
               </div>
             </div>
             <DialogFooter>

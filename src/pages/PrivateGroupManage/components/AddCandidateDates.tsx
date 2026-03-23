@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ChevronRight, Plus, Loader2, Calendar } from 'lucide-react'
@@ -21,6 +21,30 @@ import { showToast } from '@/utils/toast'
 /** 列の並び（設定で枠が無い日は該当セルを無効表示） */
 const COLUMN_LABELS: ('午前' | '午後' | '夜')[] = ['午前', '午後', '夜']
 
+/** 貸切候補日は「本日を含めて2週間以内」は選択不可（JST・暦日） */
+const MIN_ADVANCE_DAYS = 14
+
+/** JST の基準日を YYYY-MM-DD（.cursorrules 日時ルールに合わせる） */
+function getJstDateStringFromNow(now = new Date()): string {
+  const jstOffsetMin = 9 * 60
+  const jst = new Date(now.getTime() + (jstOffsetMin + now.getTimezoneOffset()) * 60 * 1000)
+  return `${jst.getFullYear()}-${String(jst.getMonth() + 1).padStart(2, '0')}-${String(jst.getDate()).padStart(2, '0')}`
+}
+
+/** YYYY-MM-DD（暦日）に日数を加算 */
+function addCalendarDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + days)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
+/** 14日ルール後の最初の日が属する月の1日（カレンダーの初期表示用） */
+function getFirstSelectableMonthStart(now = new Date()): Date {
+  const minStr = addCalendarDaysYmd(getJstDateStringFromNow(now), MIN_ADVANCE_DAYS)
+  const [y, m] = minStr.split('-').map(Number)
+  return new Date(y, m - 1, 1)
+}
+
 interface AddCandidateDatesProps {
   groupId: string
   organizationId: string
@@ -41,7 +65,9 @@ export function AddCandidateDates({
   organizerMemberId,
 }: AddCandidateDatesProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [currentMonth, setCurrentMonth] = useState(() => new Date())
+  const [currentMonth, setCurrentMonth] = useState(() => getFirstSelectableMonthStart())
+  const wasOpenRef = useRef(false)
+  const emptyMonthAutoSkipRef = useRef(0)
   const [selectedSlots, setSelectedSlots] = useState<
     Array<{ date: string; slot: PrivateGroupCandidateTimeSlot }>
   >([])
@@ -174,34 +200,36 @@ export function AddCandidateDates({
     }
   }, [isOpen, organizationId, scenarioId])
 
-  const availableDates = useMemo(() => {
+  const { availableDates, minSelectableDateStr } = useMemo(() => {
     const dates: string[] = []
-    
-    // JST基準で今日の日付を取得
-    const now = new Date()
-    const jstOffset = 9 * 60 // JST は UTC+9
-    const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
-    const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
+
+    const todayJstStr = getJstDateStringFromNow()
+    const minStr = addCalendarDaysYmd(todayJstStr, MIN_ADVANCE_DAYS)
+
+    const jstOffsetMin = 9 * 60
+    const jstNow = new Date(
+      new Date().getTime() + (jstOffsetMin + new Date().getTimezoneOffset()) * 60 * 1000
+    )
+    const maxFuture = new Date(jstNow.getFullYear(), jstNow.getMonth(), jstNow.getDate() + 180)
+    const maxFutureStr = `${maxFuture.getFullYear()}-${String(maxFuture.getMonth() + 1).padStart(2, '0')}-${String(maxFuture.getDate()).padStart(2, '0')}`
 
     const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
     const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
 
-    // 180日後まで
-    const maxFuture = new Date(jstNow)
-    maxFuture.setDate(maxFuture.getDate() + 180)
-    const maxFutureStr = `${maxFuture.getFullYear()}-${String(maxFuture.getMonth() + 1).padStart(2, '0')}-${String(maxFuture.getDate()).padStart(2, '0')}`
-
     const d = new Date(start)
     while (d <= end) {
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      // 今日以降かつ180日以内
-      if (dateStr >= todayStr && dateStr <= maxFutureStr) {
+      // 本日から数えて15日目以降（2週間以内は不可）かつ180日以内
+      if (dateStr >= minStr && dateStr <= maxFutureStr) {
         dates.push(dateStr)
       }
       d.setDate(d.getDate() + 1)
     }
 
-    return dates
+    return {
+      availableDates: dates,
+      minSelectableDateStr: minStr,
+    }
   }, [currentMonth])
 
   const slotsByDate = useMemo(() => {
@@ -281,12 +309,37 @@ export function AddCandidateDates({
   }
 
   const isPrevDisabled = useMemo(() => {
-    const today = new Date()
-    return (
-      currentMonth.getMonth() === today.getMonth() &&
-      currentMonth.getFullYear() === today.getFullYear()
-    )
+    const lastDayOfPrevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0)
+    const lp = lastDayOfPrevMonth
+    const lastPrevStr = `${lp.getFullYear()}-${String(lp.getMonth() + 1).padStart(2, '0')}-${String(lp.getDate()).padStart(2, '0')}`
+    const minStr = addCalendarDaysYmd(getJstDateStringFromNow(), MIN_ADVANCE_DAYS)
+    return lastPrevStr < minStr
   }, [currentMonth])
+
+  // 開いた直後は必ず「14日ルール後の最初の月」へ。表示月に候補日が0件なら次月へ進める（最大24ヶ月）
+  useEffect(() => {
+    if (!isOpen) {
+      wasOpenRef.current = false
+      emptyMonthAutoSkipRef.current = 0
+      return
+    }
+    if (loadingData) return
+
+    if (!wasOpenRef.current) {
+      wasOpenRef.current = true
+      emptyMonthAutoSkipRef.current = 0
+      setCurrentMonth(getFirstSelectableMonthStart())
+      return
+    }
+
+    if (availableDates.length > 0) {
+      emptyMonthAutoSkipRef.current = 0
+      return
+    }
+    if (emptyMonthAutoSkipRef.current >= 24) return
+    emptyMonthAutoSkipRef.current += 1
+    setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
+  }, [isOpen, loadingData, availableDates.length, currentMonth])
 
   const isSlotSelected = (date: string, slot: PrivateGroupCandidateTimeSlot): boolean => {
     return selectedSlots.some(s => s.date === date && s.slot.label === slot.label)
@@ -313,6 +366,13 @@ export function AddCandidateDates({
 
   const handleSave = async () => {
     if (selectedSlots.length === 0) return
+
+    const minStr = addCalendarDaysYmd(getJstDateStringFromNow(), MIN_ADVANCE_DAYS)
+    const tooSoon = selectedSlots.some(s => s.date < minStr)
+    if (tooSoon) {
+      showToast.error(`候補日は本日より${MIN_ADVANCE_DAYS}日後以降のみ選べます`)
+      return
+    }
 
     setSaving(true)
     try {
@@ -404,69 +464,85 @@ export function AddCandidateDates({
   }
 
   return (
-    <Card className="border-purple-200 bg-purple-50">
-      <CardContent className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-purple-800 flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
+    <Card className="flex w-full min-h-[min(52dvh,360px)] max-h-[min(86dvh,600px)] flex-col overflow-hidden rounded-lg border-purple-200 bg-purple-50 p-0 shadow-none">
+      {/* CardContent は p-3/md:p-6 のデフォルトが残るため、余白ゼロの div を使う */}
+      <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden px-1 pb-0 pt-0.5 sm:px-1.5 sm:pt-1">
+        <div className="flex shrink-0 items-center justify-between gap-1">
+          <h3 className="flex items-center gap-0.5 text-[11px] font-semibold leading-none text-purple-800">
+            <Calendar className="h-3 w-3 shrink-0" />
             候補日を追加
           </h3>
-          <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
+          <Button variant="ghost" size="sm" className="h-6 min-h-0 shrink-0 px-1 py-0 text-[10px]" onClick={() => setIsOpen(false)}>
             閉じる
           </Button>
         </div>
 
         {loadingData ? (
-          <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            営業時間・空き状況を読み込み中...
+          <div className="flex items-center justify-center gap-1.5 py-3 text-[11px] text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            読み込み中...
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between">
+            <div className="flex shrink-0 items-center justify-between px-0">
               <button
+                type="button"
                 onClick={() => handleMonthChange(-1)}
                 disabled={isPrevDisabled}
-                className="text-sm text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed px-2 py-1 flex items-center gap-1"
+                className="flex items-center gap-0 px-0.5 py-0 text-[11px] text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="h-3 w-3" />
                 前月
               </button>
-              <span className="text-sm font-medium">
+              <span className="text-[11px] font-medium tabular-nums">
                 {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
               </span>
               <button
+                type="button"
                 onClick={() => handleMonthChange(1)}
-                className="text-sm text-muted-foreground hover:text-foreground px-2 py-1 flex items-center gap-1"
+                className="flex items-center gap-0 px-0.5 py-0 text-[11px] text-muted-foreground hover:text-foreground"
               >
                 次月
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="h-3 w-3" />
               </button>
             </div>
 
-            <div className="text-xs text-muted-foreground text-center">
+            <p className="shrink-0 py-px text-center text-[8px] leading-none text-muted-foreground">
               {selectedSlots.length === 0 ? (
-                <span>メンバーに確認したい候補日時を選択してください</span>
+                <>
+                  タップで選択
+                  <span className="text-gray-400"> ・{MIN_ADVANCE_DAYS}日後以降</span>
+                </>
               ) : (
-                <span>
-                  <span className="font-medium text-purple-600">{selectedSlots.length}件</span>選択中
-                  <span className="ml-2 text-gray-400">（制限なし・複数選択可）</span>
-                </span>
+                <>
+                  <span className="font-medium text-purple-600">{selectedSlots.length}件</span> 選択中
+                  <span className="text-gray-400">（複数可）</span>
+                </>
               )}
-            </div>
+            </p>
 
-            <div className="max-h-[320px] overflow-y-auto border rounded-lg p-3 bg-white">
+            {/* min-h-0 必須: 無いと flex 子が中身の高さまで伸び、max-h でフッターが切れる */}
+            <div className="min-h-0 flex-1 basis-0 overflow-y-auto rounded-sm border border-gray-200/90 bg-white px-1 py-1 sm:px-1.5 sm:py-1.5">
+            {availableDates.length === 0 ? (
+              <div className="space-y-2 px-2 py-6 text-center text-xs text-muted-foreground">
+                <p>今月に選択可能な日がありません。</p>
+                <Button type="button" variant="outline" size="sm" onClick={() => handleMonthChange(1)}>
+                  次月を表示
+                </Button>
+              </div>
+            ) : (
+            <>
               {/* ヘッダー行 */}
-              <div className="flex items-center gap-3 pb-2 border-b border-gray-200 mb-2">
-                <div className="w-14"></div>
+              <div className="mb-1 flex items-center gap-1 border-b border-gray-200 pb-1">
+                <div className="w-10 shrink-0 sm:w-11" />
                 {COLUMN_LABELS.map(label => (
-                  <div key={label} className="flex-1 text-center text-xs text-muted-foreground">
+                  <div key={label} className="flex-1 text-center text-[9px] text-muted-foreground sm:text-[10px]">
                     {label}
                   </div>
                 ))}
               </div>
-              <p className="text-[10px] text-muted-foreground text-center -mt-1 mb-2">
-                各枠の時刻は店舗の営業時間設定（公演枠・開始時刻）に基づきます
+              <p className="mb-1 hidden text-center text-[9px] leading-snug text-muted-foreground sm:block">
+                時刻は店舗の営業設定に基づきます
               </p>
 
               {availableDates.map(date => {
@@ -490,11 +566,11 @@ export function AddCandidateDates({
                 return (
                   <div
                     key={date}
-                    className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-b-0"
+                    className="flex items-stretch gap-1 border-b border-gray-100 py-1 last:border-b-0 sm:gap-1.5 sm:py-1.5"
                   >
-                    <div className="flex-shrink-0 w-14 text-center">
-                      <div className="text-sm font-bold">{month}/{day}</div>
-                      <div className={`text-xs ${weekdayColor}`}>({weekday})</div>
+                    <div className="flex w-10 shrink-0 flex-col justify-center gap-0.5 text-center leading-tight sm:w-11">
+                      <div className="text-[11px] font-bold tabular-nums">{month}/{day}</div>
+                      <div className={`text-[9px] ${weekdayColor}`}>({weekday})</div>
                     </div>
 
                     {COLUMN_LABELS.map(label => {
@@ -503,9 +579,9 @@ export function AddCandidateDates({
                         return (
                           <div
                             key={label}
-                            className="flex-1 py-2.5 px-2 border border-gray-100 bg-gray-50 text-center rounded-lg opacity-40 cursor-not-allowed"
+                            className="flex min-h-[2.35rem] flex-1 cursor-not-allowed items-center justify-center rounded border border-gray-100 bg-gray-50 px-1 py-1.5 text-center opacity-40 sm:min-h-0 sm:py-2"
                           >
-                            <div className="text-xs text-muted-foreground">—</div>
+                            <div className="text-[10px] text-muted-foreground">—</div>
                           </div>
                         )
                       }
@@ -531,21 +607,21 @@ export function AddCandidateDates({
                         <button
                           key={slot.label}
                           type="button"
-                          className={`flex-1 py-2.5 px-2 border text-center rounded-lg transition-colors ${
+                          className={`flex-1 rounded border px-1 py-1.5 text-center leading-tight transition-colors sm:px-1 sm:py-2 ${
                             !isAvailable
-                              ? 'border-gray-100 bg-gray-100 cursor-not-allowed opacity-50'
+                              ? 'cursor-not-allowed border-gray-100 bg-gray-100 opacity-50'
                               : isSelected
-                              ? 'bg-purple-600 text-white border-purple-600'
+                              ? 'border-purple-600 bg-purple-600 text-white'
                               : canSelect
                               ? 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
-                              : 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
+                              : 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-50'
                           }`}
                           disabled={!canSelect}
                           onClick={() => canSelect && handleSlotToggle(date, slot)}
                         >
-                          <div className="text-sm font-medium">{slot.label}</div>
+                          <div className="text-[11px] font-medium sm:text-xs">{slot.label}</div>
                           <div
-                            className={`text-[10px] mt-0.5 ${
+                            className={`mt-0.5 text-[8px] leading-snug sm:text-[9px] ${
                               isSelected ? 'text-purple-100' : 'text-muted-foreground'
                             }`}
                           >
@@ -557,17 +633,19 @@ export function AddCandidateDates({
                   </div>
                 )
               })}
+            </>
+            )}
             </div>
 
             {selectedSlots.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">選択中:</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedSlots.map((slot, index) => (
+              <div className="shrink-0 space-y-px">
+                <p className="text-[9px] text-muted-foreground">選択中</p>
+                <div className="flex flex-wrap gap-0.5">
+                  {selectedSlots.map(slot => (
                     <Badge
                       key={`${slot.date}-${slot.slot.label}`}
                       variant="outline"
-                      className="bg-white text-purple-800 border-purple-200 px-2 py-1 text-xs cursor-pointer hover:bg-purple-100"
+                      className="cursor-pointer border-purple-200 bg-white px-1 py-0 text-[9px] text-purple-800 hover:bg-purple-100"
                       onClick={() => handleSlotToggle(slot.date, slot.slot)}
                     >
                       {formatDate(slot.date)} {slot.slot.label} ×
@@ -577,22 +655,32 @@ export function AddCandidateDates({
               </div>
             )}
 
-            <div className="flex gap-2 justify-end">
-              <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
+            {/* flex 列の最後＋ shrink-0。表エリアは min-h-0 で縮むので常にカード下端に収まる */}
+            <div
+              className="-mx-1 mt-0 flex shrink-0 items-center justify-end gap-0.5 border-t border-purple-200/70 bg-purple-50 px-1 py-0.5 pb-[max(0.2rem,env(safe-area-inset-bottom))] shadow-[0_-1px_6px_rgba(100,50,140,0.06)]"
+            >
+              <Button variant="ghost" size="sm" className="h-6 min-h-0 px-1 py-0 text-[10px]" onClick={() => setIsOpen(false)}>
                 キャンセル
               </Button>
               <Button
                 size="sm"
                 onClick={handleSave}
                 disabled={selectedSlots.length === 0 || saving}
-                className="bg-purple-600 hover:bg-purple-700"
+                className="h-6 min-h-0 shrink-0 bg-purple-600 px-2 py-0 text-[10px] hover:bg-purple-700"
               >
-                {saving ? '保存中...' : '候補日を保存'}
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-0.5 inline h-2.5 w-2.5 animate-spin" />
+                    保存中...
+                  </>
+                ) : (
+                  '候補日を保存'
+                )}
               </Button>
             </div>
           </>
         )}
-      </CardContent>
+      </div>
     </Card>
   )
 }

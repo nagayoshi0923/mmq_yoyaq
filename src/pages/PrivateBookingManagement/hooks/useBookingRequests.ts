@@ -191,11 +191,14 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
           if (req.private_group_id) {
             const { data: candidateDatesData } = await supabase
               .from('private_group_candidate_dates')
-              .select('id, date, time_slot, start_time, end_time')
+              .select('id, date, time_slot, start_time, end_time, status')
               .eq('group_id', req.private_group_id)
               .order('date', { ascending: true })
-            
-            originalCandidates = candidateDatesData || []
+
+            // 店舗却下などで rejected になった候補は申請対象外（復元・表示に含めない）
+            originalCandidates = (candidateDatesData || []).filter(
+              (cd: { status?: string | null }) => cd.status !== 'rejected'
+            )
           }
           
           privateBookingTrace(
