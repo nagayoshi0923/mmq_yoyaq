@@ -240,17 +240,15 @@ export function AddCandidateDates({
         const slotStart =
           parseInt(slot.startTime.split(':')[0], 10) * 60 +
           parseInt(slot.startTime.split(':')[1] || '0', 10)
-        const slotEnd =
-          parseInt(slot.endTime.split(':')[0], 10) * 60 +
-          parseInt(slot.endTime.split(':')[1] || '0', 10)
 
-        // 通常貸切（シナリオ詳細）と同一の空き判定
+        // business_hours_settings（営業時間）＋公演隙間。シナリオ詳細の貸切と同じ privateBookingStoreSlotFeasibility 系
         newMap[key] = isPrivateBookingSlotAvailableOnAnyStore(
           date,
+          slot.key,
           slotStart,
-          slotEnd,
           scenarioTiming,
           storeIds,
+          businessHoursByStore,
           allStoreEvents,
           isCustomHoliday
         )

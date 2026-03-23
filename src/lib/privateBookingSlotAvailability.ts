@@ -1,4 +1,10 @@
 import { getPerformanceDurationMinutesForDate, type ScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
+import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
+import {
+  getPrivateBookingStoreSlotFeasibility,
+  isProposedPrivateBookingStartFeasible,
+  type PrivateBookingSlotKey,
+} from '@/lib/privateBookingStoreSlotFeasibility'
 
 /** schedule_events 等の最小形 */
 export type ScheduleEventLike = {
@@ -6,7 +12,10 @@ export type ScheduleEventLike = {
   end_time?: string | null
   date?: string | null
   store_id?: string | null
+  stores?: { id?: string | null } | null
 }
+
+export type { PrivateBookingSlotKey }
 
 export function timeStrToMinutes(t: string | null | undefined): number | null {
   if (t == null || typeof t !== 'string' || !t.includes(':')) return null
@@ -22,67 +31,62 @@ export type PrivateBookingScenarioTimingSlice = Pick<
   'duration' | 'weekend_duration' | 'extra_preparation_time'
 >
 
-/** その店舗・その日にカレンダー上のイベントが1件でもあれば true（貸切は受け付けない） */
-export function hasAnyScheduleEventOnStoreDay(
-  events: ScheduleEventLike[],
-  storeId: string,
-  dayYmd: string
-): boolean {
-  return events.some((event) => {
-    if (event.store_id !== storeId) return false
-    const ed = event.date ? String(event.date).split('T')[0] : ''
-    return ed === dayYmd
-  })
-}
-
 /**
- * 貸切グループ候補追加と通常貸切（シナリオ詳細）で共通:
- * - その店舗・その日にスケジュール上のイベントが1件でもあれば不可（別予定ありとみなす）
- * - シナリオ所要（土日祝は weekend_duration）+ 追加準備で占有終了が枠（slotEndMin）内に収まること
+ * 貸切グループ候補追加・シナリオ詳細と同一ルール:
+ * business_hours_settings 由来の枠（getPerStoreSlotsForDate）と、
+ * 同日の公演（枠と重なるものは終了+1h 後まで次を詰めない）を見て判定する。
  */
 export function isPrivateBookingSlotAvailableForStore(
   dateStr: string,
-  slotStartMin: number,
-  slotEndMin: number,
+  slotKey: PrivateBookingSlotKey,
+  proposedStartMin: number,
   scenarioTiming: PrivateBookingScenarioTimingSlice,
   storeId: string,
   events: ScheduleEventLike[],
-  isCustomHoliday: (d: string) => boolean
+  isCustomHoliday: (d: string) => boolean,
+  businessRow: BusinessHoursSettingRow | undefined,
+  allowSyntheticWhenMissingRow: boolean
 ): boolean {
   const day = dateStr.split('T')[0]
-
-  if (hasAnyScheduleEventOnStoreDay(events, storeId, day)) {
-    return false
-  }
-
+  const f = getPrivateBookingStoreSlotFeasibility(
+    day,
+    storeId,
+    slotKey,
+    businessRow,
+    events,
+    isCustomHoliday,
+    allowSyntheticWhenMissingRow
+  )
+  if (!f) return false
   const durationMin = getPerformanceDurationMinutesForDate(dateStr, scenarioTiming, isCustomHoliday)
   const extraPrep = scenarioTiming.extra_preparation_time || 0
-  const perfOccEnd = slotStartMin + durationMin + extraPrep
-  if (perfOccEnd > slotEndMin) return false
-
-  return true
+  return isProposedPrivateBookingStartFeasible(f, proposedStartMin, durationMin, extraPrep)
 }
 
-/** 希望店舗が複数のとき: いずれかの店舗で受付可能なら true（貸切グループのマージ枠用） */
+/** 希望店舗が複数のとき: いずれかの店舗で受付可能なら true */
 export function isPrivateBookingSlotAvailableOnAnyStore(
   dateStr: string,
-  slotStartMin: number,
-  slotEndMin: number,
+  slotKey: PrivateBookingSlotKey,
+  proposedStartMin: number,
   scenarioTiming: PrivateBookingScenarioTimingSlice,
   storeIds: string[],
+  hoursByStoreId: Map<string, BusinessHoursSettingRow>,
   events: ScheduleEventLike[],
   isCustomHoliday: (d: string) => boolean
 ): boolean {
   if (storeIds.length === 0) return true
-  return storeIds.some(storeId =>
+  const allowSynthetic = storeIds.length === 1
+  return storeIds.some((storeId) =>
     isPrivateBookingSlotAvailableForStore(
       dateStr,
-      slotStartMin,
-      slotEndMin,
+      slotKey,
+      proposedStartMin,
       scenarioTiming,
       storeId,
       events,
-      isCustomHoliday
+      isCustomHoliday,
+      hoursByStoreId.get(storeId),
+      allowSynthetic
     )
   )
 }

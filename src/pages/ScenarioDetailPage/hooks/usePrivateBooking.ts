@@ -8,11 +8,12 @@ import { getTimeSlot } from '@/utils/scheduleUtils' // 時間帯判定用
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import { getPerformanceDurationMinutesForDate } from '@/lib/privateBookingScenarioTime'
-import { isPrivateBookingSlotAvailableForStore, timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
+import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
+import { type BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import {
-  getPerStoreSlotsForDate,
-  type BusinessHoursSettingRow,
-} from '@/lib/privateGroupCandidateSlots'
+  getPrivateBookingStoreSlotFeasibility,
+  isProposedPrivateBookingStartFeasible,
+} from '@/lib/privateBookingStoreSlotFeasibility'
 import type { TimeSlot, EventSchedule } from '../utils/types'
 
 // 開始時間から終了時間を計算する関数
@@ -369,54 +370,48 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       return true
     }
     
-    // 特定店舗のイベントをチェックする共通関数
+    // getTimeSlotsForDate と同一: privateBookingStoreSlotFeasibility（設定の営業時間＋公演隙間）
     const checkStoreAvailability = (storeId: string): boolean => {
-      // その店舗・日付・時間帯のイベントをフィルタリング
       const targetTimeSlot = getTimeSlotFromLabel(slot.label)
       const targetDate = date.split('T')[0]
-      
-      // 営業時間・公演枠設定をチェック
+      const holidayFn = isCustomHoliday ?? (() => false)
+
+      const row = businessHoursCache.get(storeId) as BusinessHoursSettingRow | undefined
+      const explicitCount = storeIds?.length ?? 0
+      const allowSynthetic = explicitCount === 1
+
+      const f = getPrivateBookingStoreSlotFeasibility(
+        targetDate,
+        storeId,
+        targetTimeSlot,
+        row,
+        allStoreEvents,
+        holidayFn,
+        allowSynthetic
+      )
+      if (!f) return false
+
       if (!isWithinBusinessHours(date, slot.startTime, storeId, targetTimeSlot)) {
         return false
       }
 
-      // スロットの終了時間上限（貸切グループの枠と同じ）
-      const slotEndLimits: Record<string, number> = {
-        morning: 13 * 60,
-        afternoon: 19 * 60,
-        evening: 23 * 60,
-      }
-      const slotEndLimit = slotEndLimits[targetTimeSlot] || 18 * 60
+      const startMin = timeStrToMinutes(slot.startTime)
+      if (startMin === null) return false
 
-      const slotStartMin = timeStrToMinutes(slot.startTime)
-      if (slotStartMin === null) return false
-
-      const holidayFn = isCustomHoliday ?? (() => false)
-      const eventsForAvailability = allStoreEvents.map((e: any) => ({
-        ...e,
-        store_id: e.store_id || e.stores?.id || null,
-        date: e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null,
-      }))
-
-      return isPrivateBookingSlotAvailableForStore(
+      const durationMinutes = getPerformanceDurationMinutesForDate(
         targetDate,
-        slotStartMin,
-        slotEndLimit,
         {
           duration: typeof scenario?.duration === 'number' && scenario.duration > 0 ? scenario.duration : 180,
           weekend_duration:
             typeof scenario?.weekend_duration === 'number' && scenario.weekend_duration > 0
               ? scenario.weekend_duration
               : null,
-          extra_preparation_time:
-            typeof scenario?.extra_preparation_time === 'number' && scenario.extra_preparation_time > 0
-              ? scenario.extra_preparation_time
-              : 0,
         },
-        storeId,
-        eventsForAvailability,
         holidayFn
       )
+      const extraPrepTime = scenario?.extra_preparation_time || 0
+
+      return isProposedPrivateBookingStartFeasible(f, startMin, durationMinutes, extraPrepTime)
     }
     
     // 店舗が選択されている場合：選択された店舗のいずれかで空きがあればtrue
@@ -650,8 +645,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       ? selectedStoreIds 
       : stores.map(s => s.id)
     
-    // 複数店舗選択時: 各店の business_hours_settings から枠（開始/終了）を取り、
-    // 先頭店舗のデフォルト時刻は使わない（営業時間と貸切グループ候補と同じ build ロジック）
+    // 複数店舗: privateBookingStoreSlotFeasibility（設定の営業時間＋同日公演の隙間）に集約
     type SlotKey = 'morning' | 'afternoon' | 'evening'
     const getEarliestAvailableStartForStores = (
       slotKey: SlotKey
@@ -662,51 +656,31 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
 
       for (const storeId of targetStoreIds) {
         const row = businessHoursCache.get(storeId) as BusinessHoursSettingRow | undefined
-        const perSlots = getPerStoreSlotsForDate(targetDate, row, holidayFn, {
-          allowSyntheticWhenMissingRow: allowSynthetic,
-        })
-        if (!perSlots) continue
-
-        const bounds = perSlots.find((s) => s.key === slotKey)
-        if (!bounds) continue
-
-        const slotStart = bounds.startMin
-        const slotEnd = bounds.endMin
-
-        const storeEvents = allStoreEvents.filter((e: any) => {
-          const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
-          if (eventDate !== targetDate) return false
-          const eventStoreId = e.store_id || e.stores?.id
-          return eventStoreId === storeId
-        })
-
-        let latestEventEnd = 0
-        storeEvents.forEach((e: any) => {
-          const eventStartTime = e.start_time || ''
-          const eventEndTime = e.end_time || ''
-          if (!eventStartTime) return
-
-          const eventStart = timeToMinutes(eventStartTime)
-          const eventEnd = eventEndTime ? timeToMinutes(eventEndTime) : eventStart + 240
-          const eventEndWithBuffer = eventEnd + 60 // 1時間インターバル
-
-          if (eventStart < slotEnd && eventEndWithBuffer > slotStart) {
-            if (eventEndWithBuffer > latestEventEnd) {
-              latestEventEnd = eventEndWithBuffer
-            }
-          }
-        })
-
-        const availableStart = latestEventEnd > 0 ? Math.max(slotStart, latestEventEnd) : slotStart
-        const availableEnd = availableStart + durationMinutes + extraPrepTime
-
-        if (availableEnd <= slotEnd) {
-          candidates.push({
-            earliestStart: availableStart,
-            slotEnd,
-            slotBaselineStart: slotStart,
-          })
+        const f = getPrivateBookingStoreSlotFeasibility(
+          targetDate,
+          storeId,
+          slotKey,
+          row,
+          allStoreEvents,
+          holidayFn,
+          allowSynthetic
+        )
+        if (!f) continue
+        if (
+          !isProposedPrivateBookingStartFeasible(
+            f,
+            f.minAllowedStart,
+            durationMinutes,
+            extraPrepTime
+          )
+        ) {
+          continue
         }
+        candidates.push({
+          earliestStart: f.minAllowedStart,
+          slotEnd: f.slotBandEnd,
+          slotBaselineStart: f.slotBandStart,
+        })
       }
 
       if (candidates.length === 0) return null
