@@ -1,8 +1,4 @@
-import {
-  getPerformanceDurationMinutesForDate,
-  performanceConflictsWithScheduledEvent,
-  type ScenarioTimingFromDb,
-} from '@/lib/privateBookingScenarioTime'
+import { getPerformanceDurationMinutesForDate, type ScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
 
 /** schedule_events 等の最小形 */
 export type ScheduleEventLike = {
@@ -26,11 +22,23 @@ export type PrivateBookingScenarioTimingSlice = Pick<
   'duration' | 'weekend_duration' | 'extra_preparation_time'
 >
 
+/** その店舗・その日にカレンダー上のイベントが1件でもあれば true（貸切は受け付けない） */
+export function hasAnyScheduleEventOnStoreDay(
+  events: ScheduleEventLike[],
+  storeId: string,
+  dayYmd: string
+): boolean {
+  return events.some((event) => {
+    if (event.store_id !== storeId) return false
+    const ed = event.date ? String(event.date).split('T')[0] : ''
+    return ed === dayYmd
+  })
+}
+
 /**
  * 貸切グループ候補追加と通常貸切（シナリオ詳細）で共通:
- * - シナリオ所要（土日祝は weekend_duration）+ 追加準備で占有終了
- * - 枠の終了（slotEndMin）内に収まること
- * - 既存公演との間に 60 分インターバル（performanceConflictsWithScheduledEvent）
+ * - その店舗・その日にスケジュール上のイベントが1件でもあれば不可（別予定ありとみなす）
+ * - シナリオ所要（土日祝は weekend_duration）+ 追加準備で占有終了が枠（slotEndMin）内に収まること
  */
 export function isPrivateBookingSlotAvailableForStore(
   dateStr: string,
@@ -41,26 +49,16 @@ export function isPrivateBookingSlotAvailableForStore(
   events: ScheduleEventLike[],
   isCustomHoliday: (d: string) => boolean
 ): boolean {
+  const day = dateStr.split('T')[0]
+
+  if (hasAnyScheduleEventOnStoreDay(events, storeId, day)) {
+    return false
+  }
+
   const durationMin = getPerformanceDurationMinutesForDate(dateStr, scenarioTiming, isCustomHoliday)
   const extraPrep = scenarioTiming.extra_preparation_time || 0
   const perfOccEnd = slotStartMin + durationMin + extraPrep
   if (perfOccEnd > slotEndMin) return false
-
-  const day = dateStr.split('T')[0]
-
-  for (const event of events) {
-    if (event.store_id !== storeId) continue
-    const ed = event.date ? String(event.date).split('T')[0] : ''
-    if (ed !== day) continue
-
-    const eventStart = timeStrToMinutes(event.start_time ?? undefined)
-    if (eventStart === null) continue
-    const eventEnd = timeStrToMinutes(event.end_time ?? undefined) ?? eventStart + 240
-
-    if (performanceConflictsWithScheduledEvent(slotStartMin, perfOccEnd, eventStart, eventEnd)) {
-      return false
-    }
-  }
 
   return true
 }
