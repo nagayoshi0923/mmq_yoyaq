@@ -49,7 +49,7 @@ export function PrivateGroupInvite() {
   }, [location.pathname])
   
   const { user } = useAuth()
-  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus } = usePrivateGroupByInviteCode(code || null)
+  const { group, loading: groupLoading, error: groupError, refetch, linkedReservationStatus, confirmedByName } = usePrivateGroupByInviteCode(code || null)
   const { joinGroup, submitDateResponses, leaveGroup, updateGroupStatus, removeMember, loading: actionLoading } = usePrivateGroup()
 
   /** 店舗承認後はチャットに「日程確定」が出ても、グループ行の status が未同期のことがあるため予約 status も見る */
@@ -1186,6 +1186,12 @@ export function PrivateGroupInvite() {
                   <span className={isScheduleConfirmedUi ? 'text-green-600' : group.status === 'booking_requested' ? 'text-blue-600' : ''}>
                     {isScheduleConfirmedUi ? '確定' : group.status === 'booking_requested' ? '確定待ち' : `進捗 ${completedSteps}/5`}
                   </span>
+                  {isScheduleConfirmedUi && confirmedByName && (
+                    <>
+                      <span>•</span>
+                      <span className="text-green-600">承認: {confirmedByName}</span>
+                    </>
+                  )}
                 </div>
               </div>
             {isOrganizer && (
@@ -2237,6 +2243,9 @@ export function PrivateGroupInvite() {
                   <div className={`flex items-center gap-2 text-xs ${isScheduleConfirmedUi ? 'text-green-600' : 'text-gray-500'}`}>
                     {isScheduleConfirmedUi ? <Check className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
                     日程確定
+                    {isScheduleConfirmedUi && confirmedByName && (
+                      <span className="text-green-700">（{confirmedByName}）</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2574,14 +2583,21 @@ export function PrivateGroupInvite() {
                     {isScheduleConfirmedUi ? <Check className="w-3 h-3" /> : '5'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm">日程確定</span>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      {isScheduleConfirmedUi
-                        ? '確定！' 
-                        : group.status === 'booking_requested'
-                          ? '連絡待ち'
-                          : '申込後'}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm">日程確定</span>
+                      <span className="text-xs text-muted-foreground">
+                        {isScheduleConfirmedUi
+                          ? '確定！' 
+                          : group.status === 'booking_requested'
+                            ? '連絡待ち'
+                            : '申込後'}
+                      </span>
+                    </div>
+                    {isScheduleConfirmedUi && confirmedByName && (
+                      <div className="text-xs text-green-700">
+                        承認者: {confirmedByName}
+                      </div>
+                    )}
                   </div>
                 </div>
 

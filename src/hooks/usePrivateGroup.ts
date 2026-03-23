@@ -721,11 +721,19 @@ export function usePrivateGroupData(groupId: string | null) {
   return { group, loading, error, refetch: fetchGroup, linkedReservationStatus }
 }
 
-export function usePrivateGroupByInviteCode(inviteCode: string | null) {
+export function usePrivateGroupByInviteCode(inviteCode: string | null): {
+  group: PrivateGroup | null
+  loading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+  linkedReservationStatus: string | null
+  confirmedByName: string | null
+} {
   const [group, setGroup] = useState<PrivateGroup | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [linkedReservationStatus, setLinkedReservationStatus] = useState<string | null>(null)
+  const [confirmedByName, setConfirmedByName] = useState<string | null>(null)
 
   const fetchGroup = useCallback(async () => {
     if (!inviteCode) {
@@ -784,15 +792,26 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null) {
       }
 
       let resStatus: string | null = null
+      let confirmedBy: string | null = null
       if (data?.reservation_id) {
         const { data: resRow } = await supabase
           .from('reservations')
-          .select('status')
+          .select('status, confirmed_by')
           .eq('id', data.reservation_id)
           .maybeSingle()
         resStatus = resRow?.status ?? null
+        
+        if (resRow?.confirmed_by) {
+          const { data: staffRow } = await supabase
+            .from('staff')
+            .select('name')
+            .eq('id', resRow.confirmed_by)
+            .maybeSingle()
+          confirmedBy = staffRow?.name ?? null
+        }
       }
       setLinkedReservationStatus(resStatus)
+      setConfirmedByName(confirmedBy)
 
       setGroup(data as PrivateGroup)
 
@@ -833,5 +852,5 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null) {
     }
   }, [group?.id, fetchGroup])
 
-  return { group, loading, error, refetch: fetchGroup, linkedReservationStatus }
+  return { group, loading, error, refetch: fetchGroup, linkedReservationStatus, confirmedByName }
 }

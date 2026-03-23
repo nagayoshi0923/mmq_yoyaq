@@ -248,7 +248,8 @@ function getSyntheticSlotsWhenNoRow(
   )
 }
 
-function getPerStoreSlotsForDate(
+/** 1店舗・1日の公演枠（開始/終了分）。貸切シナリオ詳細の複数店舗判定でも利用する */
+export function getPerStoreSlotsForDate(
   dateStr: string,
   row: BusinessHoursSettingRow | undefined,
   isCustomHoliday: (d: string) => boolean,
