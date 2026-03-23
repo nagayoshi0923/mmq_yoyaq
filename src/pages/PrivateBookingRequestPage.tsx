@@ -173,10 +173,17 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       scenarioId={scenario.id}
       participationFee={scenario.participation_fee || 0}
       maxParticipants={scenario.player_count_max || 8}
+      scenarioDuration={scenario.duration}
+      weekendDuration={
+        typeof scenario.weekend_duration === 'number' && scenario.weekend_duration > 0
+          ? scenario.weekend_duration
+          : null
+      }
       selectedTimeSlots={selectedTimeSlots}
       selectedStoreIds={selectedStoreIds}
       stores={stores}
       scenarioAvailableStores={scenario.available_stores || []}
+      organizationSlug={organizationSlug}
       groupId={groupId || undefined}
       onBack={handleBack}
       onComplete={handleComplete}

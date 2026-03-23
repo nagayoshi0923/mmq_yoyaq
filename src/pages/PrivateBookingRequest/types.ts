@@ -13,6 +13,10 @@ export interface PrivateBookingRequestProps {
   scenarioId: string
   participationFee: number
   maxParticipants: number
+  /** 平日等の公演所要（分）。未指定時は表示・保存計算で180分相当の既定を用いる */
+  scenarioDuration?: number
+  /** 土日祝の公演所要（分） */
+  weekendDuration?: number | null
   selectedTimeSlots: Array<{date: string, slot: TimeSlot}>
   selectedStoreIds: string[]
   stores: any[]

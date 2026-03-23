@@ -12,7 +12,6 @@ import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
 // 分離された型定義
-import { TIME_SLOTS } from './utils/types'
 import { calculateParticipationFee } from './utils/pricingUtils'
 
 // 分離されたフック
@@ -245,6 +244,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         scenarioId={scenario.scenario_id}
         participationFee={scenario.participation_fee}
         maxParticipants={scenario.player_count_max}
+        scenarioDuration={scenario.duration}
+        weekendDuration={scenario.weekend_duration ?? null}
         selectedTimeSlots={selectedTimeSlots}
         selectedStoreIds={selectedStoreIds}
         stores={stores}
@@ -538,7 +539,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     currentMonth={currentMonth}
                     onMonthChange={changeMonth}
                     availableDates={generatePrivateDates()}
-                    timeSlots={TIME_SLOTS}
+                    getTimeSlotsForDate={getTimeSlotsForDate}
                     selectedSlots={selectedTimeSlots}
                     onTimeSlotToggle={toggleTimeSlot}
                     checkTimeSlotAvailability={checkTimeSlotAvailability}
@@ -564,7 +565,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                           return (
                             <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs sm:text-sm">
                               <span className="text-red-900 flex-1 min-w-0 pr-2">
-                                {index + 1}. {month}/{day}({weekday}) {item.slot.label} {item.slot.startTime}〜
+                                {index + 1}. {month}/{day}({weekday}) {item.slot.label}{' '}
+                                {item.slot.startTime}〜{item.slot.endTime}
                               </span>
                               <Button
                                 variant="ghost"

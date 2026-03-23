@@ -10,6 +10,9 @@ interface Store {
   region?: string
 }
 
+/** 列見出しと並び（店舗設定で枠が無い日は該当セルを無効表示） */
+const SLOT_LABEL_ORDER = ['午前', '午後', '夜'] as const
+
 interface PrivateBookingFormProps {
   stores: Store[]
   selectedStoreIds: string[]
@@ -17,7 +20,7 @@ interface PrivateBookingFormProps {
   currentMonth: Date
   onMonthChange: (delta: number) => void
   availableDates: string[]
-  timeSlots: TimeSlot[]
+  getTimeSlotsForDate: (date: string) => TimeSlot[]
   selectedSlots: Array<{ date: string; slot: TimeSlot }>
   onTimeSlotToggle: (date: string, slot: TimeSlot) => void
   checkTimeSlotAvailability: (date: string, slot: TimeSlot, storeIds?: string[]) => Promise<boolean>
@@ -33,7 +36,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   currentMonth,
   onMonthChange,
   availableDates,
-  timeSlots,
+  getTimeSlotsForDate,
   selectedSlots,
   onTimeSlotToggle,
   checkTimeSlotAvailability,
@@ -56,7 +59,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
       const newAvailabilityMap: Record<string, boolean> = {}
       
       const promises = availableDates.flatMap(date => {
-        return timeSlots.map(async (slot) => {
+        const daySlots = getTimeSlotsForDate(date)
+        return daySlots.map(async (slot) => {
           const key = `${date}-${slot.label}`
           const isAvailable = await checkTimeSlotAvailability(
             date,
@@ -79,7 +83,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
     return () => {
       isCancelled = true
     }
-  }, [availableDates, timeSlots, selectedStoreIds, checkTimeSlotAvailability])
+  }, [availableDates, getTimeSlotsForDate, selectedStoreIds, checkTimeSlotAvailability])
   
   const getAvailability = (date: string, slot: TimeSlot): boolean => {
     const key = `${date}-${slot.label}`
@@ -168,17 +172,30 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
               </div>
               
               <div className="flex gap-1.5 flex-1">
-                {timeSlots.map((slot) => {
+                {SLOT_LABEL_ORDER.map((label) => {
+                  const daySlots = getTimeSlotsForDate(date)
+                  const slot = daySlots.find((s) => s.label === label)
+                  if (!slot) {
+                    return (
+                      <div
+                        key={label}
+                        className="flex-1 py-1 px-1 border border-gray-100 bg-gray-50 text-center opacity-40 cursor-not-allowed rounded-sm"
+                      >
+                        <div className="text-xs font-medium text-muted-foreground">{label}</div>
+                        <div className="text-[10px] text-muted-foreground">—</div>
+                      </div>
+                    )
+                  }
                   const isBlocked = blockedSlots.includes(slot.label)
                   // 2週間以内またはブロックされている場合は利用不可
                   const isTimeAvailable = !isTooSoon && !isBlocked && getAvailability(date, slot)
                   const isSelected = isTimeSlotSelected(date, slot)
-                  
+
                   return (
                     <button
                       key={slot.label}
                       className={`flex-1 py-1 px-1 border text-center transition-colors ${
-                        !isTimeAvailable 
+                        !isTimeAvailable
                           ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
                           : isSelected
                           ? 'bg-[#E60012] text-white border-[#E60012]'
@@ -188,7 +205,9 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                       onClick={() => isTimeAvailable && onTimeSlotToggle(date, slot)}
                     >
                       <div className="text-xs font-medium">{slot.label}</div>
-                      <div className="text-[10px] opacity-70">{slot.startTime}〜{slot.endTime}</div>
+                      <div className="text-[10px] opacity-70">
+                        {slot.startTime}〜{slot.endTime}
+                      </div>
                     </button>
                   )
                 })}

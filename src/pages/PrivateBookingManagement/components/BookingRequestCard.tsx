@@ -3,7 +3,15 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar, Clock, CheckCircle2, XCircle, CircleDashed } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
-import { formatDate, formatDateTime, getElapsedTime, getElapsedDays, getCardClassName } from '../utils/bookingFormatters'
+import {
+  formatDate,
+  formatDateTime,
+  formatGmReplyReceivedAt,
+  pickGmReplyIsoString,
+  getElapsedTime,
+  getElapsedDays,
+  getCardClassName
+} from '../utils/bookingFormatters'
 
 interface Candidate {
   order: number
@@ -20,6 +28,10 @@ interface GMResponse {
   available_candidates?: number[]
   selected_candidate_index?: number
   notes?: string
+  response_datetime?: string | null
+  responded_at?: string | null
+  updated_at?: string | null
+  created_at?: string | null
 }
 
 interface BookingRequest {
@@ -100,16 +112,28 @@ export const BookingRequestCard = ({
             <div className="bg-purple-50 p-3 rounded-lg">
               <h4 className="text-sm font-medium text-purple-900 mb-2">GM回答状況</h4>
               <div className="space-y-1">
-                {request.gm_responses.map((response, index) => (
-                  <div key={index} className="text-sm text-purple-800">
-                    {response.gm_name || 'GM名不明'}: {response.response_status === 'available' ? '✅ 出勤可能' : '❌ 出勤不可'}
-                    {response.available_candidates && response.available_candidates.length > 0 && (
-                      <span className="ml-2 text-purple-600">
-                        (候補{response.available_candidates.map((idx) => idx + 1).join(', ')})
-                      </span>
-                    )}
-                  </div>
-                ))}
+                {request.gm_responses.map((response, index) => {
+                  const replyIso = pickGmReplyIsoString(response)
+                  const replyLabel = formatGmReplyReceivedAt(replyIso)
+                  return (
+                    <div key={index} className="text-sm text-purple-800">
+                      <div>
+                        {response.gm_name || 'GM名不明'}:{' '}
+                        {response.response_status === 'available' ? '✅ 出勤可能' : '❌ 出勤不可'}
+                        {response.available_candidates && response.available_candidates.length > 0 && (
+                          <span className="ml-2 text-purple-600">
+                            (候補{response.available_candidates.map((idx) => idx + 1).join(', ')})
+                          </span>
+                        )}
+                        {replyLabel ? (
+                          <span className="ml-2 text-xs text-purple-600 font-normal">
+                            ・回答 {replyLabel}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}

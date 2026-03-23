@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
 
 export interface PrivateBookingRequest {
   id: string
@@ -45,6 +46,10 @@ export interface PrivateBookingRequest {
     available_candidates?: number[]
     selected_candidate_index?: number
     notes?: string
+    response_datetime?: string | null
+    responded_at?: string | null
+    updated_at?: string | null
+    created_at?: string | null
   }>
   created_at: string
   invite_code?: string
@@ -181,15 +186,19 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
           // GM回答を別途取得（スタッフの名前も含める）
           const { data: gmResponses } = await supabase
             .from('gm_availability_responses')
-            .select('staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, staff:staff_id(name)')
+            .select(
+              'staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name)'
+            )
             .eq('reservation_id', req.id)
             .in('response_status', ['available', 'unavailable'])
 
-          // GM名がnullの場合はスタッフテーブルの名前を使用
-          const transformedGMResponses = (gmResponses || []).map((gm: any) => ({
-            ...gm,
-            gm_name: gm.gm_name || gm.staff?.name || ''
-          }))
+          // GM名がnullの場合はスタッフテーブルの名前を使用。表示は回答が早い順
+          const transformedGMResponses = sortGmResponsesByReplyTime(
+            (gmResponses || []).map((gm: any) => ({
+              ...gm,
+              gm_name: gm.gm_name || gm.staff?.name || '',
+            }))
+          )
 
           // デバッグ: candidate_datetimesの構造を確認
           if (req.candidate_datetimes?.candidates) {

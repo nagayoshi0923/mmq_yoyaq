@@ -516,6 +516,18 @@ export function AddCandidateDates({
                       const isAvailable = availabilityMap[key] ?? true
                       const isSelected = isSlotSelected(date, slot)
                       const canSelect = isAvailable && (isSelected || selectedSlots.length < MAX_SELECTIONS)
+                      const displayEnd =
+                        scenarioTiming != null
+                          ? getPrivateBookingDisplayEndTime(
+                              slot.startTime,
+                              date,
+                              {
+                                duration: scenarioTiming.duration,
+                                weekend_duration: scenarioTiming.weekend_duration,
+                              },
+                              isCustomHoliday
+                            )
+                          : slot.endTime
 
                       return (
                         <button
@@ -539,7 +551,7 @@ export function AddCandidateDates({
                               isSelected ? 'text-purple-100' : 'text-muted-foreground'
                             }`}
                           >
-                            {slot.startTime}〜{slot.endTime}
+                            {slot.startTime}〜{displayEnd}
                           </div>
                         </button>
                       )

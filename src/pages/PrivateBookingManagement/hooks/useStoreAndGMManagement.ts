@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
+import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
 
 /**
  * 既存イベント情報
@@ -240,7 +241,9 @@ export function useStoreAndGMManagement() {
       // まず全てのレスポンスを取得してからフィルタリング（スタッフのavatar_colorと名前も含める）
       const { data: responses, error } = await supabase
         .from('gm_availability_responses')
-        .select('staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, staff:staff_id(name, avatar_color)')
+        .select(
+          'staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name, avatar_color)'
+        )
         .eq('reservation_id', reservationId)
       
       if (error) {
@@ -253,7 +256,8 @@ export function useStoreAndGMManagement() {
         (response: any) => response.response_status === 'available' || response.response_status === 'unavailable'
       )
 
-      const gmList = filteredResponses.map((response: any) => ({
+      const sorted = sortGmResponsesByReplyTime(filteredResponses)
+      const gmList = sorted.map((response: any) => ({
         gm_id: response.staff_id,
         gm_name: response.gm_name || response.staff?.name || '',
         response_status: response.response_status,

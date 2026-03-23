@@ -32,6 +32,8 @@ export interface ScenarioDetail {
   author: string
   genre: string[]
   duration: number
+  /** 土日祝用の公演時間（分）。未設定時は duration を使用 */
+  weekend_duration?: number | null
   player_count_min: number
   player_count_max: number
   male_count?: number | null

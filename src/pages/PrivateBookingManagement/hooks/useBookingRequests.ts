@@ -5,6 +5,7 @@ import { logger, privateBookingTrace } from '@/utils/logger'
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
+import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
 
 interface UseBookingRequestsProps {
   userId?: string
@@ -140,15 +141,19 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
           // GM回答を別途取得（スタッフのavatar_colorと名前も含める）
           const { data: gmResponses } = await supabase
             .from('gm_availability_responses')
-            .select('staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, staff:staff_id(name, avatar_color)')
+            .select(
+              'staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name, avatar_color)'
+            )
             .eq('reservation_id', req.id)
             .in('response_status', ['available', 'unavailable'])
           
-          // GM名がnullの場合はスタッフテーブルの名前を使用
-          const transformedGMResponses = (gmResponses || []).map((gm: any) => ({
-            ...gm,
-            gm_name: gm.gm_name || gm.staff?.name || ''
-          }))
+          // GM名がnullの場合はスタッフテーブルの名前を使用。表示は回答が早い順
+          const transformedGMResponses = sortGmResponsesByReplyTime(
+            (gmResponses || []).map((gm: any) => ({
+              ...gm,
+              gm_name: gm.gm_name || gm.staff?.name || '',
+            }))
+          )
           
           // 確定済み予約で候補日が1つしかない場合、元の候補日をprivate_group_candidate_datesから復元
           let candidateDatetimes = req.candidate_datetimes || { candidates: [] }

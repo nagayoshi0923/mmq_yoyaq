@@ -211,6 +211,10 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     author: scenarioData.author,
     genre: scenarioData.genre || [],
     duration: scenarioData.duration,
+    weekend_duration:
+      typeof scenarioData.weekend_duration === 'number' && scenarioData.weekend_duration > 0
+        ? scenarioData.weekend_duration
+        : null,
     player_count_min: scenarioData.player_count_min,
     player_count_max: scenarioData.player_count_max,
     difficulty: scenarioData.difficulty,

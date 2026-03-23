@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -17,14 +17,17 @@ import { usePrivateBookingSubmit } from './hooks/usePrivateBookingSubmit'
 import { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import { formatDate } from './utils/privateBookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
+import { useCustomHolidays } from '@/hooks/useCustomHolidays'
+import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import type { PrivateBookingRequestProps, TimeSlot } from './types'
 
 const MAX_TIME_SLOTS = 6
 
-const TIME_SLOT_OPTIONS: TimeSlot[] = [
-  { label: '午前', startTime: '09:00', endTime: '12:00' },
-  { label: '午後', startTime: '12:00', endTime: '17:00' },
-  { label: '夜', startTime: '17:00', endTime: '22:00' }
+/** 追加フォーム用の代表開始時刻（終了は日付×シナリオ所要で算出） */
+const TIME_SLOT_START_TEMPLATES: Array<{ label: string; startTime: string }> = [
+  { label: '午前', startTime: '09:00' },
+  { label: '午後', startTime: '12:00' },
+  { label: '夜', startTime: '17:00' }
 ]
 
 export function PrivateBookingRequest({
@@ -32,6 +35,8 @@ export function PrivateBookingRequest({
   scenarioId,
   participationFee,
   maxParticipants,
+  scenarioDuration,
+  weekendDuration,
   selectedTimeSlots: initialTimeSlots,
   selectedStoreIds: initialStoreIds,
   stores,
@@ -44,6 +49,24 @@ export function PrivateBookingRequest({
   const navigate = useNavigate()
   const { user } = useAuth()
   const { createGroup, loading: groupLoading } = usePrivateGroup()
+  const { isCustomHoliday } = useCustomHolidays({ organizationSlug })
+
+  const scenarioTiming = useMemo(
+    () => ({
+      duration: scenarioDuration != null && scenarioDuration > 0 ? scenarioDuration : 180,
+      weekend_duration:
+        weekendDuration != null && weekendDuration > 0 ? weekendDuration : null,
+    }),
+    [scenarioDuration, weekendDuration]
+  )
+
+  const enrichSlotEnd = useCallback(
+    (date: string, slot: TimeSlot): TimeSlot => ({
+      ...slot,
+      endTime: getPrivateBookingDisplayEndTime(slot.startTime, date, scenarioTiming, isCustomHoliday),
+    }),
+    [scenarioTiming, isCustomHoliday]
+  )
   
   // グループID（既存または送信時に作成）
   const [createdGroupId, setCreatedGroupId] = useState<string | null>(groupId || null)
@@ -52,6 +75,10 @@ export function PrivateBookingRequest({
   
   // 編集可能な候補日時
   const [editableTimeSlots, setEditableTimeSlots] = useState(initialTimeSlots)
+
+  useEffect(() => {
+    setEditableTimeSlots((prev) => prev.map((ts) => ({ ...ts, slot: enrichSlotEnd(ts.date, ts.slot) })))
+  }, [enrichSlotEnd])
   const [showAddForm, setShowAddForm] = useState(false)
   const [newDate, setNewDate] = useState('')
   const [newSlotLabel, setNewSlotLabel] = useState('')
@@ -91,9 +118,14 @@ export function PrivateBookingRequest({
 
   const handleAddTimeSlot = () => {
     if (!newDate || !newSlotLabel) return
-    const slot = TIME_SLOT_OPTIONS.find(s => s.label === newSlotLabel)
-    if (!slot) return
-    
+    const base = TIME_SLOT_START_TEMPLATES.find(s => s.label === newSlotLabel)
+    if (!base) return
+    const slot: TimeSlot = enrichSlotEnd(newDate, {
+      label: base.label,
+      startTime: base.startTime,
+      endTime: base.startTime,
+    })
+
     // 重複チェック
     const isDuplicate = editableTimeSlots.some(
       ts => ts.date === newDate && ts.slot.label === newSlotLabel
@@ -325,11 +357,20 @@ export function PrivateBookingRequest({
                             <SelectValue placeholder="選択..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {TIME_SLOT_OPTIONS.map((slot) => (
-                              <SelectItem key={slot.label} value={slot.label}>
-                                {slot.label}（{slot.startTime}〜{slot.endTime}）
-                              </SelectItem>
-                            ))}
+                            {TIME_SLOT_START_TEMPLATES.map((slot) => {
+                              const previewDate = newDate || dateRange.minDate
+                              const previewEnd = getPrivateBookingDisplayEndTime(
+                                slot.startTime,
+                                previewDate,
+                                scenarioTiming,
+                                isCustomHoliday
+                              )
+                              return (
+                                <SelectItem key={slot.label} value={slot.label}>
+                                  {slot.label}（{slot.startTime}〜{previewEnd}）
+                                </SelectItem>
+                              )
+                            })}
                           </SelectContent>
                         </Select>
                       </div>

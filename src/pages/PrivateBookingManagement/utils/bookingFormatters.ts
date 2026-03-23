@@ -82,6 +82,56 @@ export const formatMonthYear = (date: Date): string => {
 }
 
 /**
+ * GM回答がサーバーに記録された日時（ISO文字列）を推定する。
+ * Discord は response_datetime / responded_at の両方を更新する想定。
+ */
+export function pickGmReplyIsoString(gm: {
+  response_datetime?: string | null
+  responded_at?: string | null
+  updated_at?: string | null
+  created_at?: string | null
+}): string | null {
+  const v = gm.response_datetime || gm.responded_at || gm.updated_at || gm.created_at
+  if (v == null || v === '') return null
+  return typeof v === 'string' ? v : null
+}
+
+/** 回答が届いた日時の表示（JST） */
+export function formatGmReplyReceivedAt(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleString('ja-JP', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
+  })
+}
+
+type GmReplySortable = {
+  response_datetime?: string | null
+  responded_at?: string | null
+  updated_at?: string | null
+  created_at?: string | null
+  gm_name?: string | null
+}
+
+/** 回答日時が早い順（同一時刻は GM 名で安定ソート）。日時が無い行は末尾 */
+export function sortGmResponsesByReplyTime<T extends GmReplySortable>(responses: T[]): T[] {
+  return [...responses].sort((a, b) => {
+    const aIso = pickGmReplyIsoString(a)
+    const bIso = pickGmReplyIsoString(b)
+    const ta = aIso ? new Date(aIso).getTime() : Number.MAX_SAFE_INTEGER
+    const tb = bIso ? new Date(bIso).getTime() : Number.MAX_SAFE_INTEGER
+    if (ta !== tb) return ta - tb
+    return (a.gm_name || '').localeCompare(b.gm_name || '', 'ja')
+  })
+}
+
+/**
  * ステータスに応じたカードクラス名を取得
  */
 export const getCardClassName = (status: string): string => {
