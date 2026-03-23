@@ -213,19 +213,19 @@ export function useStoreAndGMManagement() {
     }
   }, [])
 
-  // 全GMの読み込み（組織対応、avatar_colorも取得）
+  // 担当候補の読み込み（組織内のアクティブスタッフ全員。GMロールのみだと sub_gm / スタッフのみの人が漏れる）
   const loadAllGMs = useCallback(async () => {
     try {
       const orgId = await getCurrentOrganizationId()
       let query = supabase
         .from('staff')
         .select('id, name, avatar_color')
-        .contains('role', ['gm'])
-      
+        .eq('status', 'active')
+
       if (orgId) {
         query = query.eq('organization_id', orgId)
       }
-      
+
       const { data, error } = await query.order('name')
 
       if (error) throw error

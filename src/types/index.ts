@@ -213,6 +213,8 @@ export interface Staff {
   availability: string[]
   experience: number
   special_scenarios: string[]
+  /** GM可能シナリオごとのメイン/サブ（一覧バッジ色分け用・assignments 読込時のみ） */
+  gm_scenario_modes?: Record<string, 'main_only' | 'sub_only' | 'main_and_sub'>
   experienced_scenarios?: string[]
   status: 'active' | 'inactive' | 'on-leave'
   avatar_url?: string | null

@@ -1,5 +1,9 @@
 import { supabase } from './supabase'
 import { getCurrentOrganizationId } from './organization'
+import {
+  buildGmScenarioModesFromAssignments,
+  type GmScenarioMode,
+} from './gmScenarioMode'
 
 // スタッフ⇔シナリオの担当関係を管理するAPI
 export const assignmentApi = {
@@ -585,7 +589,14 @@ export const assignmentApi = {
   // 複数スタッフの担当シナリオ情報を一括取得（N+1問題の回避）
   async getBatchStaffAssignments(staffIds: string[], organizationId?: string) {
     if (staffIds.length === 0) {
-      return new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
+      return new Map<
+        string,
+        {
+          gmScenarios: string[]
+          experiencedScenarios: string[]
+          gm_scenario_modes: Record<string, GmScenarioMode>
+        }
+      >()
     }
 
     const orgId = organizationId || await getCurrentOrganizationId()
@@ -636,14 +647,25 @@ export const assignmentApi = {
     if (error) throw error
     
     // スタッフIDごとにGM可能なシナリオと体験済みシナリオをグループ化
-    const assignmentMap = new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
-    
+    const assignmentMap = new Map<
+      string,
+      {
+        gmScenarios: string[]
+        experiencedScenarios: string[]
+        gm_scenario_modes: Record<string, GmScenarioMode>
+      }
+    >()
+
     data?.forEach((assignment: any) => {
       const staffId = assignment.staff_id
       const scenarioId = assignment.scenario_id
-      
+
       if (!assignmentMap.has(staffId)) {
-        assignmentMap.set(staffId, { gmScenarios: [], experiencedScenarios: [] })
+        assignmentMap.set(staffId, {
+          gmScenarios: [],
+          experiencedScenarios: [],
+          gm_scenario_modes: {},
+        })
       }
       
       const staffData = assignmentMap.get(staffId)!
@@ -665,7 +687,30 @@ export const assignmentApi = {
         }
       }
     })
-    
+
+    for (const staffId of staffIds) {
+      const staffData = assignmentMap.get(staffId)
+      if (!staffData) continue
+      const gmRows = (data || []).filter(
+        (a: {
+          staff_id: string
+          scenario_id?: string | null
+          can_main_gm?: boolean | null
+          can_sub_gm?: boolean | null
+        }) =>
+          a.staff_id === staffId &&
+          !!a.scenario_id &&
+          (a.can_main_gm === true || a.can_sub_gm === true)
+      )
+      staffData.gm_scenario_modes = buildGmScenarioModesFromAssignments(
+        gmRows.map((r) => ({
+          can_main_gm: r.can_main_gm,
+          can_sub_gm: r.can_sub_gm,
+          scenarios: r.scenario_id ? { id: r.scenario_id } : null,
+        }))
+      )
+    }
+
     return assignmentMap
   }
 }

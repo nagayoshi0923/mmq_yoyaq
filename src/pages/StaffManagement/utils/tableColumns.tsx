@@ -8,6 +8,10 @@ import type { Staff, Store } from '@/types'
 import { devDb } from '@/components/ui/DevField'
 import { getRoleBadges, getStoreColors, getStatusBadge } from './staffFormatters'
 import type { StaffAuthStatus } from '../hooks/useStaffAuthStatus'
+import {
+  gmScenarioBadgeClassNames,
+  gmScenarioModeLabel,
+} from '@/lib/gmScenarioMode'
 
 interface StaffTableActions {
   onEdit: (member: Staff) => void
@@ -163,6 +167,8 @@ export function createStaffColumns(
     {
       key: 'special_scenarios',
       header: 'GM可能',
+      helpText:
+        '上段＝メインGM可または両方（青・紫）、下段「サブのみ」＝サブGMのみ対応（水色）。staff_scenario_assignments に準じます。',
       sortable: true,
       width: 'w-48',
       render: (staff) => {
@@ -170,32 +176,77 @@ export function createStaffColumns(
           return <span className="text-[10px] text-muted-foreground">-</span>
         }
 
-        const truncate = (name: string, max = 10) => 
+        const truncate = (name: string, max = 10) =>
           name.length > max ? name.slice(0, max) + '…' : name
-        
+
         const allScenarios = staff.special_scenarios
-        
+        const modes = staff.gm_scenario_modes
+
+        const subOnlyIds = allScenarios.filter((id) => modes?.[id] === 'sub_only')
+        const mainLineIds = allScenarios.filter((id) => modes?.[id] !== 'sub_only')
+
+        const badgeRow = (scenarioIds: string[]) => (
+          <div className="flex flex-wrap gap-0.5">
+            {scenarioIds.map((scenarioId) => {
+              const mode = modes?.[scenarioId]
+              return (
+                <span
+                  key={scenarioId}
+                  title={gmScenarioModeLabel(mode)}
+                  className={`text-[10px] px-1 py-0 rounded-sm border ${gmScenarioBadgeClassNames(mode)}`}
+                >
+                  {truncate(getScenarioName(scenarioId))}
+                </span>
+              )
+            })}
+          </div>
+        )
+
+        const tooltipLines = (scenarioIds: string[]) =>
+          scenarioIds.map((scenarioId) => (
+            <span key={scenarioId} className="text-xs">
+              {getScenarioName(scenarioId)}
+              <span className="text-gray-400 ml-1">
+                （{gmScenarioModeLabel(modes?.[scenarioId])}）
+              </span>
+            </span>
+          ))
+
         return (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="cursor-default max-h-[2.2rem] overflow-hidden">
-                <div className="flex flex-wrap gap-0.5">
-                  {allScenarios.map((scenarioId, index) => (
-                    <span 
-                      key={index} 
-                      className="text-[10px] px-1 py-0 bg-blue-50 text-blue-700 rounded-sm border border-blue-200"
-                    >
-                      {truncate(getScenarioName(scenarioId))}
+              <div className="cursor-default max-h-[4.5rem] overflow-hidden flex flex-col gap-1 min-w-0">
+                {mainLineIds.length > 0 ? badgeRow(mainLineIds) : null}
+                {subOnlyIds.length > 0 ? (
+                  <div
+                    className={`flex flex-col gap-0.5 min-w-0 ${
+                      mainLineIds.length > 0 ? 'border-t border-border/60 pt-1' : ''
+                    }`}
+                  >
+                    <span className="text-[9px] text-muted-foreground font-semibold tracking-tight leading-none">
+                      サブのみ
                     </span>
-                  ))}
-                </div>
+                    {badgeRow(subOnlyIds)}
+                  </div>
+                ) : null}
               </div>
             </TooltipTrigger>
-            <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5 max-h-64 overflow-y-auto">
-              <div className="flex flex-col gap-0.5">
-                {allScenarios.map((scenarioId, index) => (
-                  <span key={index} className="text-xs">{getScenarioName(scenarioId)}</span>
-                ))}
+            <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5 max-h-64 overflow-y-auto max-w-xs">
+              <div className="flex flex-col gap-1">
+                {mainLineIds.length > 0 ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-gray-400 font-medium">メイン可・両方</span>
+                    {tooltipLines(mainLineIds)}
+                  </div>
+                ) : null}
+                {subOnlyIds.length > 0 ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-teal-300/90 font-medium">
+                      サブGMのみ
+                    </span>
+                    {tooltipLines(subOnlyIds)}
+                  </div>
+                ) : null}
               </div>
             </TooltipContent>
           </Tooltip>

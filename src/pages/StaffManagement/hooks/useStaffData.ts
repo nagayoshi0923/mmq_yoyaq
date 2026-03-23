@@ -41,16 +41,30 @@ export const useStaffData = (): UseStaffDataReturn => {
       const staffIds = data.map(s => s.id)
       const assignmentMap = await assignmentApi.getBatchStaffAssignments(staffIds).catch((error) => {
         logger.error('Error loading batch staff assignments:', error)
-        return new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
+        return new Map<
+          string,
+          {
+            gmScenarios: string[]
+            experiencedScenarios: string[]
+            gm_scenario_modes: Record<string, 'main_only' | 'sub_only' | 'main_and_sub'>
+          }
+        >()
       })
 
+      const emptyAssignments = {
+        gmScenarios: [] as string[],
+        experiencedScenarios: [] as string[],
+        gm_scenario_modes: {} as Record<string, 'main_only' | 'sub_only' | 'main_and_sub'>,
+      }
+
       // スタッフにシナリオ情報をマージ
-      const staffWithScenarios = data.map(staffMember => {
-        const assignments = assignmentMap.get(staffMember.id) || { gmScenarios: [], experiencedScenarios: [] }
+      const staffWithScenarios = data.map((staffMember) => {
+        const assignments = assignmentMap.get(staffMember.id) || emptyAssignments
         return {
           ...staffMember,
           special_scenarios: assignments.gmScenarios,
-          experienced_scenarios: assignments.experiencedScenarios
+          experienced_scenarios: assignments.experiencedScenarios,
+          gm_scenario_modes: assignments.gm_scenario_modes,
         }
       })
 
