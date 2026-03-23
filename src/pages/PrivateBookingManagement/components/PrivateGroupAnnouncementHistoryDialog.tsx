@@ -6,7 +6,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Bell } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -155,10 +154,10 @@ export function PrivateGroupAnnouncementHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col overflow-hidden gap-0 p-0 sm:p-0">
+        <DialogHeader className="shrink-0 space-y-1.5 px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 pr-12 text-left">
           <DialogTitle className="flex items-center gap-2">
-            <Bell className="w-5 h-5" />
+            <Bell className="w-5 h-5 shrink-0" />
             アナウンス履歴
           </DialogTitle>
           <DialogDescription className="text-left">
@@ -166,46 +165,48 @@ export function PrivateGroupAnnouncementHistoryDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="w-6 h-6 animate-spin mr-2" />
-            読み込み中…
-          </div>
-        ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">
-            まだアナウンス（システム通知）の記録がありません。
-          </p>
-        ) : (
-          <ScrollArea className="flex-1 min-h-[200px] max-h-[55vh] pr-3">
-            <ul className="space-y-3">
-              {rows.map((row) => {
-                const summary = buildAnnouncementSummary(row.message)
-                if (!summary) return null
-                return (
-                  <li
-                    key={row.id}
-                    className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1.5"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {formatDateTimeJa(row.created_at)}
-                      </span>
-                      <Badge variant="secondary" className="text-xs font-normal">
-                        {summary.kind}
-                      </Badge>
-                    </div>
-                    <p className="font-medium text-foreground">{summary.headline}</p>
-                    {summary.detail ? (
-                      <p className="text-muted-foreground whitespace-pre-wrap text-xs leading-relaxed line-clamp-6">
-                        {summary.detail}
-                      </p>
-                    ) : null}
-                  </li>
-                )
-              })}
-            </ul>
-          </ScrollArea>
-        )}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+              読み込み中…
+            </div>
+          ) : rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              まだアナウンス（システム通知）の記録がありません。
+            </p>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
+              <ul className="space-y-3 pb-1">
+                {rows.map((row) => {
+                  const summary = buildAnnouncementSummary(row.message)
+                  if (!summary) return null
+                  return (
+                    <li
+                      key={row.id}
+                      className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1.5"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {formatDateTimeJa(row.created_at)}
+                        </span>
+                        <Badge variant="secondary" className="text-xs font-normal">
+                          {summary.kind}
+                        </Badge>
+                      </div>
+                      <p className="font-medium text-foreground">{summary.headline}</p>
+                      {summary.detail ? (
+                        <p className="text-muted-foreground whitespace-pre-wrap text-xs leading-relaxed line-clamp-6">
+                          {summary.detail}
+                        </p>
+                      ) : null}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   )

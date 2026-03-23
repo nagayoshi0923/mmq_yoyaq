@@ -69,7 +69,7 @@ export function PrivateGroupCreate() {
         const { data: scenarioData, error: scenarioError } = await supabase
           .from('organization_scenarios_with_master')
           .select(
-            'id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max'
+            'id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max, available_stores'
           )
           .eq('scenario_master_id', scenarioId)
           .eq('organization_id', organizationId)
@@ -100,6 +100,22 @@ export function PrivateGroupCreate() {
     fetchData()
   }, [scenarioId, organizationSlug])
 
+  /** シナリオ設定で公演店舗が限定されているか（空配列・未設定は全店舗可） */
+  const scenarioStoreAllowlist = useMemo(() => {
+    const raw = scenario?.available_stores
+    if (!Array.isArray(raw) || raw.length === 0) return null
+    const ids = raw.filter((id): id is string => typeof id === 'string' && id.length > 0)
+    return ids.length > 0 ? new Set(ids) : null
+  }, [scenario?.available_stores])
+
+  const eligibleStores = useMemo(() => {
+    if (!scenarioStoreAllowlist) return stores
+    return stores.filter((s) => scenarioStoreAllowlist.has(s.id))
+  }, [stores, scenarioStoreAllowlist])
+
+  useEffect(() => {
+    setSelectedStoreIds((prev) => prev.filter((id) => eligibleStores.some((s) => s.id === id)))
+  }, [eligibleStores])
 
   const handleStoreToggle = (storeId: string) => {
     setSelectedStoreIds(prev =>
@@ -109,10 +125,10 @@ export function PrivateGroupCreate() {
     )
   }
 
-  // 地域ごとに店舗をグループ化
+  // 地域ごとに店舗をグループ化（シナリオ限定時は eligible のみ）
   const storesByRegion = useMemo(() => {
-    const groups = new Map<string, typeof stores>()
-    stores.forEach(store => {
+    const groups = new Map<string, typeof eligibleStores>()
+    eligibleStores.forEach(store => {
       const region = store.region || extractRegionFromAddress(store.address) || 'その他'
       if (!groups.has(region)) {
         groups.set(region, [])
@@ -120,9 +136,9 @@ export function PrivateGroupCreate() {
       groups.get(region)!.push(store)
     })
     return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b))
-  }, [stores])
+  }, [eligibleStores])
 
-  const allStoreIds = useMemo(() => stores.map(s => s.id), [stores])
+  const allStoreIds = useMemo(() => eligibleStores.map(s => s.id), [eligibleStores])
   const allSelected = allStoreIds.length > 0 && allStoreIds.every(id => selectedStoreIds.includes(id))
 
   const handleSelectAll = () => {
@@ -133,7 +149,7 @@ export function PrivateGroupCreate() {
     }
   }
 
-  const handleSelectRegion = (regionStores: typeof stores) => {
+  const handleSelectRegion = (regionStores: typeof eligibleStores) => {
     const regionIds = regionStores.map(s => s.id)
     const allRegionSelected = regionIds.every(id => selectedStoreIds.includes(id))
     if (allRegionSelected) {
@@ -380,7 +396,7 @@ export function PrivateGroupCreate() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold">希望店舗（任意）</h2>
-                {stores.length > 0 && (
+                {eligibleStores.length > 0 && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -396,7 +412,16 @@ export function PrivateGroupCreate() {
                   <p className="text-xs text-muted-foreground">
                     希望する店舗を選択してください。未選択の場合は、後からグループ管理画面で選択できます。
                   </p>
-                  {stores.length === 0 ? (
+                  {scenarioStoreAllowlist && (
+                    <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-2">
+                      このシナリオは設定により、公演可能な店舗のみ選択できます。
+                    </p>
+                  )}
+                  {stores.length > 0 && eligibleStores.length === 0 ? (
+                    <p className="text-sm text-amber-800">
+                      シナリオに設定された公演店舗が、現在の店舗一覧と一致しません。管理者にシナリオの公演店舗設定をご確認ください。
+                    </p>
+                  ) : eligibleStores.length === 0 ? (
                     <p className="text-sm text-muted-foreground">利用可能な店舗がありません</p>
                   ) : (
                     <div className="space-y-4">

@@ -290,11 +290,26 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     return groups
   }
 
-  // システムメッセージかどうか判定
-  const parseSystemMessage = (message: string): SystemMessage | null => {
+  // システムメッセージかどうか判定（DB/クライアントで string または object のどちらでも来うる）
+  const parseSystemMessage = (message: string | Record<string, unknown> | null | undefined): SystemMessage | null => {
+    if (message == null) return null
     try {
-      const parsed = JSON.parse(message)
-      if (parsed.type === 'system') {
+      let parsed: unknown
+      if (typeof message === 'string') {
+        const t = message.trim()
+        if (!t.startsWith('{')) return null
+        parsed = JSON.parse(t)
+      } else if (typeof message === 'object') {
+        parsed = message
+      } else {
+        return null
+      }
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        'type' in parsed &&
+        (parsed as { type: unknown }).type === 'system'
+      ) {
         return parsed as SystemMessage
       }
     } catch {
@@ -625,26 +640,29 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   // システムメッセージ（店舗からのお知らせ）
                   if (systemMsg && systemMsg.action === 'staff_message') {
                     return (
-                      <div key={msg.id} className="flex justify-center my-4">
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 w-full max-w-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-amber-600 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs">📢</span>
+                      <div key={msg.id} className="flex justify-center my-3">
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 w-full max-w-sm">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center shrink-0">
+                              <span className="text-white text-[10px] leading-none">📢</span>
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-amber-800">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-amber-800">
                                 {systemMsg.title || '店舗からのお知らせ'}
                               </p>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-[11px] text-muted-foreground">
                                 {formatDateTime(msg.created_at)}
                               </p>
                             </div>
                           </div>
-                          <div className="bg-white rounded-lg p-3 mt-2 border border-amber-100">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                          <div className="bg-white rounded-lg p-2.5 mt-2 border border-amber-100">
+                            <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
                               {systemMsg.body}
                             </p>
                           </div>
+                          <p className="mt-2 px-0.5 text-[10px] text-muted-foreground leading-snug">
+                            ※ 返信は店舗に届きません。ご連絡は「店舗への問い合わせ」からお願いします。
+                          </p>
                         </div>
                       </div>
                     )
