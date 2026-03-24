@@ -1,6 +1,7 @@
 /**
  * 貸切予約管理 - フォーマット関数
  */
+import { formatJapanCalendarDateLabel } from '@/lib/japanCalendarDate'
 import { logger } from '@/utils/logger'
 
 /**
@@ -50,28 +51,14 @@ export const formatDateTime = (dateString: string): string => {
 }
 
 /**
- * 日付をフォーマット（曜日付き）
+ * 日付をフォーマット（曜日付き・JST 暦日基準）
  */
 export const formatDate = (dateStr: string | undefined | null): string => {
-  if (!dateStr) {
-    return '日付不明'
-  }
-  
-  const date = new Date(dateStr)
-  
-  // 無効な日付の場合
-  if (isNaN(date.getTime())) {
+  const out = formatJapanCalendarDateLabel(dateStr)
+  if (out === '日付エラー' && dateStr) {
     logger.error('Invalid date string:', dateStr)
-    return '日付エラー'
   }
-  
-  const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-  const year = date.getFullYear()
-  const month = date.getMonth() + 1
-  const day = date.getDate()
-  const weekday = weekdays[date.getDay()]
-  
-  return `${year}年${month}月${day}日(${weekday})`
+  return out
 }
 
 /**

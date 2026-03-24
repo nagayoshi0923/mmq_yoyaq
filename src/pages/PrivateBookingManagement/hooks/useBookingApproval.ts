@@ -4,6 +4,7 @@ import { logger } from '@/utils/logger'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
+import { normalizeToJapanCalendarYmd } from '@/lib/japanCalendarDate'
 import {
   reservationApi,
   RESERVATION_WITH_CUSTOMER_SELECT_FIELDS,
@@ -68,24 +69,36 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         return { success: false, error: '候補日時が見つかりません' }
       }
 
-      const resolveEndTime = (c: { startTime: string; endTime: string; date: string }) =>
+      const selectedDateYmd = normalizeToJapanCalendarYmd(selectedCandidate.date)
+      if (!selectedDateYmd) {
+        setSubmitting(false)
+        return {
+          success: false,
+          error: '候補日が無効です。画面を更新してから再度お試しください。',
+        }
+      }
+
+      const resolveEndTime = (
+        c: { startTime: string; endTime: string; date: string },
+        dateYmd: string
+      ) =>
         selectedRequest?.scenario_timing
           ? getPrivateBookingDisplayEndTime(
               c.startTime,
-              c.date,
+              dateYmd,
               selectedRequest.scenario_timing,
               isCustomHoliday
             )
           : c.endTime
 
-      const selectedEndTime = resolveEndTime(selectedCandidate)
+      const selectedEndTime = resolveEndTime(selectedCandidate, selectedDateYmd)
 
       // 🚨 CRITICAL: 同じ日時・店舗に既存の公演がないかチェック
       // 再承認の場合は、この予約に紐づくイベントを除外する
       const existingEventsQuery = supabase
         .from('schedule_events')
         .select('id, scenario, start_time, end_time, reservation_id')
-        .eq('date', selectedCandidate.date)
+        .eq('date', selectedDateYmd)
         .eq('store_id', selectedStoreId)
         .neq('is_cancelled', true)
       
@@ -112,18 +125,22 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             setSubmitting(false)
             return { 
               success: false, 
-              error: `${selectedCandidate.date} ${candidateStart}〜${candidateEnd} の時間帯には既に「${event.scenario}」(${eventStart}〜${eventEnd})が入っています。` 
+              error: `${selectedDateYmd} ${candidateStart}〜${candidateEnd} の時間帯には既に「${event.scenario}」(${eventStart}〜${eventEnd})が入っています。` 
             }
           }
         }
       }
 
-      // 全候補日を保持し、選択された候補のみ 'confirmed' にする
-      const updatedCandidates = (selectedRequest?.candidate_datetimes?.candidates || []).map((c: any) => ({
-        ...c,
-        endTime: resolveEndTime(c),
-        status: c.order === selectedCandidateOrder ? 'confirmed' : 'pending'
-      }))
+      // 全候補日を保持し、選択された候補のみ 'confirmed' にする（各 date を日本暦 YYYY-MM-DD に正規化して保存）
+      const updatedCandidates = (selectedRequest?.candidate_datetimes?.candidates || []).map((c: any) => {
+        const dateYmd = normalizeToJapanCalendarYmd(c.date) || c.date
+        return {
+          ...c,
+          date: dateYmd,
+          endTime: resolveEndTime(c, dateYmd),
+          status: c.order === selectedCandidateOrder ? 'confirmed' : 'pending',
+        }
+      })
 
       const updatedCandidateDatetimes = {
         ...selectedRequest?.candidate_datetimes,
@@ -146,7 +163,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       
       const rpcParams = {
         p_reservation_id: requestId,
-        p_selected_date: selectedCandidate.date,
+        p_selected_date: selectedDateYmd,
         p_selected_start_time: selectedCandidate.startTime,
         p_selected_end_time: selectedEndTime,
         p_selected_store_id: selectedStoreId,
@@ -201,7 +218,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
       // 通知・メールは DB に実際に作成された公演日（schedule_events.date）を優先（クライアント保持の候補とズレないようにする）
-      let notifyEventDate = selectedCandidate.date
+      let notifyEventDate = selectedDateYmd
       let notifyStartTime = selectedCandidate.startTime
       let notifyEndTime = selectedEndTime
       if (scheduleEventId) {
@@ -212,8 +229,9 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           .single()
         if (seErr) {
           logger.error('承認後スケジュール取得エラー（通知は候補日時を使用）:', seErr)
-        } else if (seRow?.date) {
-          notifyEventDate = seRow.date
+        } else if (seRow?.date != null && seRow.date !== '') {
+          const fromRow = normalizeToJapanCalendarYmd(String(seRow.date))
+          if (fromRow) notifyEventDate = fromRow
           if (seRow.start_time) {
             notifyStartTime = String(seRow.start_time).slice(0, 5)
           }
