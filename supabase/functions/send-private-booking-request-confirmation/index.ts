@@ -211,7 +211,7 @@ serve(async (req) => {
   </p>
 
   <div style="margin: 30px 0 0 0; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
-    <p style="margin: 0;">Murder Mystery Queue (MMQ)</p>
+    <p style="margin: 0;">MMQ</p>
     <p style="margin: 5px 0 0 0;">このメールは貸切予約リクエスト受付時に自動送信されています</p>
     <p style="margin: 5px 0 0 0;">ご不明な点がございましたら、お気軽にお問い合わせください</p>
   </div>
@@ -265,7 +265,7 @@ ${requestData.notes}
 担当者より折り返しご連絡させていただきます。
 少々お時間をいただく場合がございますが、何卒よろしくお願いいたします。
 
-Murder Mystery Queue (MMQ)
+MMQ
 このメールは貸切予約リクエスト受付時に自動送信されています
 ご不明な点がございましたら、お気軽にお問い合わせください
     `

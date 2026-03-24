@@ -161,14 +161,14 @@ serve(async (req) => {
   <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 20px;">
     <p style="margin: 0; color: #666; font-size: 14px;">
       この度はご希望に沿えず、大変申し訳ございません。<br>
-      引き続き、Murder Mystery Queueをよろしくお願いいたします。<br>
+      引き続き、MMQをよろしくお願いいたします。<br>
       <br>
       お問い合わせは、このメールへの返信にてお願いいたします。
     </p>
   </div>
 
   <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px;">
-    <p style="margin: 5px 0;">Murder Mystery Queue (MMQ)</p>
+    <p style="margin: 5px 0;">MMQ</p>
     <p style="margin: 5px 0;">このメールは自動送信されています</p>
   </div>
 </body>
@@ -203,11 +203,11 @@ ${rejectionData.rejectionReason}
 ━━━━━━━━━━━━━━━━━━━━
 
 この度はご希望に沿えず、大変申し訳ございません。
-引き続き、Murder Mystery Queueをよろしくお願いいたします。
+引き続き、MMQをよろしくお願いいたします。
 
 お問い合わせは、このメールへの返信にてお願いいたします。
 
-Murder Mystery Queue (MMQ)
+MMQ
 このメールは自動送信されています
     `
 

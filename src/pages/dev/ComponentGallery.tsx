@@ -852,7 +852,7 @@ export function ComponentGallery() {
                         style={{ backgroundColor: THEME.accent, color: '#000' }}
                       >
                         <Sparkles className="w-3 h-3" />
-                        MURDER MYSTERY QUEST
+                        MMQ
                       </div>
                       
                       <h1 className="text-2xl md:text-3xl font-bold mb-3 tracking-tight">
@@ -911,7 +911,7 @@ export function ComponentGallery() {
                         style={{ backgroundColor: THEME.accent, color: '#000' }}
                       >
                         <Sparkles className="w-2.5 h-2.5" />
-                        MURDER MYSTERY QUEST
+                        MMQ
                       </div>
                       <h1 className="text-base font-medium mb-0.5">MMQ</h1>
                       <p className="text-sm text-white/80">

@@ -16,6 +16,8 @@ import { logger } from '@/utils/logger'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
+import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
+import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 
 // 難易度ラベル
 const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
@@ -176,6 +178,14 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
       
       if (!customer) {
         showToast.error('顧客情報が見つかりません')
+        return
+      }
+
+      const manualCount = await countManualPlayHistoryForCustomer(customer.id)
+      if (isManualPlayHistoryAtCap(manualCount)) {
+        showToast.error(
+          `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
+        )
         return
       }
       
@@ -343,7 +353,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
                 className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors"
                 onClick={() => {
                   const url = window.location.href
-                  const text = `${scenario.scenario_title} - MMQ`
+                  const text = scenario.scenario_title
                   window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'width=550,height=420')
                 }}
               >

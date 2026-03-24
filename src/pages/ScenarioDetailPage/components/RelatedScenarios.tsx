@@ -1,7 +1,6 @@
-import { memo } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Users, Clock } from 'lucide-react'
+import { memo, useMemo } from 'react'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
+import { filterRelatedScenariosForPublicUi } from '@/lib/scenarioRelatedPublic'
 
 interface RelatedScenario {
   id: string
@@ -28,13 +27,14 @@ export const RelatedScenarios = memo(function RelatedScenarios({
   authorName,
   onScenarioClick
 }: RelatedScenariosProps) {
-  if (scenarios.length === 0) return null
+  const visible = useMemo(() => filterRelatedScenariosForPublicUi(scenarios), [scenarios])
+  if (visible.length === 0) return null
 
   return (
     <div>
       <h3 className="mb-4 text-sm text-muted-foreground">{authorName}の他作品</h3>
       <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-        {scenarios.map((scenario) => (
+        {visible.map((scenario) => (
           <div
             key={scenario.id}
             className="cursor-pointer hover:opacity-80 transition-opacity"

@@ -16,6 +16,8 @@ import { showToast } from '@/utils/toast'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import type { Reservation, Store } from '@/types'
+import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
+import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 
 const SettingsPage = lazyWithRetry(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
@@ -49,6 +51,23 @@ interface PlayedScenario {
   manual_id?: string
   reservation_id?: string
   rating?: number | null
+}
+
+/** アルバム行の一意キー（手動は manual_id、予約は reservation_id。旧形式と後方互換のため legacy キーも参照） */
+function playedScenarioAlbumKey(s: PlayedScenario): string {
+  if (s.reservation_id) return `res:${s.reservation_id}`
+  if (s.is_manual && s.manual_id) return `manual:${s.manual_id}`
+  return `legacy:${s.scenario}:${s.date ?? 'nodate'}:${s.venue ?? ''}`
+}
+
+/** 一覧に載せる行の重複除去用（同じシナリオを複数回プレイした場合はすべて残す） */
+function playedScenarioListDedupeKey(p: PlayedScenario): string {
+  if (p.is_manual && p.manual_id) return `manual:${p.manual_id}`
+  if (p.reservation_id) return `res:${p.reservation_id}`
+  if (p.scenario_id) {
+    return `scenario:${p.scenario_id}:${p.date ?? 'nodate'}:${p.is_manual ? 'm' : 'r'}`
+  }
+  return `row:${p.scenario}:${p.date ?? ''}:${p.venue ?? ''}:${p.is_manual ? 'm' : 'r'}`
 }
 
 interface PrivateGroupSummary {
@@ -376,7 +395,7 @@ export default function MyPage() {
           .select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id')
           .eq('customer_id', customer.id)
           .order('created_at', { ascending: false })
-          .limit(20),
+          .limit(MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER),
 
         // おすすめ度を取得
         supabase
@@ -707,7 +726,7 @@ export default function MyPage() {
         }
         
         // 日付でソート（新しい順）、手動登録(null日付)は先頭に、重複を除去
-        const uniqueScenarioIds = new Set<string>()
+        const listDedupeKeys = new Set<string>()
         const uniquePlayed = played
           .sort((a, b) => {
             // 手動登録(is_manual)でdate nullは先頭に表示
@@ -719,9 +738,9 @@ export default function MyPage() {
             return new Date(b.date).getTime() - new Date(a.date).getTime()
           })
           .filter(p => {
-            if (!p.scenario_id) return true
-            if (uniqueScenarioIds.has(p.scenario_id)) return false
-            uniqueScenarioIds.add(p.scenario_id)
+            const k = playedScenarioListDedupeKey(p)
+            if (listDedupeKeys.has(k)) return false
+            listDedupeKeys.add(k)
             return true
           })
           .slice(0, 50)
@@ -779,6 +798,14 @@ export default function MyPage() {
 
     setIsSubmitting(true)
     try {
+      const manualCount = await countManualPlayHistoryForCustomer(customerId)
+      if (isManualPlayHistoryAtCap(manualCount)) {
+        showToast.error(
+          `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
+        )
+        return
+      }
+
       // 選択されたシナリオのタイトルを取得
       const selectedScenario = scenarioOptions.find(s => s.id === newScenarioId)
       const scenarioTitle = selectedScenario?.title || ''
@@ -826,13 +853,25 @@ export default function MyPage() {
 
   // 手動登録を削除
   const handleDeleteManualHistory = async (manualId: string) => {
+    if (!customerId) {
+      showToast.error('顧客情報が取得できません。再ログインしてお試しください。')
+      return
+    }
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('manual_play_history')
         .delete()
         .eq('id', manualId)
+        .eq('customer_id', customerId)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) {
+        logger.error('手動履歴削除: 0件（RLSまたはID不一致）', { manualId, customerId })
+        showToast.error('削除できませんでした。ページを再読み込みしてから再度お試しください。')
+        await fetchData()
+        return
+      }
 
       showToast.success('削除しました')
       setPlayedScenarios(prev => prev.filter(p => p.manual_id !== manualId))
@@ -895,7 +934,7 @@ export default function MyPage() {
   })
 
   const handleHideFromAlbum = (scenario: PlayedScenario) => {
-    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    const key = playedScenarioAlbumKey(scenario)
     setHiddenPlays(prev => {
       const newSet = new Set(prev)
       newSet.add(key)
@@ -909,7 +948,7 @@ export default function MyPage() {
   
   // アルバムで再表示
   const handleShowInAlbum = (scenario: PlayedScenario) => {
-    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    const key = playedScenarioAlbumKey(scenario)
     setHiddenPlays(prev => {
       const newSet = new Set(prev)
       newSet.delete(key)
@@ -923,19 +962,21 @@ export default function MyPage() {
   
   // アイテムが非表示かどうか
   const isScenarioHidden = (scenario: PlayedScenario) => {
-    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
-    return hiddenPlays.has(key)
+    const key = playedScenarioAlbumKey(scenario)
+    const legacy = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    return hiddenPlays.has(key) || hiddenPlays.has(legacy)
   }
   
   // アイテムが削除済みかどうか
   const isScenarioDeleted = (scenario: PlayedScenario) => {
-    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
-    return deletedPlays.has(key)
+    const key = playedScenarioAlbumKey(scenario)
+    const legacy = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    return deletedPlays.has(key) || deletedPlays.has(legacy)
   }
   
   // 予約ベースのプレイ履歴を削除
   const handleDeleteReservationHistory = (scenario: PlayedScenario) => {
-    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    const key = playedScenarioAlbumKey(scenario)
     setDeletedPlays(prev => {
       const newSet = new Set(prev)
       newSet.add(key)
@@ -946,6 +987,7 @@ export default function MyPage() {
     setHiddenPlays(prev => {
       const newSet = new Set(prev)
       newSet.delete(key)
+      newSet.delete(scenario.reservation_id || `${scenario.scenario}-${scenario.date}`)
       localStorage.setItem('hidden_played_scenarios', JSON.stringify(Array.from(newSet)))
       return newSet
     })
@@ -956,10 +998,11 @@ export default function MyPage() {
   
   // 削除した履歴を復元
   const handleRestoreDeletedHistory = (scenario: PlayedScenario) => {
-    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    const key = playedScenarioAlbumKey(scenario)
     setDeletedPlays(prev => {
       const newSet = new Set(prev)
       newSet.delete(key)
+      newSet.delete(scenario.reservation_id || `${scenario.scenario}-${scenario.date}`)
       localStorage.setItem('deleted_played_scenarios', JSON.stringify(Array.from(newSet)))
       return newSet
     })
@@ -970,16 +1013,28 @@ export default function MyPage() {
   
   // 日付を更新（手動履歴）
   const handleUpdateManualDate = async (manualId: string, newDate: string) => {
+    if (!customerId) {
+      showToast.error('顧客情報が取得できません。再ログインしてお試しください。')
+      return
+    }
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('manual_play_history')
         .update({ played_at: newDate })
         .eq('id', manualId)
-      
+        .eq('customer_id', customerId)
+        .select('id')
+
       if (error) throw error
-      
+      if (!data?.length) {
+        logger.error('手動履歴日付更新: 0件（RLSまたはID不一致）', { manualId, customerId })
+        showToast.error('更新できませんでした。ページを再読み込みしてから再度お試しください。')
+        await fetchData()
+        return
+      }
+
       // ローカルステートを更新
-      setPlayedScenarios(prev => prev.map(p => 
+      setPlayedScenarios(prev => prev.map(p =>
         p.manual_id === manualId ? { ...p, date: newDate } : p
       ))
       setIsEditingDate(false)
@@ -992,15 +1047,17 @@ export default function MyPage() {
   
   // 日付を更新（予約ベース、localStorageで管理）
   const handleUpdateReservationDate = (scenario: PlayedScenario, newDate: string) => {
-    const key = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
+    const key = playedScenarioAlbumKey(scenario)
+    const legacyKey = scenario.reservation_id || `${scenario.scenario}-${scenario.date}`
     const newOverrides = { ...dateOverrides, [key]: newDate }
     setDateOverrides(newOverrides)
     localStorage.setItem('played_scenarios_date_overrides', JSON.stringify(newOverrides))
     
     // ローカルステートも更新
     setPlayedScenarios(prev => prev.map(p => {
-      const pKey = p.reservation_id || `${p.scenario}-${p.date}`
-      return pKey === key ? { ...p, date: newDate } : p
+      const pKey = playedScenarioAlbumKey(p)
+      const pLegacy = p.reservation_id || `${p.scenario}-${p.date}`
+      return pKey === key || pLegacy === legacyKey ? { ...p, date: newDate } : p
     }))
     setIsEditingDate(false)
     showToast.success('日付を更新しました')
@@ -1816,8 +1873,9 @@ export default function MyPage() {
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-bold text-gray-900">体験済みシナリオ</h2>
                     <span className="text-2xl font-bold" style={{ color: THEME.primary }}>{playedScenarios.filter(s => {
-                      const key = s.reservation_id || `${s.scenario}-${s.date}`
-                      return !hiddenPlays.has(key)
+                      const key = playedScenarioAlbumKey(s)
+                      const legacy = s.reservation_id || `${s.scenario}-${s.date}`
+                      return !hiddenPlays.has(key) && !hiddenPlays.has(legacy)
                     }).length}作品</span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1925,9 +1983,10 @@ export default function MyPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       {playedScenarios
                         .filter(s => {
-                          const key = s.reservation_id || `${s.scenario}-${s.date}`
-                          const isHidden = hiddenPlays.has(key)
-                          const isDeleted = deletedPlays.has(key)
+                          const key = playedScenarioAlbumKey(s)
+                          const legacy = s.reservation_id || `${s.scenario}-${s.date}`
+                          const isHidden = hiddenPlays.has(key) || hiddenPlays.has(legacy)
+                          const isDeleted = deletedPlays.has(key) || deletedPlays.has(legacy)
                           if (showHiddenItems) return true
                           return !isHidden && !isDeleted
                         })
@@ -1948,12 +2007,12 @@ export default function MyPage() {
                           if (!b.date) return -1
                           return new Date(b.date).getTime() - new Date(a.date).getTime()
                         })
-                        .map((scenario, index) => {
+                        .map((scenario) => {
                         const isHidden = isScenarioHidden(scenario)
                         const isDeleted = isScenarioDeleted(scenario)
                         return (
                         <div
-                          key={index}
+                          key={playedScenarioAlbumKey(scenario)}
                           className={`overflow-hidden bg-white shadow-sm hover:shadow-lg border border-gray-200 hover:border-gray-300 group relative ${isHidden || isDeleted ? 'opacity-50' : ''}`}
                           style={{ borderRadius: 0 }}
                         >

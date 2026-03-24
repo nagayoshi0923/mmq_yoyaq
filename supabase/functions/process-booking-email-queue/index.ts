@@ -290,7 +290,7 @@ async function sendEmail(
   </div>
 
   <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px;">
-    <p>Murder Mystery Queue (MMQ)</p>
+    <p>MMQ</p>
     <p>このメールは予約完了時に自動送信されています</p>
   </div>
 </body>
@@ -311,7 +311,7 @@ ${item.customer_name} 様
 
 当日は開始時刻の15分前までにご来場ください。
 
-Murder Mystery Queue (MMQ)
+MMQ
     `
 
     // Resend APIでメール送信

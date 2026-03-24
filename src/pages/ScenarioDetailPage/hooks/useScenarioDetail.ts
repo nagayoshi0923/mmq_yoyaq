@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { getColorFromName } from '@/lib/utils'
 import { logger } from '@/utils/logger'
+import { fetchPublicRelatedScenariosByAuthor } from '@/lib/scenarioRelatedPublic'
 import { formatDateJST } from '@/utils/dateUtils'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
 
@@ -137,20 +138,13 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
         }
       })(),
       (async () => {
-        if (!scenarioData.author) return []
         try {
-          const { data: relatedData } = await supabase
-            .from('scenario_masters')
-            .select('id, title, key_visual_url, author, player_count_min, player_count_max, official_duration')
-            .eq('author', scenarioData.author)
-            .neq('id', masterId || scenarioData.id)
-            .limit(6)
-
-          return (relatedData || []).map((r) => ({
-            ...r,
-            slug: r.id,
-            duration: r.official_duration,
-          }))
+          return await fetchPublicRelatedScenariosByAuthor({
+            author: scenarioData.author || '',
+            excludeScenarioMasterId: masterId || scenarioData.id,
+            organizationId: orgId,
+            limit: 6,
+          })
         } catch (error) {
           logger.error('関連シナリオの取得エラー:', error)
           return []

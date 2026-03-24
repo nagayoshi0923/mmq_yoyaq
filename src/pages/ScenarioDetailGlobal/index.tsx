@@ -26,6 +26,8 @@ import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Footer } from '@/components/layout/Footer'
 import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
+import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
+import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 
 interface ScenarioDetailGlobalProps {
   scenarioSlug: string
@@ -665,6 +667,14 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         showToast.error('顧客情報が見つかりません')
         return
       }
+
+      const manualCount = await countManualPlayHistoryForCustomer(customer.id)
+      if (isManualPlayHistoryAtCap(manualCount)) {
+        showToast.error(
+          `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
+        )
+        return
+      }
       
       const { error } = await supabase
         .from('manual_play_history')
@@ -780,13 +790,6 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
               </button>
               <div className="h-4 w-px bg-white/30" />
               <span className="text-sm text-white/80">シナリオ詳細</span>
-            </div>
-            <div 
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium"
-              style={{ backgroundColor: THEME.accent, color: '#000' }}
-            >
-              <Sparkles className="w-2.5 h-2.5" />
-              MURDER MYSTERY QUEST
             </div>
           </div>
         </div>

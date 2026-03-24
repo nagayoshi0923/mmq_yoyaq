@@ -265,7 +265,7 @@ serve(async (req) => {
   </div>
 
   <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 11px;">
-    <p style="margin: 4px 0;">Murder Mystery Queue (MMQ)</p>
+    <p style="margin: 4px 0;">MMQ</p>
     <p style="margin: 4px 0;">このメールは自動送信されています</p>
     <p style="margin: 4px 0;">ご不明な点がございましたら、お気軽にお問い合わせください</p>
   </div>
@@ -331,7 +331,7 @@ ${magicLinkText}
 よろしくお願いいたします。
 
 ━━━━━━━━━━━━━━━━━━━━
-Murder Mystery Queue (MMQ)
+MMQ
 このメールは自動送信されています
 ご不明な点がございましたら、お気軽にお問い合わせください
     `

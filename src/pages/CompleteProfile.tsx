@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertCircle, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { maskEmail } from '@/utils/security'
-import { validateRedirectUrl } from '@/lib/utils'
+import { safeRedirectAfterProfileCompletion } from '@/lib/utils'
 import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
 import { grantRegistrationCoupon } from '@/lib/api/couponApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -222,7 +222,7 @@ export function CompleteProfile() {
           logger.log('✅ プロフィール済みのため complete-profile をスキップ')
           setProfileGate('leaving')
           const nextParam = new URLSearchParams(window.location.search).get('next')
-          const dest = validateRedirectUrl(nextParam, '/mypage')
+          const dest = safeRedirectAfterProfileCompletion(nextParam, '/mypage')
           navigate(dest, { replace: true })
           return
         }
@@ -336,9 +336,9 @@ export function CompleteProfile() {
     setIsLoading(true)
     
     try {
-      // ⚠️ P1-20: validateRedirectUrl() で統一（javascript: / data: も拒否）
+      // ⚠️ P1-20: validateRedirectUrl 相当 + 規約ページ等への戻りを防ぐ
       const nextParam = new URLSearchParams(window.location.search).get('next')
-      const nextUrl = validateRedirectUrl(nextParam, '/')
+      const nextUrl = safeRedirectAfterProfileCompletion(nextParam, '/')
 
       // 1. パスワードを設定（メールサインアップのみ）
       if (!isOAuthUser && password) {
@@ -1038,7 +1038,6 @@ export function CompleteProfile() {
                     onChange={(e) => setAcceptTerms(e.target.checked)}
                     className="mt-1 h-4 w-4 rounded border-gray-300 accent-[#E60012] cursor-pointer"
                     disabled={isLoading}
-                    required
                   />
                   <label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer select-none">
                     <Link to="/terms" className="underline text-blue-600 hover:text-blue-800" target="_blank">利用規約</Link>

@@ -112,7 +112,7 @@ export function EmailPreview({ content }: EmailPreviewProps) {
       </div>
 
       <div className="text-center pt-3 border-t border-gray-200 text-gray-400 text-xs">
-        <p className="mb-0.5">Murder Mystery Queue (MMQ)</p>
+        <p className="mb-0.5">MMQ</p>
         <p className="mb-0.5">このメールは自動送信されています</p>
         <p>ご不明な点がございましたら、お気軽にお問い合わせください</p>
       </div>

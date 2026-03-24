@@ -361,14 +361,16 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         
         <div className="container mx-auto max-w-7xl px-4 md:px-6 py-8 md:py-12 relative">
           <div className="text-white" style={{ textShadow: organizationHeaderImageUrl ? '0 2px 4px rgba(0,0,0,0.5)' : 'none' }}>
-            {/* アクセントバッジ */}
-            <div 
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium mb-2"
-              style={{ backgroundColor: THEME.accent, color: '#000' }}
-            >
-              <Sparkles className="w-2.5 h-2.5" />
-              {organizationName?.toUpperCase() || 'MURDER MYSTERY QUEST'}
-            </div>
+            {/* アクセントバッジ（組織名があるときのみ） */}
+            {organizationName && (
+              <div
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium mb-2"
+                style={{ backgroundColor: THEME.accent, color: '#000' }}
+              >
+                <Sparkles className="w-2.5 h-2.5" />
+                {organizationName.toUpperCase()}
+              </div>
+            )}
             
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">
               {organizationName || 'MMQ'}

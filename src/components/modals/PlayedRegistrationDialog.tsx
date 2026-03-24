@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
+import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
+import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 
 interface PlayedRegistrationDialogProps {
   open: boolean
@@ -32,6 +34,14 @@ export function PlayedRegistrationDialog({
 
     setIsSubmitting(true)
     try {
+      const manualCount = await countManualPlayHistoryForCustomer(customerId)
+      if (isManualPlayHistoryAtCap(manualCount)) {
+        showToast.error(
+          `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
+        )
+        return
+      }
+
       const { error } = await supabase
         .from('manual_play_history')
         .insert({

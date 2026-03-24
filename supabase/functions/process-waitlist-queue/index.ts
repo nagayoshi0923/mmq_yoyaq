@@ -388,7 +388,7 @@ async function sendNotificationEmail(
   </div>
 
   <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px;">
-    <p style="margin: 5px 0;">Murder Mystery Queue (MMQ)</p>
+    <p style="margin: 5px 0;">MMQ</p>
     <p style="margin: 5px 0;">このメールは自動送信されています</p>
   </div>
 </body>
@@ -425,7 +425,7 @@ ${queueEntry.booking_url}
 
 予約が完了しましたら、キャンセル待ちは自動的に解除されます。
 
-Murder Mystery Queue (MMQ)
+MMQ
 このメールは自動送信されています
   `
 

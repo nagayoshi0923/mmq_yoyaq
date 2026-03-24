@@ -330,7 +330,7 @@ export function DesignPreview() {
               </div>
             )}
             <span className={`font-bold text-xl tracking-tight ${designStyle === 'luxury' ? 'tracking-widest uppercase text-sm' : ''}`}>
-              {designStyle === 'luxury' ? 'MURDER MYSTERY QUEST' : 'MMQ'}
+              MMQ
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -415,7 +415,7 @@ export function DesignPreview() {
               {designStyle === 'gothic' && <Ghost className="w-3 h-3" />}
               {designStyle === 'neon' && <Zap className="w-3 h-3" />}
               {(designStyle === 'nintendo' || designStyle === 'minimal') && <Sparkles className="w-3 h-3" />}
-              MURDER MYSTERY QUEST
+              MMQ
             </div>
             
             <h1 className={`text-4xl md:text-6xl font-bold mb-4 ${designStyle === 'luxury' ? 'tracking-wide' : 'tracking-tight'}`}>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 
 /**
  * ユーザーの体験済みシナリオIDを管理するフック
@@ -56,6 +57,7 @@ export function usePlayedScenarios() {
         .from('manual_play_history')
         .select('scenario_master_id')
         .eq('customer_id', customer.id)
+        .limit(MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER)
 
       manualHistory?.forEach(m => {
         if (m.scenario_master_id) {

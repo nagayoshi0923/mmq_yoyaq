@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link, useSearchParams } from 'react-router-dom'
-import { validateRedirectUrl } from '@/lib/utils'
+import { safeRedirectAfterProfileCompletion } from '@/lib/utils'
 import { getCurrentOrganizationId } from '@/lib/organization'
 
 interface CouponInfo {
@@ -33,7 +33,7 @@ export function CouponPresent() {
   // next パラメータから遷移先を取得（セキュリティ検証付き）
   const nextUrl = useMemo(() => {
     const nextParam = searchParams.get('next')
-    return validateRedirectUrl(nextParam, '/')
+    return safeRedirectAfterProfileCompletion(nextParam, '/')
   }, [searchParams])
 
   useEffect(() => {

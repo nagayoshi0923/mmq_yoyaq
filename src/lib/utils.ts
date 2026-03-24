@@ -156,6 +156,35 @@ export function validateRedirectUrl(url: string | null | undefined, defaultUrl =
 }
 
 /**
+ * プロフィール登録完了・クーポン表示後の遷移先に使う。
+ * `next` に規約ページや認証フローが入っていると、登録直後にまた規約画面になるため除外する。
+ */
+export function safeRedirectAfterProfileCompletion(
+  url: string | null | undefined,
+  defaultUrl = '/'
+): string {
+  const candidate = validateRedirectUrl(url, defaultUrl)
+  const pathOnly = (candidate.split('?')[0] || '').split('#')[0] || ''
+  const deniedPrefixes = [
+    '/terms',
+    '/privacy',
+    '/complete-profile',
+    '/coupon-present',
+    '/login',
+    '/signup',
+    '/register',
+    '/reset-password',
+    '/set-password',
+  ] as const
+  for (const p of deniedPrefixes) {
+    if (pathOnly === p || pathOnly.startsWith(`${p}/`)) {
+      return defaultUrl
+    }
+  }
+  return candidate
+}
+
+/**
  * PostgREST .or() / .eq() 等のフィルタ値に渡す文字列をサニタイズする。
  * 特殊文字によるフィルタインジェクションを防止する。
  */

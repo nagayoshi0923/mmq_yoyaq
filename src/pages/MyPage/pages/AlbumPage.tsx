@@ -14,6 +14,8 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { OptimizedImage } from '@/components/ui/optimized-image'
+import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
+import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
 
 interface ScenarioOption {
   id: string
@@ -325,6 +327,7 @@ export function AlbumPage() {
         .select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id, scenario_masters:scenario_master_id(key_visual_url, author)')
         .eq('customer_id', customer.id)
         .order('played_at', { ascending: false })
+        .limit(MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER)
       
       if (manualHistory) {
         manualHistory.forEach((item: any) => {
@@ -363,6 +366,14 @@ export function AlbumPage() {
 
     setIsSubmitting(true)
     try {
+      const manualCount = await countManualPlayHistoryForCustomer(customerId)
+      if (isManualPlayHistoryAtCap(manualCount)) {
+        showToast.error(
+          `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
+        )
+        return
+      }
+
       // 選択されたシナリオのタイトルを取得
       const selectedScenario = scenarioOptions.find(s => s.id === newScenarioId)
       const scenarioTitle = selectedScenario?.title || ''
@@ -414,14 +425,26 @@ export function AlbumPage() {
   // 手動登録を削除
   const handleDeleteManualHistory = async (manualId: string) => {
     if (!confirm('この履歴を削除しますか？')) return
+    if (!customerId) {
+      showToast.error('顧客情報が取得できません。再ログインしてお試しください。')
+      return
+    }
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('manual_play_history')
         .delete()
         .eq('id', manualId)
+        .eq('customer_id', customerId)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) {
+        logger.error('手動履歴削除: 0件（RLSまたはID不一致）', { manualId, customerId })
+        showToast.error('削除できませんでした。ページを再読み込みしてから再度お試しください。')
+        await fetchPlayedScenarios()
+        return
+      }
 
       showToast.success('削除しました')
       fetchPlayedScenarios()
@@ -806,7 +829,13 @@ export function AlbumPage() {
                                       variant="ghost"
                                       size="icon"
                                       className="h-5 w-5 hover:bg-red-50"
-                                      onClick={() => play.manual_id && handleDeleteManualHistory(play.manual_id)}
+                                      onClick={() => {
+                                        if (!play.manual_id) {
+                                          showToast.error('この履歴は削除用のIDが付いていません。マイページを再読み込みしてください。')
+                                          return
+                                        }
+                                        void handleDeleteManualHistory(play.manual_id)
+                                      }}
                                       title="削除"
                                     >
                                       <Trash2 className="h-3 w-3 text-red-400" />
