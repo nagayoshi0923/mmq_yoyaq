@@ -156,11 +156,13 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   }, [events, stores])
 
   // 公演日程タブの店舗フィルタ: 1店舗の場合は自動選択
+  // 出張公演など store_id が無い枠があるときは自動選択しない（そのままだと出張が一覧から消える）
   useEffect(() => {
-    if (scheduleStores.length === 1 && scheduleStoreFilter.length === 0) {
+    const hasEventWithoutStore = events.some((e) => !e.store_id)
+    if (scheduleStores.length === 1 && scheduleStoreFilter.length === 0 && !hasEventWithoutStore) {
       setScheduleStoreFilter([scheduleStores[0].id])
     }
-  }, [scheduleStores, scheduleStoreFilter.length])
+  }, [scheduleStores, scheduleStoreFilter.length, events])
 
   useEffect(() => {
     // URLパラメータを処理
@@ -530,7 +532,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     <h3 className="mb-2 text-sm font-medium text-muted-foreground">日付を選択</h3>
                     <EventList
                       events={scheduleStoreFilter.length > 0 
-                        ? events.filter(e => scheduleStoreFilter.includes(e.store_id))
+                        ? events.filter(
+                            (e) =>
+                              scheduleStoreFilter.includes(e.store_id) ||
+                              // 店舗未紐付け（出張公演など）は店舗絞り込みしても表示を維持
+                              !e.store_id
+                          )
                         : events}
                       selectedEventId={selectedEventId}
                       scenarioTitle={scenario.scenario_title}
