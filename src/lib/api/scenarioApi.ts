@@ -109,6 +109,35 @@ export const scenarioApi = {
     return (data?.[0] as unknown as Scenario) || null
   },
 
+  /**
+   * 編集ダイアログ用: ビューの id（= scenario_master_id）で見つからなければ
+   * organization_scenarios の主キー（ビュー上の org_scenario_id）でも解決する。
+   * 保存直後に一覧キャッシュが未更新のときのフォールバックに使う。
+   */
+  async resolveOrganizationScenarioView(
+    idOrOrgScenarioRowId: string,
+    organizationId?: string
+  ): Promise<Scenario | null> {
+    const byMaster = await this.getById(idOrOrgScenarioRowId, organizationId)
+    if (byMaster) return byMaster
+
+    const orgId = organizationId || (await getCurrentOrganizationId())
+    if (!orgId) return null
+
+    const { data, error } = await supabase
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+      .eq('org_scenario_id', idOrOrgScenarioRowId)
+      .eq('organization_id', orgId)
+      .maybeSingle()
+
+    if (error) {
+      logger.error('resolveOrganizationScenarioView:', error)
+      return null
+    }
+    return (data as unknown as Scenario) || null
+  },
+
   // slugでシナリオを取得
   // 自組織で見つからない場合は組織を問わず検索（他組織の共有シナリオ対応）
   async getBySlug(slug: string, organizationId?: string): Promise<Scenario | null> {
@@ -629,7 +658,8 @@ export const scenarioApi = {
       firstQuery = firstQuery.eq('organization_id', orgId)
     }
     
-    const { data: firstEvent, error: firstError } = await firstQuery.single()
+    // 新規シナリオなど公演0件のとき .single() は 406 になるため maybeSingle を使う
+    const { data: firstEvent, error: firstError } = await firstQuery.maybeSingle()
     
     const firstPerformanceDate = firstError ? null : firstEvent?.date || null
 

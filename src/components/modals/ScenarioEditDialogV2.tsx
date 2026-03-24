@@ -32,7 +32,7 @@ import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, getCurrentOrganization, getOrganizationById } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
-import type { Staff } from '@/types'
+import type { Scenario, Staff } from '@/types'
 
 interface ScenarioEditDialogV2Props {
   isOpen: boolean
@@ -135,7 +135,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   })
   const [isScenarioLoaded, setIsScenarioLoaded] = useState<boolean>(!scenarioId) // 新規はloaded扱い
 
-  const { data: scenarios = [] } = useScenariosQuery()
+  const { data: scenarios = [], isPending: scenariosQueryPending } = useScenariosQuery()
+
+  const scenariosFingerprint = useMemo(
+    () => scenarios.map(s => `${s.id}:${s.scenario_master_id ?? ''}`).join('|'),
+    [scenarios]
+  )
   const scenarioMutation = useScenarioMutation()
   const deleteMutation = useDeleteScenarioMutation()
   const { user } = useAuth()
@@ -571,19 +576,80 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       return
     }
 
-    // scenariosがまだ読み込まれていない場合は待つ
-    if (scenarios.length === 0) return
-
-    // 既にこのシナリオIDでロード済みの場合はスキップ（保存後のリフェッチでフォームが上書きされるのを防止）
     const loadKey = `${scenarioId || 'new'}`
+    // ロード成功後のみ付与する（未ヒットのとき先にキーを付けると一覧リフェッチ後も再試行されない）
     if (formLoadedKeyRef.current === loadKey) return
-    formLoadedKeyRef.current = loadKey
 
-    if (scenarioId) {
-      // scenario_master_id または id で検索（新UI/旧UI両対応）
-      const scenario = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
-      if (scenario) {
-        setIsScenarioLoaded(true)
+    if (!scenarioId) {
+      formLoadedKeyRef.current = loadKey
+      setIsScenarioLoaded(true)
+      setFormData({
+        title: '',
+        slug: '',
+        author: '',
+        author_email: '',
+        description: '',
+        duration: 120,
+        player_count_min: 8,
+        player_count_max: 8,
+        male_count: null,
+        female_count: null,
+        difficulty: 3,
+        rating: undefined,
+        status: 'available',
+        participation_fee: 3000,
+        production_costs: [
+          { item: 'キット', amount: 30000 },
+          { item: 'マニュアル', amount: 10000 },
+          { item: 'スライド', amount: 10000 },
+        ],
+        kit_count: 1,
+        genre: [],
+        required_props: [],
+        license_amount: 0,
+        gm_test_license_amount: 0,
+        scenario_type: 'normal',
+        franchise_license_amount: undefined,
+        franchise_gm_test_license_amount: undefined,
+        franchise_license_rewards: [
+          { item: 'normal', amount: 0, type: 'fixed' as const },
+          { item: 'gmtest', amount: 0, type: 'fixed' as const }
+        ],
+        license_rewards: [
+          { item: 'normal', amount: 0, type: 'fixed' },
+          { item: 'gmtest', amount: 0, type: 'fixed' }
+        ],
+        has_pre_reading: false,
+        gm_count: 1,
+        gm_assignments: [],
+        participation_costs: [
+      { time_slot: 'normal', amount: 4000, type: 'fixed' },
+      { time_slot: 'gmtest', amount: 3000, type: 'fixed' },
+    ],
+        use_flexible_pricing: false,
+        flexible_pricing: {
+          base_pricing: { participation_fee: 3000 },
+          pricing_modifiers: [],
+          gm_configuration: {
+            required_count: 1,
+            optional_count: 0,
+            total_max: 2,
+            special_requirements: ''
+          }
+        },
+        caution: '',
+        key_visual_url: '',
+        available_stores: [],
+        characters: [],
+      })
+      return
+    }
+
+    if (scenariosQueryPending && scenarios.length === 0) return
+
+    const hydrateFromScenario = (scenario: Scenario) => {
+      setIsScenarioLoaded(true)
+      formLoadedKeyRef.current = loadKey
         // データをフォームにマッピング
         // participation_costs：DBに存在する場合は使用、なければ生成
         const normalFee = scenario.participation_fee || 3000
@@ -771,76 +837,48 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             }
           })()
         }
-      } else {
-        setIsScenarioLoaded(false)
-        showToast.error('シナリオの読み込みに失敗しました', '権限/組織情報の可能性があります。再ログイン後に再度お試しください')
+    }
+
+    const fromList = scenarios.find(
+      s => s.id === scenarioId || s.scenario_master_id === scenarioId
+    )
+
+    if (fromList) {
+      hydrateFromScenario(fromList)
+      return
+    }
+
+    let cancelled = false
+    void (async () => {
+      try {
+        const fetched = await scenarioApi.resolveOrganizationScenarioView(scenarioId)
+        if (cancelled) return
+        if (fetched) {
+          hydrateFromScenario(fetched)
+        } else {
+          setIsScenarioLoaded(false)
+          showToast.error(
+            'シナリオの読み込みに失敗しました',
+            '一覧にまだ反映されていない場合は数秒待ってから開き直してください。解消しないときは再ログインをお試しください'
+          )
+        }
+      } catch (e) {
+        logger.error('シナリオ単体取得エラー:', e)
+        if (!cancelled) {
+          setIsScenarioLoaded(false)
+          showToast.error(
+            'シナリオの読み込みに失敗しました',
+            '権限/組織情報の可能性があります。再ログイン後に再度お試しください'
+          )
+        }
       }
-    } else {
-      // 新規作成時は初期値にリセット
-      setIsScenarioLoaded(true)
-      setFormData({
-        title: '',
-        slug: '',
-        author: '',
-        author_email: '',
-        description: '',
-        duration: 120,
-        player_count_min: 8,
-        player_count_max: 8,
-        male_count: null,
-        female_count: null,
-        difficulty: 3,
-        rating: undefined,
-        status: 'available',
-        participation_fee: 3000,
-        production_costs: [
-          { item: 'キット', amount: 30000 },
-          { item: 'マニュアル', amount: 10000 },
-          { item: 'スライド', amount: 10000 },
-        ],
-        kit_count: 1,
-        genre: [],
-        required_props: [],
-        license_amount: 0,
-        gm_test_license_amount: 0,
-        scenario_type: 'normal',
-        franchise_license_amount: undefined,
-        franchise_gm_test_license_amount: undefined,
-        // デフォルトで0円のエントリを2つ作成（通常公演とGMテスト）
-        franchise_license_rewards: [
-          { item: 'normal', amount: 0, type: 'fixed' as const },
-          { item: 'gmtest', amount: 0, type: 'fixed' as const }
-        ],
-        license_rewards: [
-          { item: 'normal', amount: 0, type: 'fixed' },
-          { item: 'gmtest', amount: 0, type: 'fixed' }
-        ],
-        has_pre_reading: false,
-        gm_count: 1,
-        gm_assignments: [],  // 空配列 = デフォルト報酬を使用
-        participation_costs: [
-      { time_slot: 'normal', amount: 4000, type: 'fixed' },
-      { time_slot: 'gmtest', amount: 3000, type: 'fixed' },
-    ],
-        use_flexible_pricing: false,
-        flexible_pricing: {
-          base_pricing: { participation_fee: 3000 },
-          pricing_modifiers: [],
-          gm_configuration: {
-            required_count: 1,
-            optional_count: 0,
-            total_max: 2,
-            special_requirements: ''
-          }
-        },
-        caution: '',
-        key_visual_url: '',
-        available_stores: [],
-        characters: [],
-      })
+    })()
+
+    return () => {
+      cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, scenarioId, scenarios.length])
+  }, [isOpen, scenarioId, scenariosFingerprint, scenariosQueryPending, scenarios.length])
 
   const handleSave = async (statusOverride?: 'available' | 'unavailable' | 'draft') => {
     // 新規作成後のIDがあれば編集モードとして扱う
