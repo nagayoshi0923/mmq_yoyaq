@@ -46,15 +46,11 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   endDate.setMonth(endDate.getMonth() + 3)
   const endDateStr = formatDateJST(endDate)
   const masterId = scenarioData.scenario_master_id
+  const orgScenarioId =
+    (scenarioData as { org_scenario_id?: string | null }).org_scenario_id ?? null
 
-  // Step 3+4 をまとめて並列（従来はイベント取得完了後に注意事項等を取りに行っていた）
-  const [eventsData, storesData, orgScenarioResult, masterCautionResult, relatedScenariosResult] =
-    await Promise.all([
-      (async () => {
-        let query = supabase
-          .from('schedule_events')
-          .select(
-            `
+  // ラインナップと同様に、scenario_master_id に加え organization_scenario_id・scenario 名で公演を取得してマージする
+  const scheduleEventSelect = `
           id,
           date,
           start_time,
@@ -76,25 +72,52 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
             address
           )
         `
-          )
-          .eq('scenario_master_id', scenarioData.id)
-          .gte('date', todayJST)
-          .lte('date', endDateStr)
-          .eq('is_cancelled', false)
-          .order('date', { ascending: true })
-          .order('start_time', { ascending: true })
 
-        if (orgId) {
-          query = query.eq('organization_id', orgId)
-        }
+  async function fetchScheduleEventsMergedForScenario(): Promise<any[]> {
+    const applyRangeAndOrg = (q: any) => {
+      let x = q
+        .gte('date', todayJST)
+        .lte('date', endDateStr)
+        .eq('is_cancelled', false)
+      if (orgId) x = x.eq('organization_id', orgId)
+      return x.order('date', { ascending: true }).order('start_time', { ascending: true })
+    }
 
-        const { data, error } = await query
-        if (error) {
-          logger.error('スケジュール取得エラー:', error)
-          return []
-        }
-        return data || []
-      })(),
+    const run = async (build: (q: any) => any) => {
+      const query = build(supabase.from('schedule_events').select(scheduleEventSelect))
+      const { data, error } = await applyRangeAndOrg(query)
+      if (error) {
+        logger.error('スケジュール取得エラー:', error)
+        return []
+      }
+      return data || []
+    }
+
+    const [byMasterId, byOrgScenarioId, byScenarioTitle] = await Promise.all([
+      run((q) => q.eq('scenario_master_id', scenarioData.id)),
+      orgScenarioId
+        ? run((q) => q.eq('organization_scenario_id', orgScenarioId))
+        : Promise.resolve([]),
+      scenarioData.title
+        ? run((q) => q.eq('scenario', scenarioData.title))
+        : Promise.resolve([]),
+    ])
+
+    const byId = new Map<string, any>()
+    for (const row of [...byMasterId, ...byOrgScenarioId, ...byScenarioTitle]) {
+      byId.set(row.id, row)
+    }
+    return Array.from(byId.values()).sort((a, b) => {
+      const d = String(a.date).localeCompare(String(b.date))
+      if (d !== 0) return d
+      return String(a.start_time || '').localeCompare(String(b.start_time || ''))
+    })
+  }
+
+  // Step 3+4 をまとめて並列（従来はイベント取得完了後に注意事項等を取りに行っていた）
+  const [eventsData, storesData, orgScenarioResult, masterCautionResult, relatedScenariosResult] =
+    await Promise.all([
+      fetchScheduleEventsMergedForScenario(),
       storeApi.getAll(false, orgId).catch((error) => {
         logger.error('店舗データの取得エラー:', error)
         return []

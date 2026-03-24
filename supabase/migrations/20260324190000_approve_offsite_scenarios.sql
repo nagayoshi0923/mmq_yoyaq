@@ -18,14 +18,13 @@ WHERE id IN (
 )
 AND master_status IS DISTINCT FROM 'approved';
 
--- 2) organization_scenarios の org_status を公開にする
-UPDATE organization_scenarios
-SET org_status = 'available'
-WHERE scenario_master_id IN (
-  '2b7d9c1d-bcbb-4d9a-9f88-8b201aa368d5'::uuid,
-  '046cafae-49cb-42e6-b4ae-74bbb489c06f'::uuid
-)
-AND org_status IS DISTINCT FROM 'available';
+-- 2) organization_scenarios が無ければ作成、あれば org_status を公開にする
+INSERT INTO organization_scenarios (organization_id, scenario_master_id, org_status, scenario_type)
+VALUES
+  ('a0000000-0000-0000-0000-000000000001'::uuid, '2b7d9c1d-bcbb-4d9a-9f88-8b201aa368d5'::uuid, 'available', 'normal'),
+  ('a0000000-0000-0000-0000-000000000001'::uuid, '046cafae-49cb-42e6-b4ae-74bbb489c06f'::uuid, 'available', 'normal')
+ON CONFLICT (organization_id, scenario_master_id)
+DO UPDATE SET org_status = 'available';
 
 -- 確認用
 DO $$

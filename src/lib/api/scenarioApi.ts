@@ -658,44 +658,51 @@ export const scenarioApi = {
     const staffParticipantsMap: Record<string, number> = {}
     
     if (eventIds.length > 0) {
-      // 全予約を取得（確定済みのみ、組織フィルタ付き）
-      let resQuery = supabase
-        .from('reservations')
-        .select('schedule_event_id, participant_count, reservation_source, payment_method')
-        .in('schedule_event_id', eventIds)
-        .in('status', ['confirmed', 'gm_confirmed'])
+      // PostgREST URL長制限回避: IDをバッチに分割してクエリ
+      const BATCH_SIZE = 100
+      const allReservations: Array<{ schedule_event_id: string; participant_count: number; reservation_source: string | null; payment_method: string | null }> = []
       
-      if (orgId) {
-        resQuery = resQuery.eq('organization_id', orgId)
+      for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+        const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+        let resQuery = supabase
+          .from('reservations')
+          .select('schedule_event_id, participant_count, reservation_source, payment_method')
+          .in('schedule_event_id', batchIds)
+          .in('status', ['confirmed', 'gm_confirmed'])
+        
+        if (orgId) {
+          resQuery = resQuery.eq('organization_id', orgId)
+        }
+        
+        const { data, error: resError } = await resQuery
+        if (!resError && data) {
+          allReservations.push(...(data as typeof allReservations))
+        }
       }
       
-      const { data: allReservations, error: resError } = await resQuery
-      
-      if (!resError && allReservations) {
-        allReservations.forEach(res => {
-          if (res.schedule_event_id) {
-            const count = res.participant_count || 0
-            
-            // デモ予約
-            if (res.reservation_source === 'demo' || res.reservation_source === 'demo_auto') {
-              demoParticipantsMap[res.schedule_event_id] = 
-                (demoParticipantsMap[res.schedule_event_id] || 0) + count
-            }
-            // スタッフ参加
-            else if (res.reservation_source === 'staff_entry' || 
-                     res.reservation_source === 'staff_participation' || 
-                     res.payment_method === 'staff') {
-              staffParticipantsMap[res.schedule_event_id] = 
-                (staffParticipantsMap[res.schedule_event_id] || 0) + count
-            }
-            // 通常予約（有料）
-            else {
-              actualParticipantsMap[res.schedule_event_id] = 
-                (actualParticipantsMap[res.schedule_event_id] || 0) + count
-            }
+      allReservations.forEach(res => {
+        if (res.schedule_event_id) {
+          const count = res.participant_count || 0
+          
+          // デモ予約
+          if (res.reservation_source === 'demo' || res.reservation_source === 'demo_auto') {
+            demoParticipantsMap[res.schedule_event_id] = 
+              (demoParticipantsMap[res.schedule_event_id] || 0) + count
           }
-        })
-      }
+          // スタッフ参加
+          else if (res.reservation_source === 'staff_entry' || 
+                   res.reservation_source === 'staff_participation' || 
+                   res.payment_method === 'staff') {
+            staffParticipantsMap[res.schedule_event_id] = 
+              (staffParticipantsMap[res.schedule_event_id] || 0) + count
+          }
+          // 通常予約（有料）
+          else {
+            actualParticipantsMap[res.schedule_event_id] = 
+              (actualParticipantsMap[res.schedule_event_id] || 0) + count
+          }
+        }
+      })
     }
 
     // 集計

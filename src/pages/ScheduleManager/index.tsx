@@ -219,17 +219,26 @@ export function ScheduleManager() {
         })
       }
       
-      // 対象イベントIDを抽出して一括で予約を取得
+      // 対象イベントIDを抽出して一括で予約を取得（バッチ分割でURL長制限回避）
       const eventIds = (events || []).map(e => e.id)
-      const { data: allReservations } = await supabase
-        .from('reservations')
-        .select('schedule_event_id, participant_count, participant_names')
-        .in('schedule_event_id', eventIds)
-        .in('status', ['confirmed', 'pending'])
+      const BATCH_SIZE = 100
+      const allReservations: Array<{ schedule_event_id: string; participant_count: number; participant_names: string[] | null }> = []
+      
+      for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+        const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+        const { data } = await supabase
+          .from('reservations')
+          .select('schedule_event_id, participant_count, participant_names')
+          .in('schedule_event_id', batchIds)
+          .in('status', ['confirmed', 'pending'])
+        if (data) {
+          allReservations.push(...(data as typeof allReservations))
+        }
+      }
       
       // イベントIDごとに予約をグループ化
       const reservationsByEvent = new Map<string, typeof allReservations>()
-      allReservations?.forEach(r => {
+      allReservations.forEach(r => {
         const list = reservationsByEvent.get(r.schedule_event_id) || []
         list.push(r)
         reservationsByEvent.set(r.schedule_event_id, list)
@@ -334,12 +343,12 @@ export function ScheduleManager() {
       logger.log(`📊 デモ参加者追加: ${demoReservations.length}件`)
       
       // バッチサイズ（Supabaseの制限を考慮）
-      const BATCH_SIZE = 50
+      const INSERT_BATCH_SIZE = 50
       
       // デモ参加者予約をバッチでinsert
       if (demoReservations.length > 0) {
-        for (let i = 0; i < demoReservations.length; i += BATCH_SIZE) {
-          const batch = demoReservations.slice(i, i + BATCH_SIZE)
+        for (let i = 0; i < demoReservations.length; i += INSERT_BATCH_SIZE) {
+          const batch = demoReservations.slice(i, i + INSERT_BATCH_SIZE)
           const { error: insertError } = await supabase
             .from('reservations')
             .insert(batch)

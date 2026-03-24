@@ -267,27 +267,34 @@ export const scheduleApi = {
     const reservationsMap = new Map<string, { participant_count: number }[]>()
     
     if (eventIds.length > 0) {
-      let allResQuery = supabase
-        .from('reservations')
-        .select('schedule_event_id, participant_count, status')
-        .in('schedule_event_id', eventIds)
-        .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+      const BATCH_SIZE = 100
+      const allReservations: Array<{ schedule_event_id: string; participant_count: number; status: string }> = []
       
-      if (orgId) {
-        allResQuery = allResQuery.eq('organization_id', orgId)
+      for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+        const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+        let allResQuery = supabase
+          .from('reservations')
+          .select('schedule_event_id, participant_count, status')
+          .in('schedule_event_id', batchIds)
+          .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+        
+        if (orgId) {
+          allResQuery = allResQuery.eq('organization_id', orgId)
+        }
+        
+        const { data, error: reservationError } = await allResQuery
+        if (!reservationError && data) {
+          allReservations.push(...(data as typeof allReservations))
+        }
       }
       
-      const { data: allReservations, error: reservationError } = await allResQuery
-      
-      if (!reservationError && allReservations) {
-        allReservations.forEach(reservation => {
-          const eventId = reservation.schedule_event_id
-          if (!reservationsMap.has(eventId)) {
-            reservationsMap.set(eventId, [])
-          }
-          reservationsMap.get(eventId)!.push(reservation)
-        })
-      }
+      allReservations.forEach(reservation => {
+        const eventId = reservation.schedule_event_id
+        if (!reservationsMap.has(eventId)) {
+          reservationsMap.set(eventId, [])
+        }
+        reservationsMap.get(eventId)!.push(reservation)
+      })
     }
 
     const myEvents = scheduleEvents.map(event => {
@@ -404,25 +411,30 @@ export const scheduleApi = {
       //   予約のキャンセルで人数が減った場合は「実予約数（active）」を優先して表示したい。
       // - その判定のため、ここでは status も含めて取得し、
       //   「この公演に予約が存在するか（cancelled だけでも true）」を判定できるようにする。
-      let resQuery = supabase
-        .from('reservations')
-        .select('schedule_event_id, participant_count, status, candidate_datetimes, reservation_source')
-        .in('schedule_event_id', eventIds)
-      
-      if (resOrgId && !skipOrgFilter) {
-        resQuery = resQuery.eq('organization_id', resOrgId)
-      }
-      
-      const { data: allReservations, error: reservationError } = await resQuery
-      
-      if (!reservationError && allReservations) {
-        allReservations.forEach(reservation => {
-          const eventId = reservation.schedule_event_id
-          if (!reservationsMap.has(eventId)) {
-            reservationsMap.set(eventId, [])
-          }
-          reservationsMap.get(eventId)!.push(reservation)
-        })
+      // PostgREST URL長制限回避: IDをバッチに分割してクエリ
+      const BATCH_SIZE = 100
+      for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+        const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+        let resQuery = supabase
+          .from('reservations')
+          .select('schedule_event_id, participant_count, status, candidate_datetimes, reservation_source')
+          .in('schedule_event_id', batchIds)
+        
+        if (resOrgId && !skipOrgFilter) {
+          resQuery = resQuery.eq('organization_id', resOrgId)
+        }
+        
+        const { data: batchReservations, error: reservationError } = await resQuery
+        
+        if (!reservationError && batchReservations) {
+          batchReservations.forEach(reservation => {
+            const eventId = reservation.schedule_event_id
+            if (!reservationsMap.has(eventId)) {
+              reservationsMap.set(eventId, [])
+            }
+            reservationsMap.get(eventId)!.push(reservation)
+          })
+        }
       }
     }
     
@@ -741,31 +753,40 @@ export const scheduleApi = {
     
     const eventIds = scheduleEvents.map(e => e.id)
     
-    // 予約データ取得（組織フィルタ付き）
-    let resQuery = supabase
-      .from('reservations')
-      .select('schedule_event_id, participant_count')
-      .in('schedule_event_id', eventIds)
-      .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+    // 予約データ取得（組織フィルタ付き） PostgREST URL長制限回避: バッチ分割
+    const BATCH_SIZE = 100
+    const allReservations: Array<{ schedule_event_id: string; participant_count: number }> = []
     
-    if (orgId) {
-      resQuery = resQuery.eq('organization_id', orgId)
-    }
-    
-    const { data: allReservations, error: reservationError } = await resQuery
-    
-    if (reservationError) {
-      if (reservationError.code !== 'PGRST116') {
-        logger.warn('予約データの取得に失敗:', {
-          code: reservationError.code,
-          message: reservationError.message,
-          details: reservationError.details
-        })
+    for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+      const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+      let resQuery = supabase
+        .from('reservations')
+        .select('schedule_event_id, participant_count')
+        .in('schedule_event_id', batchIds)
+        .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+      
+      if (orgId) {
+        resQuery = resQuery.eq('organization_id', orgId)
+      }
+      
+      const { data, error: reservationError } = await resQuery
+      
+      if (reservationError) {
+        if (reservationError.code !== 'PGRST116') {
+          logger.warn('予約データの取得に失敗:', {
+            code: reservationError.code,
+            message: reservationError.message,
+            details: reservationError.details
+          })
+        }
+      }
+      if (data) {
+        allReservations.push(...(data as typeof allReservations))
       }
     }
     
     const participantsByEventId = new Map<string, number>()
-    allReservations?.forEach((reservation) => {
+    allReservations.forEach((reservation) => {
       const eventId = reservation.schedule_event_id
       const count = reservation.participant_count || 0
       participantsByEventId.set(eventId, (participantsByEventId.get(eventId) || 0) + count)
