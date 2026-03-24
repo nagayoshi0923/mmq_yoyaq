@@ -422,11 +422,32 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       )
       const extraPrepTime = scenario?.extra_preparation_time || 0
 
-      return isProposedPrivateBookingStartFeasible(f, startMin, durationMinutes, extraPrepTime, {
-        targetDateYmd: targetDate,
-        storeId,
-        dayEvents: allStoreEvents,
-      })
+      const dayOfWeek = new Date(targetDate).getDay()
+      const isWeekendOrHolidayForAvail =
+        dayOfWeek === 0 ||
+        dayOfWeek === 6 ||
+        isJapaneseHoliday(targetDate) ||
+        holidayFn(targetDate)
+      const effectiveMinStartMin =
+        targetTimeSlot === 'afternoon' && !isWeekendOrHolidayForAvail
+          ? Math.max(
+              f.priorEventEarliestStartMin,
+              f.slotBandEnd - durationMinutes - extraPrepTime
+            )
+          : undefined
+
+      return isProposedPrivateBookingStartFeasible(
+        f,
+        startMin,
+        durationMinutes,
+        extraPrepTime,
+        {
+          targetDateYmd: targetDate,
+          storeId,
+          dayEvents: allStoreEvents,
+        },
+        effectiveMinStartMin
+      )
     }
     
     // 店舗が選択されている場合：選択された店舗のいずれかで空きがあればtrue
@@ -664,10 +685,20 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     type SlotKey = 'morning' | 'afternoon' | 'evening'
     const getEarliestAvailableStartForStores = (
       slotKey: SlotKey
-    ): { earliestStart: number; slotEnd: number; slotBaselineStart: number } | null => {
+    ): {
+      earliestStart: number
+      slotEnd: number
+      slotBaselineStart: number
+      priorEventEarliestStartMin: number
+    } | null => {
       const extraPrepTime = scenario?.extra_preparation_time || 0
       const allowSynthetic = targetStoreIds.length === 1
-      const candidates: { earliestStart: number; slotEnd: number; slotBaselineStart: number }[] = []
+      const candidates: {
+        earliestStart: number
+        slotEnd: number
+        slotBaselineStart: number
+        priorEventEarliestStartMin: number
+      }[] = []
 
       for (const storeId of targetStoreIds) {
         const row = businessHoursCache.get(storeId) as BusinessHoursSettingRow | undefined
@@ -681,17 +712,25 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           allowSynthetic
         )
         if (!f) continue
+        const startForFeasibility =
+          slotKey === 'afternoon' && !isWeekendOrHoliday
+            ? Math.max(
+                f.priorEventEarliestStartMin,
+                f.slotBandEnd - durationMinutes - extraPrepTime
+              )
+            : f.minAllowedStart
         if (
           !isProposedPrivateBookingStartFeasible(
             f,
-            f.minAllowedStart,
+            startForFeasibility,
             durationMinutes,
             extraPrepTime,
             {
               targetDateYmd: targetDate,
               storeId,
               dayEvents: allStoreEvents,
-            }
+            },
+            startForFeasibility
           )
         ) {
           continue
@@ -700,6 +739,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           earliestStart: f.minAllowedStart,
           slotEnd: f.slotBandEnd,
           slotBaselineStart: f.slotBandStart,
+          priorEventEarliestStartMin: f.priorEventEarliestStartMin,
         })
       }
 
@@ -809,16 +849,22 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         const extraPrepTime = scenario?.extra_preparation_time || 0
         let startMinutes: number
         let earliestPossibleStart: number = defaultStartTimes[def.key] // 前公演考慮後の最早開始時間
-        
+        let multiStoreFeasibility: {
+          earliestStart: number
+          slotEnd: number
+          slotBaselineStart: number
+          priorEventEarliestStartMin: number
+        } | null = null
+
         // 複数店舗選択時は専用ロジックを使用（枠は各店の営業時間から）
         if (selectedStoreIds.length > 1) {
-          const multi = getEarliestAvailableStartForStores(def.key)
-          if (multi === null) {
+          multiStoreFeasibility = getEarliestAvailableStartForStores(def.key)
+          if (multiStoreFeasibility === null) {
             return null // いずれの店舗でも入れない
           }
-          earliestPossibleStart = multi.earliestStart
-          effectiveSlotEndLimit = multi.slotEnd
-          eveningConfiguredStart = multi.slotBaselineStart
+          earliestPossibleStart = multiStoreFeasibility.earliestStart
+          effectiveSlotEndLimit = multiStoreFeasibility.slotEnd
+          eveningConfiguredStart = multiStoreFeasibility.slotBaselineStart
         } else {
           // 単一店舗または未選択時の従来ロジック
           const slotStartConsideringEvents = getSlotStartTimeConsideringEvents(def.key)
@@ -879,11 +925,39 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
             return null // 営業終了時間を超えるので無効
           }
         } else if (def.key === 'afternoon' && !isWeekendOrHoliday) {
-          // 平日: 昼枠の終了時刻に終演を合わせるよう開始を逆算（夜枠と同様の考え方）
+          // 平日: 昼の終了（枠上限）に終演＋準備を合わせて開始を逆算。店の既定開始（13:00等）には寄せない。
+          // 下限は「重なる公演の終了+1h」のみ（getPrivateBookingStoreSlotFeasibility と整合）。
           const afternoonEnd = effectiveSlotEndLimit
-          const reverseStart = afternoonEnd - durationMinutes
-          startMinutes =
-            earliestPossibleStart > reverseStart ? earliestPossibleStart : reverseStart
+          const reverseStart = afternoonEnd - durationMinutes - extraPrepTime
+          // 逆算が負＝枠終了時刻までに所要+準備が物理的に収まらない（0:00 に丸めない）
+          if (reverseStart < 0) {
+            return null
+          }
+          let priorFloor = 0
+          if (selectedStoreIds.length > 1 && multiStoreFeasibility) {
+            priorFloor = multiStoreFeasibility.priorEventEarliestStartMin
+          } else {
+            const sid =
+              selectedStoreIds.length === 1 ? selectedStoreIds[0] : targetStoreId
+            if (sid) {
+              const row = businessHoursCache.get(sid) as BusinessHoursSettingRow | undefined
+              const allowSynthetic = targetStoreIds.length === 1
+              const fAf = getPrivateBookingStoreSlotFeasibility(
+                targetDate,
+                sid,
+                'afternoon',
+                row,
+                allStoreEvents,
+                holidayFn,
+                allowSynthetic
+              )
+              if (fAf) priorFloor = fAf.priorEventEarliestStartMin
+            }
+          }
+          startMinutes = Math.max(reverseStart, priorFloor)
+          if (startMinutes + durationMinutes + extraPrepTime > afternoonEnd) {
+            return null
+          }
         } else {
           // 朝・休日の昼は従来通り最早開始準拠
           startMinutes = earliestPossibleStart

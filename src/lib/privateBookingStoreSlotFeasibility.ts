@@ -21,6 +21,11 @@ export type PrivateBookingStoreSlotFeasibility = {
   slotBandEnd: number
   /** 既存公演を踏まえた最早開始（分） */
   minAllowedStart: number
+  /**
+   * 枠と重なる公演の「終了+1hバッファ」までの分。公演がなければ 0。
+   * 平日昼の「終了から逆算した開始」では営業枠の下限は使わず、この値だけを下限にする。
+   */
+  priorEventEarliestStartMin: number
 }
 
 type EventWithStore = {
@@ -84,7 +89,12 @@ export function getPrivateBookingStoreSlotFeasibility(
 
   const minAllowedStart =
     latestEventEnd > 0 ? Math.max(slotBandStart, latestEventEnd) : slotBandStart
-  return { slotBandStart, slotBandEnd, minAllowedStart }
+  return {
+    slotBandStart,
+    slotBandEnd,
+    minAllowedStart,
+    priorEventEarliestStartMin: latestEventEnd,
+  }
 }
 
 /** 同日・同店の公演一覧（start_time で次枠とのデッドラインを計算する） */
@@ -94,15 +104,20 @@ export type PrivateBookingFeasibilityEventContext = {
   dayEvents: EventWithStore[]
 }
 
-/** 提案開始時刻が営業枠内かつ公演後に収まるか */
+/**
+ * 提案開始時刻が営業枠内かつ公演後に収まるか
+ * @param effectiveMinStartMin 指定時はこれを最早開始の下限にする（平日昼の逆算表示と整合させる用）
+ */
 export function isProposedPrivateBookingStartFeasible(
   f: PrivateBookingStoreSlotFeasibility,
   proposedStartMin: number,
   durationMinutes: number,
   extraPrepMinutes: number,
-  eventCtx?: PrivateBookingFeasibilityEventContext
+  eventCtx?: PrivateBookingFeasibilityEventContext,
+  effectiveMinStartMin?: number
 ): boolean {
-  if (proposedStartMin < f.minAllowedStart) return false
+  const minStart = effectiveMinStartMin ?? f.minAllowedStart
+  if (proposedStartMin < minStart) return false
 
   let effectiveOccupancyEndLimit = f.slotBandEnd
   if (eventCtx) {
