@@ -90,7 +90,7 @@ async function fetchScenarioCatalogBundle(): Promise<{
     .neq('scenario_type', 'gm_test')
     .order('title', { ascending: true })
   if (orgId) {
-    scenariosQuery = scenariosQuery.eq('organization_id', orgId)
+    scenariosQuery = scenariosQuery.or(`organization_id.eq.${orgId},is_shared.eq.true`)
   }
   const [scenariosResult, availableKeysResult, storesResult, categoriesResult] = await Promise.all([
     scenariosQuery,

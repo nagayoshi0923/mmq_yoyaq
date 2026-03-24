@@ -82,6 +82,7 @@ export const scenarioApi = {
 
   // IDでシナリオを取得（scenario_master_id で検索）
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  // 共有シナリオ（is_shared=true）も取得対象に含める
   async getById(id: string, organizationId?: string): Promise<Scenario | null> {
     let query = supabase
       .from('organization_scenarios_with_master')
@@ -90,10 +91,10 @@ export const scenarioApi = {
     
     const orgId = organizationId || await getCurrentOrganizationId()
     if (orgId) {
-      query = query.eq('organization_id', orgId)
+      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
     }
     
-    const { data, error } = await query.single()
+    const { data, error } = await query.maybeSingle()
     
     if (error) {
       if (error.code === 'PGRST116') {
@@ -105,6 +106,7 @@ export const scenarioApi = {
   },
 
   // slugでシナリオを取得
+  // 共有シナリオ（is_shared=true）も取得対象に含める
   async getBySlug(slug: string, organizationId?: string): Promise<Scenario | null> {
     let query = supabase
       .from('organization_scenarios_with_master')
@@ -113,10 +115,10 @@ export const scenarioApi = {
     
     const orgId = organizationId || await getCurrentOrganizationId()
     if (orgId) {
-      query = query.eq('organization_id', orgId)
+      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
     }
     
-    const { data, error } = await query.single()
+    const { data, error } = await query.maybeSingle()
     
     if (error) {
       if (error.code === 'PGRST116') {
