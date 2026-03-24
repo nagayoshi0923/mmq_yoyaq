@@ -7,7 +7,10 @@ import { showToast } from '@/utils/toast'
 import { getTimeSlot } from '@/utils/scheduleUtils' // 時間帯判定用
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
-import { getPerformanceDurationMinutesForDate } from '@/lib/privateBookingScenarioTime'
+import {
+  getPerformanceDurationMinutesForDate,
+  isPrivateBookingSlotAllowedByScenarioSettings,
+} from '@/lib/privateBookingScenarioTime'
 import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
 import { type BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import {
@@ -214,7 +217,15 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       // 配列が存在し、かつ空でない場合のみ限定
       if (Array.isArray(availableStores) && availableStores.length > 0) {
         // オフィスを除外し営業中の店舗で、シナリオのavailable_storesと一致する店舗のみ
-        return new Set(availableStores.filter(id => validStores.some(s => s.id === id)))
+        const resolved = availableStores.filter((id) => validStores.some((s) => s.id === id))
+        // 削除済み店舗IDのみなどで空になると、店舗未選択時 checkTimeSlotAvailability が常に false になる
+        if (resolved.length === 0) {
+          logger.warn(
+            '貸切: シナリオの available_stores が有効店舗と1件も一致しません。フォールバックで全有効店舗を対象にします。'
+          )
+          return new Set(validStores.map((s) => s.id))
+        }
+        return new Set(resolved)
       }
     }
     
@@ -411,7 +422,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       )
       const extraPrepTime = scenario?.extra_preparation_time || 0
 
-      return isProposedPrivateBookingStartFeasible(f, startMin, durationMinutes, extraPrepTime)
+      return isProposedPrivateBookingStartFeasible(f, startMin, durationMinutes, extraPrepTime, {
+        targetDateYmd: targetDate,
+        storeId,
+        dayEvents: allStoreEvents,
+      })
     }
     
     // 店舗が選択されている場合：選択された店舗のいずれかで空きがあればtrue
@@ -671,7 +686,12 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
             f,
             f.minAllowedStart,
             durationMinutes,
-            extraPrepTime
+            extraPrepTime,
+            {
+              targetDateYmd: targetDate,
+              storeId,
+              dayEvents: allStoreEvents,
+            }
           )
         ) {
           continue
@@ -689,7 +709,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     }
     
     // 単一店舗選択時のみイベントを取得（店舗未選択時・複数店舗選択時は空）
-    // 店舗未選択時：まだ店舗が決まっていないので、イベント判定はスキップ
+    // 店舗未選択時：まだ店舗が決まっていないので、イベント判定はスキップ（表示は楽観的になり得る）
     // 複数店舗選択時：getEarliestAvailableStartForStores で各店舗ごとに処理
     const dayEvents = selectedStoreIds.length === 1
       ? allStoreEvents
@@ -858,8 +878,14 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           if (startMinutes + durationMinutes > hardDayLimit) {
             return null // 営業終了時間を超えるので無効
           }
+        } else if (def.key === 'afternoon' && !isWeekendOrHoliday) {
+          // 平日: 昼枠の終了時刻に終演を合わせるよう開始を逆算（夜枠と同様の考え方）
+          const afternoonEnd = effectiveSlotEndLimit
+          const reverseStart = afternoonEnd - durationMinutes
+          startMinutes =
+            earliestPossibleStart > reverseStart ? earliestPossibleStart : reverseStart
         } else {
-          // 朝・昼公演は従来通り開始時間準拠
+          // 朝・休日の昼は従来通り最早開始準拠
           startMinutes = earliestPossibleStart
         }
         
@@ -905,11 +931,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       .filter((slot): slot is TimeSlot => slot !== null)
       .filter((slot) => {
         // シナリオで貸切受付時間枠が指定されている場合、その枠のみ表示
-        const allowedSlots = scenario?.private_booking_time_slots
-        if (Array.isArray(allowedSlots) && allowedSlots.length > 0) {
-          return allowedSlots.includes(slot.label)
-        }
-        return true // 未設定の場合は全て表示
+        // （編集画面は「朝公演」等、ここは「午前」ラベル — 別表記を正規化して突き合わせる）
+        return isPrivateBookingSlotAllowedByScenarioSettings(
+          slot.label,
+          scenario?.private_booking_time_slots
+        )
       })
   }, [selectedStoreIds, businessHoursCache, scenario, allStoreEvents, stores, isCustomHoliday])
 

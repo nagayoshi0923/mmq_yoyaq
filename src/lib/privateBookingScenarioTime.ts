@@ -140,3 +140,35 @@ export async function fetchScenarioTimingFromDb(
 
   return { duration: fallback, weekend_duration: null, extra_preparation_time: 0 }
 }
+
+/**
+ * 管理画面の「朝公演 / 昼公演 / 夜公演」と、枠表示の「午前 / 午後 / 夜」を同一視する。
+ * allowed が空なら全枠許可（従来どおり）。
+ */
+export function isPrivateBookingSlotAllowedByScenarioSettings(
+  slotLabel: string,
+  allowedFromScenario: string[] | undefined
+): boolean {
+  if (!allowedFromScenario || allowedFromScenario.length === 0) return true
+
+  const toCanonical = (s: string): '午前' | '午後' | '夜' | null => {
+    if (['午前', '朝公演', '朝'].includes(s)) return '午前'
+    if (['午後', '昼公演', '昼'].includes(s)) return '午後'
+    if (['夜', '夜公演'].includes(s)) return '夜'
+    return null
+  }
+
+  const allowedCanon = new Set<'午前' | '午後' | '夜'>()
+  for (const a of allowedFromScenario) {
+    const c = toCanonical(a)
+    if (c) allowedCanon.add(c)
+  }
+
+  if (allowedCanon.size === 0) {
+    return allowedFromScenario.includes(slotLabel)
+  }
+
+  const labelCanon = toCanonical(slotLabel)
+  if (labelCanon) return allowedCanon.has(labelCanon)
+  return false
+}

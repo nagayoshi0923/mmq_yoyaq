@@ -60,7 +60,11 @@ export function isPrivateBookingSlotAvailableForStore(
   if (!f) return false
   const durationMin = getPerformanceDurationMinutesForDate(dateStr, scenarioTiming, isCustomHoliday)
   const extraPrep = scenarioTiming.extra_preparation_time || 0
-  return isProposedPrivateBookingStartFeasible(f, proposedStartMin, durationMin, extraPrep)
+  return isProposedPrivateBookingStartFeasible(f, proposedStartMin, durationMin, extraPrep, {
+    targetDateYmd: day,
+    storeId,
+    dayEvents: events,
+  })
 }
 
 /** 希望店舗が複数のとき: いずれかの店舗で受付可能なら true */

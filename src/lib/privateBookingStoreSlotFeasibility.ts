@@ -10,6 +10,7 @@ import {
   getPerStoreSlotsForDate,
   type BusinessHoursSettingRow,
 } from '@/lib/privateGroupCandidateSlots'
+import { PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES } from '@/lib/privateBookingScenarioTime'
 
 export type PrivateBookingSlotKey = 'morning' | 'afternoon' | 'evening'
 
@@ -86,14 +87,43 @@ export function getPrivateBookingStoreSlotFeasibility(
   return { slotBandStart, slotBandEnd, minAllowedStart }
 }
 
+/** 同日・同店の公演一覧（start_time で次枠とのデッドラインを計算する） */
+export type PrivateBookingFeasibilityEventContext = {
+  targetDateYmd: string
+  storeId: string
+  dayEvents: EventWithStore[]
+}
+
 /** 提案開始時刻が営業枠内かつ公演後に収まるか */
 export function isProposedPrivateBookingStartFeasible(
   f: PrivateBookingStoreSlotFeasibility,
   proposedStartMin: number,
   durationMinutes: number,
-  extraPrepMinutes: number
+  extraPrepMinutes: number,
+  eventCtx?: PrivateBookingFeasibilityEventContext
 ): boolean {
   if (proposedStartMin < f.minAllowedStart) return false
-  if (proposedStartMin + durationMinutes + extraPrepMinutes > f.slotBandEnd) return false
+
+  let effectiveOccupancyEndLimit = f.slotBandEnd
+  if (eventCtx) {
+    for (const e of eventCtx.dayEvents) {
+      const ed = e.date ? String(e.date).split('T')[0] : ''
+      if (ed !== eventCtx.targetDateYmd) continue
+      if (eventStoreId(e) !== eventCtx.storeId) continue
+      const st = e.start_time || ''
+      if (!st) continue
+      const eventStart = timeToMinutes(st)
+      if (eventStart > proposedStartMin) {
+        effectiveOccupancyEndLimit = Math.min(
+          effectiveOccupancyEndLimit,
+          eventStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+        )
+      }
+    }
+  }
+
+  if (proposedStartMin + durationMinutes + extraPrepMinutes > effectiveOccupancyEndLimit) {
+    return false
+  }
   return true
 }
