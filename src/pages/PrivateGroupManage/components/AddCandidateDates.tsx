@@ -9,6 +9,8 @@ import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import type { PrivateGroupCandidateDate } from '@/types'
 import { privateGroupTimeSlotFromDb, privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
+import { PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES, getPerformanceDurationMinutesForDate } from '@/lib/privateBookingScenarioTime'
+import { isJapaneseHoliday as isJpHoliday } from '@/utils/japaneseHolidays'
 import {
   getPrivateGroupCandidateSlotsForDate,
   type BusinessHoursSettingRow,
@@ -252,6 +254,31 @@ export function AddCandidateDates({
 
     for (const date of availableDates) {
       const daySlots = slotsByDate[date] || []
+
+      // 平日判定: 長時間作品では午後→午前に切り替え（排他制御）
+      const dateObj = new Date(date + 'T00:00:00+09:00')
+      const dow = dateObj.getDay()
+      const isWeekendOrHol = dow === 0 || dow === 6 || isJpHoliday(date) || isCustomHoliday(date)
+
+      let weekdayMorningOnly = false
+      if (!isWeekendOrHol && scenarioTiming) {
+        const dur = getPerformanceDurationMinutesForDate(date, scenarioTiming, isCustomHoliday)
+        const extraPrep = scenarioTiming.extra_preparation_time || 0
+        const eveningSlot = daySlots.find(s => s.key === 'evening')
+        const eveningStart = eveningSlot
+          ? parseInt(eveningSlot.startTime.split(':')[0], 10) * 60 +
+            parseInt(eveningSlot.startTime.split(':')[1] || '0', 10)
+          : 19 * 60
+        const deadline = eveningStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+        const reverseStart = deadline - dur - extraPrep
+        const afternoonSlot = daySlots.find(s => s.key === 'afternoon')
+        const afternoonDefault = afternoonSlot
+          ? parseInt(afternoonSlot.startTime.split(':')[0], 10) * 60 +
+            parseInt(afternoonSlot.startTime.split(':')[1] || '0', 10)
+          : 13 * 60
+        weekdayMorningOnly = reverseStart < afternoonDefault
+      }
+
       for (const slot of daySlots) {
         const key = `${date}-${slot.label}`
 
@@ -263,6 +290,18 @@ export function AddCandidateDates({
         if (isAlreadySelected) {
           newMap[key] = false
           continue
+        }
+
+        // 平日排他: 長時間 → 午後を出さない、短時間 → 午前を出さない
+        if (!isWeekendOrHol) {
+          if (weekdayMorningOnly && slot.key === 'afternoon') {
+            newMap[key] = false
+            continue
+          }
+          if (!weekdayMorningOnly && slot.key === 'morning') {
+            newMap[key] = false
+            continue
+          }
         }
 
         const slotStart =

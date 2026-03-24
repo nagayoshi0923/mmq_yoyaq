@@ -10,6 +10,7 @@ import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import {
   getPerformanceDurationMinutesForDate,
   isPrivateBookingSlotAllowedByScenarioSettings,
+  PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES,
 } from '@/lib/privateBookingScenarioTime'
 import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
 import { type BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
@@ -259,18 +260,12 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
   }, [stores])
 
   // デフォルトの公演枠設定（設定がない場合に使用）
-  // 平日（月〜金）：昼・夜のみ、土日祝・カスタム休日：全公演（朝公演あり）
-  const getDefaultAvailableSlots = useCallback((dayOfWeek: number, date?: string): ('morning' | 'afternoon' | 'evening')[] => {
-    // 0=日曜日, 6=土曜日
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-    // 祝日・カスタム休日も土日と同じ扱い
-    const isHoliday = date ? (isJapaneseHoliday(date) || isCustomHoliday?.(date)) : false
-    
-    if (isWeekend || isHoliday) {
-      return ['morning', 'afternoon', 'evening'] // 土日祝・カスタム休日は全公演（朝公演あり）
-    }
-    return ['afternoon', 'evening'] // 平日は昼・夜のみ
-  }, [isCustomHoliday])
+  // 平日も morning を含める（長時間作品で逆算が午前に食い込む場合に使う）
+  const getDefaultAvailableSlots = useCallback(
+    (_dayOfWeek: number, _date?: string): ('morning' | 'afternoon' | 'evening')[] =>
+      ['morning', 'afternoon', 'evening'],
+    []
+  )
 
   // 営業時間内かどうかをチェックする関数（キャッシュを使用）
   // timeSlot: 'morning' | 'afternoon' | 'evening' - 公演枠
@@ -632,10 +627,12 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     }
     
     // 営業時間設定がある場合、曜日ごとの設定を取得
-    // 土日祝・カスタム休日は全公演（朝公演あり）、平日は昼・夜のみ
-    let availableSlots: ('morning' | 'afternoon' | 'evening')[] = isWeekendOrHoliday 
-      ? ['morning', 'afternoon', 'evening'] 
-      : ['afternoon', 'evening']
+    // 平日でも morning を含める（長時間作品で逆算が13時前になる場合に午前として表示するため）
+    let availableSlots: ('morning' | 'afternoon' | 'evening')[] = [
+      'morning',
+      'afternoon',
+      'evening',
+    ]
     
     if (settings?.opening_hours) {
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -924,15 +921,26 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           if (startMinutes + durationMinutes > hardDayLimit) {
             return null // 営業終了時間を超えるので無効
           }
-        } else if (def.key === 'afternoon' && !isWeekendOrHoliday) {
-          // 平日: 昼の終了（枠上限）に終演＋準備を合わせて開始を逆算。店の既定開始（13:00等）には寄せない。
-          // 下限は「重なる公演の終了+1h」のみ（getPrivateBookingStoreSlotFeasibility と整合）。
-          const afternoonEnd = effectiveSlotEndLimit
-          const reverseStart = afternoonEnd - durationMinutes - extraPrepTime
-          // 逆算が負＝枠終了時刻までに所要+準備が物理的に収まらない（0:00 に丸めない）
-          if (reverseStart < 0) {
-            return null
+        } else if ((def.key === 'afternoon' || def.key === 'morning') && !isWeekendOrHoliday) {
+          // 平日: 夜枠開始 − インターバル = デッド。そこから公演時間＋準備を引いて逆算。
+          // 結果 ≥ 午後既定開始(13:00) → 午後枠。< 13:00 → 午前枠（長時間作品用）。
+          const eveningStart =
+            selectedStoreIds.length > 1 && multiStoreFeasibility
+              ? multiStoreFeasibility.slotBaselineStart
+              : defaultStartTimes.evening
+          const deadline = eveningStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+          const reverseStart = deadline - durationMinutes - extraPrepTime
+          if (reverseStart < 0) return null
+          const afternoonDefault = defaultStartTimes.afternoon
+          const isLongFormat = reverseStart < afternoonDefault
+
+          if (def.key === 'afternoon' && isLongFormat) {
+            return null // 午前枠で扱うので午後は出さない
           }
+          if (def.key === 'morning' && !isLongFormat) {
+            return null // 午後枠で収まるので午前は出さない
+          }
+
           let priorFloor = 0
           if (selectedStoreIds.length > 1 && multiStoreFeasibility) {
             priorFloor = multiStoreFeasibility.priorEventEarliestStartMin
@@ -945,7 +953,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
               const fAf = getPrivateBookingStoreSlotFeasibility(
                 targetDate,
                 sid,
-                'afternoon',
+                def.key,
                 row,
                 allStoreEvents,
                 holidayFn,
@@ -955,11 +963,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
             }
           }
           startMinutes = Math.max(reverseStart, priorFloor)
-          if (startMinutes + durationMinutes + extraPrepTime > afternoonEnd) {
+          if (startMinutes + durationMinutes + extraPrepTime > deadline) {
             return null
           }
         } else {
-          // 朝・休日の昼は従来通り最早開始準拠
+          // 休日の朝・昼は従来通り最早開始準拠
           startMinutes = earliestPossibleStart
         }
         

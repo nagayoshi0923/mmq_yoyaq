@@ -2,7 +2,6 @@ import {
   getPerformanceDurationMinutesForDate,
   type ScenarioTimingFromDb,
 } from '@/lib/privateBookingScenarioTime'
-import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import {
   getPrivateBookingStoreSlotFeasibility,
@@ -64,28 +63,14 @@ export function isPrivateBookingSlotAvailableForStore(
   if (!f) return false
   const durationMin = getPerformanceDurationMinutesForDate(dateStr, scenarioTiming, isCustomHoliday)
   const extraPrep = scenarioTiming.extra_preparation_time || 0
-  const dow = new Date(day).getDay()
-  const isWeekendOrHoliday =
-    dow === 0 || dow === 6 || isJapaneseHoliday(day) || isCustomHoliday(day)
-  const effectiveMinStartMin =
-    slotKey === 'afternoon' && !isWeekendOrHoliday
-      ? Math.max(
-          f.priorEventEarliestStartMin,
-          f.slotBandEnd - durationMin - extraPrep
-        )
-      : undefined
-  return isProposedPrivateBookingStartFeasible(
-    f,
-    proposedStartMin,
-    durationMin,
-    extraPrep,
-    {
-      targetDateYmd: day,
-      storeId,
-      dayEvents: events,
-    },
-    effectiveMinStartMin
-  )
+  // 注: 平日昼の「枠終了からの逆算開始」はシナリオ詳細（usePrivateBooking）側で表示時刻に反映する。
+  // ここは getPrivateGroupCandidateSlots の開始時刻（例: 午後 13:00）を proposed として渡すため、
+  // effectiveMinStartMin（逆算下限）を掛けると常に不一致になり、グループ候補日 UI が全滅する。
+  return isProposedPrivateBookingStartFeasible(f, proposedStartMin, durationMin, extraPrep, {
+    targetDateYmd: day,
+    storeId,
+    dayEvents: events,
+  })
 }
 
 /** 希望店舗が複数のとき: いずれかの店舗で受付可能なら true */

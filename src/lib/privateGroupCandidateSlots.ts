@@ -62,9 +62,9 @@ const DEFAULT_WEEKEND_DAY: DayHoursLike = {
 
 const DEFAULT_WEEKDAY_DAY: DayHoursLike = {
   is_open: true,
-  open_time: '13:00',
+  open_time: '10:00',
   close_time: '23:00',
-  available_slots: ['afternoon', 'evening'],
+  available_slots: ['morning', 'afternoon', 'evening'],
   slot_start_times: { ...defaultSlotTimesWeekday },
 }
 
@@ -127,7 +127,7 @@ function getDefaultAvailableSlots(
   if (isWeekend || isHoliday) {
     return ['morning', 'afternoon', 'evening']
   }
-  return ['afternoon', 'evening']
+  return ['morning', 'afternoon', 'evening']
 }
 
 function getEffectiveDayName(

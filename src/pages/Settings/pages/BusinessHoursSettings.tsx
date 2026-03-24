@@ -82,7 +82,7 @@ const defaultWeekdayHours: DayHours = {
   is_open: true, 
   open_time: '13:00', 
   close_time: '23:00',
-  available_slots: ['afternoon', 'evening'], // 平日は昼・夜のみ
+  available_slots: ['afternoon', 'evening'],
   slot_start_times: weekdaySlotTimes
 }
 const defaultWeekendHours: DayHours = { 

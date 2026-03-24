@@ -29,6 +29,49 @@ interface GMNotificationRequest {
   reservationId: string
 }
 
+/** YYYY-MM-DD を JST の暦日・曜日で表示（Edge の TZ=UTC で Date#getDate ずれ防止） */
+function formatEventDateLineJst(eventDate: string): string {
+  const noonJst = new Date(`${eventDate}T12:00:00+09:00`)
+  const parts = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'narrow',
+  }).formatToParts(noonJst)
+  const month = parts.find((p) => p.type === 'month')?.value ?? ''
+  const day = parts.find((p) => p.type === 'day')?.value ?? ''
+  const wd = parts.find((p) => p.type === 'weekday')?.value ?? ''
+  return `${month}/${day}(${wd})`
+}
+
+/**
+ * 公演時刻を JST の HH:mm で表示。
+ * HH:mm / HH:mm:ss はそのまま解釈、ISO文字列は Asia/Tokyo で時分を取る。
+ */
+function formatScheduleClockJst(timeStr: string): string {
+  const s = (timeStr || '').trim()
+  if (!s) return ''
+  const hmMatch = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/)
+  if (hmMatch) {
+    const h = String(parseInt(hmMatch[1], 10)).padStart(2, '0')
+    const m = hmMatch[2]
+    return `${h}:${m}`
+  }
+  const d = new Date(s)
+  if (!Number.isNaN(d.getTime())) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Tokyo',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(d)
+    const h = parts.find((p) => p.type === 'hour')?.value ?? '00'
+    const min = parts.find((p) => p.type === 'minute')?.value ?? '00'
+    return `${h.padStart(2, '0')}:${min.padStart(2, '0')}`
+  }
+  return s.length >= 5 ? s.substring(0, 5) : s
+}
+
 async function postDiscordChannelMessage(
   botToken: string,
   channelId: string,
@@ -87,10 +130,8 @@ serve(async (req) => {
     const data: GMNotificationRequest = await req.json()
     console.log('📤 GM確定通知リクエスト:', { gmName: data.gmName, scenarioTitle: data.scenarioTitle })
 
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    const eventDateObj = new Date(data.eventDate + 'T00:00:00+09:00')
-    const formattedDate = `${eventDateObj.getMonth() + 1}/${eventDateObj.getDate()}(${weekdays[eventDateObj.getDay()]})`
-    const formattedTime = `${data.startTime.substring(0, 5)}〜${data.endTime.substring(0, 5)}`
+    const formattedDate = formatEventDateLineJst(data.eventDate)
+    const formattedTime = `${formatScheduleClockJst(data.startTime)}〜${formatScheduleClockJst(data.endTime)}`
 
     // Discord通知（個人チャンネル → DM → 組織の貸切用チャンネル＋メンション の順）
     try {

@@ -8,6 +8,46 @@ import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '../organization'
 import type { KitLocation, KitTransferEvent, KitCondition, KitTransferCompletion } from '@/types'
 
+/**
+ * UI の scenario.id は多くの場合 scenario_master_id。
+ * DB の org_scenario_id は organization_scenarios.id のみ有効なので解決する。
+ */
+async function resolveOrgScenarioId(
+  organizationId: string,
+  scenarioIdOrMasterId: string
+): Promise<string | null> {
+  const { data: asOrgRow } = await supabase
+    .from('organization_scenarios')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('id', scenarioIdOrMasterId)
+    .maybeSingle()
+
+  if (asOrgRow?.id) return asOrgRow.id
+
+  const { data: asMaster } = await supabase
+    .from('organization_scenarios')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('scenario_master_id', scenarioIdOrMasterId)
+    .maybeSingle()
+
+  return asMaster?.id ?? null
+}
+
+/** getKitLocations と同じく scenario.id に scenario_master_id を載せる */
+function scenarioSummaryFromOrgScenario(org: {
+  id: string
+  scenario_master_id: string
+  scenario_masters?: { id?: string; title?: string | null } | null
+}): { id: string; title: string; kit_count: number } {
+  return {
+    id: org.scenario_master_id,
+    title: org.scenario_masters?.title || '',
+    kit_count: 1,
+  }
+}
+
 export const kitApi = {
   // ============================================
   // キット位置関連
@@ -150,7 +190,7 @@ export const kitApi = {
 
   /**
    * キット位置を設定（初期設定または更新）
-   * scenarioId: organization_scenarios.id（org_scenario_id）
+   * scenarioId: organization_scenarios.id または scenario_master_id（一覧の scenario.id と同一）
    */
   async setKitLocation(
     scenarioId: string,
@@ -160,25 +200,52 @@ export const kitApi = {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) throw new Error('Organization ID not found')
 
-    // 既存レコードを検索（org_scenario_id または scenario_id で）
-    const { data: existing } = await supabase
-      .from('scenario_kit_locations')
-      .select('id, org_scenario_id, scenario_id')
-      .eq('organization_id', orgId)
-      .eq('kit_number', kitNumber)
-      .or(`org_scenario_id.eq.${scenarioId},scenario_id.eq.${scenarioId}`)
-      .maybeSingle()
+    const resolvedOrgScenarioId = await resolveOrgScenarioId(orgId, scenarioId)
+
+    let existing: { id: string; org_scenario_id: string | null; scenario_id: string | null } | null =
+      null
+
+    if (resolvedOrgScenarioId) {
+      const r1 = await supabase
+        .from('scenario_kit_locations')
+        .select('id, org_scenario_id, scenario_id')
+        .eq('organization_id', orgId)
+        .eq('kit_number', kitNumber)
+        .eq('org_scenario_id', resolvedOrgScenarioId)
+        .maybeSingle()
+      existing = r1.data
+    }
+
+    if (!existing) {
+      const r2 = await supabase
+        .from('scenario_kit_locations')
+        .select('id, org_scenario_id, scenario_id')
+        .eq('organization_id', orgId)
+        .eq('kit_number', kitNumber)
+        .or(`org_scenario_id.eq.${scenarioId},scenario_id.eq.${scenarioId}`)
+        .maybeSingle()
+      existing = r2.data
+    }
+
+    const orgScenarioIdForWrite =
+      resolvedOrgScenarioId ?? existing?.org_scenario_id ?? null
+
+    if (!orgScenarioIdForWrite) {
+      throw new Error(
+        'organization_scenarios を特定できません。シナリオが組織に紐づいているか確認してください。'
+      )
+    }
 
     let data
     let error
 
     if (existing) {
-      // 既存レコードを更新
+      // 既存レコードを更新（マスタIDで来た場合も org_scenario_id を正規化）
       const result = await supabase
         .from('scenario_kit_locations')
         .update({
           store_id: storeId,
-          org_scenario_id: scenarioId,
+          org_scenario_id: orgScenarioIdForWrite,
           updated_at: new Date().toISOString()
         })
         .eq('id', existing.id)
@@ -200,7 +267,7 @@ export const kitApi = {
         .from('scenario_kit_locations')
         .insert({
           organization_id: orgId,
-          org_scenario_id: scenarioId,
+          org_scenario_id: orgScenarioIdForWrite,
           kit_number: kitNumber,
           store_id: storeId
         })
@@ -225,11 +292,9 @@ export const kitApi = {
 
     const transformed = {
       ...data,
-      scenario: data.org_scenario ? {
-        id: data.org_scenario.id,
-        title: data.org_scenario.scenario_masters?.title || '',
-        kit_count: 1
-      } : null
+      scenario: data.org_scenario
+        ? scenarioSummaryFromOrgScenario(data.org_scenario)
+        : null,
     }
 
     return transformed as KitLocation
@@ -237,7 +302,7 @@ export const kitApi = {
 
   /**
    * キットの状態を更新
-   * scenarioId: organization_scenarios.id（org_scenario_id）
+   * scenarioId: organization_scenarios.id または scenario_master_id
    */
   async updateKitCondition(
     scenarioId: string,
@@ -248,15 +313,24 @@ export const kitApi = {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) throw new Error('Organization ID not found')
 
-    const { data, error } = await supabase
+    const resolved = await resolveOrgScenarioId(orgId, scenarioId)
+
+    let q = supabase
       .from('scenario_kit_locations')
       .update({
         condition,
         condition_notes: conditionNotes
       })
       .eq('organization_id', orgId)
-      .eq('org_scenario_id', scenarioId)
       .eq('kit_number', kitNumber)
+
+    if (resolved) {
+      q = q.eq('org_scenario_id', resolved)
+    } else {
+      q = q.or(`org_scenario_id.eq.${scenarioId},scenario_id.eq.${scenarioId}`)
+    }
+
+    const { data, error } = await q
       .select(`
         *,
         org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
@@ -275,11 +349,9 @@ export const kitApi = {
 
     const transformed = {
       ...data,
-      scenario: data.org_scenario ? {
-        id: data.org_scenario.id,
-        title: data.org_scenario.scenario_masters?.title || '',
-        kit_count: 1
-      } : null
+      scenario: data.org_scenario
+        ? scenarioSummaryFromOrgScenario(data.org_scenario)
+        : null,
     }
 
     return transformed as KitLocation
@@ -287,7 +359,7 @@ export const kitApi = {
 
   /**
    * シナリオの全キット位置を一括設定
-   * scenarioId: organization_scenarios.id（org_scenario_id）
+   * scenarioId: organization_scenarios.id または scenario_master_id
    */
   async setAllKitLocations(
     scenarioId: string,
@@ -296,9 +368,16 @@ export const kitApi = {
     const orgId = await getCurrentOrganizationId()
     if (!orgId) throw new Error('Organization ID not found')
 
+    const resolved = await resolveOrgScenarioId(orgId, scenarioId)
+    if (!resolved) {
+      throw new Error(
+        'organization_scenarios を特定できません。シナリオが組織に紐づいているか確認してください。'
+      )
+    }
+
     const records = storeIds.map((storeId, index) => ({
       organization_id: orgId,
-      org_scenario_id: scenarioId,
+      org_scenario_id: resolved,
       kit_number: index + 1,
       store_id: storeId
     }))
@@ -325,11 +404,9 @@ export const kitApi = {
 
     const transformed = (data || []).map(item => ({
       ...item,
-      scenario: item.org_scenario ? {
-        id: item.org_scenario.id,
-        title: item.org_scenario.scenario_masters?.title || '',
-        kit_count: 1
-      } : null
+      scenario: item.org_scenario
+        ? scenarioSummaryFromOrgScenario(item.org_scenario)
+        : null,
     }))
 
     return transformed as KitLocation[]
