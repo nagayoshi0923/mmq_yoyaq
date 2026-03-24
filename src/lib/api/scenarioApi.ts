@@ -82,51 +82,59 @@ export const scenarioApi = {
 
   // IDでシナリオを取得（scenario_master_id で検索）
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
-  // 共有シナリオ（is_shared=true）も取得対象に含める
+  // 自組織で見つからない場合は組織を問わず検索（他組織の共有シナリオ対応）
   async getById(id: string, organizationId?: string): Promise<Scenario | null> {
-    let query = supabase
+    const orgId = organizationId || await getCurrentOrganizationId()
+
+    if (orgId) {
+      const { data, error } = await supabase
+        .from('organization_scenarios_with_master')
+        .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+        .eq('id', id)
+        .eq('organization_id', orgId)
+        .maybeSingle()
+
+      if (!error && data) {
+        return data as unknown as Scenario
+      }
+    }
+
+    const { data, error } = await supabase
       .from('organization_scenarios_with_master')
       .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
       .eq('id', id)
-    
-    const orgId = organizationId || await getCurrentOrganizationId()
-    if (orgId) {
-      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
-    }
-    
-    const { data, error } = await query.maybeSingle()
-    
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null
-      }
-      throw error
-    }
-    return data as unknown as Scenario
+      .limit(1)
+
+    if (error) throw error
+    return (data?.[0] as unknown as Scenario) || null
   },
 
   // slugでシナリオを取得
-  // 共有シナリオ（is_shared=true）も取得対象に含める
+  // 自組織で見つからない場合は組織を問わず検索（他組織の共有シナリオ対応）
   async getBySlug(slug: string, organizationId?: string): Promise<Scenario | null> {
-    let query = supabase
+    const orgId = organizationId || await getCurrentOrganizationId()
+
+    if (orgId) {
+      const { data, error } = await supabase
+        .from('organization_scenarios_with_master')
+        .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+        .eq('slug', slug)
+        .eq('organization_id', orgId)
+        .maybeSingle()
+
+      if (!error && data) {
+        return data as unknown as Scenario
+      }
+    }
+
+    const { data, error } = await supabase
       .from('organization_scenarios_with_master')
       .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
       .eq('slug', slug)
-    
-    const orgId = organizationId || await getCurrentOrganizationId()
-    if (orgId) {
-      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
-    }
-    
-    const { data, error } = await query.maybeSingle()
-    
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null
-      }
-      throw error
-    }
-    return data as unknown as Scenario
+      .limit(1)
+
+    if (error) throw error
+    return (data?.[0] as unknown as Scenario) || null
   },
 
   // IDまたはslugでシナリオを取得（slugを優先、見つからなければIDで検索）

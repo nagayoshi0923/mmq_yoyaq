@@ -405,9 +405,15 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   })
   
   // シナリオカードを構築
+  // 自組織のデータを優先するため、他組織→自組織の順にソート（後勝ち）
+  const sortedScenariosData = [...scenariosData].sort((a: any, b: any) => {
+    const aIsCurrent = a.organization_id === orgId ? 1 : 0
+    const bIsCurrent = b.organization_id === orgId ? 1 : 0
+    return aIsCurrent - bIsCurrent
+  })
   const scenarioMap = new Map<string, ScenarioCard>()
   
-  scenariosData.forEach((scenario: any) => {
+  sortedScenariosData.forEach((scenario: any) => {
     const scenarioKey = `${scenario.organization_id}_${scenario.scenario_master_id}`
     const currentOrgStatus = orgStatusMap.get(scenarioKey) || 'available'
     

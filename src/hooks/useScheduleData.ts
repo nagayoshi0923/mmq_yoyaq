@@ -808,6 +808,9 @@ export function useScheduleData(currentDate: Date) {
         const scenarioInfo = isValidScenario 
           ? scenarioData 
           : (scenarioTitle ? findScenario(scenarioTitle) : null)
+        // 組織のオーバーライド値を反映するため、org viewのデータを優先取得
+        const orgScenarioInfo = scenarioTitle ? findScenario(scenarioTitle) : null
+        const effectivePlayerMax = orgScenarioInfo?.player_count_max || scenarioInfo?.player_count_max
         
         return {
         id: event.id,
@@ -817,7 +820,7 @@ export function useScheduleData(currentDate: Date) {
           scenarios: scenarioInfo ? {
             id: scenarioInfo.id,
             title: scenarioInfo.title,
-            player_count_max: scenarioInfo.player_count_max
+            player_count_max: effectivePlayerMax || scenarioInfo.player_count_max
           } : undefined,
           gms: event.gms || [],
           gm_roles: event.gm_roles || {},
@@ -827,7 +830,7 @@ export function useScheduleData(currentDate: Date) {
           is_cancelled: event.is_cancelled || false,
           is_tentative: event.is_tentative || false,
           current_participants: event.current_participants || 0, // DBカラム名に統一
-          max_participants: scenarioInfo?.player_count_max || event.capacity || 8,
+          max_participants: effectivePlayerMax || event.capacity || 8,
           notes: event.notes || '',
           is_reservation_enabled: event.is_reservation_enabled || false,
           time_slot: event.time_slot,
@@ -1192,6 +1195,8 @@ export function useScheduleData(currentDate: Date) {
         const scenarioInfo = isValidScenario 
           ? scenarioData 
           : (scenarioTitle ? findScenario2(scenarioTitle) : null)
+        const orgScenarioInfo2 = scenarioTitle ? findScenario2(scenarioTitle) : null
+        const effectivePlayerMax2 = orgScenarioInfo2?.player_count_max || scenarioInfo?.player_count_max
         
         return {
         id: event.id,
@@ -1201,7 +1206,7 @@ export function useScheduleData(currentDate: Date) {
           scenarios: scenarioInfo ? {
             id: scenarioInfo.id,
             title: scenarioInfo.title,
-            player_count_max: scenarioInfo.player_count_max
+            player_count_max: effectivePlayerMax2 || scenarioInfo.player_count_max
           } : undefined,
         gms: event.gms || [],
         gm_roles: event.gm_roles || {},
@@ -1211,7 +1216,7 @@ export function useScheduleData(currentDate: Date) {
         is_cancelled: event.is_cancelled || false,
         is_tentative: event.is_tentative || false,
         current_participants: event.current_participants || 0, // DBカラム名に統一
-        max_participants: scenarioInfo?.player_count_max || event.capacity || 8,
+        max_participants: effectivePlayerMax2 || event.capacity || 8,
         notes: event.notes || '',
         is_reservation_enabled: event.is_reservation_enabled || false,
         time_slot: event.time_slot,
