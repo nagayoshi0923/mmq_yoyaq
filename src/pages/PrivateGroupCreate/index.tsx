@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
@@ -36,7 +35,6 @@ export function PrivateGroupCreate() {
   const [loadingData, setLoadingData] = useState(true)
 
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
-  const [targetParticipantCount, setTargetParticipantCount] = useState<number>(6)
   const [groupName, setGroupName] = useState('')
   const [notes, setNotes] = useState('')
 
@@ -117,6 +115,12 @@ export function PrivateGroupCreate() {
     setSelectedStoreIds((prev) => prev.filter((id) => eligibleStores.some((s) => s.id === id)))
   }, [eligibleStores])
 
+  /** 貸切グループの定員はシナリオ最大人数に固定（主催が別数値を選ばない） */
+  const scenarioParticipantMax = useMemo(() => {
+    const mx = scenario?.player_count_max
+    return typeof mx === 'number' && mx > 0 ? mx : null
+  }, [scenario?.player_count_max])
+
   const handleStoreToggle = (storeId: string) => {
     setSelectedStoreIds(prev =>
       prev.includes(storeId)
@@ -172,11 +176,16 @@ export function PrivateGroupCreate() {
       return
     }
 
+    if (scenarioParticipantMax == null) {
+      setError('シナリオの最大人数が取得できません。ページを再読み込みしてください。')
+      return
+    }
+
     try {
       const group = await createGroup({
         scenarioId,
         name: groupName || undefined,
-        targetParticipantCount,
+        targetParticipantCount: scenarioParticipantMax,
         preferredStoreIds: selectedStoreIds,
         candidateDates: [],
         notes: notes || undefined,
@@ -208,7 +217,7 @@ export function PrivateGroupCreate() {
   }
 
   const handleShareLine = () => {
-    const text = `貸切マーダーミステリーに参加しませんか？\n\n🎭 ${scenario?.title}\n👥 ${targetParticipantCount}名で貸切\n\n以下のリンクから参加・日程回答をお願いします👇`
+    const text = `貸切マーダーミステリーに参加しませんか？\n\n🎭 ${scenario?.title}\n👥 最大${scenarioParticipantMax ?? ''}名まで\n\n以下のリンクから参加・日程回答をお願いします👇`
     const url = getInviteUrl()
     window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
   }
@@ -518,6 +527,12 @@ export function PrivateGroupCreate() {
             <Card className="sticky top-4">
               <CardContent className="p-4 space-y-4">
                 <h3 className="font-semibold">グループ作成の流れ</h3>
+                {scenarioParticipantMax != null && (
+                  <p className="text-xs text-muted-foreground leading-snug pb-2 border-b border-border">
+                    参加人数の上限はこの作品の<strong>最大{scenarioParticipantMax}名</strong>に固定されます（シナリオ設定に準じます）。
+                  </p>
+                )}
+
                 <ol className="text-sm text-muted-foreground space-y-2">
                   <li className="flex gap-2">
                     <span className="bg-purple-100 text-purple-800 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium shrink-0">1</span>

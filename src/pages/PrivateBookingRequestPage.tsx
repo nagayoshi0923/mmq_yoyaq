@@ -1,10 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PrivateBookingRequest } from './PrivateBookingRequest/index'
 import { scenarioApi, storeApi } from '@/lib/api'
 import { useOrganization } from '@/hooks/useOrganization'
+import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
+import {
+  getPrivateGroupCandidateSlotsForDate,
+  type BusinessHoursSettingRow,
+} from '@/lib/privateGroupCandidateSlots'
 
 interface TimeSlot {
   label: string
@@ -16,9 +21,24 @@ interface PrivateBookingRequestPageProps {
   organizationSlug?: string
 }
 
+function slotParamToKey(param: string): 'morning' | 'afternoon' | 'evening' | null {
+  const map: Record<string, 'morning' | 'afternoon' | 'evening'> = {
+    morning: 'morning',
+    afternoon: 'afternoon',
+    evening: 'evening',
+    午前: 'morning',
+    午後: 'afternoon',
+    夜: 'evening',
+  }
+  return map[param] ?? null
+}
+
 export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRequestPageProps) {
   const navigate = useNavigate()
   const { organization } = useOrganization()
+  const { isCustomHoliday, isLoading: customHolidaysLoading } = useCustomHolidays({ organizationSlug })
+  /** 同一URLでの二重適用防止（クエリが変われば再適用） */
+  const urlSlotPrefillAppliedForKeyRef = useRef<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [scenario, setScenario] = useState<any>(null)
   const [stores, setStores] = useState<any[]>([])
@@ -61,17 +81,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
   }
   
   const date = formatDate(dateParam)
-  
-  const slotMap: { [key: string]: TimeSlot } = {
-    // 英語キー（従来の形式）
-    morning: { label: '午前', startTime: '09:00', endTime: '12:00' },
-    afternoon: { label: '午後', startTime: '12:00', endTime: '17:00' },
-    evening: { label: '夜', startTime: '17:00', endTime: '22:00' },
-    // 日本語キー（貸切グループからの遷移用）
-    '午前': { label: '午前', startTime: '10:00', endTime: '13:00' },
-    '午後': { label: '午後', startTime: '13:00', endTime: '17:00' },
-    '夜': { label: '夜', startTime: '18:00', endTime: '22:00' }
-  }
+  const urlSlotPrefillKey = `${scenarioId}|${date}|${storeId}|${slotParam}`
 
   useEffect(() => {
     loadData()
@@ -104,23 +114,104 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       if (storeIds.length > 0) {
         setSelectedStoreIds(storeIds)
       }
-      
-      // 日付が有効な場合のみ時間帯を設定
-      if (date && date.match(/^\d{4}-\d{2}-\d{2}$/) && slotParam && slotMap[slotParam]) {
-        setSelectedTimeSlots([
-          {
-            date: date,
-            slot: slotMap[slotParam]
-          }
-        ])
-      }
-      
     } catch (error) {
       logger.error('データの読み込みエラー:', error)
     } finally {
       setLoading(false)
     }
   }
+
+  // URL の slot を営業時間マージ（貸切確認の候補追加と同ロジック）で開始時刻に解決
+  useEffect(() => {
+    if (urlSlotPrefillAppliedForKeyRef.current === urlSlotPrefillKey) return
+    if (loading || !scenario || customHolidaysLoading) return
+
+    if (!date.match(/^\d{4}-\d{2}-\d{2}$/) || !slotParam) {
+      urlSlotPrefillAppliedForKeyRef.current = urlSlotPrefillKey
+      return
+    }
+
+    const slotKey = slotParamToKey(slotParam)
+    if (!slotKey) {
+      urlSlotPrefillAppliedForKeyRef.current = urlSlotPrefillKey
+      return
+    }
+
+    const urlStoreIds = storeId.split(',').filter(
+      (id) => isUuidLike(id) && stores.some((s: any) => s.id === id)
+    )
+    const scenarioStoreIds: string[] = Array.isArray(scenario.available_stores)
+      ? scenario.available_stores.filter((id: unknown) => typeof id === 'string')
+      : []
+    const eligible = stores.filter(
+      (s: any) =>
+        s.ownership_type !== 'office' &&
+        s.status === 'active' &&
+        (scenarioStoreIds.length === 0 || scenarioStoreIds.includes(s.id))
+    )
+    const storeIdsForSlots =
+      urlStoreIds.length > 0
+        ? urlStoreIds.filter((id) => eligible.some((s: any) => s.id === id))
+        : eligible.map((s: any) => s.id)
+
+    if (storeIdsForSlots.length === 0) {
+      urlSlotPrefillAppliedForKeyRef.current = urlSlotPrefillKey
+      return
+    }
+
+    let cancelled = false
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('business_hours_settings')
+        .select('store_id, opening_hours, holidays, special_open_days, special_closed_days')
+        .in('store_id', storeIdsForSlots)
+      if (cancelled) return
+      if (error) {
+        logger.error('貸切リクエストページ: 営業時間取得エラー', error)
+        if (!cancelled) urlSlotPrefillAppliedForKeyRef.current = urlSlotPrefillKey
+        return
+      }
+      const map = new Map<string, BusinessHoursSettingRow>()
+      for (const row of data || []) {
+        map.set(row.store_id as string, row as BusinessHoursSettingRow)
+      }
+      const slots = getPrivateGroupCandidateSlotsForDate(
+        date,
+        storeIdsForSlots,
+        map,
+        isCustomHoliday
+      )
+      const found = slots.find((s) => s.key === slotKey)
+      if (cancelled) return
+      urlSlotPrefillAppliedForKeyRef.current = urlSlotPrefillKey
+      if (found) {
+        setSelectedTimeSlots([
+          {
+            date,
+            slot: {
+              label: found.label,
+              startTime: found.startTime,
+              endTime: found.startTime,
+            },
+          },
+        ])
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    loading,
+    scenario,
+    stores,
+    date,
+    slotParam,
+    storeId,
+    isCustomHoliday,
+    customHolidaysLoading,
+    urlSlotPrefillKey,
+  ])
 
   const handleBack = () => {
     window.history.back()

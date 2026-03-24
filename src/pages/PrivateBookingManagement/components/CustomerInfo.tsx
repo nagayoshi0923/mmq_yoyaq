@@ -1,5 +1,11 @@
 import { Users, Copy, Check } from 'lucide-react'
 import { useState } from 'react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  formatPrivateBookingParticipantLabel,
+  formatScenarioPlayerRange,
+  isPlannedCountOutsideScenarioRange
+} from '../utils/bookingFormatters'
 
 interface CustomerInfoProps {
   request: {
@@ -7,6 +13,8 @@ interface CustomerInfoProps {
     customer_email?: string
     customer_phone?: string
     participant_count: number
+    joined_member_count?: number
+    scenario_player_count_range?: { min: number; max: number } | null
     invite_code?: string
   }
 }
@@ -47,10 +55,36 @@ export const CustomerInfo = ({ request }: CustomerInfoProps) => {
           <span className="min-w-[80px]">電話番号:</span>
           <span>{request.customer_phone || '未登録'}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="min-w-[80px]">参加人数:</span>
-          <span>{request.participant_count}名</span>
+        <div className="flex items-start gap-2">
+          <span className="min-w-[80px] shrink-0">参加人数:</span>
+          <span className="text-muted-foreground">
+            {formatPrivateBookingParticipantLabel(
+              request.participant_count,
+              request.joined_member_count
+            )}
+          </span>
         </div>
+        {request.scenario_player_count_range &&
+          isPlannedCountOutsideScenarioRange(
+            request.participant_count,
+            request.scenario_player_count_range
+          ) && (
+            <Alert variant="default" className="border-amber-400 bg-amber-50 py-2 text-amber-950">
+              <AlertTitle className="text-xs font-semibold text-amber-900">
+                参加予定がシナリオの人数帯外です
+              </AlertTitle>
+              <AlertDescription className="text-xs text-amber-900/90">
+                予定 <strong>{request.participant_count}名</strong> / 作品の推奨{' '}
+                <strong>{formatScenarioPlayerRange(request.scenario_player_count_range)}</strong>
+              </AlertDescription>
+            </Alert>
+          )}
+        {request.joined_member_count !== undefined &&
+          request.joined_member_count < request.participant_count && (
+            <p className="text-xs text-muted-foreground pl-[88px] -mt-1">
+              予定人数に対してアプリ上の参加登録が少ない場合があります（未招待・未参加のメンバーがいる可能性）。
+            </p>
+          )}
         {request.invite_code && (
           <div className="flex items-center gap-2">
             <span className="min-w-[80px]">招待コード:</span>

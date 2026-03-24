@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Calendar, Clock, CheckCircle2, XCircle, CircleDashed } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import {
@@ -10,7 +11,10 @@ import {
   pickGmReplyIsoString,
   getElapsedTime,
   getElapsedDays,
-  getCardClassName
+  getCardClassName,
+  formatPrivateBookingParticipantLabel,
+  formatScenarioPlayerRange,
+  isPlannedCountOutsideScenarioRange
 } from '../utils/bookingFormatters'
 import { isGmAvailableForCandidate, isGmMarkedAvailable } from '../utils/gmAvailabilityStatus'
 
@@ -41,6 +45,8 @@ interface BookingRequest {
   scenario_title: string
   customer_name: string
   participant_count: number
+  joined_member_count?: number
+  scenario_player_count_range?: { min: number; max: number } | null
   status: string
   created_at: string
   notes?: string
@@ -87,7 +93,8 @@ export const BookingRequestCard = ({
             <span className={elapsedTimeColor}>({getElapsedTime(request.created_at)})</span>
           </div>
           <div>
-            お客様: {request.customer_name} ({request.participant_count}名)
+            お客様: {request.customer_name}（
+            {formatPrivateBookingParticipantLabel(request.participant_count, request.joined_member_count)}）
           </div>
           {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
@@ -104,6 +111,22 @@ export const BookingRequestCard = ({
               希望店舗: 全ての店舗（顧客希望）
             </div>
           )}
+          {request.scenario_player_count_range &&
+            isPlannedCountOutsideScenarioRange(
+              request.participant_count,
+              request.scenario_player_count_range
+            ) && (
+              <Alert variant="default" className="mt-2 border-amber-400 bg-amber-50 py-2 text-amber-950">
+                <AlertTitle className="text-xs font-semibold text-amber-900">
+                  参加予定人数がシナリオの人数帯と一致しません
+                </AlertTitle>
+                <AlertDescription className="text-xs text-amber-900/90">
+                  申込は <strong>{request.participant_count}名</strong> ですが、作品の推奨人数は{' '}
+                  <strong>{formatScenarioPlayerRange(request.scenario_player_count_range)}</strong>{' '}
+                  です。別作品の申込・人数の取り違えがないかご確認ください。
+                </AlertDescription>
+              </Alert>
+            )}
         </div>
       </CardHeader>
       <CardContent>

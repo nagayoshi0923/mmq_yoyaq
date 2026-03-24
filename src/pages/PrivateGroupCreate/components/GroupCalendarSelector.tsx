@@ -18,19 +18,16 @@ interface GroupCalendarSelectorProps {
   onSlotToggle: (date: string, slot: TimeSlot) => void
   maxSelections: number
   isCustomHoliday?: (date: string) => boolean
+  /** 日付ごとの受付枠（営業時間ベース）。親で getPrivateGroupCandidateSlotsForDate 等を渡す */
+  getSlotsForDate: (date: string) => TimeSlot[]
 }
-
-const TIME_SLOTS: TimeSlot[] = [
-  { label: '午前', startTime: '09:00', endTime: '12:00' },
-  { label: '午後', startTime: '12:00', endTime: '17:00' },
-  { label: '夜', startTime: '17:00', endTime: '22:00' },
-]
 
 export const GroupCalendarSelector = memo(function GroupCalendarSelector({
   selectedSlots,
   onSlotToggle,
   maxSelections,
   isCustomHoliday,
+  getSlotsForDate,
 }: GroupCalendarSelectorProps) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const today = new Date()
@@ -146,6 +143,8 @@ export const GroupCalendarSelector = memo(function GroupCalendarSelector({
                 ? 'text-blue-600'
                 : ''
 
+            const daySlots = getSlotsForDate(date)
+
             return (
               <div
                 key={date}
@@ -158,31 +157,35 @@ export const GroupCalendarSelector = memo(function GroupCalendarSelector({
                   <div className={`text-xs ${weekdayColor}`}>({weekday})</div>
                 </div>
 
-                <div className="flex gap-1.5 flex-1">
-                  {TIME_SLOTS.map((slot) => {
-                    const isSelected = isSlotSelected(date, slot)
-                    const isDisabled = !isSelected && !canSelectMore
+                <div className="flex gap-1.5 flex-1 flex-wrap">
+                  {daySlots.length === 0 ? (
+                    <span className="text-[10px] text-muted-foreground self-center">受付枠なし</span>
+                  ) : (
+                    daySlots.map((slot) => {
+                      const isSelected = isSlotSelected(date, slot)
+                      const isDisabled = !isSelected && !canSelectMore
 
-                    return (
-                      <button
-                        key={slot.label}
-                        className={`flex-1 py-1.5 px-1 border text-center rounded transition-colors ${
-                          isDisabled
-                            ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
-                            : isSelected
-                            ? 'bg-purple-600 text-white border-purple-600'
-                            : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
-                        }`}
-                        disabled={isDisabled}
-                        onClick={() => !isDisabled && onSlotToggle(date, slot)}
-                      >
-                        <div className="text-xs font-medium">{slot.label}</div>
-                        <div className="text-[10px] opacity-70">
-                          {slot.startTime}〜{slot.endTime}
-                        </div>
-                      </button>
-                    )
-                  })}
+                      return (
+                        <button
+                          key={slot.label}
+                          className={`flex-1 min-w-[4.5rem] py-1.5 px-1 border text-center rounded transition-colors ${
+                            isDisabled
+                              ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
+                              : isSelected
+                              ? 'bg-purple-600 text-white border-purple-600'
+                              : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                          }`}
+                          disabled={isDisabled}
+                          onClick={() => !isDisabled && onSlotToggle(date, slot)}
+                        >
+                          <div className="text-xs font-medium">{slot.label}</div>
+                          <div className="text-[10px] opacity-70">
+                            {slot.startTime}〜{slot.endTime}
+                          </div>
+                        </button>
+                      )
+                    })
+                  )}
                 </div>
               </div>
             )

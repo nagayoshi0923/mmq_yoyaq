@@ -15,20 +15,20 @@ import { useCustomerData } from '../BookingConfirmation/hooks/useCustomerData'
 import { usePrivateBookingForm } from './hooks/usePrivateBookingForm'
 import { usePrivateBookingSubmit } from './hooks/usePrivateBookingSubmit'
 import { usePrivateGroup } from '@/hooks/usePrivateGroup'
+import { logger } from '@/utils/logger'
 import { formatDate } from './utils/privateBookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
+import {
+  getPrivateGroupCandidateSlotsForDate,
+  type BusinessHoursSettingRow,
+} from '@/lib/privateGroupCandidateSlots'
+import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import type { PrivateBookingRequestProps, TimeSlot } from './types'
 
 const MAX_TIME_SLOTS = 6
-
-/** 追加フォーム用の代表開始時刻（終了は日付×シナリオ所要で算出） */
-const TIME_SLOT_START_TEMPLATES: Array<{ label: string; startTime: string }> = [
-  { label: '午前', startTime: '09:00' },
-  { label: '午後', startTime: '12:00' },
-  { label: '夜', startTime: '17:00' }
-]
 
 export function PrivateBookingRequest({
   scenarioTitle,
@@ -116,14 +116,82 @@ export function PrivateBookingRequest({
     return { minDate, maxDate }
   }, [])
 
+  /** 候補追加・プルダウン用（HP貸切カレンダー・グループ候補追加と同じ営業時間マージ） */
+  const storeIdsForSlotResolution = useMemo(() => {
+    const eligible = displayStores.filter(
+      (s: { id: string }) =>
+        scenarioAvailableSet === null || scenarioAvailableSet.has(s.id)
+    )
+    if (selectedStoreIds.length > 0) return selectedStoreIds
+    return eligible.map((s: { id: string }) => s.id)
+  }, [displayStores, scenarioAvailableSet, selectedStoreIds])
+
+  const [businessHoursByStore, setBusinessHoursByStore] = useState<
+    Map<string, BusinessHoursSettingRow>
+  >(new Map())
+
+  useEffect(() => {
+    const ids = storeIdsForSlotResolution
+    if (ids.length === 0) {
+      setBusinessHoursByStore(new Map())
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('business_hours_settings')
+        .select('store_id, opening_hours, holidays, special_open_days, special_closed_days')
+        .in('store_id', ids)
+      if (cancelled) return
+      if (error) {
+        logger.error('貸切確認: 営業時間取得エラー', error)
+        setBusinessHoursByStore(new Map())
+        return
+      }
+      const map = new Map<string, BusinessHoursSettingRow>()
+      for (const row of data || []) {
+        map.set(row.store_id as string, row as BusinessHoursSettingRow)
+      }
+      setBusinessHoursByStore(map)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [storeIdsForSlotResolution.join(',')])
+
+  const pickerDate = newDate || dateRange.minDate
+  const candidateSlotsForPicker = useMemo(() => {
+    if (storeIdsForSlotResolution.length === 0) return []
+    return getPrivateGroupCandidateSlotsForDate(
+      pickerDate,
+      storeIdsForSlotResolution,
+      businessHoursByStore,
+      isCustomHoliday
+    )
+  }, [
+    pickerDate,
+    storeIdsForSlotResolution,
+    businessHoursByStore,
+    isCustomHoliday,
+  ])
+
   const handleAddTimeSlot = () => {
     if (!newDate || !newSlotLabel) return
-    const base = TIME_SLOT_START_TEMPLATES.find(s => s.label === newSlotLabel)
-    if (!base) return
+    const daySlots = getPrivateGroupCandidateSlotsForDate(
+      newDate,
+      storeIdsForSlotResolution,
+      businessHoursByStore,
+      isCustomHoliday
+    )
+    const picked = daySlots.find((s) => s.label === newSlotLabel)
+    if (!picked) {
+      toast.error('この日・店舗の組み合わせでは、その時間帯を追加できません')
+      return
+    }
     const slot: TimeSlot = enrichSlotEnd(newDate, {
-      label: base.label,
-      startTime: base.startTime,
-      endTime: base.startTime,
+      label: picked.label,
+      startTime: picked.startTime,
+      endTime: picked.startTime,
     })
 
     // 重複チェック
@@ -357,20 +425,25 @@ export function PrivateBookingRequest({
                             <SelectValue placeholder="選択..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {TIME_SLOT_START_TEMPLATES.map((slot) => {
-                              const previewDate = newDate || dateRange.minDate
-                              const previewEnd = getPrivateBookingDisplayEndTime(
-                                slot.startTime,
-                                previewDate,
-                                scenarioTiming,
-                                isCustomHoliday
-                              )
-                              return (
-                                <SelectItem key={slot.label} value={slot.label}>
-                                  {slot.label}（{slot.startTime}〜{previewEnd}）
-                                </SelectItem>
-                              )
-                            })}
+                            {candidateSlotsForPicker.length === 0 ? (
+                              <div className="px-2 py-3 text-xs text-muted-foreground">
+                                日付を選ぶか、希望店舗の営業時間を読み込み中です
+                              </div>
+                            ) : (
+                              candidateSlotsForPicker.map((slot) => {
+                                const previewEnd = getPrivateBookingDisplayEndTime(
+                                  slot.startTime,
+                                  pickerDate,
+                                  scenarioTiming,
+                                  isCustomHoliday
+                                )
+                                return (
+                                  <SelectItem key={slot.label} value={slot.label}>
+                                    {slot.label}（{slot.startTime}〜{previewEnd}）
+                                  </SelectItem>
+                                )
+                              })
+                            )}
                           </SelectContent>
                         </Select>
                       </div>

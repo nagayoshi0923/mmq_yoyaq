@@ -40,11 +40,19 @@ interface ScenarioDetailPageProps {
   organizationSlug?: string  // 組織slug（パス方式用）
 }
 
+type PrivateBookingUrlSlotKey = 'morning' | 'afternoon' | 'evening'
+
 export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: ScenarioDetailPageProps) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
+  /** ?tab=private&date&store&slot の枠を getTimeSlotsForDate で解決するまで保持 */
+  const [privateBookingUrlPending, setPrivateBookingUrlPending] = useState<{
+    date: string
+    storeId: string
+    slotKey: PrivateBookingUrlSlotKey
+  } | null>(null)
   const [showStickyInfo, setShowStickyInfo] = useState(false)
   // 公演日程用の店舗フィルタ
   const [scheduleStoreFilter, setScheduleStoreFilter] = useState<string[]>([])
@@ -167,26 +175,30 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     
     if (tabParam === 'private') {
       setActiveTab('private')
-      
-      // 日付、店舗、時間帯が指定されている場合、それを選択状態にする
-      if (dateParam && storeParam && slotParam) {
-        // store がこのシナリオの組織の店舗に存在する場合のみ適用（不正なIDの注入対策）
-        if (isUuidLike(storeParam) && stores.some((s: any) => s.id === storeParam)) {
-          setSelectedStoreIds([storeParam])
-        }
-        
-        const slotMap = {
-          morning: { label: '午前', startTime: '09:00', endTime: '12:00' },
-          afternoon: { label: '午後', startTime: '12:00', endTime: '17:00' },
-          evening: { label: '夜', startTime: '17:00', endTime: '22:00' }
-        }
-        
-        const slot = slotMap[slotParam as keyof typeof slotMap]
-        if (slot && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-          setSelectedTimeSlots([{ date: dateParam, slot }])
-        }
+
+      const slotKeys: PrivateBookingUrlSlotKey[] = ['morning', 'afternoon', 'evening']
+      // 日付・店舗・枠キーが揃っている場合は店舗だけ即時反映し、実時刻は getTimeSlotsForDate で後段適用
+      if (
+        dateParam &&
+        storeParam &&
+        slotParam &&
+        /^\d{4}-\d{2}-\d{2}$/.test(dateParam) &&
+        slotKeys.includes(slotParam as PrivateBookingUrlSlotKey) &&
+        isUuidLike(storeParam) &&
+        stores.some((s: any) => s.id === storeParam)
+      ) {
+        setSelectedStoreIds([storeParam])
+        setPrivateBookingUrlPending({
+          date: dateParam,
+          storeId: storeParam,
+          slotKey: slotParam as PrivateBookingUrlSlotKey,
+        })
+      } else {
+        setPrivateBookingUrlPending(null)
       }
-    } else if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && events.length > 0) {
+    } else {
+      setPrivateBookingUrlPending(null)
+      if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && events.length > 0) {
       // 公演日程タブ: 指定日付（+時間）に一致するイベントを自動選択
       const timeParam = urlParams.get('time')
       let matchingEvent
@@ -201,8 +213,35 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       if (matchingEvent) {
         setSelectedEventId(matchingEvent.event_id)
       }
+      }
     }
   }, [scenarioId, stores, events, setSelectedStoreIds, setSelectedTimeSlots, setSelectedEventId])
+
+  // URL の slot=morning|afternoon|evening を、カレンダーと同じ getTimeSlotsForDate の実時刻に変換して反映
+  useEffect(() => {
+    if (!privateBookingUrlPending) return
+    if (activeTab !== 'private') return
+    const { date, storeId, slotKey } = privateBookingUrlPending
+    if (selectedStoreIds.length !== 1 || selectedStoreIds[0] !== storeId) return
+
+    const labelByKey: Record<PrivateBookingUrlSlotKey, string> = {
+      morning: '午前',
+      afternoon: '午後',
+      evening: '夜',
+    }
+    const slots = getTimeSlotsForDate(date)
+    const found = slots.find((s) => s.label === labelByKey[slotKey])
+    setPrivateBookingUrlPending(null)
+    if (found) {
+      setSelectedTimeSlots([{ date, slot: found }])
+    }
+  }, [
+    privateBookingUrlPending,
+    activeTab,
+    selectedStoreIds,
+    getTimeSlotsForDate,
+    setSelectedTimeSlots,
+  ])
 
   // 貸切リクエスト完了時のハンドラ（選択状態をクリア）
   const handlePrivateBookingCompleteWithClear = useCallback(() => {

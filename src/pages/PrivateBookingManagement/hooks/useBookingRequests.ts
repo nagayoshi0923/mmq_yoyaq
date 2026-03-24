@@ -109,7 +109,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
           *,
           scenario_masters:scenario_master_id(title, official_duration),
           customers:customer_id(name, phone),
-          private_groups:private_group_id(invite_code, scenario_id)
+          private_groups:private_group_id(invite_code, scenario_id, target_participant_count)
         `)
         .eq('organization_id', orgId)
         .eq('reservation_source', 'web_private')
@@ -137,9 +137,35 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
 
       privateBookingTrace(`取得: ${data?.length ?? 0} 件（organization_id=${orgId}）`)
 
+      const reservationsList = data || []
+      const privateGroupIds = [
+        ...new Set(
+          reservationsList
+            .map((r: { private_group_id?: string | null }) => r.private_group_id)
+            .filter((id): id is string => Boolean(id))
+        ),
+      ]
+      const joinedMemberCountByGroupId = new Map<string, number>()
+      if (privateGroupIds.length > 0) {
+        const { data: memberRows, error: memberCountError } = await supabase
+          .from('private_group_members')
+          .select('group_id')
+          .in('group_id', privateGroupIds)
+          .eq('status', 'joined')
+
+        if (memberCountError) {
+          logger.warn('private_group_members 集計に失敗（参加人数は予約の participant_count のみ表示）:', memberCountError)
+        } else {
+          for (const row of memberRows || []) {
+            const gid = row.group_id as string
+            joinedMemberCountByGroupId.set(gid, (joinedMemberCountByGroupId.get(gid) || 0) + 1)
+          }
+        }
+      }
+
       const masterIdsForGmCount = [
         ...new Set(
-          (data || [])
+          reservationsList
             .map((r: { scenario_master_id?: string; private_groups?: { scenario_id?: string } }) =>
               r.scenario_master_id || r.private_groups?.scenario_id
             )
@@ -147,25 +173,70 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
         ),
       ] as string[]
       const gmCountByMasterId = new Map<string, number>()
+      const playerRangeByMasterId = new Map<string, { min: number; max: number }>()
       if (masterIdsForGmCount.length > 0) {
+        const { data: smPlayerRows } = await supabase
+          .from('scenario_masters')
+          .select('id, player_count_min, player_count_max')
+          .in('id', masterIdsForGmCount)
+
+        const smById = new Map(
+          (smPlayerRows || []).map((s) => [s.id as string, s])
+        )
+
         const { data: osRows } = await supabase
           .from('organization_scenarios')
-          .select('scenario_master_id, gm_count')
+          .select(
+            'scenario_master_id, gm_count, override_player_count_min, override_player_count_max'
+          )
           .eq('organization_id', orgId)
           .in('scenario_master_id', masterIdsForGmCount)
+
         for (const row of osRows || []) {
-          if (row.scenario_master_id) {
-            gmCountByMasterId.set(
-              row.scenario_master_id,
-              resolveStaffProfileGmSlotCount({ gm_count: row.gm_count })
-            )
+          if (!row.scenario_master_id) continue
+          gmCountByMasterId.set(
+            row.scenario_master_id,
+            resolveStaffProfileGmSlotCount({ gm_count: row.gm_count })
+          )
+          const sm = smById.get(row.scenario_master_id)
+          const pMin =
+            row.override_player_count_min ?? sm?.player_count_min ?? null
+          const pMax =
+            row.override_player_count_max ?? sm?.player_count_max ?? null
+          if (
+            typeof pMin === 'number' &&
+            typeof pMax === 'number' &&
+            pMin > 0 &&
+            pMax >= pMin
+          ) {
+            playerRangeByMasterId.set(row.scenario_master_id, {
+              min: pMin,
+              max: pMax,
+            })
+          }
+        }
+
+        for (const masterId of masterIdsForGmCount) {
+          if (playerRangeByMasterId.has(masterId)) continue
+          const sm = smById.get(masterId)
+          if (
+            sm &&
+            typeof sm.player_count_min === 'number' &&
+            typeof sm.player_count_max === 'number' &&
+            sm.player_count_min > 0 &&
+            sm.player_count_max >= sm.player_count_min
+          ) {
+            playerRangeByMasterId.set(masterId, {
+              min: sm.player_count_min,
+              max: sm.player_count_max,
+            })
           }
         }
       }
 
       // 各リクエストに対してGM回答を取得
       const formattedData: PrivateBookingRequest[] = await Promise.all(
-        (data || []).map(async (req: any) => {
+        reservationsList.map(async (req: any) => {
           // GM回答を別途取得（スタッフのavatar_colorと名前も含める）
           const { data: gmResponses } = await supabase
             .from('gm_availability_responses')
@@ -272,6 +343,9 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
             candidates: candidatesWithScenarioEnd,
           }
 
+          const pgId = req.private_group_id as string | undefined | null
+          const joinedN = pgId ? (joinedMemberCountByGroupId.get(pgId) ?? 0) : undefined
+
           return {
             id: req.id,
             reservation_number: req.reservation_number || '',
@@ -287,6 +361,10 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
             customer_phone: req.customers?.phone || req.customer_phone || '',
             candidate_datetimes: candidateDatetimes,
             participant_count: req.participant_count || 0,
+            joined_member_count: pgId !== undefined && pgId !== null ? joinedN : undefined,
+            scenario_player_count_range: scenarioMasterId
+              ? playerRangeByMasterId.get(scenarioMasterId) ?? null
+              : null,
             notes: req.customer_notes || '',
             status: req.status,
             gm_responses: transformedGMResponses,

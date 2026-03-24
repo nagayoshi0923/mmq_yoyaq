@@ -22,6 +22,7 @@ import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
+import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { SurveyResponseForm } from './components/SurveyResponseForm'
 
 interface Coupon {
@@ -853,14 +854,41 @@ export function PrivateGroupInvite() {
     )
   }
 
-  const scenario = group.scenario_masters as { id?: string; slug?: string; title?: string; key_visual_url?: string; player_count_max?: number; characters?: unknown[] } | undefined
-  const targetCount = scenario?.player_count_max || group.target_participant_count || null
+  const scenario = group.scenario_masters as {
+    id?: string
+    slug?: string
+    title?: string
+    key_visual_url?: string
+    player_count_min?: number
+    player_count_max?: number
+    effective_player_count_min?: number
+    effective_player_count_max?: number
+    characters?: unknown[]
+  } | undefined
+  /** 主催が設定した目標人数（表示用） */
+  const groupTargetParticipants = group.target_participant_count ?? null
+  const scenarioMin =
+    scenario?.effective_player_count_min ?? scenario?.player_count_min ?? null
+  const scenarioMax =
+    scenario?.effective_player_count_max ?? scenario?.player_count_max ?? null
+  const inviteBounds =
+    scenarioMin != null &&
+    scenarioMax != null &&
+    scenarioMin > 0 &&
+    scenarioMax >= scenarioMin
+      ? { min: scenarioMin, max: scenarioMax }
+      : null
+  /** 招待リンク経由で参加できる人数の上限（シナリオ定員と目標の小さい方） */
+  const inviteMemberCap = inviteBounds
+    ? memberInvitationCap(inviteBounds, group.target_participant_count)
+    : groupTargetParticipants
   const organizerMember = group.members?.find(m => m.is_organizer)
   const organizerName = organizerMember?.guest_name || 'メンバー'
   const memberCount = joinedMembers.length
 
-  // 参加人数が上限に達しているか
-  const isGroupFull = targetCount !== null && memberCount >= targetCount
+  // 参加人数が上限に達しているか（シナリオ超過で締め切る）
+  const isGroupFull =
+    inviteMemberCap !== null && inviteMemberCap > 0 && memberCount >= inviteMemberCap
 
   // 主催者判定
   const isOrganizer = user && group?.organizer_id === user.id
@@ -1069,9 +1097,25 @@ export function PrivateGroupInvite() {
         }))
       }
       
-      // シナリオ情報を取得
-      const maxParticipants = group.target_participant_count || 6
-      
+      // 参加人数: 目標人数があればそれを使用。未設定時は「参加確定メンバー数」（最低1名）。
+      // ※以前は target 未設定で 6 に落ちていて、管理画面の人数が実態とずれていた。
+      const scenarioForBookingCap = group.scenario_masters as {
+        effective_player_count_max?: number
+        player_count_max?: number
+      } | undefined
+      const scenarioPlayerMax =
+        scenarioForBookingCap?.effective_player_count_max ??
+        scenarioForBookingCap?.player_count_max ??
+        null
+      const joinedForBooking = joinedMembers.length
+      let bookingParticipantCount =
+        group.target_participant_count != null && group.target_participant_count > 0
+          ? group.target_participant_count
+          : Math.max(joinedForBooking, 1)
+      if (scenarioPlayerMax != null && bookingParticipantCount > scenarioPlayerMax) {
+        bookingParticipantCount = scenarioPlayerMax
+      }
+
       // パラメータの検証
       if (!group.scenario_id) {
         throw new Error('シナリオが選択されていません')
@@ -1080,7 +1124,7 @@ export function PrivateGroupInvite() {
       logger.log('[貸切リクエスト] RPCパラメータ:', {
         scenario_id: group.scenario_id,
         customer_id: customerId,
-        participant_count: maxParticipants,
+        participant_count: bookingParticipantCount,
         candidateDatetimes,
         private_group_id: group.id
       })
@@ -1092,7 +1136,7 @@ export function PrivateGroupInvite() {
         p_customer_name: customerName,
         p_customer_email: customerEmail,
         p_customer_phone: customerPhone,
-        p_participant_count: maxParticipants,
+        p_participant_count: bookingParticipantCount,
         p_candidate_datetimes: candidateDatetimes,
         p_notes: bookingNotes || null,
         p_reservation_number: baseReservationNumber,
@@ -2211,7 +2255,12 @@ export function PrivateGroupInvite() {
                     <Users className="w-4 h-4 text-green-600" />
                     参加人数
                   </span>
-                  <span>{joinedMembers.length}名（目標: {targetCount || '-'}名）</span>
+                  <span>
+                    {joinedMembers.length}名 / 招待上限 {inviteMemberCap ?? '-'}名
+                    {groupTargetParticipants != null
+                      ? `（目標 ${groupTargetParticipants}名）`
+                      : ''}
+                  </span>
                 </div>
                 
                 {/* 連絡先電話番号 */}
@@ -2519,7 +2568,9 @@ export function PrivateGroupInvite() {
                 <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Users className="w-4 h-4" />
-                    <span>{memberCount}/{targetCount || '?'}名</span>
+                    <span>
+                      {memberCount}/{inviteMemberCap ?? '?'}名
+                    </span>
                   </div>
                 </div>
                 <Badge variant="outline" className="mt-2 bg-purple-100 text-purple-800 border-purple-200 text-xs">
@@ -3238,7 +3289,7 @@ export function PrivateGroupInvite() {
           <>
             {isGroupFull && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm text-center mb-2">
-                参加人数が上限（{targetCount}名）に達しています
+                参加人数が上限（{inviteMemberCap}名）に達しています
               </div>
             )}
             <Button

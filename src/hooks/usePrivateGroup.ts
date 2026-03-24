@@ -3,6 +3,11 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
+import {
+  fetchScenarioPlayerBoundsForOrg,
+  memberInvitationCap,
+  mergeScenarioPlayerBounds,
+} from '@/lib/privateGroupPlayerCap'
 import type {
   PrivateGroup,
   PrivateGroupMember,
@@ -109,6 +114,30 @@ async function sendSystemMessage(
   }
 }
 
+/** organization_scenarios の人数上書きを scenario_masters 付きグループ行に反映（invite / manage 画面用） */
+function applyEffectivePlayerBoundsFromOrgScenario(
+  data: {
+    scenario_masters?: Record<string, unknown> | null
+    scenario_id?: string | null
+    organization_id?: string | null
+  },
+  orgScenario: {
+    override_player_count_min?: number | null
+    override_player_count_max?: number | null
+  } | null
+) {
+  if (!data.scenario_masters || !orgScenario) return
+  const sm = data.scenario_masters as {
+    player_count_min?: number
+    player_count_max?: number
+  }
+  const merged = mergeScenarioPlayerBounds(sm, orgScenario)
+  if (merged) {
+    data.scenario_masters.effective_player_count_min = merged.min
+    data.scenario_masters.effective_player_count_max = merged.max
+  }
+}
+
 export function usePrivateGroup() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -131,6 +160,20 @@ export function usePrivateGroup() {
       if (!user) throw new Error('ログインが必要です')
 
       const organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+
+      const playerBounds = await fetchScenarioPlayerBoundsForOrg(
+        supabase,
+        organizationId,
+        params.scenarioId
+      )
+      const rawTarget = params.targetParticipantCount
+      if (playerBounds && rawTarget != null && rawTarget > 0) {
+        if (rawTarget < playerBounds.min || rawTarget > playerBounds.max) {
+          throw new Error(
+            `参加人数は${playerBounds.min}〜${playerBounds.max}名の範囲で指定してください（このシナリオの定員）`
+          )
+        }
+      }
 
       let inviteCode = await generateInviteCode()
       let attempts = 0
@@ -260,7 +303,7 @@ export function usePrivateGroup() {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url, player_count_max),
+          scenario_masters:scenario_id (id, title, key_visual_url, player_count_min, player_count_max),
           members:private_group_members (*),
           candidate_dates:private_group_candidate_dates (
             *,
@@ -277,12 +320,14 @@ export function usePrivateGroup() {
         throw error
       }
 
-      // organization_scenariosからcharactersを取得
+      // organization_scenariosからcharacters・人数上書きを取得
       if (data?.scenario_id && data?.organization_id) {
         try {
           const { data: orgScenario } = await supabase
             .from('organization_scenarios')
-            .select('characters')
+            .select(
+              'characters, override_player_count_min, override_player_count_max'
+            )
             .eq('scenario_master_id', data.scenario_id)
             .eq('organization_id', data.organization_id)
             .maybeSingle()
@@ -290,6 +335,7 @@ export function usePrivateGroup() {
           if (orgScenario?.characters && data.scenario_masters) {
             (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
           }
+          applyEffectivePlayerBoundsFromOrgScenario(data, orgScenario)
         } catch {
           // ゲストユーザーはRLSでアクセスできない場合がある
         }
@@ -314,7 +360,7 @@ export function usePrivateGroup() {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url, player_count_max),
+          scenario_masters:scenario_id (id, title, key_visual_url, player_count_min, player_count_max),
           members:private_group_members (*),
           candidate_dates:private_group_candidate_dates (
             *,
@@ -331,12 +377,14 @@ export function usePrivateGroup() {
         throw error
       }
 
-      // organization_scenariosからcharactersを取得
+      // organization_scenariosからcharacters・人数上書きを取得
       if (data?.scenario_id && data?.organization_id) {
         try {
           const { data: orgScenario } = await supabase
             .from('organization_scenarios')
-            .select('characters')
+            .select(
+              'characters, override_player_count_min, override_player_count_max'
+            )
             .eq('scenario_master_id', data.scenario_id)
             .eq('organization_id', data.organization_id)
             .maybeSingle()
@@ -344,6 +392,7 @@ export function usePrivateGroup() {
           if (orgScenario?.characters && data.scenario_masters) {
             (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
           }
+          applyEffectivePlayerBoundsFromOrgScenario(data, orgScenario)
         } catch {
           // ゲストユーザーはRLSでアクセスできない場合がある
         }
@@ -371,7 +420,7 @@ export function usePrivateGroup() {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url, player_count_max),
+          scenario_masters:scenario_id (id, title, key_visual_url, player_count_min, player_count_max),
           members:private_group_members (*)
         `)
         .eq('organizer_id', user.id)
@@ -405,29 +454,29 @@ export function usePrivateGroup() {
         throw new Error('既にグループに参加しています')
       }
 
-      // 参加人数の上限チェック
+      // 参加人数の上限（シナリオ定員とグループ目標の小さい方。組織別上書きを反映）
       const { data: groupData } = await supabase
         .from('private_groups')
-        .select(`
-          target_participant_count,
-          scenario_masters:scenario_id (player_count_max)
-        `)
+        .select('organization_id, target_participant_count, scenario_id')
         .eq('id', params.groupId)
         .single()
 
-      if (groupData) {
-        const scenarioMaster = groupData.scenario_masters as { player_count_max?: number } | null
-        const maxParticipants = scenarioMaster?.player_count_max || groupData.target_participant_count || null
-
-        if (maxParticipants) {
+      if (groupData?.organization_id && groupData.scenario_id) {
+        const bounds = await fetchScenarioPlayerBoundsForOrg(
+          supabase,
+          groupData.organization_id,
+          groupData.scenario_id
+        )
+        if (bounds) {
+          const cap = memberInvitationCap(bounds, groupData.target_participant_count)
           const { count: currentMemberCount } = await supabase
             .from('private_group_members')
             .select('id', { count: 'exact', head: true })
             .eq('group_id', params.groupId)
             .eq('status', 'joined')
 
-          if (currentMemberCount !== null && currentMemberCount >= maxParticipants) {
-            throw new Error(`参加人数が上限（${maxParticipants}名）に達しています`)
+          if (currentMemberCount !== null && currentMemberCount >= cap) {
+            throw new Error(`参加人数が上限（${cap}名）に達しています`)
           }
         }
       }
@@ -661,7 +710,7 @@ export function usePrivateGroupData(groupId: string | null) {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url, player_count_max),
+          scenario_masters:scenario_id (id, title, key_visual_url, player_count_min, player_count_max),
           members:private_group_members (
             *,
             date_responses:private_group_date_responses (*)
@@ -676,12 +725,14 @@ export function usePrivateGroupData(groupId: string | null) {
 
       if (error) throw error
 
-      // organization_scenariosからcharactersを取得
+      // organization_scenariosからcharacters・人数上書きを取得
       if (data?.scenario_id && data?.organization_id) {
         try {
           const { data: orgScenario } = await supabase
             .from('organization_scenarios')
-            .select('characters')
+            .select(
+              'characters, override_player_count_min, override_player_count_max'
+            )
             .eq('scenario_master_id', data.scenario_id)
             .eq('organization_id', data.organization_id)
             .maybeSingle()
@@ -689,6 +740,7 @@ export function usePrivateGroupData(groupId: string | null) {
           if (orgScenario?.characters && data.scenario_masters) {
             (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
           }
+          applyEffectivePlayerBoundsFromOrgScenario(data, orgScenario)
         } catch {
           // ゲストユーザーはRLSでアクセスできない場合がある
         }
@@ -777,7 +829,7 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null): {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url, player_count_max),
+          scenario_masters:scenario_id (id, title, key_visual_url, player_count_min, player_count_max),
           members:private_group_members (
             *,
             date_responses:private_group_date_responses (*)
@@ -800,12 +852,14 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null): {
         throw error
       }
 
-      // organization_scenariosからcharactersを取得
+      // organization_scenariosからcharacters・人数上書きを取得
       if (data?.scenario_id && data?.organization_id) {
         try {
           const { data: orgScenario } = await supabase
             .from('organization_scenarios')
-            .select('characters')
+            .select(
+              'characters, override_player_count_min, override_player_count_max'
+            )
             .eq('scenario_master_id', data.scenario_id)
             .eq('organization_id', data.organization_id)
             .maybeSingle()
@@ -813,6 +867,7 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null): {
           if (orgScenario?.characters && data.scenario_masters) {
             (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
           }
+          applyEffectivePlayerBoundsFromOrgScenario(data, orgScenario)
         } catch {
           // ゲストユーザーはRLSでアクセスできない場合がある
         }

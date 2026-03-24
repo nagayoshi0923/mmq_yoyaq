@@ -523,14 +523,16 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     })
   }, [transferEvents, storeMap, isSameStoreGroup, getStoreGroupId])
 
-  // 完了状態のキー生成（performance_dateを含むフルキー）
+  // 完了状態のキー生成（performance_dateを含むフルキー、kit_numberは数値に統一）
   const getCompletionKeyFull = useCallback((
     scenarioId: string,
-    kitNumber: number,
+    kitNumber: number | string,
     performanceDate: string,
     toStoreId: string
   ) => {
-    return `${scenarioId}-${kitNumber}-${performanceDate}-${toStoreId}`
+    // kit_numberを数値に統一してから文字列化
+    const normalizedKitNumber = typeof kitNumber === 'string' ? parseInt(kitNumber, 10) : kitNumber
+    return `${scenarioId}-${normalizedKitNumber}-${performanceDate}-${toStoreId}`
   }, [])
   
   // 完了状態のキー生成（シナリオとキット番号のみ - 同じキットなら一致とみなす）

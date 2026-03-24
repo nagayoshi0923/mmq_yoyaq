@@ -40,6 +40,10 @@ export interface PrivateBookingRequest {
     }
   }
   participant_count: number
+  /** 貸切グループありのとき、private_group_members.status = joined の人数（主催のみ等と予定人数がずれることがある） */
+  joined_member_count?: number
+  /** マスタ＋組織別上書きを解決したシナリオの推奨人数帯（取得できないときは null） */
+  scenario_player_count_range?: { min: number; max: number } | null
   notes: string
   status: string
   gm_responses?: Array<{

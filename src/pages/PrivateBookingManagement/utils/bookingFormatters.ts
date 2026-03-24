@@ -151,3 +151,33 @@ export const getCardClassName = (status: string): string => {
   }
 }
 
+/**
+ * 貸切グループ経由の予約: 予約上の参加予定人数と、招待リンク経由で joined になっている人数を併記
+ */
+export function formatPrivateBookingParticipantLabel(
+  plannedCount: number,
+  joinedMemberCount?: number
+): string {
+  if (joinedMemberCount === undefined) {
+    return `${plannedCount}名`
+  }
+  return `参加予定 ${plannedCount}名（アプリ登録 ${joinedMemberCount}名）`
+}
+
+/** シナリオマスタの人数レンジ表示 */
+export function formatScenarioPlayerRange(range: { min: number; max: number }): string {
+  if (range.min === range.max) {
+    return `${range.min}名`
+  }
+  return `${range.min}〜${range.max}名`
+}
+
+/** 予約の参加予定人数がシナリオの人数帯に入らないか */
+export function isPlannedCountOutsideScenarioRange(
+  plannedCount: number,
+  range: { min: number; max: number } | null | undefined
+): boolean {
+  if (!range) return false
+  return plannedCount < range.min || plannedCount > range.max
+}
+
