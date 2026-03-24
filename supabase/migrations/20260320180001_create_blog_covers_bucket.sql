@@ -49,4 +49,4 @@ CREATE POLICY "blog_covers_org_admin_delete"
     AND is_org_admin()
   );
 
-COMMENT ON POLICY "blog_covers_public_read" ON storage.objects IS 'ブログカバー画像の公開表示用';
+-- COMMENT ON POLICY は storage.objects の所有権が必要なため省略
