@@ -200,6 +200,29 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
+      // 通知・メールは DB に実際に作成された公演日（schedule_events.date）を優先（クライアント保持の候補とズレないようにする）
+      let notifyEventDate = selectedCandidate.date
+      let notifyStartTime = selectedCandidate.startTime
+      let notifyEndTime = selectedEndTime
+      if (scheduleEventId) {
+        const { data: seRow, error: seErr } = await supabase
+          .from('schedule_events')
+          .select('date, start_time, end_time')
+          .eq('id', scheduleEventId as string)
+          .single()
+        if (seErr) {
+          logger.error('承認後スケジュール取得エラー（通知は候補日時を使用）:', seErr)
+        } else if (seRow?.date) {
+          notifyEventDate = seRow.date
+          if (seRow.start_time) {
+            notifyStartTime = String(seRow.start_time).slice(0, 5)
+          }
+          if (seRow.end_time) {
+            notifyEndTime = String(seRow.end_time).slice(0, 5)
+          }
+        }
+      }
+
       // 貸切予約確定メールを送信
       try {
         // 承認後の予約データを取得（total_priceを含む）
@@ -228,9 +251,9 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
               customerEmail,
               customerName,
               scenarioTitle: selectedRequest?.scenario_title || '',
-              eventDate: selectedCandidate.date,
-              startTime: selectedCandidate.startTime,
-              endTime: selectedEndTime,
+              eventDate: notifyEventDate,
+              startTime: notifyStartTime,
+              endTime: notifyEndTime,
               storeName: stores.find(s => s.id === selectedStoreId)?.name || '',
               storeAddress,
               participantCount: selectedRequest?.participant_count || 0,
@@ -273,9 +296,9 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                   gmDiscordChannelId: row.discord_channel_id ?? undefined,
                   gmDiscordUserId: row.discord_user_id ?? undefined,
                   scenarioTitle: selectedRequest?.scenario_title || '',
-                  eventDate: selectedCandidate.date,
-                  startTime: selectedCandidate.startTime,
-                  endTime: selectedEndTime,
+                  eventDate: notifyEventDate,
+                  startTime: notifyStartTime,
+                  endTime: notifyEndTime,
                   storeName,
                   customerName: selectedRequest?.customer_name || '',
                   participantCount: selectedRequest?.participant_count || 0,
@@ -339,8 +362,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             const confirmedMessage = JSON.stringify({
               type: 'system',
               action: 'schedule_confirmed',
-              confirmedDate: selectedCandidate.date,
-              confirmedTimeSlot: selectedCandidate.timeSlot || `${selectedCandidate.startTime}〜${selectedEndTime}`,
+              confirmedDate: notifyEventDate,
+              confirmedTimeSlot: selectedCandidate.timeSlot || `${notifyStartTime}〜${notifyEndTime}`,
               storeName: stores.find(s => s.id === selectedStoreId)?.name || '',
               // 設定されたメッセージ文言を含める
               title: msgSettings?.system_msg_schedule_confirmed_title || '日程が確定いたしました',

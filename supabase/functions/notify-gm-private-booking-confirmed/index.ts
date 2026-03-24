@@ -29,9 +29,35 @@ interface GMNotificationRequest {
   reservationId: string
 }
 
-/** YYYY-MM-DD を JST の暦日・曜日で表示（Edge の TZ=UTC で Date#getDate ずれ防止） */
+/**
+ * 貸切の「公演日」を JST の暦日 YYYY-MM-DD に正規化する。
+ * - 素の YYYY-MM-DD は日本のカレンダー日としてそのまま採用（DBの date と同じ解釈）
+ * - ISO タイムスタンプは Asia/Tokyo の暦日に変換（UTC日付とズレないようにする）
+ */
+function eventDateToYmdJstCalendar(eventDate: string): string {
+  const s = (eventDate || '').trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  const d = new Date(s)
+  if (!Number.isNaN(d.getTime())) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Tokyo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(d)
+    const y = parts.find((p) => p.type === 'year')?.value
+    const m = parts.find((p) => p.type === 'month')?.value
+    const day = parts.find((p) => p.type === 'day')?.value
+    if (y && m && day) return `${y}-${m}-${day}`
+  }
+  const prefix = s.match(/^(\d{4}-\d{2}-\d{2})/)
+  return prefix ? prefix[1] : s.slice(0, 10)
+}
+
+/** YYYY-MM-DD（または正規化後）を JST の暦日・曜日で表示 */
 function formatEventDateLineJst(eventDate: string): string {
-  const noonJst = new Date(`${eventDate}T12:00:00+09:00`)
+  const ymd = eventDateToYmdJstCalendar(eventDate)
+  const noonJst = new Date(`${ymd}T12:00:00+09:00`)
   const parts = new Intl.DateTimeFormat('ja-JP', {
     timeZone: 'Asia/Tokyo',
     month: 'numeric',
