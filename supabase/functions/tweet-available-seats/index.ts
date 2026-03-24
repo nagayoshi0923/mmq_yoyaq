@@ -245,14 +245,16 @@ async function postTweet(
   }
 }
 
-// 日付をフォーマット（例: 1月5日(日)）
+// 日付をフォーマット（例: 1月5日(日)）— JST固定
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  const month = date.getMonth() + 1
-  const day = date.getDate()
-  const dayNames = ['日', '月', '火', '水', '木', '金', '土']
-  const dayOfWeek = dayNames[date.getDay()]
-  return `${month}月${day}日(${dayOfWeek})`
+  const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T12:00:00+09:00`)
+  const parts = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', weekday: 'narrow',
+  }).formatToParts(d)
+  const month = parts.find(p => p.type === 'month')?.value ?? ''
+  const day = parts.find(p => p.type === 'day')?.value ?? ''
+  const wd = parts.find(p => p.type === 'weekday')?.value ?? ''
+  return `${month}月${day}日(${wd})`
 }
 
 // 配列からランダムに1つ選択
@@ -496,10 +498,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
-    // 翌日の日付を計算
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const tomorrowStr = tomorrow.toISOString().split('T')[0]
+    // 翌日の日付を計算（JST基準）
+    const tomorrow = new Date(Date.now() + 86400000)
+    const tomorrowStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(tomorrow)
 
     console.log(`対象日: ${tomorrowStr}`)
 

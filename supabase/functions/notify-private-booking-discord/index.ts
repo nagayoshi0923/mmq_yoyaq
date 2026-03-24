@@ -244,11 +244,11 @@ async function sendNotificationToGMChannels(booking: any) {
   })
 }
 
-// 曜日を取得するヘルパー関数
+// 曜日を取得するヘルパー関数（JST固定）
 function getDayOfWeek(dateString: string): string {
-  const days = ['日', '月', '火', '水', '木', '金', '土']
-  const date = new Date(dateString + 'T00:00:00+09:00')
-  return days[date.getDay()]
+  const d = new Date(`${dateString}T12:00:00+09:00`)
+  const parts = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', weekday: 'narrow' }).formatToParts(d)
+  return parts.find(p => p.type === 'weekday')?.value ?? ''
 }
 
 // Discord通知をキューに積む（送信はリトライ関数が担当）

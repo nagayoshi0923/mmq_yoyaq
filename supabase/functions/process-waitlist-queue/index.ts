@@ -309,9 +309,15 @@ async function sendNotificationEmail(
 ): Promise<{ success: boolean; entryId: string; error?: string }> {
   
   const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr)
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日(${weekdays[date.getDay()]})`
+    const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T12:00:00+09:00`)
+    const parts = new Intl.DateTimeFormat('ja-JP', {
+      timeZone: 'Asia/Tokyo', year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'narrow',
+    }).formatToParts(d)
+    const year = parts.find(p => p.type === 'year')?.value ?? ''
+    const month = parts.find(p => p.type === 'month')?.value ?? ''
+    const day = parts.find(p => p.type === 'day')?.value ?? ''
+    const wd = parts.find(p => p.type === 'weekday')?.value ?? ''
+    return `${year}年${month}月${day}日(${wd})`
   }
 
   const formatTime = (timeStr: string): string => {

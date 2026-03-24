@@ -28,9 +28,8 @@ serve(async (req) => {
     
     // リマインダー送信設定を取得（デフォルトは3日前）
     const reminderDaysBefore = 3
-    const targetDate = new Date(now)
-    targetDate.setDate(targetDate.getDate() + reminderDaysBefore)
-    const targetDateStr = targetDate.toISOString().split('T')[0]
+    const targetDate = new Date(now.getTime() + reminderDaysBefore * 86400000)
+    const targetDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(targetDate)
 
     console.log(`リマインダー送信対象日: ${targetDateStr}`)
 

@@ -70,9 +70,9 @@ serve(async (req) => {
     // 各スケジュールに対して処理
     const results = []
     for (const schedule of activeSchedules) {
-      const targetDate = new Date(now)
-      targetDate.setDate(now.getDate() + schedule.days_before)
-      const targetDateStr = targetDate.toISOString().split('T')[0]
+      const targetDate = new Date(now.getTime() + schedule.days_before * 86400000)
+      const jstParts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(targetDate)
+      const targetDateStr = jstParts
 
       // 該当日の予約を取得
       const { data: reservations, error: reservationsError } = await supabaseClient

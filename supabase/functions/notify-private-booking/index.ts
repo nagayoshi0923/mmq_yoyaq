@@ -106,8 +106,9 @@ serve(async (req) => {
     // 候補日時を整形
     const candidatesText = booking.candidate_datetimes.candidates
       .map(c => {
-        const date = new Date(c.date)
-        const dateStr = `${date.getMonth() + 1}/${date.getDate()}`
+        const d = new Date(c.date.includes('T') ? c.date : `${c.date}T12:00:00+09:00`)
+        const pts = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' }).formatToParts(d)
+        const dateStr = `${pts.find(p => p.type === 'month')?.value}/${pts.find(p => p.type === 'day')?.value}`
         return `  ${c.order}. ${dateStr} ${c.timeSlot} (${c.startTime}-${c.endTime})`
       })
       .join('\n')
@@ -154,8 +155,9 @@ ${booking.notes ? `📝 備考: ${booking.notes}` : ''}
     // Discord通知を送信（Discord通知設定が有効な場合のみ）
     if (DISCORD_WEBHOOK_URL && notificationSettings?.new_reservation_discord !== false) {
       const candidateFields = booking.candidate_datetimes.candidates.map(c => {
-        const date = new Date(c.date)
-        const dateStr = `${date.getMonth() + 1}/${date.getDate()}(${['日','月','火','水','木','金','土'][date.getDay()]})`
+        const d = new Date(c.date.includes('T') ? c.date : `${c.date}T12:00:00+09:00`)
+        const pts = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', weekday: 'narrow' }).formatToParts(d)
+        const dateStr = `${pts.find(p => p.type === 'month')?.value}/${pts.find(p => p.type === 'day')?.value}(${pts.find(p => p.type === 'weekday')?.value})`
         return {
           name: `候補${c.order}`,
           value: `${dateStr} ${c.timeSlot} ${c.startTime}-${c.endTime}`,
