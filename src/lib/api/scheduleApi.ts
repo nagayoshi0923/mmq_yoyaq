@@ -852,38 +852,22 @@ export const scheduleApi = {
     }
     
     // scenario_id が設定されていて scenario_master_id が未設定の場合
+    // scenario_id は実質 scenario_master_id と同じ値（organization_scenarios_with_master ビューの id = scenario_master_id）
     if (finalData.scenario_id && !finalData.scenario_master_id) {
       const scenarioIdStr = finalData.scenario_id as string
-      
-      // 1. まず scenarios テーブルから scenario_master_id を取得を試みる
       try {
-        const { data: scenarioData } = await supabase
-          .from('scenarios')
-          .select('scenario_master_id')
+        const { data: masterData } = await supabase
+          .from('scenario_masters')
+          .select('id')
           .eq('id', scenarioIdStr)
           .single()
         
-        if (scenarioData?.scenario_master_id) {
-          finalData.scenario_master_id = scenarioData.scenario_master_id
-          logger.info(`scenario_master_id 自動設定（scenarios から）: ${scenarioData.scenario_master_id}`)
+        if (masterData?.id) {
+          finalData.scenario_master_id = masterData.id
+          logger.info(`scenario_master_id 自動設定: ${masterData.id}`)
         }
-      } catch {
-        // scenarios テーブルに存在しない場合、scenario_masters テーブルを確認
-        try {
-          const { data: masterData } = await supabase
-            .from('scenario_masters')
-            .select('id')
-            .eq('id', scenarioIdStr)
-            .single()
-          
-          if (masterData?.id) {
-            // scenario_id は実際には scenario_master_id だった
-            finalData.scenario_master_id = masterData.id
-            logger.info(`scenario_master_id 自動設定（scenario_id が scenario_masters.id だった）: ${masterData.id}`)
-          }
-        } catch (err) {
-          logger.warn('scenario_master_id の自動設定に失敗:', err)
-        }
+      } catch (err) {
+        logger.warn('scenario_master_id の自動設定に失敗:', err)
       }
     }
     
@@ -988,38 +972,22 @@ export const scheduleApi = {
     }
     
     // scenario_id が設定されていて scenario_master_id が未設定の場合
+    // scenario_id は実質 scenario_master_id と同じ値（organization_scenarios_with_master ビューの id = scenario_master_id）
     if (finalUpdates.scenario_id && !finalUpdates.scenario_master_id) {
       const scenarioIdStr = finalUpdates.scenario_id as string
-      
-      // 1. まず scenarios テーブルから scenario_master_id を取得を試みる
       try {
-        const { data: scenarioData } = await supabase
-          .from('scenarios')
-          .select('scenario_master_id')
+        const { data: masterData } = await supabase
+          .from('scenario_masters')
+          .select('id')
           .eq('id', scenarioIdStr)
           .single()
         
-        if (scenarioData?.scenario_master_id) {
-          finalUpdates.scenario_master_id = scenarioData.scenario_master_id
-          logger.info(`scenario_master_id 自動設定（更新、scenarios から）: ${scenarioData.scenario_master_id}`)
+        if (masterData?.id) {
+          finalUpdates.scenario_master_id = masterData.id
+          logger.info(`scenario_master_id 自動設定（更新）: ${masterData.id}`)
         }
-      } catch {
-        // scenarios テーブルに存在しない場合、scenario_masters テーブルを確認
-        try {
-          const { data: masterData } = await supabase
-            .from('scenario_masters')
-            .select('id')
-            .eq('id', scenarioIdStr)
-            .single()
-          
-          if (masterData?.id) {
-            // scenario_id は実際には scenario_master_id だった
-            finalUpdates.scenario_master_id = masterData.id
-            logger.info(`scenario_master_id 自動設定（更新、scenario_id が scenario_masters.id だった）: ${masterData.id}`)
-          }
-        } catch (err) {
-          logger.warn('scenario_master_id の自動設定に失敗（更新）:', err)
-        }
+      } catch (err) {
+        logger.warn('scenario_master_id の自動設定に失敗（更新）:', err)
       }
     }
     
