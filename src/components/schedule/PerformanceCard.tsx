@@ -98,9 +98,9 @@ function PerformanceCardBase({
     ...receptionGms.map(gm => `${gm.slice(0, 2)}(受)`)
   ]
   
-  // シナリオマスタ未登録チェック、または正式名称と異なる場合
-  // scenariosがない、またはシナリオ名が正式名称と一致しない場合に警告
-  const isUnregisteredScenario = event.scenario && (
+  // シナリオマスタ未登録チェック（出張・場所貸し・MTG等はマスタ不要のため除外）
+  const isNonScenarioCategory = ['offsite', 'venue_rental', 'venue_rental_free', 'mtg'].includes(event.category)
+  const isUnregisteredScenario = event.scenario && !isNonScenarioCategory && (
     !event.scenarios || 
     (event.scenarios.title && event.scenario !== event.scenarios.title)
   )
