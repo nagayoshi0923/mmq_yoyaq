@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2 } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { parseIntSafe } from '@/utils/number'
+import { useSalarySettings } from '@/hooks/useSalarySettings'
 
 // 統一スタイル
 const labelStyle = "text-xs font-medium mb-0.5 block"
@@ -20,6 +21,8 @@ interface ScenarioStats {
   totalParticipants: number
   totalGmCost: number
   totalLicenseCost: number
+  totalVenueCost: number
+  venueCostPerPerformance: number
   firstPerformanceDate: string | null
 }
 
@@ -30,6 +33,8 @@ interface CostsPropsSectionV2Props {
 }
 
 export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: CostsPropsSectionV2Props) {
+  const { calculateGmWage } = useSalarySettings()
+
   const stats = scenarioStats || {
     performanceCount: 0,
     cancelledCount: 0,
@@ -37,6 +42,8 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
     totalParticipants: 0,
     totalGmCost: 0,
     totalLicenseCost: 0,
+    totalVenueCost: 0,
+    venueCostPerPerformance: 0,
     firstPerformanceDate: null
   }
 
@@ -141,25 +148,31 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
             const gmTestFee = formData.participation_costs?.find(c => c.time_slot === 'gmtest')?.amount || 0
             
             // GM報酬をカテゴリ別に集計
-            const normalGmReward = formData.gm_assignments
-              ?.filter(a => (a.category || 'normal') === 'normal')
-              .reduce((sum, a) => sum + (a.reward || 0), 0) || 0
-            const gmTestGmRewardRaw = formData.gm_assignments
-              ?.filter(a => a.category === 'gmtest')
-              .reduce((sum, a) => sum + (a.reward || 0), 0) || 0
-            // GMテスト報酬が未設定の場合、通常報酬-2000円をデフォルトに
-            const gmTestGmReward = gmTestGmRewardRaw > 0 ? gmTestGmRewardRaw : Math.max(0, normalGmReward - 2000)
+            // gm_assignments（= DB上の gm_costs）に個別設定がある場合はそちらを使用、
+            // なければデフォルト報酬（公演時間ベースの計算）にフォールバック
+            const hasCustomGmCosts = formData.gm_assignments && formData.gm_assignments.length > 0
+            const normalGmReward = hasCustomGmCosts
+              ? formData.gm_assignments
+                  .filter(a => (a.category || 'normal') === 'normal')
+                  .reduce((sum, a) => sum + (a.reward || 0), 0)
+              : calculateGmWage(formData.duration || 0, false)
+            const gmTestGmReward = hasCustomGmCosts
+              ? (formData.gm_assignments
+                  .filter(a => a.category === 'gmtest')
+                  .reduce((sum, a) => sum + (a.reward || 0), 0) || Math.max(0, normalGmReward - 2000))
+              : calculateGmWage(formData.duration || 0, true)
             
             const normalLicense = formData.license_rewards?.find(r => r.item === 'normal')?.amount || 0
             const gmTestLicense = formData.license_rewards?.find(r => r.item === 'gmtest')?.amount || 0
             const depPerPerf = depreciationPerPerformance || 0
+            const venuePerPerf = stats.venueCostPerPerformance || 0
             
             // 売上 = 参加費 × 最大人数
             const normalRevenue = normalFee * maxPlayers
             const gmTestRevenue = gmTestFee * maxPlayers
             
-            const normalProfit = normalRevenue - normalGmReward - normalLicense - depPerPerf
-            const gmTestProfit = gmTestRevenue - gmTestGmReward - gmTestLicense - depPerPerf
+            const normalProfit = normalRevenue - normalGmReward - normalLicense - depPerPerf - venuePerPerf
+            const gmTestProfit = gmTestRevenue - gmTestGmReward - gmTestLicense - depPerPerf - venuePerPerf
             
             return (
               <div className="text-xs mt-2 space-y-1">
@@ -169,6 +182,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
                   <span>¥{normalFee.toLocaleString()}×{maxPlayers}人=¥{normalRevenue.toLocaleString()}</span>
                   <span>− GM¥{normalGmReward.toLocaleString()}</span>
                   <span>− ライセンス¥{normalLicense.toLocaleString()}</span>
+                  {venuePerPerf > 0 && <span>− 家賃¥{venuePerPerf.toLocaleString()}</span>}
                   {depPerPerf > 0 && <span>− 償却¥{depPerPerf.toLocaleString()}</span>}
                   <span>=</span>
                   <span className={normalProfit >= 0 ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
@@ -181,6 +195,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
                   <span>¥{gmTestFee.toLocaleString()}×{maxPlayers}人=¥{gmTestRevenue.toLocaleString()}</span>
                   <span>− GM¥{gmTestGmReward.toLocaleString()}</span>
                   <span>− ライセンス¥{gmTestLicense.toLocaleString()}</span>
+                  {venuePerPerf > 0 && <span>− 家賃¥{venuePerPerf.toLocaleString()}</span>}
                   {depPerPerf > 0 && <span>− 償却¥{depPerPerf.toLocaleString()}</span>}
                   <span>=</span>
                   <span className={gmTestProfit >= 0 ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
@@ -228,20 +243,26 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
                 </div>
                 
                 {/* 利益 */}
-                <div className={`text-center p-3 rounded-lg ${
-                  stats.totalRevenue - stats.totalGmCost - stats.totalLicenseCost - totalProductionCost >= 0 
-                    ? 'bg-green-50 dark:bg-green-950/30' 
-                    : 'bg-red-50 dark:bg-red-950/30'
-                }`}>
-                  <div className={`text-xl font-bold ${
-                    stats.totalRevenue - stats.totalGmCost - stats.totalLicenseCost - totalProductionCost >= 0 
-                      ? 'text-green-600 dark:text-green-400' 
-                      : 'text-red-500'
-                  }`}>
-                    ¥{(stats.totalRevenue - stats.totalGmCost - stats.totalLicenseCost - totalProductionCost).toLocaleString()}
-                  </div>
-                  <div className="text-xs text-muted-foreground">利益</div>
-                </div>
+                {(() => {
+                  const totalCost = stats.totalGmCost + stats.totalLicenseCost + stats.totalVenueCost + totalProductionCost
+                  const profit = stats.totalRevenue - totalCost
+                  return (
+                    <div className={`text-center p-3 rounded-lg ${
+                      profit >= 0 
+                        ? 'bg-green-50 dark:bg-green-950/30' 
+                        : 'bg-red-50 dark:bg-red-950/30'
+                    }`}>
+                      <div className={`text-xl font-bold ${
+                        profit >= 0 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-red-500'
+                      }`}>
+                        ¥{profit.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-muted-foreground">利益</div>
+                    </div>
+                  )
+                })()}
               </div>
               
               {/* 内訳 */}
@@ -256,6 +277,12 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
                     <span className="text-muted-foreground">ライセンス料</span>
                     <span>−¥{stats.totalLicenseCost.toLocaleString()}</span>
                   </div>
+                  {stats.totalVenueCost > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">家賃</span>
+                      <span>−¥{stats.totalVenueCost.toLocaleString()}</span>
+                    </div>
+                  )}
                   {totalProductionCost > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">制作費</span>
@@ -264,7 +291,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
                   )}
                   <div className="flex justify-between pt-1 mt-1 border-t font-medium">
                     <span>合計コスト</span>
-                    <span>−¥{(stats.totalGmCost + stats.totalLicenseCost + totalProductionCost).toLocaleString()}</span>
+                    <span>−¥{(stats.totalGmCost + stats.totalLicenseCost + stats.totalVenueCost + totalProductionCost).toLocaleString()}</span>
                   </div>
                 </div>
               </div>

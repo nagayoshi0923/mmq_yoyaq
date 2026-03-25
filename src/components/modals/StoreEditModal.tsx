@@ -41,6 +41,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allSt
         notes: store.notes,
         color: store.color,
         fixed_costs: store.fixed_costs || [],
+        venue_cost_per_performance: store.venue_cost_per_performance ?? 0,
         region: store.region || '',
         transport_allowance: store.transport_allowance ?? undefined,
         kit_group_id: store.kit_group_id
@@ -63,6 +64,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allSt
         notes: '',
         color: '#3B82F6',
         fixed_costs: [],
+        venue_cost_per_performance: 0,
         region: '',
         transport_allowance: undefined
       })
@@ -536,6 +538,27 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allSt
                     月額合計: ¥{(formData.fixed_costs.filter(c => c.frequency === 'monthly').reduce((sum, cost) => sum + cost.amount, 0)).toLocaleString()}
                   </div>
                 )}
+
+                {/* 1公演あたり会場費 */}
+                <div className="pt-4 border-t">
+                  <h3 className="text-lg font-semibold mb-2">1公演あたり会場費</h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    シナリオの収益計算で1公演ごとに差し引かれる会場費（家賃按分）
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">¥</span>
+                    <Input
+                      type="number"
+                      value={formData.venue_cost_per_performance || 0}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        venue_cost_per_performance: parseInt(e.target.value) || 0
+                      }))}
+                      className="w-32"
+                    />
+                    <span className="text-sm text-muted-foreground">/ 公演</span>
+                  </div>
+                </div>
               </div>
             </div>
             

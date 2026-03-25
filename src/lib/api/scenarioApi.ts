@@ -576,6 +576,8 @@ export const scenarioApi = {
     totalStaffParticipants: number
     totalGmCost: number
     totalLicenseCost: number
+    totalVenueCost: number
+    venueCostPerPerformance: number
     firstPerformanceDate: string | null
     performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null; isCancelled: boolean }>
     futurePerformanceCount: number  // 将来の公演予定数
@@ -667,7 +669,7 @@ export const scenarioApi = {
     // ※ 中止公演もリスト表示のため取得（サマリー計算からは除外）
     let eventsQuery = supabase
       .from('schedule_events')
-      .select('id, date, category, current_participants, total_revenue, gm_cost, license_cost, start_time, store_id, is_cancelled')
+      .select('id, date, category, current_participants, total_revenue, gm_cost, license_cost, start_time, store_id, is_cancelled, stores:store_id(venue_cost_per_performance)')
       .eq('scenario_master_id', scenarioId)
       .lte('date', today)
       .neq('category', 'offsite')
@@ -741,6 +743,8 @@ export const scenarioApi = {
     let totalStaffParticipants = 0
     let totalGmCost = 0
     let totalLicenseCost = 0
+    let totalVenueCost = 0
+    const venueCostSet = new Set<number>()
     const performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null; isCancelled: boolean }> = []
 
     events?.forEach(event => {
@@ -775,6 +779,12 @@ export const scenarioApi = {
           licenseCost = isGmTest ? gmTestLicenseAmount : normalLicenseAmount
         }
         totalLicenseCost += licenseCost
+
+        // 会場費: 店舗の venue_cost_per_performance から取得
+        const storeData = (event as any).stores
+        const venueCost = storeData?.venue_cost_per_performance || 0
+        totalVenueCost += venueCost
+        if (venueCost > 0) venueCostSet.add(venueCost)
       }
       
       // リスト表示用には中止公演も含める
@@ -790,6 +800,13 @@ export const scenarioApi = {
         isCancelled
       })
     })
+
+    // 1公演あたり会場費（全公演で同一値なら代表値を返す）
+    const venueCostPerPerformance = venueCostSet.size === 1
+      ? [...venueCostSet][0]
+      : venueCostSet.size > 1
+        ? Math.round(totalVenueCost / (performanceCount || 1))
+        : 0
 
     // 将来の公演予定数（明日以降、出張公演除外、中止除外）
     let futurePerfQuery = supabase
@@ -838,6 +855,8 @@ export const scenarioApi = {
       totalStaffParticipants,
       totalGmCost,
       totalLicenseCost,
+      totalVenueCost,
+      venueCostPerPerformance,
       firstPerformanceDate,
       performanceDates,
       futurePerformanceCount: futurePerformanceCount || 0,
