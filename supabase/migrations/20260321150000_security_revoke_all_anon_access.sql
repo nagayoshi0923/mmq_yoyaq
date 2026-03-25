@@ -53,10 +53,12 @@ CREATE POLICY "private_groups_select_by_invite_code" ON public.private_groups
   FOR SELECT USING (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "private_group_survey_responses_public_select" ON public.private_group_survey_responses;
+DROP POLICY IF EXISTS "private_group_survey_responses_select" ON public.private_group_survey_responses;
 CREATE POLICY "private_group_survey_responses_select" ON public.private_group_survey_responses
   FOR SELECT USING (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "private_group_survey_responses_public_update" ON public.private_group_survey_responses;
+DROP POLICY IF EXISTS "private_group_survey_responses_update" ON public.private_group_survey_responses;
 CREATE POLICY "private_group_survey_responses_update" ON public.private_group_survey_responses
   FOR UPDATE USING (auth.uid() IS NOT NULL);
 
@@ -64,11 +66,14 @@ CREATE POLICY "private_group_survey_responses_update" ON public.private_group_su
 DROP POLICY IF EXISTS "anon_read_business_hours" ON public.business_hours_settings;
 DROP POLICY IF EXISTS "business_hours_settings_select_public" ON public.business_hours_settings;
 DROP POLICY IF EXISTS "authenticated_full_access" ON public.business_hours_settings;
+DROP POLICY IF EXISTS "business_hours_settings_authenticated" ON public.business_hours_settings;
 CREATE POLICY "business_hours_settings_authenticated" ON public.business_hours_settings
   FOR ALL USING (auth.uid() IS NOT NULL);
 
 -- contact_inquiries（認証なしINSERTは必要だがSELECTは不要）
 DROP POLICY IF EXISTS "contact_inquiries_service_policy" ON public.contact_inquiries;
+DROP POLICY IF EXISTS "contact_inquiries_insert_anon" ON public.contact_inquiries;
+DROP POLICY IF EXISTS "contact_inquiries_select_admin" ON public.contact_inquiries;
 CREATE POLICY "contact_inquiries_insert_anon" ON public.contact_inquiries
   FOR INSERT WITH CHECK (true);
 CREATE POLICY "contact_inquiries_select_admin" ON public.contact_inquiries
@@ -76,13 +81,17 @@ CREATE POLICY "contact_inquiries_select_admin" ON public.contact_inquiries
 
 -- organization_scenarios
 DROP POLICY IF EXISTS "organization_scenarios_public_select" ON public.organization_scenarios;
+DROP POLICY IF EXISTS "organization_scenarios_select_authenticated" ON public.organization_scenarios;
 CREATE POLICY "organization_scenarios_select_authenticated" ON public.organization_scenarios
   FOR SELECT USING (auth.uid() IS NOT NULL);
 
 -- scenario 関連
 DROP POLICY IF EXISTS "scenario_characters_select_all" ON public.scenario_characters;
+DROP POLICY IF EXISTS "scenario_characters_select_auth" ON public.scenario_characters;
 DROP POLICY IF EXISTS "scenario_likes_select" ON public.scenario_likes;
+DROP POLICY IF EXISTS "scenario_likes_select_auth" ON public.scenario_likes;
 DROP POLICY IF EXISTS "scenario_reviews_select" ON public.scenario_reviews;
+DROP POLICY IF EXISTS "scenario_reviews_select_auth" ON public.scenario_reviews;
 DROP POLICY IF EXISTS "Anyone can view reviews" ON public.scenario_reviews;
 
 CREATE POLICY "scenario_characters_select_auth" ON public.scenario_characters
@@ -94,6 +103,7 @@ CREATE POLICY "scenario_reviews_select_auth" ON public.scenario_reviews
 
 -- org_scenario_survey_questions
 DROP POLICY IF EXISTS "org_scenario_survey_questions_public_select" ON public.org_scenario_survey_questions;
+DROP POLICY IF EXISTS "org_scenario_survey_questions_select_auth" ON public.org_scenario_survey_questions;
 CREATE POLICY "org_scenario_survey_questions_select_auth" ON public.org_scenario_survey_questions
   FOR SELECT USING (auth.uid() IS NOT NULL);
 
