@@ -2,11 +2,12 @@ import React, { useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useSessionState } from '@/hooks/useSessionState'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { TrendingUp, BarChart, FileText, Store, ShoppingBag, Users } from 'lucide-react'
+import { TrendingUp, BarChart, BarChart3, FileText, Store, ShoppingBag, Users } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
 const SALES_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'sales-overview', label: '売上概要', icon: TrendingUp, description: '売上サマリーを表示' },
+  { id: 'annual-analysis', label: '年間分析', icon: BarChart3, description: '年間推移・成長率' },
   { id: 'scenario-performance', label: 'シナリオ別', icon: BarChart, description: 'シナリオ別売上' },
   { id: 'external-sales', label: '外部売上', icon: ShoppingBag, description: 'BOOTH・他店公演' },
   { id: 'misc-transactions', label: '雑収支管理', icon: FileText, description: '公演外の収支を管理' },
@@ -22,12 +23,14 @@ import { SalesOverview } from './components/SalesOverview'
 import { ScenarioPerformance } from './components/ScenarioPerformance'
 import { MiscellaneousTransactions } from './components/MiscellaneousTransactions'
 import { ExternalSales } from './components/ExternalSales'
+import { AnnualAnalysis } from './components/AnnualAnalysis'
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
@@ -38,6 +41,7 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend
@@ -137,6 +141,8 @@ const SalesManagement: React.FC = () => {
             onDataRefresh={() => loadSalesData(selectedPeriod, selectedStoreIds, 'corporate')}
           />
         )
+      case 'annual-analysis':
+        return <AnnualAnalysis stores={stores} selectedStoreIds={selectedStoreIds} />
       case 'scenario-performance':
                 return (
           <ScenarioPerformance
