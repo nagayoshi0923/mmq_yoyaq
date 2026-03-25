@@ -3,6 +3,7 @@ import { BrowserRouter, useLocation, useNavigate, useNavigationType } from 'reac
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { RouteScrollRestorationProvider } from '@/contexts/RouteScrollRestorationContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { supabase } from '@/lib/supabase'
@@ -282,9 +283,11 @@ function AppRoutes() {
     <FullPageSpinner />
   )
 
-  // 開発者モード: license_adminの場合にbodyにdev-modeクラスを付与
+  // 開発者モード: ライセンス管理者（license_admin + QW管理者）にdev-modeクラスを付与
+  const { organizationId: devOrgId } = useOrganization()
+  const isLicAdmin = checkIsLicenseAdmin(user?.role, devOrgId)
   React.useEffect(() => {
-    if (user?.role === 'license_admin') {
+    if (isLicAdmin) {
       document.body.classList.add('dev-mode')
     } else {
       document.body.classList.remove('dev-mode')
@@ -292,7 +295,7 @@ function AppRoutes() {
     return () => {
       document.body.classList.remove('dev-mode')
     }
-  }, [user?.role])
+  }, [isLicAdmin])
 
   // 顧客ユーザーは「氏名/電話/メール」が揃うまで全ページでプロフィール登録を求める
   // ただし /complete-profile 自体はリダイレクト対象外（無限ループ防止）

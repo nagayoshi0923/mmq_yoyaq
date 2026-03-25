@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import { 
@@ -80,7 +81,8 @@ export function ScenarioMasterEdit() {
   const [saving, setSaving] = useState(false)
   const [genreInput, setGenreInput] = useState('')
 
-  const isLicenseAdmin = user?.role === 'license_admin'
+  const { organizationId } = useOrganization()
+  const isLicenseAdmin = checkIsLicenseAdmin(user?.role, organizationId)
 
   const fetchData = useCallback(async () => {
     if (!id || isNew) return

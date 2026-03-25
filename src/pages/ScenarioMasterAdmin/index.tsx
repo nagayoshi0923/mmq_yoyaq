@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 import { ScenarioMasterEditDialog } from '@/components/modals/ScenarioMasterEditDialog'
 import { 
@@ -99,7 +100,8 @@ export function ScenarioMasterAdmin() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingMasterId, setEditingMasterId] = useState<string | null>(null)
 
-  const isLicenseAdmin = user?.role === 'license_admin'
+  const { organizationId } = useOrganization()
+  const isLicenseAdmin = checkIsLicenseAdmin(user?.role, organizationId)
 
   const fetchMasters = useCallback(async () => {
     try {

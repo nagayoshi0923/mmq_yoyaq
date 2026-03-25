@@ -1,7 +1,7 @@
 import { useCallback, memo, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { useOrganization } from '@/hooks/useOrganization'
+import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { LogOut, User, Building2, ChevronRight, LayoutDashboard } from 'lucide-react'
@@ -40,7 +40,7 @@ interface HeaderProps {
 export const Header = memo(function Header({ onPageChange }: HeaderProps) {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
-  const { organization: staffOrganization } = useOrganization()
+  const { organization: staffOrganization, organizationId } = useOrganization()
   const location = useLocation()
   
   // 訪問した組織（顧客用）
@@ -192,7 +192,7 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                     style={{ borderRadius: 0 }}
                     {...devDb('users.role')}
                   >
-                    {user?.role === 'license_admin' ? 'MMQ運営' :
+                    {checkIsLicenseAdmin(user?.role, organizationId) ? 'MMQ運営' :
                      user?.role === 'admin' ? '管理者' : 
                      user?.role === 'staff' ? 'スタッフ' : '顧客'}
                   </Badge>

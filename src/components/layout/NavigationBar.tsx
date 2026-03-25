@@ -2,7 +2,7 @@ import { useMemo, useCallback, memo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStoreConfirmationPendingCount } from '@/hooks/useStoreConfirmationPendingCount'
-import { useOrganization } from '@/hooks/useOrganization'
+import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { 
   CalendarDays,
   Users, 
@@ -76,13 +76,20 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'scenario-masters', path: '/admin/scenario-masters', label: 'マスタ管理', icon: Shield, roles: ['license_admin'] }
   ], [bookingSlug])
   
+  const { organizationId } = useOrganization()
+  const isLicAdmin = checkIsLicenseAdmin(user?.role, organizationId)
+
   // ユーザーのロールに応じてタブをフィルタリング
   const navigationTabs = useMemo(() => {
     if (!user || !user.role) {
       return []
     }
-    return allTabs.filter(tab => tab.roles.includes(user.role))
-  }, [allTabs, user])
+    return allTabs.filter(tab => {
+      if (tab.roles.includes(user.role)) return true
+      if (isLicAdmin && tab.roles.includes('license_admin')) return true
+      return false
+    })
+  }, [allTabs, user, isLicAdmin])
 
   // アクティブ判定
   const isTabActive = useCallback((tab: typeof allTabs[0]) => {

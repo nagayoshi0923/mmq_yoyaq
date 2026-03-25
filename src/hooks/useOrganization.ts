@@ -149,3 +149,18 @@ export function isQueensWaltz(organizationId: string | null): boolean {
   return organizationId === QUEENS_WALTZ_ORG_ID
 }
 
+/**
+ * ライセンス管理者権限を持つかを判定
+ * DB側の is_license_admin() と同等のロジック:
+ *   role='license_admin' OR (role='admin' AND organization_id=QW)
+ */
+export function checkIsLicenseAdmin(
+  role: string | undefined | null,
+  organizationId: string | undefined | null
+): boolean {
+  if (role === 'license_admin') return true
+  if (role === 'admin' && organizationId === QUEENS_WALTZ_ORG_ID) return true
+  return false
+}
+
+

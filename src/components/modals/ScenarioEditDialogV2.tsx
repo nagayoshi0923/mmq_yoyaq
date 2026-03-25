@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield, RefreshCw, ArrowUp, ExternalLink, ClipboardList, UserCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { ScenarioMasterEditDialog } from './ScenarioMasterEditDialog'
 import { MasterSelectDialog } from './MasterSelectDialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -144,17 +145,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const scenarioMutation = useScenarioMutation()
   const deleteMutation = useDeleteScenarioMutation()
   const { user } = useAuth()
-  const isLicenseAdmin = user?.role === 'license_admin'
+  const { organizationId: currentOrgId } = useOrganization()
+  const isLicenseAdmin = checkIsLicenseAdmin(user?.role, currentOrgId)
   const isOrgAdmin = user?.role === 'admin'
   const canDeleteScenario = isLicenseAdmin || isOrgAdmin
-  
-  // クインズワルツの組織ID
-  const QUEENS_WALTZ_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
-  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
-  
-  // クインズワルツの管理者はマスター編集権限を持つ
-  const isQueensWaltzAdmin = isOrgAdmin && currentOrgId === QUEENS_WALTZ_ORG_ID
-  const canEditMaster = isLicenseAdmin || isQueensWaltzAdmin
+  const canEditMaster = isLicenseAdmin
   
   // マスター編集ダイアログ（MMQ運営者用）
   const [masterEditDialogOpen, setMasterEditDialogOpen] = useState(false)
@@ -182,7 +177,6 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       const currentOrg = await getCurrentOrganization()
       if (cancelled) return
       setOrganizationName(currentOrg?.name || '')
-      setCurrentOrgId(currentOrg?.id || null)
 
       let slugForPublic = currentOrg?.slug?.trim() || ''
       const scenarioOrgId =
