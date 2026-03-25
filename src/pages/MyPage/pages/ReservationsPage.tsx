@@ -64,6 +64,7 @@ export function ReservationsPage() {
   const [loading, setLoading] = useState(true)
   const [scenarioImages, setScenarioImages] = useState<Record<string, string>>({})
   const [scenarioInfo, setScenarioInfo] = useState<Record<string, { min: number; max: number }>>({})
+  const [scenarioTitles, setScenarioTitles] = useState<Record<string, string>>({})
   const [stores, setStores] = useState<Record<string, Store>>({})
   
   // キャンセルダイアログ
@@ -223,7 +224,7 @@ export function ReservationsPage() {
           scenarioMasterIds.length > 0
             ? supabase
                 .from('scenario_masters')
-                .select('id, key_visual_url, player_count_min, player_count_max')
+                .select('id, title, key_visual_url, player_count_min, player_count_max')
                 .in('id', scenarioMasterIds)
             : Promise.resolve({ data: null, error: null }),
           storeIdsArray.length > 0
@@ -244,8 +245,10 @@ export function ReservationsPage() {
         if (scenarioResult.data) {
           const imageMap: Record<string, string> = {}
           const scenarioInfoMap: Record<string, { min: number; max: number }> = {}
+          const titleMap: Record<string, string> = {}
           scenarioResult.data.forEach(s => {
             if (s.key_visual_url) imageMap[s.id] = s.key_visual_url
+            if (s.title) titleMap[s.id] = s.title
             scenarioInfoMap[s.id] = {
               min: s.player_count_min || 1,
               max: s.player_count_max || 8
@@ -253,6 +256,7 @@ export function ReservationsPage() {
           })
           setScenarioImages(imageMap)
           setScenarioInfo(scenarioInfoMap)
+          setScenarioTitles(titleMap)
         }
 
         // 店舗情報処理
@@ -394,9 +398,14 @@ export function ReservationsPage() {
     }
   }
 
-  const formatTitle = (title: string) => {
-    // 【貸切希望】XXX（候補○件）→ 【貸切】XXX に変換
-    return title
+  const formatTitle = (reservation: Reservation) => {
+    const masterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+    const masterTitle = masterId ? scenarioTitles[masterId] : undefined
+    if (masterTitle) {
+      const prefix = reservation.title.match(/^【[^】]+】/)?.[0] ?? ''
+      return prefix ? `${prefix}${masterTitle}` : masterTitle
+    }
+    return reservation.title
       .replace(/【貸切希望】/g, '【貸切】')
       .replace(/（候補\d+件）/g, '')
       .trim()
@@ -960,7 +969,7 @@ export function ReservationsPage() {
                             {statusInfo.label}
                           </Badge>
                         </div>
-                        <h4 className="font-medium text-sm truncate">{formatTitle(reservation.title)}</h4>
+                        <h4 className="font-medium text-sm truncate">{formatTitle(reservation)}</h4>
                       </div>
                     </div>
 
@@ -1074,7 +1083,7 @@ export function ReservationsPage() {
                             )
                           })()}
                         </div>
-                        <h4 className="font-medium text-sm truncate">{formatTitle(reservation.title)}</h4>
+                        <h4 className="font-medium text-sm truncate">{formatTitle(reservation)}</h4>
                       </div>
                     </div>
 
@@ -1222,7 +1231,7 @@ export function ReservationsPage() {
                           参加済み
                         </Badge>
                       </div>
-                      <h4 className="font-medium text-sm truncate">{formatTitle(reservation.title)}</h4>
+                      <h4 className="font-medium text-sm truncate">{formatTitle(reservation)}</h4>
                     </div>
                   </div>
 
@@ -1383,7 +1392,7 @@ export function ReservationsPage() {
                       <div className="flex items-center gap-2 mb-1">
                         <Badge variant="destructive" className="text-xs flex-shrink-0">キャンセル</Badge>
                       </div>
-                      <h4 className="font-medium text-sm line-through truncate">{formatTitle(reservation.title)}</h4>
+                      <h4 className="font-medium text-sm line-through truncate">{formatTitle(reservation)}</h4>
                     </div>
                   </div>
 
@@ -1425,7 +1434,7 @@ export function ReservationsPage() {
               <div className="space-y-3 mt-2">
                 {cancelTarget && (
                   <>
-                    <div className="font-medium text-foreground">{formatTitle(cancelTarget.title)}</div>
+                    <div className="font-medium text-foreground">{formatTitle(cancelTarget)}</div>
                     <div className="text-sm text-muted-foreground">
                       <div>日時: {formatDateTime(cancelTarget.requested_datetime)}</div>
                       <div>参加人数: {cancelTarget.participant_count}名</div>
@@ -1574,7 +1583,7 @@ export function ReservationsPage() {
           <DialogHeader>
             <DialogTitle>参加人数を変更</DialogTitle>
             <DialogDescription>
-              {editTarget && formatTitle(editTarget.title)}
+              {editTarget && formatTitle(editTarget)}
               {editTarget && !canDecrease(editTarget) && (
                 <span className="block text-amber-600 mt-1">
                   ※キャンセル期限を過ぎているため、人数の追加のみ可能です
