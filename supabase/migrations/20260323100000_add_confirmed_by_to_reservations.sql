@@ -208,7 +208,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION approve_private_booking TO authenticated;
+GRANT EXECUTE ON FUNCTION approve_private_booking(UUID, DATE, TIME, TIME, UUID, UUID, JSONB, TEXT, TEXT) TO authenticated;
 
-COMMENT ON FUNCTION approve_private_booking IS
+COMMENT ON FUNCTION approve_private_booking(UUID, DATE, TIME, TIME, UUID, UUID, JSONB, TEXT, TEXT) IS
 '貸切予約承認をアトミックに実行。店舗枠の重複に加えて、担当GMの既存予定との時間重複も禁止。紐付いたprivate_groupsのステータスも自動更新。承認者のスタッフIDをconfirmed_byに記録。';
