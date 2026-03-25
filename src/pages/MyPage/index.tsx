@@ -743,7 +743,7 @@ export default function MyPage() {
             listDedupeKeys.add(k)
             return true
           })
-          .slice(0, 50)
+          .slice(0, MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER)
         
         setPlayedScenarios(uniquePlayed)
       }
