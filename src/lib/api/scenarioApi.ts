@@ -6,6 +6,7 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import type { Scenario } from '@/types'
 import type { PaginatedResponse } from './types'
 import { logger } from '@/utils/logger'
+import { fetchSalarySettings, calculateGmWage } from '@/hooks/useSalarySettings'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const SCENARIO_SELECT_FIELDS =
@@ -591,10 +592,10 @@ export const scenarioApi = {
     
     logger.log('📊 getScenarioStats: scenario_master_id =', scenarioId)
 
-    // シナリオの最大参加者数とライセンス料を取得（organization_scenarios_with_master から）
+    // シナリオの最大参加者数・ライセンス料・参加費・GM報酬を取得（organization_scenarios_with_master から）
     let scenarioQuery = supabase
       .from('organization_scenarios_with_master')
-      .select('player_count_max, license_amount, gm_test_license_amount, license_rewards')
+      .select('player_count_max, license_amount, gm_test_license_amount, license_rewards, participation_fee, gm_test_participation_fee, participation_costs, gm_costs, duration')
       .eq('id', scenarioId)
     
     if (orgId) {
@@ -610,6 +611,30 @@ export const scenarioApi = {
     const gmTestLicenseFromRewards = licenseRewards?.find(r => r.item === 'gmtest')?.amount
     const normalLicenseAmount = normalLicenseFromRewards ?? defaultLicenseAmount
     const gmTestLicenseAmount = gmTestLicenseFromRewards ?? defaultGmTestLicenseAmount
+    
+    // 参加費（売上計算用）
+    const participationCosts = scenarioData?.participation_costs as Array<{ time_slot: string; amount: number }> | undefined
+    const normalParticipationFee = participationCosts?.find(c => c.time_slot === 'normal')?.amount || scenarioData?.participation_fee || 0
+    const gmTestParticipationFee = participationCosts?.find(c => c.time_slot === 'gmtest')?.amount || scenarioData?.gm_test_participation_fee || 0
+    
+    // GM報酬（コスト計算用）
+    const gmAssignments = scenarioData?.gm_costs as Array<{ category?: string; reward?: number }> | undefined
+    const hasCustomGmCosts = gmAssignments && gmAssignments.length > 0
+    let normalGmReward = 0
+    let gmTestGmReward = 0
+    if (hasCustomGmCosts) {
+      normalGmReward = gmAssignments
+        .filter(a => (a.category || 'normal') === 'normal')
+        .reduce((sum, a) => sum + (a.reward || 0), 0)
+      gmTestGmReward = gmAssignments
+        .filter(a => a.category === 'gmtest')
+        .reduce((sum, a) => sum + (a.reward || 0), 0) || Math.max(0, normalGmReward - 2000)
+    } else {
+      const salarySettings = await fetchSalarySettings()
+      const duration = scenarioData?.duration || 0
+      normalGmReward = calculateGmWage(duration, false, salarySettings)
+      gmTestGmReward = calculateGmWage(duration, true, salarySettings)
+    }
 
     // 公演回数（中止以外、今日まで、出張公演除外）- scenario_master_id で検索
     let perfQuery = supabase
@@ -764,18 +789,24 @@ export const scenarioApi = {
       // 最大参加者数を超えないように制限
       const participants = Math.min(rawParticipants, maxParticipants)
       
+      // 売上計算: event.total_revenue が未設定の場合は参加者数 × 参加費から計算
+      const isGmTest = event.category === 'gmtest'
+      const fee = isGmTest ? gmTestParticipationFee : normalParticipationFee
+      const eventRevenue = event.total_revenue || (participants * fee)
+      
+      // GM報酬: event.gm_cost が未設定の場合はシナリオ設定から計算
+      const eventGmCost = event.gm_cost || (isGmTest ? gmTestGmReward : normalGmReward)
+      
       // サマリー計算は中止公演を除外
       if (!isCancelled) {
         totalParticipants += participants
         totalStaffParticipants += staffCount
-        totalRevenue += event.total_revenue || 0
-        totalGmCost += event.gm_cost || 0
+        totalRevenue += eventRevenue
+        totalGmCost += eventGmCost
         
         // ライセンス料の計算: event.license_cost が0または未設定の場合はシナリオの設定値から計算
         let licenseCost = event.license_cost || 0
         if (licenseCost === 0) {
-          // カテゴリに応じて適切なライセンス料を設定
-          const isGmTest = event.category === 'gmtest'
           licenseCost = isGmTest ? gmTestLicenseAmount : normalLicenseAmount
         }
         totalLicenseCost += licenseCost
@@ -791,10 +822,10 @@ export const scenarioApi = {
       performanceDates.push({
         date: event.date,
         category: event.category || 'open',
-        participants,  // 参加者数
-        demoParticipants: demoCount,  // 内訳用に保持
-        staffParticipants: staffCount,  // スタッフ参加者数
-        revenue: event.total_revenue || 0,
+        participants,
+        demoParticipants: demoCount,
+        staffParticipants: staffCount,
+        revenue: eventRevenue,
         startTime: event.start_time || '',
         storeId: event.store_id || null,
         isCancelled

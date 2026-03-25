@@ -82,6 +82,7 @@ jobs:
             "sync-shifts-to-google-sheet"
             "send-contact-inquiry"
             "send-author-report"
+            "notify-kit-transfer-plan"
           )
           
           # すべての関数をデプロイ（まずJWT検証ありでデプロイ）
@@ -161,6 +162,7 @@ jobs:
             "sync-shifts-to-google-sheet"
             "send-contact-inquiry"
             "send-author-report"
+            "notify-kit-transfer-plan"
           )
           
           # すべての関数をデプロイ（まずJWT検証ありでデプロイ）

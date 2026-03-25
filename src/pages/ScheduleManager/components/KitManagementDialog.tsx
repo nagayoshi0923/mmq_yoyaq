@@ -539,7 +539,6 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const getCompletionKeyLoose = useCallback((
     scenarioId: string,
     kitNumber: number,
-    _toStoreId?: string  // 未使用（互換性のため残す）
   ) => {
     return `${scenarioId}-${kitNumber}`
   }, [])
@@ -556,7 +555,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return map
   }, [completions, getCompletionKeyFull])
   
-  // ルーズキーのマップ（同じシナリオ・キット・店舗の最新完了状態）
+  // ルーズキーのマップ（同じシナリオ・キットの完了状態、to_store_idや日付は問わない）
   const completionMapLoose = useMemo(() => {
     const map = new Map<string, KitTransferCompletion>()
     // 日付順にソートして最新を保持
@@ -565,72 +564,47 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     )
     for (const c of sorted) {
       const scenarioId = c.org_scenario_id || c.scenario_id
-      const key = getCompletionKeyLoose(scenarioId, c.kit_number, c.to_store_id)
-      // 後のエントリが上書きするので、最新の日付のものが残る
+      const key = getCompletionKeyLoose(scenarioId, c.kit_number)
       map.set(key, c)
     }
     return map
   }, [completions, getCompletionKeyLoose])
   
-  // 回収済みかどうか（フルキーまたはルーズキーでマッチ）
+  // 回収済みかどうか（フルキーのみで完全一致マッチ）
+  // 別の移動の完了記録が誤表示されるのを防ぐため、ルーズキーは使わない
   const isPickedUp = useCallback((
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
     toStoreId: string
   ) => {
-    // まずフルキーで探す
     const fullKey = getCompletionKeyFull(scenarioId, kitNumber, performanceDate, toStoreId)
-    let completion = completionMapFull.get(fullKey)
-    
-    // なければルーズキーで探す
-    if (!completion) {
-      const looseKey = getCompletionKeyLoose(scenarioId, kitNumber, toStoreId)
-      completion = completionMapLoose.get(looseKey)
-    }
-    
+    const completion = completionMapFull.get(fullKey)
     return completion?.picked_up_at != null
-  }, [completionMapFull, completionMapLoose, getCompletionKeyFull, getCompletionKeyLoose])
+  }, [completionMapFull, getCompletionKeyFull])
   
-  // 設置済みかどうか（フルキーまたはルーズキーでマッチ）
+  // 設置済みかどうか（フルキーのみで完全一致マッチ）
   const isDelivered = useCallback((
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
     toStoreId: string
   ) => {
-    // まずフルキーで探す
     const fullKey = getCompletionKeyFull(scenarioId, kitNumber, performanceDate, toStoreId)
-    let completion = completionMapFull.get(fullKey)
-    
-    // なければルーズキーで探す
-    if (!completion) {
-      const looseKey = getCompletionKeyLoose(scenarioId, kitNumber, toStoreId)
-      completion = completionMapLoose.get(looseKey)
-    }
-    
+    const completion = completionMapFull.get(fullKey)
     return completion?.delivered_at != null
-  }, [completionMapFull, completionMapLoose, getCompletionKeyFull, getCompletionKeyLoose])
+  }, [completionMapFull, getCompletionKeyFull])
   
-  // 完了情報を取得（フルキーまたはルーズキーでマッチ）
+  // 完了情報を取得（フルキーのみで完全一致マッチ）
   const getCompletion = useCallback((
     scenarioId: string,
     kitNumber: number,
     performanceDate: string,
     toStoreId: string
   ): KitTransferCompletion | undefined => {
-    // まずフルキーで探す
     const fullKey = getCompletionKeyFull(scenarioId, kitNumber, performanceDate, toStoreId)
-    let completion = completionMapFull.get(fullKey)
-    
-    // なければルーズキーで探す
-    if (!completion) {
-      const looseKey = getCompletionKeyLoose(scenarioId, kitNumber, toStoreId)
-      completion = completionMapLoose.get(looseKey)
-    }
-    
-    return completion
-  }, [completionMapFull, completionMapLoose, getCompletionKeyFull, getCompletionKeyLoose])
+    return completionMapFull.get(fullKey)
+  }, [completionMapFull, getCompletionKeyFull])
   
   // 公演がキャンセルされたかチェック
   const isPerformanceCancelled = useCallback((scenarioId: string, performanceDate: string, storeId: string): boolean => {
@@ -649,90 +623,80 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     return allCancelled
   }, [scheduleEvents, getStoreGroupId])
   
-  // 提案と完了記録をマージ（過去の完了記録をオプティマイザ提案に追加）
+  // 提案と完了記録をマージ（アルゴリズムが生成しなかった完了済み移動も表示）
   const mergedSuggestions = useMemo(() => {
-    // 設置完了済みのキーを記録（カウント用）
-    const deliveredKeys = new Set<string>()
-    for (const c of completions) {
-      if (c.delivered_at) {
-        deliveredKeys.add(`${c.scenario_id}-${c.kit_number}-${c.performance_date}`)
+    const filteredSuggestions = [...suggestions]
+    
+    // org_scenario_id → scenario情報 のマッピング（kitLocationsから構築）
+    const orgScenarioInfoMap = new Map<string, { scenarioMasterId: string; title: string }>()
+    for (const loc of kitLocations) {
+      if (loc.org_scenario_id && loc.scenario) {
+        orgScenarioInfoMap.set(loc.org_scenario_id, {
+          scenarioMasterId: loc.scenario.id,
+          title: loc.scenario.title
+        })
       }
     }
     
-    // 全ての提案を保持（設置完了済みも含む - チェック状態確認のため）
-    const filteredSuggestions = [...suggestions]
-    
-    // 過去の完了記録を追加（履歴表示用）
+    // 既存提案のフルキーを収集（org_scenario_id と scenario_id の両方で登録）
     const suggestionFullKeys = new Set<string>()
     for (const s of filteredSuggestions) {
-      suggestionFullKeys.add(`${s.scenario_id}-${s.kit_number}-${s.performance_date}-${s.to_store_id}`)
+      const orgId = s.org_scenario_id || s.scenario_id
+      suggestionFullKeys.add(`${orgId}-${s.kit_number}-${s.performance_date}-${s.to_store_id}`)
+      if (s.org_scenario_id && s.org_scenario_id !== s.scenario_id) {
+        suggestionFullKeys.add(`${s.scenario_id}-${s.kit_number}-${s.performance_date}-${s.to_store_id}`)
+      }
     }
     
-    // 完了記録から追加の「提案」を生成（過去の移動日のもののみ）
+    // 完了記録から追加の「提案」を生成（今週の demandDates に含まれるもの）
     const additionalFromCompletions: typeof suggestions = []
-    const today = new Date()
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     
     for (const c of completions) {
-      // 設置完了済みはスキップ（履歴表示も不要）
-      if (c.delivered_at) continue
+      if (!c.picked_up_at) continue
       
-      // フルキーで重複チェック
-      const fullKey = `${c.scenario_id}-${c.kit_number}-${c.performance_date}-${c.to_store_id}`
+      // 今週の公演期間に含まれない完了記録はスキップ
+      if (!demandDates.includes(c.performance_date)) continue
       
-      // オプティマイザの提案にすでにある場合はスキップ
+      // フルキーで重複チェック（org_scenario_id を優先）
+      const cScenarioId = c.org_scenario_id || c.scenario_id
+      const fullKey = `${cScenarioId}-${c.kit_number}-${c.performance_date}-${c.to_store_id}`
       if (suggestionFullKeys.has(fullKey)) continue
       
-      // シナリオ情報を取得
-      const scenario = scenarios.find(s => s.id === c.scenario_id)
-      if (!scenario) continue
+      // シナリオ情報を取得（org_scenario_id からの解決を優先）
+      const orgInfo = c.org_scenario_id ? orgScenarioInfoMap.get(c.org_scenario_id) : undefined
+      const scenarioFromList = !orgInfo ? scenarios.find(s => s.id === c.scenario_id) : undefined
+      const scenarioTitle = orgInfo?.title || scenarioFromList?.title
+      const scenarioMasterId = orgInfo?.scenarioMasterId || c.scenario_id
+      if (!scenarioTitle) continue
       
       // 店舗情報を取得
       const fromStore = stores.find(s => s.id === c.from_store_id)
       const toStore = stores.find(s => s.id === c.to_store_id)
-      if (!fromStore || !toStore) continue
+      if (!toStore) continue
       
-      // 実際の移動日を計算（picked_up_at から取得、なければ created_at、最後の手段で performance_date の前日）
-      let actualTransferDate: string
-      if (c.picked_up_at) {
-        // picked_up_at の日付部分を取得（ローカル時間に変換）
-        const pickedUpDate = new Date(c.picked_up_at)
-        actualTransferDate = `${pickedUpDate.getFullYear()}-${String(pickedUpDate.getMonth() + 1).padStart(2, '0')}-${String(pickedUpDate.getDate()).padStart(2, '0')}`
-      } else if (c.created_at) {
-        // created_at の日付部分を取得（記録作成日 = 移動計画が立てられた日）
-        const createdDate = new Date(c.created_at)
-        actualTransferDate = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}-${String(createdDate.getDate()).padStart(2, '0')}`
-      } else {
-        // 最後の手段: performance_date の前日
-        const [year, month, day] = c.performance_date.split('-').map(Number)
-        const perfDate = new Date(year, month - 1, day)
-        perfDate.setDate(perfDate.getDate() - 1)
-        actualTransferDate = `${perfDate.getFullYear()}-${String(perfDate.getMonth() + 1).padStart(2, '0')}-${String(perfDate.getDate()).padStart(2, '0')}`
-      }
+      // 移動日を計算（picked_up_at の日付）
+      const pickedUpDate = new Date(c.picked_up_at)
+      const actualTransferDate = `${pickedUpDate.getFullYear()}-${String(pickedUpDate.getMonth() + 1).padStart(2, '0')}-${String(pickedUpDate.getDate()).padStart(2, '0')}`
       
-      // 過去の移動日で未完了のもののみ追加（チェック漏れを表示）
-      if (actualTransferDate >= todayStr) continue
-      
-      // 提案形式に変換
       additionalFromCompletions.push({
-        scenario_id: c.scenario_id,
-        scenario_title: scenario.title,
+        scenario_id: scenarioMasterId,
+        scenario_title: scenarioTitle,
         kit_number: c.kit_number,
-        from_store_id: c.from_store_id,
-        from_store_name: fromStore.short_name || fromStore.name,
+        from_store_id: c.from_store_id || '',
+        from_store_name: fromStore?.short_name || fromStore?.name || '',
         to_store_id: c.to_store_id,
         to_store_name: toStore.short_name || toStore.name,
         transfer_date: actualTransferDate,
         performance_date: c.performance_date,
-        reason: '完了記録から復元'
+        reason: '完了記録',
+        org_scenario_id: c.org_scenario_id
       })
       
-      // キーを追加して重複を防ぐ
       suggestionFullKeys.add(fullKey)
     }
     
     return [...filteredSuggestions, ...additionalFromCompletions]
-  }, [suggestions, completions, scenarios, stores])
+  }, [suggestions, completions, scenarios, stores, kitLocations, demandDates])
 
   // データ取得
   const fetchData = useCallback(async () => {
