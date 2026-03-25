@@ -543,25 +543,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     return Object.values(grouped)
   }, [events])
 
-  // 1ヶ月以内のイベントとそれ以降を分離
+  // 直近10件とそれ以降を分離
   const { eventsWithinMonth, eventsAfterMonth } = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const oneMonthLater = new Date(today)
-    oneMonthLater.setDate(oneMonthLater.getDate() + 30)
-    
-    const within: EventWithOrg[] = []
-    const after: EventWithOrg[] = []
-    
-    events.forEach(event => {
-      const eventDate = new Date(event.date + 'T00:00:00')
-      if (eventDate < oneMonthLater) {
-        within.push(event)
-      } else {
-        after.push(event)
-      }
-    })
-    
+    const within = events.slice(0, 10)
+    const after = events.slice(10)
     return { eventsWithinMonth: within, eventsAfterMonth: after }
   }, [events])
 
@@ -1093,7 +1078,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                   <h3 className="font-semibold text-white text-sm">公演日程</h3>
                 </div>
                 <span className="text-white/70 text-xs">
-                  1ヶ月以内: {eventsWithinMonth.length}件
+                  直近{eventsWithinMonth.length}件 / 全{events.length}件
                 </span>
               </div>
               <div className="p-4">
@@ -1103,7 +1088,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {/* 1ヶ月以内の公演 */}
+                    {/* 直近10件の公演 */}
                     {eventsWithinMonth.length > 0 ? (
                       <div className="space-y-2">
                         {eventsWithinMonth.map(event => {
@@ -1163,11 +1148,11 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                       </div>
                     ) : (
                       <div className="text-center py-6 bg-gray-50 text-muted-foreground">
-                        1ヶ月以内の公演予定はありません
+                        現在予定されている公演はありません
                       </div>
                     )}
 
-                    {/* 1ヶ月後以降の公演（折りたたみ） */}
+                    {/* 残りの公演（折りたたみ） */}
                     {eventsAfterMonth.length > 0 && (
                       <div className="mt-4">
                         <Button
@@ -1184,7 +1169,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                           ) : (
                             <>
                               <ChevronDown className="w-4 h-4" />
-                              1ヶ月後以降の公演を見る（{eventsAfterMonth.length}件）
+                              残りの公演を見る（{eventsAfterMonth.length}件）
                             </>
                           )}
                         </Button>
