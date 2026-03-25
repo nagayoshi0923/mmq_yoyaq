@@ -326,7 +326,7 @@ AS $$
     se.end_time,
     se.store_id,
     se.scenario_master_id,
-    se.title::TEXT,
+    se.scenario::TEXT,
     se.max_participants,
     se.min_participants,
     se.category::TEXT,
