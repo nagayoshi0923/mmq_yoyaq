@@ -515,3 +515,37 @@ new Date().toISOString()  // "2026-02-17T04:30:00.000Z"
 // OK: JSTとして保存
 `${date}T${time}+09:00`
 ```
+
+---
+
+## マイグレーション適用手順（必須）🚨
+
+### 基本原則：「適用後は必ず権限検証を実行する」
+
+```bash
+# マイグレーション適用（自動で権限検証も実行される）
+npm run db:push:staging
+
+# 権限検証のみ実行
+npm run check:permissions
+
+# 権限が壊れた場合の修復SQL表示
+npm run check:permissions:fix
+```
+
+### マイグレーション作成時のチェックリスト
+
+```
+□ CREATE POLICY の前に DROP POLICY IF EXISTS があるか？
+□ GRANT の対象関数にシグネチャ（引数の型）を指定したか？
+□ anon 必須テーブルの権限を壊していないか？
+□ RPC で参照するカラムが実際に存在するか確認したか？
+□ storage.objects に COMMENT ON POLICY を書いていないか？
+```
+
+### anon SELECT 必須テーブル（公開ページ用）
+
+organizations, stores, scenario_masters, schedule_events,
+organization_scenarios, business_hours_settings, booking_notices,
+private_groups, private_group_members, private_group_candidate_dates,
+private_group_date_responses, private_group_messages

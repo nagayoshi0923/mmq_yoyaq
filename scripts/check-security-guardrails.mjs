@@ -121,6 +121,41 @@ function checkMigrationRls() {
 }
 
 // ===================================================================
+// CREATE POLICY の冪等性チェック
+// DROP POLICY IF EXISTS なしの CREATE POLICY を検出
+// ===================================================================
+function checkPolicyIdempotency() {
+  const migrationsDir = path.join(REPO_ROOT, 'supabase', 'migrations')
+  if (!isDirectory(migrationsDir)) return []
+
+  const sqlFiles = fs.readdirSync(migrationsDir)
+    .filter(f => f.endsWith('.sql') && /^\d{14}/.test(f))
+    .sort()
+
+  const warnings = []
+
+  for (const file of sqlFiles) {
+    const text = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
+    const createPolicyRe = /CREATE\s+POLICY\s+"([^"]+)"\s+ON\s+([^\s(]+)/gi
+    let m
+    while ((m = createPolicyRe.exec(text)) !== null) {
+      const policyName = m[1]
+      const tableName = m[2]
+      const dropPattern = new RegExp(
+        `DROP\\s+POLICY\\s+IF\\s+EXISTS\\s+"${policyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`,
+        'i'
+      )
+      if (!dropPattern.test(text)) {
+        const line = getLineNumberFromIndex(text, m.index)
+        warnings.push(`${file}:${line} — CREATE POLICY "${policyName}" on ${tableName} に対応する DROP POLICY IF EXISTS がありません`)
+      }
+    }
+  }
+
+  return warnings
+}
+
+// ===================================================================
 // P1-9: マイグレーション関数の上書きリスク検出
 // CREATE OR REPLACE FUNCTION がセキュリティ重要関数を上書きしていないかチェック
 // ===================================================================
@@ -278,6 +313,15 @@ function main() {
       console.error(`... and ${hits.length - 200} more`)
     }
     exitCode = 1
+  }
+
+  // CREATE POLICY 冪等性チェック
+  const policyWarnings = checkPolicyIdempotency()
+  if (policyWarnings.length > 0) {
+    console.warn(`[POLICY_IDEMPOTENCY] DROP IF EXISTS が不足: ${policyWarnings.length}`)
+    for (const w of policyWarnings) {
+      console.warn(`  ⚠️  ${w}`)
+    }
   }
 
   // RLS 検証
