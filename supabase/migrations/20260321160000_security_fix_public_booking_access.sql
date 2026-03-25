@@ -21,6 +21,7 @@ DROP POLICY IF EXISTS "organizations_admin_policy" ON public.organizations;
 DROP POLICY IF EXISTS "organizations_select_public" ON public.organizations;
 DROP POLICY IF EXISTS "organizations_select_anon" ON public.organizations;
 DROP POLICY IF EXISTS "organizations_select_authenticated" ON public.organizations;
+DROP POLICY IF EXISTS "organizations_manage_admin" ON public.organizations;
 
 -- 匿名用ポリシー（アクティブな組織のみ）
 CREATE POLICY "organizations_select_anon" ON public.organizations
@@ -39,6 +40,7 @@ CREATE POLICY "organizations_manage_admin" ON public.organizations
 DROP POLICY IF EXISTS "stores_select_authenticated_org" ON public.stores;
 DROP POLICY IF EXISTS "stores_select_public_or_org" ON public.stores;
 DROP POLICY IF EXISTS "stores_select_public_safe" ON public.stores;
+DROP POLICY IF EXISTS "stores_strict" ON public.stores;
 
 CREATE POLICY "stores_select_public_safe" ON public.stores
   FOR SELECT
@@ -48,6 +50,7 @@ CREATE POLICY "stores_select_public_safe" ON public.stores
 -- 4. scenario_masters: 承認済みのみ匿名閲覧可能
 -- =============================================================================
 DROP POLICY IF EXISTS "scenario_masters_select_public_or_staff" ON public.scenario_masters;
+DROP POLICY IF EXISTS "scenario_masters_select" ON public.scenario_masters;
 
 CREATE POLICY "scenario_masters_select_public_or_staff" ON public.scenario_masters
   FOR SELECT
@@ -63,6 +66,7 @@ CREATE POLICY "scenario_masters_select_public_or_staff" ON public.scenario_maste
 DROP POLICY IF EXISTS "schedule_events_select_authenticated_org" ON public.schedule_events;
 DROP POLICY IF EXISTS "schedule_events_select_public_or_org" ON public.schedule_events;
 DROP POLICY IF EXISTS "schedule_events_select_public_safe" ON public.schedule_events;
+DROP POLICY IF EXISTS "schedule_events_strict" ON public.schedule_events;
 
 CREATE POLICY "schedule_events_select_public_safe" ON public.schedule_events
   FOR SELECT
@@ -76,6 +80,7 @@ CREATE POLICY "schedule_events_select_public_safe" ON public.schedule_events
 -- =============================================================================
 DROP POLICY IF EXISTS "organization_scenarios_select_authenticated" ON public.organization_scenarios;
 DROP POLICY IF EXISTS "organization_scenarios_select_public" ON public.organization_scenarios;
+DROP POLICY IF EXISTS "org_scenarios_select" ON public.organization_scenarios;
 
 CREATE POLICY "organization_scenarios_select_public" ON public.organization_scenarios
   FOR SELECT
@@ -91,12 +96,15 @@ CREATE POLICY "organization_scenarios_select_public" ON public.organization_scen
 
 -- business_hours_settings: 営業時間（公開情報）
 GRANT SELECT ON public.business_hours_settings TO anon;
+DROP POLICY IF EXISTS "business_hours_settings_select_public" ON public.business_hours_settings;
+DROP POLICY IF EXISTS "business_hours_settings_authenticated" ON public.business_hours_settings;
 CREATE POLICY "business_hours_settings_select_public" ON public.business_hours_settings
   FOR SELECT
   USING (true);
 
 -- booking_notices: 注意事項（公開情報）
 GRANT SELECT ON public.booking_notices TO anon;
+DROP POLICY IF EXISTS "booking_notices_select_public" ON public.booking_notices;
 CREATE POLICY "booking_notices_select_public" ON public.booking_notices
   FOR SELECT
   USING (true);
