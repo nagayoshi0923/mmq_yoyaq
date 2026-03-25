@@ -269,7 +269,6 @@ RETURNS TABLE (
   name TEXT,
   address TEXT,
   capacity INTEGER,
-  google_maps_url TEXT,
   organization_id UUID
 )
 LANGUAGE sql
@@ -282,7 +281,6 @@ AS $$
     s.name::TEXT,
     s.address::TEXT,
     s.capacity,
-    s.google_maps_url::TEXT,
     s.organization_id
   FROM public.stores s
   WHERE s.organization_id = p_organization_id;
