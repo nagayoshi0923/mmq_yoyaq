@@ -171,7 +171,7 @@ function buildSlotsFromDayConfig(
       ? [...dayHours.available_slots]
       : getDefaultAvailableSlots(dayOfWeek, dateStr, isCustomHoliday)
 
-  if (weekendStyleDefaults && !availableSlots.includes('morning')) {
+  if (!availableSlots.includes('morning')) {
     availableSlots = ['morning', ...availableSlots]
   }
 

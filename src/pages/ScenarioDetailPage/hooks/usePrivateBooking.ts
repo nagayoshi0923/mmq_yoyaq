@@ -485,8 +485,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         const dayHours = settings.opening_hours[effectiveDayName]
         if (dayHours?.available_slots && dayHours.available_slots.length > 0) {
           allowedSlots = dayHours.available_slots
-          // カスタム休日・祝日で朝公演がない場合は追加
-          if (isWeekendOrHoliday && !allowedSlots.includes('morning')) {
+          if (!allowedSlots.includes('morning')) {
             allowedSlots = ['morning', ...allowedSlots]
           }
         }
@@ -655,8 +654,9 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         // ただし、カスタム休日・祝日の場合は朝公演を強制的に有効にする
         if (dayHours.available_slots && dayHours.available_slots.length > 0) {
           availableSlots = dayHours.available_slots
-          // カスタム休日・祝日で朝公演がない場合は追加
-          if (isWeekendOrHoliday && !availableSlots.includes('morning')) {
+          // 朝公演がない場合は追加（長時間作品で午前枠が必要なため）
+          // 短時間作品の平日では isLongFormat=false により午前は表示されない
+          if (!availableSlots.includes('morning')) {
             availableSlots = ['morning', ...availableSlots]
           }
         }
@@ -941,11 +941,10 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
             selectedStoreIds.length > 1 && multiStoreFeasibility
               ? multiStoreFeasibility.slotBaselineStart
               : defaultStartTimes.evening
-          const deadline = eveningStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
-          const reverseStart = deadline - durationMinutes - extraPrepTime
-          if (reverseStart < 0) return null
+          const eveningDeadline = eveningStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+          const reverseFromEvening = eveningDeadline - durationMinutes - extraPrepTime
           const afternoonDefault = defaultStartTimes.afternoon
-          const isLongFormat = reverseStart < afternoonDefault
+          const isLongFormat = reverseFromEvening < afternoonDefault
 
           if (def.key === 'afternoon' && isLongFormat) {
             return null // 午前枠で扱うので午後は出さない
@@ -975,9 +974,23 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
               if (fAf) priorFloor = fAf.priorEventEarliestStartMin
             }
           }
-          startMinutes = Math.max(reverseStart, priorFloor)
-          if (startMinutes + durationMinutes + extraPrepTime > deadline) {
-            return null
+
+          if (isLongFormat) {
+            // 長時間作品: 営業終了時間から逆算し、営業開始時間以降に制限
+            const reverseFromClose = hardDayLimit - durationMinutes - extraPrepTime
+            startMinutes = Math.max(reverseFromClose, defaultStartTimes.morning, priorFloor)
+            if (startMinutes + durationMinutes + extraPrepTime > hardDayLimit) {
+              return null
+            }
+            // 長時間作品はスロットバンド制限（午前=13:00）を解除して営業終了まで許可
+            effectiveSlotEndLimit = hardDayLimit
+          } else {
+            // 通常: 夜枠開始前までに終わるよう逆算
+            if (reverseFromEvening < 0) return null
+            startMinutes = Math.max(reverseFromEvening, priorFloor)
+            if (startMinutes + durationMinutes + extraPrepTime > eveningDeadline) {
+              return null
+            }
           }
         } else {
           // 休日の朝・昼は従来通り最早開始準拠
