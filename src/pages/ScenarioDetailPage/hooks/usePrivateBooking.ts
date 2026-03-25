@@ -336,9 +336,9 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       }
       
       // 公演枠チェック（available_slotsが設定されている場合）
+      // 貸切予約では朝・夜は常に許可（長時間作品の開始枠として必要）
       if (timeSlot && dayHours?.available_slots && Array.isArray(dayHours.available_slots)) {
-        // カスタム休日・祝日で朝公演の場合は強制的に許可
-        if (isWeekendOrHoliday && timeSlot === 'morning') {
+        if (timeSlot === 'morning' || timeSlot === 'evening') {
           return true
         }
         if (!dayHours.available_slots.includes(timeSlot)) {
@@ -424,17 +424,35 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         dayOfWeek === 6 ||
         isJapaneseHoliday(targetDate) ||
         holidayFn(targetDate)
-      const effectiveMinStartMin =
-        targetTimeSlot === 'afternoon' && !isWeekendOrHolidayForAvail
-          ? Math.max(
-              f.priorEventEarliestStartMin,
-              f.slotBandEnd - durationMinutes - extraPrepTime
-            )
-          : undefined
+      let effectiveMinStartMin: number | undefined = undefined
 
+      if (targetTimeSlot === 'afternoon' && !isWeekendOrHolidayForAvail) {
+        effectiveMinStartMin = Math.max(
+          f.priorEventEarliestStartMin,
+          f.slotBandEnd - durationMinutes - extraPrepTime
+        )
+      } else if (targetTimeSlot === 'evening' && startMin < f.slotBandStart) {
+        // 長時間作品の夜枠: 枠開始前からの開始を許可するが前の公演との衝突は防ぐ
+        let latestPriorEndWithBuffer = 0
+        for (const e of allStoreEvents) {
+          const ed = e.date ? String(e.date).split('T')[0] : ''
+          if (ed !== targetDate) continue
+          const sid = e.store_id ?? e.stores?.id ?? null
+          if (sid !== storeId) continue
+          if (!e.start_time) continue
+          const eStart = timeStrToMinutes(String(e.start_time))
+          if (eStart === null || eStart > startMin) continue
+          const eEnd = e.end_time ? (timeStrToMinutes(String(e.end_time)) ?? eStart + 240) : eStart + 240
+          const endBuf = eEnd + 60
+          if (endBuf > latestPriorEndWithBuffer) latestPriorEndWithBuffer = endBuf
+        }
+        effectiveMinStartMin = latestPriorEndWithBuffer
+      }
+
+      // 夜枠は最終枠のため、準備時間は営業終了後に延長可能
       const occupancyEndOverride =
         startMin + durationMinutes + extraPrepTime > f.slotBandEnd
-          ? PRIVATE_BOOKING_DAY_END_MINUTES
+          ? PRIVATE_BOOKING_DAY_END_MINUTES + (targetTimeSlot === 'evening' ? extraPrepTime : 0)
           : undefined
 
       return isProposedPrivateBookingStartFeasible(
@@ -487,6 +505,9 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           allowedSlots = dayHours.available_slots
           if (!allowedSlots.includes('morning')) {
             allowedSlots = ['morning', ...allowedSlots]
+          }
+          if (!allowedSlots.includes('evening')) {
+            allowedSlots = [...allowedSlots, 'evening']
           }
         }
       }
@@ -654,10 +675,13 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         // ただし、カスタム休日・祝日の場合は朝公演を強制的に有効にする
         if (dayHours.available_slots && dayHours.available_slots.length > 0) {
           availableSlots = dayHours.available_slots
-          // 朝公演がない場合は追加（長時間作品で午前枠が必要なため）
-          // 短時間作品の平日では isLongFormat=false により午前は表示されない
+          // 朝・夜がない場合は追加（長時間作品で午前・夜枠が必要なため）
+          // 短時間作品では isLongFormat 判定やスロット時間チェックにより不要枠は表示されない
           if (!availableSlots.includes('morning')) {
             availableSlots = ['morning', ...availableSlots]
+          }
+          if (!availableSlots.includes('evening')) {
+            availableSlots = [...availableSlots, 'evening']
           }
         }
         
@@ -668,6 +692,13 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           if (st.morning && st.morning.includes(':')) defaultStartTimes.morning = timeToMinutes(st.morning)
           if (st.afternoon && st.afternoon.includes(':')) defaultStartTimes.afternoon = timeToMinutes(st.afternoon)
           if (st.evening && st.evening.includes(':')) defaultStartTimes.evening = timeToMinutes(st.evening)
+        }
+        // 朝のスロット開始が未設定の場合、営業開始時間(open_time)をフォールバック
+        if (!dayHours.slot_start_times?.morning && dayHours.open_time && dayHours.open_time.includes(':')) {
+          const openMin = timeToMinutes(dayHours.open_time)
+          if (openMin > 0 && openMin < slotEndLimits.morning) {
+            defaultStartTimes.morning = openMin
+          }
         }
         
         // 営業終了時間を夜公演の上限に反映
@@ -716,17 +747,42 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           allowSynthetic
         )
         if (!f) continue
-        const startForFeasibility =
-          slotKey === 'afternoon' && !isWeekendOrHoliday
-            ? Math.max(
-                f.priorEventEarliestStartMin,
-                f.slotBandEnd - durationMinutes - extraPrepTime
-              )
-            : f.minAllowedStart
+        let startForFeasibility: number
+        if (slotKey === 'afternoon' && !isWeekendOrHoliday) {
+          startForFeasibility = Math.max(
+            f.priorEventEarliestStartMin,
+            f.slotBandEnd - durationMinutes - extraPrepTime
+          )
+        } else if (slotKey === 'evening' && f.slotBandStart + durationMinutes > PRIVATE_BOOKING_DAY_END_MINUTES) {
+          // 長時間作品の夜枠: 営業終了から逆算し、前の公演との衝突を考慮
+          const reverseStart = PRIVATE_BOOKING_DAY_END_MINUTES - durationMinutes
+          let latestPriorEnd = 0
+          for (const ev of allStoreEvents) {
+            const ed = ev.date ? String(ev.date).split('T')[0] : ''
+            if (ed !== targetDate) continue
+            const sid = ev.store_id ?? ev.stores?.id ?? null
+            if (sid !== storeId) continue
+            if (!ev.start_time) continue
+            const eStart = timeStrToMinutes(String(ev.start_time))
+            if (eStart === null || eStart > reverseStart) continue
+            const eEnd = ev.end_time ? (timeStrToMinutes(String(ev.end_time)) ?? eStart + 240) : eStart + 240
+            const endBuf = eEnd + 60
+            if (endBuf > latestPriorEnd) latestPriorEnd = endBuf
+          }
+          startForFeasibility = Math.max(reverseStart, latestPriorEnd)
+        } else {
+          startForFeasibility = f.minAllowedStart
+        }
+
+        // 夜枠は最終枠のため、準備時間は営業終了後に延長可能
         const multiOccupancyOverride =
           startForFeasibility + durationMinutes + extraPrepTime > f.slotBandEnd
-            ? PRIVATE_BOOKING_DAY_END_MINUTES
+            ? PRIVATE_BOOKING_DAY_END_MINUTES + (slotKey === 'evening' ? extraPrepTime : 0)
             : undefined
+
+        const effectiveMin = slotKey === 'evening' && startForFeasibility < f.slotBandStart
+          ? startForFeasibility
+          : startForFeasibility
 
         if (
           !isProposedPrivateBookingStartFeasible(
@@ -739,14 +795,14 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
               storeId,
               dayEvents: allStoreEvents,
             },
-            startForFeasibility,
+            effectiveMin,
             multiOccupancyOverride
           )
         ) {
           continue
         }
         candidates.push({
-          earliestStart: f.minAllowedStart,
+          earliestStart: startForFeasibility,
           slotEnd: f.slotBandEnd,
           slotBaselineStart: f.slotBandStart,
           priorEventEarliestStartMin: f.priorEventEarliestStartMin,
@@ -976,9 +1032,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           }
 
           if (isLongFormat) {
-            // 長時間作品: 営業終了時間から逆算し、営業開始時間以降に制限
-            const reverseFromClose = hardDayLimit - durationMinutes - extraPrepTime
-            startMinutes = Math.max(reverseFromClose, defaultStartTimes.morning, priorFloor)
+            // 長時間作品: 休日と同様に営業開始時間から開始、営業終了までに収まるか確認
+            startMinutes = Math.max(defaultStartTimes.morning, priorFloor)
             if (startMinutes + durationMinutes + extraPrepTime > hardDayLimit) {
               return null
             }

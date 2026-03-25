@@ -64,10 +64,30 @@ export function isPrivateBookingSlotAvailableForStore(
   if (!f) return false
   const durationMin = getPerformanceDurationMinutesForDate(dateStr, scenarioTiming, isCustomHoliday)
   const extraPrep = scenarioTiming.extra_preparation_time || 0
+  // 夜枠は最終枠のため、準備時間は営業終了後に延長可能
   const occupancyEndOverride =
     proposedStartMin + durationMin + extraPrep > f.slotBandEnd
-      ? PRIVATE_BOOKING_DAY_END_MINUTES
+      ? PRIVATE_BOOKING_DAY_END_MINUTES + (slotKey === 'evening' ? extraPrep : 0)
       : undefined
+
+  let effectiveMinStartMin: number | undefined = undefined
+  if (slotKey === 'evening' && proposedStartMin < f.slotBandStart) {
+    // 長時間作品の夜枠: 枠開始前からの開始を許可、前の公演との衝突は防ぐ
+    let latestPriorEndWithBuffer = 0
+    for (const e of events) {
+      const ed = e.date ? String(e.date).split('T')[0] : ''
+      if (ed !== day) continue
+      const sid = e.store_id ?? e.stores?.id ?? null
+      if (sid !== storeId) continue
+      if (!e.start_time) continue
+      const eStart = timeStrToMinutes(e.start_time)
+      if (eStart === null || eStart > proposedStartMin) continue
+      const eEnd = e.end_time ? (timeStrToMinutes(e.end_time) ?? eStart + 240) : eStart + 240
+      const endBuf = eEnd + 60
+      if (endBuf > latestPriorEndWithBuffer) latestPriorEndWithBuffer = endBuf
+    }
+    effectiveMinStartMin = latestPriorEndWithBuffer
+  }
 
   // 注: 平日昼の「枠終了からの逆算開始」はシナリオ詳細（usePrivateBooking）側で表示時刻に反映する。
   // ここは getPrivateGroupCandidateSlots の開始時刻（例: 午後 13:00）を proposed として渡すため、
@@ -76,7 +96,7 @@ export function isPrivateBookingSlotAvailableForStore(
     targetDateYmd: day,
     storeId,
     dayEvents: events,
-  }, undefined, occupancyEndOverride)
+  }, effectiveMinStartMin, occupancyEndOverride)
 }
 
 /** 希望店舗が複数のとき: いずれかの店舗で受付可能なら true */

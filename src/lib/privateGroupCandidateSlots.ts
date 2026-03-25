@@ -174,6 +174,9 @@ function buildSlotsFromDayConfig(
   if (!availableSlots.includes('morning')) {
     availableSlots = ['morning', ...availableSlots]
   }
+  if (!availableSlots.includes('evening')) {
+    availableSlots = [...availableSlots, 'evening']
+  }
 
   const defaultStarts = weekendStyleDefaults ? defaultSlotTimesWeekend : defaultSlotTimesWeekday
   const startMinutes: Record<'morning' | 'afternoon' | 'evening', number> = {
