@@ -17,6 +17,7 @@ import { type BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import {
   getPrivateBookingStoreSlotFeasibility,
   isProposedPrivateBookingStartFeasible,
+  PRIVATE_BOOKING_DAY_END_MINUTES,
 } from '@/lib/privateBookingStoreSlotFeasibility'
 import type { TimeSlot, EventSchedule } from '../utils/types'
 
@@ -431,6 +432,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
             )
           : undefined
 
+      const occupancyEndOverride =
+        startMin + durationMinutes + extraPrepTime > f.slotBandEnd
+          ? PRIVATE_BOOKING_DAY_END_MINUTES
+          : undefined
+
       return isProposedPrivateBookingStartFeasible(
         f,
         startMin,
@@ -441,7 +447,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
           storeId,
           dayEvents: allStoreEvents,
         },
-        effectiveMinStartMin
+        effectiveMinStartMin,
+        occupancyEndOverride
       )
     }
     
@@ -716,6 +723,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
                 f.slotBandEnd - durationMinutes - extraPrepTime
               )
             : f.minAllowedStart
+        const multiOccupancyOverride =
+          startForFeasibility + durationMinutes + extraPrepTime > f.slotBandEnd
+            ? PRIVATE_BOOKING_DAY_END_MINUTES
+            : undefined
+
         if (
           !isProposedPrivateBookingStartFeasible(
             f,
@@ -727,7 +739,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
               storeId,
               dayEvents: allStoreEvents,
             },
-            startForFeasibility
+            startForFeasibility,
+            multiOccupancyOverride
           )
         ) {
           continue

@@ -104,9 +104,13 @@ export type PrivateBookingFeasibilityEventContext = {
   dayEvents: EventWithStore[]
 }
 
+/** 1日の最終時刻（23:00）。長時間作品が枠境界を超える場合の上限 */
+export const PRIVATE_BOOKING_DAY_END_MINUTES = 23 * 60
+
 /**
  * 提案開始時刻が営業枠内かつ公演後に収まるか
  * @param effectiveMinStartMin 指定時はこれを最早開始の下限にする（平日昼の逆算表示と整合させる用）
+ * @param occupancyEndOverride 長時間作品で枠境界を超える場合に slotBandEnd の代わりに使う上限
  */
 export function isProposedPrivateBookingStartFeasible(
   f: PrivateBookingStoreSlotFeasibility,
@@ -114,12 +118,13 @@ export function isProposedPrivateBookingStartFeasible(
   durationMinutes: number,
   extraPrepMinutes: number,
   eventCtx?: PrivateBookingFeasibilityEventContext,
-  effectiveMinStartMin?: number
+  effectiveMinStartMin?: number,
+  occupancyEndOverride?: number
 ): boolean {
   const minStart = effectiveMinStartMin ?? f.minAllowedStart
   if (proposedStartMin < minStart) return false
 
-  let effectiveOccupancyEndLimit = f.slotBandEnd
+  let effectiveOccupancyEndLimit = occupancyEndOverride ?? f.slotBandEnd
   if (eventCtx) {
     for (const e of eventCtx.dayEvents) {
       const ed = e.date ? String(e.date).split('T')[0] : ''

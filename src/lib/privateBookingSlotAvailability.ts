@@ -6,6 +6,7 @@ import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import {
   getPrivateBookingStoreSlotFeasibility,
   isProposedPrivateBookingStartFeasible,
+  PRIVATE_BOOKING_DAY_END_MINUTES,
   type PrivateBookingSlotKey,
 } from '@/lib/privateBookingStoreSlotFeasibility'
 
@@ -63,6 +64,11 @@ export function isPrivateBookingSlotAvailableForStore(
   if (!f) return false
   const durationMin = getPerformanceDurationMinutesForDate(dateStr, scenarioTiming, isCustomHoliday)
   const extraPrep = scenarioTiming.extra_preparation_time || 0
+  const occupancyEndOverride =
+    proposedStartMin + durationMin + extraPrep > f.slotBandEnd
+      ? PRIVATE_BOOKING_DAY_END_MINUTES
+      : undefined
+
   // 注: 平日昼の「枠終了からの逆算開始」はシナリオ詳細（usePrivateBooking）側で表示時刻に反映する。
   // ここは getPrivateGroupCandidateSlots の開始時刻（例: 午後 13:00）を proposed として渡すため、
   // effectiveMinStartMin（逆算下限）を掛けると常に不一致になり、グループ候補日 UI が全滅する。
@@ -70,7 +76,7 @@ export function isPrivateBookingSlotAvailableForStore(
     targetDateYmd: day,
     storeId,
     dayEvents: events,
-  })
+  }, undefined, occupancyEndOverride)
 }
 
 /** 希望店舗が複数のとき: いずれかの店舗で受付可能なら true */
