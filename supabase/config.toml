@@ -56,3 +56,31 @@ verify_jwt = false
 # send-contact-inquiry は公開フォーム用（認証不要）
 [functions.send-contact-inquiry]
 verify_jwt = false
+
+# 予約関連メール（公開予約フォームから呼ばれる、関数内で予約IDとメールで正当性検証）
+[functions.send-booking-confirmation]
+verify_jwt = false
+
+[functions.send-cancellation-confirmation]
+verify_jwt = false
+
+[functions.send-booking-change-confirmation]
+verify_jwt = false
+
+[functions.send-private-booking-request-confirmation]
+verify_jwt = false
+
+[functions.send-private-booking-confirmation]
+verify_jwt = false
+
+[functions.send-private-booking-rejection]
+verify_jwt = false
+
+[functions.send-waitlist-registration-confirmation]
+verify_jwt = false
+
+[functions.notify-waitlist]
+verify_jwt = false
+
+[functions.send-guest-pin]
+verify_jwt = false

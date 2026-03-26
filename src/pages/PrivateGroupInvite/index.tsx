@@ -959,13 +959,18 @@ export function PrivateGroupInvite() {
     setShowBookingDialog(true)
   }
   
-  // ダイアログ内での日程選択トグル
+  // ダイアログ内での日程選択トグル（最大6件まで）
+  const MAX_BOOKING_DATES = 6
   const toggleBookingDate = (dateId: string) => {
     setBookingSelectedDates(prev => {
       const newSet = new Set(prev)
       if (newSet.has(dateId)) {
         newSet.delete(dateId)
       } else {
+        if (newSet.size >= MAX_BOOKING_DATES) {
+          toast.error(`候補日程は最大${MAX_BOOKING_DATES}件まで選択できます`)
+          return prev
+        }
         newSet.add(dateId)
       }
       return newSet
@@ -1203,6 +1208,46 @@ export function PrivateGroupInvite() {
             body
           })
         })
+      
+      // 貸切申し込み確認メールを送信
+      if (parentReservationId && customerEmail) {
+        try {
+          const candidateDatesForEmail = group.candidate_dates
+            ?.filter((cd: any) => bookingSelectedDates.has(cd.id))
+            .map((cd: any) => ({
+              date: cd.date,
+              timeSlot: cd.time_slot,
+              startTime: cd.start_time,
+              endTime: cd.end_time
+            })) || []
+          
+          const { error: emailError } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
+            body: {
+              organizationId: orgId,
+              reservationId: parentReservationId,
+              customerEmail,
+              customerName,
+              scenarioTitle: group.scenario_masters?.title || 'シナリオ',
+              reservationNumber: baseReservationNumber,
+              candidateDates: candidateDatesForEmail,
+              requestedStores: group.preferred_store_ids || [],
+              participantCount: bookingParticipantCount,
+              estimatedPrice: 0,
+              notes: bookingNotes || undefined
+            }
+          })
+          
+          if (emailError) {
+            logger.error('貸切申し込み確認メール送信エラー:', emailError)
+            toast.error('確認メールの送信に失敗しました')
+          } else {
+            logger.log('貸切申し込み確認メールを送信しました')
+            toast.success('確認メールを送信しました')
+          }
+        } catch (emailError) {
+          logger.error('貸切申し込み確認メール送信エラー:', emailError)
+        }
+      }
       
       toast.success('予約リクエストを送信しました')
       setShowBookingDialog(false)
@@ -2151,7 +2196,7 @@ export function PrivateGroupInvite() {
                 <div>
                   <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-purple-600" />
-                    希望日程を選択
+                    希望日程を選択（{bookingSelectedDates.size}/{MAX_BOOKING_DATES}件）
                   </h4>
                   <div className="space-y-2">
                     {group.candidate_dates && group.candidate_dates.length > 0 ? (

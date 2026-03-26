@@ -108,14 +108,15 @@ const PROD_ALLOWED_ORIGINS = [
   'https://mmq-yoyaq.vercel.app',
 ]
 
-const NON_PROD_ALLOWED_ORIGINS = [
+const DEV_ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3000',
 ]
 
+// 開発環境（localhost）は常に許可（本番・ステージング両方で開発者がテストできるように）
 export const ALLOWED_ORIGINS = [
   ...PROD_ALLOWED_ORIGINS,
-  ...(isNonProduction() ? NON_PROD_ALLOWED_ORIGINS : []),
+  ...DEV_ALLOWED_ORIGINS,
 ]
 
 /**

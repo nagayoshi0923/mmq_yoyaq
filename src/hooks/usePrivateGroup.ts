@@ -184,7 +184,7 @@ export function usePrivateGroup() {
           .from('private_groups')
           .select('id')
           .eq('invite_code', inviteCode)
-          .single()
+          .maybeSingle()
 
         if (!existing) break
         inviteCode = await generateInviteCode()

@@ -49,6 +49,9 @@ export function PrivateBookingRequest({
   const navigate = useNavigate()
   const { user } = useAuth()
   const { createGroup, loading: groupLoading } = usePrivateGroup()
+  
+  // デバッグ用
+  console.log('[貸切リクエスト画面] レンダー', { groupLoading, isSubmitting, user: !!user })
   const { isCustomHoliday } = useCustomHolidays({ organizationSlug })
 
   const scenarioTiming = useMemo(

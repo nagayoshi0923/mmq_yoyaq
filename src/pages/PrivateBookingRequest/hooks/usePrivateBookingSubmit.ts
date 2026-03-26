@@ -267,7 +267,9 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       }
 
       // 貸切申し込み完了メールを送信
+      console.log('[貸切リクエスト] メール送信チェック', { parentReservationId, customerEmail })
       if (parentReservationId && customerEmail) {
+        console.log('[貸切リクエスト] メール送信開始')
         try {
           const candidateDates = candidateDatetimes.candidates.map(c => ({
             date: c.date,
@@ -277,7 +279,8 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           }))
 
           const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
-          const { error: emailError } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
+          console.log('[貸切リクエスト] メール送信 invoke開始', { orgId, reservationId: parentReservationId })
+          const { error: emailError, data: emailData } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
             body: {
               organizationId: orgId,
               reservationId: parentReservationId,
@@ -293,11 +296,13 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
             }
           })
 
+          console.log('[貸切リクエスト] メール送信 invoke完了', { emailError, emailData })
           if (emailError) {
             logger.error('貸切申し込み完了メール送信エラー:', emailError)
-            // メール送信エラーは予約処理の失敗とはしない
+            console.error('[貸切リクエスト] メール送信エラー:', emailError)
           } else {
             logger.log('貸切申し込み完了メールを送信しました')
+            console.log('[貸切リクエスト] メール送信成功')
           }
         } catch (emailError) {
           logger.error('貸切申し込み完了メール送信エラー:', emailError)

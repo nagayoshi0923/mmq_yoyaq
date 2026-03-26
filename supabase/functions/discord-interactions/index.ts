@@ -186,7 +186,7 @@ async function processUnavailable(interaction: any, requestId: string) {
     const conflictIdx = staffNameForConflict ? await computeConflictCandidateIndexes(requestId, staffNameForConflict) : new Set<number>()
     const responseComponents = []
     
-    for (let i = 0; i < Math.min(candidates.length, 5); i++) {
+    for (let i = 0; i < Math.min(candidates.length, 6); i++) {
       const candidate = candidates[i]
       const dateStr = candidate.date.replace('2025-', '').replace('-', '/')
       const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
@@ -395,7 +395,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     // 候補日程ボタンを再表示（選択/解除を続けられるように）
     const responseComponents = []
     const conflictIdx = staffNameForConflict ? await computeConflictCandidateIndexes(requestId, staffNameForConflict) : new Set<number>()
-    for (let i = 0; i < Math.min(candidates.length, 5); i++) {
+    for (let i = 0; i < Math.min(candidates.length, 6); i++) {
       const candidate = candidates[i]
       const dateStr = candidate.date.replace('2025-', '').replace('-', '/')
       const timeSlotMap = {

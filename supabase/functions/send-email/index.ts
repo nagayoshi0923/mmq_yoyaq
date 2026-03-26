@@ -21,10 +21,10 @@ serve(async (req) => {
   }
 
   try {
-    // 🔒 認証チェック: admin または staff のみ許可
-    const authResult = await verifyAuth(req, ['admin', 'staff'])
+    // 🔒 認証チェック: admin / license_admin / staff（invite-staff と同等の管理者系）
+    const authResult = await verifyAuth(req, ['admin', 'license_admin', 'staff'])
     if (!authResult.success) {
-      console.warn('⚠️ 認証失敗: send-email への不正アクセス試行')
+      console.warn('⚠️ send-email 認証失敗:', authResult.error)
       return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
     }
 

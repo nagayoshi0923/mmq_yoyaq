@@ -289,7 +289,7 @@ async function enqueueDiscordNotification(channelId: string, booking: any, gmNam
 
   // 候補日程をボタンとして表示（日時詳細付き）
   const components = []
-  const maxButtons = Math.min(candidates.length, 5) // 最大5個まで
+  const maxButtons = Math.min(candidates.length, 6) // 最大6個まで（Discord ActionRow 5個 × ボタン5個 = 25個が上限だが、UIの都合で6個に制限）
   
   for (let i = 0; i < maxButtons; i++) {
     const candidate = candidates[i]
