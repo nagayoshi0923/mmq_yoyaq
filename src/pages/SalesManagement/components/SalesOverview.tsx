@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { logger } from '@/utils/logger'
 import { SalesData } from '@/types'
 import { SummaryCards } from './SummaryCards'
@@ -176,6 +176,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       date: event.date,
       venue: event.store_name, // 店舗名をvenueとして使用
       store_id: event.store_id || stores.find(s => s.name === event.store_name)?.id || '',
+      organization_id: event.organization_id, // 組織IDを追加（ReservationListで必要）
       scenario: event.scenario_title,
       scenario_id: event.scenario_id || '', // シナリオIDを使用
       start_time: event.start_time || '10:00',
@@ -243,10 +244,38 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   }
 
   // モーダル閉じるハンドラー
-  const handleModalClose = () => {
+  const handleModalClose = useCallback(() => {
     setIsEditModalOpen(false)
     setEditingEvent(null)
-  }
+  }, [])
+
+  // PerformanceModal用のコールバック（メモ化して再レンダリングを防止）
+  const handleScenariosUpdate = useCallback(async () => {
+    try {
+      const scenariosData = await scenarioApi.getAll()
+      setModalData(prev => prev ? { ...prev, scenarios: scenariosData } : null)
+    } catch (error) {
+      logger.error('シナリオデータ再取得エラー:', error)
+    }
+  }, [])
+
+  const handleStaffUpdate = useCallback(async () => {
+    try {
+      const staffData = await staffApi.getAll()
+      setModalData(prev => prev ? { ...prev, staff: staffData } : null)
+    } catch (error) {
+      logger.error('スタッフデータ再取得エラー:', error)
+    }
+  }, [])
+
+  const handleParticipantChange = useCallback(() => {
+    if (onDataRefresh) {
+      onDataRefresh()
+    }
+  }, [onDataRefresh])
+
+  // eventsリストをメモ化
+  const modalEvents = useMemo(() => (salesData?.eventList || []) as any, [salesData?.eventList])
   if (loading) {
     return (
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
@@ -454,6 +483,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       {/* 編集モーダル */}
       {modalData && (
         <PerformanceModal
+          key={isEditModalOpen ? `editing-${editingEvent?.id}` : 'closed'}
           isOpen={isEditModalOpen}
           onClose={handleModalClose}
           onSave={handleModalSave}
@@ -463,33 +493,12 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           stores={modalData.stores}
           scenarios={modalData.scenarios}
           staff={modalData.staff}
-          events={(salesData?.eventList || []) as any}
+          events={modalEvents}
           availableStaffByScenario={modalData.availableStaffByScenario}
           allAvailableStaff={modalData.staff}
-          onScenariosUpdate={async () => {
-            // シナリオが更新されたらモーダルデータを再取得
-            try {
-              const scenariosData = await scenarioApi.getAll()
-              setModalData(prev => prev ? { ...prev, scenarios: scenariosData } : null)
-            } catch (error) {
-              logger.error('シナリオデータ再取得エラー:', error)
-            }
-          }}
-          onStaffUpdate={async () => {
-            // スタッフが更新されたらモーダルデータを再取得
-            try {
-              const staffData = await staffApi.getAll()
-              setModalData(prev => prev ? { ...prev, staff: staffData } : null)
-            } catch (error) {
-              logger.error('スタッフデータ再取得エラー:', error)
-            }
-          }}
-          onParticipantChange={() => {
-            // 参加者数が変更された場合はデータをリフレッシュ
-            if (onDataRefresh) {
-              onDataRefresh()
-            }
-          }}
+          onScenariosUpdate={handleScenariosUpdate}
+          onStaffUpdate={handleStaffUpdate}
+          onParticipantChange={handleParticipantChange}
         />
       )}
 

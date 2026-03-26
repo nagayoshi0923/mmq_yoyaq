@@ -274,12 +274,12 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     }
   }, [onScenarioSelect, organizationSlug, navigate])
 
-  // 店舗名取得（メモ化）
+  // 店舗名取得（メモ化）- 組織ページでは略称を優先
   const getStoreName = useCallback((event: any): string => {
     if (event.stores) {
       return event.stores.short_name || event.stores.name || '店舗不明'
     }
-    return event.store_name || event.store_short_name || '店舗不明'
+    return event.store_short_name || event.store_name || '店舗不明'
   }, [])
 
   // 店舗カラー取得（メモ化）

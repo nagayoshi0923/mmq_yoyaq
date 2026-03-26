@@ -110,6 +110,8 @@ export function PerformanceModal({
   const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null)
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false)
   const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
+  // タブの状態管理（再レンダリング時にリセットされないように）
+  const [activeTab, setActiveTab] = useState<string>('edit')
   // 予約データから取得したスタッフ参加者（DBをシングルソースとする）
   const [staffParticipantsFromDB, setStaffParticipantsFromDB] = useState<string[]>([])
   // ローカルで参加者数を管理（リアルタイム表示用）
@@ -682,7 +684,12 @@ export function PerformanceModal({
   const modalDescription = mode === 'add' ? '新しい公演の詳細情報を入力してください。' : '公演の詳細情報を編集してください。'
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        setActiveTab('edit') // タブをリセット
+        onClose()
+      }
+    }}>
       <DialogContent size="md" className="h-[85vh] sm:h-[80vh] max-w-[480px] overflow-hidden flex flex-col p-0 gap-0">
         <DialogHeader className="px-2 sm:px-4 py-1.5 sm:py-2 border-b shrink-0">
           <DialogTitle className="text-sm sm:text-base">{modalTitle}</DialogTitle>
@@ -691,7 +698,7 @@ export function PerformanceModal({
           </DialogDescription>
         </DialogHeader>
         
-        <Tabs defaultValue="edit" className="w-full flex-1 flex flex-col overflow-hidden min-h-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col overflow-hidden min-h-0">
           <div className="px-2 sm:px-4 pt-1.5 sm:pt-2 shrink-0">
             <TabsList className="grid w-full grid-cols-4 h-7 sm:h-8">
               <TabsTrigger value="edit" className="text-[11px] sm:text-xs h-6 sm:h-7">公演情報</TabsTrigger>

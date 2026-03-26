@@ -84,3 +84,7 @@ verify_jwt = false
 
 [functions.send-guest-pin]
 verify_jwt = false
+
+# Discord Bot インタラクション（Discord からの POST リクエスト、関数内で署名検証）
+[functions.discord-interactions]
+verify_jwt = false
