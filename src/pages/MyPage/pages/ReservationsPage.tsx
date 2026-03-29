@@ -219,14 +219,42 @@ export function ReservationsPage() {
 
         const storeIdsArray = Array.from(storeIds)
         
+        // 組織IDごとにシナリオIDをグループ化（organization_scenarios_with_master で正しいタイトルを取得するため）
+        const orgToScenarioIds = new Map<string, Set<string>>()
+        const idsWithoutOrg = new Set<string>()
+        data.forEach(r => {
+          const masterId = (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id
+          if (!masterId) return
+          if (r.organization_id) {
+            if (!orgToScenarioIds.has(r.organization_id)) orgToScenarioIds.set(r.organization_id, new Set())
+            orgToScenarioIds.get(r.organization_id)!.add(masterId)
+          } else {
+            idsWithoutOrg.add(masterId)
+          }
+        })
+
         // シナリオ、店舗、設定を並列取得
-        const [scenarioResult, storesResult, settingsResult] = await Promise.all([
-          scenarioMasterIds.length > 0
-            ? supabase
-                .from('scenario_masters')
-                .select('id, title, key_visual_url, player_count_min, player_count_max')
-                .in('id', scenarioMasterIds)
-            : Promise.resolve({ data: null, error: null }),
+        const scenarioViewQueries = Array.from(orgToScenarioIds.entries()).map(([orgId, ids]) =>
+          supabase
+            .from('organization_scenarios_with_master')
+            .select('id, title, key_visual_url, player_count_min, player_count_max')
+            .in('id', Array.from(ids))
+            .eq('organization_id', orgId)
+        )
+        // organization_id がない予約は scenario_masters にフォールバック
+        if (idsWithoutOrg.size > 0) {
+          scenarioViewQueries.push(
+            supabase
+              .from('scenario_masters')
+              .select('id, title, key_visual_url, player_count_min, player_count_max')
+              .in('id', Array.from(idsWithoutOrg)) as any
+          )
+        }
+
+        const [scenarioResults, storesResult, settingsResult] = await Promise.all([
+          scenarioViewQueries.length > 0
+            ? Promise.all(scenarioViewQueries)
+            : Promise.resolve([]),
           storeIdsArray.length > 0
             ? supabase
                 .from('stores')
@@ -242,11 +270,13 @@ export function ReservationsPage() {
         ])
 
         // シナリオ情報処理
-        if (scenarioResult.data) {
+        const allScenarioData = (scenarioResults as { data: { id: string; title: string; key_visual_url: string | null; player_count_min: number; player_count_max: number }[] | null }[])
+          .flatMap(r => r.data ?? [])
+        if (allScenarioData.length > 0) {
           const imageMap: Record<string, string> = {}
           const scenarioInfoMap: Record<string, { min: number; max: number }> = {}
           const titleMap: Record<string, string> = {}
-          scenarioResult.data.forEach(s => {
+          allScenarioData.forEach(s => {
             if (s.key_visual_url) imageMap[s.id] = s.key_visual_url
             if (s.title) titleMap[s.id] = s.title
             scenarioInfoMap[s.id] = {
