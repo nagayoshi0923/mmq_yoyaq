@@ -18,6 +18,34 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // 古いキャッシュ検知: Reactロード前にビルドハッシュを比較し、古ければ自動リロード
+      // インラインなのでバンドルキャッシュに依存しない
+      (function(){
+        if (sessionStorage.getItem('_vck')) return; // 無限ループ防止
+        var scripts = document.querySelectorAll('script[type="module"][src]');
+        var hash = null;
+        for (var i = 0; i < scripts.length; i++) {
+          var src = scripts[i].getAttribute('src');
+          if (src && src.indexOf('/assets/index-') !== -1) {
+            var m = src.match(/index-([^.]+)\.js/);
+            if (m) hash = m[1];
+          }
+        }
+        if (!hash) return; // 開発環境（ハッシュなし）はスキップ
+        fetch('/?_t=' + Date.now(), { headers: { Accept: 'text/html' }, cache: 'no-cache' })
+          .then(function(r) { return r.ok ? r.text() : null; })
+          .then(function(html) {
+            if (!html) return;
+            var m = html.match(/index-([^.]+)\.js/);
+            if (m && m[1] !== hash) {
+              sessionStorage.setItem('_vck', '1');
+              location.reload();
+            }
+          })
+          .catch(function() {});
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
