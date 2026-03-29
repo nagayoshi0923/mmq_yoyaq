@@ -32,8 +32,8 @@
     "supabase:migration:list": "npx supabase migration list",
     "supabase:functions:serve": "npx supabase functions serve",
     "dev:local": "npm run supabase:start && npm run dev",
-    "db:push:staging": "npx supabase db push --linked --include-all && npm run check:permissions",
-    "db:push:prod": "npx supabase db push --linked --include-all && npm run check:permissions"
+    "db:push:staging": "SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-staging -a postgres -w) npx supabase link --project-ref lavutzztfqbdndjiwluc && SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-staging -a postgres -w) npx supabase db push --linked --include-all && npm run check:permissions && SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-prod -a postgres -w) npx supabase link --project-ref cznpcewciwywcqcxktba",
+    "db:push:prod": "SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-prod -a postgres -w) npx supabase link --project-ref cznpcewciwywcqcxktba && SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-prod -a postgres -w) npx supabase db push --linked --include-all && npm run check:permissions"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

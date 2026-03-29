@@ -43,3 +43,4 @@ SUPABASE_ACCESS_TOKEN
 
 .vercel
 supabase/.temp/
+supabase/schema_snapshot.sql
