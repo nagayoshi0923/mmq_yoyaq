@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
-import { Images, Calendar, MapPin, Star, EyeOff, Users, Clock, User, Plus, Trash2 } from 'lucide-react'
+import { Images, Calendar, MapPin, Star, EyeOff, Users, Clock, User, Plus, Trash2, Pencil, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -20,6 +20,11 @@ import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/l
 interface ScenarioOption {
   id: string
   title: string
+}
+
+interface CharacterOption {
+  id: string
+  name: string
 }
 
 interface StoreOption {
@@ -37,6 +42,10 @@ interface PlayedScenario {
   author?: string
   is_manual?: boolean  // 手動登録かどうか
   manual_id?: string   // manual_play_historyのID
+  reservation_id?: string  // 予約ID
+  character_name?: string  // 担当した役名
+  played_character_id?: string  // scenario_characters.id
+  character_record_id?: string  // album_character_recordsのID
 }
 
 interface LikedScenario {
@@ -83,6 +92,14 @@ export function AlbumPage() {
   const [scenarioOptions, setScenarioOptions] = useState<ScenarioOption[]>([])
   const [storeOptions, setStoreOptions] = useState<StoreOption[]>([])
   const [optionsLoading, setOptionsLoading] = useState(true)
+
+  // 配役記録用ステート
+  const [editCharacterPlay, setEditCharacterPlay] = useState<PlayedScenario | null>(null)
+  const [characterOptions, setCharacterOptions] = useState<CharacterOption[]>([])
+  const [editCharacterId, setEditCharacterId] = useState('')
+  const [isSavingCharacter, setIsSavingCharacter] = useState(false)
+  const [newCharacterId, setNewCharacterId] = useState('')
+  const [newCharacterOptions, setNewCharacterOptions] = useState<CharacterOption[]>([])
 
   useEffect(() => {
     if (user?.email) {
@@ -143,6 +160,45 @@ export function AlbumPage() {
 
     fetchOptions()
   }, [])
+
+  // 手動登録ダイアログでシナリオが選択されたときキャラクター選択肢を取得
+  useEffect(() => {
+    if (!newScenarioId) {
+      setNewCharacterOptions([])
+      setNewCharacterId('')
+      return
+    }
+    const fetchCharacters = async () => {
+      const { data } = await supabase
+        .from('scenario_characters')
+        .select('id, name')
+        .eq('scenario_master_id', newScenarioId)
+        .eq('is_visible', true)
+        .order('sort_order')
+      setNewCharacterOptions(data?.map(c => ({ id: c.id, name: c.name })) || [])
+      setNewCharacterId('')
+    }
+    void fetchCharacters()
+  }, [newScenarioId])
+
+  // 配役編集ダイアログが開いたときキャラクター選択肢を取得
+  useEffect(() => {
+    if (!editCharacterPlay?.scenario_id) {
+      setCharacterOptions([])
+      return
+    }
+    const fetchCharacters = async () => {
+      const { data } = await supabase
+        .from('scenario_characters')
+        .select('id, name')
+        .eq('scenario_master_id', editCharacterPlay.scenario_id!)
+        .eq('is_visible', true)
+        .order('sort_order')
+      setCharacterOptions(data?.map(c => ({ id: c.id, name: c.name })) || [])
+      setEditCharacterId(editCharacterPlay.played_character_id || '')
+    }
+    void fetchCharacters()
+  }, [editCharacterPlay])
 
   const fetchPlayedScenarios = async () => {
     if (!user?.email) return
@@ -228,7 +284,7 @@ export function AlbumPage() {
       // 予約を取得（確定済み・GM確認済みの全カテゴリの公演）
       const { data: reservations, error: reservationsError } = await supabase
         .from('reservations')
-        .select('requested_datetime, title, scenario_id, scenario_master_id, duration')
+        .select('id, requested_datetime, title, scenario_id, scenario_master_id, duration')
         .eq('customer_id', customer.id)
         .in('status', ['confirmed', 'gm_confirmed'])
         .lte('requested_datetime', new Date().toISOString())
@@ -296,6 +352,8 @@ export function AlbumPage() {
             finalScenarioId = finalScenarioId || fallback.id
           }
 
+          const reservationId = (reservation as { id?: string }).id
+
           if (!eventError && event) {
             scenarios.push({
               scenario: event.scenario,
@@ -305,6 +363,7 @@ export function AlbumPage() {
               scenario_id: finalScenarioId || undefined,
               key_visual_url: keyVisualUrl || undefined,
               author: author || undefined,
+              reservation_id: reservationId || undefined,
             })
           } else {
             // イベントが見つからない場合でも予約情報から追加
@@ -316,6 +375,7 @@ export function AlbumPage() {
               scenario_id: finalScenarioId || undefined,
               key_visual_url: keyVisualUrl || undefined,
               author: author || undefined,
+              reservation_id: reservationId || undefined,
             })
           }
         }
@@ -346,6 +406,33 @@ export function AlbumPage() {
         })
       }
       
+      // 配役記録を取得してマージ
+      const { data: charRecords } = await supabase
+        .from('album_character_records')
+        .select('id, reservation_id, manual_play_history_id, character_id, character_name')
+        .eq('customer_id', customer.id)
+
+      if (charRecords && charRecords.length > 0) {
+        const byReservation = new Map(
+          charRecords.filter(r => r.reservation_id).map(r => [r.reservation_id!, r])
+        )
+        const byManual = new Map(
+          charRecords.filter(r => r.manual_play_history_id).map(r => [r.manual_play_history_id!, r])
+        )
+        scenarios.forEach(s => {
+          const rec = s.reservation_id
+            ? byReservation.get(s.reservation_id)
+            : s.manual_id
+              ? byManual.get(s.manual_id)
+              : undefined
+          if (rec) {
+            s.character_name = rec.character_name
+            s.played_character_id = rec.character_id || undefined
+            s.character_record_id = rec.id
+          }
+        })
+      }
+
       // 日付でソート（新しい順）
       scenarios.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
@@ -383,7 +470,7 @@ export function AlbumPage() {
       const storeName = selectedStore?.name || null
 
       // scenario_master_id を設定して画像を取得できるようにする
-      const { error } = await supabase
+      const { data: insertedHistory, error } = await supabase
         .from('manual_play_history')
         .insert({
           customer_id: customerId,
@@ -393,8 +480,23 @@ export function AlbumPage() {
           played_at: newPlayedAt || null,
           venue: storeName,
         })
+        .select('id')
+        .single()
 
       if (error) throw error
+
+      // 配役が選択されていれば記録
+      if (insertedHistory && newCharacterId) {
+        const selectedChar = newCharacterOptions.find(c => c.id === newCharacterId)
+        await supabase
+          .from('album_character_records')
+          .insert({
+            customer_id: customerId,
+            manual_play_history_id: insertedHistory.id,
+            character_id: newCharacterId,
+            character_name: selectedChar?.name || '',
+          })
+      }
 
       // おすすめ度が設定されている場合は scenario_ratings に保存
       if (newRating > 0) {
@@ -413,12 +515,68 @@ export function AlbumPage() {
       setNewPlayedAt('')
       setNewStoreId('')
       setNewRating(0)
+      setNewCharacterId('')
+      setNewCharacterOptions([])
       fetchPlayedScenarios()
     } catch (error) {
       logger.error('手動履歴追加エラー:', error)
       showToast.error('追加に失敗しました')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  // 配役記録を保存・更新
+  const handleSaveCharacter = async () => {
+    if (!editCharacterPlay || !customerId) return
+
+    setIsSavingCharacter(true)
+    try {
+      const selectedChar = characterOptions.find(c => c.id === editCharacterId)
+      const characterName = selectedChar?.name || ''
+
+      if (editCharacterPlay.character_record_id) {
+        // 既存レコードを更新
+        if (!editCharacterId) {
+          // 空にする場合は削除
+          const { error } = await supabase
+            .from('album_character_records')
+            .delete()
+            .eq('id', editCharacterPlay.character_record_id)
+          if (error) throw error
+        } else {
+          const { error } = await supabase
+            .from('album_character_records')
+            .update({ character_id: editCharacterId, character_name: characterName, updated_at: new Date().toISOString() })
+            .eq('id', editCharacterPlay.character_record_id)
+          if (error) throw error
+        }
+      } else if (editCharacterId) {
+        // 新規挿入
+        const insertData: Record<string, string> = {
+          customer_id: customerId,
+          character_id: editCharacterId,
+          character_name: characterName,
+        }
+        if (editCharacterPlay.reservation_id) {
+          insertData.reservation_id = editCharacterPlay.reservation_id
+        } else if (editCharacterPlay.manual_id) {
+          insertData.manual_play_history_id = editCharacterPlay.manual_id
+        }
+        const { error } = await supabase
+          .from('album_character_records')
+          .insert(insertData)
+        if (error) throw error
+      }
+
+      showToast.success('配役を保存しました')
+      setEditCharacterPlay(null)
+      fetchPlayedScenarios()
+    } catch (error) {
+      logger.error('配役保存エラー:', error)
+      showToast.error('保存に失敗しました')
+    } finally {
+      setIsSavingCharacter(false)
     }
   }
 
@@ -693,8 +851,25 @@ export function AlbumPage() {
                     )}
                   </div>
                 </div>
-                <Button 
-                  onClick={handleAddManualHistory} 
+                {newCharacterOptions.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>自分の役（任意）</Label>
+                    <SearchableSelect
+                      options={newCharacterOptions.map((c): SearchableSelectOption => ({
+                        value: c.id,
+                        label: c.name
+                      }))}
+                      value={newCharacterId}
+                      onValueChange={setNewCharacterId}
+                      placeholder="役を選択"
+                      searchPlaceholder="役を検索..."
+                      emptyText="役が見つかりません"
+                      allowClear={true}
+                    />
+                  </div>
+                )}
+                <Button
+                  onClick={handleAddManualHistory}
                   disabled={isSubmitting || !newScenarioId}
                   className="w-full"
                 >
@@ -819,29 +994,50 @@ export function AlbumPage() {
                                   </div>
                                 )}
                                 
-                                {/* 手動登録バッジと削除ボタン */}
-                                {play.is_manual && (
-                                  <div className="flex items-center gap-1 ml-auto" onClick={e => e.stopPropagation()}>
-                                    <Badge variant="outline" className="text-[10px] px-1 py-0 text-muted-foreground">
-                                      手動登録
-                                    </Badge>
+                                {/* 役名 */}
+                                {play.character_name && (
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <span className="text-muted-foreground">役:</span>
+                                    <span className="text-foreground whitespace-nowrap">{play.character_name}</span>
+                                  </div>
+                                )}
+
+                                {/* 配役編集・手動登録バッジ・削除ボタン */}
+                                <div className="flex items-center gap-1 ml-auto" onClick={e => e.stopPropagation()}>
+                                  {play.scenario_id && (
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-5 w-5 hover:bg-red-50"
-                                      onClick={() => {
-                                        if (!play.manual_id) {
-                                          showToast.error('この履歴は削除用のIDが付いていません。マイページを再読み込みしてください。')
-                                          return
-                                        }
-                                        void handleDeleteManualHistory(play.manual_id)
-                                      }}
-                                      title="削除"
+                                      className="h-5 w-5 hover:bg-blue-50"
+                                      onClick={() => setEditCharacterPlay(play)}
+                                      title="役を記録"
                                     >
-                                      <Trash2 className="h-3 w-3 text-red-400" />
+                                      <Pencil className="h-3 w-3 text-blue-400" />
                                     </Button>
-                                  </div>
-                                )}
+                                  )}
+                                  {play.is_manual && (
+                                    <>
+                                      <Badge variant="outline" className="text-[10px] px-1 py-0 text-muted-foreground">
+                                        手動登録
+                                      </Badge>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 hover:bg-red-50"
+                                        onClick={() => {
+                                          if (!play.manual_id) {
+                                            showToast.error('この履歴は削除用のIDが付いていません。マイページを再読み込みしてください。')
+                                            return
+                                          }
+                                          void handleDeleteManualHistory(play.manual_id)
+                                        }}
+                                        title="削除"
+                                      >
+                                        <Trash2 className="h-3 w-3 text-red-400" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -1021,6 +1217,56 @@ export function AlbumPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* 配役編集ダイアログ */}
+      <Dialog open={!!editCharacterPlay} onOpenChange={(open) => { if (!open) setEditCharacterPlay(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>自分の役を記録</DialogTitle>
+          </DialogHeader>
+          {editCharacterPlay && (
+            <div className="space-y-4 pt-2">
+              <p className="text-sm text-muted-foreground">{cleanTitle(editCharacterPlay.scenario)}</p>
+              <div className="space-y-2">
+                <Label>担当した役（任意）</Label>
+                {characterOptions.length > 0 ? (
+                  <SearchableSelect
+                    options={characterOptions.map((c): SearchableSelectOption => ({
+                      value: c.id,
+                      label: c.name
+                    }))}
+                    value={editCharacterId}
+                    onValueChange={setEditCharacterId}
+                    placeholder="役を選択"
+                    searchPlaceholder="役を検索..."
+                    emptyText="役が見つかりません"
+                    allowClear={true}
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">このシナリオには役名リストが登録されていません</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setEditCharacterPlay(null)}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  キャンセル
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => void handleSaveCharacter()}
+                  disabled={isSavingCharacter}
+                >
+                  {isSavingCharacter ? '保存中...' : '保存'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
