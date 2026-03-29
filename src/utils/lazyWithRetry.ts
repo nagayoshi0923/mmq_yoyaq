@@ -118,8 +118,8 @@ export function initVersionCheck(onVersionChange: () => void): void {
       // 変わっていたらポーリング終了（バナーは1回だけ表示）
     }
 
-    // 初回は3分後に開始（アプリ起動直後は不要）
-    setTimeout(poll, 3 * 60 * 1000)
+    // 初回は10秒後に開始（デプロイ直後のキャッシュ不整合を早期検知）
+    setTimeout(poll, 10 * 1000)
 
     // タブがフォアグラウンドに戻った時もチェック
     document.addEventListener('visibilitychange', () => {
