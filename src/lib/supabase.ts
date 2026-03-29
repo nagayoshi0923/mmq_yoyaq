@@ -44,94 +44,6 @@ try {
   // noop
 }
 
-// Safari ITP対策: IndexedDBを使用したカスタムストレージ
-// localStorageはSafariのITPにより消される可能性があるため、
-// IndexedDBにフォールバックしてセッションを永続化
-const createCustomStorage = () => {
-  const DB_NAME = 'mmq-auth-storage'
-  const STORE_NAME = 'auth'
-  const STORAGE_KEY = 'mmq-supabase-auth'
-  
-  let dbPromise: Promise<IDBDatabase> | null = null
-  
-  const getDb = (): Promise<IDBDatabase> => {
-    if (dbPromise) return dbPromise
-    
-    dbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, 1)
-      request.onerror = () => reject(request.error)
-      request.onsuccess = () => resolve(request.result)
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME)
-        }
-      }
-    })
-    
-    return dbPromise
-  }
-  
-  return {
-    getItem: async (key: string): Promise<string | null> => {
-      // まずlocalStorageを試す（高速）
-      try {
-        const localValue = localStorage.getItem(key)
-        if (localValue) return localValue
-      } catch {}
-      
-      // IndexedDBにフォールバック
-      try {
-        const db = await getDb()
-        return new Promise((resolve) => {
-          const tx = db.transaction(STORE_NAME, 'readonly')
-          const store = tx.objectStore(STORE_NAME)
-          const request = store.get(key)
-          request.onsuccess = () => resolve(request.result || null)
-          request.onerror = () => resolve(null)
-        })
-      } catch {
-        return null
-      }
-    },
-    
-    setItem: async (key: string, value: string): Promise<void> => {
-      // 両方に保存（冗長性確保）
-      try {
-        localStorage.setItem(key, value)
-      } catch {}
-      
-      try {
-        const db = await getDb()
-        return new Promise((resolve, reject) => {
-          const tx = db.transaction(STORE_NAME, 'readwrite')
-          const store = tx.objectStore(STORE_NAME)
-          const request = store.put(value, key)
-          request.onsuccess = () => resolve()
-          request.onerror = () => reject(request.error)
-        })
-      } catch {}
-    },
-    
-    removeItem: async (key: string): Promise<void> => {
-      try {
-        localStorage.removeItem(key)
-      } catch {}
-      
-      try {
-        const db = await getDb()
-        return new Promise((resolve) => {
-          const tx = db.transaction(STORE_NAME, 'readwrite')
-          const store = tx.objectStore(STORE_NAME)
-          const request = store.delete(key)
-          request.onsuccess = () => resolve()
-          request.onerror = () => resolve()
-        })
-      } catch {}
-    }
-  }
-}
-
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     // セッションを永続化
@@ -144,8 +56,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     storageKey: 'mmq-supabase-auth',
     // implicit フロー: Magic Link 使用時は別ブラウザでも動作
     flowType: 'implicit',
-    // Safari ITP対策: IndexedDBを使用したカスタムストレージ
-    storage: createCustomStorage(),
+    // デフォルトの localStorage を使用
+    // （IndexedDB カスタムストレージは mobile Safari で indexedDB.open() がハングする問題があり削除）
   },
 })
 
