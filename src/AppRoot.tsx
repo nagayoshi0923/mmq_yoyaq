@@ -408,7 +408,11 @@ function AppRoutes() {
   const authPage = parseAuthPageFromPath(location.pathname)
   if (authPage === 'login') {
     // ログイン済みなら適切なトップページへ
-    if (!loading && user) {
+    // isInitialized を使う理由: !loading は1.2秒タイムアウトでも true になるが、
+    // isInitialized は getInitialSession() 完了後にのみ true になる。
+    // モバイルSafariでは IndexedDB 読み込みがタイムアウト後に完了し user がセットされる
+    // ことがあるため、!loading だとフォーム表示中に突然リダイレクトされる問題が発生する。
+    if (isInitialized && user) {
       return <Navigate to={user.role === 'customer' ? '/' : '/dashboard'} replace />
     }
     return (
@@ -418,8 +422,8 @@ function AppRoutes() {
     )
   }
   if (authPage === 'signup') {
-    // ログイン済みなら適切なトップページへ
-    if (!loading && user) {
+    // ログイン済みなら適切なトップページへ（同上の理由で isInitialized を使用）
+    if (isInitialized && user) {
       return <Navigate to={user.role === 'customer' ? '/' : '/dashboard'} replace />
     }
     return (
