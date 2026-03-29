@@ -1,5 +1,5 @@
 import React, { Suspense, useLayoutEffect } from 'react'
-import { BrowserRouter, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
+import { BrowserRouter, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
@@ -304,8 +304,10 @@ function AppRoutes() {
   React.useEffect(() => {
     // /complete-profile 自体はスキップ（無限ループ防止）
     const isCompleteProfilePage = location.pathname === '/complete-profile'
+    // 認証フローページにいるログイン済み顧客はプロフィールゲート対象外（ループ防止）
+    const isAuthPage = ['/signup', '/login', '/register', '/reset-password', '/set-password'].includes(location.pathname)
 
-    if (!user || user.role !== 'customer' || isCompleteProfilePage) {
+    if (!user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage) {
       setIsProfileCheckRunning(false)
       return
     }
@@ -405,6 +407,10 @@ function AppRoutes() {
   // ログイン・新規登録（/login と /{org}/login など。loading に関係なく表示）
   const authPage = parseAuthPageFromPath(location.pathname)
   if (authPage === 'login') {
+    // ログイン済みなら適切なトップページへ
+    if (!loading && user) {
+      return <Navigate to={user.role === 'customer' ? '/' : '/dashboard'} replace />
+    }
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <LoginForm />
@@ -412,6 +418,10 @@ function AppRoutes() {
     )
   }
   if (authPage === 'signup') {
+    // ログイン済みなら適切なトップページへ
+    if (!loading && user) {
+      return <Navigate to={user.role === 'customer' ? '/' : '/dashboard'} replace />
+    }
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <LoginForm signup={true} />
