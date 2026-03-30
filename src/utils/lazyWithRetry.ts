@@ -105,23 +105,25 @@ export function initVersionCheck(onVersionChange: () => void): void {
   initialBuildHash = getCurrentBuildHash()
   onVersionChangeCallback = onVersionChange
 
-  // 本番環境でのみ定期ポーリング（5分間隔）
+  // 本番環境でのみ定期ポーリング
   if (import.meta.env.PROD && initialBuildHash) {
-    const POLL_INTERVAL = 5 * 60 * 1000 // 5分
+    const POLL_INTERVAL = 30 * 1000 // 30秒
 
     const poll = async () => {
+      if (document.visibilityState === 'hidden') {
+        setTimeout(poll, POLL_INTERVAL)
+        return
+      }
       const changed = await checkVersionChange()
       if (!changed) {
-        // まだ変わってなければ次回もチェック
         setTimeout(poll, POLL_INTERVAL)
       }
-      // 変わっていたらポーリング終了（バナーは1回だけ表示）
     }
 
     // 初回は10秒後に開始（デプロイ直後のキャッシュ不整合を早期検知）
     setTimeout(poll, 10 * 1000)
 
-    // タブがフォアグラウンドに戻った時もチェック
+    // タブがフォアグラウンドに戻った時は即座にチェック
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && initialBuildHash) {
         checkVersionChange()
