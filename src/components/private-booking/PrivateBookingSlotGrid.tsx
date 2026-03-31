@@ -86,20 +86,20 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
           type="button"
           onClick={() => onMonthChange(-1)}
           disabled={isPrevMonthDisabled}
-          className={`flex items-center gap-0 px-1 py-0.5 ${smallText} text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed`}
+          className="flex items-center gap-0.5 px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {compact ? <ChevronLeft className="h-3 w-3" /> : '←'} 前月
+          <ChevronLeft className="h-4 w-4" /> 前月
         </button>
-        <span className={`${textSize} font-medium tabular-nums`}>
+        <span className="text-sm font-medium tabular-nums">
           {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
         </span>
         <button
           type="button"
           onClick={() => onMonthChange(1)}
           disabled={isNextMonthDisabled}
-          className={`flex items-center gap-0 px-1 py-0.5 ${smallText} text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed`}
+          className="flex items-center gap-0.5 px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          次月 {compact ? <ChevronRight className="h-3 w-3" /> : '→'}
+          次月 <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
