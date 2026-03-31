@@ -276,8 +276,8 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
             `予約 ${req.id}: 現在の候補数=${currentCandidates.length}, 元の候補数=${originalCandidates.length}`
           )
           
-          // 元の候補日が多い場合は復元
-          if (originalCandidates.length > currentCandidates.length) {
+          // 確定済み予約のみ候補日を復元（pending 時は顧客が選択した日程だけを表示する）
+          if (req.status === 'confirmed' && originalCandidates.length > currentCandidates.length) {
             privateBookingTrace(`候補日を復元: ${originalCandidates.map((c: any) => c.date).join(', ')}`)
             // 確定された候補を特定
             const confirmedCandidate = currentCandidates.find((c: any) => c.status === 'confirmed')

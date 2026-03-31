@@ -20,10 +20,8 @@ import { formatDate } from './utils/privateBookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
-import {
-  getPrivateGroupCandidateSlotsForDate,
-  type BusinessHoursSettingRow,
-} from '@/lib/privateGroupCandidateSlots'
+import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
+import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import type { PrivateBookingRequestProps, TimeSlot } from './types'
@@ -163,37 +161,42 @@ export function PrivateBookingRequest({
   const pickerDate = newDate || dateRange.minDate
   const candidateSlotsForPicker = useMemo(() => {
     if (storeIdsForSlotResolution.length === 0) return []
-    return getPrivateGroupCandidateSlotsForDate(
-      pickerDate,
-      storeIdsForSlotResolution,
+    return computePrivateBookingSlots({
+      date: pickerDate,
+      storeIds: storeIdsForSlotResolution,
       businessHoursByStore,
-      isCustomHoliday
-    )
+      scenarioTiming,
+      allStoreEvents: [],
+      isCustomHoliday,
+    })
   }, [
     pickerDate,
     storeIdsForSlotResolution,
     businessHoursByStore,
+    scenarioTiming,
     isCustomHoliday,
   ])
 
   const handleAddTimeSlot = () => {
     if (!newDate || !newSlotLabel) return
-    const daySlots = getPrivateGroupCandidateSlotsForDate(
-      newDate,
-      storeIdsForSlotResolution,
+    const daySlots = computePrivateBookingSlots({
+      date: newDate,
+      storeIds: storeIdsForSlotResolution,
       businessHoursByStore,
-      isCustomHoliday
-    )
+      scenarioTiming,
+      allStoreEvents: [],
+      isCustomHoliday,
+    })
     const picked = daySlots.find((s) => s.label === newSlotLabel)
     if (!picked) {
       toast.error('この日・店舗の組み合わせでは、その時間帯を追加できません')
       return
     }
-    const slot: TimeSlot = enrichSlotEnd(newDate, {
+    const slot: TimeSlot = {
       label: picked.label,
       startTime: picked.startTime,
-      endTime: picked.startTime,
-    })
+      endTime: picked.endTime,
+    }
 
     // 重複チェック
     const isDuplicate = editableTimeSlots.some(
@@ -431,19 +434,11 @@ export function PrivateBookingRequest({
                                 日付を選ぶか、希望店舗の営業時間を読み込み中です
                               </div>
                             ) : (
-                              candidateSlotsForPicker.map((slot) => {
-                                const previewEnd = getPrivateBookingDisplayEndTime(
-                                  slot.startTime,
-                                  pickerDate,
-                                  scenarioTiming,
-                                  isCustomHoliday
-                                )
-                                return (
+                              candidateSlotsForPicker.map((slot) => (
                                   <SelectItem key={slot.label} value={slot.label}>
-                                    {slot.label}（{slot.startTime}〜{previewEnd}）
+                                    {slot.label}（{slot.startTime}〜{slot.endTime}）
                                   </SelectItem>
-                                )
-                              })
+                              ))
                             )}
                           </SelectContent>
                         </Select>

@@ -9,15 +9,9 @@ import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import type { PrivateGroupCandidateDate } from '@/types'
 import { privateGroupTimeSlotFromDb, privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
-import { PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES, getPerformanceDurationMinutesForDate } from '@/lib/privateBookingScenarioTime'
-import { isJapaneseHoliday as isJpHoliday } from '@/utils/japaneseHolidays'
-import {
-  getPrivateGroupCandidateSlotsForDate,
-  type BusinessHoursSettingRow,
-  type PrivateGroupCandidateTimeSlot,
-} from '@/lib/privateGroupCandidateSlots'
+import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime, type ScenarioTimingFromDb } from '@/lib/privateBookingScenarioTime'
-import { isPrivateBookingSlotAvailableOnAnyStore } from '@/lib/privateBookingSlotAvailability'
+import { computePrivateBookingSlots, type PrivateBookingSlot } from '@/lib/computePrivateBookingSlots'
 import { showToast } from '@/utils/toast'
 
 /** 列の並び（設定で枠が無い日は該当セルを無効表示） */
@@ -71,7 +65,7 @@ export function AddCandidateDates({
   const wasOpenRef = useRef(false)
   const emptyMonthAutoSkipRef = useRef(0)
   const [selectedSlots, setSelectedSlots] = useState<
-    Array<{ date: string; slot: PrivateGroupCandidateTimeSlot }>
+    Array<{ date: string; slot: PrivateBookingSlot }>
   >([])
   const [saving, setSaving] = useState(false)
   const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
@@ -235,49 +229,28 @@ export function AddCandidateDates({
   }, [currentMonth])
 
   const slotsByDate = useMemo(() => {
-    const map: Record<string, PrivateGroupCandidateTimeSlot[]> = {}
+    if (!scenarioTiming) return {} as Record<string, PrivateBookingSlot[]>
+    const map: Record<string, PrivateBookingSlot[]> = {}
     for (const date of availableDates) {
-      map[date] = getPrivateGroupCandidateSlotsForDate(
+      map[date] = computePrivateBookingSlots({
         date,
         storeIds,
         businessHoursByStore,
-        isCustomHoliday
-      )
+        scenarioTiming,
+        allStoreEvents,
+        isCustomHoliday,
+      })
     }
     return map
-  }, [availableDates, storeIds, businessHoursByStore, isCustomHoliday])
+  }, [availableDates, storeIds, businessHoursByStore, scenarioTiming, allStoreEvents, isCustomHoliday])
 
   useEffect(() => {
-    if (!isOpen || !businessHoursLoaded || !eventsLoaded || !scenarioTimingLoaded || !scenarioTiming) return
+    if (!isOpen || !scenarioTimingLoaded || !scenarioTiming) return
 
     const newMap: Record<string, boolean> = {}
 
     for (const date of availableDates) {
       const daySlots = slotsByDate[date] || []
-
-      // 平日判定: 長時間作品では午後→午前に切り替え（排他制御）
-      const dateObj = new Date(date + 'T00:00:00+09:00')
-      const dow = dateObj.getDay()
-      const isWeekendOrHol = dow === 0 || dow === 6 || isJpHoliday(date) || isCustomHoliday(date)
-
-      let weekdayMorningOnly = false
-      if (!isWeekendOrHol && scenarioTiming) {
-        const dur = getPerformanceDurationMinutesForDate(date, scenarioTiming, isCustomHoliday)
-        const extraPrep = scenarioTiming.extra_preparation_time || 0
-        const eveningSlot = daySlots.find(s => s.key === 'evening')
-        const eveningStart = eveningSlot
-          ? parseInt(eveningSlot.startTime.split(':')[0], 10) * 60 +
-            parseInt(eveningSlot.startTime.split(':')[1] || '0', 10)
-          : 19 * 60
-        const deadline = eveningStart - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
-        const reverseStart = deadline - dur - extraPrep
-        const afternoonSlot = daySlots.find(s => s.key === 'afternoon')
-        const afternoonDefault = afternoonSlot
-          ? parseInt(afternoonSlot.startTime.split(':')[0], 10) * 60 +
-            parseInt(afternoonSlot.startTime.split(':')[1] || '0', 10)
-          : 13 * 60
-        weekdayMorningOnly = reverseStart < afternoonDefault
-      }
 
       for (const slot of daySlots) {
         const key = `${date}-${slot.label}`
@@ -287,38 +260,7 @@ export function AddCandidateDates({
             ed.date === date &&
             privateGroupTimeSlotFromDb(ed.time_slot) === slot.label
         )
-        if (isAlreadySelected) {
-          newMap[key] = false
-          continue
-        }
-
-        // 平日排他: 長時間 → 午後を出さない、短時間 → 午前を出さない
-        if (!isWeekendOrHol) {
-          if (weekdayMorningOnly && slot.key === 'afternoon') {
-            newMap[key] = false
-            continue
-          }
-          if (!weekdayMorningOnly && slot.key === 'morning') {
-            newMap[key] = false
-            continue
-          }
-        }
-
-        const slotStart =
-          parseInt(slot.startTime.split(':')[0], 10) * 60 +
-          parseInt(slot.startTime.split(':')[1] || '0', 10)
-
-        // business_hours_settings（営業時間）＋公演隙間。シナリオ詳細の貸切と同じ privateBookingStoreSlotFeasibility 系
-        newMap[key] = isPrivateBookingSlotAvailableOnAnyStore(
-          date,
-          slot.key,
-          slotStart,
-          scenarioTiming,
-          storeIds,
-          businessHoursByStore,
-          allStoreEvents,
-          isCustomHoliday
-        )
+        newMap[key] = !isAlreadySelected
       }
     }
 
@@ -326,15 +268,10 @@ export function AddCandidateDates({
   }, [
     isOpen,
     availableDates,
-    allStoreEvents,
     existingDates,
-    storeIds,
-    businessHoursLoaded,
-    eventsLoaded,
     slotsByDate,
     scenarioTiming,
     scenarioTimingLoaded,
-    isCustomHoliday,
   ])
 
   const loadingData = eventsLoading || !businessHoursLoaded || !scenarioTimingLoaded
@@ -380,11 +317,11 @@ export function AddCandidateDates({
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
   }, [isOpen, loadingData, availableDates.length, currentMonth])
 
-  const isSlotSelected = (date: string, slot: PrivateGroupCandidateTimeSlot): boolean => {
+  const isSlotSelected = (date: string, slot: PrivateBookingSlot): boolean => {
     return selectedSlots.some(s => s.date === date && s.slot.label === slot.label)
   }
 
-  const handleSlotToggle = useCallback((date: string, slot: PrivateGroupCandidateTimeSlot) => {
+  const handleSlotToggle = useCallback((date: string, slot: PrivateBookingSlot) => {
     setSelectedSlots(prev => {
       const existingIndex = prev.findIndex(
         s => s.date === date && s.slot.label === slot.label
@@ -629,18 +566,6 @@ export function AddCandidateDates({
                       const isAvailable = availabilityMap[key] ?? true
                       const isSelected = isSlotSelected(date, slot)
                       const canSelect = isAvailable && (isSelected || selectedSlots.length < MAX_SELECTIONS)
-                      const displayEnd =
-                        scenarioTiming != null
-                          ? getPrivateBookingDisplayEndTime(
-                              slot.startTime,
-                              date,
-                              {
-                                duration: scenarioTiming.duration,
-                                weekend_duration: scenarioTiming.weekend_duration,
-                              },
-                              isCustomHoliday
-                            )
-                          : slot.endTime
 
                       return (
                         <button
@@ -664,7 +589,7 @@ export function AddCandidateDates({
                               isSelected ? 'text-purple-100' : 'text-muted-foreground'
                             }`}
                           >
-                            {slot.startTime}〜{displayEnd}
+                            {slot.startTime}〜{slot.endTime}
                           </div>
                         </button>
                       )

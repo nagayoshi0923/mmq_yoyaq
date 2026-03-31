@@ -6,10 +6,8 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
-import {
-  getPrivateGroupCandidateSlotsForDate,
-  type BusinessHoursSettingRow,
-} from '@/lib/privateGroupCandidateSlots'
+import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
+import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
 
 interface TimeSlot {
   label: string
@@ -175,12 +173,20 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       for (const row of data || []) {
         map.set(row.store_id as string, row as BusinessHoursSettingRow)
       }
-      const slots = getPrivateGroupCandidateSlotsForDate(
+      const scenarioDur =
+        typeof scenario.duration === 'number' && scenario.duration > 0 ? scenario.duration : 180
+      const weekendDur =
+        typeof scenario.weekend_duration === 'number' && scenario.weekend_duration > 0
+          ? scenario.weekend_duration
+          : null
+      const slots = computePrivateBookingSlots({
         date,
-        storeIdsForSlots,
-        map,
-        isCustomHoliday
-      )
+        storeIds: storeIdsForSlots,
+        businessHoursByStore: map,
+        scenarioTiming: { duration: scenarioDur, weekend_duration: weekendDur },
+        allStoreEvents: [],
+        isCustomHoliday,
+      })
       const found = slots.find((s) => s.key === slotKey)
       if (cancelled) return
       urlSlotPrefillAppliedForKeyRef.current = urlSlotPrefillKey
@@ -191,7 +197,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
             slot: {
               label: found.label,
               startTime: found.startTime,
-              endTime: found.startTime,
+              endTime: found.endTime,
             },
           },
         ])
