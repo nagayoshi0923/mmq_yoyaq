@@ -20,21 +20,14 @@ export function mergeScenarioPlayerBounds(
 }
 
 /**
- * 招待で参加できる人数の上限（シナリオ上限とグループ目標の小さい方）
+ * 招待で参加できる人数の上限（シナリオ定員の max）
  */
 export function memberInvitationCap(
   bounds: ScenarioPlayerBounds,
-  targetParticipants: number | null | undefined
 ): number {
-  if (targetParticipants != null && targetParticipants > 0) {
-    return Math.min(bounds.max, targetParticipants)
-  }
   return bounds.max
 }
 
-export function clampTargetToBounds(target: number, bounds: ScenarioPlayerBounds): number {
-  return Math.max(bounds.min, Math.min(bounds.max, target))
-}
 
 export async function fetchScenarioPlayerBoundsForOrg(
   supabase: SupabaseClient,

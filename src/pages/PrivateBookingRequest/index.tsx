@@ -279,7 +279,6 @@ export function PrivateBookingRequest({
         const group = await createGroup({
           scenarioId,
           name: undefined,
-          targetParticipantCount: maxParticipants,
           preferredStoreIds: selectedStoreIds,
           candidateDates: editableTimeSlots.map((ts, idx) => ({
             date: ts.date,

@@ -9,7 +9,6 @@ export interface PrivateGroupListItem {
   status: string
   organizer_id: string
   scenario_id: string
-  target_participant_count: number
   created_at: string
   updated_at: string
   scenario_masters: {
@@ -72,7 +71,6 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           status,
           organizer_id,
           scenario_id,
-          target_participant_count,
           created_at,
           updated_at,
           scenario_masters:scenario_id (

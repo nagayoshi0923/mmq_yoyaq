@@ -88,7 +88,7 @@ export function PrivateGroupManage() {
   const handleShareLine = () => {
     if (!group) return
     const scenario = group.scenario_masters as { title?: string; player_count_max?: number } | undefined
-    const playerCount = scenario?.player_count_max || group.target_participant_count || '?'
+    const playerCount = scenario?.player_count_max || '?'
     const text = `貸切マーダーミステリーに参加しませんか？\n\n🎭 ${scenario?.title || 'シナリオ'}\n👥 ${playerCount}名で貸切\n\n以下のリンクから参加・日程回答をお願いします👇`
     const url = getInviteUrl()
     window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
@@ -98,7 +98,7 @@ export function PrivateGroupManage() {
     if (!group) return
     const scenario = group.scenario_masters as { title?: string; player_count_max?: number } | undefined
     const candidateDates = group.candidate_dates || []
-    const playerCount = scenario?.player_count_max || group.target_participant_count || '?'
+    const playerCount = scenario?.player_count_max || '?'
 
     let progressText = `📊 貸切リクエスト進捗状況\n\n`
     progressText += `🎭 ${scenario?.title || 'シナリオ'}\n`
@@ -285,7 +285,7 @@ export function PrivateGroupManage() {
   }
 
   const scenario = group.scenario_masters as { title?: string; key_visual_url?: string; player_count_max?: number; characters?: unknown[] } | undefined
-  const targetCount = scenario?.player_count_max || group.target_participant_count || 1
+  const targetCount = scenario?.player_count_max || 1
   const allMembersResponded = joinedMembers.every(m => {
     const memberResponses = group.candidate_dates?.every(cd =>
       cd.responses?.some(r => r.member_id === m.id)
@@ -695,7 +695,7 @@ export function PrivateGroupManage() {
                       <div className="space-y-2">
                         {responseSummary.map((summary, index) => {
                           const cd = summary.candidateDate
-                          const isRecommended = summary.isViable && summary.okCount >= (group.target_participant_count || 1)
+                          const isRecommended = summary.isViable && summary.okCount >= targetCount
                           return (
                             <div
                               key={cd.id}
@@ -1068,7 +1068,7 @@ export function PrivateGroupManage() {
                 {responseSummary.map((summary, index) => {
                   const cd = summary.candidateDate
                   const isSelected = selectedDatesForBooking.includes(cd.id)
-                  const isRecommended = summary.isViable && summary.okCount >= (group.target_participant_count || 1)
+                  const isRecommended = summary.isViable && summary.okCount >= targetCount
                   
                   return (
                     <div

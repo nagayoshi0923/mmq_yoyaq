@@ -185,7 +185,6 @@ export function PrivateGroupCreate() {
       const group = await createGroup({
         scenarioId,
         name: groupName || undefined,
-        targetParticipantCount: scenarioParticipantMax,
         preferredStoreIds: selectedStoreIds,
         candidateDates: [],
         notes: notes || undefined,

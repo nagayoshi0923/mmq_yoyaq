@@ -865,8 +865,6 @@ export function PrivateGroupInvite() {
     effective_player_count_max?: number
     characters?: unknown[]
   } | undefined
-  /** 主催が設定した目標人数（表示用） */
-  const groupTargetParticipants = group.target_participant_count ?? null
   const scenarioMin =
     scenario?.effective_player_count_min ?? scenario?.player_count_min ?? null
   const scenarioMax =
@@ -878,10 +876,9 @@ export function PrivateGroupInvite() {
     scenarioMax >= scenarioMin
       ? { min: scenarioMin, max: scenarioMax }
       : null
-  /** 招待リンク経由で参加できる人数の上限（シナリオ定員と目標の小さい方） */
   const inviteMemberCap = inviteBounds
-    ? memberInvitationCap(inviteBounds, group.target_participant_count)
-    : groupTargetParticipants
+    ? memberInvitationCap(inviteBounds)
+    : null
   const organizerMember = group.members?.find(m => m.is_organizer)
   const organizerName = organizerMember?.guest_name || 'メンバー'
   const memberCount = joinedMembers.length
@@ -1113,10 +1110,7 @@ export function PrivateGroupInvite() {
         scenarioForBookingCap?.player_count_max ??
         null
       const joinedForBooking = joinedMembers.length
-      let bookingParticipantCount =
-        group.target_participant_count != null && group.target_participant_count > 0
-          ? group.target_participant_count
-          : Math.max(joinedForBooking, 1)
+      let bookingParticipantCount = Math.max(joinedForBooking, 1)
       if (scenarioPlayerMax != null && bookingParticipantCount > scenarioPlayerMax) {
         bookingParticipantCount = scenarioPlayerMax
       }
@@ -2302,9 +2296,6 @@ export function PrivateGroupInvite() {
                   </span>
                   <span>
                     {joinedMembers.length}名 / 招待上限 {inviteMemberCap ?? '-'}名
-                    {groupTargetParticipants != null
-                      ? `（目標 ${groupTargetParticipants}名）`
-                      : ''}
                   </span>
                 </div>
                 

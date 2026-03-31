@@ -109,7 +109,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
           *,
           scenario_masters:scenario_master_id(title, official_duration),
           customers:customer_id(name, phone),
-          private_groups:private_group_id(invite_code, scenario_id, target_participant_count)
+          private_groups:private_group_id(invite_code, scenario_id)
         `)
         .eq('organization_id', orgId)
         .eq('reservation_source', 'web_private')

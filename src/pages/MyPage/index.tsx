@@ -75,7 +75,6 @@ interface PrivateGroupSummary {
   name: string | null
   invite_code: string
   status: string
-  target_participant_count: number | null
   scenario_title: string | null
   scenario_image: string | null
   scenario_player_count_max: number | null
@@ -380,7 +379,6 @@ export default function MyPage() {
               name,
               invite_code,
               status,
-              target_participant_count,
               created_at,
               reservation_id,
               scenario_masters:scenario_id (id, title, key_visual_url, player_count_max)
@@ -763,7 +761,6 @@ export default function MyPage() {
             name: group.name,
             invite_code: group.invite_code,
             status: group.status,
-            target_participant_count: group.target_participant_count,
             scenario_title: scenario?.title || null,
             scenario_image: scenario?.key_visual_url || null,
             scenario_player_count_max: scenario?.player_count_max || null,
@@ -1408,7 +1405,7 @@ export default function MyPage() {
                               )}
                             </div>
                             <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700">
-                              {group.member_count}/{group.scenario_player_count_max || group.target_participant_count || '?'}名
+                              {group.member_count}/{group.scenario_player_count_max || '?'}名
                             </span>
                           </div>
 

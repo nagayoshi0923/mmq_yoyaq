@@ -27,7 +27,6 @@ interface CandidateDateInput {
 interface CreateGroupParams {
   scenarioId: string
   name?: string
-  targetParticipantCount?: number
   preferredStoreIds?: string[]
   candidateDates: CandidateDateInput[]
   notes?: string
@@ -161,19 +160,6 @@ export function usePrivateGroup() {
 
       const organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
 
-      const playerBounds = await fetchScenarioPlayerBoundsForOrg(
-        supabase,
-        organizationId,
-        params.scenarioId
-      )
-      const rawTarget = params.targetParticipantCount
-      if (playerBounds && rawTarget != null && rawTarget > 0) {
-        if (rawTarget < playerBounds.min || rawTarget > playerBounds.max) {
-          throw new Error(
-            `参加人数は${playerBounds.min}〜${playerBounds.max}名の範囲で指定してください（このシナリオの定員）`
-          )
-        }
-      }
 
       let inviteCode = await generateInviteCode()
       let attempts = 0
@@ -204,7 +190,6 @@ export function usePrivateGroup() {
           name: params.name || null,
           invite_code: inviteCode,
           status: 'gathering',
-          target_participant_count: params.targetParticipantCount || null,
           preferred_store_ids: params.preferredStoreIds || [],
           notes: params.notes || null,
         })
@@ -256,8 +241,6 @@ export function usePrivateGroup() {
         const msgSettings = await getSystemMessageSettings(organizationId)
         await sendSystemMessage(group.id, memberData.id, 'group_created', {
           organizerName: user.email?.split('@')[0] || '主催者',
-          targetCount: params.targetParticipantCount || null,
-          // 設定されたメッセージ文言を含める
           title: msgSettings?.system_msg_group_created_title || '貸切リクエストグループを作成しました',
           body: msgSettings?.system_msg_group_created_body || '招待リンクを共有して、参加メンバーを招待してください。',
           note: msgSettings?.system_msg_group_created_note || '※ 全員を招待していなくても日程確定は可能ですが、当日は参加人数全員でお越しください。'
@@ -454,10 +437,9 @@ export function usePrivateGroup() {
         throw new Error('既にグループに参加しています')
       }
 
-      // 参加人数の上限（シナリオ定員とグループ目標の小さい方。組織別上書きを反映）
       const { data: groupData } = await supabase
         .from('private_groups')
-        .select('organization_id, target_participant_count, scenario_id')
+        .select('organization_id, scenario_id')
         .eq('id', params.groupId)
         .single()
 
@@ -468,7 +450,7 @@ export function usePrivateGroup() {
           groupData.scenario_id
         )
         if (bounds) {
-          const cap = memberInvitationCap(bounds, groupData.target_participant_count)
+          const cap = memberInvitationCap(bounds)
           const { count: currentMemberCount } = await supabase
             .from('private_group_members')
             .select('id', { count: 'exact', head: true })

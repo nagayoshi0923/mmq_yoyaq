@@ -252,7 +252,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="w-3.5 h-3.5" />
-                          {group.members.length}/{group.scenario_masters?.player_count_max || group.target_participant_count || '?'}名
+                          {group.members.length}/{group.scenario_masters?.player_count_max || '?'}名
                         </span>
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5" />
