@@ -6,6 +6,19 @@
   "framework": "vite",
   "cleanUrls": false,
   "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/((?!assets/).*)",
+      "missing": [
+        {
+          "type": "query",
+          "key": "_v"
+        }
+      ],
+      "destination": "/$1?_v=2",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!assets/).*)",
@@ -38,7 +51,7 @@
         },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "value": "no-cache, no-store, must-revalidate"
         }
       ]
     },

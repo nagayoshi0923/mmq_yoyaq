@@ -100,17 +100,13 @@ export function useGlobalSettings() {
     const today = new Date()
     const currentDay = today.getDate()
     
-    const { shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead } = settings
+    const { shift_submission_end_day, shift_submission_target_months_ahead } = settings
     
     // 現在の提出期間の開始月を判定
     let currentPeriodStartMonth = shift_submission_target_months_ahead
     
     if (currentDay > shift_submission_end_day) {
-      // 提出期限を過ぎている場合は、次の提出期間に入っている
       currentPeriodStartMonth += 1
-    } else if (currentDay < shift_submission_start_day) {
-      // まだ提出期間が始まっていない場合は、前の提出期間
-      currentPeriodStartMonth -= 1
     }
 
     // 提出可能な範囲：開始月から3ヶ月先まで
@@ -158,7 +154,7 @@ export function useGlobalSettings() {
     const today = new Date()
     const currentDay = today.getDate()
     
-    const { shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead } = settings
+    const { shift_submission_end_day, shift_submission_target_months_ahead } = settings
     
     // 現在の提出期間の開始月を判定
     let currentPeriodStartMonth = shift_submission_target_months_ahead
@@ -167,11 +163,7 @@ export function useGlobalSettings() {
     const graceDeadline = shift_submission_end_day + 5
     
     if (currentDay > graceDeadline) {
-      // 猶予期限を過ぎている場合は、次の提出期間に入っている
       currentPeriodStartMonth += 1
-    } else if (currentDay < shift_submission_start_day) {
-      // まだ提出期間が始まっていない場合は、前の提出期間
-      currentPeriodStartMonth -= 1
     }
 
     // 提出可能な範囲：開始月から3ヶ月先まで

@@ -209,28 +209,7 @@ export function GeneralSettings() {
           <CardDescription>スタッフがシフトを提出できる期間を設定します</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="shift_submission_start_day">提出開始日</Label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">毎月</span>
-                <Input
-                  id="shift_submission_start_day"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.shift_submission_start_day}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    shift_submission_start_day: parseInt(e.target.value) || 1 
-                  }))}
-                  className="w-20"
-                />
-                <span className="text-xs text-muted-foreground">日から</span>
-              </div>
-              <p className="text-xs text-muted-foreground">シフト提出を開始できる日</p>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="shift_submission_end_day">提出締切日</Label>
               <div className="flex items-center gap-2">
@@ -249,7 +228,7 @@ export function GeneralSettings() {
                 />
                 <span className="text-xs text-muted-foreground">日まで</span>
               </div>
-              <p className="text-xs text-muted-foreground">シフト提出の締切日</p>
+              <p className="text-xs text-muted-foreground">この日を過ぎると締切警告が表示されます</p>
             </div>
 
             <div className="space-y-2">
@@ -276,12 +255,11 @@ export function GeneralSettings() {
           <div className="bg-blue-50 p-4 rounded-lg">
             <p className="text-sm text-blue-900 mb-2">設定例</p>
             <p className="text-xs text-blue-700">
-              開始日: {formData.shift_submission_start_day}日、
               締切日: {formData.shift_submission_end_day}日、
               対象: {formData.shift_submission_target_months_ahead}ヶ月先
               <br />
-              → 毎月{formData.shift_submission_start_day}日〜{formData.shift_submission_end_day}日の間に、
-              {formData.shift_submission_target_months_ahead}ヶ月後のシフトを提出できます
+              → 毎月{formData.shift_submission_end_day}日までに、
+              {formData.shift_submission_target_months_ahead}ヶ月後のシフトを提出してください
             </p>
           </div>
         </CardContent>
