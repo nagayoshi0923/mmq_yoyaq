@@ -140,6 +140,16 @@ export function AddCandidateDates({
     return lastPrevStr < minStr
   }, [currentMonth])
 
+  const isNextDisabled = useMemo(() => {
+    const jstOffsetMin = 9 * 60
+    const jstNow = new Date(
+      new Date().getTime() + (jstOffsetMin + new Date().getTimezoneOffset()) * 60 * 1000
+    )
+    const maxFuture = new Date(jstNow.getFullYear(), jstNow.getMonth(), jstNow.getDate() + 180)
+    const nextMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+    return nextMonthStart > maxFuture
+  }, [currentMonth])
+
   // Auto-skip empty months, reset month on open
   useEffect(() => {
     if (!isOpen) {
@@ -297,6 +307,7 @@ export function AddCandidateDates({
           currentMonth={currentMonth}
           onMonthChange={handleMonthChange}
           isPrevMonthDisabled={isPrevDisabled}
+          isNextMonthDisabled={isNextDisabled}
           availableDates={availableDates}
           slotsByDate={slotsByDate}
           selectedSlots={selectedSlots}

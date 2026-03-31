@@ -40,6 +40,7 @@ interface PrivateBookingFormProps {
   maxSelections: number
   isCustomHoliday?: (date: string) => boolean
   blockedSlots?: string[]
+  isNextMonthDisabled?: boolean
 }
 
 export const PrivateBookingForm = memo(function PrivateBookingForm({
@@ -55,7 +56,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   checkTimeSlotAvailability,
   maxSelections,
   isCustomHoliday,
-  blockedSlots = []
+  blockedSlots = [],
+  isNextMonthDisabled = false,
 }: PrivateBookingFormProps) {
   const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
 
@@ -150,6 +152,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         currentMonth={currentMonth}
         onMonthChange={onMonthChange}
         isPrevMonthDisabled={isPrevMonthDisabled}
+        isNextMonthDisabled={isNextMonthDisabled}
         availableDates={availableDates}
         slotsByDate={slotsByDate}
         selectedSlots={gridSelectedSlots}

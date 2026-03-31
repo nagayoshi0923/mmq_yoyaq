@@ -525,7 +525,9 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     scenario,
   ])
 
-  // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分）
+  const MAX_FUTURE_DAYS = 180
+
+  // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分、180日以内）
   const generatePrivateDates = useCallback(() => {
     const dates: string[] = []
     const year = currentMonth.getFullYear()
@@ -533,10 +535,12 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     const lastDay = new Date(year, month + 1, 0)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    const maxDate = new Date(today)
+    maxDate.setDate(today.getDate() + MAX_FUTURE_DAYS)
     
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(year, month, day)
-      if (date >= today) {
+      if (date >= today && date <= maxDate) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
         dates.push(dateStr)
       }
@@ -617,12 +621,22 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     return validStores
   }, [scenario, stores])
 
+  const isNextMonthDisabled = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const maxDate = new Date(today)
+    maxDate.setDate(today.getDate() + MAX_FUTURE_DAYS)
+    const nextMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+    return nextMonthStart > maxDate
+  }, [currentMonth])
+
   return {
     currentMonth,
     selectedStoreIds,
     selectedTimeSlots,
     MAX_SELECTIONS,
     availableStores,
+    isNextMonthDisabled,
     setSelectedStoreIds,
     setSelectedTimeSlots,
     checkTimeSlotAvailability,

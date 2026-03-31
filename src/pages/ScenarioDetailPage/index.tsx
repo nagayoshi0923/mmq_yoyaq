@@ -117,6 +117,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     selectedTimeSlots,
     MAX_SELECTIONS,
     availableStores,
+    isNextMonthDisabled,
     setSelectedStoreIds,
     setSelectedTimeSlots,
     checkTimeSlotAvailability,
@@ -592,6 +593,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     maxSelections={MAX_SELECTIONS}
                     isCustomHoliday={isCustomHoliday}
                     blockedSlots={scenario?.private_booking_blocked_slots}
+                    isNextMonthDisabled={isNextMonthDisabled}
                   />
                   
                   {/* 選択された時間枠の表示 */}

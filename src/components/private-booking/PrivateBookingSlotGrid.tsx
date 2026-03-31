@@ -9,6 +9,7 @@ export interface PrivateBookingSlotGridProps {
   currentMonth: Date
   onMonthChange: (delta: number) => void
   isPrevMonthDisabled: boolean
+  isNextMonthDisabled?: boolean
   availableDates: string[]
   slotsByDate: Record<string, PrivateBookingSlot[]>
   selectedSlots: Array<{ date: string; slot: PrivateBookingSlot }>
@@ -32,6 +33,7 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
   currentMonth,
   onMonthChange,
   isPrevMonthDisabled,
+  isNextMonthDisabled = false,
   availableDates,
   slotsByDate,
   selectedSlots,
@@ -94,7 +96,8 @@ export const PrivateBookingSlotGrid = memo(function PrivateBookingSlotGrid({
         <button
           type="button"
           onClick={() => onMonthChange(1)}
-          className={`flex items-center gap-0 px-1 py-0.5 ${smallText} text-muted-foreground hover:text-foreground`}
+          disabled={isNextMonthDisabled}
+          className={`flex items-center gap-0 px-1 py-0.5 ${smallText} text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed`}
         >
           次月 {compact ? <ChevronRight className="h-3 w-3" /> : '→'}
         </button>
