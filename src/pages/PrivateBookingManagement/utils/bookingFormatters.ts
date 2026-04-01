@@ -70,8 +70,8 @@ export const formatMonthYear = (date: Date): string => {
 
 /**
  * GM が実際に回答した日時（ISO文字列）を返す。
- * responded_at / response_datetime のみを参照し、
- * created_at / updated_at にはフォールバックしない（未回答を回答済みと誤表示しないため）。
+ * responded_at のみを参照する。
+ * response_datetime はレコード作成時に自動設定されるため、回答日時としては不正確。
  */
 export function pickGmReplyIsoString(gm: {
   response_datetime?: string | null
@@ -79,7 +79,7 @@ export function pickGmReplyIsoString(gm: {
   updated_at?: string | null
   created_at?: string | null
 }): string | null {
-  const v = gm.response_datetime || gm.responded_at
+  const v = gm.responded_at
   if (v == null || v === '') return null
   return typeof v === 'string' ? v : null
 }

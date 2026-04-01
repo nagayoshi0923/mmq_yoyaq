@@ -10,9 +10,12 @@ export interface GmResponseLike {
   response_datetime?: string | null
 }
 
-/** GM が実際に回答済みか（responded_at または response_datetime が存在する） */
+/**
+ * GM が実際に回答済みか。
+ * responded_at のみで判定する（response_datetime はレコード作成時に自動設定されるため不正確）。
+ */
 export function hasGmResponded(gm: GmResponseLike): boolean {
-  return !!(gm.responded_at || gm.response_datetime)
+  return !!gm.responded_at
 }
 
 /** 担当GM選択の [対応可能] や候補バッジで「出勤可能扱い」にするか */
