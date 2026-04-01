@@ -34,6 +34,8 @@ export function isChunkLoadError(error: unknown): boolean {
       msg.includes('loading chunk') ||
       msg.includes('loading css chunk') ||
       msg.includes('dynamically imported module') ||
+      // Mobile Safari (iOS) が動的 import 失敗時に投げるメッセージ
+      msg.includes('importing a module script failed') ||
       // Safari は "Load failed" を投げる
       (msg === 'load failed') ||
       // TypeError: Failed to fetch （ネットワーク由来ではなく import 由来のもの）

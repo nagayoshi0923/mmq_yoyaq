@@ -88,3 +88,8 @@ verify_jwt = false
 # Discord Bot インタラクション（Discord からの POST リクエスト、関数内で署名検証）
 [functions.discord-interactions]
 verify_jwt = false
+
+# Sentry Alert Webhook -> GitHub Issue 自動作成
+# Sentry は Supabase JWT を持たないため、関数内で x-sentry-webhook-secret を照合する
+[functions.sentry-to-github]
+verify_jwt = false

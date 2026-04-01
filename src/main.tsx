@@ -31,6 +31,14 @@ if (typeof window !== 'undefined') {
 // Sentry エラー監視を初期化（VITE_SENTRY_DSN が設定されている場合のみ有効）
 initSentry()
 
+// Vite の modulepreload 失敗（<link rel="modulepreload"> が 404 になるケース）を捕捉する。
+// lazyWithRetry のリトライ・バージョンチェック処理に委ねるため、
+// ここではバージョンチェックだけ実行してバナーを表示する。
+// （ErrorBoundary に到達する前に処理できるため、エラー画面を見せずに済む）
+window.addEventListener('vite:preloadError', () => {
+  showUpdateBanner()
+})
+
 // 古いリロードフラグをクリア（後方互換）
 clearChunkReloadFlag()
 
