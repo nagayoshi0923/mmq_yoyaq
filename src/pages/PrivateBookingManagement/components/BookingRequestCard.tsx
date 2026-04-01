@@ -16,7 +16,7 @@ import {
   formatScenarioPlayerRange,
   isPlannedCountOutsideScenarioRange
 } from '../utils/bookingFormatters'
-import { isGmAvailableForCandidate, isGmMarkedAvailable } from '../utils/gmAvailabilityStatus'
+import { isGmAvailableForCandidate, isGmMarkedAvailable, hasGmResponded } from '../utils/gmAvailabilityStatus'
 
 interface Candidate {
   order: number
@@ -137,14 +137,18 @@ export const BookingRequestCard = ({
               <h4 className="text-sm font-medium text-purple-900 mb-2">GM回答状況</h4>
               <div className="space-y-1">
                 {request.gm_responses.map((response, index) => {
-                  const replyIso = pickGmReplyIsoString(response)
+                  const responded = hasGmResponded(response)
+                  const replyIso = responded ? pickGmReplyIsoString(response) : null
                   const replyLabel = formatGmReplyReceivedAt(replyIso)
                   return (
                     <div key={index} className="text-sm text-purple-800">
                       <div>
                         {response.gm_name || 'GM名不明'}:{' '}
-                        {isGmMarkedAvailable(response) ? '✅ 出勤可能' : '❌ 出勤不可'}
-                        {response.available_candidates && response.available_candidates.length > 0 && (
+                        {!responded
+                          ? <span className="text-gray-500">⏳ 未回答</span>
+                          : isGmMarkedAvailable(response) ? '✅ 出勤可能' : '❌ 出勤不可'
+                        }
+                        {responded && response.available_candidates && response.available_candidates.length > 0 && (
                           <span className="ml-2 text-purple-600">
                             (候補{response.available_candidates.map((idx) => idx + 1).join(', ')})
                           </span>
