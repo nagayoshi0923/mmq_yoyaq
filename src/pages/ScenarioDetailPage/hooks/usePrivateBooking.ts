@@ -637,6 +637,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     MAX_SELECTIONS,
     availableStores,
     isNextMonthDisabled,
+    isLoadingEvents,
     setSelectedStoreIds,
     setSelectedTimeSlots,
     checkTimeSlotAvailability,

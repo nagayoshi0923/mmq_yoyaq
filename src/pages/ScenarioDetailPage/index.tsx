@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -118,6 +118,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     MAX_SELECTIONS,
     availableStores,
     isNextMonthDisabled,
+    isLoadingEvents,
     setSelectedStoreIds,
     setSelectedTimeSlots,
     checkTimeSlotAvailability,
@@ -245,6 +246,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     getTimeSlotsForDate,
     setSelectedTimeSlots,
   ])
+
+  // generatePrivateDates の結果を安定化（インライン呼び出しだと毎レンダーで新配列が生まれ memo() が無効になる）
+  const privateDates = useMemo(() => generatePrivateDates(), [generatePrivateDates])
 
   // 貸切リクエスト完了時のハンドラ（選択状態をクリア）
   const handlePrivateBookingCompleteWithClear = useCallback(() => {
@@ -585,7 +589,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     onStoreIdsChange={setSelectedStoreIds}
                     currentMonth={currentMonth}
                     onMonthChange={changeMonth}
-                    availableDates={generatePrivateDates()}
+                    availableDates={privateDates}
                     getTimeSlotsForDate={getTimeSlotsForDate}
                     selectedSlots={selectedTimeSlots}
                     onTimeSlotToggle={toggleTimeSlot}
@@ -594,6 +598,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     isCustomHoliday={isCustomHoliday}
                     blockedSlots={scenario?.private_booking_blocked_slots}
                     isNextMonthDisabled={isNextMonthDisabled}
+                    loading={isLoadingEvents}
                   />
                   
                   {/* 選択された時間枠の表示 */}
