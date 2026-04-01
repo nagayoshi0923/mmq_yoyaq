@@ -19,10 +19,11 @@ export function initSentry(): void {
   Sentry.init({
     dsn: SENTRY_DSN,
     environment: (import.meta.env.VITE_APP_ENV as string) || 'development',
-    // 本番では全エラーを送信、開発では10%
-    sampleRate: import.meta.env.PROD ? 1.0 : 0.1,
+    // 本番・ステージングは全エラーを送信、ローカル開発は10%
+    // Note: Vercel ビルドは常に PROD=true なので VITE_APP_ENV で環境を区別する
+    sampleRate: import.meta.env.VITE_APP_ENV === 'development' ? 0.1 : 1.0,
     // パフォーマンスモニタリング（本番のみ）
-    tracesSampleRate: import.meta.env.PROD ? 0.2 : 0,
+    tracesSampleRate: import.meta.env.VITE_APP_ENV === 'production' ? 0.2 : 0,
     // セッションリプレイ（無効 — 必要時に有効化）
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
@@ -35,6 +36,12 @@ export function initSentry(): void {
       // ブラウザ拡張機能由来のエラー
       'ResizeObserver loop',
       'Non-Error promise rejection',
+      /Can't find variable: CONFIG/,
+      /Can't find variable: _/,
+      'updateGapFiller',
+      'Script error.',
+      // iOS WKWebView が注入するスクロール追跡コード
+      /webkit\.messageHandlers/,
       // ネットワーク系（一時的） — チャンク読み込みエラーは除外して検知可能にする
       'Load failed',
       'NetworkError',
