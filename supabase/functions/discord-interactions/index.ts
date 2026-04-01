@@ -124,7 +124,7 @@ async function processUnavailable(interaction: any, requestId: string) {
   try {
     const { data: reservation, error } = await supabase
       .from('reservations')
-      .select('candidate_datetimes, title, organization_id')
+      .select('candidate_datetimes, title, organization_id, customer_name, participant_count, created_at')
       .eq('id', requestId)
       .single()
     
@@ -142,12 +142,23 @@ async function processUnavailable(interaction: any, requestId: string) {
     const { data: staffData } = await supabase
       .from('staff')
       .select('id, name')
-      .eq('discord_id', gmUserId)
+      .eq('discord_user_id', gmUserId)
       .single()
     
     if (staffData) {
       staffId = staffData.id
       staffNameForConflict = staffData.name || null
+    }
+
+    if (!staffId) {
+      console.error('❌ Staff not found for Discord user ID:', gmUserId)
+      const webhookUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`
+      await fetch(webhookUrl, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: 'エラー: スタッフが見つかりません。Discord IDの設定を確認してください。' })
+      }).catch(e => console.error('Failed to send error message:', e))
+      return
     }
     
     // 全て不可として保存
@@ -179,18 +190,24 @@ async function processUnavailable(interaction: any, requestId: string) {
     
     // メッセージとボタンを作成（全て緑に戻す）
     const candidateCount = candidates.length
+    const createdDate = new Date(reservation.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
+    
     let responseMessage = `**【貸切希望】${scenarioTitle}（候補${candidateCount}件）を受け付けました。**\n`
-    responseMessage += `出勤可能な日程を選択してください。\n\n【現在の選択】\n全て不可と回答しました。`
+    responseMessage += `出勤可能な日程を選択してください。\n\n`
+    responseMessage += `**予約受付日：** ${createdDate}\n`
+    responseMessage += `**シナリオ：** ${scenarioTitle}\n`
+    responseMessage += `**参加人数：** ${reservation.participant_count}名\n`
+    responseMessage += `**予約者：** ${reservation.customer_name || '名前不明'}\n\n`
+    responseMessage += `【現在の選択】\n全て不可と回答しました。`
     
     const timeSlotMap = { '朝': '朝', '昼': '昼', '夜': '夜', 'morning': '朝', 'afternoon': '昼', 'evening': '夜' }
-    const conflictIdx = staffNameForConflict ? await computeConflictCandidateIndexes(requestId, staffNameForConflict) : new Set<number>()
     const responseComponents = []
     
     for (let i = 0; i < Math.min(candidates.length, 6); i++) {
       const candidate = candidates[i]
-      const dateStr = candidate.date.replace('2025-', '').replace('-', '/')
+      const dm = candidate.date.match(/\d{4}-(\d{2})-(\d{2})/)
+      const dateStr = dm ? `${parseInt(dm[1])}/${parseInt(dm[2])}` : candidate.date
       const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
-      const warn = conflictIdx.has(i) ? '⚠️ ' : ''
       
       if (i % 5 === 0) {
         responseComponents.push({ type: 1, components: [] })
@@ -199,7 +216,7 @@ async function processUnavailable(interaction: any, requestId: string) {
       responseComponents[responseComponents.length - 1].components.push({
         type: 2,
         style: 3, // 緑色
-        label: `${warn}候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
+        label: `候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
         custom_id: `date_${i + 1}_${requestId}`
       })
     }
@@ -231,7 +248,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     // Supabaseから候補日程を取得
     const { data: reservation, error } = await supabase
       .from('reservations')
-      .select('candidate_datetimes, title, organization_id')
+      .select('candidate_datetimes, title, organization_id, customer_name, participant_count, created_at')
       .eq('id', requestId)
       .single()
     
@@ -248,7 +265,8 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       throw new Error('Selected candidate not found')
     }
     
-    const dateStr = selectedCandidate.date.replace('2025-', '').replace('-', '/')
+    const dateMatch = selectedCandidate.date.match(/\d{4}-(\d{2})-(\d{2})/)
+    const dateStr = dateMatch ? `${parseInt(dateMatch[1])}/${parseInt(dateMatch[2])}` : selectedCandidate.date
     const timeSlotMap = {
       '朝': '朝',
       '昼': '昼', 
@@ -272,16 +290,23 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
       .select('id, name')
-      .eq('discord_id', gmUserId)
+      .eq('discord_user_id', gmUserId)
       .single()
     
-    if (staffError) {
-      console.log('⚠️ Staff not found for Discord ID:', gmUserId, staffError)
-    } else {
-      staffId = staffData.id
-      staffNameForConflict = staffData.name || null
-      console.log('✅ Found staff_id:', staffId)
+    if (staffError || !staffData) {
+      console.error('❌ Staff not found for Discord user ID:', gmUserId, staffError)
+      const webhookUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`
+      await fetch(webhookUrl, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: 'エラー: スタッフが見つかりません。Discord IDの設定を確認してください。' })
+      }).catch(e => console.error('Failed to send error message:', e))
+      return
     }
+    
+    staffId = staffData.id
+    staffNameForConflict = staffData.name || null
+    console.log('✅ Found staff_id:', staffId)
     
     // 既存の回答を取得して、複数日程を追加する形にする
     const { data: existingResponse } = await supabase
@@ -322,7 +347,8 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     // 日程情報を組み立て
     const selectedDates = availableCandidates.map(idx => {
       const c = candidates[idx]
-      const ds = c.date.replace('2025-', '').replace('-', '/')
+      const dm = c.date.match(/\d{4}-(\d{2})-(\d{2})/)
+      const ds = dm ? `${parseInt(dm[1])}/${parseInt(dm[2])}` : c.date
       const ts = timeSlotMap[c.timeSlot] || c.timeSlot
       return `${ds} ${ts} ${c.startTime}-${c.endTime}`
     })
@@ -381,9 +407,14 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     // レスポンスメッセージを作成
     const scenarioTitle = reservation.title || '貸切予約'
     const candidateCount = candidates.length
+    const createdDate = new Date(reservation.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
     
     let responseMessage = `**【貸切希望】${scenarioTitle}（候補${candidateCount}件）を受け付けました。**\n`
-    responseMessage += `出勤可能な日程を選択してください。`
+    responseMessage += `出勤可能な日程を選択してください。\n\n`
+    responseMessage += `**予約受付日：** ${createdDate}\n`
+    responseMessage += `**シナリオ：** ${scenarioTitle}\n`
+    responseMessage += `**参加人数：** ${reservation.participant_count}名\n`
+    responseMessage += `**予約者：** ${reservation.customer_name || '名前不明'}`
     
     // 【現在の選択】を追加
     if (availableCandidates.length > 0) {
@@ -394,10 +425,10 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     
     // 候補日程ボタンを再表示（選択/解除を続けられるように）
     const responseComponents = []
-    const conflictIdx = staffNameForConflict ? await computeConflictCandidateIndexes(requestId, staffNameForConflict) : new Set<number>()
     for (let i = 0; i < Math.min(candidates.length, 6); i++) {
       const candidate = candidates[i]
-      const dateStr = candidate.date.replace('2025-', '').replace('-', '/')
+      const dm2 = candidate.date.match(/\d{4}-(\d{2})-(\d{2})/)
+      const dateStr = dm2 ? `${parseInt(dm2[1])}/${parseInt(dm2[2])}` : candidate.date
       const timeSlotMap = {
         '朝': '朝',
         '昼': '昼', 
@@ -408,7 +439,6 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       }
       const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
       const isSelected = availableCandidates.includes(i)
-      const warn = conflictIdx.has(i) ? '⚠️ ' : ''
       
       if (i % 5 === 0) {
         responseComponents.push({
@@ -420,7 +450,7 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       responseComponents[responseComponents.length - 1].components.push({
         type: 2,
         style: isSelected ? 1 : 3, // 1=青（選択済み）、3=緑（未選択）
-        label: `${warn}${isSelected ? '✓ ' : ''}候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
+        label: `${isSelected ? '✓ ' : ''}候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
         custom_id: `date_${i + 1}_${requestId}`
       })
     }
@@ -603,7 +633,7 @@ serve(async (req) => {
         const { data: staffData, error: staffError } = await supabase
           .from('staff')
           .select('id')
-          .eq('discord_id', gmUserId)
+          .eq('discord_user_id', gmUserId)
           .single()
         
         if (staffError) {
