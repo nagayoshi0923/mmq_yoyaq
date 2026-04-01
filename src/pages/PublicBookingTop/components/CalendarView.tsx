@@ -346,11 +346,35 @@ export const CalendarView = memo(function CalendarView({
                         const slotEvents = eventsBySlot[slot]
                         const hasEvents = slotEvents.length > 0
                         
-                        if (hasEvents) {
-                          // イベントがある場合
-                          return slotEvents.map((event: any, idx: number) => renderEvent(event, idx))
-                        } else if (selectedStore && canApplyPrivateBooking && isSlotAvailable(slot)) {
-                          // イベントがなく、店舗が選択されている、かつ締切前、かつスロット利用可能な場合は貸切ボタン
+                        const renderedEvents = hasEvents
+                          ? slotEvents.map((event: any, idx: number) => renderEvent(event, idx))
+                          : []
+
+                        const occupiedStoreIds = new Set(slotEvents.map((e: any) => e.store_id))
+                        const hasAvailableStores = selectedStoreIds.length > 0 &&
+                          selectedStoreIds.some(id => !occupiedStoreIds.has(id))
+                        const showPrivateButton = selectedStore && canApplyPrivateBooking && isSlotAvailable(slot)
+
+                        if (hasEvents && hasAvailableStores && showPrivateButton) {
+                          const suggestedTime = getSuggestedStartTime(slot)
+                          return (
+                            <div key={slot}>
+                              {renderedEvents}
+                              <button
+                                className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+                                onClick={() => {
+                                  const basePath = organizationSlug ? `/${organizationSlug}` : ''
+                                  const storeParam = selectedStoreIds.join(',')
+                                  navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${storeParam}&slot=${slot}&time=${suggestedTime}`)
+                                }}
+                              >
+                                {suggestedTime}〜 貸切申込
+                              </button>
+                            </div>
+                          )
+                        } else if (hasEvents) {
+                          return renderedEvents
+                        } else if (showPrivateButton) {
                           const suggestedTime = getSuggestedStartTime(slot)
                           return (
                             <button
