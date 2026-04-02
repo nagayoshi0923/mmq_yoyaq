@@ -603,8 +603,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   
                   {/* 選択された時間枠の表示 */}
                   {selectedTimeSlots.length > 0 && (
-                    <div className="mt-4 p-3 bg-red-50 border border-red-200">
-                      <div className="text-xs sm:text-sm text-red-900 mb-2">
+                    <div className="mt-4 p-3 bg-purple-50 border border-purple-200">
+                      <div className="text-xs sm:text-sm text-purple-900 mb-2">
                         選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
                       </div>
                       <div className="space-y-1">
@@ -617,14 +617,14 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                           
                           return (
                             <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs sm:text-sm">
-                              <span className="text-red-900 flex-1 min-w-0 pr-2">
+                              <span className="text-purple-900 flex-1 min-w-0 pr-2">
                                 {index + 1}. {month}/{day}({weekday}) {item.slot.label}{' '}
                                 {item.slot.startTime}〜{item.slot.endTime}
                               </span>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 sm:h-7 sm:w-7 p-0 hover:bg-red-100 flex-shrink-0 touch-manipulation"
+                                className="h-6 w-6 sm:h-7 sm:w-7 p-0 hover:bg-purple-100 flex-shrink-0 touch-manipulation"
                                 onClick={() => toggleTimeSlot(item.date, item.slot)}
                               >
                                 ×

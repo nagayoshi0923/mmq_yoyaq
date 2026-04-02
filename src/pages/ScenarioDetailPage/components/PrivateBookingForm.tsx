@@ -208,7 +208,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         maxSelections={maxSelections}
         availabilityMap={availabilityMap}
         isCustomHoliday={isCustomHoliday}
-        colorScheme="red"
+        colorScheme="purple"
         isTooSoon={isTooSoon}
         loading={loading || isComputingSlots}
       />

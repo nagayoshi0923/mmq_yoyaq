@@ -8,6 +8,7 @@ import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/ho
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import {
   getPerformanceDurationMinutesForDate,
+  PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES,
 } from '@/lib/privateBookingScenarioTime'
 import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
 import { type BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
@@ -416,9 +417,10 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       let effectiveMinStartMin: number | undefined = undefined
 
       if (targetTimeSlot === 'afternoon' && !isWeekendOrHolidayForAvail) {
+        const eveningDeadline = f.slotBandEnd - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
         effectiveMinStartMin = Math.max(
           f.priorEventEarliestStartMin,
-          f.slotBandEnd - durationMinutes - extraPrepTime
+          eveningDeadline - durationMinutes - extraPrepTime
         )
       } else if (targetTimeSlot === 'evening' && startMin < f.slotBandStart) {
         // 長時間作品の夜枠: 枠開始前からの開始を許可するが前の公演との衝突は防ぐ

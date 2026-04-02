@@ -63,7 +63,7 @@ export function PrivateBookingManagement() {
   const [sidebarActiveTab, setSidebarActiveTab] = useState('booking-list')
   
   // タブ状態（sessionStorageと同期）
-  const [activeTab, setActiveTab] = useSessionState<'gm_pending' | 'store_pending' | 'all' | 'groups'>('privateBookingActiveTab', 'store_pending')
+  const [activeTab, setActiveTab] = useSessionState<'gm_pending' | 'store_pending' | 'rejected' | 'all' | 'groups'>('privateBookingActiveTab', 'store_pending')
   
   // タブとサイドバーを同期
   useEffect(() => {
@@ -441,6 +441,8 @@ export function PrivateBookingManagement() {
     r.status === 'gm_confirmed' || r.status === 'pending_store' ||
     ((r.status === 'pending' || r.status === 'pending_gm') && isGMConfirmed(r))
   )
+  // 却下済み: cancelled
+  const rejectedRequests = requests.filter(r => r.status === 'cancelled')
   
   // 期間でフィルタリング（候補日の最初の日付でフィルター）
   const filterByDateRange = (reqs: PrivateBookingRequest[]) => {
@@ -477,7 +479,9 @@ export function PrivateBookingManagement() {
     ? gmPendingRequests 
     : activeTab === 'store_pending' 
       ? storePendingRequests 
-      : requests
+      : activeTab === 'rejected'
+        ? rejectedRequests
+        : requests
   const dateFilteredRequests = filterByDateRange(baseRequests)
   const filteredRequests = applyLimit(dateFilteredRequests)
 
@@ -539,11 +543,12 @@ export function PrivateBookingManagement() {
           description="貸切予約リクエストの承認・却下・店舗調整を行います"
         />
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'gm_pending' | 'store_pending' | 'all' | 'groups')}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'gm_pending' | 'store_pending' | 'rejected' | 'all' | 'groups')}>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
             <TabsList className="w-full sm:w-auto flex-wrap">
               <TabsTrigger value="gm_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">GM確認中 ({gmPendingRequests.length})</TabsTrigger>
               <TabsTrigger value="store_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">店舗承認待ち ({storePendingRequests.length})</TabsTrigger>
+              <TabsTrigger value="rejected" className="flex-1 sm:flex-initial text-xs sm:text-sm">却下済み ({rejectedRequests.length})</TabsTrigger>
               <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
               <TabsTrigger value="groups" className="flex-1 sm:flex-initial text-xs sm:text-sm">グループ一覧</TabsTrigger>
             </TabsList>
@@ -887,7 +892,6 @@ export function PrivateBookingManagement() {
                     setSelectedStoreId('')
                     setSelectedCandidateOrder(null)
                   }}
-                  onDelete={() => handleDelete(selectedRequest.id)}
                   disabled={
                     submitting ||
                     !selectedGMId ||
