@@ -513,7 +513,7 @@ export function PlatformTop() {
     }))
   }, [scenariosWithEvents, selectedRegion])
 
-  // 残りわずかの公演（残り1-2枠の公演、全イベントを対象）
+  // 残りわずかの公演（残り1-3枠の公演、全イベントを対象）
   const nearlyConfirmed = useMemo(() => {
     const result: ScenarioWithEvents[] = []
     const addedScenarioIds = new Set<string>()
@@ -521,7 +521,7 @@ export function PlatformTop() {
     filteredScenarios.forEach(scenario => {
       const nearlyFullEvent = scenario.next_events.find(event => {
         const available = event.available_seats
-        return available > 0 && available <= 2
+        return available > 0 && available <= 3
       })
       
       if (nearlyFullEvent && !addedScenarioIds.has(scenario.scenario_id)) {

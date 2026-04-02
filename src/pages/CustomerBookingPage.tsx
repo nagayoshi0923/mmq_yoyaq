@@ -497,7 +497,7 @@ export function CustomerBookingPage() {
                             残り{event.available_seats}席
                           </Badge>
                           
-                          {event.available_seats <= 2 && event.available_seats > 0 && (
+                          {event.available_seats <= 3 && event.available_seats > 0 && (
                             <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-500">
                               残りわずか
                             </Badge>
