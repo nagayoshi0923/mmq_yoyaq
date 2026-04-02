@@ -1,8 +1,9 @@
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Calendar, Clock, CheckCircle2, XCircle, CircleDashed } from 'lucide-react'
+import { Calendar, Clock, CheckCircle2, XCircle, CircleDashed, RefreshCw } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import {
   formatDate,
@@ -62,6 +63,7 @@ interface BookingRequestCardProps {
   request: BookingRequest
   onSelectRequest: (request: BookingRequest) => void
   showActionButton?: boolean
+  onResendDiscordNotification?: (request: { id: string; scenario_title: string }) => Promise<void>
 }
 
 /**
@@ -74,10 +76,25 @@ import { cn } from '@/lib/utils'
 export const BookingRequestCard = ({
   request,
   onSelectRequest,
-  showActionButton = false
+  showActionButton = false,
+  onResendDiscordNotification
 }: BookingRequestCardProps) => {
+  const [resending, setResending] = useState(false)
   const elapsedDays = getElapsedDays(request.created_at)
   const elapsedTimeColor = elapsedDays >= 3 ? 'text-red-600 font-medium' : 'text-purple-600'
+  
+  const hasUnrespondedGMs = request.gm_responses?.some(r => !hasGmResponded(r))
+  const isWaitingStatus = request.status === 'pending' || request.status === 'pending_gm' || request.status === 'pending_store'
+
+  const handleResend = async () => {
+    if (!onResendDiscordNotification || resending) return
+    setResending(true)
+    try {
+      await onResendDiscordNotification(request)
+    } finally {
+      setResending(false)
+    }
+  }
   
   return (
     <Card className={cn(getCardClassName(request.status), "shadow-none")}>
@@ -134,7 +151,21 @@ export const BookingRequestCard = ({
           {/* GM回答表示 */}
           {request.gm_responses && request.gm_responses.length > 0 && (
             <div className="bg-purple-50 p-3 rounded-lg">
-              <h4 className="text-sm font-medium text-purple-900 mb-2">GM回答状況</h4>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-purple-900">GM回答状況</h4>
+                {onResendDiscordNotification && hasUnrespondedGMs && isWaitingStatus && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-purple-700 hover:text-purple-900 hover:bg-purple-100"
+                    onClick={handleResend}
+                    disabled={resending}
+                  >
+                    <RefreshCw className={cn("w-3.5 h-3.5 mr-1", resending && "animate-spin")} />
+                    {resending ? '送信中...' : 'Discord再通知'}
+                  </Button>
+                )}
+              </div>
               <div className="space-y-1">
                 {request.gm_responses.map((response, index) => {
                   const responded = hasGmResponded(response)

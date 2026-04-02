@@ -28,6 +28,7 @@ import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorati
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
+import { resendPrivateBookingDiscordNotification } from '@/lib/api/privateBookingNotificationApi'
 
 // 分離されたコンポーネント
 import { BookingRequestCard } from './components/BookingRequestCard'
@@ -127,6 +128,37 @@ export function PrivateBookingManagement() {
     loadAllGMs,
     loadAvailableGMs
   } = useStoreAndGMManagement()
+
+  // Discord通知再送信ハンドラー
+  const handleResendDiscordNotification = async (cardRequest: { id: string; scenario_title: string }) => {
+    const request = requests.find(r => r.id === cardRequest.id)
+    if (!request) return
+    
+    const confirmed = window.confirm(
+      `「${request.scenario_title}」のDiscord通知を再送信しますか？\n\n担当GMに新しいボタン付きメッセージが送信されます。`
+    )
+    if (!confirmed) return
+    
+    const result = await resendPrivateBookingDiscordNotification({
+      id: request.id,
+      scenario_id: request.scenario_id,
+      scenario_master_id: request.scenario_master_id,
+      scenario_title: request.scenario_title,
+      customer_name: request.customer_name,
+      customer_email: request.customer_email,
+      customer_phone: request.customer_phone,
+      participant_count: request.participant_count,
+      candidate_datetimes: request.candidate_datetimes,
+      notes: request.notes,
+      created_at: request.created_at,
+    })
+    
+    if (result.success) {
+      showToast.success('Discord通知を再送信しました')
+    } else {
+      showToast.error(result.error || 'Discord通知の再送信に失敗しました')
+    }
+  }
 
   // スクロール位置の保存と復元
   useReportRouteScrollRestoration('private-booking-management', { isLoading: loading })
@@ -564,6 +596,7 @@ export function PrivateBookingManagement() {
                     request={req}
                     onSelectRequest={() => setSelectedRequest(req)}
                     showActionButton={true}
+                    onResendDiscordNotification={handleResendDiscordNotification}
                   />
                 ))}
               </div>

@@ -93,7 +93,7 @@ async function computeConflictCandidateOrders(
 }
 
 interface PrivateBookingNotification {
-  type: 'insert'
+  type: 'insert' | 'resend'
   table: string
   record: {
     id: string
@@ -405,16 +405,32 @@ serve(async (req) => {
     const body = await req.text()
     const payload: PrivateBookingNotification = JSON.parse(body)
     
-    // 新規作成のみ通知
-    if (payload.type.toLowerCase() !== 'insert') {
+    const payloadType = payload.type.toLowerCase()
+    if (payloadType !== 'insert' && payloadType !== 'resend') {
       return new Response(
         JSON.stringify({ message: 'Not a new booking' }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       )
     }
 
-    console.log('✅ Processing insert operation')
+    const isResend = payloadType === 'resend'
+    console.log(`✅ Processing ${isResend ? 'resend' : 'insert'} operation`)
     const booking = payload.record
+
+    // 再送信の場合、既存のキューエントリを削除して重複防止を回避
+    if (isResend && booking.id) {
+      const { error: deleteError } = await supabase
+        .from('discord_notification_queue')
+        .delete()
+        .eq('reference_id', booking.id)
+        .eq('notification_type', 'private_booking_request')
+      
+      if (deleteError) {
+        console.warn('⚠️ 既存キューの削除に失敗（続行）:', deleteError)
+      } else {
+        console.log('🗑️ 既存のキューエントリを削除しました')
+      }
+    }
     
     // デモ予約の場合は通知をスキップ
     if (booking.reservation_source === 'demo' || booking.reservation_source === 'demo_auto') {
