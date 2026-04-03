@@ -154,6 +154,7 @@ export interface Store {
   name: string
   short_name: string
   address: string
+  access_info?: string
   phone_number: string
   email: string
   opening_date: string

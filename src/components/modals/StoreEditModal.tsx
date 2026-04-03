@@ -29,6 +29,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allSt
         name: store.name,
         short_name: store.short_name,
         address: store.address,
+        access_info: store.access_info || '',
         phone_number: store.phone_number,
         email: store.email,
         opening_date: store.opening_date,
@@ -52,6 +53,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allSt
         name: '',
         short_name: '',
         address: '',
+        access_info: '',
         phone_number: '',
         email: '',
         opening_date: new Date().toISOString().split('T')[0],
@@ -412,6 +414,16 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete, allSt
                         type="text"
                         value={formData.address || ''}
                         onChange={(e) => handleInputChange('address', e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">アクセス方法</label>
+                      <Textarea
+                        value={formData.access_info || ''}
+                        onChange={(e) => handleInputChange('access_info', e.target.value)}
+                        rows={3}
+                        placeholder="例: JR渋谷駅ハチ公口から徒歩5分。○○ビル3F"
                       />
                     </div>
 

@@ -22,7 +22,8 @@ import {
   FileCheck,
   Shield,
   Gift,
-  FileText
+  FileText,
+  Mail
 } from 'lucide-react'
 
 interface NavigationBarProps {
@@ -59,7 +60,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'stores', path: `/${bookingSlug}/stores`, label: '店舗', icon: Store, roles: ['admin', 'license_admin'] },
     { id: 'schedule', path: `/${bookingSlug}/schedule`, label: 'スケジュール', icon: CalendarDays, roles: ['admin', 'staff', 'license_admin'] },
     { id: 'staff', path: `/${bookingSlug}/staff`, label: 'スタッフ', icon: Users, roles: ['admin', 'license_admin'] },
-    { id: 'scenarios', path: `/${bookingSlug}/scenarios`, label: 'シナリオ', icon: BookOpen, roles: ['admin', 'license_admin'] },
+    { id: 'scenarios', path: `/${bookingSlug}/scenarios`, label: 'シナリオ', icon: BookOpen, roles: ['admin', 'staff', 'license_admin'] },
     { id: 'shift-submission', path: `/${bookingSlug}/shift-submission`, label: 'シフト提出', icon: CalendarClock, roles: ['admin', 'staff', 'license_admin'] },
     { id: 'gm-availability', path: `/${bookingSlug}/gm-availability`, label: 'GM確認', icon: UserCheck, roles: ['admin', 'staff', 'license_admin'] },
     { id: 'staff-profile', path: `/${bookingSlug}/staff-profile`, label: '担当作品', icon: UserCircle, roles: ['admin', 'staff', 'license_admin'] },
@@ -71,6 +72,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'sales', path: `/${bookingSlug}/sales`, label: '売上', icon: TrendingUp, roles: ['admin', 'license_admin'] },
     { id: 'license-management', path: `/${bookingSlug}/license-management`, label: '公演報告', icon: FileCheck, roles: ['admin', 'staff', 'license_admin'] },
     { id: 'settings', path: `/${bookingSlug}/settings`, label: '設定', icon: Settings, roles: ['admin', 'license_admin'] },
+    { id: 'email-history', path: `/${bookingSlug}/settings?tab=email-history`, label: 'メール配信履歴', icon: Mail, roles: ['admin', 'license_admin'] },
     { id: 'manual', path: `/${bookingSlug}/manual`, label: 'マニュアル', icon: HelpCircle, roles: ['admin', 'staff', 'license_admin'] },
     // MMQ運営用メニュー（license_adminのみ）
     { id: 'scenario-masters', path: '/admin/scenario-masters', label: 'マスタ管理', icon: Shield, roles: ['license_admin'] }
@@ -94,6 +96,8 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
   // アクティブ判定
   const isTabActive = useCallback((tab: typeof allTabs[0]) => {
     const pathname = location.pathname
+    const searchParams = new URLSearchParams(location.search)
+    const activeSettingsTab = searchParams.get('tab')
     
     // 予約サイトは特別処理：/{slug} のみの場合
     if (tab.id === 'booking') {
@@ -105,10 +109,18 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
       const isAdminPage = adminSuffixes.some(suffix => pathname.includes(suffix))
       return pathname === `/${bookingSlug}` || (pathname.startsWith(`/${bookingSlug}/`) && !isAdminPage)
     }
+
+    if (tab.id === 'email-history') {
+      return pathname === `/${bookingSlug}/settings` && activeSettingsTab === 'email-history'
+    }
+
+    if (tab.id === 'settings') {
+      return (pathname === `/${bookingSlug}/settings` || pathname.startsWith(`/${bookingSlug}/settings/`)) && activeSettingsTab !== 'email-history'
+    }
     
     // 通常のパスマッチング
     return pathname === tab.path || pathname.startsWith(tab.path + '/')
-  }, [location.pathname, bookingSlug])
+  }, [location.pathname, location.search, bookingSlug])
 
   // タブクリックハンドラ
   const handleTabClick = useCallback((tab: typeof allTabs[0], e: React.MouseEvent) => {

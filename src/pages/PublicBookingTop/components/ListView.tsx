@@ -25,6 +25,12 @@ interface ListViewProps {
   blockedSlots?: any[]
   privateBookingDeadlineDays?: number
   organizationSlug?: string
+  hideSoldOut?: boolean
+  onHideSoldOutChange?: (value: boolean) => void
+  hidePlayed?: boolean
+  onHidePlayedChange?: (value: boolean) => void
+  playedScenarioIds?: Set<string>
+  isLoggedIn?: boolean
 }
 
 /**
@@ -43,7 +49,13 @@ export const ListView = memo(function ListView({
   onCardClick,
   blockedSlots = [],
   privateBookingDeadlineDays = 14,
-  organizationSlug
+  organizationSlug,
+  hideSoldOut = false,
+  onHideSoldOutChange,
+  hidePlayed = false,
+  onHidePlayedChange,
+  playedScenarioIds = new Set(),
+  isLoggedIn = false,
 }: ListViewProps) {
   const navigate = useNavigate()
   
@@ -110,8 +122,23 @@ export const ListView = memo(function ListView({
   const renderEventCell = (events: any[], store: any, timeSlot: 'morning' | 'afternoon' | 'evening', date: number, precedingEvents: any[] = []) => {
     // GMテスト等のブロックイベントを取得してマージ
     const blockedEvents = getBlockedEvents(date, store.id, timeSlot)
-    const allEvents = [...events, ...blockedEvents].sort((a, b) => {
+    const allMerged = [...events, ...blockedEvents].sort((a, b) => {
       return (a.start_time || '').localeCompare(b.start_time || '')
+    })
+    const allEvents = allMerged.filter((ev: any) => {
+      const isPrivate = ev.category === 'private' || ev.is_private_booking === true
+      const isGm = ev.category === 'gmtest' || ev.category === 'testplay'
+      if (isPrivate || isGm) return true
+      if (hideSoldOut) {
+        const max = ev.player_count_max || 8
+        const cur = ev.current_participants || 0
+        if (max - cur === 0) return false
+      }
+      if (hidePlayed) {
+        const smId = ev.scenario_master_id || ev.scenario_id
+        if (smId && playedScenarioIds.has(smId)) return false
+      }
+      return true
     })
     
     // 日付文字列を生成（YYYY-MM-DD形式）
@@ -285,6 +312,11 @@ export const ListView = memo(function ListView({
         selectedStoreIds={selectedStoreIds}
         onStoreIdsChange={onStoreIdsChange}
         stores={stores}
+        hideSoldOut={hideSoldOut}
+        onHideSoldOutChange={onHideSoldOutChange}
+        hidePlayed={hidePlayed}
+        onHidePlayedChange={onHidePlayedChange}
+        isLoggedIn={isLoggedIn}
       />
 
       {/* リスト表示テーブル */}

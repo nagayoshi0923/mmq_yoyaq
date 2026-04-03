@@ -196,8 +196,12 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   
   // お気に入り機能
   const { isFavorite, toggleFavorite } = useFavorites()
-  const { isPlayed, customerId: playedCustomerId, markAsPlayed } = usePlayedScenarios()
+  const { isPlayed, customerId: playedCustomerId, markAsPlayed, playedScenarioIds } = usePlayedScenarios()
   const [playedDialogTarget, setPlayedDialogTarget] = useState<{ id: string; title: string } | null>(null)
+
+  // カレンダー・リスト用の表示フィルタ
+  const [hideSoldOut, setHideSoldOut] = useState(false)
+  const [hidePlayed, setHidePlayed] = useState(false)
   
   // 組織情報（店舗数・所在地）
   const orgInfo = useMemo(() => {
@@ -537,6 +541,12 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 blockedSlots={blockedSlots}
                 privateBookingDeadlineDays={privateBookingDeadlineDays}
                 organizationSlug={organizationSlug}
+                hideSoldOut={hideSoldOut}
+                onHideSoldOutChange={setHideSoldOut}
+                hidePlayed={hidePlayed}
+                onHidePlayedChange={setHidePlayed}
+                playedScenarioIds={playedScenarioIds}
+                isLoggedIn={!!user}
               />
             </TabsContent>
 
@@ -556,6 +566,12 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 blockedSlots={blockedSlots}
                 privateBookingDeadlineDays={privateBookingDeadlineDays}
                 organizationSlug={organizationSlug}
+                hideSoldOut={hideSoldOut}
+                onHideSoldOutChange={setHideSoldOut}
+                hidePlayed={hidePlayed}
+                onHidePlayedChange={setHidePlayed}
+                playedScenarioIds={playedScenarioIds}
+                isLoggedIn={!!user}
               />
             </TabsContent>
           </Tabs>

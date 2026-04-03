@@ -24,6 +24,12 @@ interface CalendarViewProps {
   blockedSlots?: any[]
   privateBookingDeadlineDays?: number
   organizationSlug?: string
+  hideSoldOut?: boolean
+  onHideSoldOutChange?: (value: boolean) => void
+  hidePlayed?: boolean
+  onHidePlayedChange?: (value: boolean) => void
+  playedScenarioIds?: Set<string>
+  isLoggedIn?: boolean
 }
 
 /**
@@ -43,7 +49,13 @@ export const CalendarView = memo(function CalendarView({
   getStoreColor,
   blockedSlots = [],
   privateBookingDeadlineDays = 14,
-  organizationSlug
+  organizationSlug,
+  hideSoldOut = false,
+  onHideSoldOutChange,
+  hidePlayed = false,
+  onHidePlayedChange,
+  playedScenarioIds = new Set(),
+  isLoggedIn = false,
 }: CalendarViewProps) {
   const navigate = useNavigate()
   
@@ -80,6 +92,11 @@ export const CalendarView = memo(function CalendarView({
         selectedStoreIds={selectedStoreIds}
         onStoreIdsChange={onStoreIdsChange}
         stores={stores}
+        hideSoldOut={hideSoldOut}
+        onHideSoldOutChange={onHideSoldOutChange}
+        hidePlayed={hidePlayed}
+        onHidePlayedChange={onHidePlayedChange}
+        isLoggedIn={isLoggedIn}
       />
       
       {/* カレンダーグリッド */}
@@ -164,8 +181,24 @@ export const CalendarView = memo(function CalendarView({
                       : allBlockedEvents
                     
                     // 通常公演 + 貸切公演 + GMテスト等を全てマージして時間順にソート
-                    const allDisplayEvents = [...events, ...blockedEvents].sort((a, b) => {
+                    const allMergedEvents = [...events, ...blockedEvents].sort((a, b) => {
                       return (a.start_time || '').localeCompare(b.start_time || '')
+                    })
+                    
+                    const allDisplayEvents = allMergedEvents.filter((event: any) => {
+                      const isPrivate = event.category === 'private' || event.is_private_booking === true
+                      const isGm = event.category === 'gmtest' || event.category === 'testplay'
+                      if (isPrivate || isGm) return true
+                      if (hideSoldOut) {
+                        const max = event.player_count_max || 8
+                        const cur = event.current_participants || 0
+                        if (max - cur === 0) return false
+                      }
+                      if (hidePlayed) {
+                        const smId = event.scenario_master_id || event.scenario_id
+                        if (smId && playedScenarioIds.has(smId)) return false
+                      }
+                      return true
                     })
                     
                     // 時間帯別にイベントを分類
