@@ -405,6 +405,7 @@ export interface BaseTemplateVariables {
   time: string
   end_time?: string
   venue: string
+  venue_address?: string
   participants: string
   total_price?: string
   
@@ -435,6 +436,7 @@ export function buildBaseTemplateVariables(params: {
   startTime: string
   endTime?: string
   storeName: string
+  storeAddress?: string
   participantCount: number
   totalPrice?: number
   cancellationFee?: number
@@ -455,6 +457,7 @@ export function buildBaseTemplateVariables(params: {
     date: formatDateJa(params.eventDate),
     time: formatTimeJa(params.startTime),
     venue: params.storeName,
+    venue_address: params.storeAddress ?? '',
     participants: `${params.participantCount}`,
     participant_count: `${params.participantCount}`,
     

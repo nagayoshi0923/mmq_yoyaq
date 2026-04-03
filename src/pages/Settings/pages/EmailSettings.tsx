@@ -554,6 +554,7 @@ const VARIABLE_DESCRIPTIONS: Record<string, string> = {
   time: '開始時刻',
   end_time: '終了時刻',
   venue: '会場・店舗名',
+  venue_address: '店舗住所',
   participants: '参加人数',
   total_price: '合計金額',
   cancellation_fee: 'キャンセル料',
@@ -589,6 +590,7 @@ const BASE_VARIABLES = [
   'time',
   'end_time',
   'venue',
+  'venue_address',
   'participants',
   'total_price',
   'cancellation_fee',
@@ -1334,7 +1336,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                         
                         <div className="text-xs text-muted-foreground mt-2 space-y-0.5">
                           <p className="font-medium mb-1">使用可能な変数:</p>
-                          {['customer_name', 'scenario_title', 'date', 'time', 'venue', 'participants', 'total_price'].map(v => (
+                          {['customer_name', 'scenario_title', 'date', 'time', 'venue', 'venue_address', 'participants', 'total_price'].map(v => (
                             <span key={v} className="inline-block mr-3">
                               <code className="bg-gray-100 px-1 rounded">{`{${v}}`}</code>
                               <span className="text-gray-500 ml-1">{VARIABLE_DESCRIPTIONS[v]}</span>

@@ -287,6 +287,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         .replace(/{time}/g, formatTime(bookingData.startTime))
         .replace(/{end_time}/g, bookingData.endTime ? formatTime(bookingData.endTime) : '')
         .replace(/{venue}/g, bookingData.storeName || '')
+        .replace(/{venue_address}/g, bookingData.storeAddress || '')
         .replace(/{participants}/g, String(bookingData.participantCount || ''))
         .replace(/{participant_count}/g, String(bookingData.participantCount || ''))
         .replace(/{total_price}/g, (bookingData.totalPrice || 0).toLocaleString())

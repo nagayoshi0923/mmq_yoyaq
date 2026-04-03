@@ -21,6 +21,7 @@ interface NotifyWaitlistRequest {
   startTime: string
   endTime: string
   storeName: string
+  storeAddress?: string
   // bookingUrl: string  ← 削除（サーバー側で生成）
 }
 
@@ -434,6 +435,7 @@ ${emailTemplates.footer}
           .replace(/{time}/g, formatTime(data.startTime))
           .replace(/{end_time}/g, formatTime(data.endTime))
           .replace(/{venue}/g, data.storeName || '')
+          .replace(/{venue_address}/g, data.storeAddress || '')
           .replace(/{participants}/g, String(entry.participant_count || ''))
           .replace(/{participant_count}/g, String(entry.participant_count || ''))
           .replace(/{total_price}/g, '')

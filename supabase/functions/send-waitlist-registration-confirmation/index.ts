@@ -19,6 +19,7 @@ interface WaitlistRegistrationRequest {
   startTime: string
   endTime: string
   storeName: string
+  storeAddress?: string
   participantCount: number
 }
 
@@ -219,6 +220,7 @@ ${emailTemplates.footer}
         .replace(/{time}/g, formatTime(data.startTime))
         .replace(/{end_time}/g, formatTime(data.endTime))
         .replace(/{venue}/g, data.storeName || '')
+        .replace(/{venue_address}/g, data.storeAddress || '')
         .replace(/{participants}/g, String(data.participantCount || ''))
         .replace(/{participant_count}/g, String(data.participantCount || ''))
         .replace(/{total_price}/g, '')

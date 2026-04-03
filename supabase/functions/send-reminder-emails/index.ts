@@ -156,6 +156,7 @@ serve(async (req) => {
       .replace(/{time}/g, formatTime(reminderData.startTime))
       .replace(/{end_time}/g, reminderData.endTime ? formatTime(reminderData.endTime) : '')
       .replace(/{venue}/g, reminderData.storeName || '')
+      .replace(/{venue_address}/g, reminderData.storeAddress || '')
       .replace(/{participants}/g, String(reminderData.participantCount || ''))
       .replace(/{participant_count}/g, String(reminderData.participantCount || ''))
       .replace(/{total_price}/g, (reminderData.totalPrice || 0).toLocaleString())
