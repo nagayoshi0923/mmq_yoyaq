@@ -132,11 +132,11 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
             <span className="text-muted-foreground/50">未登録</span>
           )}
         </div>
-        <div className="col-span-1 text-xs text-muted-foreground truncate flex items-center gap-2">
+        <div className="col-span-2 text-xs text-muted-foreground flex items-center gap-2 min-w-0">
           {customer.phone ? (
             <>
               <Phone className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate" {...devDb('customers.phone')}>{customer.phone}</span>
+              <span className="whitespace-nowrap" {...devDb('customers.phone')}>{customer.phone}</span>
             </>
           ) : (
             <span className="text-muted-foreground/50">未登録</span>
@@ -161,7 +161,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
         <div className="col-span-1 text-right font-medium text-sm" {...devDb('customers.total_spent')}>
           {formatCurrency(customer.total_spent)}
         </div>
-        <div className="col-span-2 text-xs text-muted-foreground truncate">
+        <div className="col-span-1 text-xs text-muted-foreground truncate">
           {formatDate(customer.last_visit ?? null)}
         </div>
         <div className="col-span-1 flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -220,6 +220,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit, coup
               <h4 className="mb-2 font-bold text-sm">顧客情報</h4>
               <div className="space-y-1 text-sm">
                 <div className="break-all"><span className="text-muted-foreground">メール:</span> {customer.email || '未登録'}</div>
+                <div><span className="text-muted-foreground">電話番号:</span> {customer.phone || '未登録'}</div>
                 <div><span className="text-muted-foreground">LINE ID:</span> {customer.line_id || '未登録'}</div>
                 <div><span className="text-muted-foreground">登録日:</span> {formatDate(customer.created_at)}</div>
                 {customer.preferences && customer.preferences.length > 0 && (
