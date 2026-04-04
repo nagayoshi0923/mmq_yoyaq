@@ -115,7 +115,7 @@ export function PerformanceModal({
   // 予約データから取得したスタッフ参加者（DBをシングルソースとする）
   const [staffParticipantsFromDB, setStaffParticipantsFromDB] = useState<string[]>([])
   // ローカルで参加者数を管理（リアルタイム表示用）
-  const [localCurrentParticipants, setLocalCurrentParticipants] = useState<number>(0)
+  const [localCurrentParticipants, setLocalCurrentParticipants] = useState<number>(event?.current_participants || 0)
   const [formData, setFormData] = useState<EventFormData>({
     id: '',
     date: '',
