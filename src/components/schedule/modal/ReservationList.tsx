@@ -223,8 +223,12 @@ ${content.organizationName || '店舗'}
             const data = await reservationApi.getByScheduleEvent(event.id, eventOrgId)
             logger.log('通常予約データ取得:', { eventId: event.id, count: data.length })
             setReservations(data)
-            // バッジのみ更新（スケジュールカードへは伝播しない）
-            onLocalParticipantUpdate?.(sumActiveParticipants(data))
+            // バッジ・スケジュールカード両方を正しい値に同期
+            const totalParticipants = sumActiveParticipants(data)
+            onLocalParticipantUpdate?.(totalParticipants)
+            if (onParticipantChange && event.id) {
+              onParticipantChange(event.id, totalParticipants)
+            }
           }
         } catch (error) {
           logger.error('予約データの取得に失敗:', error)
@@ -328,7 +332,9 @@ ${content.organizationName || '店舗'}
         const wasActive = ACTIVE_RESERVATION_STATUSES.has(oldStatus)
         const isActive = ACTIVE_RESERVATION_STATUSES.has(newStatus)
         
-        if (wasActive !== isActive) {
+        // アクティブ状態が変わる場合、またはチェックインの場合は再計算
+        // （checked_in は pending/confirmed/gm_confirmed と同様にカウントするため）
+        if (wasActive !== isActive || newStatus === 'checked_in') {
           try {
             // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
             const newCount = await recalculateCurrentParticipants(event.id)
