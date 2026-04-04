@@ -207,7 +207,6 @@ async function sendCancellationNotifications(
       .from('reservations')
       .update({
         status: 'cancelled',
-        is_cancelled: true,
         cancelled_at: new Date().toISOString(),
         cancellation_reason: checkType === 'day_before' 
           ? '人数未達による公演中止（前日判定）' 
