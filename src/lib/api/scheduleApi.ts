@@ -233,13 +233,13 @@ export const scheduleApi = {
       `)
       .contains('participant_names', [staffName])
       .eq('payment_method', 'staff')
-      .in('status', ['confirmed', 'pending', 'gm_confirmed'])
-    
-    if (orgId) {
-      resQuery = resQuery.eq('organization_id', orgId)
-    }
-    
-    const { data: staffReservations } = await resQuery
+        .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
+      
+      if (orgId) {
+        resQuery = resQuery.eq('organization_id', orgId)
+      }
+      
+      const { data: staffReservations } = await resQuery
     
     // スタッフ参加の公演を抽出（日付フィルタリング）
     type JoinedScheduleEvent = { id: string; date: string; start_time: string; is_cancelled: boolean; scenario_masters?: unknown; max_participants?: number; capacity?: number; [key: string]: unknown }
@@ -276,7 +276,7 @@ export const scheduleApi = {
           .from('reservations')
           .select('schedule_event_id, participant_count, status')
           .in('schedule_event_id', batchIds)
-          .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+          .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
         
         if (orgId) {
           allResQuery = allResQuery.eq('organization_id', orgId)
@@ -439,12 +439,12 @@ export const scheduleApi = {
     }
     
     // 各イベントの実際の参加者数を計算
-    const ACTIVE_STATUSES = new Set(['confirmed', 'pending', 'gm_confirmed'])
+    const ACTIVE_STATUSES = new Set(['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
 
     const eventsWithActualParticipants = scheduleEvents.map((event) => {
       const reservations = reservationsMap.get(event.id) || []
       
-      // 予約テーブルが single source of truth（active: confirmed/pending/gm_confirmed）
+      // 予約テーブルが single source of truth（active: confirmed/pending/gm_confirmed/checked_in）
       // ※ cancelled のみのケースでも reservations は存在し得るが、人数計算は active のみで行う
       const hasAnyReservations = reservations.length > 0
       const actualParticipants = reservations.reduce((sum, reservation) => {
@@ -763,7 +763,7 @@ export const scheduleApi = {
         .from('reservations')
         .select('schedule_event_id, participant_count')
         .in('schedule_event_id', batchIds)
-        .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+        .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
       
       if (orgId) {
         resQuery = resQuery.eq('organization_id', orgId)
