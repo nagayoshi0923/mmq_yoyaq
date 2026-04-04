@@ -1018,8 +1018,8 @@ async function sendBusinessSummaryNotification(
       // Bot APIを使用してチャンネルにメッセージを送信
       const discordSettings = await getDiscordSettings(supabase, org.organization_id)
       
-      // 今回処理したイベント + 既に延長済みイベントを結合
-      const allEvents = [...result.details, ...alreadyExtendedDetails]
+      // 今回処理したイベントのみ（実際にキャンセル・延長・開催決定になったもの）
+      const allEvents = [...result.details]
       
       // GMのDiscord IDを取得してメンション用マップを作成
       const allGMs = allEvents.flatMap(e => e.gms || [])
@@ -1065,23 +1065,25 @@ async function sendBusinessSummaryNotification(
       lines.push(`📋 **${targetDateStr} 公演中止判定結果** (${checkTypeLabel})`)
       lines.push('')
       
-      // サマリー（既に延長中のものも含める）
-      const alreadyExtendedCount = alreadyExtendedDetails.length
-      let summaryParts = [
+      // サマリー（今回処理した件数のみ）
+      const summaryParts = [
         `チェック対象: ${result.events_checked}件`,
         `開催決定: ${result.events_confirmed}件`,
-        `募集延長: ${result.events_extended ?? 0}件`
+        `募集延長: ${result.events_extended ?? 0}件`,
+        `中止: ${result.events_cancelled}件`
       ]
-      if (alreadyExtendedCount > 0) {
-        summaryParts.push(`延長中: ${alreadyExtendedCount}件`)
-      }
-      summaryParts.push(`中止: ${result.events_cancelled}件`)
       lines.push(summaryParts.join(' | '))
       lines.push('')
       
-      if (allEvents.length === 0) {
-        // 対象公演がない場合は通知をスキップ
+      if (result.details.length === 0 && alreadyExtendedDetails.length === 0) {
+        // 処理イベントも延長中イベントもない場合はスキップ
         console.log(`ℹ️ 対象公演なし: org=${org.organization_id}, 通知スキップ`)
+        continue
+      }
+      
+      if (result.details.length === 0) {
+        // 今回実際に処理したイベントがなければ通知しない（延長中のみの情報は毎時間不要）
+        console.log(`ℹ️ 今回処理なし（延長中のみ）: org=${org.organization_id}, 通知スキップ`)
         continue
       } else {
         // 公演を時間順にソート
