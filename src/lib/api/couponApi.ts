@@ -641,7 +641,7 @@ export async function getCurrentReservations(): Promise<Array<{
   if (eventIds.size > 0) {
     const { data: events } = await supabase
       .from('schedule_events')
-      .select('id, date, start_time, scenario, venue, stores (name)')
+      .select('id, date, start_time, end_time, scenario, venue, stores (name)')
       .in('id', Array.from(eventIds))
     if (events) {
       for (const ev of events) {
@@ -696,12 +696,10 @@ export async function getCurrentReservations(): Promise<Array<{
 
  
 
-  // 今日の公演で、現在時刻の前後3時間以内のものをフィルタ
+  // 今日の公演で、開始3時間前〜終了1時間後の範囲のものをフィルタ
   const currentHour = jstNow.getHours()
   const currentMinute = jstNow.getMinutes()
   const currentTotalMinutes = currentHour * 60 + currentMinute
-
-  
 
   const filtered = allReservations
     .filter(({ event }) => {
@@ -711,8 +709,16 @@ export async function getCurrentReservations(): Promise<Array<{
       const [startHour, startMinute] = event.start_time.split(':').map(Number)
       const startTotalMinutes = startHour * 60 + startMinute
 
-      const diff = currentTotalMinutes - startTotalMinutes
-      return diff >= -180 && diff <= 180
+      // 開始3時間前より前はNG
+      if (currentTotalMinutes < startTotalMinutes - 180) return false
+
+      // end_time がある場合は終了1時間後まで、ない場合は開始3時間後まで（フォールバック）
+      if (event.end_time) {
+        const [endHour, endMinute] = event.end_time.split(':').map(Number)
+        const endTotalMinutes = endHour * 60 + endMinute
+        return currentTotalMinutes <= endTotalMinutes + 60
+      }
+      return currentTotalMinutes <= startTotalMinutes + 180
     })
     .map(({ id, event }) => ({
       id,

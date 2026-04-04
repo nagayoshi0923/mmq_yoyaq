@@ -5,8 +5,10 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { StaffManual } from './StaffManual'
 import { ReservationManual } from './ReservationManual'
 import { ShiftManual } from './ShiftManual'
+import { CouponManual } from './CouponManual'
+import { CouponReceptionManual } from './CouponReceptionManual'
 import { 
-  BookOpen, Users, CalendarDays, FileText
+  BookOpen, Users, CalendarDays, FileText, Ticket, Scissors
 } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
@@ -14,6 +16,8 @@ const MANUAL_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'staff', label: 'スタッフ管理', icon: Users, description: 'スタッフの登録・編集' },
   { id: 'reservation', label: '予約管理', icon: CalendarDays, description: '予約の確認・操作' },
   { id: 'schedule', label: 'シフト・スケジュール', icon: FileText, description: 'シフトと公演管理' },
+  { id: 'coupon-reception', label: 'クーポン受付対応', icon: Scissors, description: '受付でのもぎり方' },
+  { id: 'coupon', label: 'クーポン管理', icon: Ticket, description: 'クーポンの配布・管理' },
 ]
 
 export function ManualPage() {
@@ -42,6 +46,8 @@ export function ManualPage() {
       case 'staff': return <StaffManual />
       case 'reservation': return <ReservationManual />
       case 'schedule': return <ShiftManual />
+      case 'coupon-reception': return <CouponReceptionManual />
+      case 'coupon': return <CouponManual />
       default: return <StaffManual />
     }
   }
