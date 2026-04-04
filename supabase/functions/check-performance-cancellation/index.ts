@@ -200,7 +200,29 @@ async function sendCancellationNotifications(
     .select('name, display_name, email')
     .eq('organization_id', event.organization_id)
   
-  // 3. 各予約者にメール送信
+  // 3. 予約をキャンセル状態に更新（メール設定の有無に関わらず必ず実行）
+  if (reservations && reservations.length > 0) {
+    const reservationIds = reservations.map(r => r.id)
+    const { error: cancelError } = await supabase
+      .from('reservations')
+      .update({
+        status: 'cancelled',
+        is_cancelled: true,
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: checkType === 'day_before' 
+          ? '人数未達による公演中止（前日判定）' 
+          : '人数未達による公演中止（4時間前判定）'
+      })
+      .in('id', reservationIds)
+
+    if (cancelError) {
+      console.error('❌ 予約キャンセル更新エラー:', cancelError)
+    } else {
+      console.log(`✅ 予約キャンセル更新完了: ${reservationIds.length}件`)
+    }
+  }
+
+  // 4. 各予約者にメール送信（APIキーが設定されている場合のみ）
   if (reservations && reservations.length > 0 && emailSettings.resendApiKey) {
     for (const reservation of reservations) {
       // メールアドレスを取得（customer_email → スタッフテーブルからの検索）
@@ -238,23 +260,9 @@ async function sendCancellationNotifications(
         console.error('❌ メール送信エラー:', maskEmail(emailToSend), emailError)
       }
     }
-
-    // 予約をキャンセル状態に更新
-    const reservationIds = reservations.map(r => r.id)
-    await supabase
-      .from('reservations')
-      .update({
-        status: 'cancelled',
-        is_cancelled: true,
-        cancelled_at: new Date().toISOString(),
-        cancellation_reason: checkType === 'day_before' 
-          ? '人数未達による公演中止（前日判定）' 
-          : '人数未達による公演中止（4時間前判定）'
-      })
-      .in('id', reservationIds)
   }
 
-  // 3.5. イベント自体を中止状態に更新
+  // 5. イベント自体を中止状態に更新
   const { error: eventUpdateError } = await supabase
     .from('schedule_events')
     .update({
@@ -268,10 +276,10 @@ async function sendCancellationNotifications(
     console.log('✅ イベント中止フラグ更新完了:', event.event_id)
   }
 
-  // 4. Discord個別通知は廃止（サマリー通知に統一）
+  // 6. Discord個別通知は廃止（サマリー通知に統一）
   // 以前: await sendDiscordCancellationNotification(supabase, event, checkType, reservations?.length || 0)
 
-  // 5. ログを更新
+  // 7. ログを更新
   await supabase
     .from('performance_cancellation_logs')
     .update({
