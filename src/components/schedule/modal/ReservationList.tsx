@@ -146,7 +146,7 @@ ${content.organizationName || '店舗'}
   })
   const [customerNames, setCustomerNames] = useState<string[]>([])
 
-  const ACTIVE_RESERVATION_STATUSES = new Set(['pending', 'confirmed', 'gm_confirmed'])
+  const ACTIVE_RESERVATION_STATUSES = new Set(['pending', 'confirmed', 'gm_confirmed', 'checked_in'])
 
   const sumActiveParticipants = (list: Reservation[]) =>
     list.reduce((sum, r) => {
@@ -181,7 +181,7 @@ ${content.organizationName || '店舗'}
                 .from('reservations')
                 .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
                 .eq('id', event.reservation_id)
-                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
+                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in', 'cancelled'])
               
               if (error) {
                 logger.error('貸切予約データの取得に失敗:', error)
@@ -201,7 +201,7 @@ ${content.organizationName || '店舗'}
                   .from('reservations')
                   .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
                 .eq('id', event.reservation_id)
-                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
+                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in', 'cancelled'])
                 
                 if (error) {
                   logger.error('貸切予約データの取得に失敗:', error)
@@ -326,8 +326,8 @@ ${content.organizationName || '店舗'}
       )
       
       if (event?.id) {
-        const wasActive = oldStatus === 'confirmed' || oldStatus === 'pending'
-        const isActive = newStatus === 'confirmed' || newStatus === 'pending'
+        const wasActive = ACTIVE_RESERVATION_STATUSES.has(oldStatus)
+        const isActive = ACTIVE_RESERVATION_STATUSES.has(newStatus)
         
         if (wasActive !== isActive) {
           try {
@@ -342,6 +342,9 @@ ${content.organizationName || '店舗'}
         }
       }
       
+      if (newStatus === 'checked_in') {
+        showToast.success('チェックインしました')
+      }
       logger.log('予約ステータス更新成功:', { id: reservationId, oldStatus, newStatus })
     } catch (error) {
       logger.error('予約ステータス更新エラー:', error)
@@ -1422,20 +1425,34 @@ ${content.organizationName || '店舗'}
                           <div className="flex items-center gap-2 ml-6 sm:ml-0 flex-wrap">
                             {isCancelled ? (
                               <span className="w-[80px] h-8 text-xs text-red-500 flex items-center">キャンセル済</span>
+                            ) : reservation.status === 'checked_in' ? (
+                              <span className="w-[80px] h-8 text-xs text-green-600 font-semibold flex items-center gap-1">
+                                ✓ 来店済
+                              </span>
                             ) : (
-                              <Select 
-                                value={reservation.status} 
-                                onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
-                              >
-                                <SelectTrigger className="w-[80px] h-8 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="confirmed">確定</SelectItem>
-                                  <SelectItem value="cancelled">キャンセル</SelectItem>
-                                  <SelectItem value="pending">保留中</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              <>
+                                <Select 
+                                  value={reservation.status} 
+                                  onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
+                                >
+                                  <SelectTrigger className="w-[80px] h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="confirmed">確定</SelectItem>
+                                    <SelectItem value="cancelled">キャンセル</SelectItem>
+                                    <SelectItem value="pending">保留中</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 px-2 text-xs text-green-700 border-green-300 hover:bg-green-50"
+                                  onClick={() => handleUpdateReservationStatus(reservation.id, 'checked_in')}
+                                >
+                                  チェックイン
+                                </Button>
+                              </>
                             )}
                             
                             <Button

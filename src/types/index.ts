@@ -604,7 +604,7 @@ export interface Reservation {
   payment_status: 'pending' | 'paid' | 'refunded' | 'cancelled'
   payment_method?: string | null
   payment_datetime?: string | null
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | 'gm_confirmed'
+  status: 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show' | 'gm_confirmed'
   customer_notes?: string | null
   staff_notes?: string | null
   special_requests?: string | null
