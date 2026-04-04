@@ -710,7 +710,12 @@ export function PerformanceModal({
                       ? '満席'
                       : `${localCurrentParticipants}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
                     }
-                    {staffParticipantsFromDB.length > 0 && (
+                    {event.is_cancelled && event.current_participants > 0 && (
+                      <span className="text-red-500 ml-1">
+                        （中止前{event.current_participants}名）
+                      </span>
+                    )}
+                    {!event.is_cancelled && staffParticipantsFromDB.length > 0 && (
                       <span className="text-blue-600 ml-1">
                         （内スタッフ{staffParticipantsFromDB.length}）
                       </span>
