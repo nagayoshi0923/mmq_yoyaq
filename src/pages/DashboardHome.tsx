@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -22,8 +22,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { devDb } from '@/components/ui/DevField'
 import { useOrganization } from '@/hooks/useOrganization'
-import { staffApi, scheduleApi, storeApi } from '@/lib/api'
-import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from '@/lib/dateFns'
+import { staffApi, scheduleApi, storeApi, scenarioApi } from '@/lib/api'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import {
   Dialog,
@@ -31,6 +31,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { PerformanceModal } from '@/components/schedule/PerformanceModal'
+import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
+import { useEventOperations } from '@/hooks/useEventOperations'
+import type { Store as StoreType, Scenario, Staff as StaffType } from '@/types'
+import type { ScheduleEvent } from '@/types/schedule'
 
 interface DashboardHomeProps {
   onPageChange: (pageId: string) => void
@@ -39,13 +44,19 @@ interface DashboardHomeProps {
 export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   const { user } = useAuth()
   const { organization } = useOrganization()
-  const [mySchedule, setMySchedule] = useState<any[]>([])
+  const [mySchedule, setMySchedule] = useState<ScheduleEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [staffName, setStaffName] = useState('')
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [storeCount, setStoreCount] = useState<number | null>(null)  // オンボーディング用
+
+  // PerformanceModal 用マスタデータ（遅延ロード）
+  const [modalStores, setModalStores] = useState<StoreType[]>([])
+  const [modalScenarios, setModalScenarios] = useState<Scenario[]>([])
+  const [modalStaff, setModalStaff] = useState<StaffType[]>([])
+  const modalDataLoaded = useRef(false)
   
   // 予約サイトのベースパス
   const bookingBasePath = organization?.slug ? `/${organization.slug}` : '/queens-waltz'
@@ -58,37 +69,53 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     revenue: 0
   })
 
-  // データ取得
-  useEffect(() => {
-    const fetchMyData = async () => {
-      if (!user?.id) return
-      
-      try {
-        setLoading(true)
-        // 1. スタッフ情報の取得
-        const staff = await staffApi.getByUserId(user.id)
-        if (!staff) {
-           logger.log('スタッフ情報が見つかりません')
-           setLoading(false)
-           return
-        }
-        setStaffName(staff.name)
-
-        // 2. スケジュールの取得（表示中の月の前後を含める）
-        const startDate = format(startOfMonth(subMonths(currentMonth, 1)), 'yyyy-MM-dd')
-        const endDate = format(endOfMonth(addMonths(currentMonth, 1)), 'yyyy-MM-dd')
-        
-        const events = await scheduleApi.getMySchedule(staff.name, startDate, endDate)
-        setMySchedule(events)
-      } catch (error) {
-        logger.error('データ取得エラー:', error)
-      } finally {
-        setLoading(false)
+  // スケジュール取得（useEventOperations の fetchSchedule としても使用）
+  const fetchMyData = useCallback(async () => {
+    if (!user?.id) return
+    try {
+      setLoading(true)
+      const staff = await staffApi.getByUserId(user.id)
+      if (!staff) {
+        logger.log('スタッフ情報が見つかりません')
+        return
       }
+      setStaffName(staff.name)
+      const startDate = format(startOfMonth(subMonths(currentMonth, 1)), 'yyyy-MM-dd')
+      const endDate = format(endOfMonth(addMonths(currentMonth, 1)), 'yyyy-MM-dd')
+      const events = await scheduleApi.getMySchedule(staff.name, startDate, endDate)
+      setMySchedule(events as ScheduleEvent[])
+    } catch (error) {
+      logger.error('データ取得エラー:', error)
+    } finally {
+      setLoading(false)
     }
-    
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, currentMonth])
+
+  useEffect(() => {
     fetchMyData()
-  }, [user, currentMonth]) // 月が変わったら再取得
+  }, [fetchMyData])
+
+  // 公演操作フック（保存・削除・重複チェック・履歴記録を一元管理）
+  const {
+    isPerformanceModalOpen,
+    editingEvent,
+    isConflictWarningOpen,
+    conflictInfo,
+    handleEditPerformance,
+    handleCloseModal,
+    handleSavePerformance,
+    handleDeletePerformance,
+    handleConflictContinue,
+    setIsConflictWarningOpen,
+    handleParticipantChange,
+  } = useEventOperations({
+    events: mySchedule,
+    setEvents: setMySchedule,
+    stores: modalStores,
+    scenarios: modalScenarios,
+    fetchSchedule: fetchMyData,
+  })
 
   // スタッフ用実績計算（今月分のみ）
   const myStats = useMemo(() => {
@@ -189,6 +216,36 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     }
   }
 
+  // モーダル用マスタデータを遅延ロード（初回のみ）
+  const loadModalData = useCallback(async () => {
+    if (modalDataLoaded.current) return
+    try {
+      const [stores, scenarios, staff] = await Promise.all([
+        storeApi.getAll(),
+        scenarioApi.getAll(),
+        staffApi.getAll(),
+      ])
+      setModalStores(stores)
+      setModalScenarios(scenarios)
+      setModalStaff(staff)
+      modalDataLoaded.current = true
+    } catch (error) {
+      logger.error('モーダルデータ取得エラー:', error)
+    }
+  }, [])
+
+  // 公演クリック → マスタデータをロードしてから PerformanceModal を開く
+  // venue フィールドは UUID(store_id) を期待するため、store_id があれば上書きする
+  // （getMySchedule は venue に店舗名を返すが、useEventOperations は UUID を期待する）
+  const handleEventClick = useCallback(async (event: ScheduleEvent) => {
+    await loadModalData()
+    const normalizedEvent: ScheduleEvent = {
+      ...event,
+      venue: event.store_id || event.venue,
+    }
+    handleEditPerformance(normalizedEvent)
+  }, [loadModalData, handleEditPerformance])
+
   // ナビゲーションメニュー（ロールに応じて表示）
   const navigationTabs = useMemo(() => {
     const commonTabs = [
@@ -286,7 +343,11 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           ) : upcomingEvents.length > 0 ? (
             <div className="border rounded-lg divide-y divide-border bg-background">
               {upcomingEvents.map(event => (
-                <div key={event.id} className="px-3 py-2 flex items-center gap-3">
+                <div
+                  key={event.id}
+                  className="px-3 py-2 flex items-center gap-3 cursor-pointer hover:bg-accent/40 transition-colors"
+                  onClick={() => handleEventClick(event)}
+                >
                   <div className="text-center flex-shrink-0 w-12">
                     <div className="text-xs text-muted-foreground">
                       {format(parseISO(event.date), 'M/d')}
@@ -306,7 +367,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                     </div>
                   </div>
                   <div className="flex-shrink-0 text-xs text-muted-foreground">
-                    {event.current_participants}名
+                    {event.current_participants}/{event.max_participants ?? event.capacity ?? 8}名
                   </div>
                 </div>
               ))}
@@ -469,6 +530,29 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           </div>
         </section>
       )}
+
+      {/* 公演編集ダイアログ */}
+      <PerformanceModal
+        isOpen={isPerformanceModalOpen}
+        onClose={handleCloseModal}
+        onSave={handleSavePerformance}
+        mode="edit"
+        event={editingEvent}
+        stores={modalStores}
+        scenarios={modalScenarios}
+        staff={modalStaff}
+        events={mySchedule}
+        onParticipantChange={handleParticipantChange}
+        onDeleteEvent={handleDeletePerformance}
+      />
+
+      {/* 重複チェック警告ダイアログ */}
+      <ConflictWarningModal
+        isOpen={isConflictWarningOpen}
+        onClose={() => setIsConflictWarningOpen(false)}
+        onContinue={handleConflictContinue}
+        conflictInfo={conflictInfo}
+      />
 
       {/* 日付詳細ダイアログ */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>

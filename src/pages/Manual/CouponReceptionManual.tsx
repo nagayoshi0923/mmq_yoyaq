@@ -109,7 +109,7 @@ function MogiruDialogMock() {
             <CheckCircle className="w-3 h-3 text-white" />
           </div>
           <div className="text-xs">
-            <p className="font-bold text-gray-900">犯人は踊る</p>
+            <p className="font-bold text-gray-900">或ル胡蝶ノ夢</p>
             <p className="text-gray-500">高田馬場 ｜ 14:00〜</p>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -114,6 +114,8 @@ export function PerformanceModal({
   const [activeTab, setActiveTab] = useState<string>('edit')
   // 予約データから取得したスタッフ参加者（DBをシングルソースとする）
   const [staffParticipantsFromDB, setStaffParticipantsFromDB] = useState<string[]>([])
+  // シナリオ変更確認ダイアログ（参加者がいる場合）
+  const [pendingScenarioTitle, setPendingScenarioTitle] = useState<string | null>(null)
   // ローカルで参加者数を管理（リアルタイム表示用）
   const [localCurrentParticipants, setLocalCurrentParticipants] = useState<number>(event?.current_participants || 0)
   const [formData, setFormData] = useState<EventFormData>({
@@ -582,6 +584,34 @@ export function PerformanceModal({
     return slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜'
   }
 
+  // シナリオ変更を実際に formData に適用する
+  const applyScenarioChange = (scenarioTitle: string) => {
+    const selectedScenario = scenarios.find(s => s.title === scenarioTitle)
+    if (!selectedScenario) {
+      setFormData((prev: EventFormData) => ({ ...prev, scenario: scenarioTitle }))
+      return
+    }
+    // 終了時間の自動計算
+    const currentStartMinutes = parseInt(formData.start_time.split(':')[0]) * 60 + parseInt(formData.start_time.split(':')[1])
+    const prepMinutes = selectedScenario.extra_preparation_time ?? 0
+    const requiredStartMinutes = currentStartMinutes + prepMinutes
+    let adjustedStartTime = formData.start_time
+    if (requiredStartMinutes > currentStartMinutes) {
+      const hours = Math.floor(requiredStartMinutes / 60)
+      const minutes = requiredStartMinutes % 60
+      adjustedStartTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+    }
+    const endTime = calculateEndTime(adjustedStartTime, scenarioTitle)
+    setFormData((prev: EventFormData) => ({
+      ...prev,
+      scenario: scenarioTitle,
+      scenario_id: selectedScenario.id,
+      start_time: adjustedStartTime,
+      end_time: endTime,
+      max_participants: selectedScenario.player_count_max
+    }))
+  }
+
   const handleSave = async () => {
     // 時間帯を'朝'/'昼'/'夜'形式で保存
     // gmRoles (camelCase) を gm_roles (snake_case) に変換してAPIに渡す
@@ -710,7 +740,7 @@ export function PerformanceModal({
                       ? '満席'
                       : `${localCurrentParticipants}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
                     }
-                    {event.is_cancelled && event.current_participants > 0 && (
+                    {event.is_cancelled && (event.current_participants ?? 0) > 0 && (
                       <span className="text-red-500 ml-1">
                         （中止前{event.current_participants}名）
                       </span>
@@ -775,68 +805,14 @@ export function PerformanceModal({
             <SearchableSelect
               value={formData.scenario}
               onValueChange={(scenarioTitle) => {
-                const selectedScenario = scenarios.find(s => s.title === scenarioTitle)
-                
-                if (selectedScenario) {
-                  // 準備時間を計算（基本60分 + 追加準備時間）
-                  const basePreparationTime = 60
-                  const extraPrepTime = selectedScenario.extra_preparation_time || 0
-                  const totalPrepTime = basePreparationTime + extraPrepTime
-                  
-                  // 同じ日・同じ店舗の公演で、現在の開始時間より前に終了する最も遅い公演を探す
-                  const currentDate = formData.date || initialData?.date
-                  const currentVenue = formData.venue || initialData?.venue
-                  const currentStartMinutes = formData.start_time ? 
-                    parseInt(formData.start_time.split(':')[0]) * 60 + parseInt(formData.start_time.split(':')[1]) : 0
-                  
-                  let adjustedStartTime = formData.start_time
-                  
-                  if (currentDate && currentVenue && events.length > 0) {
-                    // 同じ日・同じ店舗の公演を取得し、終了時間でソート
-                    const sameDayVenueEvents = events
-                      .filter(e => e.date === currentDate && e.venue === currentVenue && !e.is_cancelled)
-                      .sort((a, b) => {
-                        const aEnd = parseInt(a.end_time.split(':')[0]) * 60 + parseInt(a.end_time.split(':')[1])
-                        const bEnd = parseInt(b.end_time.split(':')[0]) * 60 + parseInt(b.end_time.split(':')[1])
-                        return bEnd - aEnd // 終了時間が遅い順
-                      })
-                    
-                    // 現在の開始時間より前に終了する直前の公演を探す
-                    const previousEvent = sameDayVenueEvents.find(e => {
-                      const endMinutes = parseInt(e.end_time.split(':')[0]) * 60 + parseInt(e.end_time.split(':')[1])
-                      return endMinutes <= currentStartMinutes
-                    })
-                    
-                    if (previousEvent) {
-                      // 前の公演の終了時間 + 準備時間
-                      const prevEndMinutes = parseInt(previousEvent.end_time.split(':')[0]) * 60 + parseInt(previousEvent.end_time.split(':')[1])
-                      const requiredStartMinutes = prevEndMinutes + totalPrepTime
-                      
-                      // 現在の開始時間より後なら調整
-                      if (requiredStartMinutes > currentStartMinutes) {
-                        const hours = Math.floor(requiredStartMinutes / 60)
-                        const minutes = requiredStartMinutes % 60
-                        adjustedStartTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
-                      }
-                    }
-                  }
-                  
-                  const endTime = calculateEndTime(adjustedStartTime, scenarioTitle)
-                  
-                  setFormData((prev: EventFormData) => ({
-                    ...prev,
-                    scenario: scenarioTitle,
-                    scenario_id: selectedScenario.id,  // IDも同時に設定
-                    start_time: adjustedStartTime,
-                    end_time: endTime,
-                    max_participants: selectedScenario.player_count_max
-                  }))
-                } else {
-                  setFormData((prev: EventFormData) => ({
-                    ...prev,
-                    scenario: scenarioTitle
-                  }))
+                // 参加者がいる場合はシナリオ変更前に確認を取る
+                const hasParticipants = localCurrentParticipants > 0
+                const isScenarioChanged = scenarioTitle !== formData.scenario
+                if (mode === 'edit' && hasParticipants && isScenarioChanged) {
+                  setPendingScenarioTitle(scenarioTitle)
+                  return
                 }
+                applyScenarioChange(scenarioTitle)
               }}
               options={scenarioOptions}
               placeholder="シナリオ"
@@ -1526,6 +1502,37 @@ export function PerformanceModal({
           </div>
         </div>
       </DialogContent>
+
+      {/* シナリオ変更確認ダイアログ（参加者がいる場合） */}
+      <Dialog open={pendingScenarioTitle !== null} onOpenChange={(open) => { if (!open) setPendingScenarioTitle(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">シナリオを変更しますか？</DialogTitle>
+            <DialogDescription className="text-sm pt-1">
+              現在 <span className="font-semibold text-foreground">{localCurrentParticipants}名</span> の予約者がいます。<br />
+              シナリオを <span className="font-semibold text-foreground">「{pendingScenarioTitle}」</span> に変更すると、既存の予約情報（参加人数上限など）に影響する可能性があります。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              className="text-sm"
+              onClick={() => setPendingScenarioTitle(null)}
+            >
+              キャンセル
+            </Button>
+            <Button
+              className="text-sm"
+              onClick={() => {
+                if (pendingScenarioTitle) applyScenarioChange(pendingScenarioTitle)
+                setPendingScenarioTitle(null)
+              }}
+            >
+              変更する
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* シナリオ編集ダイアログ（V2: タブ形式の新しいUI） */}
       <ScenarioEditDialogV2
