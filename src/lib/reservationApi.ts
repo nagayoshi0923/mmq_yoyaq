@@ -209,7 +209,7 @@ export const reservationApi = {
         .from('reservations')
         .select(select)
         .eq('schedule_event_id', scheduleEventId)
-        .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
+        .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in', 'cancelled'])
 
       if (orgId) {
         query = query.eq('organization_id', orgId)
