@@ -34,6 +34,8 @@ interface ReservationListProps {
   scenarios: Scenario[]
   staff: StaffType[]
   onParticipantChange?: (eventId: string, newCount: number) => void
+  // モーダル内バッジのみ更新（スケジュールカードへは伝播しない）
+  onLocalParticipantUpdate?: (count: number) => void
   onGmsChange?: (gms: string[], gmRoles: Record<string, string>) => void
   // 予約データから取得したスタッフ参加者を親に通知（DBの情報を直接反映）
   onStaffParticipantsChange?: (staffParticipants: string[]) => void
@@ -49,6 +51,7 @@ export function ReservationList({
   scenarios,
   staff,
   onParticipantChange,
+  onLocalParticipantUpdate,
   onGmsChange,
   onStaffParticipantsChange,
   onDeleteEvent
@@ -220,6 +223,8 @@ ${content.organizationName || '店舗'}
             const data = await reservationApi.getByScheduleEvent(event.id, eventOrgId)
             logger.log('通常予約データ取得:', { eventId: event.id, count: data.length })
             setReservations(data)
+            // バッジのみ更新（スケジュールカードへは伝播しない）
+            onLocalParticipantUpdate?.(sumActiveParticipants(data))
           }
         } catch (error) {
           logger.error('予約データの取得に失敗:', error)

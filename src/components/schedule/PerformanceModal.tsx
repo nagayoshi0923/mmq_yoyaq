@@ -1353,6 +1353,9 @@ export function PerformanceModal({
               stores={stores}
               scenarios={scenarios}
               staff={staff}
+              onLocalParticipantUpdate={(count) => {
+                setLocalCurrentParticipants(count)
+              }}
               onParticipantChange={(eventId, newCount) => {
                 setLocalCurrentParticipants(newCount)
                 onParticipantChange?.(eventId, newCount)
