@@ -1530,9 +1530,6 @@ ${content.organizationName || '店舗'}
                             </div>
                             {(() => {
                               const customer = reservation.customers as any
-                              // 1. 予約のcustomer_email
-                              // 2. customersテーブルのemail
-                              // 3. スタッフの名前からstaffテーブルを検索してemail
                               let email = reservation.customer_email 
                                 || customer?.email 
                                 || customer?.user?.email
@@ -1550,13 +1547,29 @@ ${content.organizationName || '店舗'}
                                   }
                                 }
                               }
-                              
-                              return email ? (
-                                <div className="mt-3">
-                                  <Label className="text-xs text-muted-foreground">メールアドレス</Label>
-                                  <div className="text-sm mt-1 text-blue-600">{email}</div>
+
+                              const phone = reservation.customer_phone || customer?.phone_number
+
+                              return (
+                                <div className="mt-3 space-y-2 border-t pt-3">
+                                  <Label className="text-xs font-semibold text-muted-foreground">顧客情報</Label>
+                                  {phone && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground w-20 shrink-0">電話番号</span>
+                                      <a href={`tel:${phone}`} className="text-sm text-blue-600 hover:underline">{phone}</a>
+                                    </div>
+                                  )}
+                                  {email && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground w-20 shrink-0">メール</span>
+                                      <a href={`mailto:${email}`} className="text-sm text-blue-600 hover:underline break-all">{email}</a>
+                                    </div>
+                                  )}
+                                  {!phone && !email && (
+                                    <div className="text-xs text-muted-foreground">連絡先情報なし</div>
+                                  )}
                                 </div>
-                              ) : null
+                              )
                             })()}
                             {reservation.customer_notes && (
                               <div className="mt-3">
