@@ -223,8 +223,14 @@ ${content.organizationName || '店舗'}
             const data = await reservationApi.getByScheduleEvent(event.id, eventOrgId)
             logger.log('通常予約データ取得:', { eventId: event.id, count: data.length })
             setReservations(data)
-            // バッジ・スケジュールカード両方を正しい値に同期
             const totalParticipants = sumActiveParticipants(data)
+            // DBのcurrent_participantsと実際の予約合計がズレていれば修正
+            if (event.id && totalParticipants !== (event.current_participants ?? -1)) {
+              recalculateCurrentParticipants(event.id).catch(e =>
+                logger.warn('参加者数のDB修正に失敗（制約違反の可能性）:', e)
+              )
+            }
+            // バッジ・スケジュールカード両方を正しい値に同期
             onLocalParticipantUpdate?.(totalParticipants)
             if (onParticipantChange && event.id) {
               onParticipantChange(event.id, totalParticipants)
