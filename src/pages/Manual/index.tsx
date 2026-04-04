@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -21,23 +22,15 @@ const MANUAL_MENU_ITEMS: SidebarMenuItem[] = [
 ]
 
 export function ManualPage() {
-  const [activeTab, setActiveTab] = useState('staff')
-
-  // URLパラメータから初期タブを設定
-  useEffect(() => {
-    const hash = window.location.hash
-    const queryMatch = hash.match(/\?tab=([^&]+)/)
-    if (queryMatch && queryMatch[1]) {
-      const found = MANUAL_MENU_ITEMS.find(item => item.id === queryMatch[1])
-      if (found) setActiveTab(found.id)
-    }
-  }, [])
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const validTab = MANUAL_MENU_ITEMS.find(item => item.id === tabParam)?.id ?? 'staff'
+  const [activeTab, setActiveTab] = useState(validTab)
 
   // タブ変更時にURLも更新
   const handleTabChange = (value: string) => {
     setActiveTab(value)
-    const currentHash = window.location.hash.split('?')[0]
-    window.history.replaceState(null, '', `${currentHash}?tab=${value}`)
+    setSearchParams({ tab: value }, { replace: true })
     window.scrollTo(0, 0)
   }
 
