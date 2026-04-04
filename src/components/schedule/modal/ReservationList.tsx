@@ -220,12 +220,6 @@ ${content.organizationName || '店舗'}
             const data = await reservationApi.getByScheduleEvent(event.id, eventOrgId)
             logger.log('通常予約データ取得:', { eventId: event.id, count: data.length })
             setReservations(data)
-            
-            // 予約リストから合計人数を計算して同期
-            const totalParticipants = sumActiveParticipants(data)
-            if (onParticipantChange && event.id) {
-              onParticipantChange(event.id, totalParticipants)
-            }
           }
         } catch (error) {
           logger.error('予約データの取得に失敗:', error)
