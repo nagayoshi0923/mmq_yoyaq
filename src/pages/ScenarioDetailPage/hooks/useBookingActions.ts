@@ -111,8 +111,10 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
   // 貸切リクエスト開始
   const handlePrivateBookingRequest = useCallback((isLoggedIn: boolean) => {
     if (!isLoggedIn) {
-      // 戻り先URLを保存してログインページへ遷移
-      sessionStorage.setItem('returnUrl', window.location.pathname + window.location.search)
+      // 戻り先URLを保存してログインページへ遷移（貸切タブを維持）
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', 'private')
+      sessionStorage.setItem('returnUrl', url.pathname + url.search)
       navigate('/login')
       return
     }
