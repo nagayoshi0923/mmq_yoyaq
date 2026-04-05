@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import type { Column } from '@/components/patterns/table'
-import type { Staff, Store } from '@/types'
+import type { Staff, Store, Scenario } from '@/types'
 import { devDb } from '@/components/ui/DevField'
 import { getRoleBadges, getStoreColors, getStatusBadge } from './staffFormatters'
 import type { StaffAuthStatus } from '../hooks/useStaffAuthStatus'
@@ -22,6 +22,7 @@ interface StaffTableActions {
 
 interface StaffTableContext {
   stores: Store[]
+  getScenario: (scenarioId: string) => Scenario | undefined
   getScenarioName: (scenarioId: string) => string
   getAuthStatus?: (userId: string | null) => StaffAuthStatus
 }
@@ -70,7 +71,7 @@ export function createStaffColumns(
   context: StaffTableContext,
   actions: StaffTableActions
 ): Column<Staff>[] {
-  const { stores, getScenarioName, getAuthStatus } = context
+  const { stores, getScenario, getScenarioName, getAuthStatus } = context
   const { onEdit, onLink, onUnlink, onReinvite } = actions
 
   return [
@@ -179,16 +180,29 @@ export function createStaffColumns(
         const truncate = (name: string, max = 10) =>
           name.length > max ? name.slice(0, max) + '…' : name
 
+        const playerCountMin = (scenarioId: string) => getScenario(scenarioId)?.player_count_min ?? 999
+
+        const playerCountLabel = (scenarioId: string) => {
+          const s = getScenario(scenarioId)
+          if (!s) return ''
+          if (s.player_count_min === s.player_count_max) return `${s.player_count_min}人`
+          return `${s.player_count_min}〜${s.player_count_max}人`
+        }
+
+        const sortByPlayerCount = (ids: string[]) =>
+          [...ids].sort((a, b) => playerCountMin(a) - playerCountMin(b))
+
         const allScenarios = staff.special_scenarios
         const modes = staff.gm_scenario_modes
 
-        const subOnlyIds = allScenarios.filter((id) => modes?.[id] === 'sub_only')
-        const mainLineIds = allScenarios.filter((id) => modes?.[id] !== 'sub_only')
+        const subOnlyIds = sortByPlayerCount(allScenarios.filter((id) => modes?.[id] === 'sub_only'))
+        const mainLineIds = sortByPlayerCount(allScenarios.filter((id) => modes?.[id] !== 'sub_only'))
 
         const badgeRow = (scenarioIds: string[]) => (
           <div className="flex flex-wrap gap-0.5">
             {scenarioIds.map((scenarioId) => {
               const mode = modes?.[scenarioId]
+              const count = playerCountLabel(scenarioId)
               return (
                 <span
                   key={scenarioId}
@@ -196,6 +210,7 @@ export function createStaffColumns(
                   className={`text-[10px] px-1 py-0 rounded-sm border ${gmScenarioBadgeClassNames(mode)}`}
                 >
                   {truncate(getScenarioName(scenarioId))}
+                  {count && <span className="opacity-70 ml-0.5">({count})</span>}
                 </span>
               )
             })}
@@ -204,12 +219,12 @@ export function createStaffColumns(
 
         const tooltipLines = (scenarioIds: string[]) =>
           scenarioIds.map((scenarioId) => (
-            <span key={scenarioId} className="text-xs">
-              {getScenarioName(scenarioId)}
+            <div key={scenarioId} className="text-xs">
+              ・{getScenarioName(scenarioId)}
               <span className="text-gray-400 ml-1">
-                （{gmScenarioModeLabel(modes?.[scenarioId])}）
+                {playerCountLabel(scenarioId) && `${playerCountLabel(scenarioId)} `}（{gmScenarioModeLabel(modes?.[scenarioId])}）
               </span>
-            </span>
+            </div>
           ))
 
         return (

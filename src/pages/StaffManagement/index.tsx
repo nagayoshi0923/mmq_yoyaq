@@ -60,6 +60,7 @@ export function StaffManagement() {
     scenarios,
     loadStores,
     loadScenarios,
+    getScenario,
     getScenarioName
   } = useStoresAndScenarios()
 
@@ -223,7 +224,7 @@ export function StaffManagement() {
   // テーブル列定義（メモ化）
   const tableColumns = useMemo(
     () => createStaffColumns(
-      { stores, getScenarioName, getAuthStatus },
+      { stores, getScenario, getScenarioName, getAuthStatus },
       { 
         onEdit: handleEditStaff, 
         onLink: openLinkModal, 
@@ -232,7 +233,7 @@ export function StaffManagement() {
       }
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ハンドラーは安定した参照を持つ
-    [stores, getScenarioName, getAuthStatus, handleReinviteStaff]
+    [stores, getScenario, getScenarioName, getAuthStatus, handleReinviteStaff]
   )
 
   // スタッフ保存ハンドラ
