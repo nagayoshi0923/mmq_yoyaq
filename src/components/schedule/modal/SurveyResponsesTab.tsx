@@ -376,6 +376,11 @@ export function SurveyResponsesTab({
       }).join(', ')
     }
 
+    if (question.question_type === 'rating') {
+      const num = parseInt(String(value), 10)
+      if (num >= 1 && num <= 5) return `${'★'.repeat(num)}${'☆'.repeat(5 - num)}（${num}/5）`
+    }
+
     return String(value)
   }
 

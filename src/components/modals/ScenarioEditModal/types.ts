@@ -125,7 +125,7 @@ export interface ScenarioFormData {
 export interface SurveyQuestionFormData {
   id: string
   question_text: string
-  question_type: 'text' | 'single_choice' | 'multiple_choice' | 'character_selection'
+  question_type: 'text' | 'single_choice' | 'multiple_choice' | 'character_selection' | 'rating'
   options: { value: string; label: string }[]
   is_required: boolean
   order_num: number

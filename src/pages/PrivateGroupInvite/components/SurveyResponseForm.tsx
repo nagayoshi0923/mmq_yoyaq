@@ -372,6 +372,28 @@ export function SurveyResponseForm({
                 </div>
               )}
 
+              {question.question_type === 'rating' && (
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map(n => {
+                    const selected = responses[question.id] === String(n)
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => handleSingleChoiceChange(question.id, String(n))}
+                        className={`w-10 h-10 rounded-full border-2 text-sm font-medium transition-colors ${
+                          selected
+                            ? 'bg-purple-600 text-white border-purple-600'
+                            : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
               {question.question_type === 'character_selection' && (
                 localCharacters.length > 0 ? (
                   <RadioGroup

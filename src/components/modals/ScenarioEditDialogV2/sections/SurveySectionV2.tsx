@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { 
   ClipboardList, 
   Plus, 
@@ -13,8 +14,15 @@ import {
   GripVertical,
   ChevronDown,
   ChevronUp,
-  Copy
+  Copy,
+  Download,
+  Loader2,
+  Search
 } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
+import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import type { ScenarioFormData, SurveyQuestionFormData } from '@/components/modals/ScenarioEditModal/types'
 
 const labelStyle = "text-xs font-medium mb-0.5 block"
@@ -31,12 +39,31 @@ const QUESTION_TYPES = [
   { value: 'single_choice', label: '単一選択' },
   { value: 'multiple_choice', label: '複数選択' },
   { value: 'character_selection', label: 'キャラクター選択' },
+  { value: 'rating', label: '5段階評価' },
 ] as const
 
 export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props) {
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
 
   const questions = formData.survey_questions || []
+
+  const handleImportQuestions = useCallback((importedQuestions: SurveyQuestionFormData[]) => {
+    setFormData(prev => {
+      const existing = prev.survey_questions || []
+      const newQuestions = importedQuestions.map((q, i) => ({
+        ...q,
+        id: crypto.randomUUID(),
+        order_num: existing.length + i + 1,
+      }))
+      return {
+        ...prev,
+        survey_questions: [...existing, ...newQuestions],
+      }
+    })
+    setImportDialogOpen(false)
+    showToast.success(`${importedQuestions.length}件の質問を追加しました`)
+  }, [setFormData])
 
   const addQuestion = useCallback(() => {
     const newQuestion: SurveyQuestionFormData = {
@@ -207,16 +234,28 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className={labelStyle}>質問項目</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={addQuestion}
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    質問を追加
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setImportDialogOpen(true)}
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      他シナリオから読込
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={addQuestion}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      追加
+                    </Button>
+                  </div>
                 </div>
 
                 {questions.length === 0 ? (
@@ -278,6 +317,13 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
           </p>
         </CardContent>
       </Card>
+
+      <ImportQuestionsDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onImport={handleImportQuestions}
+        currentScenarioMasterId={formData.scenario_master_id}
+      />
     </div>
   )
 }
@@ -321,6 +367,7 @@ function QuestionCard({
 }: QuestionCardProps) {
   const needsOptions = question.question_type === 'single_choice' || question.question_type === 'multiple_choice'
   const isCharacterSelection = question.question_type === 'character_selection'
+  const isRating = question.question_type === 'rating'
 
   return (
     <div className="border rounded-lg bg-background">
@@ -388,7 +435,7 @@ function QuestionCard({
                 value={question.question_type}
                 onValueChange={(value: SurveyQuestionFormData['question_type']) => {
                   const updates: Partial<SurveyQuestionFormData> = { question_type: value }
-                  if (value === 'text' || value === 'character_selection') {
+                  if (value === 'text' || value === 'character_selection' || value === 'rating') {
                     updates.options = []
                   } else if ((value === 'single_choice' || value === 'multiple_choice') && question.options.length === 0) {
                     updates.options = [
@@ -444,6 +491,20 @@ function QuestionCard({
                   {characters.map(c => c.name).join('、')}
                 </div>
               )}
+            </div>
+          )}
+
+          {isRating && (
+            <div className="p-3 bg-amber-50 rounded-lg space-y-2">
+              <p className="text-xs text-amber-700">プレビュー</p>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <span key={n} className="w-8 h-8 flex items-center justify-center rounded-full border border-amber-300 text-sm text-amber-600 bg-white">
+                    {n}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-amber-600">1（低い）〜 5（高い）の5段階で回答</p>
             </div>
           )}
 
@@ -513,5 +574,213 @@ function QuestionCard({
         </div>
       )}
     </div>
+  )
+}
+
+// 他シナリオからアンケート質問を読み込むダイアログ
+interface ImportQuestionsDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onImport: (questions: SurveyQuestionFormData[]) => void
+  currentScenarioMasterId?: string
+}
+
+interface ScenarioWithSurvey {
+  id: string
+  title: string
+  org_scenario_id: string
+  questionCount: number
+}
+
+function ImportQuestionsDialog({ open, onOpenChange, onImport, currentScenarioMasterId }: ImportQuestionsDialogProps) {
+  const [scenarios, setScenarios] = useState<ScenarioWithSurvey[]>([])
+  const [loading, setLoading] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [previewQuestions, setPreviewQuestions] = useState<SurveyQuestionFormData[]>([])
+  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    loadScenarios()
+  }, [open])
+
+  const loadScenarios = async () => {
+    setLoading(true)
+    try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return
+
+      const { data: orgScenarios } = await supabase
+        .from('organization_scenarios')
+        .select('id, scenario_master_id, survey_enabled, scenario_masters(title)')
+        .eq('organization_id', orgId)
+        .eq('survey_enabled', true)
+
+      if (!orgScenarios || orgScenarios.length === 0) {
+        setScenarios([])
+        setLoading(false)
+        return
+      }
+
+      const orgScenarioIds = orgScenarios.map(os => os.id)
+      const { data: questionCounts } = await supabase
+        .from('org_scenario_survey_questions')
+        .select('org_scenario_id')
+        .in('org_scenario_id', orgScenarioIds)
+
+      const countMap = new Map<string, number>()
+      questionCounts?.forEach(q => {
+        countMap.set(q.org_scenario_id, (countMap.get(q.org_scenario_id) || 0) + 1)
+      })
+
+      const result: ScenarioWithSurvey[] = orgScenarios
+        .filter(os => {
+          const count = countMap.get(os.id) || 0
+          if (count === 0) return false
+          if (os.scenario_master_id === currentScenarioMasterId) return false
+          return true
+        })
+        .map(os => ({
+          id: os.scenario_master_id,
+          title: (os.scenario_masters as any)?.title || '不明なシナリオ',
+          org_scenario_id: os.id,
+          questionCount: countMap.get(os.id) || 0,
+        }))
+        .sort((a, b) => a.title.localeCompare(b.title))
+
+      setScenarios(result)
+    } catch (err) {
+      logger.error('シナリオ一覧取得エラー:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadPreview = async (orgScenarioId: string) => {
+    setSelectedId(orgScenarioId)
+    setLoadingPreview(true)
+    try {
+      const { data } = await supabase
+        .from('org_scenario_survey_questions')
+        .select('question_text, question_type, options, is_required, order_num')
+        .eq('org_scenario_id', orgScenarioId)
+        .order('order_num', { ascending: true })
+
+      if (data) {
+        setPreviewQuestions(data.map(q => ({
+          id: crypto.randomUUID(),
+          question_text: q.question_text,
+          question_type: q.question_type as SurveyQuestionFormData['question_type'],
+          options: q.options || [],
+          is_required: q.is_required,
+          order_num: q.order_num,
+        })))
+      }
+    } catch (err) {
+      logger.error('質問プレビュー取得エラー:', err)
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
+  const filteredScenarios = searchTerm
+    ? scenarios.filter(s => s.title.toLowerCase().includes(searchTerm.toLowerCase()))
+    : scenarios
+
+  const getTypeLabel = (type: string) =>
+    QUESTION_TYPES.find(t => t.value === type)?.label || type
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-sm">他のシナリオからアンケート質問を読み込む</DialogTitle>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : scenarios.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">アンケートが設定されたシナリオがありません</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-hidden flex flex-col gap-3">
+            {scenarios.length > 5 && (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="シナリオ名で検索..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-8 text-sm"
+                />
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+              {filteredScenarios.map(scenario => (
+                <button
+                  key={scenario.org_scenario_id}
+                  type="button"
+                  onClick={() => loadPreview(scenario.org_scenario_id)}
+                  className={`w-full text-left p-2.5 rounded-lg border transition-colors text-sm ${
+                    selectedId === scenario.org_scenario_id
+                      ? 'border-purple-300 bg-purple-50'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium truncate">{scenario.title}</span>
+                    <span className="text-xs text-muted-foreground shrink-0 ml-2">
+                      {scenario.questionCount}問
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {selectedId && (
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">プレビュー</p>
+                {loadingPreview ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {previewQuestions.map((q, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs p-1.5 bg-gray-50 rounded">
+                          <span className="text-muted-foreground w-6 shrink-0">Q{i + 1}</span>
+                          <span className="flex-1 truncate">{q.question_text || '（質問文なし）'}</span>
+                          <span className="text-muted-foreground px-1.5 py-0.5 bg-white rounded shrink-0">
+                            {getTypeLabel(q.question_type)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      type="button"
+                      className="w-full"
+                      size="sm"
+                      onClick={() => onImport(previewQuestions)}
+                      disabled={previewQuestions.length === 0}
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      {previewQuestions.length}件の質問を追加
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

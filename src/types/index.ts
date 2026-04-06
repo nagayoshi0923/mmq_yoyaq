@@ -1045,7 +1045,7 @@ export interface PrivateGroupInvitation {
 // ================================================
 
 // 質問タイプ
-export type SurveyQuestionType = 'text' | 'single_choice' | 'multiple_choice' | 'character_selection'
+export type SurveyQuestionType = 'text' | 'single_choice' | 'multiple_choice' | 'character_selection' | 'rating'
 
 // 質問の選択肢
 export interface SurveyQuestionOption {
