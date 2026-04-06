@@ -347,6 +347,7 @@ export interface Scenario {
   booking_start_date?: string | null // 貸切募集開始日（YYYY-MM-DD）。NULLの場合は制限なし
   booking_end_date?: string | null // 貸切募集終了日（YYYY-MM-DD）。NULLの場合は制限なし
   individual_notice_template?: string | null // 個別お知らせ送信時に添付できる定型文
+  character_assignment_method?: 'survey' | 'self' // 配役方法
 }
 
 // 顧客向け公演情報（予約サイト用）

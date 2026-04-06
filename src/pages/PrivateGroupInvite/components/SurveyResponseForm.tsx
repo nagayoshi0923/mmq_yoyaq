@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
-import { ClipboardList, Loader2, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
+import { ClipboardList, Loader2, CheckCircle2, AlertCircle, Clock, Users } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
@@ -43,6 +43,7 @@ export function SurveyResponseForm({
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null)
   const [localCharacters, setLocalCharacters] = useState<Array<{ id: string; name: string; gender?: string }>>(characters)
   const [surveyStatus, setSurveyStatus] = useState<'loading' | 'not_found' | 'disabled' | 'no_questions' | 'ready'>('loading')
+  const [charAssignMethod, setCharAssignMethod] = useState<'survey' | 'self'>('survey')
 
   useEffect(() => {
     const loadSurveyData = async () => {
@@ -155,7 +156,11 @@ export function SurveyResponseForm({
 
         if (existingResponse) {
           setExistingResponseId(existingResponse.id)
-          setResponses(existingResponse.responses || {})
+          const savedResponses = existingResponse.responses || {}
+          setResponses(savedResponses)
+          if (savedResponses._character_assignment_method) {
+            setCharAssignMethod(savedResponses._character_assignment_method as 'survey' | 'self')
+          }
           setSubmitted(true)
         }
       } catch (err) {
@@ -189,9 +194,10 @@ export function SurveyResponseForm({
   }, [])
 
   const handleSubmit = useCallback(async () => {
-    // 必須項目のチェック
+    // 必須項目のチェック（配役が「参加者同士で決める」の場合はキャラクター選択をスキップ）
     const missingRequired = questions.filter(
       q => q.is_required && !responses[q.id]
+        && !(charAssignMethod === 'self' && q.question_type === 'character_selection')
     )
     if (missingRequired.length > 0) {
       toast.error(`必須項目を入力してください: ${missingRequired.map(q => q.question_text).join(', ')}`)
@@ -200,11 +206,16 @@ export function SurveyResponseForm({
 
     setSubmitting(true)
     try {
+      const hasCharQuestion = questions.some(q => q.question_type === 'character_selection')
+      const responsesToSave = hasCharQuestion
+        ? { ...responses, _character_assignment_method: charAssignMethod }
+        : responses
+
       if (existingResponseId) {
         // 更新
         const { error } = await supabase
           .from('private_group_survey_responses')
-          .update({ responses, updated_at: new Date().toISOString() })
+          .update({ responses: responsesToSave, updated_at: new Date().toISOString() })
           .eq('id', existingResponseId)
 
         if (error) throw error
@@ -217,7 +228,7 @@ export function SurveyResponseForm({
           .insert({
             group_id: groupId,
             member_id: memberId,
-            responses,
+            responses: responsesToSave,
           })
           .select('id')
           .single()
@@ -273,8 +284,12 @@ export function SurveyResponseForm({
     return null // アンケートが無効なら何も表示しない
   }
 
+  const visibleQuestions = questions.filter(
+    q => !(charAssignMethod === 'self' && q.question_type === 'character_selection')
+  )
+
   // 質問が設定されていない場合
-  if (surveyStatus === 'no_questions' || questions.length === 0) {
+  if (surveyStatus === 'no_questions' || visibleQuestions.length === 0) {
     return (
       <div className="text-center py-4 text-muted-foreground">
         <ClipboardList className="w-8 h-8 mx-auto mb-2 text-gray-300" />
@@ -331,7 +346,35 @@ export function SurveyResponseForm({
         )}
 
         <div className="space-y-4 pt-2">
-          {questions.map((question, index) => (
+          {/* 配役方法の選択（キャラクター選択の質問がある場合のみ） */}
+          {questions.some(q => q.question_type === 'character_selection') && (
+            <div className="space-y-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Users className="w-4 h-4 text-purple-600" />
+                キャラクターの決め方
+              </Label>
+              <RadioGroup
+                value={charAssignMethod}
+                onValueChange={(v) => setCharAssignMethod(v as 'survey' | 'self')}
+                className="space-y-2"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="survey" id="char-assign-survey" />
+                  <Label htmlFor="char-assign-survey" className="text-sm cursor-pointer">
+                    アンケートで希望を伝える
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="self" id="char-assign-self" />
+                  <Label htmlFor="char-assign-self" className="text-sm cursor-pointer">
+                    参加者同士で決める
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          )}
+
+          {visibleQuestions.map((question, index) => (
             <div key={question.id} className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-2">
                 Q{index + 1}. {question.question_text}

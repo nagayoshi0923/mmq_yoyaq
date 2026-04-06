@@ -114,6 +114,8 @@ export interface ScenarioFormData {
   booking_end_date?: string | null
   // 個別お知らせ定型文
   individual_notice_template?: string | null
+  // 配役方法
+  character_assignment_method?: 'survey' | 'self'
   // アンケート設定
   survey_url?: string | null
   survey_enabled?: boolean
