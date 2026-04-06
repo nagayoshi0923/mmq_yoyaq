@@ -1123,7 +1123,7 @@ export function PlatformTop() {
                 <X className="w-5 h-5" />
               </button>
               <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold text-white mb-3">
-                🎉 4月3日までに登録の方限定
+                🎉 4月24日までに登録の方限定
               </div>
               <h3 className="text-white font-bold text-xl mb-1">
                 新規登録キャンペーン
