@@ -12,7 +12,8 @@ import {
   Trash2, 
   GripVertical,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Copy
 } from 'lucide-react'
 import type { ScenarioFormData, SurveyQuestionFormData } from '@/components/modals/ScenarioEditModal/types'
 
@@ -69,6 +70,27 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
         .filter(q => q.id !== id)
         .map((q, index) => ({ ...q, order_num: index + 1 }))
     }))
+  }, [setFormData])
+
+  const duplicateQuestion = useCallback((id: string) => {
+    setFormData(prev => {
+      const questions = prev.survey_questions || []
+      const source = questions.find(q => q.id === id)
+      if (!source) return prev
+      const sourceIndex = questions.findIndex(q => q.id === id)
+      const newQuestion: SurveyQuestionFormData = {
+        ...source,
+        id: crypto.randomUUID(),
+        question_text: source.question_text ? `${source.question_text}（コピー）` : '',
+        options: source.options.map(o => ({ ...o })),
+      }
+      const updated = [...questions]
+      updated.splice(sourceIndex + 1, 0, newQuestion)
+      return {
+        ...prev,
+        survey_questions: updated.map((q, i) => ({ ...q, order_num: i + 1 }))
+      }
+    })
   }, [setFormData])
 
   const moveQuestion = useCallback((id: string, direction: 'up' | 'down') => {
@@ -227,6 +249,7 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
                         )}
                         onUpdate={(updates) => updateQuestion(question.id, updates)}
                         onRemove={() => removeQuestion(question.id)}
+                        onDuplicate={() => duplicateQuestion(question.id)}
                         onMoveUp={() => moveQuestion(question.id, 'up')}
                         onMoveDown={() => moveQuestion(question.id, 'down')}
                         onAddOption={() => addOption(question.id)}
@@ -266,6 +289,7 @@ interface QuestionCardProps {
   onToggleExpand: () => void
   onUpdate: (updates: Partial<SurveyQuestionFormData>) => void
   onRemove: () => void
+  onDuplicate: () => void
   onMoveUp: () => void
   onMoveDown: () => void
   onAddOption: () => void
@@ -284,6 +308,7 @@ function QuestionCard({
   onToggleExpand,
   onUpdate,
   onRemove,
+  onDuplicate,
   onMoveUp,
   onMoveDown,
   onAddOption,
@@ -299,28 +324,48 @@ function QuestionCard({
 
   return (
     <div className="border rounded-lg bg-background">
-      <div 
-        className="flex items-center gap-2 p-3 cursor-pointer hover:bg-accent/50"
-        onClick={onToggleExpand}
-      >
-        <GripVertical className="w-4 h-4 text-muted-foreground" />
-        <span className="text-sm font-medium text-muted-foreground w-6">
-          Q{index + 1}
-        </span>
-        <span className="text-sm flex-1 truncate">
-          {question.question_text || '（質問文を入力）'}
-        </span>
-        {question.is_required && (
-          <span className="text-xs text-red-600 font-medium">必須</span>
-        )}
-        <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded">
-          {QUESTION_TYPES.find(t => t.value === question.question_type)?.label}
-        </span>
-        {isExpanded ? (
-          <ChevronUp className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        )}
+      <div className="flex items-center gap-1 p-2 sm:p-3">
+        {/* 並び替えボタン（常時表示） */}
+        <div className="flex flex-col -my-1">
+          <button
+            type="button"
+            className="p-0 h-4 text-muted-foreground hover:text-foreground disabled:opacity-30"
+            onClick={(e) => { e.stopPropagation(); onMoveUp() }}
+            disabled={isFirst}
+          >
+            <ChevronUp className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            className="p-0 h-4 text-muted-foreground hover:text-foreground disabled:opacity-30"
+            onClick={(e) => { e.stopPropagation(); onMoveDown() }}
+            disabled={isLast}
+          >
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div
+          className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:bg-accent/50 rounded px-1 py-1"
+          onClick={onToggleExpand}
+        >
+          <span className="text-sm font-medium text-muted-foreground w-6 shrink-0">
+            Q{index + 1}
+          </span>
+          <span className="text-sm flex-1 truncate">
+            {question.question_text || '（質問文を入力）'}
+          </span>
+          {question.is_required && (
+            <span className="text-xs text-red-600 font-medium shrink-0">必須</span>
+          )}
+          <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded shrink-0">
+            {QUESTION_TYPES.find(t => t.value === question.question_type)?.label}
+          </span>
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+          )}
+        </div>
       </div>
 
       {isExpanded && (
@@ -444,28 +489,16 @@ function QuestionCard({
           )}
 
           <div className="flex items-center justify-between pt-2 border-t">
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onMoveUp}
-                disabled={isFirst}
-              >
-                <ChevronUp className="w-4 h-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onMoveDown}
-                disabled={isLast}
-              >
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={onDuplicate}
+            >
+              <Copy className="w-3 h-3 mr-1" />
+              複製
+            </Button>
             <Button
               type="button"
               variant="ghost"
