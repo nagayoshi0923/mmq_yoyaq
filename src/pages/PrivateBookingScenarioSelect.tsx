@@ -26,10 +26,28 @@ interface Scenario {
   genre?: string[]
   participation_fee?: number
   available_stores?: string[]
+  booking_start_date?: string | null
+  booking_end_date?: string | null
 }
 
 interface PrivateBookingScenarioSelectProps {
   organizationSlug?: string
+}
+
+function getTodayJST(): string {
+  const now = new Date()
+  const jstOffset = 9 * 60
+  const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
+  return `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
+}
+
+function isScenarioBookingOpen(scenario: Scenario): boolean {
+  const { booking_start_date, booking_end_date } = scenario
+  if (!booking_start_date && !booking_end_date) return true
+  const today = getTodayJST()
+  if (booking_start_date && today < booking_start_date) return false
+  if (booking_end_date && today > booking_end_date) return false
+  return true
 }
 
 export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookingScenarioSelectProps) {
@@ -246,11 +264,17 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                       {searchTerm ? '該当するシナリオがありません' : 'シナリオがありません'}
                     </div>
                   ) : (
-                    filteredScenarios.map((scenario) => (
-                      <SelectItem key={scenario.id} value={scenario.id}>
-                        {scenario.title} - {scenario.author} ({scenario.duration}分)
-                      </SelectItem>
-                    ))
+                    filteredScenarios.map((scenario) => {
+                      const isOpen = isScenarioBookingOpen(scenario)
+                      return (
+                        <SelectItem key={scenario.id} value={scenario.id} disabled={!isOpen}>
+                          <span className={!isOpen ? 'text-gray-400' : ''}>
+                            {scenario.title} - {scenario.author} ({scenario.duration}分)
+                            {!isOpen && ' 【現在は募集していません】'}
+                          </span>
+                        </SelectItem>
+                      )
+                    })
                   )}
                 </SelectContent>
               </Select>
@@ -324,6 +348,13 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
                                 {g}
                               </span>
                             ))}
+                          </div>
+                        )}
+
+                        {/* 募集期間表示 */}
+                        {(scenario.booking_start_date || scenario.booking_end_date) && (
+                          <div className="text-xs text-muted-foreground">
+                            募集期間: {scenario.booking_start_date || '—'} 〜 {scenario.booking_end_date || '—'}
                           </div>
                         )}
                       </div>

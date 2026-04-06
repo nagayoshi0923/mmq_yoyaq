@@ -15,7 +15,7 @@ const SCENARIO_SELECT_FIELDS =
 
 // organization_scenarios_with_master ビュー用のSELECTフィールド
 const ORG_SCENARIOS_VIEW_SELECT_FIELDS = 
-  'id, org_scenario_id, organization_id, scenario_master_id, slug, status, title, author, author_email, author_id, report_display_name, key_visual_url, description, synopsis, caution, player_count_min, player_count_max, male_count, female_count, other_count, duration, weekend_duration, genre, difficulty, has_pre_reading, release_date, official_site_url, required_props, participation_fee, gm_test_participation_fee, participation_costs, flexible_pricing, use_flexible_pricing, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, gm_costs, gm_count, gm_assignments, available_gms, experienced_staff, available_stores, production_cost, production_costs, depreciation_per_performance, extra_preparation_time, play_count, notes, created_at, updated_at, master_status, is_shared, scenario_type, rating, kit_count, license_rewards' as const
+  'id, org_scenario_id, organization_id, scenario_master_id, slug, status, title, author, author_email, author_id, report_display_name, key_visual_url, description, synopsis, caution, player_count_min, player_count_max, male_count, female_count, other_count, duration, weekend_duration, genre, difficulty, has_pre_reading, release_date, official_site_url, required_props, participation_fee, gm_test_participation_fee, participation_costs, flexible_pricing, use_flexible_pricing, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, gm_costs, gm_count, gm_assignments, available_gms, experienced_staff, available_stores, production_cost, production_costs, depreciation_per_performance, extra_preparation_time, play_count, notes, created_at, updated_at, master_status, is_shared, scenario_type, rating, kit_count, license_rewards, booking_start_date, booking_end_date' as const
 
 export const scenarioApi = {
   // 全シナリオを取得
@@ -355,7 +355,8 @@ export const scenarioApi = {
       'available_gms', 'experienced_staff', 'available_stores',
       'gm_costs', 'gm_count', 'gm_assignments',
       'production_cost', 'production_costs', 'depreciation_per_performance',
-      'play_count', 'notes', 'participation_costs', 'flexible_pricing', 'use_flexible_pricing'
+      'play_count', 'notes', 'participation_costs', 'flexible_pricing', 'use_flexible_pricing',
+      'booking_start_date', 'booking_end_date'
     ]
     
     for (const col of directOrgColumns) {

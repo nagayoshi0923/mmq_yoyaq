@@ -766,7 +766,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               if (loadOrgId) {
                 const { data: osData } = await supabase
                   .from('organization_scenarios')
-                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots')
+                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date')
                   .eq('scenario_master_id', masterId)
                   .eq('organization_id', loadOrgId)
                   .maybeSingle()
@@ -817,6 +817,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     characters: osData.characters || [],
                     // 貸切受付不可時間帯
                     private_booking_blocked_slots: osData.private_booking_blocked_slots || [],
+                    // 貸切募集期間
+                    booking_start_date: osData.booking_start_date || null,
+                    booking_end_date: osData.booking_end_date || null,
                   }))
                 } else {
                   // organization_scenarios がなければ scenario_masters.caution を取得
@@ -1092,6 +1095,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               scenario_type: formData.scenario_type || 'normal',
               // 貸切受付不可時間帯
               private_booking_blocked_slots: formData.private_booking_blocked_slots || null,
+              // 貸切募集期間
+              booking_start_date: formData.booking_start_date || null,
+              booking_end_date: formData.booking_end_date || null,
             }
 
             let orgScenarioId: string | null = existingOrgScenario?.id || null

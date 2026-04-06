@@ -109,6 +109,9 @@ export interface ScenarioFormData {
   private_booking_time_slots?: string[]
   // 貸切受付不可時間帯（'午前', '午後', '夜'）
   private_booking_blocked_slots?: string[]
+  // 貸切募集期間
+  booking_start_date?: string | null
+  booking_end_date?: string | null
   // アンケート設定
   survey_url?: string | null
   survey_enabled?: boolean

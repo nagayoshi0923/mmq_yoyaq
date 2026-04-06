@@ -57,6 +57,8 @@ export interface OrganizationScenario {
   custom_caution: string | null
   pricing_patterns: any[]
   gm_assignments: any[]
+  booking_start_date: string | null
+  booking_end_date: string | null
   created_at: string
   updated_at: string
 }

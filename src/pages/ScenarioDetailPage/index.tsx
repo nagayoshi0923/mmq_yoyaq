@@ -656,29 +656,62 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   />
                 )}
 
-                {activeTab === 'private' && (
-                  <div className="space-y-4">
-                    {/* 選択店舗（選択した店舗がある場合のみ表示） */}
-                    {selectedStoreIds.length > 0 && (
-                      <VenueAccess
-                        selectedStoreIds={selectedStoreIds}
-                        stores={availableStores}
-                        mode="private"
+                {activeTab === 'private' && (() => {
+                  const now = new Date()
+                  const jstOffset = 9 * 60
+                  const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
+                  const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
+                  const startDate = scenario.booking_start_date
+                  const endDate = scenario.booking_end_date
+                  const hasPeriod = !!(startDate || endDate)
+                  const isBeforeStart = startDate && todayStr < startDate
+                  const isAfterEnd = endDate && todayStr > endDate
+                  const isOutOfPeriod = hasPeriod && (isBeforeStart || isAfterEnd)
+
+                  if (isOutOfPeriod) {
+                    return (
+                      <div className="border rounded-lg bg-gray-50 p-6 text-center space-y-2">
+                        <p className="text-sm text-gray-600">現在は募集していません</p>
+                        {startDate && endDate ? (
+                          <p className="text-xs text-muted-foreground">
+                            募集期間: {startDate} 〜 {endDate}
+                          </p>
+                        ) : endDate ? (
+                          <p className="text-xs text-muted-foreground">
+                            募集終了日: {endDate}
+                          </p>
+                        ) : startDate ? (
+                          <p className="text-xs text-muted-foreground">
+                            募集開始日: {startDate}
+                          </p>
+                        ) : null}
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {selectedStoreIds.length > 0 && (
+                        <VenueAccess
+                          selectedStoreIds={selectedStoreIds}
+                          stores={availableStores}
+                          mode="private"
+                        />
+                      )}
+                      <PrivateBookingPanel
+                        participationFee={scenario.participation_fee}
+                        maxParticipants={scenario.player_count_max}
+                        selectedTimeSlotsCount={selectedTimeSlots.length}
+                        isLoggedIn={!!user}
+                        onRequestBooking={() => handlePrivateBookingRequest(!!user)}
+                        reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
+                        hasPreReading={scenario.has_pre_reading}
+                        scenarioId={scenario.scenario_master_id || scenario.id}
+                        organizationSlug={organizationSlug}
                       />
-                    )}
-                    <PrivateBookingPanel
-                      participationFee={scenario.participation_fee}
-                      maxParticipants={scenario.player_count_max}
-                      selectedTimeSlotsCount={selectedTimeSlots.length}
-                      isLoggedIn={!!user}
-                      onRequestBooking={() => handlePrivateBookingRequest(!!user)}
-                      reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
-                      hasPreReading={scenario.has_pre_reading}
-                      scenarioId={scenario.scenario_master_id || scenario.id}
-                      organizationSlug={organizationSlug}
-                    />
-                  </div>
-                )}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           </div>
