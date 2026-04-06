@@ -610,7 +610,7 @@ export function SurveyResponsesTab({
                               定型文を添付
                             </span>
                             {attachTemplate[member.id] !== false && (
-                              <p className="text-xs text-muted-foreground bg-muted rounded px-2 py-1 mt-1 whitespace-pre-wrap">
+                              <p className="text-xs text-muted-foreground bg-muted rounded px-2 py-1 mt-1 whitespace-pre-wrap max-h-[120px] overflow-y-auto">
                                 {noticeTemplate}
                               </p>
                             )}
