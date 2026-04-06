@@ -821,6 +821,23 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     booking_start_date: osData.booking_start_date || null,
                     booking_end_date: osData.booking_end_date || null,
                   }))
+
+                  // 定型文を別クエリで安全に取得（カラム未追加の環境でもエラーにならない）
+                  try {
+                    const { data: tplData } = await supabase
+                      .from('organization_scenarios')
+                      .select('individual_notice_template')
+                      .eq('id', osData.id)
+                      .maybeSingle()
+                    if ((tplData as any)?.individual_notice_template) {
+                      setFormData(prev => ({
+                        ...prev,
+                        individual_notice_template: (tplData as any).individual_notice_template,
+                      }))
+                    }
+                  } catch {
+                    // カラムが存在しない場合は無視
+                  }
                 } else {
                   // organization_scenarios がなければ scenario_masters.caution を取得
                   const { data: masterCaution } = await supabase
@@ -1133,6 +1150,18 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               } else {
                 logger.log('organization_scenariosを更新しました（override含む）')
                 console.log('✅ organization_scenarios保存成功 available_stores:', updatePayload.available_stores)
+              }
+            }
+
+            // 定型文を別途安全に保存（カラム未追加の環境でもエラーにならない）
+            if (orgScenarioId && formData.individual_notice_template !== undefined) {
+              try {
+                await supabase
+                  .from('organization_scenarios')
+                  .update({ individual_notice_template: formData.individual_notice_template || null })
+                  .eq('id', orgScenarioId)
+              } catch {
+                // カラムが存在しない場合は無視
               }
             }
 

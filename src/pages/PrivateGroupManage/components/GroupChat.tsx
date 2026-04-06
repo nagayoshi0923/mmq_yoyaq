@@ -43,6 +43,26 @@ interface GroupChatProps {
   performanceDate?: string
 }
 
+function renderMessageWithLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = text.split(urlRegex)
+  return parts.map((part, i) =>
+    urlRegex.test(part) ? (
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 underline break-all"
+      >
+        {part}
+      </a>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  )
+}
+
 export function GroupChat({ groupId, currentMemberId, members: initialMembers, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate }: GroupChatProps) {
   const { user } = useAuth()
   const [messages, setMessages] = useState<PrivateGroupMessage[]>([])
@@ -467,9 +487,9 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                               </p>
                             </div>
                           </div>
-                          <div className="bg-white rounded-lg p-3 border border-amber-100">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {systemMsg.message}
+                          <div className="bg-white rounded-lg p-3 border border-amber-100 overflow-hidden">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-all">
+                              {renderMessageWithLinks(systemMsg.message || '')}
                             </p>
                           </div>
                         </div>
@@ -495,9 +515,9 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                               </p>
                             </div>
                           </div>
-                          <div className="bg-white rounded-lg p-3 border border-blue-100 space-y-3">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {systemMsg.message}
+                          <div className="bg-white rounded-lg p-3 border border-blue-100 space-y-3 overflow-hidden">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-all">
+                              {renderMessageWithLinks(systemMsg.message || '')}
                             </p>
                             {scenarioId && organizationId && currentMemberId && (
                               <Button
@@ -655,9 +675,9 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                               </p>
                             </div>
                           </div>
-                          <div className="bg-white rounded-lg p-2.5 mt-2 border border-amber-100">
-                            <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
-                              {systemMsg.body}
+                          <div className="bg-white rounded-lg p-2.5 mt-2 border border-amber-100 overflow-hidden">
+                            <p className="text-sm text-gray-900 whitespace-pre-wrap break-all leading-relaxed">
+                              {renderMessageWithLinks(systemMsg.body || '')}
                             </p>
                           </div>
                           <p className="mt-2 px-0.5 text-[10px] text-muted-foreground leading-snug">
@@ -692,9 +712,9 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                               </p>
                             </div>
                           </div>
-                          <div className="bg-white rounded-lg p-3 mt-2 border border-indigo-100">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {systemMsg.message}
+                          <div className="bg-white rounded-lg p-3 mt-2 border border-indigo-100 overflow-hidden">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-all">
+                              {renderMessageWithLinks(systemMsg.message || '')}
                             </p>
                           </div>
                           <p className="text-xs text-indigo-400 mt-2 text-center">

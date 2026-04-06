@@ -112,6 +112,8 @@ export interface ScenarioFormData {
   // 貸切募集期間
   booking_start_date?: string | null
   booking_end_date?: string | null
+  // 個別お知らせ定型文
+  individual_notice_template?: string | null
   // アンケート設定
   survey_url?: string | null
   survey_enabled?: boolean
@@ -142,6 +144,7 @@ export interface ScenarioCharacter {
   description?: string | null  // 説明文（空白の場合は非表示）
   image_url?: string | null  // キャラクター画像URL
   url?: string | null  // キャラクター関連URL（資料等）
+  survey_description?: string | null  // 事前アンケート用の説明文（個別お知らせ時に添付）
   is_npc?: boolean  // NPCフラグ（trueの場合、プレイ人数にカウントしない）
   background_color?: string | null  // アイコン背景色（透明画像用）
   image_position?: string | null  // 画像表示位置（object-position: 'top', 'center', 'bottom'）

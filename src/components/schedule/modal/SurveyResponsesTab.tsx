@@ -3,8 +3,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ClipboardList, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, Send, User, MessageSquare, Link } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ClipboardList, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, Send, User, MessageSquare, Link, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import type { SurveyQuestion } from '@/types'
@@ -30,11 +32,12 @@ export function SurveyResponsesTab({
   reservationId,
   scenarioId,
 }: SurveyResponsesTabProps) {
+  const { user } = useAuth()
   const [questions, setQuestions] = useState<SurveyQuestion[]>([])
   const [responses, setResponses] = useState<ResponseData[]>([])
   const [members, setMembers] = useState<MemberData[]>([])
   const [loading, setLoading] = useState(true)
-  const [characters, setCharacters] = useState<Array<{ id: string; name: string; url?: string | null; is_npc?: boolean }>>([])
+  const [characters, setCharacters] = useState<Array<{ id: string; name: string; url?: string | null; is_npc?: boolean; survey_description?: string | null }>>([])
   const [surveyEnabled, setSurveyEnabled] = useState(false)
   const [groupId, setGroupId] = useState<string | null>(null)
   const [participantLimit, setParticipantLimit] = useState<number | null>(null)
@@ -45,6 +48,17 @@ export function SurveyResponsesTab({
   const [messageInputs, setMessageInputs] = useState<Record<string, string>>({})
   const [selectedCharacters, setSelectedCharacters] = useState<Record<string, string>>({})
   const [sendingMessage, setSendingMessage] = useState<string | null>(null)
+  const [noticeTemplate, setNoticeTemplate] = useState<string | null>(null)
+  const [attachTemplate, setAttachTemplate] = useState<Record<string, boolean>>({})
+  // 送信履歴
+  const [sentNotices, setSentNotices] = useState<Array<{
+    id: string
+    target_member_id: string
+    target_member_name: string
+    character_name?: string | null
+    sent_by?: string | null
+    created_at: string
+  }>>([])
 
   useEffect(() => {
     const loadSurveyData = async () => {
@@ -179,6 +193,18 @@ export function SurveyResponsesTab({
 
         setSurveyEnabled(!!orgScenario.survey_enabled)
 
+        // 定型文を別クエリで安全に取得（カラム未追加の環境でもエラーにならない）
+        try {
+          const { data: templateData } = await supabase
+            .from('organization_scenarios')
+            .select('individual_notice_template')
+            .eq('id', orgScenario.id)
+            .maybeSingle()
+          setNoticeTemplate((templateData as any)?.individual_notice_template || null)
+        } catch {
+          // カラムが存在しない場合は無視
+        }
+
         if (!orgScenario.survey_enabled) {
           setLoading(false)
           return
@@ -190,6 +216,7 @@ export function SurveyResponsesTab({
             name: c.name,
             url: c.url || null,
             is_npc: c.is_npc || false,
+            survey_description: c.survey_description || null,
           })))
         }
 
@@ -220,6 +247,35 @@ export function SurveyResponsesTab({
         if (responsesData) {
           setResponses(responsesData)
         }
+
+        // 送信履歴を取得
+        const { data: noticeMessages } = await supabase
+          .from('private_group_messages')
+          .select('id, message, created_at')
+          .eq('group_id', gId)
+          .order('created_at', { ascending: false })
+
+        if (noticeMessages) {
+          const notices = noticeMessages
+            .map((msg: any) => {
+              try {
+                const parsed = JSON.parse(msg.message)
+                if (parsed?.action === 'individual_notice') {
+                  return {
+                    id: msg.id,
+                    target_member_id: parsed.target_member_id,
+                    target_member_name: parsed.target_member_name,
+                    character_name: parsed.character_name || null,
+                    sent_by: parsed.sent_by || null,
+                    created_at: msg.created_at,
+                  }
+                }
+              } catch { /* ignore */ }
+              return null
+            })
+            .filter(Boolean)
+          setSentNotices(notices)
+        }
       } catch (err) {
         logger.error('アンケートデータ読み込みエラー:', err)
       } finally {
@@ -243,8 +299,10 @@ export function SurveyResponsesTab({
   }
 
   const handleSendMessage = async (memberId: string) => {
-    const message = messageInputs[memberId]?.trim()
-    if (!message || !groupId) return
+    const message = messageInputs[memberId]?.trim() || ''
+    const hasChar = !!selectedCharacters[memberId]
+    const hasTemplate = !!(attachTemplate[memberId] !== false && noticeTemplate)
+    if (!groupId || (!message && !hasChar && !hasTemplate)) return
 
     setSendingMessage(memberId)
     try {
@@ -255,11 +313,17 @@ export function SurveyResponsesTab({
       const selectedCharId = selectedCharacters[memberId]
       const selectedChar = selectedCharId ? characters.find(c => c.id === selectedCharId) : null
       
-      // メッセージにキャラクターURLを含める
-      let fullMessage = message
+      // メッセージにキャラクターURLと定型文を含める
+      const parts: string[] = []
+      if (message) parts.push(message)
+      const shouldAttachTemplate = attachTemplate[memberId] !== false && noticeTemplate
+      if (shouldAttachTemplate) parts.push(noticeTemplate)
+      const charDesc = selectedChar?.survey_description
+      if (charDesc) parts.push(charDesc)
       if (selectedChar?.url) {
-        fullMessage = `${message}\n\n【${selectedChar.name}の資料】\n${selectedChar.url}`
+        parts.push(`【${selectedChar.name}の資料】\n${selectedChar.url}`)
       }
+      const fullMessage = parts.join('\n\n')
 
       // グループチャットにシステムメッセージとして送信
       const { error } = await supabase
@@ -276,14 +340,25 @@ export function SurveyResponsesTab({
             character_id: selectedCharId || null,
             character_name: selectedChar?.name || null,
             character_url: selectedChar?.url || null,
+            template_attached: !!shouldAttachTemplate,
+            sent_by: user?.staffName || user?.name || null,
           })
         })
 
       if (error) throw error
 
       showToast.success(`${memberName}さんへのお知らせを送信しました`)
+      setSentNotices(prev => [{
+        id: crypto.randomUUID(),
+        target_member_id: memberId,
+        target_member_name: memberName,
+        character_name: selectedChar?.name || null,
+        sent_by: user?.staffName || user?.name || null,
+        created_at: new Date().toISOString(),
+      }, ...prev])
       setMessageInputs(prev => ({ ...prev, [memberId]: '' }))
       setSelectedCharacters(prev => ({ ...prev, [memberId]: '' }))
+      setAttachTemplate(prev => ({ ...prev, [memberId]: false }))
     } catch (err) {
       logger.error('メッセージ送信エラー:', err)
       showToast.error('メッセージの送信に失敗しました')
@@ -505,6 +580,42 @@ export function SurveyResponsesTab({
                             ))}
                           </SelectContent>
                         </Select>
+                        {(() => {
+                          const selChar = selectedCharacters[member.id]
+                            ? characters.find(c => c.id === selectedCharacters[member.id])
+                            : null
+                          return selChar?.survey_description ? (
+                            <p className="text-xs text-muted-foreground bg-muted rounded px-2 py-1 mt-1 whitespace-pre-wrap">
+                              {selChar.survey_description}
+                            </p>
+                          ) : null
+                        })()}
+                      </div>
+                    )}
+
+                    {noticeTemplate && (
+                      <div className="mb-2">
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <Checkbox
+                            checked={attachTemplate[member.id] !== false}
+                            onCheckedChange={(checked) => setAttachTemplate(prev => ({
+                              ...prev,
+                              [member.id]: checked === true
+                            }))}
+                            className="mt-0.5"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <FileText className="w-3 h-3" />
+                              定型文を添付
+                            </span>
+                            {attachTemplate[member.id] !== false && (
+                              <p className="text-xs text-muted-foreground bg-muted rounded px-2 py-1 mt-1 whitespace-pre-wrap">
+                                {noticeTemplate}
+                              </p>
+                            )}
+                          </div>
+                        </label>
                       </div>
                     )}
 
@@ -524,8 +635,12 @@ export function SurveyResponsesTab({
                       <Button
                         size="sm"
                         onClick={() => handleSendMessage(member.id)}
-                        disabled={!messageInputs[member.id]?.trim() || sendingMessage === member.id}
-                        className="text-xs"
+                        disabled={sendingMessage === member.id || (
+                          !messageInputs[member.id]?.trim()
+                          && !selectedCharacters[member.id]
+                          && !(attachTemplate[member.id] !== false && noticeTemplate)
+                        )}
+                        className="text-xs bg-blue-600 hover:bg-blue-700 text-white"
                       >
                         {sendingMessage === member.id ? (
                           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
@@ -535,6 +650,39 @@ export function SurveyResponsesTab({
                         送信
                       </Button>
                     </div>
+
+                    {/* 送信履歴 */}
+                    {sentNotices.filter(n => n.target_member_id === member.id).length > 0 && (
+                      <div className="mt-3 pt-2 border-t border-dashed">
+                        <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          送信履歴
+                        </p>
+                        <div className="space-y-0.5">
+                          {sentNotices
+                            .filter(n => n.target_member_id === member.id)
+                            .map(n => (
+                              <div key={n.id} className="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                                <span className="shrink-0">
+                                  {new Date(n.created_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
+                                  {' '}
+                                  {new Date(n.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {n.sent_by && (
+                                  <span className="shrink-0">{n.sent_by}</span>
+                                )}
+                                {n.character_name && (
+                                  <Badge variant="outline" className="text-[9px] h-4 px-1 shrink-0">
+                                    {n.character_name}
+                                  </Badge>
+                                )}
+                                <span className="text-green-600">✓</span>
+                              </div>
+                            ))
+                          }
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

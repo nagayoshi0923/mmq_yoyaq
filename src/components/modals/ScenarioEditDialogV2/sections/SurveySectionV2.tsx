@@ -17,8 +17,27 @@ import {
   Copy,
   Download,
   Loader2,
-  Search
+  Search,
+  MessageSquare
 } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -47,6 +66,29 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
 
   const questions = formData.survey_questions || []
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setFormData(prev => {
+      const items = prev.survey_questions || []
+      const oldIndex = items.findIndex(q => q.id === active.id)
+      const newIndex = items.findIndex(q => q.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return prev
+      const reordered = arrayMove(items, oldIndex, newIndex)
+      return {
+        ...prev,
+        survey_questions: reordered.map((q, i) => ({ ...q, order_num: i + 1 })),
+      }
+    })
+  }, [setFormData])
 
   const handleImportQuestions = useCallback((importedQuestions: SurveyQuestionFormData[]) => {
     setFormData(prev => {
@@ -116,26 +158,6 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
       return {
         ...prev,
         survey_questions: updated.map((q, i) => ({ ...q, order_num: i + 1 }))
-      }
-    })
-  }, [setFormData])
-
-  const moveQuestion = useCallback((id: string, direction: 'up' | 'down') => {
-    setFormData(prev => {
-      const questions = [...(prev.survey_questions || [])]
-      const index = questions.findIndex(q => q.id === id)
-      if (index === -1) return prev
-      
-      const newIndex = direction === 'up' ? index - 1 : index + 1
-      if (newIndex < 0 || newIndex >= questions.length) return prev
-      
-      const temp = questions[index]
-      questions[index] = questions[newIndex]
-      questions[newIndex] = temp
-      
-      return {
-        ...prev,
-        survey_questions: questions.map((q, i) => ({ ...q, order_num: i + 1 }))
       }
     })
   }, [setFormData])
@@ -276,35 +298,69 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {questions.map((question, index) => (
-                      <QuestionCard
-                        key={question.id}
-                        question={question}
-                        index={index}
-                        isExpanded={expandedQuestionId === question.id}
-                        onToggleExpand={() => setExpandedQuestionId(
-                          expandedQuestionId === question.id ? null : question.id
-                        )}
-                        onUpdate={(updates) => updateQuestion(question.id, updates)}
-                        onRemove={() => removeQuestion(question.id)}
-                        onDuplicate={() => duplicateQuestion(question.id)}
-                        onMoveUp={() => moveQuestion(question.id, 'up')}
-                        onMoveDown={() => moveQuestion(question.id, 'down')}
-                        onAddOption={() => addOption(question.id)}
-                        onUpdateOption={(optionIndex, label) => updateOption(question.id, optionIndex, label)}
-                        onRemoveOption={(optionIndex) => removeOption(question.id, optionIndex)}
-                        isFirst={index === 0}
-                        isLast={index === questions.length - 1}
-                        hasCharacters={(formData.characters?.length || 0) > 0}
-                        characters={formData.characters}
-                      />
-                    ))}
-                  </div>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={questions.map(q => q.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-2">
+                        {questions.map((question, index) => (
+                          <SortableQuestionCard
+                            key={question.id}
+                            question={question}
+                            index={index}
+                            isExpanded={expandedQuestionId === question.id}
+                            onToggleExpand={() => setExpandedQuestionId(
+                              expandedQuestionId === question.id ? null : question.id
+                            )}
+                            onUpdate={(updates) => updateQuestion(question.id, updates)}
+                            onRemove={() => removeQuestion(question.id)}
+                            onDuplicate={() => duplicateQuestion(question.id)}
+                            onAddOption={() => addOption(question.id)}
+                            onUpdateOption={(optionIndex, label) => updateOption(question.id, optionIndex, label)}
+                            onRemoveOption={(optionIndex) => removeOption(question.id, optionIndex)}
+                            hasCharacters={(formData.characters?.length || 0) > 0}
+                            characters={formData.characters}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
                 )}
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            個別お知らせ定型文
+          </CardTitle>
+          <CardDescription className="text-xs">
+            アンケート回答確認時に、メンバーへ個別お知らせを送る際に添付できる定型文です
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-2">
+          <Textarea
+            value={formData.individual_notice_template || ''}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              individual_notice_template: e.target.value || null,
+            }))}
+            placeholder="例: アンケートの回答ありがとうございます。以下の資料を公演前にご確認ください。"
+            rows={3}
+            className="text-sm resize-none"
+          />
+          <p className={hintStyle}>
+            資料URLと一緒にこの定型文をメッセージに添付できます。メッセージ本文とは別に送信されます。
+          </p>
         </CardContent>
       </Card>
 
@@ -328,6 +384,30 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
   )
 }
 
+function SortableQuestionCard(props: QuestionCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.question.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <QuestionCard {...props} dragListeners={listeners} />
+    </div>
+  )
+}
+
 interface QuestionCardProps {
   question: SurveyQuestionFormData
   index: number
@@ -336,15 +416,12 @@ interface QuestionCardProps {
   onUpdate: (updates: Partial<SurveyQuestionFormData>) => void
   onRemove: () => void
   onDuplicate: () => void
-  onMoveUp: () => void
-  onMoveDown: () => void
   onAddOption: () => void
   onUpdateOption: (optionIndex: number, label: string) => void
   onRemoveOption: (optionIndex: number) => void
-  isFirst: boolean
-  isLast: boolean
   hasCharacters: boolean
   characters?: Array<{ id: string; name: string }>
+  dragListeners?: Record<string, unknown>
 }
 
 function QuestionCard({
@@ -355,15 +432,12 @@ function QuestionCard({
   onUpdate,
   onRemove,
   onDuplicate,
-  onMoveUp,
-  onMoveDown,
   onAddOption,
   onUpdateOption,
   onRemoveOption,
-  isFirst,
-  isLast,
   hasCharacters,
   characters = [],
+  dragListeners,
 }: QuestionCardProps) {
   const needsOptions = question.question_type === 'single_choice' || question.question_type === 'multiple_choice'
   const isCharacterSelection = question.question_type === 'character_selection'
@@ -372,24 +446,12 @@ function QuestionCard({
   return (
     <div className="border rounded-lg bg-background">
       <div className="flex items-center gap-1 p-2 sm:p-3">
-        {/* 並び替えボタン（常時表示） */}
-        <div className="flex flex-col -my-1">
-          <button
-            type="button"
-            className="p-0 h-4 text-muted-foreground hover:text-foreground disabled:opacity-30"
-            onClick={(e) => { e.stopPropagation(); onMoveUp() }}
-            disabled={isFirst}
-          >
-            <ChevronUp className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            className="p-0 h-4 text-muted-foreground hover:text-foreground disabled:opacity-30"
-            onClick={(e) => { e.stopPropagation(); onMoveDown() }}
-            disabled={isLast}
-          >
-            <ChevronDown className="w-3.5 h-3.5" />
-          </button>
+        {/* ドラッグハンドル */}
+        <div
+          className="cursor-grab active:cursor-grabbing p-0.5 touch-none text-muted-foreground hover:text-foreground"
+          {...(dragListeners || {})}
+        >
+          <GripVertical className="w-4 h-4" />
         </div>
         <div
           className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:bg-accent/50 rounded px-1 py-1"

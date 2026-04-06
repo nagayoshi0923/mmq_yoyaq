@@ -284,6 +284,23 @@ export function SurveyResponseForm({
   }
 
   const isPastDeadline = Boolean(deadlineDate && new Date() > deadlineDate)
+  const isPastPerformance = Boolean(performanceDate && new Date() > new Date(performanceDate + 'T23:59:59+09:00'))
+
+  if (isPastPerformance) {
+    return (
+      <Card className="mb-6 border-gray-200">
+        <CardContent className="p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 text-gray-400" />
+            <h3 className="text-base font-semibold text-muted-foreground">公演前アンケート</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            公演日を過ぎたため、アンケートの回答受付は終了しました。
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className="mb-6 border-purple-200">
@@ -309,7 +326,7 @@ export function SurveyResponseForm({
         )}
         {isPastDeadline && (
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
-            目安の期限を過ぎていますが、引き続き回答・更新できます。
+            目安の期限を過ぎていますが、公演日まで回答・更新できます。
           </p>
         )}
 

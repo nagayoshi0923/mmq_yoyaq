@@ -59,6 +59,7 @@ export interface OrganizationScenario {
   gm_assignments: any[]
   booking_start_date: string | null
   booking_end_date: string | null
+  individual_notice_template: string | null
   created_at: string
   updated_at: string
 }
