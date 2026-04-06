@@ -11,7 +11,7 @@ import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/Survey
 
 interface SystemMessage {
   type: 'system'
-  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message'
+  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message' | 'character_assignment'
   count?: number
   dates?: Array<{ date: string; time_slot: string }>
   confirmedDate?: string
@@ -30,6 +30,8 @@ interface SystemMessage {
   // 個別お知らせ用
   target_member_id?: string
   target_member_name?: string
+  // 配役結果用
+  assignments?: Record<string, string>
 }
 
 interface GroupChatProps {
@@ -720,6 +722,34 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                           <p className="text-xs text-indigo-400 mt-2 text-center">
                             🔒 このお知らせはあなただけに表示されています
                           </p>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // キャラクター配役決定
+                  if (systemMsg && systemMsg.action === 'character_assignment') {
+                    return (
+                      <div key={msg.id} className="flex justify-center my-4">
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-purple-800">
+                                {systemMsg.title || 'キャラクター配役が決定しました'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(msg.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 border border-purple-100">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {systemMsg.body}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     )

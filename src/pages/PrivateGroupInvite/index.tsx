@@ -24,6 +24,7 @@ import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { SurveyResponseForm } from './components/SurveyResponseForm'
+import { CharacterAssignmentForm } from './components/CharacterAssignmentForm'
 
 interface Coupon {
   id: string
@@ -3305,20 +3306,76 @@ export function PrivateGroupInvite() {
           </Card>
         )}
 
-        {/* 公演前アンケート（日程確定後、参加済みメンバーのみ表示） */}
-        {isScheduleConfirmedUi && existingMemberId && group.scenario_id && (
-          <SurveyResponseForm
-            groupId={group.id}
-            memberId={existingMemberId}
-            scenarioId={group.scenario_id}
-            organizationId={group.organization_id}
-            performanceDate={group.candidate_dates?.find(cd => 
-              // 確定した候補日を探す（通常は reservation 経由で取得するが、ここでは最初の候補を使用）
-              cd.order_num === 1
-            )?.date}
-            characters={(group as any).scenario_characters || []}
-          />
-        )}
+        {/* 配役方法の選択 → アンケート or キャラクター選択（日程確定後） */}
+        {isScheduleConfirmedUi && existingMemberId && group.scenario_id && (() => {
+          const hasCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc).length > 0
+          const method = (group as any).character_assignment_method as string | null
+
+          if (!hasCharacters || method === 'survey') {
+            return (
+              <SurveyResponseForm
+                groupId={group.id}
+                memberId={existingMemberId}
+                scenarioId={group.scenario_id}
+                organizationId={group.organization_id}
+                performanceDate={group.candidate_dates?.find(cd => cd.order_num === 1)?.date}
+                characters={(group as any).scenario_characters || []}
+              />
+            )
+          }
+
+          if (method === 'self') {
+            return (
+              <CharacterAssignmentForm
+                groupId={group.id}
+                memberId={existingMemberId}
+                members={group.members || []}
+                characters={((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)}
+                assignments={(group as any).character_assignments || {}}
+                isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
+                onUpdated={refetch}
+              />
+            )
+          }
+
+          return (
+            <Card className="mb-6 border-purple-200">
+              <CardContent className="p-4 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-purple-600" />
+                  <h3 className="text-base font-semibold">キャラクターの配役方法</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  キャラクターの配役をどのように決めますか？
+                </p>
+                <div className="grid gap-3">
+                  <Button
+                    variant="outline"
+                    className="w-full h-auto py-4 flex flex-col items-start gap-1 border-purple-200 hover:bg-purple-50"
+                    onClick={async () => {
+                      await supabase.from('private_groups').update({ character_assignment_method: 'survey' }).eq('id', group.id)
+                      refetch()
+                    }}
+                  >
+                    <span className="font-medium">アンケートで希望を伝える</span>
+                    <span className="text-xs text-muted-foreground">希望キャラクターをアンケートで回答し、スタッフが決定します</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full h-auto py-4 flex flex-col items-start gap-1 border-purple-200 hover:bg-purple-50"
+                    onClick={async () => {
+                      await supabase.from('private_groups').update({ character_assignment_method: 'self' }).eq('id', group.id)
+                      refetch()
+                    }}
+                  >
+                    <span className="font-medium">自分たちで決める</span>
+                    <span className="text-xs text-muted-foreground">参加者同士で相談して、各自キャラクターを選択します</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })()}
 
         {/* 送信ボタン（新規参加時のみ表示） */}
         {!existingMemberId && (

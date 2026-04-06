@@ -939,6 +939,8 @@ export interface PrivateGroup {
   target_participant_count: number | null
   preferred_store_ids: string[]
   notes: string | null
+  character_assignment_method?: 'survey' | 'self' | null
+  character_assignments?: Record<string, string> | null
   created_at: string
   updated_at: string
   // JOIN時の拡張フィールド
