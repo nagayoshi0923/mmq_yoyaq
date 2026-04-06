@@ -171,6 +171,18 @@ export function CouponReceptionManual() {
         </p>
       </div>
 
+      {/* 対象のお客さま */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 flex gap-3">
+        <Ticket className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="font-bold text-blue-800">MMQで予約したお客様のみ対応可能</p>
+          <p className="text-sm text-blue-700">
+            クーポンは<strong>MMQ経由で予約されたお客様のみ</strong>ご利用いただけます。
+            電話予約や他サイト経由のお客様はクーポン対象外となりますのでご注意ください。
+          </p>
+        </div>
+      </div>
+
       {/* 重要ポイント */}
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 flex gap-3">
         <Clock className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
