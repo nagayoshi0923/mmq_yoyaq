@@ -1303,11 +1303,23 @@ ${content.organizationName || '店舗'}
                                 }
                                 return name
                               })()}
-                              {/* キャンセル済みバッジ */}
+                              {/* キャンセル済みバッジ + 日時 */}
                               {isCancelled && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 border border-red-200">
-                                  キャンセル済
-                                </span>
+                                <>
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 border border-red-200">
+                                    キャンセル済
+                                  </span>
+                                  {(reservation.cancelled_at || reservation.updated_at) && (
+                                    <span className="text-[10px] text-gray-400 shrink-0">
+                                      {new Date(reservation.cancelled_at || reservation.updated_at!).toLocaleString('ja-JP', {
+                                        month: 'numeric',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })}
+                                    </span>
+                                  )}
+                                </>
                               )}
                               {/* スタッフ参加バッジ */}
                               {!isCancelled && (reservation.payment_method === 'staff' || 
