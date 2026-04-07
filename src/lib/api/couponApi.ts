@@ -18,6 +18,23 @@ import type {
 const COUPON_CAMPAIGN_SELECT_FIELDS =
   'id, organization_id, name, description, discount_type, discount_amount, max_uses_per_customer, target_type, target_ids, trigger_type, valid_from, valid_until, coupon_expiry_days, is_active, created_at, updated_at' as const
 
+/**
+ * user_id で顧客レコードを1件取得（重複レコードがあっても安全に動作する）
+ * maybeSingle() は複数行あるとエラーになるため、order + limit(1) を使う
+ */
+async function findCustomerByUserId(
+  userId: string,
+  organizationId: string | null,
+  selectFields = 'id'
+): Promise<Record<string, unknown> | null> {
+  let query = supabase.from('customers').select(selectFields).eq('user_id', userId)
+  if (organizationId) {
+    query = query.eq('organization_id', organizationId)
+  }
+  const { data } = await query.order('created_at', { ascending: true }).limit(1)
+  return (data?.[0] as Record<string, unknown>) ?? null
+}
+
 // キャンペーン統計
 export interface CampaignStats {
   totalGranted: number
@@ -57,13 +74,8 @@ export async function getAvailableCoupons(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  // 予約先組織に紐づく顧客行のみ（同一 user_id の複数組織行の取り違え防止）
   const orgForCustomer = organizationId ?? (await getCurrentOrganizationId())
-  let customerQuery = supabase.from('customers').select('id').eq('user_id', user.id)
-  if (orgForCustomer) {
-    customerQuery = customerQuery.eq('organization_id', orgForCustomer)
-  }
-  const { data: customer } = await customerQuery.maybeSingle()
+  const customer = await findCustomerByUserId(user.id, orgForCustomer)
 
   if (!customer) return []
 
@@ -140,11 +152,7 @@ export async function getAllCoupons(): Promise<CustomerCoupon[]> {
   if (!user) return []
 
   const orgForCustomer = await getCurrentOrganizationId()
-  let customerQuery = supabase.from('customers').select('id').eq('user_id', user.id)
-  if (orgForCustomer) {
-    customerQuery = customerQuery.eq('organization_id', orgForCustomer)
-  }
-  const { data: customer } = await customerQuery.maybeSingle()
+  const customer = await findCustomerByUserId(user.id, orgForCustomer)
 
   if (!customer) return []
 
@@ -550,11 +558,7 @@ export async function getCurrentReservations(): Promise<Array<{
   if (!user) return []
 
   const orgForCustomer = await getCurrentOrganizationId()
-  let customerQuery = supabase.from('customers').select('id, name').eq('user_id', user.id)
-  if (orgForCustomer) {
-    customerQuery = customerQuery.eq('organization_id', orgForCustomer)
-  }
-  const { data: customer } = await customerQuery.maybeSingle()
+  const customer = await findCustomerByUserId(user.id, orgForCustomer, 'id, name') as { id: string; name: string | null } | null
 
   // スタッフ情報を取得（スタッフ予約のマッチングに使用）
   const { data: staffRecord } = await supabase
@@ -739,11 +743,7 @@ export async function getCouponUsageHistory(): Promise<CouponUsage[]> {
   if (!user) return []
 
   const orgForCustomer = await getCurrentOrganizationId()
-  let customerQuery = supabase.from('customers').select('id').eq('user_id', user.id)
-  if (orgForCustomer) {
-    customerQuery = customerQuery.eq('organization_id', orgForCustomer)
-  }
-  const { data: customer } = await customerQuery.maybeSingle()
+  const customer = await findCustomerByUserId(user.id, orgForCustomer)
 
   if (!customer) return []
 

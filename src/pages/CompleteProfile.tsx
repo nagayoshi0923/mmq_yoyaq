@@ -408,12 +408,14 @@ export function CompleteProfile() {
       }
       
       // 3. customersテーブルにレコードを作成/更新
-      // user_id で自分のレコードを検索（RLSで確実に読み書き可能）
-      const { data: existingByUserId } = await supabase
+      // user_id で自分のレコードを検索（重複レコードがあっても最初のものを使う）
+      const { data: existingRows } = await supabase
         .from('customers')
         .select('id')
         .eq('user_id', userId)
-        .maybeSingle()
+        .order('created_at', { ascending: true })
+        .limit(1)
+      const existingByUserId = existingRows?.[0] ?? null
 
       // メールアドレスで既存顧客を検索（自分以外で同じメールアドレスの顧客）
       // クーポン不正取得防止：同じメールで登録済みならクーポン付与しない

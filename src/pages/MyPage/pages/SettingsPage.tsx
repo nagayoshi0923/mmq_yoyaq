@@ -302,9 +302,10 @@ export function SettingsPage() {
 
     setChangingEmail(true)
     try {
-      const { error } = await supabase.auth.updateUser({
-        email: emailFormData.newEmail
-      })
+      const { error } = await supabase.auth.updateUser(
+        { email: emailFormData.newEmail },
+        { emailRedirectTo: `${window.location.origin}/mypage` }
+      )
 
       if (error) throw error
 
