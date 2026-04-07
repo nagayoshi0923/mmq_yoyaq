@@ -99,6 +99,25 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   const [charConfirmStep, setCharConfirmStep] = useState(false)
   const [charDecisions, setCharDecisions] = useState<Record<string, string>>({})
   const [charSubmitting, setCharSubmitting] = useState(false)
+  const [deadlineText, setDeadlineText] = useState<string | null>(null)
+
+  // 回答期限を取得
+  useEffect(() => {
+    if (!scenarioId || !organizationId || !performanceDate) return
+    ;(async () => {
+      const { data } = await supabase
+        .from('organization_scenarios')
+        .select('survey_deadline_days')
+        .eq('scenario_master_id', scenarioId)
+        .eq('organization_id', organizationId)
+        .maybeSingle()
+      if (data?.survey_deadline_days !== undefined && data.survey_deadline_days !== null) {
+        const perfDate = new Date(performanceDate + 'T00:00:00+09:00')
+        perfDate.setDate(perfDate.getDate() - data.survey_deadline_days)
+        setDeadlineText(`${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`)
+      }
+    })()
+  }, [scenarioId, organizationId, performanceDate])
 
   // デバッグログ
   logger.log('📋 GroupChat: props', { groupId, currentMemberId, scenarioId, organizationId, performanceDate })
@@ -999,8 +1018,8 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
               </div>
             ))
           )}
-          {/* 配役方法の選択カード（アナウンスと同じ位置） */}
-          {needsCharAssignmentChoice && onCharAssignmentMethodSelected && (
+          {/* 配役方法の選択カード（主催者のみ） */}
+          {needsCharAssignmentChoice && isOrganizer && onCharAssignmentMethodSelected && (
             <div className="flex justify-center my-4">
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
                 <div className="flex items-center gap-2 mb-3">
@@ -1062,6 +1081,9 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   <p className="text-sm text-gray-700">
                     キャラクター選択のため、アンケートへのご回答をお願いいたします。
                   </p>
+                  {deadlineText && (
+                    <p className="text-xs text-blue-600 font-medium">回答期限: {deadlineText}</p>
+                  )}
                   <Button
                     onClick={() => setShowSurveyDialog(true)}
                     className="w-full bg-blue-600 hover:bg-blue-700"
@@ -1268,6 +1290,10 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                     <p className="text-xs text-muted-foreground flex items-center gap-1 justify-center">
                       <Loader2 className="w-3 h-3 animate-spin" /> 保存中...
                     </p>
+                  )}
+
+                  {deadlineText && (
+                    <p className="text-xs text-center text-purple-600 font-medium">回答期限: {deadlineText}</p>
                   )}
 
                   {/* 参加人数の進捗 */}
