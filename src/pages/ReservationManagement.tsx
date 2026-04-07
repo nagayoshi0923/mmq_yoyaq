@@ -324,7 +324,15 @@ export function ReservationManagement() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {getStatusBadge(reservation.status)}
+                    <div className="flex flex-col">
+                      {getStatusBadge(reservation.status)}
+                      {reservation.status === 'cancelled' && (reservation.cancelled_at || reservation.updated_at) && (
+                        <span className="text-[10px] text-gray-400 mt-0.5">
+                          {/* @ts-ignore */}
+                          {format(new Date(reservation.cancelled_at || reservation.updated_at), 'MM/dd HH:mm')}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="font-medium text-blue-600 hover:underline" {...devDb('reservations.customer_name')}>{reservation.customer_name}</div>
@@ -385,6 +393,12 @@ export function ReservationManagement() {
                           {reservation.event_date ? format(new Date(reservation.event_date), 'MM/dd') : ''} {reservation.event_time || '--:--'}
                         </span>
                         {getStatusBadge(reservation.status)}
+                        {reservation.status === 'cancelled' && (reservation.cancelled_at || reservation.updated_at) && (
+                          <span className="text-[10px] text-gray-400">
+                            {/* @ts-ignore */}
+                            {format(new Date(reservation.cancelled_at || reservation.updated_at), 'MM/dd HH:mm')}
+                          </span>
+                        )}
                         <span className="text-[10px] text-gray-400 font-mono">#{reservation.reservation_number?.slice(-4) || ''}</span>
                       </div>
                       <div className={`text-sm font-bold ${reservation.payment_status === 'unpaid' ? 'text-red-600' : 'text-gray-900'}`}>
@@ -494,6 +508,12 @@ export function ReservationManagement() {
                         <div className="w-40 text-sm font-bold text-gray-700 mb-1 sm:mb-0">ステータス</div>
                         <div className="flex-1 flex items-center gap-2">
                           {getStatusBadge(selectedReservation.status)}
+                          {selectedReservation.status === 'cancelled' && (selectedReservation.cancelled_at || selectedReservation.updated_at) && (
+                            <span className="text-xs text-gray-500">
+                              {/* @ts-ignore */}
+                              {format(new Date(selectedReservation.cancelled_at || selectedReservation.updated_at), 'yyyy/MM/dd HH:mm')} キャンセル
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="py-4 flex flex-col sm:flex-row sm:items-center">
