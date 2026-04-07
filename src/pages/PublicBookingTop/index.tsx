@@ -7,7 +7,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
 import { getColorFromName } from '@/lib/utils'
 import { BOOKING_THEME, MYPAGE_THEME as THEME } from '@/lib/theme'
-import { Sparkles, MapPin, Store, BookOpen, Flame, RefreshCw } from 'lucide-react'
+import { Sparkles, MapPin, Store, BookOpen, Flame, RefreshCw, HelpCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useBookingData } from './hooks/useBookingData'
 import { useCalendarData } from './hooks/useCalendarData'
@@ -26,7 +26,6 @@ import { CalendarView } from './components/CalendarView'
 import { ListView } from './components/ListView'
 import { ScenarioCard } from './components/ScenarioCard'
 import { Footer } from '@/components/layout/Footer'
-import { HowToUseGuide, HowToUseButton, useHowToUseGuide } from './components/HowToUseGuide'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
 /** DB の紹介文が空のときのデフォルト（queens-waltz） */
@@ -53,7 +52,6 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   const listMonthStorageKey = `booking-${bookingViewPersistSlug}-list-month`
   
   // 使い方ガイド
-  const { isGuideOpen, openGuide, closeGuide } = useHowToUseGuide()
   
   // タブ状態（URLパスと連携）
   const [activeTab, setActiveTab] = useState(() => {
@@ -406,15 +404,24 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                     </span>
                   )}
                 </div>
-                {orgInfo.storeCount > 0 && (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => document.getElementById('store-access')?.scrollIntoView({ behavior: 'smooth' })}
+                    onClick={() => navigate('/guide')}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white/15 hover:bg-white/25 text-white transition-colors"
                   >
-                    <MapPin className="w-3 h-3" />
-                    アクセス
+                    <HelpCircle className="w-3 h-3" />
+                    はじめての方へ
                   </button>
-                )}
+                  {orgInfo.storeCount > 0 && (
+                    <button
+                      onClick={() => document.getElementById('store-access')?.scrollIntoView({ behavior: 'smooth' })}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white/15 hover:bg-white/25 text-white transition-colors"
+                    >
+                      <MapPin className="w-3 h-3" />
+                      アクセス
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -443,17 +450,10 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
               <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline text-xs">更新</span>
             </Button>
-            <HowToUseButton onClick={openGuide} />
           </div>
         </div>
       </div>
 
-      {/* 使い方ガイド */}
-      <HowToUseGuide 
-        organizationName={organizationName}
-        isOpen={isGuideOpen}
-        onClose={closeGuide}
-      />
 
       {/* 残りわずか公演 */}
       {!isLoading && nearlyConfirmed.length > 0 && (

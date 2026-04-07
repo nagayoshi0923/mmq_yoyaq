@@ -7,6 +7,7 @@ import { supabase } from '../supabase'
 import { logger } from '@/utils/logger'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
+import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
 
 // 候補日時の型定義
 interface CandidateDateTime {
@@ -439,7 +440,6 @@ export const scheduleApi = {
     }
     
     // 各イベントの実際の参加者数を計算
-    const ACTIVE_STATUSES = new Set(['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
 
     const eventsWithActualParticipants = scheduleEvents.map((event) => {
       const reservations = reservationsMap.get(event.id) || []
@@ -448,7 +448,7 @@ export const scheduleApi = {
       // ※ cancelled のみのケースでも reservations は存在し得るが、人数計算は active のみで行う
       const hasAnyReservations = reservations.length > 0
       const actualParticipants = reservations.reduce((sum, reservation) => {
-        if (!reservation.status || !ACTIVE_STATUSES.has(reservation.status)) return sum
+        if (!reservation.status || !ACTIVE_RESERVATION_STATUSES_SET.has(reservation.status)) return sum
         return sum + (reservation.participant_count || 0)
       }, 0)
       
@@ -1164,7 +1164,7 @@ export const scheduleApi = {
             .from('reservations')
             .select('participant_count, participant_names')
             .eq('schedule_event_id', event.id)
-            .in('status', ['confirmed', 'pending'])
+            .in('status', [...ACTIVE_RESERVATION_STATUSES])
           
           if (reservationError) {
             if (reservationError.code !== 'PGRST116') {

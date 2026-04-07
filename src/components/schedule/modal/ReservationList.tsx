@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
+import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
 import { showToast } from '@/utils/toast'
 import { findMatchingStaff } from '@/utils/staffUtils'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -149,11 +150,9 @@ ${content.organizationName || '店舗'}
   })
   const [customerNames, setCustomerNames] = useState<string[]>([])
 
-  const ACTIVE_RESERVATION_STATUSES = new Set(['pending', 'confirmed', 'gm_confirmed', 'checked_in'])
-
   const sumActiveParticipants = (list: Reservation[]) =>
     list.reduce((sum, r) => {
-      if (!r?.status || !ACTIVE_RESERVATION_STATUSES.has(r.status)) return sum
+      if (!r?.status || !ACTIVE_RESERVATION_STATUSES_SET.has(r.status)) return sum
       return sum + (r.participant_count || 0)
     }, 0)
 
@@ -357,8 +356,8 @@ ${content.organizationName || '店舗'}
       )
       
       if (event?.id) {
-        const wasActive = ACTIVE_RESERVATION_STATUSES.has(oldStatus)
-        const isActive = ACTIVE_RESERVATION_STATUSES.has(newStatus)
+        const wasActive = ACTIVE_RESERVATION_STATUSES_SET.has(oldStatus)
+        const isActive = ACTIVE_RESERVATION_STATUSES_SET.has(newStatus)
         
         // アクティブ状態が変わる場合、またはチェックインの場合は再計算
         // （checked_in は pending/confirmed/gm_confirmed と同様にカウントするため）
@@ -1068,7 +1067,7 @@ ${content.organizationName || '店舗'}
                         .from('reservations')
                         .select('participant_count')
                         .eq('schedule_event_id', event.id)
-                        .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+                        .in('status', [...ACTIVE_RESERVATION_STATUSES])
                       
                       const totalParticipants = updatedReservationsData?.reduce((sum, r) => sum + (r.participant_count || 0), 0) || 0
                       

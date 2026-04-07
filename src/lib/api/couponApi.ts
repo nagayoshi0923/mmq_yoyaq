@@ -1075,6 +1075,111 @@ export async function searchCustomers(
 }
 
 /**
+ * クーポン使用を取り消して残数を復元する（管理者向け）
+ * coupon_usages を削除し、customer_coupons.uses_remaining を +1 する
+ */
+export async function restoreCouponUsage(
+  couponUsageId: string,
+  customerCouponId: string
+): Promise<{ success: boolean; error?: string }> {
+  const orgId = await getCurrentOrganizationId()
+  if (!orgId) {
+    return { success: false, error: '組織IDが取得できません' }
+  }
+
+  const { data: coupon, error: couponError } = await supabase
+    .from('customer_coupons')
+    .select('id, uses_remaining, status')
+    .eq('id', customerCouponId)
+    .eq('organization_id', orgId)
+    .single()
+
+  if (couponError || !coupon) {
+    logger.error('クーポン取得エラー:', couponError)
+    return { success: false, error: 'クーポンが見つかりません' }
+  }
+
+  const { error: deleteError } = await supabase
+    .from('coupon_usages')
+    .delete()
+    .eq('id', couponUsageId)
+    .eq('customer_coupon_id', customerCouponId)
+
+  if (deleteError) {
+    logger.error('クーポン使用記録削除エラー:', deleteError)
+    return { success: false, error: '使用記録の削除に失敗しました' }
+  }
+
+  const { error: updateError } = await supabase
+    .from('customer_coupons')
+    .update({
+      uses_remaining: coupon.uses_remaining + 1,
+      status: 'active',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', customerCouponId)
+    .eq('organization_id', orgId)
+
+  if (updateError) {
+    logger.error('クーポン残数復元エラー:', updateError)
+    return { success: false, error: '残数の復元に失敗しました' }
+  }
+
+  logger.log(`✅ クーポン使用取り消し: usage=${couponUsageId}, coupon=${customerCouponId}`)
+  return { success: true }
+}
+
+/**
+ * 顧客クーポンの使用履歴を取得（管理者向け）
+ */
+export async function getCouponUsagesForAdmin(
+  customerCouponId: string
+): Promise<Array<{
+  id: string
+  reservation_id: string | null
+  discount_amount: number
+  used_at: string
+  reservation_title: string | null
+}>> {
+  const orgId = await getCurrentOrganizationId()
+  if (!orgId) return []
+
+  const { data: coupon } = await supabase
+    .from('customer_coupons')
+    .select('id')
+    .eq('id', customerCouponId)
+    .eq('organization_id', orgId)
+    .single()
+
+  if (!coupon) return []
+
+  const { data, error } = await supabase
+    .from('coupon_usages')
+    .select(`
+      id,
+      reservation_id,
+      discount_amount,
+      used_at,
+      reservations:reservation_id (title)
+    `)
+    .eq('customer_coupon_id', customerCouponId)
+    .order('used_at', { ascending: false })
+
+  if (error) {
+    logger.error('クーポン使用履歴取得エラー:', error)
+    return []
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    reservation_id: row.reservation_id,
+    discount_amount: row.discount_amount,
+    used_at: row.used_at,
+    reservation_title: row.reservations?.title || null
+  }))
+}
+
+/**
  * キャンペーンに紐づくクーポン一覧を取得（顧客情報付き）
  */
 export async function getCampaignCoupons(
