@@ -2388,6 +2388,12 @@ export function PrivateGroupInvite() {
               onCharAssignmentMethodSelected={async (method) => {
                 await supabase.from('private_groups').update({ character_assignment_method: method, character_assignments: null }).eq('id', group.id)
                 await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                const methodLabel = method === 'survey' ? 'アンケート' : '自分たちで決める'
+                await supabase.from('private_group_messages').insert({
+                  group_id: group.id,
+                  member_id: existingMemberId,
+                  message: JSON.stringify({ type: 'system', action: 'character_method_selected', title: `配役方法が選択されました`, body: `「${methodLabel}」が選択されました。` }),
+                })
                 refetch()
               }}
               charAssignmentMethod={charAssignmentMethod}
@@ -2997,6 +3003,12 @@ export function PrivateGroupInvite() {
                 onCharAssignmentMethodSelected={async (method) => {
                   await supabase.from('private_groups').update({ character_assignment_method: method, character_assignments: null }).eq('id', group.id)
                   await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                  const methodLabel = method === 'survey' ? 'アンケート' : '自分たちで決める'
+                  await supabase.from('private_group_messages').insert({
+                    group_id: group.id,
+                    member_id: existingMemberId,
+                    message: JSON.stringify({ type: 'system', action: 'character_method_selected', title: `配役方法が選択されました`, body: `「${methodLabel}」が選択されました。` }),
+                  })
                   refetch()
                 }}
                 charAssignmentMethod={charAssignmentMethod}

@@ -31,6 +31,8 @@ const ACTION_LABELS: Record<string, string> = {
   individual_notice: '個別お知らせ',
   performance_cancelled: '公演キャンセル',
   member_joined: 'メンバー参加',
+  character_assignment: '配役確定',
+  character_method_selected: '配役方法選択',
 }
 
 function parseSystemPayload(raw: string): Record<string, unknown> | null {
@@ -93,6 +95,9 @@ function buildAnnouncementSummary(raw: string): {
     const name = typeof p.memberName === 'string' ? p.memberName : 'メンバー'
     headline = `${name} が参加`
     detail = ''
+  } else if (action === 'character_assignment') {
+    headline = title || 'キャラクター配役が確定しました'
+    detail = Array.isArray(p.body) ? (p.body as string[]).join('\n') : (body || '')
   }
 
   return { kind, headline, detail: detail.trim() }
