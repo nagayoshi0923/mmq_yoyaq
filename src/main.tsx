@@ -2,7 +2,7 @@ import ReactDOM from 'react-dom/client'
 import App from './AppRoot.tsx'
 import './index.css'
 import { initSentry } from '@/lib/sentry'
-import { initVersionCheck, clearChunkReloadFlag } from '@/utils/lazyWithRetry'
+import { initVersionCheck, clearChunkReloadFlag, isChunkLoadError } from '@/utils/lazyWithRetry'
 
 // パッシブイベントリスナーの警告を抑制
 // UIライブラリ（Radix UI等）がtouchstartにpassive: falseを使用するため
@@ -37,6 +37,15 @@ initSentry()
 // （ErrorBoundary に到達する前に処理できるため、エラー画面を見せずに済む）
 window.addEventListener('vite:preloadError', () => {
   showUpdateBanner()
+})
+
+// lazyWithRetry でカバーされない静的 import やベンダーチャンクの読み込みエラーを捕捉し、
+// エラー画面ではなく更新バナーを表示する
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason && isChunkLoadError(event.reason)) {
+    event.preventDefault()
+    showUpdateBanner()
+  }
 })
 
 // 古いリロードフラグをクリア（後方互換）

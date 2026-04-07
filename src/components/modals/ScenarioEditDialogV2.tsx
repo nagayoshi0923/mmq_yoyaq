@@ -766,7 +766,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               if (loadOrgId) {
                 const { data: osData } = await supabase
                   .from('organization_scenarios')
-                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots')
+                  .select('id, override_title, override_author, override_genre, override_difficulty, override_player_count_min, override_player_count_max, custom_key_visual_url, custom_description, custom_synopsis, custom_caution, available_stores, survey_url, survey_enabled, survey_deadline_days, characters, private_booking_blocked_slots, booking_start_date, booking_end_date')
                   .eq('scenario_master_id', masterId)
                   .eq('organization_id', loadOrgId)
                   .maybeSingle()
@@ -817,7 +817,27 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     characters: osData.characters || [],
                     // 貸切受付不可時間帯
                     private_booking_blocked_slots: osData.private_booking_blocked_slots || [],
+                    // 貸切募集期間
+                    booking_start_date: osData.booking_start_date || null,
+                    booking_end_date: osData.booking_end_date || null,
                   }))
+
+                  // 定型文を別クエリで安全に取得（カラム未追加の環境でもエラーにならない）
+                  try {
+                    const { data: tplData } = await supabase
+                      .from('organization_scenarios')
+                      .select('individual_notice_template')
+                      .eq('id', osData.id)
+                      .maybeSingle()
+                    if ((tplData as any)?.individual_notice_template) {
+                      setFormData(prev => ({
+                        ...prev,
+                        individual_notice_template: (tplData as any).individual_notice_template,
+                      }))
+                    }
+                  } catch {
+                    // カラムが存在しない場合は無視
+                  }
                 } else {
                   // organization_scenarios がなければ scenario_masters.caution を取得
                   const { data: masterCaution } = await supabase
@@ -1092,6 +1112,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               scenario_type: formData.scenario_type || 'normal',
               // 貸切受付不可時間帯
               private_booking_blocked_slots: formData.private_booking_blocked_slots || null,
+              // 貸切募集期間
+              booking_start_date: formData.booking_start_date || null,
+              booking_end_date: formData.booking_end_date || null,
             }
 
             let orgScenarioId: string | null = existingOrgScenario?.id || null
@@ -1127,6 +1150,18 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               } else {
                 logger.log('organization_scenariosを更新しました（override含む）')
                 console.log('✅ organization_scenarios保存成功 available_stores:', updatePayload.available_stores)
+              }
+            }
+
+            // 定型文を別途安全に保存（カラム未追加の環境でもエラーにならない）
+            if (orgScenarioId && formData.individual_notice_template !== undefined) {
+              try {
+                await supabase
+                  .from('organization_scenarios')
+                  .update({ individual_notice_template: formData.individual_notice_template || null })
+                  .eq('id', orgScenarioId)
+              } catch {
+                // カラムが存在しない場合は無視
               }
             }
 

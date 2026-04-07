@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -6,14 +6,42 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { 
   ClipboardList, 
   Plus, 
   Trash2, 
   GripVertical,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Copy,
+  Download,
+  Loader2,
+  Search,
+  MessageSquare
 } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
+import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import type { ScenarioFormData, SurveyQuestionFormData } from '@/components/modals/ScenarioEditModal/types'
 
 const labelStyle = "text-xs font-medium mb-0.5 block"
@@ -30,12 +58,54 @@ const QUESTION_TYPES = [
   { value: 'single_choice', label: '単一選択' },
   { value: 'multiple_choice', label: '複数選択' },
   { value: 'character_selection', label: 'キャラクター選択' },
+  { value: 'rating', label: '5段階評価' },
 ] as const
 
 export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props) {
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
 
   const questions = formData.survey_questions || []
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setFormData(prev => {
+      const items = prev.survey_questions || []
+      const oldIndex = items.findIndex(q => q.id === active.id)
+      const newIndex = items.findIndex(q => q.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return prev
+      const reordered = arrayMove(items, oldIndex, newIndex)
+      return {
+        ...prev,
+        survey_questions: reordered.map((q, i) => ({ ...q, order_num: i + 1 })),
+      }
+    })
+  }, [setFormData])
+
+  const handleImportQuestions = useCallback((importedQuestions: SurveyQuestionFormData[]) => {
+    setFormData(prev => {
+      const existing = prev.survey_questions || []
+      const newQuestions = importedQuestions.map((q, i) => ({
+        ...q,
+        id: crypto.randomUUID(),
+        order_num: existing.length + i + 1,
+      }))
+      return {
+        ...prev,
+        survey_questions: [...existing, ...newQuestions],
+      }
+    })
+    setImportDialogOpen(false)
+    showToast.success(`${importedQuestions.length}件の質問を追加しました`)
+  }, [setFormData])
 
   const addQuestion = useCallback(() => {
     const newQuestion: SurveyQuestionFormData = {
@@ -71,22 +141,23 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
     }))
   }, [setFormData])
 
-  const moveQuestion = useCallback((id: string, direction: 'up' | 'down') => {
+  const duplicateQuestion = useCallback((id: string) => {
     setFormData(prev => {
-      const questions = [...(prev.survey_questions || [])]
-      const index = questions.findIndex(q => q.id === id)
-      if (index === -1) return prev
-      
-      const newIndex = direction === 'up' ? index - 1 : index + 1
-      if (newIndex < 0 || newIndex >= questions.length) return prev
-      
-      const temp = questions[index]
-      questions[index] = questions[newIndex]
-      questions[newIndex] = temp
-      
+      const questions = prev.survey_questions || []
+      const source = questions.find(q => q.id === id)
+      if (!source) return prev
+      const sourceIndex = questions.findIndex(q => q.id === id)
+      const newQuestion: SurveyQuestionFormData = {
+        ...source,
+        id: crypto.randomUUID(),
+        question_text: source.question_text ? `${source.question_text}（コピー）` : '',
+        options: source.options.map(o => ({ ...o })),
+      }
+      const updated = [...questions]
+      updated.splice(sourceIndex + 1, 0, newQuestion)
       return {
         ...prev,
-        survey_questions: questions.map((q, i) => ({ ...q, order_num: i + 1 }))
+        survey_questions: updated.map((q, i) => ({ ...q, order_num: i + 1 }))
       }
     })
   }, [setFormData])
@@ -185,16 +256,28 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className={labelStyle}>質問項目</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={addQuestion}
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    質問を追加
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setImportDialogOpen(true)}
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      他シナリオから読込
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={addQuestion}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      追加
+                    </Button>
+                  </div>
                 </div>
 
                 {questions.length === 0 ? (
@@ -215,34 +298,69 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {questions.map((question, index) => (
-                      <QuestionCard
-                        key={question.id}
-                        question={question}
-                        index={index}
-                        isExpanded={expandedQuestionId === question.id}
-                        onToggleExpand={() => setExpandedQuestionId(
-                          expandedQuestionId === question.id ? null : question.id
-                        )}
-                        onUpdate={(updates) => updateQuestion(question.id, updates)}
-                        onRemove={() => removeQuestion(question.id)}
-                        onMoveUp={() => moveQuestion(question.id, 'up')}
-                        onMoveDown={() => moveQuestion(question.id, 'down')}
-                        onAddOption={() => addOption(question.id)}
-                        onUpdateOption={(optionIndex, label) => updateOption(question.id, optionIndex, label)}
-                        onRemoveOption={(optionIndex) => removeOption(question.id, optionIndex)}
-                        isFirst={index === 0}
-                        isLast={index === questions.length - 1}
-                        hasCharacters={(formData.characters?.length || 0) > 0}
-                        characters={formData.characters}
-                      />
-                    ))}
-                  </div>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={questions.map(q => q.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-2">
+                        {questions.map((question, index) => (
+                          <SortableQuestionCard
+                            key={question.id}
+                            question={question}
+                            index={index}
+                            isExpanded={expandedQuestionId === question.id}
+                            onToggleExpand={() => setExpandedQuestionId(
+                              expandedQuestionId === question.id ? null : question.id
+                            )}
+                            onUpdate={(updates) => updateQuestion(question.id, updates)}
+                            onRemove={() => removeQuestion(question.id)}
+                            onDuplicate={() => duplicateQuestion(question.id)}
+                            onAddOption={() => addOption(question.id)}
+                            onUpdateOption={(optionIndex, label) => updateOption(question.id, optionIndex, label)}
+                            onRemoveOption={(optionIndex) => removeOption(question.id, optionIndex)}
+                            hasCharacters={(formData.characters?.length || 0) > 0}
+                            characters={formData.characters}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
                 )}
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            個別お知らせ定型文
+          </CardTitle>
+          <CardDescription className="text-xs">
+            アンケート回答確認時に、メンバーへ個別お知らせを送る際に添付できる定型文です
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-2">
+          <Textarea
+            value={formData.individual_notice_template || ''}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              individual_notice_template: e.target.value || null,
+            }))}
+            placeholder="例: アンケートの回答ありがとうございます。以下の資料を公演前にご確認ください。"
+            rows={3}
+            className="text-sm resize-none"
+          />
+          <p className={hintStyle}>
+            資料URLと一緒にこの定型文をメッセージに添付できます。メッセージ本文とは別に送信されます。
+          </p>
         </CardContent>
       </Card>
 
@@ -255,6 +373,37 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
           </p>
         </CardContent>
       </Card>
+
+      <ImportQuestionsDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onImport={handleImportQuestions}
+        currentScenarioMasterId={formData.scenario_master_id}
+      />
+    </div>
+  )
+}
+
+function SortableQuestionCard(props: QuestionCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.question.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <QuestionCard {...props} dragListeners={listeners} />
     </div>
   )
 }
@@ -266,15 +415,13 @@ interface QuestionCardProps {
   onToggleExpand: () => void
   onUpdate: (updates: Partial<SurveyQuestionFormData>) => void
   onRemove: () => void
-  onMoveUp: () => void
-  onMoveDown: () => void
+  onDuplicate: () => void
   onAddOption: () => void
   onUpdateOption: (optionIndex: number, label: string) => void
   onRemoveOption: (optionIndex: number) => void
-  isFirst: boolean
-  isLast: boolean
   hasCharacters: boolean
   characters?: Array<{ id: string; name: string }>
+  dragListeners?: Record<string, unknown>
 }
 
 function QuestionCard({
@@ -284,43 +431,50 @@ function QuestionCard({
   onToggleExpand,
   onUpdate,
   onRemove,
-  onMoveUp,
-  onMoveDown,
+  onDuplicate,
   onAddOption,
   onUpdateOption,
   onRemoveOption,
-  isFirst,
-  isLast,
   hasCharacters,
   characters = [],
+  dragListeners,
 }: QuestionCardProps) {
   const needsOptions = question.question_type === 'single_choice' || question.question_type === 'multiple_choice'
   const isCharacterSelection = question.question_type === 'character_selection'
+  const isRating = question.question_type === 'rating'
 
   return (
     <div className="border rounded-lg bg-background">
-      <div 
-        className="flex items-center gap-2 p-3 cursor-pointer hover:bg-accent/50"
-        onClick={onToggleExpand}
-      >
-        <GripVertical className="w-4 h-4 text-muted-foreground" />
-        <span className="text-sm font-medium text-muted-foreground w-6">
-          Q{index + 1}
-        </span>
-        <span className="text-sm flex-1 truncate">
-          {question.question_text || '（質問文を入力）'}
-        </span>
-        {question.is_required && (
-          <span className="text-xs text-red-600 font-medium">必須</span>
-        )}
-        <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded">
-          {QUESTION_TYPES.find(t => t.value === question.question_type)?.label}
-        </span>
-        {isExpanded ? (
-          <ChevronUp className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        )}
+      <div className="flex items-center gap-1 p-2 sm:p-3">
+        {/* ドラッグハンドル */}
+        <div
+          className="cursor-grab active:cursor-grabbing p-0.5 touch-none text-muted-foreground hover:text-foreground"
+          {...(dragListeners || {})}
+        >
+          <GripVertical className="w-4 h-4" />
+        </div>
+        <div
+          className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:bg-accent/50 rounded px-1 py-1"
+          onClick={onToggleExpand}
+        >
+          <span className="text-sm font-medium text-muted-foreground w-6 shrink-0">
+            Q{index + 1}
+          </span>
+          <span className="text-sm flex-1 truncate">
+            {question.question_text || '（質問文を入力）'}
+          </span>
+          {question.is_required && (
+            <span className="text-xs text-red-600 font-medium shrink-0">必須</span>
+          )}
+          <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded shrink-0">
+            {QUESTION_TYPES.find(t => t.value === question.question_type)?.label}
+          </span>
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+          )}
+        </div>
       </div>
 
       {isExpanded && (
@@ -343,7 +497,7 @@ function QuestionCard({
                 value={question.question_type}
                 onValueChange={(value: SurveyQuestionFormData['question_type']) => {
                   const updates: Partial<SurveyQuestionFormData> = { question_type: value }
-                  if (value === 'text' || value === 'character_selection') {
+                  if (value === 'text' || value === 'character_selection' || value === 'rating') {
                     updates.options = []
                   } else if ((value === 'single_choice' || value === 'multiple_choice') && question.options.length === 0) {
                     updates.options = [
@@ -402,6 +556,20 @@ function QuestionCard({
             </div>
           )}
 
+          {isRating && (
+            <div className="p-3 bg-amber-50 rounded-lg space-y-2">
+              <p className="text-xs text-amber-700">プレビュー</p>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <span key={n} className="w-8 h-8 flex items-center justify-center rounded-full border border-amber-300 text-sm text-amber-600 bg-white">
+                    {n}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-amber-600">1（低い）〜 5（高い）の5段階で回答</p>
+            </div>
+          )}
+
           {needsOptions && (
             <div className="space-y-2">
               <Label className={labelStyle}>選択肢</Label>
@@ -444,28 +612,16 @@ function QuestionCard({
           )}
 
           <div className="flex items-center justify-between pt-2 border-t">
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onMoveUp}
-                disabled={isFirst}
-              >
-                <ChevronUp className="w-4 h-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={onMoveDown}
-                disabled={isLast}
-              >
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={onDuplicate}
+            >
+              <Copy className="w-3 h-3 mr-1" />
+              複製
+            </Button>
             <Button
               type="button"
               variant="ghost"
@@ -480,5 +636,213 @@ function QuestionCard({
         </div>
       )}
     </div>
+  )
+}
+
+// 他シナリオからアンケート質問を読み込むダイアログ
+interface ImportQuestionsDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onImport: (questions: SurveyQuestionFormData[]) => void
+  currentScenarioMasterId?: string
+}
+
+interface ScenarioWithSurvey {
+  id: string
+  title: string
+  org_scenario_id: string
+  questionCount: number
+}
+
+function ImportQuestionsDialog({ open, onOpenChange, onImport, currentScenarioMasterId }: ImportQuestionsDialogProps) {
+  const [scenarios, setScenarios] = useState<ScenarioWithSurvey[]>([])
+  const [loading, setLoading] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [previewQuestions, setPreviewQuestions] = useState<SurveyQuestionFormData[]>([])
+  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    loadScenarios()
+  }, [open])
+
+  const loadScenarios = async () => {
+    setLoading(true)
+    try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return
+
+      const { data: orgScenarios } = await supabase
+        .from('organization_scenarios')
+        .select('id, scenario_master_id, survey_enabled, scenario_masters(title)')
+        .eq('organization_id', orgId)
+        .eq('survey_enabled', true)
+
+      if (!orgScenarios || orgScenarios.length === 0) {
+        setScenarios([])
+        setLoading(false)
+        return
+      }
+
+      const orgScenarioIds = orgScenarios.map(os => os.id)
+      const { data: questionCounts } = await supabase
+        .from('org_scenario_survey_questions')
+        .select('org_scenario_id')
+        .in('org_scenario_id', orgScenarioIds)
+
+      const countMap = new Map<string, number>()
+      questionCounts?.forEach(q => {
+        countMap.set(q.org_scenario_id, (countMap.get(q.org_scenario_id) || 0) + 1)
+      })
+
+      const result: ScenarioWithSurvey[] = orgScenarios
+        .filter(os => {
+          const count = countMap.get(os.id) || 0
+          if (count === 0) return false
+          if (os.scenario_master_id === currentScenarioMasterId) return false
+          return true
+        })
+        .map(os => ({
+          id: os.scenario_master_id,
+          title: (os.scenario_masters as any)?.title || '不明なシナリオ',
+          org_scenario_id: os.id,
+          questionCount: countMap.get(os.id) || 0,
+        }))
+        .sort((a, b) => a.title.localeCompare(b.title))
+
+      setScenarios(result)
+    } catch (err) {
+      logger.error('シナリオ一覧取得エラー:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadPreview = async (orgScenarioId: string) => {
+    setSelectedId(orgScenarioId)
+    setLoadingPreview(true)
+    try {
+      const { data } = await supabase
+        .from('org_scenario_survey_questions')
+        .select('question_text, question_type, options, is_required, order_num')
+        .eq('org_scenario_id', orgScenarioId)
+        .order('order_num', { ascending: true })
+
+      if (data) {
+        setPreviewQuestions(data.map(q => ({
+          id: crypto.randomUUID(),
+          question_text: q.question_text,
+          question_type: q.question_type as SurveyQuestionFormData['question_type'],
+          options: q.options || [],
+          is_required: q.is_required,
+          order_num: q.order_num,
+        })))
+      }
+    } catch (err) {
+      logger.error('質問プレビュー取得エラー:', err)
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
+  const filteredScenarios = searchTerm
+    ? scenarios.filter(s => s.title.toLowerCase().includes(searchTerm.toLowerCase()))
+    : scenarios
+
+  const getTypeLabel = (type: string) =>
+    QUESTION_TYPES.find(t => t.value === type)?.label || type
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-sm">他のシナリオからアンケート質問を読み込む</DialogTitle>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : scenarios.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">アンケートが設定されたシナリオがありません</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-hidden flex flex-col gap-3">
+            {scenarios.length > 5 && (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="シナリオ名で検索..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-8 text-sm"
+                />
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+              {filteredScenarios.map(scenario => (
+                <button
+                  key={scenario.org_scenario_id}
+                  type="button"
+                  onClick={() => loadPreview(scenario.org_scenario_id)}
+                  className={`w-full text-left p-2.5 rounded-lg border transition-colors text-sm ${
+                    selectedId === scenario.org_scenario_id
+                      ? 'border-purple-300 bg-purple-50'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium truncate">{scenario.title}</span>
+                    <span className="text-xs text-muted-foreground shrink-0 ml-2">
+                      {scenario.questionCount}問
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {selectedId && (
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">プレビュー</p>
+                {loadingPreview ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {previewQuestions.map((q, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs p-1.5 bg-gray-50 rounded">
+                          <span className="text-muted-foreground w-6 shrink-0">Q{i + 1}</span>
+                          <span className="flex-1 truncate">{q.question_text || '（質問文なし）'}</span>
+                          <span className="text-muted-foreground px-1.5 py-0.5 bg-white rounded shrink-0">
+                            {getTypeLabel(q.question_type)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      type="button"
+                      className="w-full"
+                      size="sm"
+                      onClick={() => onImport(previewQuestions)}
+                      disabled={previewQuestions.length === 0}
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      {previewQuestions.length}件の質問を追加
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

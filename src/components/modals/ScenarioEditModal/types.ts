@@ -109,6 +109,13 @@ export interface ScenarioFormData {
   private_booking_time_slots?: string[]
   // 貸切受付不可時間帯（'午前', '午後', '夜'）
   private_booking_blocked_slots?: string[]
+  // 貸切募集期間
+  booking_start_date?: string | null
+  booking_end_date?: string | null
+  // 個別お知らせ定型文
+  individual_notice_template?: string | null
+  // 配役方法
+  character_assignment_method?: 'survey' | 'self'
   // アンケート設定
   survey_url?: string | null
   survey_enabled?: boolean
@@ -122,7 +129,7 @@ export interface ScenarioFormData {
 export interface SurveyQuestionFormData {
   id: string
   question_text: string
-  question_type: 'text' | 'single_choice' | 'multiple_choice' | 'character_selection'
+  question_type: 'text' | 'single_choice' | 'multiple_choice' | 'character_selection' | 'rating'
   options: { value: string; label: string }[]
   is_required: boolean
   order_num: number
@@ -139,6 +146,7 @@ export interface ScenarioCharacter {
   description?: string | null  // 説明文（空白の場合は非表示）
   image_url?: string | null  // キャラクター画像URL
   url?: string | null  // キャラクター関連URL（資料等）
+  survey_description?: string | null  // 事前アンケート用の説明文（個別お知らせ時に添付）
   is_npc?: boolean  // NPCフラグ（trueの場合、プレイ人数にカウントしない）
   background_color?: string | null  // アイコン背景色（透明画像用）
   image_position?: string | null  // 画像表示位置（object-position: 'top', 'center', 'bottom'）

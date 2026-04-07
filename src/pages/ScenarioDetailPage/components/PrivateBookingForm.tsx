@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useMemo, useCallback } from 'react'
+import { memo, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import type { TimeSlot } from '../utils/types'
 import { StoreSelector } from './StoreSelector'
 import { PrivateBookingSlotGrid } from '@/components/private-booking/PrivateBookingSlotGrid'
@@ -41,6 +41,7 @@ interface PrivateBookingFormProps {
   isCustomHoliday?: (date: string) => boolean
   blockedSlots?: string[]
   isNextMonthDisabled?: boolean
+  loading?: boolean
 }
 
 export const PrivateBookingForm = memo(function PrivateBookingForm({
@@ -58,33 +59,78 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   isCustomHoliday,
   blockedSlots = [],
   isNextMonthDisabled = false,
+  loading = false,
 }: PrivateBookingFormProps) {
   const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
+  const [slotsByDate, setSlotsByDate] = useState<Record<string, PrivateBookingSlot[]>>({})
+  const [isComputingSlots, setIsComputingSlots] = useState(false)
 
-  const slotsByDate = useMemo(() => {
-    const map: Record<string, PrivateBookingSlot[]> = {}
-    for (const date of availableDates) {
-      map[date] = getTimeSlotsForDate(date).map(timeSlotToPrivateBookingSlot)
-    }
-    return map
-  }, [availableDates, getTimeSlotsForDate])
+  // getTimeSlotsForDate を ref に保持（参照変更だけで再計算を走らせない）
+  const getTimeSlotsRef = useRef(getTimeSlotsForDate)
+  getTimeSlotsRef.current = getTimeSlotsForDate
 
-  // Async availability check, incorporating blockedSlots
+  const checkAvailRef = useRef(checkTimeSlotAvailability)
+  checkAvailRef.current = checkTimeSlotAvailability
+
+  // availability チェック用の安定キー（参照比較ではなく内容比較）
+  const storeIdsKey = selectedStoreIds.join(',')
+  const datesKey = availableDates.join(',')
+
+  // slotsByDate を遅延計算（レンダーを先に完了させてから計算を実行）
   useEffect(() => {
+    if (availableDates.length === 0) {
+      setSlotsByDate({})
+      return
+    }
+    setIsComputingSlots(true)
     let isCancelled = false
+    const timerId = setTimeout(() => {
+      const map: Record<string, PrivateBookingSlot[]> = {}
+      for (const date of availableDates) {
+        map[date] = getTimeSlotsRef.current(date).map(timeSlotToPrivateBookingSlot)
+      }
+      if (!isCancelled) {
+        setSlotsByDate(map)
+        setIsComputingSlots(false)
+      }
+    }, 50)
 
-    const updateAvailability = async () => {
+    return () => {
+      isCancelled = true
+      clearTimeout(timerId)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datesKey, storeIdsKey])
+
+  // slotsByDate を ref に保持し、availability チェックの依存から外す
+  const slotsByDateRef = useRef(slotsByDate)
+  slotsByDateRef.current = slotsByDate
+
+  // slotsByDate 安定キー
+  const slotsByDateKey = useMemo(() => {
+    return Object.entries(slotsByDate)
+      .map(([d, slots]) => `${d}:${slots.map(s => s.key).join(',')}`)
+      .join('|')
+  }, [slotsByDate])
+
+  // Async availability check with debounce（依存変更が連続しても 200ms の猶予を置く）
+  useEffect(() => {
+    const currentSlots = slotsByDateRef.current
+    if (Object.keys(currentSlots).length === 0) return
+
+    let isCancelled = false
+    const timerId = setTimeout(() => {
       const newMap: Record<string, boolean> = {}
 
       const promises = availableDates.flatMap(date => {
-        const daySlots = slotsByDate[date] || []
+        const daySlots = currentSlots[date] || []
         return daySlots.map(async (slot) => {
           const key = `${date}-${slot.label}`
           if (blockedSlots.includes(slot.label)) {
             newMap[key] = false
             return
           }
-          const isAvailable = await checkTimeSlotAvailability(
+          const isAvailable = await checkAvailRef.current(
             date,
             { label: slot.label, startTime: slot.startTime, endTime: slot.endTime },
             selectedStoreIds.length > 0 ? selectedStoreIds : undefined
@@ -93,17 +139,19 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         })
       })
 
-      await Promise.all(promises)
+      Promise.all(promises).then(() => {
+        if (!isCancelled) {
+          setAvailabilityMap(newMap)
+        }
+      })
+    }, 200)
 
-      if (!isCancelled) {
-        setAvailabilityMap(newMap)
-      }
+    return () => {
+      isCancelled = true
+      clearTimeout(timerId)
     }
-
-    updateAvailability()
-
-    return () => { isCancelled = true }
-  }, [availableDates, slotsByDate, selectedStoreIds, checkTimeSlotAvailability, blockedSlots])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datesKey, storeIdsKey, slotsByDateKey, blockedSlots])
 
   const gridSelectedSlots = useMemo(() =>
     selectedSlots.map(s => ({
@@ -160,8 +208,9 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         maxSelections={maxSelections}
         availabilityMap={availabilityMap}
         isCustomHoliday={isCustomHoliday}
-        colorScheme="red"
+        colorScheme="purple"
         isTooSoon={isTooSoon}
+        loading={loading || isComputingSlots}
       />
     </div>
   )

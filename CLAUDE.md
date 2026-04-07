@@ -28,6 +28,7 @@ npm run check:permissions    # RLS権限検証
 npm run check:permissions:fix # 権限修復SQL表示
 
 # テスト
+npm run test:rpcs            # RPCスモークテスト（ローカルSupabase起動中に実行）
 npm run test:e2e             # Playwright E2Eテスト
 npm run test:e2e:ui          # Playwright UIモードで実行
 
@@ -56,7 +57,7 @@ Pages/Components
 
 **マルチテナント**: 全データは `organization_id` で分離。INSERT/SELECT で必ず付与・フィルタすること。`organization_id` 不要なテーブルは `users`, `organizations`, `authors`, `auth_logs` のみ。RLS で保護されているが、コード側でも必ずフィルタを追加する。
 
-**RPC関数**: `supabase.rpc()` に移行した場合、直接INSERT時に保存していた全フィールドがサポートされているか必ず確認する（過去に `payment_method` 欠落バグあり）。
+**RPC関数**: `supabase.rpc()` に移行した場合、直接INSERT時に保存していた全フィールドがサポートされているか必ず確認する（過去に `payment_method` 欠落バグあり）。PL/pgSQL は関数作成時にボディを構文チェックしないため、マイグレーションでRPCを変更した場合は必ず `npm run test:rpcs` でスモークテストを実行すること。
 
 ### ディレクトリ構成の重要ポイント
 
@@ -147,6 +148,9 @@ feature/* ブランチ
 - `CREATE POLICY` の前に `DROP POLICY IF EXISTS` を置く
 - `storage.objects` に `COMMENT ON POLICY` を書かない
 - `anon` 必須テーブルの権限を壊さない（`organizations`, `stores`, `scenario_masters`, `schedule_events`, `organization_scenarios`, `business_hours_settings` 等）
+- **RPC を変更したら `npm run test:rpcs` を実行**（PL/pgSQL は作成時に構文チェックされない）
+- `jsonb_each_text() AS alias(col1, col2)` は PL/pgSQL で壊れるため、サブクエリで展開する
+- カラムの型を確認する（`TEXT[]` に `@> jsonb_build_array()` は使えない、`ANY()` を使う）
 
 ## デザインシステム
 

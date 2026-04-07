@@ -98,12 +98,7 @@ function getBestSlotCandidateAcrossStores(
 
     let startForFeasibility: number
 
-    if (slotKey === 'afternoon' && !isWeekendOrHoliday) {
-      startForFeasibility = Math.max(
-        f.priorEventEarliestStartMin,
-        f.slotBandEnd - durationMinutes - extraPrepTime,
-      )
-    } else if (
+    if (
       slotKey === 'evening' &&
       f.slotBandStart + durationMinutes > HARD_DAY_LIMIT
     ) {
@@ -283,8 +278,7 @@ export function computePrivateBookingSlots(
         }
         effectiveSlotEndLimit = HARD_DAY_LIMIT
       } else {
-        if (reverseFromEvening < 0) continue
-        startMinutes = Math.max(reverseFromEvening, priorFloor)
+        startMinutes = Math.max(def.candidate.slotBaselineStart, priorFloor)
         if (startMinutes + durationMinutes + extraPrepTime > eveningDeadline) {
           continue
         }

@@ -20,12 +20,12 @@ import { logger } from '@/utils/logger'
  */
 export async function recalculateCurrentParticipants(eventId: string): Promise<number> {
   try {
-    // 有効な予約（pending, confirmed, gm_confirmed）の参加者数を集計
+    // 有効な予約（pending, confirmed, gm_confirmed, checked_in）の参加者数を集計
     const { data: reservations, error: fetchError } = await supabase
       .from('reservations')
       .select('participant_count')
       .eq('schedule_event_id', eventId)
-      .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+      .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in'])
 
     if (fetchError) {
       logger.error('予約データ取得エラー:', fetchError)
@@ -68,7 +68,7 @@ export async function getCurrentParticipantsCount(eventId: string): Promise<numb
       .from('reservations')
       .select('participant_count')
       .eq('schedule_event_id', eventId)
-      .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+      .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in'])
 
     if (error) {
       logger.error('予約データ取得エラー:', error)

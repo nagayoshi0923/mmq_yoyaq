@@ -152,6 +152,8 @@ interface OrganizationScenarioListProps {
   onEdit?: (scenarioId: string) => void
   /** リフレッシュトリガー（変更されると再読み込み） */
   refreshKey?: number
+  /** 編集操作を許可するか（staff は false） */
+  canEdit?: boolean
 }
 
 // ヘッダー・セルスタイル: マスタ由来（通常）vs 組織設定（青）
@@ -170,7 +172,7 @@ interface StoreInfo {
   is_temporary?: boolean
 }
 
-export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationScenarioListProps) {
+export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }: OrganizationScenarioListProps) {
   const [scenarios, setScenarios] = useState<OrganizationScenarioWithMaster[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -669,13 +671,19 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       sortable: true,
       headerClassName: MASTER_HEADER_CLASS,
       render: (scenario) => (
-        <button
-          onClick={() => onEdit?.(scenario.scenario_master_id)}
-          className="text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
-          title={scenario.title}
-        >
-          {scenario.title}
-        </button>
+        canEdit ? (
+          <button
+            onClick={() => onEdit?.(scenario.scenario_master_id)}
+            className="text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
+            title={scenario.title}
+          >
+            {scenario.title}
+          </button>
+        ) : (
+          <span className="text-sm truncate block w-full" title={scenario.title}>
+            {scenario.title}
+          </span>
+        )
       )
     },
     {
@@ -999,6 +1007,13 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       cellClassName: ORG_CELL_CLASS,
       render: (scenario) => {
         const statusConfig = STATUS_LABELS[scenario.org_status]
+        if (!canEdit) {
+          return (
+            <Badge className={`text-[10px] px-1.5 py-0 ${statusConfig.color}`}>
+              {statusConfig.label}
+            </Badge>
+          )
+        }
         return (
           <select
             value={scenario.org_status}
@@ -1023,41 +1038,44 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
       width: 'w-20',
       headerClassName: 'text-center',
       cellClassName: 'text-center',
-      render: (scenario) => (
-        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-          {onEdit && (
+      render: (scenario) =>
+        canEdit ? (
+          <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onEdit(scenario.scenario_master_id)
+                }}
+                title="編集"
+              >
+                <Edit className="w-3.5 h-3.5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0"
+              className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                onEdit(scenario.scenario_master_id)
+                setScenarioToDelete(scenario)
+                setDeleteDialogOpen(true)
               }}
-              title="編集"
+              title="解除"
             >
-              <Edit className="w-3.5 h-3.5" />
+              <Trash2 className="w-3.5 h-3.5" />
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setScenarioToDelete(scenario)
-              setDeleteDialogOpen(true)
-            }}
-            title="解除"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      )
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">-</span>
+        )
     }
-  ], [onEdit, handleStatusChange, storeMap])
+  ], [canEdit, onEdit, handleStatusChange, storeMap])
 
   if (loading) {
     return (
@@ -1178,10 +1196,12 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
               <RefreshCw className="w-4 h-4 mr-1" />
               更新
             </Button>
-            <Button size="sm" onClick={() => setAddDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-1" />
-              マスタから追加
-            </Button>
+            {canEdit && (
+              <Button size="sm" onClick={() => setAddDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-1" />
+                マスタから追加
+              </Button>
+            )}
           </div>
         </div>
 
@@ -1278,7 +1298,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
               ? '検索条件に一致するシナリオがありません'
               : 'シナリオがありません'}
           </p>
-          {!searchTerm && statusFilter === 'all' && gmFilter === 'all' && experiencedFilter === 'all' && playerCountFilter === 'all' && durationFilter === 'all' && (
+          {canEdit && !searchTerm && statusFilter === 'all' && gmFilter === 'all' && experiencedFilter === 'all' && playerCountFilter === 'all' && durationFilter === 'all' && (
             <Button onClick={() => setAddDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-1" />
               マスタからシナリオを追加
@@ -1315,7 +1335,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
                 <div
                   key={scenario.id}
                   className="bg-white border rounded-lg overflow-hidden"
-                  onClick={() => onEdit?.(scenario.scenario_master_id)}
+                  onClick={canEdit ? () => onEdit?.(scenario.scenario_master_id) : undefined}
                 >
                   <div className="p-3 flex items-start gap-3">
                     {/* 画像サムネイル */}
@@ -1373,22 +1393,24 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
                     </div>
 
                     {/* アクション */}
-                    <div className="flex flex-col gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setScenarioToDelete(scenario)
-                          setDeleteDialogOpen(true)
-                        }}
-                        title="解除"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    {canEdit && (
+                      <div className="flex flex-col gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setScenarioToDelete(scenario)
+                            setDeleteDialogOpen(true)
+                          }}
+                          title="解除"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )

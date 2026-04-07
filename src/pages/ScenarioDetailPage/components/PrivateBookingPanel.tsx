@@ -107,7 +107,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
       <Button 
         className="w-full h-10 text-base bg-[#E60012] hover:bg-[#CC0010]"
         onClick={onRequestBooking}
-        disabled={!isLoggedIn || selectedTimeSlotsCount === 0}
+        disabled={isLoggedIn && selectedTimeSlotsCount === 0}
       >
         {!isLoggedIn ? 'ログインして貸切リクエスト' : selectedTimeSlotsCount === 0 ? '候補日時を選択してください' : `貸切リクエスト確認へ (${selectedTimeSlotsCount}件)`}
       </Button>

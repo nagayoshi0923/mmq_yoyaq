@@ -28,6 +28,7 @@ import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorati
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
+import { resendPrivateBookingDiscordNotification } from '@/lib/api/privateBookingNotificationApi'
 
 // 分離されたコンポーネント
 import { BookingRequestCard } from './components/BookingRequestCard'
@@ -62,7 +63,7 @@ export function PrivateBookingManagement() {
   const [sidebarActiveTab, setSidebarActiveTab] = useState('booking-list')
   
   // タブ状態（sessionStorageと同期）
-  const [activeTab, setActiveTab] = useSessionState<'gm_pending' | 'store_pending' | 'all' | 'groups'>('privateBookingActiveTab', 'store_pending')
+  const [activeTab, setActiveTab] = useSessionState<'gm_pending' | 'store_pending' | 'rejected' | 'all' | 'groups'>('privateBookingActiveTab', 'store_pending')
   
   // タブとサイドバーを同期
   useEffect(() => {
@@ -127,6 +128,37 @@ export function PrivateBookingManagement() {
     loadAllGMs,
     loadAvailableGMs
   } = useStoreAndGMManagement()
+
+  // Discord通知再送信ハンドラー
+  const handleResendDiscordNotification = async (cardRequest: { id: string; scenario_title: string }) => {
+    const request = requests.find(r => r.id === cardRequest.id)
+    if (!request) return
+    
+    const confirmed = window.confirm(
+      `「${request.scenario_title}」のDiscord通知を再送信しますか？\n\n担当GMに新しいボタン付きメッセージが送信されます。`
+    )
+    if (!confirmed) return
+    
+    const result = await resendPrivateBookingDiscordNotification({
+      id: request.id,
+      scenario_id: request.scenario_id,
+      scenario_master_id: request.scenario_master_id,
+      scenario_title: request.scenario_title,
+      customer_name: request.customer_name,
+      customer_email: request.customer_email,
+      customer_phone: request.customer_phone,
+      participant_count: request.participant_count,
+      candidate_datetimes: request.candidate_datetimes,
+      notes: request.notes,
+      created_at: request.created_at,
+    })
+    
+    if (result.success) {
+      showToast.success('Discord通知を再送信しました')
+    } else {
+      showToast.error(result.error || 'Discord通知の再送信に失敗しました')
+    }
+  }
 
   // スクロール位置の保存と復元
   useReportRouteScrollRestoration('private-booking-management', { isLoading: loading })
@@ -409,6 +441,8 @@ export function PrivateBookingManagement() {
     r.status === 'gm_confirmed' || r.status === 'pending_store' ||
     ((r.status === 'pending' || r.status === 'pending_gm') && isGMConfirmed(r))
   )
+  // 却下済み: cancelled
+  const rejectedRequests = requests.filter(r => r.status === 'cancelled')
   
   // 期間でフィルタリング（候補日の最初の日付でフィルター）
   const filterByDateRange = (reqs: PrivateBookingRequest[]) => {
@@ -445,7 +479,9 @@ export function PrivateBookingManagement() {
     ? gmPendingRequests 
     : activeTab === 'store_pending' 
       ? storePendingRequests 
-      : requests
+      : activeTab === 'rejected'
+        ? rejectedRequests
+        : requests
   const dateFilteredRequests = filterByDateRange(baseRequests)
   const filteredRequests = applyLimit(dateFilteredRequests)
 
@@ -507,11 +543,12 @@ export function PrivateBookingManagement() {
           description="貸切予約リクエストの承認・却下・店舗調整を行います"
         />
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'gm_pending' | 'store_pending' | 'all' | 'groups')}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'gm_pending' | 'store_pending' | 'rejected' | 'all' | 'groups')}>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
             <TabsList className="w-full sm:w-auto flex-wrap">
               <TabsTrigger value="gm_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">GM確認中 ({gmPendingRequests.length})</TabsTrigger>
               <TabsTrigger value="store_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">店舗承認待ち ({storePendingRequests.length})</TabsTrigger>
+              <TabsTrigger value="rejected" className="flex-1 sm:flex-initial text-xs sm:text-sm">却下済み ({rejectedRequests.length})</TabsTrigger>
               <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
               <TabsTrigger value="groups" className="flex-1 sm:flex-initial text-xs sm:text-sm">グループ一覧</TabsTrigger>
             </TabsList>
@@ -564,6 +601,7 @@ export function PrivateBookingManagement() {
                     request={req}
                     onSelectRequest={() => setSelectedRequest(req)}
                     showActionButton={true}
+                    onResendDiscordNotification={handleResendDiscordNotification}
                   />
                 ))}
               </div>
@@ -854,7 +892,6 @@ export function PrivateBookingManagement() {
                     setSelectedStoreId('')
                     setSelectedCandidateOrder(null)
                   }}
-                  onDelete={() => handleDelete(selectedRequest.id)}
                   disabled={
                     submitting ||
                     !selectedGMId ||

@@ -34,6 +34,8 @@ interface ReservationListProps {
   scenarios: Scenario[]
   staff: StaffType[]
   onParticipantChange?: (eventId: string, newCount: number) => void
+  // モーダル内バッジのみ更新（スケジュールカードへは伝播しない）
+  onLocalParticipantUpdate?: (count: number) => void
   onGmsChange?: (gms: string[], gmRoles: Record<string, string>) => void
   // 予約データから取得したスタッフ参加者を親に通知（DBの情報を直接反映）
   onStaffParticipantsChange?: (staffParticipants: string[]) => void
@@ -49,6 +51,7 @@ export function ReservationList({
   scenarios,
   staff,
   onParticipantChange,
+  onLocalParticipantUpdate,
   onGmsChange,
   onStaffParticipantsChange,
   onDeleteEvent
@@ -146,7 +149,7 @@ ${content.organizationName || '店舗'}
   })
   const [customerNames, setCustomerNames] = useState<string[]>([])
 
-  const ACTIVE_RESERVATION_STATUSES = new Set(['pending', 'confirmed', 'gm_confirmed'])
+  const ACTIVE_RESERVATION_STATUSES = new Set(['pending', 'confirmed', 'gm_confirmed', 'checked_in'])
 
   const sumActiveParticipants = (list: Reservation[]) =>
     list.reduce((sum, r) => {
@@ -181,7 +184,7 @@ ${content.organizationName || '店舗'}
                 .from('reservations')
                 .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
                 .eq('id', event.reservation_id)
-                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
+                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in', 'cancelled'])
               
               if (error) {
                 logger.error('貸切予約データの取得に失敗:', error)
@@ -201,7 +204,7 @@ ${content.organizationName || '店舗'}
                   .from('reservations')
                   .select(RESERVATION_WITH_CUSTOMER_SELECT_FIELDS)
                 .eq('id', event.reservation_id)
-                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
+                .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in', 'cancelled'])
                 
                 if (error) {
                   logger.error('貸切予約データの取得に失敗:', error)
@@ -220,9 +223,15 @@ ${content.organizationName || '店舗'}
             const data = await reservationApi.getByScheduleEvent(event.id, eventOrgId)
             logger.log('通常予約データ取得:', { eventId: event.id, count: data.length })
             setReservations(data)
-            
-            // 予約リストから合計人数を計算して同期
             const totalParticipants = sumActiveParticipants(data)
+            // DBのcurrent_participantsと実際の予約合計がズレていれば修正
+            if (event.id && totalParticipants !== (event.current_participants ?? -1)) {
+              recalculateCurrentParticipants(event.id).catch(e =>
+                logger.warn('参加者数のDB修正に失敗（制約違反の可能性）:', e)
+              )
+            }
+            // バッジ・スケジュールカード両方を正しい値に同期
+            onLocalParticipantUpdate?.(totalParticipants)
             if (onParticipantChange && event.id) {
               onParticipantChange(event.id, totalParticipants)
             }
@@ -242,33 +251,55 @@ ${content.organizationName || '店舗'}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, event?.id, event?.is_private_request, event?.reservation_id])
 
-  // 顧客名を取得する関数
+  // 顧客名を取得（customersテーブル + 過去予約のparticipant_names）
   useEffect(() => {
     const fetchCustomerNames = async () => {
       try {
-        const { data, error } = await supabase
+        const orgId = await getCurrentOrganizationId()
+        const names = new Set<string>()
+
+        // 1. customers テーブルから取得
+        let customerQuery = supabase
+          .from('customers')
+          .select('name')
+          .not('name', 'is', null)
+          .not('name', 'eq', '')
+        if (orgId) {
+          customerQuery = customerQuery.eq('organization_id', orgId)
+        }
+        const { data: customers, error: custError } = await customerQuery
+        if (custError) {
+          logger.error('顧客テーブル取得エラー:', custError)
+        } else {
+          customers?.forEach(c => {
+            if (c.name?.trim()) names.add(c.name.trim())
+          })
+        }
+
+        // 2. 過去予約の participant_names からも補完
+        let resQuery = supabase
           .from('reservations')
           .select('customer_notes, participant_names')
           .not('customer_notes', 'is', null)
           .not('customer_notes', 'eq', '')
-        
-        if (error) throw error
-        
-        const names = new Set<string>()
-        
-        data?.forEach(reservation => {
-          if (reservation.customer_notes) {
-            const name = reservation.customer_notes.replace(/様$/, '').trim()
-            if (name) names.add(name)
-          }
-          
-          if (reservation.participant_names && Array.isArray(reservation.participant_names)) {
-            reservation.participant_names.forEach(name => {
-              if (name && name.trim()) names.add(name.trim())
-            })
-          }
-        })
-        
+        if (orgId) {
+          resQuery = resQuery.eq('organization_id', orgId)
+        }
+        const { data: reservations, error: resError } = await resQuery
+        if (!resError && reservations) {
+          reservations.forEach(r => {
+            if (r.customer_notes) {
+              const name = r.customer_notes.replace(/様$/, '').trim()
+              if (name) names.add(name)
+            }
+            if (Array.isArray(r.participant_names)) {
+              r.participant_names.forEach((name: string) => {
+                if (name?.trim()) names.add(name.trim())
+              })
+            }
+          })
+        }
+
         setCustomerNames(Array.from(names).sort())
       } catch (error) {
         logger.error('顧客名の取得に失敗:', error)
@@ -326,10 +357,12 @@ ${content.organizationName || '店舗'}
       )
       
       if (event?.id) {
-        const wasActive = oldStatus === 'confirmed' || oldStatus === 'pending'
-        const isActive = newStatus === 'confirmed' || newStatus === 'pending'
+        const wasActive = ACTIVE_RESERVATION_STATUSES.has(oldStatus)
+        const isActive = ACTIVE_RESERVATION_STATUSES.has(newStatus)
         
-        if (wasActive !== isActive) {
+        // アクティブ状態が変わる場合、またはチェックインの場合は再計算
+        // （checked_in は pending/confirmed/gm_confirmed と同様にカウントするため）
+        if (wasActive !== isActive || newStatus === 'checked_in') {
           try {
             // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
             const newCount = await recalculateCurrentParticipants(event.id)
@@ -342,6 +375,9 @@ ${content.organizationName || '店舗'}
         }
       }
       
+      if (newStatus === 'checked_in') {
+        showToast.success('チェックインしました')
+      }
       logger.log('予約ステータス更新成功:', { id: reservationId, oldStatus, newStatus })
     } catch (error) {
       logger.error('予約ステータス更新エラー:', error)
@@ -1422,20 +1458,34 @@ ${content.organizationName || '店舗'}
                           <div className="flex items-center gap-2 ml-6 sm:ml-0 flex-wrap">
                             {isCancelled ? (
                               <span className="w-[80px] h-8 text-xs text-red-500 flex items-center">キャンセル済</span>
+                            ) : reservation.status === 'checked_in' ? (
+                              <span className="w-[80px] h-8 text-xs text-green-600 font-semibold flex items-center gap-1">
+                                ✓ 来店済
+                              </span>
                             ) : (
-                              <Select 
-                                value={reservation.status} 
-                                onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
-                              >
-                                <SelectTrigger className="w-[80px] h-8 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="confirmed">確定</SelectItem>
-                                  <SelectItem value="cancelled">キャンセル</SelectItem>
-                                  <SelectItem value="pending">保留中</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              <>
+                                <Select 
+                                  value={reservation.status} 
+                                  onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
+                                >
+                                  <SelectTrigger className="w-[80px] h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="confirmed">確定</SelectItem>
+                                    <SelectItem value="cancelled">キャンセル</SelectItem>
+                                    <SelectItem value="pending">保留中</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 px-2 text-xs text-green-700 border-green-300 hover:bg-green-50"
+                                  onClick={() => handleUpdateReservationStatus(reservation.id, 'checked_in')}
+                                >
+                                  チェックイン
+                                </Button>
+                              </>
                             )}
                             
                             <Button
@@ -1530,9 +1580,6 @@ ${content.organizationName || '店舗'}
                             </div>
                             {(() => {
                               const customer = reservation.customers as any
-                              // 1. 予約のcustomer_email
-                              // 2. customersテーブルのemail
-                              // 3. スタッフの名前からstaffテーブルを検索してemail
                               let email = reservation.customer_email 
                                 || customer?.email 
                                 || customer?.user?.email
@@ -1550,13 +1597,29 @@ ${content.organizationName || '店舗'}
                                   }
                                 }
                               }
-                              
-                              return email ? (
-                                <div className="mt-3">
-                                  <Label className="text-xs text-muted-foreground">メールアドレス</Label>
-                                  <div className="text-sm mt-1 text-blue-600">{email}</div>
+
+                              const phone = reservation.customer_phone || customer?.phone_number
+
+                              return (
+                                <div className="mt-3 space-y-2 border-t pt-3">
+                                  <Label className="text-xs font-semibold text-muted-foreground">顧客情報</Label>
+                                  {phone && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground w-20 shrink-0">電話番号</span>
+                                      <a href={`tel:${phone}`} className="text-sm text-blue-600 hover:underline">{phone}</a>
+                                    </div>
+                                  )}
+                                  {email && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground w-20 shrink-0">メール</span>
+                                      <a href={`mailto:${email}`} className="text-sm text-blue-600 hover:underline break-all">{email}</a>
+                                    </div>
+                                  )}
+                                  {!phone && !email && (
+                                    <div className="text-xs text-muted-foreground">連絡先情報なし</div>
+                                  )}
                                 </div>
-                              ) : null
+                              )
                             })()}
                             {reservation.customer_notes && (
                               <div className="mt-3">

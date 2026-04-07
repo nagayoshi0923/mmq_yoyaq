@@ -15,7 +15,7 @@ const SCENARIO_SELECT_FIELDS =
 
 // organization_scenarios_with_master ビュー用のSELECTフィールド
 const ORG_SCENARIOS_VIEW_SELECT_FIELDS = 
-  'id, org_scenario_id, organization_id, scenario_master_id, slug, status, title, author, author_email, author_id, report_display_name, key_visual_url, description, synopsis, caution, player_count_min, player_count_max, male_count, female_count, other_count, duration, weekend_duration, genre, difficulty, has_pre_reading, release_date, official_site_url, required_props, participation_fee, gm_test_participation_fee, participation_costs, flexible_pricing, use_flexible_pricing, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, gm_costs, gm_count, gm_assignments, available_gms, experienced_staff, available_stores, production_cost, production_costs, depreciation_per_performance, extra_preparation_time, play_count, notes, created_at, updated_at, master_status, is_shared, scenario_type, rating, kit_count, license_rewards' as const
+  'id, org_scenario_id, organization_id, scenario_master_id, slug, status, title, author, author_email, author_id, report_display_name, key_visual_url, description, synopsis, caution, player_count_min, player_count_max, male_count, female_count, other_count, duration, weekend_duration, genre, difficulty, has_pre_reading, release_date, official_site_url, required_props, participation_fee, gm_test_participation_fee, participation_costs, flexible_pricing, use_flexible_pricing, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, gm_costs, gm_count, gm_assignments, available_gms, experienced_staff, available_stores, production_cost, production_costs, depreciation_per_performance, extra_preparation_time, play_count, notes, created_at, updated_at, master_status, is_shared, scenario_type, rating, kit_count, license_rewards, booking_start_date, booking_end_date' as const
 
 export const scenarioApi = {
   // 全シナリオを取得
@@ -81,11 +81,12 @@ export const scenarioApi = {
     return data || []
   },
 
-  // IDでシナリオを取得（scenario_master_id で検索）
+  // IDでシナリオを取得（scenario_master_id で検索、見つからなければ org_scenario_id でも検索）
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
   // 自組織で見つからない場合は組織を問わず検索（他組織の共有シナリオ対応）
   async getById(id: string, organizationId?: string): Promise<Scenario | null> {
     const orgId = organizationId || await getCurrentOrganizationId()
+    logger.log('[scenarioApi.getById] 検索開始:', { id, orgId })
 
     if (orgId) {
       const { data, error } = await supabase
@@ -96,8 +97,24 @@ export const scenarioApi = {
         .maybeSingle()
 
       if (!error && data) {
+        logger.log('[scenarioApi.getById] id (scenario_master_id) で発見')
         return data as unknown as Scenario
       }
+      logger.log('[scenarioApi.getById] id で未発見, org_scenario_id で再検索:', { error: error?.message })
+
+      // id (= scenario_master_id) で見つからない場合、org_scenario_id でも検索
+      const { data: byOrgId, error: orgErr } = await supabase
+        .from('organization_scenarios_with_master')
+        .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+        .eq('org_scenario_id', id)
+        .eq('organization_id', orgId)
+        .maybeSingle()
+
+      if (!orgErr && byOrgId) {
+        logger.log('[scenarioApi.getById] org_scenario_id で発見')
+        return byOrgId as unknown as Scenario
+      }
+      logger.log('[scenarioApi.getById] org_scenario_id でも未発見:', { error: orgErr?.message })
     }
 
     const { data, error } = await supabase
@@ -107,7 +124,18 @@ export const scenarioApi = {
       .limit(1)
 
     if (error) throw error
-    return (data?.[0] as unknown as Scenario) || null
+    if (data?.[0]) return data[0] as unknown as Scenario
+
+    // org_scenario_id でもフォールバック検索
+    const { data: fallback, error: fbErr } = await supabase
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+      .eq('org_scenario_id', id)
+      .limit(1)
+
+    if (fbErr) throw fbErr
+    logger.log('[scenarioApi.getById] 全検索結果:', { found: !!fallback?.[0] })
+    return (fallback?.[0] as unknown as Scenario) || null
   },
 
   /**
@@ -355,7 +383,8 @@ export const scenarioApi = {
       'available_gms', 'experienced_staff', 'available_stores',
       'gm_costs', 'gm_count', 'gm_assignments',
       'production_cost', 'production_costs', 'depreciation_per_performance',
-      'play_count', 'notes', 'participation_costs', 'flexible_pricing', 'use_flexible_pricing'
+      'play_count', 'notes', 'participation_costs', 'flexible_pricing', 'use_flexible_pricing',
+      'booking_start_date', 'booking_end_date'
     ]
     
     for (const col of directOrgColumns) {

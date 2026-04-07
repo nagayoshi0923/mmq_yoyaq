@@ -452,6 +452,52 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
               })}
             </div>
           </div>
+
+          {/* 貸切募集期間 */}
+          <div>
+            <Label className={labelStyle}>貸切募集期間</Label>
+            <p className={hintStyle}>設定した期間のみ貸切予約を受け付けます。未設定の場合は常時受付。</p>
+            <div className="flex items-center gap-2 mt-1">
+              <Input
+                type="date"
+                value={formData.booking_start_date || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, booking_start_date: e.target.value || null }))}
+                className="w-40 text-xs"
+                placeholder="開始日"
+              />
+              <span className="text-xs text-muted-foreground">〜</span>
+              <Input
+                type="date"
+                value={formData.booking_end_date || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, booking_end_date: e.target.value || null }))}
+                className="w-40 text-xs"
+                placeholder="終了日"
+              />
+              {(formData.booking_start_date || formData.booking_end_date) && (
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, booking_start_date: null, booking_end_date: null }))}
+                  className="text-xs text-red-500 hover:text-red-700 whitespace-nowrap"
+                >
+                  クリア
+                </button>
+              )}
+            </div>
+            {(formData.booking_start_date || formData.booking_end_date) && (() => {
+              const now = new Date()
+              const jstOffset = 9 * 60
+              const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
+              const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
+              const isBeforeStart = formData.booking_start_date && todayStr < formData.booking_start_date
+              const isAfterEnd = formData.booking_end_date && todayStr > formData.booking_end_date
+              const isOutOfPeriod = isBeforeStart || isAfterEnd
+              return (
+                <p className={`text-xs mt-1 ${isOutOfPeriod ? 'text-orange-600' : 'text-green-600'}`}>
+                  {isOutOfPeriod ? '※ 現在は募集期間外です' : '※ 現在は募集期間中です'}
+                </p>
+              )
+            })()}
+          </div>
         </CardContent>
       </Card>
 

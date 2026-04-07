@@ -20,6 +20,7 @@ interface SurveyResponseFormProps {
   organizationId: string
   performanceDate?: string
   characters?: Array<{ id: string; name: string; gender?: string }>
+  hideCharacterSelection?: boolean
 }
 
 interface FormResponse {
@@ -33,6 +34,7 @@ export function SurveyResponseForm({
   organizationId,
   performanceDate,
   characters = [],
+  hideCharacterSelection = false,
 }: SurveyResponseFormProps) {
   const [questions, setQuestions] = useState<SurveyQuestion[]>([])
   const [responses, setResponses] = useState<FormResponse>({})
@@ -200,11 +202,13 @@ export function SurveyResponseForm({
 
     setSubmitting(true)
     try {
+      const responsesToSave = responses
+
       if (existingResponseId) {
         // 更新
         const { error } = await supabase
           .from('private_group_survey_responses')
-          .update({ responses, updated_at: new Date().toISOString() })
+          .update({ responses: responsesToSave, updated_at: new Date().toISOString() })
           .eq('id', existingResponseId)
 
         if (error) throw error
@@ -217,7 +221,7 @@ export function SurveyResponseForm({
           .insert({
             group_id: groupId,
             member_id: memberId,
-            responses,
+            responses: responsesToSave,
           })
           .select('id')
           .single()
@@ -284,6 +288,23 @@ export function SurveyResponseForm({
   }
 
   const isPastDeadline = Boolean(deadlineDate && new Date() > deadlineDate)
+  const isPastPerformance = Boolean(performanceDate && new Date() > new Date(performanceDate + 'T23:59:59+09:00'))
+
+  if (isPastPerformance) {
+    return (
+      <Card className="mb-6 border-gray-200">
+        <CardContent className="p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 text-gray-400" />
+            <h3 className="text-base font-semibold text-muted-foreground">公演前アンケート</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            公演日を過ぎたため、アンケートの回答受付は終了しました。
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className="mb-6 border-purple-200">
@@ -309,12 +330,12 @@ export function SurveyResponseForm({
         )}
         {isPastDeadline && (
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
-            目安の期限を過ぎていますが、引き続き回答・更新できます。
+            目安の期限を過ぎていますが、公演日まで回答・更新できます。
           </p>
         )}
 
         <div className="space-y-4 pt-2">
-          {questions.map((question, index) => (
+          {questions.filter(q => !(hideCharacterSelection && q.question_type === 'character_selection')).map((question, index) => (
             <div key={question.id} className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-2">
                 Q{index + 1}. {question.question_text}
@@ -367,6 +388,28 @@ export function SurveyResponseForm({
                           {option.label}
                         </Label>
                       </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {question.question_type === 'rating' && (
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map(n => {
+                    const selected = responses[question.id] === String(n)
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => handleSingleChoiceChange(question.id, String(n))}
+                        className={`w-10 h-10 rounded-full border-2 text-sm font-medium transition-colors ${
+                          selected
+                            ? 'bg-purple-600 text-white border-purple-600'
+                            : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'
+                        }`}
+                      >
+                        {n}
+                      </button>
                     )
                   })}
                 </div>

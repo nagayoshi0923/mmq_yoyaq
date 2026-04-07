@@ -2,16 +2,19 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Send, Loader2, Calendar, CheckCircle2, X, ClipboardList, AlertCircle } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Send, Loader2, Calendar, CheckCircle2, X, ClipboardList, AlertCircle, Users, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { toast } from 'sonner'
 import type { PrivateGroupMessage, PrivateGroupMember } from '@/types'
 import { SurveyResponseForm } from '@/pages/PrivateGroupInvite/components/SurveyResponseForm'
 
 interface SystemMessage {
   type: 'system'
-  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message'
+  action: 'candidate_dates_added' | 'schedule_confirmed' | 'pre_reading_notice' | 'survey_notice' | 'group_created' | 'member_joined' | 'booking_requested' | 'booking_rejected' | 'booking_cancelled' | 'individual_notice' | 'performance_cancelled' | 'staff_message' | 'character_assignment' | 'character_method_selected'
   count?: number
   dates?: Array<{ date: string; time_slot: string }>
   confirmedDate?: string
@@ -30,6 +33,17 @@ interface SystemMessage {
   // 個別お知らせ用
   target_member_id?: string
   target_member_name?: string
+  // 配役結果用
+  assignments?: Record<string, string>
+}
+
+interface CharacterData {
+  id: string
+  name: string
+  gender?: string
+  image_url?: string
+  image_position?: string
+  image_scale?: number | null
 }
 
 interface GroupChatProps {
@@ -41,9 +55,37 @@ interface GroupChatProps {
   scenarioId?: string
   organizationId?: string
   performanceDate?: string
+  needsCharAssignmentChoice?: boolean
+  onCharAssignmentMethodSelected?: (method: 'survey' | 'self') => void
+  charAssignmentMethod?: string | null
+  characters?: CharacterData[]
+  isOrganizer?: boolean
+  onCharAssignmentConfirmed?: () => void
+  onResetCharAssignmentMethod?: () => void
+  scenarioPlayerCount?: number | null
 }
 
-export function GroupChat({ groupId, currentMemberId, members: initialMembers, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate }: GroupChatProps) {
+function renderMessageWithLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = text.split(urlRegex)
+  return parts.map((part, i) =>
+    urlRegex.test(part) ? (
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 underline break-all"
+      >
+        {part}
+      </a>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  )
+}
+
+export function GroupChat({ groupId, currentMemberId, members: initialMembers, fullHeight = false, onGoToSchedule, scenarioId, organizationId, performanceDate, needsCharAssignmentChoice, onCharAssignmentMethodSelected, charAssignmentMethod, characters = [], isOrganizer = false, onCharAssignmentConfirmed, onResetCharAssignmentMethod, scenarioPlayerCount }: GroupChatProps) {
   const { user } = useAuth()
   const [messages, setMessages] = useState<PrivateGroupMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
@@ -52,6 +94,30 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
   const [members, setMembers] = useState<PrivateGroupMember[]>(initialMembers)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [showSurveyDialog, setShowSurveyDialog] = useState(false)
+  const [charPreferences, setCharPreferences] = useState<Record<string, string>>({})
+  const [charSaving, setCharSaving] = useState(false)
+  const [charConfirmStep, setCharConfirmStep] = useState(false)
+  const [charDecisions, setCharDecisions] = useState<Record<string, string>>({})
+  const [charSubmitting, setCharSubmitting] = useState(false)
+  const [deadlineText, setDeadlineText] = useState<string | null>(null)
+
+  // 回答期限を取得
+  useEffect(() => {
+    if (!scenarioId || !organizationId || !performanceDate) return
+    ;(async () => {
+      const { data } = await supabase
+        .from('organization_scenarios')
+        .select('survey_deadline_days')
+        .eq('scenario_master_id', scenarioId)
+        .eq('organization_id', organizationId)
+        .maybeSingle()
+      if (data?.survey_deadline_days !== undefined && data.survey_deadline_days !== null) {
+        const perfDate = new Date(performanceDate + 'T00:00:00+09:00')
+        perfDate.setDate(perfDate.getDate() - data.survey_deadline_days)
+        setDeadlineText(`${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`)
+      }
+    })()
+  }, [scenarioId, organizationId, performanceDate])
 
   // デバッグログ
   logger.log('📋 GroupChat: props', { groupId, currentMemberId, scenarioId, organizationId, performanceDate })
@@ -139,6 +205,183 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
       supabase.removeChannel(channel)
     }
   }, [groupId, fetchMembers])
+
+  // キャラクター希望をDBから取得する関数
+  const fetchCharPreferences = useCallback(async () => {
+    const { data } = await supabase
+      .from('private_groups')
+      .select('character_assignments')
+      .eq('id', groupId)
+      .single()
+    if (data?.character_assignments) {
+      setCharPreferences(data.character_assignments as Record<string, string>)
+    }
+  }, [groupId])
+
+  // キャラクター希望: 初回取得 + Realtime購読 + ポーリング（フォールバック）
+  useEffect(() => {
+    if (charAssignmentMethod !== 'self' || characters.length === 0) return
+
+    void fetchCharPreferences()
+
+    // Realtime購読（RLSの制約で届かない場合があるのでポーリングも併用）
+    const channel = supabase
+      .channel(`char_prefs_inline_${groupId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'private_groups', filter: `id=eq.${groupId}` },
+        (payload) => {
+          const newAssigns = (payload.new as any)?.character_assignments
+          if (newAssigns) {
+            setCharPreferences(newAssigns as Record<string, string>)
+          }
+        }
+      )
+      .subscribe()
+
+    // ポーリング: 5秒ごとにDBから最新を取得（Realtimeが届かない場合のフォールバック）
+    const pollInterval = setInterval(() => {
+      void fetchCharPreferences()
+    }, 5000)
+
+    // タブ復帰時にも取得
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchCharPreferences()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      void supabase.removeChannel(channel)
+      clearInterval(pollInterval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [groupId, charAssignmentMethod, characters.length, fetchCharPreferences])
+
+  const handleSelectCharPreference = useCallback(async (charId: string) => {
+    if (!currentMemberId) return
+    setCharPreferences(prev => ({ ...prev, [currentMemberId]: charId }))
+    setCharSaving(true)
+    try {
+      const { error } = await supabase.rpc('set_character_preference', {
+        p_group_id: groupId,
+        p_member_id: currentMemberId,
+        p_character_id: charId,
+      })
+      if (error) throw error
+    } catch (err) {
+      logger.error('キャラクター選択エラー:', err)
+      toast.error('保存に失敗しました')
+    } finally {
+      setCharSaving(false)
+    }
+  }, [currentMemberId, groupId])
+
+  const handleGoToCharConfirm = useCallback(async () => {
+    // 確定ステップに進む前にDBから最新の希望を取得
+    const { data } = await supabase
+      .from('private_groups')
+      .select('character_assignments')
+      .eq('id', groupId)
+      .single()
+    const latest = (data?.character_assignments || {}) as Record<string, string>
+    console.log('🎭 handleGoToCharConfirm:', { latest, groupId })
+    setCharPreferences(latest)
+    setCharDecisions({ ...latest })
+    setCharConfirmStep(true)
+  }, [groupId])
+
+  const handleCharConfirmAndSend = useCallback(async () => {
+    console.log('🎭 handleCharConfirmAndSend 開始')
+    setCharSubmitting(true)
+    try {
+      const activeMembers = members.filter(m => m.status === 'active' || m.status === 'joined')
+      console.log('🎭 activeMembers:', activeMembers.length, 'charDecisions:', charDecisions)
+      const lines = activeMembers.map(m => {
+        const charId = charDecisions[m.id]
+        const charName = characters.find(c => c.id === charId)?.name || '未定'
+        const memberName = m.guest_name || '参加者'
+        const prefCharId = charPreferences[m.id]
+        const changed = prefCharId && prefCharId !== charId
+        return `${memberName} → ${charName}${changed ? '（変更あり）' : ''}`
+      }).join('\n')
+
+      // チャットにシステムメッセージを送信
+      console.log('🎭 チャットメッセージ送信中...')
+      const { error } = await supabase
+        .from('private_group_messages')
+        .insert({
+          group_id: groupId,
+          member_id: null,
+          message: JSON.stringify({
+            type: 'system',
+            action: 'character_assignment',
+            title: 'キャラクター配役が確定しました',
+            body: lines,
+            assignments: charDecisions,
+          }),
+        })
+      console.log('🎭 チャットメッセージ結果:', { error })
+      if (error) throw error
+
+      // アンケート回答にもキャラクター選択として保存（RPC経由でRLS回避）
+      try {
+        // デバッグ: RPCの前提条件を確認
+        const { data: groupData } = await supabase
+          .from('private_groups')
+          .select('scenario_id, organization_id')
+          .eq('id', groupId)
+          .single()
+        console.log('🎭 DEBUG グループ情報:', groupData)
+
+        if (groupData?.scenario_id && groupData?.organization_id) {
+          const { data: os1 } = await supabase
+            .from('organization_scenarios')
+            .select('id')
+            .eq('scenario_master_id', groupData.scenario_id)
+            .eq('organization_id', groupData.organization_id)
+            .maybeSingle()
+          console.log('🎭 DEBUG org_scenario (by master_id):', os1)
+
+          const orgScenarioId = os1?.id || groupData.scenario_id
+          const { data: questions } = await supabase
+            .from('org_scenario_survey_questions')
+            .select('id, question_type, question_text')
+            .eq('org_scenario_id', orgScenarioId)
+          const charSelQ = questions?.filter((q: any) => q.question_type === 'character_selection')
+          console.log('🎭 DEBUG survey questions:', { orgScenarioId, total: questions?.length, charSelQuestions: charSelQ, allTypes: questions?.map((q: any) => q.question_type) })
+        }
+
+        console.log('🎭 配役→アンケート反映 RPC呼び出し:', { groupId, charDecisions })
+        const { data: rpcData, error: rpcError } = await supabase.rpc('upsert_character_assignments_to_survey', {
+          p_group_id: groupId,
+          p_assignments: charDecisions,
+        })
+        console.log('🎭 配役→アンケート反映 RPC結果:', { rpcData, rpcError })
+        if (rpcError) {
+          console.error('🎭 アンケート回答への配役反映エラー:', rpcError)
+        }
+        // RPC後にDBを直接確認
+        const { data: checkResponses } = await supabase
+          .from('private_group_survey_responses')
+          .select('member_id, responses')
+          .eq('group_id', groupId)
+        console.log('🎭 DEBUG RPC後の回答データ:', checkResponses)
+      } catch (surveyErr) {
+        console.error('🎭 アンケート回答への配役反映エラー:', surveyErr)
+      }
+
+      toast.success('配役を確定しました')
+      setCharConfirmStep(false)
+      onCharAssignmentConfirmed?.()
+    } catch (err) {
+      logger.error('配役確定エラー:', err)
+      toast.error('送信に失敗しました')
+    } finally {
+      setCharSubmitting(false)
+    }
+  }, [members, charDecisions, charPreferences, characters, groupId, onCharAssignmentConfirmed])
 
   const getMemberName = useCallback((memberId: string | null) => {
     if (!memberId) return '退出したメンバー'
@@ -467,9 +710,9 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                               </p>
                             </div>
                           </div>
-                          <div className="bg-white rounded-lg p-3 border border-amber-100">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {systemMsg.message}
+                          <div className="bg-white rounded-lg p-3 border border-amber-100 overflow-hidden">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-all">
+                              {renderMessageWithLinks(systemMsg.message || '')}
                             </p>
                           </div>
                         </div>
@@ -495,9 +738,9 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                               </p>
                             </div>
                           </div>
-                          <div className="bg-white rounded-lg p-3 border border-blue-100 space-y-3">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {systemMsg.message}
+                          <div className="bg-white rounded-lg p-3 border border-blue-100 space-y-3 overflow-hidden">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-all">
+                              {renderMessageWithLinks(systemMsg.message || '')}
                             </p>
                             {scenarioId && organizationId && currentMemberId && (
                               <Button
@@ -655,9 +898,9 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                               </p>
                             </div>
                           </div>
-                          <div className="bg-white rounded-lg p-2.5 mt-2 border border-amber-100">
-                            <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
-                              {systemMsg.body}
+                          <div className="bg-white rounded-lg p-2.5 mt-2 border border-amber-100 overflow-hidden">
+                            <p className="text-sm text-gray-900 whitespace-pre-wrap break-all leading-relaxed">
+                              {renderMessageWithLinks(systemMsg.body || '')}
                             </p>
                           </div>
                           <p className="mt-2 px-0.5 text-[10px] text-muted-foreground leading-snug">
@@ -692,14 +935,43 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                               </p>
                             </div>
                           </div>
-                          <div className="bg-white rounded-lg p-3 mt-2 border border-indigo-100">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {systemMsg.message}
+                          <div className="bg-white rounded-lg p-3 mt-2 border border-indigo-100 overflow-hidden">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-all">
+                              {renderMessageWithLinks(systemMsg.message || '')}
                             </p>
                           </div>
                           <p className="text-xs text-indigo-400 mt-2 text-center">
                             🔒 このお知らせはあなただけに表示されています
                           </p>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // キャラクター配役確定（方法がリセットされている場合は非表示）
+                  if (systemMsg && systemMsg.action === 'character_assignment') {
+                    if (!charAssignmentMethod) return null
+                    return (
+                      <div key={msg.id} className="flex justify-center my-4">
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-purple-800">
+                                {systemMsg.title || 'キャラクター配役が確定しました'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(msg.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 border border-purple-100">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {systemMsg.body}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     )
@@ -746,6 +1018,324 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
               </div>
             ))
           )}
+          {/* 配役方法の選択カード（主催者のみ） */}
+          {needsCharAssignmentChoice && isOrganizer && onCharAssignmentMethodSelected && (
+            <div className="flex justify-center my-4">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
+                    <Users className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <span className="font-semibold text-sm">キャラクターの配役方法</span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  キャラクターの配役をどのように決めますか？
+                </p>
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    className="w-full h-auto py-3 flex flex-col items-start gap-0.5 border-purple-200 hover:bg-purple-100"
+                    onClick={() => onCharAssignmentMethodSelected('survey')}
+                  >
+                    <span className="font-medium text-sm">アンケートで希望を伝える</span>
+                    <span className="text-[10px] text-muted-foreground">スタッフが決定します</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full h-auto py-3 flex flex-col items-start gap-0.5 border-purple-200 hover:bg-purple-100"
+                    onClick={() => onCharAssignmentMethodSelected('self')}
+                  >
+                    <span className="font-medium text-sm">自分たちで決める</span>
+                    <span className="text-[10px] text-muted-foreground">参加者同士で選択します</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 配役方法=survey: アンケート回答カード */}
+          {charAssignmentMethod === 'survey' && scenarioId && organizationId && currentMemberId && (
+            <div className="flex justify-center my-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full max-w-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                      <ClipboardList className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="font-semibold text-sm text-blue-800">アンケートのご協力のお願い</span>
+                  </div>
+                  {isOrganizer && onResetCharAssignmentMethod && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm('配役方法を変更すると、現在送信されている回答が無効になります。よろしいですか？')) {
+                          onResetCharAssignmentMethod()
+                        }
+                      }}
+                      className="text-xs text-purple-600 underline hover:text-purple-800"
+                    >
+                      方法変更
+                    </button>
+                  )}
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-blue-100 space-y-3">
+                  <p className="text-sm text-gray-700">
+                    キャラクター選択のため、アンケートへのご回答をお願いいたします。
+                  </p>
+                  {deadlineText && (
+                    <p className="text-xs text-blue-600 font-medium">回答期限: {deadlineText}</p>
+                  )}
+                  <Button
+                    onClick={() => setShowSurveyDialog(true)}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    size="sm"
+                  >
+                    <ClipboardList className="w-4 h-4 mr-2" />
+                    アンケートに回答する
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 配役方法=self: インラインキャラクター選択（確定済みメッセージがあれば非表示） */}
+          {charAssignmentMethod === 'self' && characters.length > 0 && !messages.some(m => {
+            try { return JSON.parse(m.message)?.action === 'character_assignment' } catch { return false }
+          }) && (() => {
+            const activeMembers = members.filter(m => m.status === 'active' || m.status === 'joined')
+            const charNameById = (id: string | undefined) => id ? characters.find(c => c.id === id)?.name : null
+            const allPreferred = activeMembers.every(m => charPreferences[m.id])
+            const myPreference = currentMemberId ? charPreferences[currentMemberId] : undefined
+
+            // 主催者の確定ステップ
+            if (charConfirmStep && isOrganizer) {
+              const decisionDupes = (() => {
+                const chosen = activeMembers.map(m => charDecisions[m.id]).filter(Boolean)
+                return [...new Set(chosen.filter((v, i) => chosen.indexOf(v) !== i))]
+              })()
+              const allDecided = activeMembers.every(m => charDecisions[m.id])
+              console.log('🎭 確定ステップ表示中:', { allDecided, decisionDupes, charDecisions, activeMemberIds: activeMembers.map(m=>m.id) })
+
+              return (
+                <div className="flex justify-center my-4">
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
+                        <Users className="w-3.5 h-3.5 text-white" />
+                      </div>
+                      <span className="font-semibold text-sm">配役の確定</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">希望を参考に配役を決定してください</p>
+
+                    {activeMembers.map(m => {
+                      const prefCharName = charNameById(charPreferences[m.id])
+                      return (
+                        <div key={m.id} className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">
+                              {m.guest_name || '参加者'}
+                              {m.id === currentMemberId && <span className="text-xs text-purple-600 ml-1">（あなた）</span>}
+                            </span>
+                            {prefCharName && (
+                              <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                                希望: {prefCharName}
+                              </Badge>
+                            )}
+                          </div>
+                          <Select
+                            value={charDecisions[m.id] || 'none'}
+                            onValueChange={(v) => v !== 'none' && setCharDecisions(prev => ({ ...prev, [m.id]: v }))}
+                          >
+                            <SelectTrigger className="w-full h-8 text-sm">
+                              <SelectValue placeholder="配役を選択" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none" disabled>配役を選択</SelectItem>
+                              {characters.map(char => (
+                                <SelectItem key={char.id} value={char.id}>
+                                  {char.name}
+                                  {char.gender && ` (${char.gender === 'male' ? '男性' : char.gender === 'female' ? '女性' : char.gender === 'any' ? '性別自由' : 'その他'})`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )
+                    })}
+
+                    {decisionDupes.length > 0 && (
+                      <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <span>{decisionDupes.map(id => charNameById(id)).filter(Boolean).join('、')} が複数人に割り当てられています</span>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCharConfirmStep(false)}
+                        className="flex-1"
+                      >
+                        戻る
+                      </Button>
+                      {allDecided && decisionDupes.length === 0 ? (
+                        <Button
+                          size="sm"
+                          onClick={handleCharConfirmAndSend}
+                          disabled={charSubmitting}
+                          className="flex-1 bg-purple-600 hover:bg-purple-700"
+                        >
+                          {charSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : '配役を確定'}
+                        </Button>
+                      ) : (
+                        <Button size="sm" disabled className="flex-1">
+                          {!allDecided ? '全員選択してください' : '被り解消してください'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            // 通常の希望選択ステップ
+            return (
+              <div className="flex justify-center my-4">
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
+                      <Users className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="font-semibold text-sm">キャラクター選択</span>
+                    {isOrganizer && onResetCharAssignmentMethod && (
+                      <button
+                      onClick={() => {
+                        if (window.confirm('配役方法を変更すると、現在送信されている回答が無効になります。よろしいですか？')) {
+                          onResetCharAssignmentMethod()
+                        }
+                      }}
+                      className="text-xs text-purple-600 underline hover:text-purple-800"
+                    >
+                      方法変更
+                    </button>
+                    )}
+                    <Badge variant="outline" className={`ml-auto text-[10px] ${myPreference ? 'bg-green-100 text-green-700 border-green-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
+                      {myPreference ? '希望済' : '未回答'}
+                    </Badge>
+                  </div>
+
+                  {/* キャラクター一覧: 画像 + 誰が選んだか表示 */}
+                  <div className="space-y-2">
+                    {characters.map(char => {
+                      const selectedBy = activeMembers.filter(m => charPreferences[m.id] === char.id)
+                      const isMyChoice = myPreference === char.id
+                      return (
+                        <button
+                          key={char.id}
+                          onClick={() => handleSelectCharPreference(char.id)}
+                          disabled={charSaving}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-left transition-colors ${
+                            isMyChoice
+                              ? 'bg-purple-100 border-purple-300'
+                              : 'bg-white border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          {/* キャラクター画像 */}
+                          {char.image_url ? (
+                            <div className="w-[60px] h-[60px] rounded-lg overflow-hidden shrink-0 bg-gray-100">
+                              <img
+                                src={char.image_url}
+                                alt={char.name}
+                                className="w-full h-full object-cover"
+                                style={{
+                                  objectPosition: char.image_position
+                                    ? `${char.image_position.split(' ')[0]}% ${char.image_position.split(' ')[1]}%`
+                                    : '50% 30%',
+                                  transform: char.image_scale ? `scale(${char.image_scale / 100})` : undefined,
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-[60px] h-[60px] rounded-lg bg-gray-200 shrink-0 flex items-center justify-center">
+                              <Users className="w-5 h-5 text-gray-400" />
+                            </div>
+                          )}
+                          {/* 名前 + 選択者 */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              {isMyChoice && <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />}
+                              <span className="text-sm font-medium truncate">
+                                {char.name}
+                              </span>
+                              {char.gender && (
+                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                  ({char.gender === 'male' ? '男' : char.gender === 'female' ? '女' : char.gender === 'any' ? '自由' : char.gender})
+                                </span>
+                              )}
+                            </div>
+                            {selectedBy.length > 0 ? (
+                              <p className="text-xs text-purple-700 mt-0.5 truncate">
+                                {selectedBy.map(m => m.id === currentMemberId ? 'あなた' : (m.guest_name || '参加者')).join(', ')}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-gray-400 mt-0.5">未選択</p>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {charSaving && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 justify-center">
+                      <Loader2 className="w-3 h-3 animate-spin" /> 保存中...
+                    </p>
+                  )}
+
+                  {deadlineText && (
+                    <p className="text-xs text-center text-purple-600 font-medium">回答期限: {deadlineText}</p>
+                  )}
+
+                  {/* 参加人数の進捗 */}
+                  {(() => {
+                    const preferredCount = activeMembers.filter(m => charPreferences[m.id]).length
+                    const requiredCount = scenarioPlayerCount || characters.length
+                    const memberShortage = activeMembers.length < requiredCount
+                    return (
+                      <>
+                        <p className="text-xs text-center text-muted-foreground">
+                          {preferredCount}/{activeMembers.length}人が回答済み{isOrganizer && '（全員揃わなくても確定できます）'}
+                        </p>
+                        {memberShortage && (
+                          <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <span>参加メンバー（{activeMembers.length}人）がシナリオの必要人数（{requiredCount}人）に足りません。全員揃ってから配役を確定してください。</span>
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
+
+                  {/* 主催者は確定ボタン表示（メンバー不足時は無効） */}
+                  {isOrganizer && (
+                    <Button
+                      size="sm"
+                      onClick={handleGoToCharConfirm}
+                      disabled={activeMembers.length < (scenarioPlayerCount || characters.length)}
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                    >
+                      配役を確定する
+                    </Button>
+                  )}
+                  {allPreferred && !isOrganizer && (
+                    <p className="text-xs text-center text-green-600 bg-green-50 rounded p-1.5">
+                      全員の希望が揃いました。主催者が配役を確定します。
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
           <div ref={messagesEndRef} />
         </div>
 
@@ -822,6 +1412,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   scenarioId={scenarioId}
                   organizationId={organizationId}
                   performanceDate={performanceDate}
+                  hideCharacterSelection={charAssignmentMethod === 'survey'}
                 />
               )}
             </div>

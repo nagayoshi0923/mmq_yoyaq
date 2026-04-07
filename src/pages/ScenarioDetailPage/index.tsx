@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -118,6 +118,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     MAX_SELECTIONS,
     availableStores,
     isNextMonthDisabled,
+    isLoadingEvents,
     setSelectedStoreIds,
     setSelectedTimeSlots,
     checkTimeSlotAvailability,
@@ -245,6 +246,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     getTimeSlotsForDate,
     setSelectedTimeSlots,
   ])
+
+  // generatePrivateDates の結果を安定化（インライン呼び出しだと毎レンダーで新配列が生まれ memo() が無効になる）
+  const privateDates = useMemo(() => generatePrivateDates(), [generatePrivateDates])
 
   // 貸切リクエスト完了時のハンドラ（選択状態をクリア）
   const handlePrivateBookingCompleteWithClear = useCallback(() => {
@@ -585,7 +589,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     onStoreIdsChange={setSelectedStoreIds}
                     currentMonth={currentMonth}
                     onMonthChange={changeMonth}
-                    availableDates={generatePrivateDates()}
+                    availableDates={privateDates}
                     getTimeSlotsForDate={getTimeSlotsForDate}
                     selectedSlots={selectedTimeSlots}
                     onTimeSlotToggle={toggleTimeSlot}
@@ -594,12 +598,13 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     isCustomHoliday={isCustomHoliday}
                     blockedSlots={scenario?.private_booking_blocked_slots}
                     isNextMonthDisabled={isNextMonthDisabled}
+                    loading={isLoadingEvents}
                   />
                   
                   {/* 選択された時間枠の表示 */}
                   {selectedTimeSlots.length > 0 && (
-                    <div className="mt-4 p-3 bg-red-50 border border-red-200">
-                      <div className="text-xs sm:text-sm text-red-900 mb-2">
+                    <div className="mt-4 p-3 bg-purple-50 border border-purple-200">
+                      <div className="text-xs sm:text-sm text-purple-900 mb-2">
                         選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
                       </div>
                       <div className="space-y-1">
@@ -612,14 +617,14 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                           
                           return (
                             <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs sm:text-sm">
-                              <span className="text-red-900 flex-1 min-w-0 pr-2">
+                              <span className="text-purple-900 flex-1 min-w-0 pr-2">
                                 {index + 1}. {month}/{day}({weekday}) {item.slot.label}{' '}
                                 {item.slot.startTime}〜{item.slot.endTime}
                               </span>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 sm:h-7 sm:w-7 p-0 hover:bg-red-100 flex-shrink-0 touch-manipulation"
+                                className="h-6 w-6 sm:h-7 sm:w-7 p-0 hover:bg-purple-100 flex-shrink-0 touch-manipulation"
                                 onClick={() => toggleTimeSlot(item.date, item.slot)}
                               >
                                 ×
@@ -651,29 +656,62 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   />
                 )}
 
-                {activeTab === 'private' && (
-                  <div className="space-y-4">
-                    {/* 選択店舗（選択した店舗がある場合のみ表示） */}
-                    {selectedStoreIds.length > 0 && (
-                      <VenueAccess
-                        selectedStoreIds={selectedStoreIds}
-                        stores={availableStores}
-                        mode="private"
+                {activeTab === 'private' && (() => {
+                  const now = new Date()
+                  const jstOffset = 9 * 60
+                  const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
+                  const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
+                  const startDate = scenario.booking_start_date
+                  const endDate = scenario.booking_end_date
+                  const hasPeriod = !!(startDate || endDate)
+                  const isBeforeStart = startDate && todayStr < startDate
+                  const isAfterEnd = endDate && todayStr > endDate
+                  const isOutOfPeriod = hasPeriod && (isBeforeStart || isAfterEnd)
+
+                  if (isOutOfPeriod) {
+                    return (
+                      <div className="border rounded-lg bg-gray-50 p-6 text-center space-y-2">
+                        <p className="text-sm text-gray-600">現在は募集していません</p>
+                        {startDate && endDate ? (
+                          <p className="text-xs text-muted-foreground">
+                            募集期間: {startDate} 〜 {endDate}
+                          </p>
+                        ) : endDate ? (
+                          <p className="text-xs text-muted-foreground">
+                            募集終了日: {endDate}
+                          </p>
+                        ) : startDate ? (
+                          <p className="text-xs text-muted-foreground">
+                            募集開始日: {startDate}
+                          </p>
+                        ) : null}
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {selectedStoreIds.length > 0 && (
+                        <VenueAccess
+                          selectedStoreIds={selectedStoreIds}
+                          stores={availableStores}
+                          mode="private"
+                        />
+                      )}
+                      <PrivateBookingPanel
+                        participationFee={scenario.participation_fee}
+                        maxParticipants={scenario.player_count_max}
+                        selectedTimeSlotsCount={selectedTimeSlots.length}
+                        isLoggedIn={!!user}
+                        onRequestBooking={() => handlePrivateBookingRequest(!!user)}
+                        reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
+                        hasPreReading={scenario.has_pre_reading}
+                        scenarioId={scenario.scenario_master_id || scenario.id}
+                        organizationSlug={organizationSlug}
                       />
-                    )}
-                    <PrivateBookingPanel
-                      participationFee={scenario.participation_fee}
-                      maxParticipants={scenario.player_count_max}
-                      selectedTimeSlotsCount={selectedTimeSlots.length}
-                      isLoggedIn={!!user}
-                      onRequestBooking={() => handlePrivateBookingRequest(!!user)}
-                      reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
-                      hasPreReading={scenario.has_pre_reading}
-                      scenarioId={scenario.scenario_master_id || scenario.id}
-                      organizationSlug={organizationSlug}
-                    />
-                  </div>
-                )}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           </div>

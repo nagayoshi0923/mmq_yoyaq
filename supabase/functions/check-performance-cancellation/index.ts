@@ -200,7 +200,28 @@ async function sendCancellationNotifications(
     .select('name, display_name, email')
     .eq('organization_id', event.organization_id)
   
-  // 3. 各予約者にメール送信
+  // 3. 予約をキャンセル状態に更新（メール設定の有無に関わらず必ず実行）
+  if (reservations && reservations.length > 0) {
+    const reservationIds = reservations.map(r => r.id)
+    const { error: cancelError } = await supabase
+      .from('reservations')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: checkType === 'day_before' 
+          ? '人数未達による公演中止（前日判定）' 
+          : '人数未達による公演中止（4時間前判定）'
+      })
+      .in('id', reservationIds)
+
+    if (cancelError) {
+      console.error('❌ 予約キャンセル更新エラー:', cancelError)
+    } else {
+      console.log(`✅ 予約キャンセル更新完了: ${reservationIds.length}件`)
+    }
+  }
+
+  // 4. 各予約者にメール送信（APIキーが設定されている場合のみ）
   if (reservations && reservations.length > 0 && emailSettings.resendApiKey) {
     for (const reservation of reservations) {
       // メールアドレスを取得（customer_email → スタッフテーブルからの検索）
@@ -238,23 +259,9 @@ async function sendCancellationNotifications(
         console.error('❌ メール送信エラー:', maskEmail(emailToSend), emailError)
       }
     }
-
-    // 予約をキャンセル状態に更新
-    const reservationIds = reservations.map(r => r.id)
-    await supabase
-      .from('reservations')
-      .update({
-        status: 'cancelled',
-        is_cancelled: true,
-        cancelled_at: new Date().toISOString(),
-        cancellation_reason: checkType === 'day_before' 
-          ? '人数未達による公演中止（前日判定）' 
-          : '人数未達による公演中止（4時間前判定）'
-      })
-      .in('id', reservationIds)
   }
 
-  // 3.5. イベント自体を中止状態に更新
+  // 5. イベント自体を中止状態に更新
   const { error: eventUpdateError } = await supabase
     .from('schedule_events')
     .update({
@@ -268,10 +275,10 @@ async function sendCancellationNotifications(
     console.log('✅ イベント中止フラグ更新完了:', event.event_id)
   }
 
-  // 4. Discord個別通知は廃止（サマリー通知に統一）
+  // 6. Discord個別通知は廃止（サマリー通知に統一）
   // 以前: await sendDiscordCancellationNotification(supabase, event, checkType, reservations?.length || 0)
 
-  // 5. ログを更新
+  // 7. ログを更新
   await supabase
     .from('performance_cancellation_logs')
     .update({
@@ -1011,8 +1018,8 @@ async function sendBusinessSummaryNotification(
       // Bot APIを使用してチャンネルにメッセージを送信
       const discordSettings = await getDiscordSettings(supabase, org.organization_id)
       
-      // 今回処理したイベント + 既に延長済みイベントを結合
-      const allEvents = [...result.details, ...alreadyExtendedDetails]
+      // 今回処理したイベントのみ（実際にキャンセル・延長・開催決定になったもの）
+      const allEvents = [...result.details]
       
       // GMのDiscord IDを取得してメンション用マップを作成
       const allGMs = allEvents.flatMap(e => e.gms || [])
@@ -1058,23 +1065,25 @@ async function sendBusinessSummaryNotification(
       lines.push(`📋 **${targetDateStr} 公演中止判定結果** (${checkTypeLabel})`)
       lines.push('')
       
-      // サマリー（既に延長中のものも含める）
-      const alreadyExtendedCount = alreadyExtendedDetails.length
-      let summaryParts = [
+      // サマリー（今回処理した件数のみ）
+      const summaryParts = [
         `チェック対象: ${result.events_checked}件`,
         `開催決定: ${result.events_confirmed}件`,
-        `募集延長: ${result.events_extended ?? 0}件`
+        `募集延長: ${result.events_extended ?? 0}件`,
+        `中止: ${result.events_cancelled}件`
       ]
-      if (alreadyExtendedCount > 0) {
-        summaryParts.push(`延長中: ${alreadyExtendedCount}件`)
-      }
-      summaryParts.push(`中止: ${result.events_cancelled}件`)
       lines.push(summaryParts.join(' | '))
       lines.push('')
       
-      if (allEvents.length === 0) {
-        // 対象公演がない場合は通知をスキップ
+      if (result.details.length === 0 && alreadyExtendedDetails.length === 0) {
+        // 処理イベントも延長中イベントもない場合はスキップ
         console.log(`ℹ️ 対象公演なし: org=${org.organization_id}, 通知スキップ`)
+        continue
+      }
+      
+      if (result.details.length === 0) {
+        // 今回実際に処理したイベントがなければ通知しない（延長中のみの情報は毎時間不要）
+        console.log(`ℹ️ 今回処理なし（延長中のみ）: org=${org.organization_id}, 通知スキップ`)
         continue
       } else {
         // 公演を時間順にソート

@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
@@ -16,6 +17,7 @@ interface StoreSettings {
   name: string
   short_name: string
   address?: string
+  access_info?: string
   phone_number?: string
   email?: string
   opening_date?: string
@@ -43,6 +45,7 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
     name: '',
     short_name: '',
     address: '',
+    access_info: '',
     phone_number: '',
     email: '',
     opening_date: '',
@@ -131,6 +134,7 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
           name: formData.name,
           short_name: formData.short_name,
           address: formData.address,
+          access_info: formData.access_info,
           phone_number: formData.phone_number,
           email: formData.email,
           opening_date: formData.opening_date || null,
@@ -267,6 +271,17 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
               value={formData.address}
               onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
               placeholder="例: 東京都渋谷区..."
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="access_info">アクセス方法</Label>
+            <Textarea
+              id="access_info"
+              value={formData.access_info || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, access_info: e.target.value }))}
+              placeholder="例: JR渋谷駅ハチ公口から徒歩5分。○○ビル3F"
+              rows={3}
             />
           </div>
 

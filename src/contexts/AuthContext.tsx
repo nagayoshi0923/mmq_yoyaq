@@ -305,20 +305,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
               const isOAuthSocialSignIn = Boolean(authProvider && authProvider !== 'email')
 
               if (oauthMode === 'login' && isOAuthSocialSignIn) {
-                const { data: customer } = await supabase
+                const { data: customerRows } = await supabase
                   .from('customers')
                   .select('id')
                   .eq('user_id', session.user.id)
-                  .maybeSingle()
+                  .order('created_at', { ascending: true })
+                  .limit(1)
 
-                if (!customer) {
-                  authTrace('⚠️ OAuthログインで未登録ユーザーを検出、ログアウト')
+                if (!customerRows || customerRows.length === 0) {
+                  authTrace('⚠️ OAuthログインで顧客レコード未検出、プロフィール登録へ誘導')
                   sessionStorage.removeItem('oauth_mode')
-                  sessionStorage.setItem('auth_error', 'このアカウントは登録されていません。新規登録からお進みください。')
-                  await supabase.auth.signOut()
                   setLoading(false)
                   setIsInitialized(true)
-                  window.location.href = '/login'
+                  window.location.href = '/complete-profile'
                   return
                 }
               }

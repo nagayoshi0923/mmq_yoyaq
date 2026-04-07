@@ -32,6 +32,7 @@
     "supabase:migration:list": "npx supabase migration list",
     "supabase:functions:serve": "npx supabase functions serve",
     "dev:local": "npm run supabase:start && npm run dev",
+    "test:rpcs": "psql \"$(npx supabase status --output json | jq -r '.DB_URL')\" -f supabase/tests/smoke_test_rpcs.sql",
     "db:push:staging": "SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-staging -a postgres -w) npx supabase link --project-ref lavutzztfqbdndjiwluc && SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-staging -a postgres -w) npx supabase db push --linked --include-all && npm run check:permissions && SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-prod -a postgres -w) npx supabase link --project-ref cznpcewciwywcqcxktba",
     "db:push:prod": "SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-prod -a postgres -w) npx supabase link --project-ref cznpcewciwywcqcxktba && SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-prod -a postgres -w) npx supabase db push --linked --include-all && npm run check:permissions"
   },

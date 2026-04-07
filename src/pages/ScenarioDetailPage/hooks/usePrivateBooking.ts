@@ -8,6 +8,7 @@ import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/ho
 import { isJapaneseHoliday } from '@/utils/japaneseHolidays'
 import {
   getPerformanceDurationMinutesForDate,
+  PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES,
 } from '@/lib/privateBookingScenarioTime'
 import { timeStrToMinutes } from '@/lib/privateBookingSlotAvailability'
 import { type BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
@@ -415,12 +416,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         holidayFn(targetDate)
       let effectiveMinStartMin: number | undefined = undefined
 
-      if (targetTimeSlot === 'afternoon' && !isWeekendOrHolidayForAvail) {
-        effectiveMinStartMin = Math.max(
-          f.priorEventEarliestStartMin,
-          f.slotBandEnd - durationMinutes - extraPrepTime
-        )
-      } else if (targetTimeSlot === 'evening' && startMin < f.slotBandStart) {
+      if (targetTimeSlot === 'evening' && startMin < f.slotBandStart) {
         // 長時間作品の夜枠: 枠開始前からの開始を許可するが前の公演との衝突は防ぐ
         let latestPriorEndWithBuffer = 0
         for (const e of allStoreEvents) {
@@ -438,11 +434,14 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         effectiveMinStartMin = latestPriorEndWithBuffer
       }
 
-      // 夜枠は最終枠のため、準備時間は営業終了後に延長可能
-      const occupancyEndOverride =
-        startMin + durationMinutes + extraPrepTime > f.slotBandEnd
-          ? PRIVATE_BOOKING_DAY_END_MINUTES + (targetTimeSlot === 'evening' ? extraPrepTime : 0)
-          : undefined
+      // 平日午後: 夜公演前の60分バッファを確保
+      // 夜枠: 最終枠のため準備時間は営業終了後に延長可能
+      let occupancyEndOverride: number | undefined
+      if (targetTimeSlot === 'afternoon' && !isWeekendOrHolidayForAvail) {
+        occupancyEndOverride = f.slotBandEnd - PRIVATE_BOOKING_EVENT_INTERVAL_MINUTES
+      } else if (startMin + durationMinutes + extraPrepTime > f.slotBandEnd) {
+        occupancyEndOverride = PRIVATE_BOOKING_DAY_END_MINUTES + (targetTimeSlot === 'evening' ? extraPrepTime : 0)
+      }
 
       return isProposedPrivateBookingStartFeasible(
         f,
@@ -637,6 +636,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     MAX_SELECTIONS,
     availableStores,
     isNextMonthDisabled,
+    isLoadingEvents,
     setSelectedStoreIds,
     setSelectedTimeSlots,
     checkTimeSlotAvailability,

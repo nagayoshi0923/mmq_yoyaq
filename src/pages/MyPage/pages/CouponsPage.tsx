@@ -4,7 +4,7 @@
  * クーポンをタップしてもぎる機能付き
  */
 import { useState, useEffect } from 'react'
-import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'lucide-react'
+import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors, Info } from 'lucide-react'
 import { getAllCoupons, useCoupon, getCurrentReservations } from '@/lib/api/couponApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Button } from '@/components/ui/button'
@@ -245,6 +245,24 @@ export function CouponsPage() {
                           {new Date(coupon.expires_at).toLocaleDateString('ja-JP')}まで
                         </span>
                       )}
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5 text-xs text-gray-500">
+                      <div className="flex items-start gap-1.5">
+                        <CheckCircle2 className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <span>MMQで予約した公演にご利用いただけます</span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <CheckCircle2 className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <span>1回のご予約につき1枚使用可能</span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <CheckCircle2 className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <span>他のクーポンとの併用不可</span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <CheckCircle2 className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <span>貸切参加でのご利用は貸切リクエストグループに入室する必要があります</span>
+                      </div>
                     </div>
                   </div>
                 </div>

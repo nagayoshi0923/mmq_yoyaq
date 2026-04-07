@@ -35,18 +35,20 @@ export function useStoresAndScenarios() {
   }, [])
 
   /**
+   * シナリオIDからシナリオオブジェクトを取得
+   * scenarioIdはscenarios.idまたはscenario_master_id（scenario_mastersテーブルのID）のどちらでも対応
+   */
+  const getScenario = useCallback((scenarioId: string): Scenario | undefined => {
+    return scenarios.find(s => s.id === scenarioId) ?? scenarios.find(s => s.scenario_master_id === scenarioId)
+  }, [scenarios])
+
+  /**
    * シナリオIDから名前を取得
    * scenarioIdはscenarios.idまたはscenario_master_id（scenario_mastersテーブルのID）のどちらでも対応
    */
   const getScenarioName = useCallback((scenarioId: string) => {
-    // まずscenarios.idで検索
-    let scenario = scenarios.find(s => s.id === scenarioId)
-    // 見つからない場合はscenario_master_idで検索
-    if (!scenario) {
-      scenario = scenarios.find(s => s.scenario_master_id === scenarioId)
-    }
-    return scenario?.title || '不明なシナリオ'
-  }, [scenarios])
+    return getScenario(scenarioId)?.title || '不明なシナリオ'
+  }, [getScenario])
 
   /**
    * シナリオIDリストから名前リストを取得
@@ -82,6 +84,7 @@ export function useStoresAndScenarios() {
     scenarios,
     loadStores,
     loadScenarios,
+    getScenario,
     getScenarioName,
     getScenarioNames,
     scenarioOptions,

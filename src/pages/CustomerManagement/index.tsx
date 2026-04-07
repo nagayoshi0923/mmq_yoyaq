@@ -93,12 +93,12 @@ export default function CustomerManagement() {
               <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 bg-muted/50 rounded-lg text-xs font-medium text-muted-foreground">
                 <div className="col-span-2">顧客名</div>
                 <div className="col-span-2">メールアドレス</div>
-                <div className="col-span-1">電話番号</div>
+                <div className="col-span-2">電話番号</div>
                 <div className="col-span-1 text-center">予約数</div>
                 <div className="col-span-1 text-center">クーポン</div>
                 <div className="col-span-1 text-center">来店</div>
                 <div className="col-span-1 text-right">累計支払額</div>
-                <div className="col-span-2">最終来店日</div>
+                <div className="col-span-1">最終来店日</div>
                 <div className="col-span-1 text-center">詳細</div>
               </div>
 

@@ -513,7 +513,7 @@ export function PlatformTop() {
     }))
   }, [scenariosWithEvents, selectedRegion])
 
-  // 残りわずかの公演（残り1-2枠の公演、全イベントを対象）
+  // 残りわずかの公演（残り1-3枠の公演、全イベントを対象）
   const nearlyConfirmed = useMemo(() => {
     const result: ScenarioWithEvents[] = []
     const addedScenarioIds = new Set<string>()
@@ -521,7 +521,7 @@ export function PlatformTop() {
     filteredScenarios.forEach(scenario => {
       const nearlyFullEvent = scenario.next_events.find(event => {
         const available = event.available_seats
-        return available > 0 && available <= 2
+        return available > 0 && available <= 3
       })
       
       if (nearlyFullEvent && !addedScenarioIds.has(scenario.scenario_id)) {
@@ -1123,7 +1123,7 @@ export function PlatformTop() {
                 <X className="w-5 h-5" />
               </button>
               <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold text-white mb-3">
-                🎉 4月3日までに登録の方限定
+                🎉 4月24日までに登録の方限定
               </div>
               <h3 className="text-white font-bold text-xl mb-1">
                 新規登録キャンペーン
@@ -1144,8 +1144,8 @@ export function PlatformTop() {
                 <p className="text-xs text-gray-600 space-y-1">
                   <span className="block">✓ MMQで予約した公演にご利用いただけます</span>
                   <span className="block">✓ 1回のご予約につき1枚使用可能</span>
-                  <span className="block">✓ クーポン有効期限：10月末まで</span>
                   <span className="block">✓ 他のクーポンとの併用不可</span>
+                  <span className="block">✓ 貸切参加でのご利用は貸切リクエストグループに入室する必要があります</span>
                 </p>
               </div>
               

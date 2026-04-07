@@ -29,13 +29,14 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   }
   
   // Step 2: まずシナリオを取得（IDが必要なため）
+  logger.log('[ScenarioDetail] 検索中:', { scenarioId, orgId })
   const scenarioDataResult = await scenarioApi.getByIdOrSlug(scenarioId, orgId).catch((error) => {
     logger.error('シナリオデータの取得エラー:', error)
     return null
   })
   
   if (!scenarioDataResult) {
-    logger.error('シナリオが見つかりません')
+    logger.error('シナリオが見つかりません:', { scenarioId, orgId })
     return null
   }
   
@@ -128,7 +129,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
           if (orgId) {
             const { data: orgScenarioData } = await supabase
               .from('organization_scenarios')
-              .select('custom_caution, characters, private_booking_blocked_slots')
+              .select('custom_caution, characters, private_booking_blocked_slots, booking_start_date, booking_end_date')
               .eq('scenario_master_id', masterId)
               .eq('organization_id', orgId)
               .maybeSingle()
@@ -136,7 +137,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
           }
           const { data: orgScenarioRows } = await supabase
             .from('organization_scenarios')
-            .select('custom_caution, characters, private_booking_blocked_slots')
+            .select('custom_caution, characters, private_booking_blocked_slots, booking_start_date, booking_end_date')
             .eq('scenario_master_id', masterId)
             .not('characters', 'is', null)
             .limit(1)
@@ -244,6 +245,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     extra_preparation_time: scenarioData.extra_preparation_time || 0,
     private_booking_time_slots: scenarioData.private_booking_time_slots || undefined,
     private_booking_blocked_slots: orgScenarioResult?.private_booking_blocked_slots || undefined,
+    booking_start_date: orgScenarioResult?.booking_start_date || null,
+    booking_end_date: orgScenarioResult?.booking_end_date || null,
     characters: charactersResult
   }
   

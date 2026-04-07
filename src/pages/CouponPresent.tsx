@@ -1,12 +1,15 @@
 /**
- * クーポンプレゼントページ
- * 新規登録完了後にクーポン付与を表示するページ
+ * クーポンプレゼント＆使い方ガイドページ
+ * 新規登録完了後にクーポン付与を表示 + 使い方を案内するページ
  * @path /coupon-present
  */
 import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Gift, Ticket, Calendar, CheckCircle2 } from 'lucide-react'
+import {
+  Gift, Ticket, Calendar, CheckCircle2,
+  Clock, Scissors, Users, Smartphone, ChevronRight,
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -24,13 +27,42 @@ interface CouponInfo {
   expires_at: string
 }
 
+function StepCard({ step, icon, title, description }: {
+  step: number
+  icon: React.ReactNode
+  title: string
+  description: string
+}) {
+  return (
+    <div className="flex gap-4 items-start">
+      <div className="flex-shrink-0 relative">
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: `${THEME.primary}12` }}
+        >
+          {icon}
+        </div>
+        <div
+          className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
+          style={{ backgroundColor: THEME.primary }}
+        >
+          {step}
+        </div>
+      </div>
+      <div className="flex-1 pt-1">
+        <h4 className="font-bold text-gray-900 mb-1">{title}</h4>
+        <p className="text-sm text-gray-600 leading-relaxed">{description}</p>
+      </div>
+    </div>
+  )
+}
+
 export function CouponPresent() {
   const [searchParams] = useSearchParams()
   const [coupons, setCoupons] = useState<CouponInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [userName, setUserName] = useState('')
   
-  // next パラメータから遷移先を取得（セキュリティ検証付き）
   const nextUrl = useMemo(() => {
     const nextParam = searchParams.get('next')
     return safeRedirectAfterProfileCompletion(nextParam, '/')
@@ -60,7 +92,6 @@ export function CouponPresent() {
         if (customer) {
           setUserName(customer.name || '')
 
-          // 顧客のクーポンを取得
           const { data: customerCoupons, error } = await supabase
             .from('customer_coupons')
             .select(`
@@ -148,11 +179,11 @@ export function CouponPresent() {
         </div>
       </header>
 
-      {/* メインコンテンツ */}
-      <main className="flex-1 flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md">
+      <main className="flex-1 px-4 py-8">
+        <div className="w-full max-w-md mx-auto space-y-6">
+
+          {/* ===== クーポン付与セクション ===== */}
           <Card className="border border-gray-200 shadow-lg overflow-hidden">
-            {/* 上部の装飾 */}
             <div 
               className="h-2"
               style={{ background: `linear-gradient(90deg, ${THEME.primary}, ${THEME.accent})` }}
@@ -224,10 +255,6 @@ export function CouponPresent() {
                       </div>
                     </div>
                   ))}
-
-                  <p className="text-sm text-gray-500 text-center mt-4">
-                    クーポンは予約時に自動で表示されます
-                  </p>
                 </div>
               ) : (
                 <div className="text-center py-4">
@@ -236,30 +263,149 @@ export function CouponPresent() {
                   </p>
                 </div>
               )}
+            </CardContent>
+          </Card>
 
-              <div className="mt-6 space-y-3">
-                <Button
-                  asChild
-                  className="w-full h-12 text-base font-semibold"
-                  style={{ backgroundColor: THEME.primary }}
-                >
-                  <Link to={nextUrl}>
-                    {nextUrl === '/' ? '公演を探す' : '続ける'}
-                  </Link>
-                </Button>
-                
-                <Button
-                  asChild
-                  variant="outline"
-                  className="w-full h-12"
-                >
-                  <Link to="/mypage">
-                    マイページへ
-                  </Link>
-                </Button>
+          {/* ===== クーポンの使い方ガイド ===== */}
+          <Card className="border border-gray-200 shadow-lg overflow-hidden">
+            <div
+              className="px-6 py-5 text-center"
+              style={{ backgroundColor: `${THEME.primary}08` }}
+            >
+              <h2 className="text-lg font-bold text-gray-900">
+                クーポンの使い方
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                かんたん4ステップ
+              </p>
+            </div>
+
+            <CardContent className="px-6 py-6">
+              <div className="space-y-6">
+                <StepCard
+                  step={1}
+                  icon={<Smartphone className="w-5 h-5" style={{ color: THEME.primary }} />}
+                  title="マイページを開く"
+                  description="MMQにログインして、マイページの「クーポン」タブを開きます。"
+                />
+
+                <StepCard
+                  step={2}
+                  icon={<Ticket className="w-5 h-5" style={{ color: THEME.primary }} />}
+                  title="使いたいクーポンをタップ"
+                  description="利用可能なクーポンが一覧で表示されます。使いたいクーポンをタップしてください。"
+                />
+
+                <StepCard
+                  step={3}
+                  icon={<CheckCircle2 className="w-5 h-5" style={{ color: THEME.primary }} />}
+                  title="公演を選択"
+                  description="紐付ける公演を選択します。当日参加する公演が自動で表示されます。"
+                />
+
+                <StepCard
+                  step={4}
+                  icon={<Scissors className="w-5 h-5" style={{ color: THEME.primary }} />}
+                  title="「もぎる」で完了！"
+                  description="「もぎる」ボタンを押して使用完了。使用後の画面をスタッフにお見せください。"
+                />
+              </div>
+
+              <div className="mt-6 rounded-lg bg-gray-50 border border-gray-200 px-4 py-4">
+                <div className="space-y-2 text-sm text-gray-700">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <span>MMQで予約した公演にご利用いただけます</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <span>1回のご予約につき1枚使用可能</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <span>他のクーポンとの併用不可</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <span>貸切参加でのご利用は貸切リクエストグループに入室する必要があります</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* ===== 使える時間 ===== */}
+          <Card className="border border-gray-200 shadow-lg overflow-hidden">
+            <CardContent className="px-6 py-6">
+              <div className="flex items-start gap-4">
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: '#FEF3C7' }}
+                >
+                  <Clock className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-2">使える時間帯</h3>
+                  <div
+                    className="rounded-lg px-4 py-3 mb-3"
+                    style={{ backgroundColor: '#FEF3C7' }}
+                  >
+                    <p className="font-bold text-amber-800 text-center">
+                      公演開始の3時間前 〜 終了の1時間後
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    上記の時間帯のみクーポンが使用可能です。時間外は「現在進行中の予約がありません」と表示されます。
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ===== 貸切公演でも使える ===== */}
+          <Card className="border border-gray-200 shadow-lg overflow-hidden">
+            <CardContent className="px-6 py-6">
+              <div className="flex items-start gap-4">
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: '#EDE9FE' }}
+                >
+                  <Users className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-2">貸切公演でも使えます</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    オープン公演だけでなく、貸切公演に参加する方もクーポンをご利用いただけます。招待リンクからグループに参加した後、マイページのクーポンタブから同じ手順でお使いください。
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ===== CTAボタン ===== */}
+          <div className="space-y-3 pt-2">
+            <Button
+              asChild
+              className="w-full h-12 text-base font-semibold flex items-center justify-center gap-2"
+              style={{ backgroundColor: THEME.primary }}
+            >
+              <Link to="/mypage">
+                マイページでクーポンを確認する
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              variant="outline"
+              className="w-full h-12"
+            >
+              <Link to={nextUrl}>
+                {nextUrl === '/' ? '公演を探す' : '続ける'}
+              </Link>
+            </Button>
+          </div>
+
         </div>
       </main>
     </div>

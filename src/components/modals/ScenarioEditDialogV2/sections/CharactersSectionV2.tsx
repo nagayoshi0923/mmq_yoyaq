@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Trash2, GripVertical, User, Upload, X, Copy, Link, Bot } from 'lucide-react'
+import { Plus, Trash2, GripVertical, User, Upload, X, Copy, Link, Bot, ClipboardList } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
@@ -492,7 +492,26 @@ export function CharactersSectionV2({ formData, setFormData }: CharactersSection
                       />
                     </div>
 
-                    {/* 5行目: NPCフラグ */}
+                    {/* 5行目: 事前アンケート用説明文 */}
+                    <div>
+                      <Label className={labelStyle}>
+                        <span className="flex items-center gap-1">
+                          <ClipboardList className="w-3 h-3" />
+                          アンケート用説明文（任意）
+                        </span>
+                      </Label>
+                      <Textarea
+                        value={character.survey_description || ''}
+                        onChange={(e) => updateCharacter(character.id, {
+                          survey_description: e.target.value || null
+                        })}
+                        placeholder="例: このキャラクターを担当される方へ。事前に以下の資料をお読みください。"
+                        className="text-sm min-h-[48px] resize-none"
+                        rows={2}
+                      />
+                    </div>
+
+                    {/* 6行目: NPCフラグ */}
                     <div className="flex items-center gap-2 pt-1">
                       <Switch
                         id={`npc-${character.id}`}

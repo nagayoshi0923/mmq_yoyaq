@@ -1275,6 +1275,11 @@ export function PrivateGroupInvite() {
   // チャットタブ時はシンプルなレイアウト
   const isChatMode = existingMemberId && activeTab === 'chat'
 
+  // 配役方法が未選択かつキャラクターが存在する場合
+  const charAssignmentMethod = (group as any).character_assignment_method as string | null
+  const scenarioCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)
+  const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_id && scenarioCharacters.length > 0 && charAssignmentMethod == null)
+
   // 進捗ステップ数の計算
   // booking_requested以降のステータスであれば、ステップ1〜4は完了済みとして扱う
   const isBookingRequested = group.status === 'booking_requested' || group.status === 'confirmed'
@@ -2379,6 +2384,28 @@ export function PrivateGroupInvite() {
               scenarioId={group.scenario_id || undefined}
               organizationId={group.organization_id || undefined}
               performanceDate={group.candidate_dates?.[0]?.date}
+              needsCharAssignmentChoice={needsCharAssignmentChoice}
+              onCharAssignmentMethodSelected={async (method) => {
+                await supabase.from('private_groups').update({ character_assignment_method: method, character_assignments: null }).eq('id', group.id)
+                await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                const methodLabel = method === 'survey' ? 'アンケート' : '自分たちで決める'
+                await supabase.from('private_group_messages').insert({
+                  group_id: group.id,
+                  member_id: existingMemberId,
+                  message: JSON.stringify({ type: 'system', action: 'character_method_selected', title: `配役方法が選択されました`, body: `「${methodLabel}」が選択されました。` }),
+                })
+                refetch()
+              }}
+              charAssignmentMethod={charAssignmentMethod}
+              characters={scenarioCharacters}
+              isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
+              onCharAssignmentConfirmed={() => refetch()}
+              onResetCharAssignmentMethod={async () => {
+                await supabase.from('private_groups').update({ character_assignment_method: null, character_assignments: null }).eq('id', group.id)
+                await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                refetch()
+              }}
+              scenarioPlayerCount={scenarioMax}
             />
           </div>
 
@@ -2516,6 +2543,7 @@ export function PrivateGroupInvite() {
         <div className="lg:hidden shrink-0">
           <NavigationBar currentPage="/" />
         </div>
+
       </div>
     )
   }
@@ -2971,6 +2999,28 @@ export function PrivateGroupInvite() {
                 scenarioId={group.scenario_id || undefined}
                 organizationId={group.organization_id || undefined}
                 performanceDate={group.candidate_dates?.[0]?.date}
+                needsCharAssignmentChoice={needsCharAssignmentChoice}
+                onCharAssignmentMethodSelected={async (method) => {
+                  await supabase.from('private_groups').update({ character_assignment_method: method, character_assignments: null }).eq('id', group.id)
+                  await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                  const methodLabel = method === 'survey' ? 'アンケート' : '自分たちで決める'
+                  await supabase.from('private_group_messages').insert({
+                    group_id: group.id,
+                    member_id: existingMemberId,
+                    message: JSON.stringify({ type: 'system', action: 'character_method_selected', title: `配役方法が選択されました`, body: `「${methodLabel}」が選択されました。` }),
+                  })
+                  refetch()
+                }}
+                charAssignmentMethod={charAssignmentMethod}
+                characters={scenarioCharacters}
+                isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
+                onCharAssignmentConfirmed={() => refetch()}
+                onResetCharAssignmentMethod={async () => {
+                  await supabase.from('private_groups').update({ character_assignment_method: null, character_assignments: null }).eq('id', group.id)
+                  await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                  refetch()
+                }}
+                scenarioPlayerCount={scenarioMax}
               />
             </TabsContent>
 
@@ -3305,20 +3355,31 @@ export function PrivateGroupInvite() {
           </Card>
         )}
 
-        {/* 公演前アンケート（日程確定後、参加済みメンバーのみ表示） */}
-        {isScheduleConfirmedUi && existingMemberId && group.scenario_id && (
-          <SurveyResponseForm
-            groupId={group.id}
-            memberId={existingMemberId}
-            scenarioId={group.scenario_id}
-            organizationId={group.organization_id}
-            performanceDate={group.candidate_dates?.find(cd => 
-              // 確定した候補日を探す（通常は reservation 経由で取得するが、ここでは最初の候補を使用）
-              cd.order_num === 1
-            )?.date}
-            characters={(group as any).scenario_characters || []}
-          />
-        )}
+        {/* アンケート or キャラクター選択（配役方法選択済み・日程確定後） */}
+        {isScheduleConfirmedUi && existingMemberId && group.scenario_id && !needsCharAssignmentChoice && (() => {
+          const hasCharacters = scenarioCharacters.length > 0
+          const method = charAssignmentMethod
+
+          if (!hasCharacters || method === 'survey') {
+            return (
+              <SurveyResponseForm
+                groupId={group.id}
+                memberId={existingMemberId}
+                scenarioId={group.scenario_id}
+                organizationId={group.organization_id}
+                performanceDate={group.candidate_dates?.find(cd => cd.order_num === 1)?.date}
+                characters={(group as any).scenario_characters || []}
+                hideCharacterSelection={method === 'survey'}
+              />
+            )
+          }
+
+          if (method === 'self') {
+            return null
+          }
+
+          return null
+        })()}
 
         {/* 送信ボタン（新規参加時のみ表示） */}
         {!existingMemberId && (

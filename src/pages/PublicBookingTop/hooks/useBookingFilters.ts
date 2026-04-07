@@ -61,7 +61,7 @@ export function useBookingFilters(scenarios: ScenarioCard[], searchTerm: string)
   }, [filteredScenarios])
 
   /**
-   * 残りわずかの公演（残り1-2枠の公演があるシナリオ）
+   * 残りわずかの公演（残り1-3枠の公演があるシナリオ）
    */
   const nearlyConfirmed = useMemo(() => {
     const result: ScenarioCard[] = []
@@ -70,7 +70,7 @@ export function useBookingFilters(scenarios: ScenarioCard[], searchTerm: string)
     filteredScenarios.forEach(scenario => {
       const nearlyFullEvent = scenario.next_events?.find(event => {
         const available = event.available_seats ?? 0
-        return available > 0 && available <= 2
+        return available > 0 && available <= 3
       })
       
       if (nearlyFullEvent && !addedScenarioIds.has(scenario.scenario_id)) {

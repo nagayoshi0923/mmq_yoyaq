@@ -93,7 +93,7 @@ async function computeConflictCandidateOrders(
 }
 
 interface PrivateBookingNotification {
-  type: 'insert'
+  type: 'insert' | 'resend'
   table: string
   record: {
     id: string
@@ -351,6 +351,50 @@ async function enqueueDiscordNotification(channelId: string, booking: any, gmNam
   const referenceId = booking?.id || null
   const webhookUrl = `https://discord.com/api/v10/channels/${channelId}/messages`
 
+  // 直接送信を試みる（即時配信）
+  const discord = await getDiscordSettings(supabase, orgId)
+  if (discord.botToken) {
+    try {
+      const directResponse = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bot ${discord.botToken}`
+        },
+        body: JSON.stringify(discordPayload)
+      })
+
+      if (directResponse.ok) {
+        console.log(`✅ Discord通知を即時送信 (channel=${channelId})`)
+        // 成功記録をキューに保存（重複防止・履歴用）
+        await supabase
+          .from('discord_notification_queue')
+          .upsert({
+            organization_id: orgId,
+            webhook_url: webhookUrl,
+            message_payload: discordPayload,
+            notification_type: notificationType,
+            reference_id: referenceId,
+            status: 'completed',
+            retry_count: 0,
+            max_retries: 3,
+            next_retry_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'organization_id,notification_type,reference_id,webhook_url',
+            ignoreDuplicates: true
+          })
+        return { sent: true }
+      }
+
+      const errorText = await directResponse.text()
+      console.warn(`⚠️ 即時送信失敗 (HTTP ${directResponse.status})、キューにフォールバック:`, errorText.slice(0, 200))
+    } catch (sendErr) {
+      console.warn('⚠️ 即時送信エラー、キューにフォールバック:', sendErr)
+    }
+  }
+
+  // 直接送信に失敗した場合、キューに入れてリトライ関数に委任
   const { data: queued, error: queueError } = await supabase
     .from('discord_notification_queue')
     .upsert({
@@ -405,16 +449,32 @@ serve(async (req) => {
     const body = await req.text()
     const payload: PrivateBookingNotification = JSON.parse(body)
     
-    // 新規作成のみ通知
-    if (payload.type.toLowerCase() !== 'insert') {
+    const payloadType = payload.type.toLowerCase()
+    if (payloadType !== 'insert' && payloadType !== 'resend') {
       return new Response(
         JSON.stringify({ message: 'Not a new booking' }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       )
     }
 
-    console.log('✅ Processing insert operation')
+    const isResend = payloadType === 'resend'
+    console.log(`✅ Processing ${isResend ? 'resend' : 'insert'} operation`)
     const booking = payload.record
+
+    // 再送信の場合、既存のキューエントリを削除して重複防止を回避
+    if (isResend && booking.id) {
+      const { error: deleteError } = await supabase
+        .from('discord_notification_queue')
+        .delete()
+        .eq('reference_id', booking.id)
+        .eq('notification_type', 'private_booking_request')
+      
+      if (deleteError) {
+        console.warn('⚠️ 既存キューの削除に失敗（続行）:', deleteError)
+      } else {
+        console.log('🗑️ 既存のキューエントリを削除しました')
+      }
+    }
     
     // デモ予約の場合は通知をスキップ
     if (booking.reservation_source === 'demo' || booking.reservation_source === 'demo_auto') {

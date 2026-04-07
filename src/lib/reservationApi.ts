@@ -209,7 +209,7 @@ export const reservationApi = {
         .from('reservations')
         .select(select)
         .eq('schedule_event_id', scheduleEventId)
-        .in('status', ['pending', 'confirmed', 'gm_confirmed', 'cancelled'])
+        .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in', 'cancelled'])
 
       if (orgId) {
         query = query.eq('organization_id', orgId)
@@ -984,12 +984,11 @@ export const reservationApi = {
       )
 
       // 4. スタッフ予約として管理している予約を抽出（削除対象の候補）
-      // ※ staff_entry（GM欄から自動作成）と staff_participation（予約者タブから追加）が対象
+      // ※ staff_entry（GM欄から自動作成）のみが対象
+      // ※ staff_participation（予約者タブから手動追加）は保護 — GM欄と独立した手動操作のため
       // ※ web（予約サイト）や walk_in（当日飛び込み）は保護
-      // ※ キャンセル済みも含める（toRemoveの後で status !== 'cancelled' でフィルタ）
       const managedStaffReservations = currentReservations.filter(r =>
-        r.reservation_source === 'staff_entry' ||
-        r.reservation_source === 'staff_participation'
+        r.reservation_source === 'staff_entry'
       )
 
       // 5. 追加が必要なスタッフ（アクティブな予約のみをチェック）
@@ -1002,9 +1001,9 @@ export const reservationApi = {
       })
 
       // 6. 削除が必要なスタッフ予約
-      // GM欄のスタッフ参加リストに含まれていない予約を削除
-      // ※ staff_entry と staff_participation の両方が対象（GM欄と同期）
-      // ※ web, walk_in, onsite 等は保護（一般顧客の予約を誤削除しない）
+      // GM欄のスタッフ参加リストに含まれていない staff_entry 予約を削除
+      // ※ staff_participation は手動追加のため自動削除しない
+      // ※ web, walk_in 等は保護（一般顧客の予約を誤削除しない）
       // ※ 名前の完全一致で比較（trimして比較）
       const toRemove = managedStaffReservations.filter(r =>
         !r.participant_names?.some(name => 

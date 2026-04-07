@@ -56,6 +56,8 @@ export interface ScenarioDetail {
   extra_preparation_time?: number  // 追加準備時間（分）
   private_booking_time_slots?: string[]  // 貸切受付可能時間枠
   private_booking_blocked_slots?: string[]  // 貸切受付不可時間帯
+  booking_start_date?: string | null  // 貸切募集開始日
+  booking_end_date?: string | null  // 貸切募集終了日
   characters?: ScenarioCharacter[]  // キャラクター情報
 }
 

@@ -45,6 +45,7 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { generateSlugFromTitle } from '@/utils/toRomaji'
+import { useAuth } from '@/contexts/AuthContext'
 
 /**
  * 旧UIの表示切替は無効化（切り離し）
@@ -62,6 +63,8 @@ const getUIMode = (): 'legacy' | 'new' => {
 export function ScenarioManagement() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const canEditScenarios = user?.role === 'admin' || user?.role === 'license_admin'
 
   // UI状態
   const [uiMode, setUIMode] = useState<'legacy' | 'new'>(() =>
@@ -90,6 +93,16 @@ export function ScenarioManagement() {
     const edit = params.get('edit')
     if (!edit) return
 
+    if (!canEditScenarios) {
+      params.delete('edit')
+      const nextSearch = params.toString()
+      navigate(
+        nextSearch ? `${location.pathname}?${nextSearch}` : location.pathname,
+        { replace: true }
+      )
+      return
+    }
+
     // 開く
     setEditingScenarioId(edit === 'new' ? null : edit)
     setEditDialogOpen(true)
@@ -101,7 +114,7 @@ export function ScenarioManagement() {
       nextSearch ? `${location.pathname}?${nextSearch}` : location.pathname,
       { replace: true }
     )
-  }, [location.pathname, location.search, navigate])
+  }, [canEditScenarios, location.pathname, location.search, navigate])
   
   // 新UI用のリフレッシュキー（保存後に更新をトリガー）
   const [orgScenarioRefreshKey, setOrgScenarioRefreshKey] = useState(0)
@@ -443,38 +456,44 @@ export function ScenarioManagement() {
             {/* 旧UI切り替えは無効化。常に新UIを表示 */}
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="text-xs">新UI（マスタ連携）</Badge>
+              {!canEditScenarios && <Badge variant="outline" className="text-xs">閲覧専用</Badge>}
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
-              <CsvImportExport
-              data={allScenarios}
-              onImport={handleImport}
-              isImporting={isImporting}
-              exportFilename="scenarios"
-              headers={['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']}
-              rowMapper={(s) => [
-                s.title,
-                s.author,
-                s.description || '',
-                s.duration.toString(),
-                s.player_count_min.toString(),
-                s.player_count_max?.toString() || s.player_count_min.toString(),
-                s.difficulty?.toString() || '3',
-                s.participation_fee?.toString() || '3000'
-              ]}
-            />
-              <Button onClick={handleNewScenario} size="sm">
-                <Plus className="mr-1 h-4 w-4" />
-                <span className="hidden sm:inline">新規シナリオ</span>
-                <span className="sm:hidden">新規</span>
-              </Button>
+              {canEditScenarios && (
+                <>
+                  <CsvImportExport
+                    data={allScenarios}
+                    onImport={handleImport}
+                    isImporting={isImporting}
+                    exportFilename="scenarios"
+                    headers={['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']}
+                    rowMapper={(s) => [
+                      s.title,
+                      s.author,
+                      s.description || '',
+                      s.duration.toString(),
+                      s.player_count_min.toString(),
+                      s.player_count_max?.toString() || s.player_count_min.toString(),
+                      s.difficulty?.toString() || '3',
+                      s.participation_fee?.toString() || '3000'
+                    ]}
+                  />
+                  <Button onClick={handleNewScenario} size="sm">
+                    <Plus className="mr-1 h-4 w-4" />
+                    <span className="hidden sm:inline">新規シナリオ</span>
+                    <span className="sm:hidden">新規</span>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
           {/* 新UIモード（マスタ連携）: OrganizationScenarioList を表示 */}
           {uiMode === 'new' ? (
             <OrganizationScenarioList
-              onEdit={handleEditFromOrgList}
+              onEdit={canEditScenarios ? handleEditFromOrgList : undefined}
               refreshKey={orgScenarioRefreshKey}
+              canEdit={canEditScenarios}
             />
           ) : ENABLE_LEGACY_SCENARIO_UI ? (
             <>

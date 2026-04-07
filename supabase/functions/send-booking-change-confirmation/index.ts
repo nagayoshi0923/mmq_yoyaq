@@ -22,6 +22,7 @@ interface BookingChangeRequest {
   newStartTime?: string
   newEndTime?: string
   newStoreName?: string
+  newStoreAddress?: string
   newParticipantCount?: number
   newTotalPrice?: number
   priceDifference?: number
@@ -303,6 +304,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         .replace(/{time}/g, changeData.newStartTime ? formatTime(changeData.newStartTime) : '')
         .replace(/{end_time}/g, changeData.newEndTime ? formatTime(changeData.newEndTime) : '')
         .replace(/{venue}/g, changeData.newStoreName || '')
+        .replace(/{venue_address}/g, changeData.newStoreAddress || '')
         .replace(/{participants}/g, String(changeData.newParticipantCount || ''))
         .replace(/{participant_count}/g, String(changeData.newParticipantCount || ''))
         .replace(/{total_price}/g, (changeData.newTotalPrice || 0).toLocaleString())

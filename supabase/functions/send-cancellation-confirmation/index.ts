@@ -15,6 +15,7 @@ interface CancellationRequest {
   startTime: string
   endTime: string
   storeName: string
+  storeAddress?: string
   participantCount: number
   totalPrice: number
   reservationNumber: string
@@ -327,6 +328,7 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         .replace(/{time}/g, formatTime(cancellationData.startTime))
         .replace(/{end_time}/g, cancellationData.endTime ? formatTime(cancellationData.endTime) : '')
         .replace(/{venue}/g, cancellationData.storeName || '')
+        .replace(/{venue_address}/g, cancellationData.storeAddress || '')
         .replace(/{participants}/g, String(cancellationData.participantCount || ''))
         .replace(/{participant_count}/g, String(cancellationData.participantCount || ''))
         .replace(/{total_price}/g, (cancellationData.totalPrice || 0).toLocaleString())

@@ -154,6 +154,7 @@ export interface Store {
   name: string
   short_name: string
   address: string
+  access_info?: string
   phone_number: string
   email: string
   opening_date: string
@@ -343,6 +344,10 @@ export interface Scenario {
   gm_assignments?: Array<{ role: string; staff_id?: string; reward?: number }> // GM配置情報
   extra_preparation_time?: number // 追加準備時間（分）。通常の60分に加算される
   private_booking_time_slots?: string[] // 貸切受付可能時間枠（'朝公演', '昼公演', '夜公演'）。未設定の場合は全て受付
+  booking_start_date?: string | null // 貸切募集開始日（YYYY-MM-DD）。NULLの場合は制限なし
+  booking_end_date?: string | null // 貸切募集終了日（YYYY-MM-DD）。NULLの場合は制限なし
+  individual_notice_template?: string | null // 個別お知らせ送信時に添付できる定型文
+  character_assignment_method?: 'survey' | 'self' // 配役方法
 }
 
 // 顧客向け公演情報（予約サイト用）
@@ -603,7 +608,7 @@ export interface Reservation {
   payment_status: 'pending' | 'paid' | 'refunded' | 'cancelled'
   payment_method?: string | null
   payment_datetime?: string | null
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | 'gm_confirmed'
+  status: 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show' | 'gm_confirmed'
   customer_notes?: string | null
   staff_notes?: string | null
   special_requests?: string | null
@@ -934,6 +939,8 @@ export interface PrivateGroup {
   target_participant_count: number | null
   preferred_store_ids: string[]
   notes: string | null
+  character_assignment_method?: 'survey' | 'self' | null
+  character_assignments?: Record<string, string> | null
   created_at: string
   updated_at: string
   // JOIN時の拡張フィールド
@@ -1042,7 +1049,7 @@ export interface PrivateGroupInvitation {
 // ================================================
 
 // 質問タイプ
-export type SurveyQuestionType = 'text' | 'single_choice' | 'multiple_choice' | 'character_selection'
+export type SurveyQuestionType = 'text' | 'single_choice' | 'multiple_choice' | 'character_selection' | 'rating'
 
 // 質問の選択肢
 export interface SurveyQuestionOption {
