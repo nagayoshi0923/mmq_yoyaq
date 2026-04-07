@@ -439,14 +439,17 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             if (scenarioMasterId) {
               const { data: orgScenarioData, error: orgScenarioError } = await supabase
                 .from('organization_scenarios')
-                .select('survey_enabled, survey_deadline_days')
+                .select('survey_enabled, survey_deadline_days, characters')
                 .eq('scenario_master_id', scenarioMasterId)
                 .eq('organization_id', organizationId)
                 .maybeSingle()
 
               logger.log('📋 organization_scenarios取得結果:', { orgScenarioData, orgScenarioError })
 
-              if (orgScenarioData?.survey_enabled) {
+              // キャラクターがあるシナリオは配役方法選択が先なので、ここではアンケート通知を送らない
+              const hasPlayableCharacters = Array.isArray(orgScenarioData?.characters) && orgScenarioData.characters.some((c: any) => !c.is_npc)
+
+              if (orgScenarioData?.survey_enabled && !hasPlayableCharacters) {
                 // 確定日からアンケート期限を計算
                 const confirmedCandidate = selectedRequest.candidate_datetimes?.candidates?.find(
                   (c: any) => c.order === selectedCandidateOrder
