@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '@/hooks/useOrganization'
 import { Card, CardContent } from '@/components/ui/card'
@@ -69,12 +69,23 @@ export function ReservationManagement() {
   const [page, setPage] = useSessionState('reservationListPage', 1)
   
   // フィルタ状態
-  const [searchTerm, setSearchTerm] = useSessionState('reservationSearchTerm', '')
+  const [searchInput, setSearchInput] = useSessionState('reservationSearchTerm', '')
+  const [searchTerm, setSearchTerm] = useState(searchInput)
   const [statusFilter, setStatusFilter] = useSessionState('reservationStatusFilter', 'all')
   const [paymentFilter, setPaymentFilter] = useSessionState('reservationPaymentFilter', 'all')
   const [typeFilter, setTypeFilter] = useSessionState('reservationTypeFilter', 'all')
   const [alertFilter, setAlertFilter] = useSessionState('reservationAlertFilter', 'all')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+
+  // 検索入力のデバウンス（400ms待ってから検索実行）
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setSearchTerm(searchInput)
+    }, 400)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [searchInput])
 
   // フィルタ変更時は1ページ目に戻す
   useEffect(() => {
@@ -210,8 +221,8 @@ export function ReservationManagement() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               placeholder="予約番号、顧客名、シナリオ名で検索..." 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
+              value={searchInput} 
+              onChange={(e) => setSearchInput(e.target.value)} 
               className="pl-9 h-10 bg-white w-full" 
             />
           </div>

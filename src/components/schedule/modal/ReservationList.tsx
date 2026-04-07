@@ -251,33 +251,55 @@ ${content.organizationName || '店舗'}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, event?.id, event?.is_private_request, event?.reservation_id])
 
-  // 顧客名を取得する関数
+  // 顧客名を取得（customersテーブル + 過去予約のparticipant_names）
   useEffect(() => {
     const fetchCustomerNames = async () => {
       try {
-        const { data, error } = await supabase
+        const orgId = await getCurrentOrganizationId()
+        const names = new Set<string>()
+
+        // 1. customers テーブルから取得
+        let customerQuery = supabase
+          .from('customers')
+          .select('name')
+          .not('name', 'is', null)
+          .not('name', 'eq', '')
+        if (orgId) {
+          customerQuery = customerQuery.eq('organization_id', orgId)
+        }
+        const { data: customers, error: custError } = await customerQuery
+        if (custError) {
+          logger.error('顧客テーブル取得エラー:', custError)
+        } else {
+          customers?.forEach(c => {
+            if (c.name?.trim()) names.add(c.name.trim())
+          })
+        }
+
+        // 2. 過去予約の participant_names からも補完
+        let resQuery = supabase
           .from('reservations')
           .select('customer_notes, participant_names')
           .not('customer_notes', 'is', null)
           .not('customer_notes', 'eq', '')
-        
-        if (error) throw error
-        
-        const names = new Set<string>()
-        
-        data?.forEach(reservation => {
-          if (reservation.customer_notes) {
-            const name = reservation.customer_notes.replace(/様$/, '').trim()
-            if (name) names.add(name)
-          }
-          
-          if (reservation.participant_names && Array.isArray(reservation.participant_names)) {
-            reservation.participant_names.forEach(name => {
-              if (name && name.trim()) names.add(name.trim())
-            })
-          }
-        })
-        
+        if (orgId) {
+          resQuery = resQuery.eq('organization_id', orgId)
+        }
+        const { data: reservations, error: resError } = await resQuery
+        if (!resError && reservations) {
+          reservations.forEach(r => {
+            if (r.customer_notes) {
+              const name = r.customer_notes.replace(/様$/, '').trim()
+              if (name) names.add(name)
+            }
+            if (Array.isArray(r.participant_names)) {
+              r.participant_names.forEach((name: string) => {
+                if (name?.trim()) names.add(name.trim())
+              })
+            }
+          })
+        }
+
         setCustomerNames(Array.from(names).sort())
       } catch (error) {
         logger.error('顧客名の取得に失敗:', error)

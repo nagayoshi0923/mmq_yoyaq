@@ -24,7 +24,6 @@ import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { SurveyResponseForm } from './components/SurveyResponseForm'
-import { CharacterAssignmentForm } from './components/CharacterAssignmentForm'
 
 interface Coupon {
   id: string
@@ -1276,6 +1275,11 @@ export function PrivateGroupInvite() {
   // チャットタブ時はシンプルなレイアウト
   const isChatMode = existingMemberId && activeTab === 'chat'
 
+  // 配役方法が未選択かつキャラクターが存在する場合
+  const charAssignmentMethod = (group as any).character_assignment_method as string | null
+  const scenarioCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)
+  const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_id && scenarioCharacters.length > 0 && charAssignmentMethod == null)
+
   // 進捗ステップ数の計算
   // booking_requested以降のステータスであれば、ステップ1〜4は完了済みとして扱う
   const isBookingRequested = group.status === 'booking_requested' || group.status === 'confirmed'
@@ -2380,6 +2384,22 @@ export function PrivateGroupInvite() {
               scenarioId={group.scenario_id || undefined}
               organizationId={group.organization_id || undefined}
               performanceDate={group.candidate_dates?.[0]?.date}
+              needsCharAssignmentChoice={needsCharAssignmentChoice}
+              onCharAssignmentMethodSelected={async (method) => {
+                await supabase.from('private_groups').update({ character_assignment_method: method, character_assignments: null }).eq('id', group.id)
+                await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                refetch()
+              }}
+              charAssignmentMethod={charAssignmentMethod}
+              characters={scenarioCharacters}
+              isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
+              onCharAssignmentConfirmed={() => refetch()}
+              onResetCharAssignmentMethod={async () => {
+                await supabase.from('private_groups').update({ character_assignment_method: null, character_assignments: null }).eq('id', group.id)
+                await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                refetch()
+              }}
+              scenarioPlayerCount={scenarioMax}
             />
           </div>
 
@@ -2517,6 +2537,7 @@ export function PrivateGroupInvite() {
         <div className="lg:hidden shrink-0">
           <NavigationBar currentPage="/" />
         </div>
+
       </div>
     )
   }
@@ -2972,6 +2993,22 @@ export function PrivateGroupInvite() {
                 scenarioId={group.scenario_id || undefined}
                 organizationId={group.organization_id || undefined}
                 performanceDate={group.candidate_dates?.[0]?.date}
+                needsCharAssignmentChoice={needsCharAssignmentChoice}
+                onCharAssignmentMethodSelected={async (method) => {
+                  await supabase.from('private_groups').update({ character_assignment_method: method, character_assignments: null }).eq('id', group.id)
+                  await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                  refetch()
+                }}
+                charAssignmentMethod={charAssignmentMethod}
+                characters={scenarioCharacters}
+                isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
+                onCharAssignmentConfirmed={() => refetch()}
+                onResetCharAssignmentMethod={async () => {
+                  await supabase.from('private_groups').update({ character_assignment_method: null, character_assignments: null }).eq('id', group.id)
+                  await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                  refetch()
+                }}
+                scenarioPlayerCount={scenarioMax}
               />
             </TabsContent>
 
@@ -3306,10 +3343,10 @@ export function PrivateGroupInvite() {
           </Card>
         )}
 
-        {/* 配役方法の選択 → アンケート or キャラクター選択（日程確定後） */}
-        {isScheduleConfirmedUi && existingMemberId && group.scenario_id && (() => {
-          const hasCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc).length > 0
-          const method = (group as any).character_assignment_method as string | null
+        {/* アンケート or キャラクター選択（配役方法選択済み・日程確定後） */}
+        {isScheduleConfirmedUi && existingMemberId && group.scenario_id && !needsCharAssignmentChoice && (() => {
+          const hasCharacters = scenarioCharacters.length > 0
+          const method = charAssignmentMethod
 
           if (!hasCharacters || method === 'survey') {
             return (
@@ -3320,61 +3357,16 @@ export function PrivateGroupInvite() {
                 organizationId={group.organization_id}
                 performanceDate={group.candidate_dates?.find(cd => cd.order_num === 1)?.date}
                 characters={(group as any).scenario_characters || []}
+                hideCharacterSelection={method === 'survey'}
               />
             )
           }
 
           if (method === 'self') {
-            return (
-              <CharacterAssignmentForm
-                groupId={group.id}
-                memberId={existingMemberId}
-                members={group.members || []}
-                characters={((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)}
-                assignments={(group as any).character_assignments || {}}
-                isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
-                onUpdated={refetch}
-              />
-            )
+            return null
           }
 
-          return (
-            <Card className="mb-6 border-purple-200">
-              <CardContent className="p-4 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-purple-600" />
-                  <h3 className="text-base font-semibold">キャラクターの配役方法</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  キャラクターの配役をどのように決めますか？
-                </p>
-                <div className="grid gap-3">
-                  <Button
-                    variant="outline"
-                    className="w-full h-auto py-4 flex flex-col items-start gap-1 border-purple-200 hover:bg-purple-50"
-                    onClick={async () => {
-                      await supabase.from('private_groups').update({ character_assignment_method: 'survey' }).eq('id', group.id)
-                      refetch()
-                    }}
-                  >
-                    <span className="font-medium">アンケートで希望を伝える</span>
-                    <span className="text-xs text-muted-foreground">希望キャラクターをアンケートで回答し、スタッフが決定します</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full h-auto py-4 flex flex-col items-start gap-1 border-purple-200 hover:bg-purple-50"
-                    onClick={async () => {
-                      await supabase.from('private_groups').update({ character_assignment_method: 'self' }).eq('id', group.id)
-                      refetch()
-                    }}
-                  >
-                    <span className="font-medium">自分たちで決める</span>
-                    <span className="text-xs text-muted-foreground">参加者同士で相談して、各自キャラクターを選択します</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )
+          return null
         })()}
 
         {/* 送信ボタン（新規参加時のみ表示） */}

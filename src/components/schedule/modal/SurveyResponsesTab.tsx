@@ -38,9 +38,10 @@ export function SurveyResponsesTab({
   const [members, setMembers] = useState<MemberData[]>([])
   const [loading, setLoading] = useState(true)
   const [characters, setCharacters] = useState<Array<{ id: string; name: string; url?: string | null; is_npc?: boolean; survey_description?: string | null }>>([])
-  const [surveyEnabled, setSurveyEnabled] = useState(false)
   const [groupId, setGroupId] = useState<string | null>(null)
   const [participantLimit, setParticipantLimit] = useState<number | null>(null)
+  const [confirmedAssignments, setConfirmedAssignments] = useState<Record<string, string> | null>(null)
+  const [charAssignmentMethod, setCharAssignmentMethod] = useState<string | null>(null)
   
   // 各メンバーの展開状態
   const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set())
@@ -62,36 +63,52 @@ export function SurveyResponsesTab({
 
   useEffect(() => {
     const loadSurveyData = async () => {
-      if (!reservationId || !scenarioId) {
-        logger.log('📋 SurveyTab: missing reservationId or scenarioId', { reservationId, scenarioId })
+      if (!reservationId) {
         setLoading(false)
         return
       }
 
       try {
-        logger.log('📋 SurveyTab: loading data', { reservationId, scenarioId })
-        
         const { data: groupData, error: groupError } = await supabase
           .from('private_groups')
-          .select('id, organization_id')
+          .select('id, organization_id, scenario_id')
           .eq('reservation_id', reservationId)
           .maybeSingle()
 
         if (groupError) {
-          logger.error('📋 SurveyTab: group fetch error', groupError)
           setLoading(false)
           return
         }
 
         if (!groupData) {
-          logger.log('📋 SurveyTab: no groupData found for reservationId', reservationId)
           setLoading(false)
           return
         }
 
         const gId = groupData.id
         const organizationId = groupData.organization_id
+        const effectiveScenarioId = scenarioId || (groupData as any).scenario_id
         setGroupId(gId)
+
+        // 配役情報を別クエリで安全に取得
+        try {
+          const { data: charData } = await supabase
+            .from('private_groups')
+            .select('character_assignments, character_assignment_method')
+            .eq('id', gId)
+            .maybeSingle()
+          if (charData) {
+            setCharAssignmentMethod((charData as any).character_assignment_method || null)
+            const ca = (charData as any).character_assignments
+            if (ca && typeof ca === 'object' && Object.keys(ca).length > 0) {
+              setConfirmedAssignments(ca as Record<string, string>)
+            } else {
+              setConfirmedAssignments(null)
+            }
+          }
+        } catch {
+          // カラム未追加の環境でもエラーにならない
+        }
         logger.log('📋 SurveyTab: groupData found', { groupId: gId, organizationId })
 
         // メンバー情報を取得
@@ -157,20 +174,24 @@ export function SurveyResponsesTab({
         })
         setMembers(membersData)
 
-        let { data: orgScenario } = await supabase
-          .from('organization_scenarios')
-          .select('id, survey_enabled, characters, scenario_masters(player_count_max)')
-          .eq('scenario_master_id', scenarioId)
-          .eq('organization_id', organizationId)
-          .maybeSingle()
-
-        if (!orgScenario) {
-          const { data: orgScenarioById } = await supabase
+        let orgScenario = null as any
+        if (effectiveScenarioId) {
+          const { data: orgScenarioByMaster } = await supabase
             .from('organization_scenarios')
             .select('id, survey_enabled, characters, scenario_masters(player_count_max)')
-            .eq('id', scenarioId)
+            .eq('scenario_master_id', effectiveScenarioId)
+            .eq('organization_id', organizationId)
             .maybeSingle()
-          orgScenario = orgScenarioById
+          orgScenario = orgScenarioByMaster
+
+          if (!orgScenario) {
+            const { data: orgScenarioById } = await supabase
+              .from('organization_scenarios')
+              .select('id, survey_enabled, characters, scenario_masters(player_count_max)')
+              .eq('id', effectiveScenarioId)
+              .maybeSingle()
+            orgScenario = orgScenarioById
+          }
         }
         
         // シナリオの参加者上限を取得
@@ -191,8 +212,6 @@ export function SurveyResponsesTab({
           return
         }
 
-        setSurveyEnabled(!!orgScenario.survey_enabled)
-
         // 定型文を別クエリで安全に取得（カラム未追加の環境でもエラーにならない）
         try {
           const { data: templateData } = await supabase
@@ -203,11 +222,6 @@ export function SurveyResponsesTab({
           setNoticeTemplate((templateData as any)?.individual_notice_template || null)
         } catch {
           // カラムが存在しない場合は無視
-        }
-
-        if (!orgScenario.survey_enabled) {
-          setLoading(false)
-          return
         }
 
         if (orgScenario.characters) {
@@ -386,32 +400,19 @@ export function SurveyResponsesTab({
     )
   }
 
-  if (!surveyEnabled) {
+  if (questions.length === 0 && responses.length === 0 && !confirmedAssignments) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
         <ClipboardList className="w-10 h-10 text-muted-foreground mb-3" />
         <p className="text-sm text-muted-foreground">
-          このシナリオはアンケートが有効になっていません
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          シナリオ設定でアンケートを有効にしてください
+          アンケート回答・配役データがありません
         </p>
       </div>
     )
   }
 
-  if (questions.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <ClipboardList className="w-10 h-10 text-muted-foreground mb-3" />
-        <p className="text-sm text-muted-foreground">
-          アンケートの質問が設定されていません
-        </p>
-      </div>
-    )
-  }
-
-  const respondedCount = responses.length
+  const nonCharQuestionIds = new Set(questions.filter(q => q.question_type !== 'character_selection').map(q => q.id))
+  const respondedCount = responses.filter(r => Object.keys(r.responses).some(key => nonCharQuestionIds.has(key))).length
   // 分母はシナリオの参加者上限（なければメンバー数）
   const totalCount = participantLimit || members.length
 
@@ -490,9 +491,18 @@ export function SurveyResponsesTab({
       <div className="space-y-2">
         {members.map(member => {
           const response = getMemberResponse(member.id)
-          const hasResponse = !!response
+          const hasResponse = !!response && Object.keys(response.responses).some(key => nonCharQuestionIds.has(key))
           const isExpanded = expandedMembers.has(member.id)
           const memberName = getMemberName(member.id)
+
+          // キャラクター配役: 回答データから直接取得
+          const charSelQuestion = questions.find(q => q.question_type === 'character_selection')
+          const assignedCharId = charSelQuestion && response ? response.responses[charSelQuestion.id] as string : null
+          const assignedChar = assignedCharId ? characters.find(c => c.id === assignedCharId) : null
+          const isSelfAssigned = charAssignmentMethod === 'self' && !!assignedChar
+
+          // キャラクター選択以外の質問
+          const nonCharQuestions = questions.filter(q => q.question_type !== 'character_selection')
 
           return (
             <div key={member.id} className="border rounded-lg overflow-hidden">
@@ -502,34 +512,49 @@ export function SurveyResponsesTab({
                 onClick={() => toggleMember(member.id)}
                 className="w-full flex items-center justify-between p-3 bg-white hover:bg-gray-50 transition-colors"
               >
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-500" />
+                <div className="flex items-center gap-2 min-w-0">
+                  <User className="w-4 h-4 text-gray-500 shrink-0" />
                   <span className="font-medium text-sm">{memberName}</span>
-                  <Badge 
-                    variant="outline" 
-                    className={hasResponse 
-                      ? 'bg-green-100 text-green-700 border-green-200 text-xs' 
-                      : 'bg-amber-100 text-amber-700 border-amber-200 text-xs'
-                    }
-                  >
-                    {hasResponse ? '回答済み' : '未回答'}
-                  </Badge>
+                  {assignedChar ? (
+                    <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs shrink-0">
+                      {assignedChar.name}
+                    </Badge>
+                  ) : (
+                    <Badge 
+                      variant="outline" 
+                      className={hasResponse 
+                        ? 'bg-green-100 text-green-700 border-green-200 text-xs shrink-0' 
+                        : 'bg-amber-100 text-amber-700 border-amber-200 text-xs shrink-0'
+                      }
+                    >
+                      {hasResponse ? '回答済み' : '未回答'}
+                    </Badge>
+                  )}
                 </div>
                 {isExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                  <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" />
                 ) : (
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                  <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
                 )}
               </button>
 
               {/* 展開時の内容 */}
               {isExpanded && (
                 <div className="border-t bg-gray-50">
-                  {/* 回答内容 */}
+                  {/* 「自分たちで配役」の場合はアンケート回答を非表示 */}
+                  {isSelfAssigned ? (
+                    <div className="p-3">
+                      <div className="bg-purple-50 rounded p-3 text-sm text-purple-700 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" />
+                        キャラクター選択で配役済み
+                      </div>
+                    </div>
+                  ) : (
                   <div className="p-3 space-y-3">
-                    {hasResponse ? (
-                      questions.map((question, qIndex) => {
+                    {hasResponse && nonCharQuestions.length > 0 ? (
+                      nonCharQuestions.map((question, qIndex) => {
                         const value = getResponseValue(question.id, member.id)
+                        if (value === '未回答') return null
                         return (
                           <div key={question.id} className="bg-white rounded p-2">
                             <p className="text-xs text-muted-foreground mb-1">
@@ -539,13 +564,14 @@ export function SurveyResponsesTab({
                           </div>
                         )
                       })
-                    ) : (
+                    ) : !hasResponse ? (
                       <div className="bg-amber-50 rounded p-3 text-sm text-amber-700 flex items-center gap-2">
                         <AlertCircle className="w-4 h-4" />
                         まだ回答がありません
                       </div>
-                    )}
+                    ) : null}
                   </div>
+                  )}
 
                   {/* 個別メッセージ送信 */}
                   <div className="border-t p-3">

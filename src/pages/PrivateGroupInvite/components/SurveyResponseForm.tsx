@@ -20,6 +20,7 @@ interface SurveyResponseFormProps {
   organizationId: string
   performanceDate?: string
   characters?: Array<{ id: string; name: string; gender?: string }>
+  hideCharacterSelection?: boolean
 }
 
 interface FormResponse {
@@ -33,6 +34,7 @@ export function SurveyResponseForm({
   organizationId,
   performanceDate,
   characters = [],
+  hideCharacterSelection = false,
 }: SurveyResponseFormProps) {
   const [questions, setQuestions] = useState<SurveyQuestion[]>([])
   const [responses, setResponses] = useState<FormResponse>({})
@@ -333,7 +335,7 @@ export function SurveyResponseForm({
         )}
 
         <div className="space-y-4 pt-2">
-          {questions.map((question, index) => (
+          {questions.filter(q => !(hideCharacterSelection && q.question_type === 'character_selection')).map((question, index) => (
             <div key={question.id} className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-2">
                 Q{index + 1}. {question.question_text}

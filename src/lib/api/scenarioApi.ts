@@ -81,11 +81,12 @@ export const scenarioApi = {
     return data || []
   },
 
-  // IDでシナリオを取得（scenario_master_id で検索）
+  // IDでシナリオを取得（scenario_master_id で検索、見つからなければ org_scenario_id でも検索）
   // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
   // 自組織で見つからない場合は組織を問わず検索（他組織の共有シナリオ対応）
   async getById(id: string, organizationId?: string): Promise<Scenario | null> {
     const orgId = organizationId || await getCurrentOrganizationId()
+    logger.log('[scenarioApi.getById] 検索開始:', { id, orgId })
 
     if (orgId) {
       const { data, error } = await supabase
@@ -96,8 +97,24 @@ export const scenarioApi = {
         .maybeSingle()
 
       if (!error && data) {
+        logger.log('[scenarioApi.getById] id (scenario_master_id) で発見')
         return data as unknown as Scenario
       }
+      logger.log('[scenarioApi.getById] id で未発見, org_scenario_id で再検索:', { error: error?.message })
+
+      // id (= scenario_master_id) で見つからない場合、org_scenario_id でも検索
+      const { data: byOrgId, error: orgErr } = await supabase
+        .from('organization_scenarios_with_master')
+        .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+        .eq('org_scenario_id', id)
+        .eq('organization_id', orgId)
+        .maybeSingle()
+
+      if (!orgErr && byOrgId) {
+        logger.log('[scenarioApi.getById] org_scenario_id で発見')
+        return byOrgId as unknown as Scenario
+      }
+      logger.log('[scenarioApi.getById] org_scenario_id でも未発見:', { error: orgErr?.message })
     }
 
     const { data, error } = await supabase
@@ -107,7 +124,18 @@ export const scenarioApi = {
       .limit(1)
 
     if (error) throw error
-    return (data?.[0] as unknown as Scenario) || null
+    if (data?.[0]) return data[0] as unknown as Scenario
+
+    // org_scenario_id でもフォールバック検索
+    const { data: fallback, error: fbErr } = await supabase
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+      .eq('org_scenario_id', id)
+      .limit(1)
+
+    if (fbErr) throw fbErr
+    logger.log('[scenarioApi.getById] 全検索結果:', { found: !!fallback?.[0] })
+    return (fallback?.[0] as unknown as Scenario) || null
   },
 
   /**

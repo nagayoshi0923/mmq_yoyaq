@@ -29,13 +29,14 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   }
   
   // Step 2: まずシナリオを取得（IDが必要なため）
+  logger.log('[ScenarioDetail] 検索中:', { scenarioId, orgId })
   const scenarioDataResult = await scenarioApi.getByIdOrSlug(scenarioId, orgId).catch((error) => {
     logger.error('シナリオデータの取得エラー:', error)
     return null
   })
   
   if (!scenarioDataResult) {
-    logger.error('シナリオが見つかりません')
+    logger.error('シナリオが見つかりません:', { scenarioId, orgId })
     return null
   }
   

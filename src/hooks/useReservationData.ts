@@ -61,7 +61,8 @@ export function useReservationData(filters: Filters, pagination: Pagination) {
         .select(`
           *,
           scenario_masters:scenario_master_id (title),
-          stores:store_id (name)
+          stores:store_id (name),
+          schedule_events:schedule_event_id (date, start_time, end_time)
         `, { count: 'exact' })
       
       // 組織フィルタ
@@ -116,27 +117,41 @@ export function useReservationData(filters: Filters, pagination: Pagination) {
         let eventDate = ''
         let eventTime = ''
         let endTime = ''
-        
-        if (reservation.requested_datetime) {
-          const dateStr = reservation.requested_datetime
-          const parts = dateStr.split('T')
-          if (parts.length === 2) {
-            eventDate = parts[0]
-            eventTime = parts[1].slice(0, 5)
-          } else {
-            const spaceParts = dateStr.split(' ')
-            if (spaceParts.length >= 2) {
-              eventDate = spaceParts[0]
-              eventTime = spaceParts[1].slice(0, 5)
-            }
-          }
 
-          // 終了時間の計算
-          if (eventTime && reservation.duration) {
-            const [hours, minutes] = eventTime.split(':').map(Number)
-            const date = new Date()
-            date.setHours(hours, minutes + reservation.duration)
-            endTime = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+        const se = reservation.schedule_events as { date?: string; start_time?: string; end_time?: string } | null
+        if (se?.date && se?.start_time) {
+          // schedule_events の date/start_time は JST を直接表すのでそのまま使う
+          eventDate = se.date
+          eventTime = se.start_time.slice(0, 5)
+          if (se.end_time) {
+            endTime = se.end_time.slice(0, 5)
+          } else if (reservation.duration) {
+            const [h, m] = eventTime.split(':').map(Number)
+            const d = new Date(2000, 0, 1, h, m + reservation.duration)
+            endTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+          }
+        } else if (reservation.requested_datetime) {
+          // schedule_event がない場合は requested_datetime (timestamptz) を JST に変換
+          const dt = new Date(reservation.requested_datetime)
+          if (!isNaN(dt.getTime())) {
+            const jstParts = new Intl.DateTimeFormat('en-CA', {
+              timeZone: 'Asia/Tokyo',
+              year: 'numeric', month: '2-digit', day: '2-digit',
+            }).format(dt)
+            eventDate = jstParts
+            const timeParts = new Intl.DateTimeFormat('en-GB', {
+              timeZone: 'Asia/Tokyo',
+              hour: '2-digit', minute: '2-digit', hour12: false,
+            }).format(dt)
+            eventTime = timeParts
+
+            if (reservation.duration) {
+              const endDt = new Date(dt.getTime() + reservation.duration * 60 * 1000)
+              endTime = new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Tokyo',
+                hour: '2-digit', minute: '2-digit', hour12: false,
+              }).format(endDt)
+            }
           }
         }
         
