@@ -208,6 +208,11 @@ jobs:
           echo "🔍 Validating migrations locally..."
           supabase db reset
 
+      - name: Smoke Test RPC Functions
+        run: |
+          echo "🧪 Running RPC smoke tests..."
+          psql "$(supabase status --output json | jq -r '.DB_URL')" -f supabase/tests/smoke_test_rpcs.sql
+
       - name: Stop Supabase Local
         if: always()
         run: |
