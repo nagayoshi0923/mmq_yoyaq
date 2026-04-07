@@ -111,6 +111,101 @@ function checkTimeOverlap(
   return { overlap: false }
 }
 
+/**
+ * スケジュールイベントの日程・時間変更時に、関連データを同期する。
+ * 1. reservations.requested_datetime を schedule_events に合わせて更新
+ * 2. 貸切グループの候補日（private_group_candidate_dates）を更新
+ */
+async function syncRelatedDataOnEventDateChange(
+  eventId: string,
+  oldDate: string,
+  oldStartTime: string,
+  newDate: string,
+  newStartTime: string,
+  newEndTime: string,
+  newTimeSlotSchedule: string | null,
+  organizationId: string | null
+): Promise<void> {
+  try {
+    // 1. 紐づく全予約の requested_datetime を同期
+    const newRequestedDatetime = `${newDate}T${newStartTime}+09:00`
+    let resQuery = supabase
+      .from('reservations')
+      .select('id, private_group_id')
+      .eq('schedule_event_id', eventId)
+    if (organizationId) {
+      resQuery = resQuery.eq('organization_id', organizationId)
+    }
+    const { data: reservations } = await resQuery
+    if (!reservations || reservations.length === 0) return
+
+    for (const reservation of reservations) {
+      const { error: resUpdateError } = await supabase
+        .from('reservations')
+        .update({ requested_datetime: newRequestedDatetime })
+        .eq('id', reservation.id)
+      if (resUpdateError) {
+        logger.error('予約の requested_datetime 同期エラー:', resUpdateError)
+      } else {
+        logger.log('✅ 予約の requested_datetime を同期:', {
+          reservationId: reservation.id,
+          newRequestedDatetime,
+        })
+      }
+
+      // 2. 貸切グループの候補日を同期
+      if (!reservation.private_group_id) continue
+
+      const { data: candidates } = await supabase
+        .from('private_group_candidate_dates')
+        .select('id, date, start_time')
+        .eq('group_id', reservation.private_group_id)
+        .eq('date', oldDate)
+      if (!candidates || candidates.length === 0) continue
+
+      let targetCandidate = candidates[0]
+      for (const c of candidates) {
+        if (c.start_time === oldStartTime) {
+          targetCandidate = c
+          break
+        }
+      }
+
+      // schedule_events の time_slot(朝/昼/夜) → candidate_dates の time_slot(午前/午後/夜間)
+      let candidateTimeSlot: string | undefined
+      if (newTimeSlotSchedule === '朝') candidateTimeSlot = '午前'
+      else if (newTimeSlotSchedule === '昼') candidateTimeSlot = '午後'
+      else if (newTimeSlotSchedule === '夜') candidateTimeSlot = '夜間'
+
+      const updatePayload: Record<string, string> = {
+        date: newDate,
+        start_time: newStartTime,
+        end_time: newEndTime,
+      }
+      if (candidateTimeSlot) {
+        updatePayload.time_slot = candidateTimeSlot
+      }
+
+      const { error: cdUpdateError } = await supabase
+        .from('private_group_candidate_dates')
+        .update(updatePayload)
+        .eq('id', targetCandidate.id)
+
+      if (cdUpdateError) {
+        logger.error('貸切グループ候補日の同期エラー:', cdUpdateError)
+      } else {
+        logger.log('✅ 貸切グループ候補日を同期:', {
+          groupId: reservation.private_group_id,
+          oldDate,
+          newDate,
+        })
+      }
+    }
+  } catch (err) {
+    logger.error('日程変更時の関連データ同期でエラー:', err)
+  }
+}
+
 interface Store {
   id: string
   name: string
@@ -484,6 +579,20 @@ export function useEventOperations({
               logger.error('貸切公演移動後の顧客メール送信エラー:', notifyErr)
             }
           }
+        }
+
+        // 関連データを同期（日程・時間が変更された場合）
+        if (draggedEvent.date !== dropTarget.date || draggedEvent.start_time !== startTime || draggedEvent.end_time !== endTime) {
+          await syncRelatedDataOnEventDateChange(
+            draggedEvent.id,
+            draggedEvent.date,
+            draggedEvent.start_time,
+            dropTarget.date,
+            startTime,
+            endTime,
+            timeSlotLabel,
+            organizationId
+          )
         }
 
         // ローカル状態を更新（scenariosは元のイベントから保持）
@@ -1206,6 +1315,20 @@ export function useEventOperations({
           }
           
           await scheduleApi.update(performanceData.id, updateData)
+
+          // 関連データを同期（日程・時間が変更された場合）
+          if (oldEventData && (oldEventData.date !== updateData.date || oldEventData.start_time !== updateData.start_time || oldEventData.end_time !== updateData.end_time)) {
+            await syncRelatedDataOnEventDateChange(
+              performanceData.id!,
+              oldEventData.date,
+              oldEventData.start_time,
+              updateData.date,
+              updateData.start_time,
+              updateData.end_time,
+              updateData.time_slot || null,
+              organizationId
+            )
+          }
 
           const notifySchedulePrivateCustomer =
             !!performanceData.reservation_id &&
