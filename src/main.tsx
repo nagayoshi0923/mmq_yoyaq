@@ -134,28 +134,20 @@ function showUpdateBanner(): void {
   })
 }
 
-// Service Worker を解除するのは基本的に開発時のみ
-// 本番で毎回キャッシュを削除すると表示速度が落ちるため、必要な場合だけ明示的に無効化する
-const shouldDisableServiceWorker =
-  import.meta.env.DEV || import.meta.env.VITE_DISABLE_SW === 'true'
-
-if (shouldDisableServiceWorker && 'serviceWorker' in navigator) {
-  // すべての Service Worker を解除
+// PWA プラグインは現在使用していないため、古い Service Worker が残っている場合は常に解除する。
+// 古い SW がナビゲーションリクエストをキャッシュしていると、デプロイ後に古い HTML が返され、
+// バージョンチェックリロードと Supabase のトークンリフレッシュが競合してログインが切れる原因になる。
+if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {
     for (const registration of registrations) {
       registration.unregister()
-      console.log('🧹 Service Worker unregistered')
     }
   })
 
-  // workbox のキャッシュを削除
   if ('caches' in window) {
     caches.keys().then((cacheNames) => {
       cacheNames.forEach((cacheName) => {
-        if (cacheName.includes('workbox')) {
-          caches.delete(cacheName)
-          console.log('🧹 Cache deleted:', cacheName)
-        }
+        caches.delete(cacheName)
       })
     })
   }

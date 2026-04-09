@@ -12,9 +12,9 @@
     <!-- Preload 重要リソース（本番ビルド後のファイル名に合わせて調整） -->
     <!-- 注意: ビルド後に生成されるハッシュ付きファイル名は自動的に処理されます -->
     
-    <!-- DNS Prefetch: Supabase への接続を事前解決 -->
-    <link rel="dns-prefetch" href="https://bgztzakvjzudvdmfyhyh.supabase.co" />
-    <link rel="preconnect" href="https://bgztzakvjzudvdmfyhyh.supabase.co" crossorigin />
+    <!-- DNS Prefetch: Supabase への接続を事前解決（本番プロジェクト） -->
+    <link rel="dns-prefetch" href="https://cznpcewciwywcqcxktba.supabase.co" />
+    <link rel="preconnect" href="https://cznpcewciwywcqcxktba.supabase.co" crossorigin />
   </head>
   <body>
     <div id="root"></div>
@@ -23,6 +23,9 @@
       // インラインなのでバンドルキャッシュに依存しない
       (function(){
         if (sessionStorage.getItem('_vck')) return; // 無限ループ防止
+        // 認証トークンがURLに含まれている場合はリロードしない（Supabase のフローを妨げない）
+        var h = location.hash || '';
+        if (h.indexOf('access_token=') !== -1 || h.indexOf('refresh_token=') !== -1 || h.indexOf('error=') !== -1) return;
         var scripts = document.querySelectorAll('script[type="module"][src]');
         var hash = null;
         for (var i = 0; i < scripts.length; i++) {

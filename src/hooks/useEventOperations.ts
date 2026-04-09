@@ -219,6 +219,7 @@ interface Scenario {
   duration?: number
   player_count_max?: number
   extra_preparation_time?: number // 準備時間（分）
+  scenario_master_id?: string | null
 }
 
 interface UseEventOperationsProps {
@@ -1045,6 +1046,7 @@ export function useEventOperations({
         const matchedScenario = scenarios.find(s => s.title === performanceData.scenario)
         
         // 内部形式に変換して状態に追加
+        const effectiveMax = matchedScenario?.player_count_max || savedEvent.capacity || 8
         const formattedEvent: ScheduleEvent = {
           id: savedEvent.id,
           date: savedEvent.date,
@@ -1062,7 +1064,7 @@ export function useEventOperations({
           category: savedEvent.category,
           is_cancelled: savedEvent.is_cancelled || false,
           current_participants: savedEvent.current_participants || 0,
-          max_participants: savedEvent.capacity || 8,
+          max_participants: effectiveMax,
           notes: savedEvent.notes || ''
         }
         

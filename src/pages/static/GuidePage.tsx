@@ -596,7 +596,9 @@ export function GuidePage() {
             <p className="text-sm text-gray-600">特定の店舗のシナリオ・公演だけを表示します。遊ぶ店舗が決まっているときに便利です。</p>
           </div>
         </div>
-        <Annotation>どちらのページにも「ラインナップ」「カレンダー」「リスト」の3つのタブがあります</Annotation>
+        <Annotation>
+          各店舗・組織の予約ページ（店舗トップ）では「ラインナップ」「カレンダー」「リスト」の3つのタブで探せます。MMQトップ（全店まとめ）はタブではなく、公演ラインナップを一覧で見る構成です。
+        </Annotation>
       </section>
 
       <hr className="max-w-3xl mx-auto border-gray-200" />

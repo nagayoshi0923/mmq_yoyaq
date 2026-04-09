@@ -454,57 +454,55 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         </div>
       </div>
 
-
-      {/* 残りわずか公演 */}
-      {!isLoading && nearlyConfirmed.length > 0 && (
-        <section className="container mx-auto max-w-7xl px-4 md:px-6 pt-6 md:pt-8">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-            <h2 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-3">
-              <Flame className="w-5 h-5 text-orange-500" />
-              残りわずか
-              <span 
-                className="w-10 h-1 ml-2"
-                style={{ backgroundColor: '#f97316' }}
-              />
-              <span className="text-xs font-normal text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
-                お早めに！
-              </span>
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {nearlyConfirmed.map((scenario) => (
-              <ScenarioCard
-                key={`nearly-${scenario.scenario_id}`}
-                scenario={scenario}
-                onClick={(slugOrId) => {
-                  // 残りわずかのイベント日付・時間を渡す（next_eventsの先頭が残りわずかのイベント）
-                  const nearlyFullEvent = scenario.next_events?.[0]
-                  handleCardClick(slugOrId, nearlyFullEvent?.date, nearlyFullEvent?.time)
-                }}
-                isFavorite={isFavorite(scenario.scenario_id)}
-                isPlayed={isPlayed(scenario.scenario_id)}
-                onToggleFavorite={handleToggleFavorite}
-                onTogglePlayed={(id, title, e) => {
-                  e.stopPropagation()
-                  if (!user) { showToast.error('ログインが必要です'); return }
-                  if (isPlayed(id)) { showToast.info('既に体験済みとして登録されています'); return }
-                  setPlayedDialogTarget({ id, title })
-                }}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <div className="container mx-auto max-w-7xl px-4 md:px-6 py-4">
+      <div className="container mx-auto max-w-7xl px-4 md:px-6 pt-4 pb-4 md:pt-6">
         {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full max-w-sm mx-auto grid-cols-3 mb-4 p-0.5 h-auto">
-              <TabsTrigger value="lineup" className="text-sm px-2 py-1.5">ラインナップ</TabsTrigger>
-              <TabsTrigger value="calendar" className="text-sm px-2 py-1.5">カレンダー</TabsTrigger>
-              <TabsTrigger value="list" className="text-sm px-2 py-1.5">リスト</TabsTrigger>
-            </TabsList>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="grid w-full max-w-sm mx-auto grid-cols-3 mb-4 md:mb-6 p-0.5 h-auto">
+            <TabsTrigger value="lineup" className="text-sm px-2 py-1.5">ラインナップ</TabsTrigger>
+            <TabsTrigger value="calendar" className="text-sm px-2 py-1.5">カレンダー</TabsTrigger>
+            <TabsTrigger value="list" className="text-sm px-2 py-1.5">リスト</TabsTrigger>
+          </TabsList>
+
+          {/* 残りわずか公演（タブの直下） */}
+          {!isLoading && nearlyConfirmed.length > 0 && (
+            <section className="mb-6 md:mb-8">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-3">
+                  <Flame className="w-5 h-5 text-orange-500" />
+                  残りわずか
+                  <span
+                    className="w-10 h-1 ml-2"
+                    style={{ backgroundColor: '#f97316' }}
+                  />
+                  <span className="text-xs font-normal text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                    お早めに！
+                  </span>
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {nearlyConfirmed.map((scenario) => (
+                  <ScenarioCard
+                    key={`nearly-${scenario.scenario_id}`}
+                    scenario={scenario}
+                    onClick={(slugOrId) => {
+                      const nearlyFullEvent = scenario.next_events?.[0]
+                      handleCardClick(slugOrId, nearlyFullEvent?.date, nearlyFullEvent?.time)
+                    }}
+                    isFavorite={isFavorite(scenario.scenario_id)}
+                    isPlayed={isPlayed(scenario.scenario_id)}
+                    onToggleFavorite={handleToggleFavorite}
+                    onTogglePlayed={(id, title, e) => {
+                      e.stopPropagation()
+                      if (!user) { showToast.error('ログインが必要です'); return }
+                      if (isPlayed(id)) { showToast.info('既に体験済みとして登録されています'); return }
+                      setPlayedDialogTarget({ id, title })
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
             {/* ラインナップ表示 */}
             <TabsContent value="lineup">

@@ -43,6 +43,55 @@ interface ScheduleEvent {
   timeSlot?: string
 }
 
+/**
+ * organization_scenarios_with_master ビューから player_count_max を取得し、
+ * scenario_master_id と title の両方でルックアップできる Map を返す。
+ * scenario_masters の値ではなく、組織オーバーライドを反映した正しい値を取得する。
+ */
+async function getOrgScenarioPlayerCounts(organizationId?: string | null): Promise<Map<string, number>> {
+  const orgId = organizationId || await getCurrentOrganizationId()
+  if (!orgId) return new Map()
+
+  const { data } = await supabase
+    .from('organization_scenarios_with_master')
+    .select('id, title, player_count_max')
+    .eq('organization_id', orgId)
+
+  const map = new Map<string, number>()
+  if (data) {
+    for (const row of data as { id: string; title: string; player_count_max: number }[]) {
+      if (row.player_count_max) {
+        map.set(row.id, row.player_count_max)
+        if (row.title) {
+          map.set(row.title, row.player_count_max)
+        }
+      }
+    }
+  }
+  return map
+}
+
+/**
+ * イベントの正しい最大参加者数を解決する。
+ * 優先順位: org override (by id) → org override (by title) → master JOIN → event fields → fallback
+ */
+function resolveMaxParticipants(
+  event: { scenario_master_id?: string | null; scenario?: string; scenario_masters?: unknown; max_participants?: number; capacity?: number },
+  orgScenarioMap: Map<string, number>
+): number {
+  if (event.scenario_master_id && orgScenarioMap.has(event.scenario_master_id)) {
+    return orgScenarioMap.get(event.scenario_master_id)!
+  }
+  if (event.scenario && orgScenarioMap.has(event.scenario)) {
+    return orgScenarioMap.get(event.scenario)!
+  }
+  const scenarioData = event.scenario_masters as { player_count_max?: number } | null
+  if (scenarioData?.player_count_max) {
+    return scenarioData.player_count_max
+  }
+  return event.max_participants || event.capacity || 8
+}
+
 // シナリオ名のエイリアスマッピング（表記ゆれ対応）
 const SCENARIO_ALIAS: Record<string, string> = {
   '真渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
@@ -298,12 +347,13 @@ export const scheduleApi = {
       })
     }
 
+    const orgScenarioMap = await getOrgScenarioPlayerCounts(orgId)
+
     const myEvents = scheduleEvents.map(event => {
       const reservations = reservationsMap.get(event.id) || []
       const actualParticipants = reservations.reduce((sum, r) => sum + (r.participant_count || 0), 0)
       
-      const scenarioData = event.scenario_masters as { player_count_max?: number } | null
-      const maxParticipants = scenarioData?.player_count_max || event.max_participants || event.capacity || 8
+      const maxParticipants = resolveMaxParticipants(event, orgScenarioMap)
 
       return {
         ...event,
@@ -440,6 +490,8 @@ export const scheduleApi = {
     }
     
     // 各イベントの実際の参加者数を計算
+    const orgIdForScenarios = organizationId || await getCurrentOrganizationId()
+    const orgScenarioMap = await getOrgScenarioPlayerCounts(orgIdForScenarios || undefined)
 
     const eventsWithActualParticipants = scheduleEvents.map((event) => {
       const reservations = reservationsMap.get(event.id) || []
@@ -478,14 +530,7 @@ export const scheduleApi = {
         }
       }
       
-      // 予約から計算した参加者数が現在の値より大きい場合のみ更新
-      // （手動で設定した「満席」状態が上書きされないようにする）
-      // ただし、max_participantsを超えないようにする
-      const scenarioForSync = event.scenario_masters as { player_count_max?: number } | null
-      const maxForSync = scenarioForSync?.player_count_max ||
-                        event.max_participants ||
-                        event.capacity ||
-                        8
+      const maxForSync = resolveMaxParticipants(event, orgScenarioMap)
       const cappedActualParticipants = Math.min(actualParticipants, maxForSync)
 
       // 予約が存在する公演は、予約テーブル（active集計）を single source of truth として同期する
@@ -511,13 +556,7 @@ export const scheduleApi = {
           })
       }
       
-      const scenarioData2 = event.scenario_masters as { player_count_max?: number } | null
-      const scenarioMaxPlayers = scenarioData2?.player_count_max
-      
-      const maxParticipants = scenarioMaxPlayers ||
-                              event.max_participants ||
-                              event.capacity ||
-                              8
+      const maxParticipants = maxForSync
       
       // 表示用の参加者数
       // - 予約がある公演: 実予約数（active）を表示（キャンセルで減るのも反映）
@@ -628,6 +667,10 @@ export const scheduleApi = {
               const scenarioData = Array.isArray(booking.scenario_masters) ? booking.scenario_masters[0] : booking.scenario_masters
               const candidateTimeSlot = candidate.timeSlot || ''
               
+              const privateMaxParticipants = resolveMaxParticipants(
+                { scenario_master_id: scenarioData?.id, scenario: scenarioData?.title, scenario_masters: scenarioData },
+                orgScenarioMap
+              )
               privateEvents.push({
                 id: `private-${booking.id}-${candidate.order}`,
                 date: candidateDateStr,
@@ -641,8 +684,8 @@ export const scheduleApi = {
                 is_cancelled: false,
                 is_reservation_enabled: true,
                 current_participants: booking.participant_count,
-                max_participants: scenarioData?.player_count_max || 8,
-                capacity: scenarioData?.player_count_max || 8,
+                max_participants: privateMaxParticipants,
+                capacity: privateMaxParticipants,
                 gms: gmNames,
                 stores: booking.stores,
                 scenarios: scenarioData,
@@ -792,6 +835,8 @@ export const scheduleApi = {
       participantsByEventId.set(eventId, (participantsByEventId.get(eventId) || 0) + count)
     })
     
+    const orgScenarioMapForScenario = await getOrgScenarioPlayerCounts(orgId)
+
     const eventsWithActualParticipants = scheduleEvents.map((event) => {
       const actualParticipants = participantsByEventId.get(event.id) || 0
       
@@ -812,12 +857,7 @@ export const scheduleApi = {
           })
       }
       
-      const scenarioData3 = event.scenario_masters as { player_count_max?: number } | null
-      const scenarioMaxPlayers = scenarioData3?.player_count_max
-      const maxParticipants = scenarioMaxPlayers ||
-                              event.max_participants ||
-                              event.capacity ||
-                              8
+      const maxParticipants = resolveMaxParticipants(event, orgScenarioMapForScenario)
       
       // 現在の値と予約から計算した値の大きい方を使用
       const effectiveParticipants = Math.max(actualParticipants, event.current_participants || 0)
@@ -1155,6 +1195,7 @@ export const scheduleApi = {
       
       logger.log(`${events.length}件の公演をチェックします`)
       
+      const orgScenarioMapForDemo = await getOrgScenarioPlayerCounts(orgId)
       let successCount = 0
       let errorCount = 0
       
@@ -1182,8 +1223,11 @@ export const scheduleApi = {
           const reservedParticipants = reservations?.reduce((sum, reservation) => 
             sum + (reservation.participant_count || 0), 0) || 0
           
-          // 定員
-          const capacity = event.capacity || event.max_participants || 8
+          // 定員（organization_scenarios_with_master のオーバーライドを反映）
+          const capacity = resolveMaxParticipants(
+            { scenario_master_id: event.scenario_master_id, scenario: event.scenario, max_participants: event.max_participants, capacity: event.capacity },
+            orgScenarioMapForDemo
+          )
           
           // デモ参加者が既に存在するかチェック
           const hasDemoParticipant = reservations?.some(r => 

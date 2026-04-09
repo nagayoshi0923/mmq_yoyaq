@@ -54,6 +54,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         date,
         venue,
         scenario,
+        scenario_master_id,
         gms,
         start_time,
         end_time,
@@ -61,7 +62,10 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         is_cancelled,
         current_participants,
         capacity,
-        organization_id
+        organization_id,
+        scenario_masters:scenario_master_id (
+          player_count_max
+        )
       `)
       .eq('organization_id', orgId)
       .lte('date', today.toISOString().split('T')[0])
@@ -79,11 +83,32 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       return { success: 0, failed: 0, skipped: 0 }
     }
     
+    // 組織のシナリオデータを取得（player_count_max のオーバーライド反映）
+    const { data: orgScenarios } = await supabase
+      .from('organization_scenarios_with_master')
+      .select('id, title, player_count_max')
+      .eq('organization_id', orgId)
+    
+    const orgScenarioMap = new Map<string, number>()
+    if (orgScenarios) {
+      for (const row of orgScenarios) {
+        if (row.player_count_max) {
+          orgScenarioMap.set(row.id, row.player_count_max)
+          if (row.title) orgScenarioMap.set(row.title, row.player_count_max)
+        }
+      }
+    }
+    
     logger.log(`対象公演: ${pastEvents.length}件`)
     
     for (const event of pastEvents) {
       const currentParticipants = event.current_participants || 0
-      const maxParticipants = event.capacity || 8
+      const scenarioMasterData = event.scenario_masters as { player_count_max?: number } | null
+      const maxParticipants = (event.scenario_master_id && orgScenarioMap.get(event.scenario_master_id))
+        || (event.scenario && orgScenarioMap.get(event.scenario))
+        || scenarioMasterData?.player_count_max
+        || event.capacity
+        || 8
       
       // 定員に達している場合はスキップ
       if (currentParticipants >= maxParticipants) {
@@ -956,18 +981,22 @@ export function useScheduleData(currentDate: Date) {
                     ? confirmedStoreId 
                     : '' // 店舗未定
                   
+                  const privateScenarioTitle = request.scenario_masters?.title || request.title
+                  const orgPrivateScenarioInfo = findScenario(privateScenarioTitle)
+                  const privateMaxParticipants = orgPrivateScenarioInfo?.player_count_max || request.scenario_masters?.player_count_max || 8
+                  
                   const privateEvent: ScheduleEvent = {
                     id: `${request.id}-${candidate.order}`,
                     date: candidate.date,
                     venue: venueId,
-                    scenario: request.scenario_masters?.title || request.title,
+                    scenario: privateScenarioTitle,
                     gms: gmNames,
                     start_time: candidate.startTime || '',
                     end_time: candidate.endTime || '',
                     category: 'private', // 貸切
                     is_cancelled: false,
                     current_participants: request.participant_count || 0, // Reservationのparticipant_countをScheduleEventのcurrent_participantsに変換
-                    max_participants: request.scenario_masters?.player_count_max || 8,
+                    max_participants: privateMaxParticipants,
                     notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】`,
                     is_reservation_enabled: true, // 貸切公演は常に公開中
                     is_private_request: true, // 貸切リクエストフラグ
@@ -1333,18 +1362,22 @@ export function useScheduleData(currentDate: Date) {
                   ? confirmedStoreId 
                   : ''
                 
+                const privateScenarioTitle2 = request.scenario_masters?.title || request.title
+                const orgPrivateScenarioInfo2 = findScenario2(privateScenarioTitle2)
+                const privateMaxParticipants2 = orgPrivateScenarioInfo2?.player_count_max || request.scenario_masters?.player_count_max || 8
+                
                 const privateEvent: ScheduleEvent = {
                   id: `${request.id}-${candidate.order}`,
                   date: candidate.date,
                   venue: venueId,
-                  scenario: request.scenario_masters?.title || request.title,
+                  scenario: privateScenarioTitle2,
                   gms: gmNames,
                   start_time: candidate.startTime || '',
                   end_time: candidate.endTime || '',
                   category: 'private',
                   is_cancelled: false,
                   current_participants: request.participant_count || 0,
-                  max_participants: request.scenario_masters?.player_count_max || 8,
+                  max_participants: privateMaxParticipants2,
                   notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】`,
                   is_reservation_enabled: true,
                   is_private_request: true,
