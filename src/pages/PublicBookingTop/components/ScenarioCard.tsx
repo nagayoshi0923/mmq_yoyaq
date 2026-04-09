@@ -44,6 +44,7 @@ export interface ScenarioCardData {
 const LazyImage = ({ src, alt, className }: { src?: string, alt: string, className?: string }) => {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isInView, setIsInView] = useState(false)
+  const [useFallback, setUseFallback] = useState(false)
   const imgRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -64,10 +65,20 @@ const LazyImage = ({ src, alt, className }: { src?: string, alt: string, classNa
     return () => observer.disconnect()
   }, [])
 
-  // 最適化された画像URL（WebP + 幅400px + 品質80%）
   const optimizedSrc = getOptimizedImageUrl(src, { width: 400, format: 'webp', quality: 80 })
-  // 背景用（さらに小さく、低品質でOK）
   const bgSrc = getOptimizedImageUrl(src, { width: 100, format: 'webp', quality: 50 })
+
+  // Transform失敗時は元URLにフォールバック
+  const displaySrc = useFallback ? src : optimizedSrc
+  const displayBgSrc = useFallback ? src : bgSrc
+
+  const handleError = () => {
+    if (!useFallback && src && src !== optimizedSrc) {
+      setUseFallback(true)
+    } else {
+      setIsLoaded(true)
+    }
+  }
 
   return (
     <div ref={imgRef} className={`relative w-full h-full bg-gray-900 overflow-hidden ${className}`}>
@@ -76,24 +87,23 @@ const LazyImage = ({ src, alt, className }: { src?: string, alt: string, classNa
           <div className="w-8 h-8 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
-      {isInView && optimizedSrc ? (
+      {isInView && displaySrc ? (
         <>
-          {/* 背景：ぼかした画像で余白を埋める（低品質でOK） */}
           <div 
             className="absolute inset-0 scale-110"
             style={{
-              backgroundImage: `url(${bgSrc})`,
+              backgroundImage: `url(${displayBgSrc})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               filter: 'blur(20px) brightness(0.7)',
             }}
           />
-          {/* メイン画像：全体を表示（WebP + リサイズ済み） */}
           <img
-            src={optimizedSrc}
+            src={displaySrc}
             alt={alt}
             className={`relative w-full h-full object-contain transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setIsLoaded(true)}
+            onError={handleError}
             loading="lazy"
           />
         </>

@@ -59,6 +59,11 @@ export const RelatedScenarios = memo(function RelatedScenarios({
                     alt={scenario.title}
                     className="relative w-full h-full object-contain"
                     loading="lazy"
+                    onError={(e) => {
+                      if (scenario.key_visual_url && e.currentTarget.src !== scenario.key_visual_url) {
+                        e.currentTarget.src = scenario.key_visual_url
+                      }
+                    }}
                   />
                 </>
               ) : (

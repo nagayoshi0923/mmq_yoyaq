@@ -338,6 +338,11 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
               src={getOptimizedImageUrl(organizationHeaderImageUrl, { width: 1200, format: 'webp', quality: 80 }) || organizationHeaderImageUrl} 
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => {
+                if (organizationHeaderImageUrl && e.currentTarget.src !== organizationHeaderImageUrl) {
+                  e.currentTarget.src = organizationHeaderImageUrl
+                }
+              }}
             />
             {/* 暗いオーバーレイで文字を読みやすく */}
             <div className="absolute inset-0 bg-black/50" />

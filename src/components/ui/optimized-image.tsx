@@ -195,7 +195,7 @@ const LazyImage: React.FC<{
         }
       },
       {
-        rootMargin: '50px', // 50px前に読み込み開始
+        rootMargin: '50px',
         threshold: 0.1
       }
     )
@@ -205,10 +205,7 @@ const LazyImage: React.FC<{
     return () => observer.disconnect()
   }, [advancedLazy])
 
-  const handleLoad = () => setHasLoaded(true)
-
   if (!isVisible) {
-    // プレースホルダー表示（親から渡されたclassNameを尊重）
     return (
       <div
         ref={imgRef}
@@ -226,7 +223,8 @@ const LazyImage: React.FC<{
       alt={alt}
       loading={lazy ? 'lazy' : undefined}
       className={`${className} ${!hasLoaded ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
-      onLoad={handleLoad}
+      onLoad={() => setHasLoaded(true)}
+      onError={() => setHasLoaded(true)}
       {...props}
     />
   )
@@ -271,7 +269,7 @@ const LazyPicture: React.FC<{
         }
       },
       {
-        rootMargin: '50px', // 50px前に読み込み開始
+        rootMargin: '50px',
         threshold: 0.1
       }
     )
@@ -281,10 +279,7 @@ const LazyPicture: React.FC<{
     return () => observer.disconnect()
   }, [advancedLazy])
 
-  const handleLoad = () => setHasLoaded(true)
-
   if (!isVisible) {
-    // プレースホルダー表示（親から渡されたclassNameを尊重）
     return (
       <div
         ref={imgRef}
@@ -312,7 +307,8 @@ const LazyPicture: React.FC<{
         alt={alt}
         loading={lazy ? 'lazy' : undefined}
         className={`${className} ${!hasLoaded ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
-        onLoad={handleLoad}
+        onLoad={() => setHasLoaded(true)}
+        onError={() => setHasLoaded(true)}
         {...props}
       />
     </picture>
