@@ -20,18 +20,25 @@ serve(async (req) => {
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      getServiceRoleKey(), // Service Role / Secret Key を使用
+      getServiceRoleKey(),
     )
 
-    // 現在の日時
+    // リクエストBodyから days_before を取得（デフォルト: 1＝前日）
+    let reminderDaysBefore = 1
+    try {
+      const body = await req.json()
+      if (body?.days_before && Number.isInteger(body.days_before) && body.days_before > 0) {
+        reminderDaysBefore = body.days_before
+      }
+    } catch {
+      // Bodyなし or パース不可 → デフォルト値を使用
+    }
+
     const now = new Date()
-    
-    // リマインダー送信設定を取得（デフォルトは3日前）
-    const reminderDaysBefore = 3
     const targetDate = new Date(now.getTime() + reminderDaysBefore * 86400000)
     const targetDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(targetDate)
 
-    console.log(`リマインダー送信対象日: ${targetDateStr}`)
+    console.log(`📧 リマインダー送信: ${reminderDaysBefore}日前 → 対象日 ${targetDateStr}`)
 
     // 対象日の予約を取得
     const { data: scheduleEvents, error: eventsError } = await supabaseClient
@@ -74,26 +81,8 @@ serve(async (req) => {
     let totalSent = 0
     let totalErrors = 0
 
-    // 各公演の予約者にリマインダーを送信（通常予約・貸切予約を含む）
     for (const event of scheduleEvents) {
       try {
-        // 該当公演の予約を取得
-        // デバッグ: まず全ての予約を確認（ステータス問わず）
-        const { data: allReservations, error: allResError } = await supabaseClient
-          .from('reservations')
-          .select('id, schedule_event_id, status, customer_id, requested_datetime')
-          .eq('schedule_event_id', event.id)
-
-        if (allResError) {
-          console.error(`公演 ${event.id} の予約取得エラー:`, allResError)
-        } else if (allReservations && allReservations.length > 0) {
-          console.log(`公演 ${event.id} の全予約数: ${allReservations.length}`, JSON.stringify(allReservations.map(r => ({ id: r.id, status: r.status, schedule_event_id: r.schedule_event_id }))))
-        } else {
-          console.log(`公演 ${event.id} にはschedule_event_idで紐付けられた予約がありません`)
-        }
-
-        // 該当公演の予約を取得（confirmed/pendingのみ）
-        // ステータスを拡張: gm_confirmedなども含める
         const { data: reservations, error: resError } = await supabaseClient
           .from('reservations')
           .select('*, customers(*)')
@@ -102,19 +91,11 @@ serve(async (req) => {
 
         if (resError) throw resError
 
-        if (!reservations || reservations.length === 0) {
-          console.log(`公演 ${event.id} に予約がありません（confirmed/pendingの予約のみ）`)
-          continue
-        }
-
-        console.log(`公演 ${event.id} の予約数: ${reservations.length}`)
+        if (!reservations || reservations.length === 0) continue
 
         // 各予約者にリマインダーメールを送信
         for (const reservation of reservations) {
-          if (!reservation.customers || !reservation.customers.email) {
-            console.log(`予約 ${reservation.id} に顧客情報がありません`)
-            continue
-          }
+          if (!reservation.customers || !reservation.customers.email) continue
 
           try {
             const { error: sendError } = await supabaseClient.functions.invoke('send-reminder-emails', {
@@ -133,7 +114,7 @@ serve(async (req) => {
                 participantCount: reservation.participant_count,
                 totalPrice: reservation.total_price || 0,
                 reservationNumber: reservation.reservation_number,
-                daysBefore: reminderDaysBefore  // 3日前なので3を渡す
+                daysBefore: reminderDaysBefore
               }
             })
 
