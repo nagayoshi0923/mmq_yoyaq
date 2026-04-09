@@ -8,6 +8,7 @@
 
 import { supabase } from './supabase'
 import { logger } from '@/utils/logger'
+import { ACTIVE_RESERVATION_STATUSES } from './constants'
 
 /**
  * 🚨 CRITICAL: 公演の参加者数を予約テーブルから再計算して更新
@@ -20,12 +21,11 @@ import { logger } from '@/utils/logger'
  */
 export async function recalculateCurrentParticipants(eventId: string): Promise<number> {
   try {
-    // 有効な予約（pending, confirmed, gm_confirmed, checked_in）の参加者数を集計
     const { data: reservations, error: fetchError } = await supabase
       .from('reservations')
       .select('participant_count')
       .eq('schedule_event_id', eventId)
-      .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in'])
+      .in('status', [...ACTIVE_RESERVATION_STATUSES])
 
     if (fetchError) {
       logger.error('予約データ取得エラー:', fetchError)
@@ -68,7 +68,7 @@ export async function getCurrentParticipantsCount(eventId: string): Promise<numb
       .from('reservations')
       .select('participant_count')
       .eq('schedule_event_id', eventId)
-      .in('status', ['pending', 'confirmed', 'gm_confirmed', 'checked_in'])
+      .in('status', [...ACTIVE_RESERVATION_STATUSES])
 
     if (error) {
       logger.error('予約データ取得エラー:', error)

@@ -44,6 +44,16 @@ try {
   // noop
 }
 
+// デプロイ後のリロードでセッションが失われた場合のリカバリー用バックアップ。
+// Supabase クライアントの _initialize() がトークンリフレッシュに失敗すると
+// localStorage からセッションを削除するため、事前にバックアップしておく。
+const AUTH_STORAGE_KEY = 'mmq-supabase-auth'
+let _sessionBackupJson: string | null = null
+try {
+  _sessionBackupJson = localStorage.getItem(AUTH_STORAGE_KEY)
+} catch { /* SSR / private browsing */ }
+export const sessionBackupJson = _sessionBackupJson
+
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     // セッションを永続化

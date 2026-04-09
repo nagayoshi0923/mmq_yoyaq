@@ -75,6 +75,14 @@ export function PrivateBookingRequest({
   // 編集可能な候補日時
   const [editableTimeSlots, setEditableTimeSlots] = useState(initialTimeSlots)
 
+  // 親コンポーネントが非同期で selectedTimeSlots を更新した場合に同期
+  // （PrivateBookingRequestPage 経由のフローで初回マウント時に空→非同期で充填されるケース）
+  useEffect(() => {
+    if (initialTimeSlots.length > 0) {
+      setEditableTimeSlots(prev => prev.length === 0 ? initialTimeSlots : prev)
+    }
+  }, [initialTimeSlots])
+
   useEffect(() => {
     setEditableTimeSlots((prev) => prev.map((ts) => ({ ...ts, slot: enrichSlotEnd(ts.date, ts.slot) })))
   }, [enrichSlotEnd])
@@ -402,6 +410,17 @@ export function PrivateBookingRequest({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold">候補日時（{editableTimeSlots.length}/{MAX_TIME_SLOTS}件）</h2>
+                {!showAddForm && editableTimeSlots.length < MAX_TIME_SLOTS && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAddForm(true)}
+                    className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 h-8 px-2"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    追加
+                  </Button>
+                )}
               </div>
               
               {/* 追加フォーム */}

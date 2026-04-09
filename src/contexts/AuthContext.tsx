@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { supabase, type AuthUser } from '@/lib/supabase'
+import { supabase, type AuthUser, sessionBackupJson } from '@/lib/supabase'
 import { authTrace, logger } from '@/utils/logger'
 import type { User } from '@supabase/supabase-js'
 import { determineUserRole } from '@/utils/authUtils'
@@ -141,6 +141,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const isProcessingRef = React.useRef<boolean>(false)
   // 最後のトークンリフレッシュ時間（重複リフレッシュ防止）
   const lastRefreshRef = React.useRef<number>(0)
+  // 明示的ログアウト中フラグ（SIGNED_OUT でリカバリーを試みないようにする）
+  const isExplicitSignOutRef = React.useRef<boolean>(false)
+  // セッション復元の試行済みフラグ（無限ループ防止）
+  const recoveryAttemptedRef = React.useRef<boolean>(false)
   // 複数タブ間の同期用BroadcastChannel
   const broadcastChannelRef = React.useRef<BroadcastChannel | null>(null)
   
@@ -218,6 +222,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (err) {
       logger.error('❌ セッションリフレッシュ例外:', err)
     }
+  }, [])
+
+  // デプロイ後のリロードでトークンリフレッシュが失敗した場合のリカバリー。
+  // Supabase クライアント初期化前に保存したバックアップから refresh_token を取り出し、
+  // setSession() で再認証を試みる。
+  const tryRecoverSession = useCallback(async (): Promise<boolean> => {
+    if (!sessionBackupJson) return false
+    try {
+      const backup = JSON.parse(sessionBackupJson)
+      if (!backup?.refresh_token) return false
+      authTrace('🔄 バックアップからセッション復元を試行')
+      const { data, error } = await supabase.auth.setSession({
+        access_token: backup.access_token ?? '',
+        refresh_token: backup.refresh_token,
+      })
+      if (!error && data.session?.user) {
+        authTrace('✅ セッション復元成功')
+        await setUserFromSession(data.session.user)
+        setLoading(false)
+        setIsInitialized(true)
+        return true
+      }
+      authTrace('❌ セッション復元失敗:', error?.message)
+    } catch (err) {
+      authTrace('❌ セッション復元例外:', err)
+    }
+    return false
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setUserFromSession は安定
   }, [])
 
   useEffect(() => {
@@ -346,6 +378,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setIsInitialized(true)  // エラーでも完了とみなす
           })
         } else {
+          // SIGNED_OUT でユーザーが設定済みの場合（デプロイ後のリロードでトークンリフレッシュが
+          // 失敗したケースなど）、バックアップからのリカバリーを試みる。
+          // ただし以下の場合はスキップ:
+          // - 明示的にログアウトした場合（isExplicitSignOutRef）
+          // - 既にリカバリーを試行済みの場合（無限ループ防止）
+          if (event === 'SIGNED_OUT' && userRef.current
+              && !isExplicitSignOutRef.current
+              && !recoveryAttemptedRef.current) {
+            recoveryAttemptedRef.current = true
+            authTrace('⚠️ SIGNED_OUT だがユーザー設定済み、リカバリーを試行')
+            const recovered = await tryRecoverSession()
+            if (recovered) {
+              recoveryAttemptedRef.current = false
+              return
+            }
+          }
+          
           setUser(null)
           userRef.current = null
           setStaffCache(new Map())  // セッション終了時にキャッシュもクリア
@@ -400,6 +449,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           case 'SIGNED_OUT':
             // 他のタブでログアウトした場合、このタブもログアウト状態にする
             authTrace('🚪 他タブでログアウト検出、このタブもログアウト')
+            isExplicitSignOutRef.current = true
             setUser(null)
             userRef.current = null
             setStaffCache(new Map())  // キャッシュもクリア
@@ -465,7 +515,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
             if (refreshError) {
               logger.warn('⚠️ リフレッシュ失敗:', refreshError.message)
-              // リフレッシュ失敗でも、既存セッションがあれば続行
             } else if (refreshData.session) {
               session = refreshData.session
               authTrace('✅ セッションリフレッシュ成功')
@@ -488,8 +537,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
             return
           }
         } catch (refreshErr) {
-          authTrace('⏭️ リフレッシュ復元失敗（未ログイン状態）')
+          authTrace('⏭️ リフレッシュ復元失敗')
         }
+        
+        // SDK の refreshSession も失敗した場合、クライアント初期化前に保存した
+        // バックアップ（supabase.ts で保存）から復元を試みる。
+        // デプロイ後のリロードで autoRefreshToken が旧トークンを消費→
+        // レスポンス受信前にリロード→新トークン未保存、という競合で
+        // localStorage のセッションが消えるケースに対応。
+        const recovered = await tryRecoverSession()
+        if (recovered) return
+        
         authTrace('👤 セッションユーザーなし')
       }
     } catch (error) {
@@ -1001,6 +1059,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   async function signOut() {
     setLoading(true)
+    isExplicitSignOutRef.current = true
     const currentUserId = userRef.current?.id ?? null
     const currentUserRole = userRef.current?.role
     
@@ -1039,6 +1098,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       window.location.href = `/${slug}`
     } catch (error) {
       setLoading(false)
+      isExplicitSignOutRef.current = false
       throw error
     } finally {
       setLoading(false)

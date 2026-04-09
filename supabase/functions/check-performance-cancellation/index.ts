@@ -962,12 +962,15 @@ async function sendBusinessSummaryNotification(
       date,
       start_time,
       scenario,
+      scenario_master_id,
       current_participants,
       max_participants,
       organization_id,
       gms,
       store_id,
-      stores!inner(name)
+      stores!inner(name),
+      scenario_masters:scenario_master_id (player_count_max),
+      organization_scenarios:organization_scenario_id (override_player_count_max, scenario_masters:scenario_master_id (player_count_max))
     `)
     .eq('date', targetDateForQuery)
     .eq('is_recruitment_extended', true)
@@ -978,18 +981,27 @@ async function sendBusinessSummaryNotification(
   // 今回処理されたイベントを除外した、既に延長済みのイベント
   const alreadyExtendedDetails: EventDetail[] = (alreadyExtendedEvents || [])
     .filter(e => !processedEventIds.includes(e.id))
-    .map(e => ({
-      event_id: e.id,
-      date: e.date,
-      start_time: e.start_time,
-      scenario: e.scenario,
-      store_name: (e.stores as { name: string })?.name || '',
-      current_participants: e.current_participants || 0,
-      max_participants: e.max_participants || 8,
-      result: 'already_extended' as const,
-      organization_id: e.organization_id,
-      gms: e.gms || []
-    })) as EventDetail[]
+    .map(e => {
+      const orgScenario = e.organization_scenarios as { override_player_count_max?: number; scenario_masters?: { player_count_max?: number } } | null
+      const scenarioMaster = e.scenario_masters as { player_count_max?: number } | null
+      const maxParticipants = orgScenario?.override_player_count_max
+        || orgScenario?.scenario_masters?.player_count_max
+        || scenarioMaster?.player_count_max
+        || e.max_participants
+        || 8
+      return {
+        event_id: e.id,
+        date: e.date,
+        start_time: e.start_time,
+        scenario: e.scenario,
+        store_name: (e.stores as { name: string })?.name || '',
+        current_participants: e.current_participants || 0,
+        max_participants: maxParticipants,
+        result: 'already_extended' as const,
+        organization_id: e.organization_id,
+        gms: e.gms || []
+      }
+    }) as EventDetail[]
 
   console.log(`📊 既に延長済みのイベント: ${alreadyExtendedDetails.length}件`)
 

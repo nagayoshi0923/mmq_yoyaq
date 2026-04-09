@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
-import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, FileText, X, Gift, RefreshCw } from 'lucide-react'
+import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter, Flame, FileText, X, Gift, RefreshCw, HelpCircle } from 'lucide-react'
 import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -22,7 +22,6 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { ScenarioCard, type ScenarioCardData } from '@/pages/PublicBookingTop/components/ScenarioCard'
-import { HowToUseGuide } from '@/pages/PublicBookingTop/components/HowToUseGuide'
 
 // シナリオカード用の型（直近公演情報を含む）- ScenarioCardDataを拡張
 interface ScenarioWithEvents extends ScenarioCardData {
@@ -172,7 +171,6 @@ export function PlatformTop() {
     () => displaySnapshotOnMount?.blogPosts ?? []
   )
   const [showCouponPopup, setShowCouponPopup] = useState(false)
-  const [isGuideOpen, setIsGuideOpen] = useState(false)
 
   // クーポンポップアップ表示判定（非ログインユーザー & 非表示設定なし）
   useEffect(() => {
@@ -699,17 +697,16 @@ export function PlatformTop() {
                   ログイン / 新規登録
                 </Button>
               )}
-            </div>
-
-            {/* 使い方リンク */}
-            <div className="mt-4">
-              <button
-                onClick={() => setIsGuideOpen(true)}
-                className="inline-flex items-center gap-1.5 text-white/70 hover:text-white text-sm transition-colors"
+              <Button
+                size="lg"
+                variant="ghost"
+                className="border-2 border-white/50 text-white hover:bg-white/10 hover:text-white px-8 h-14 text-lg"
+                style={{ borderRadius: 0 }}
+                onClick={() => navigate('/guide')}
               >
-                <span className="w-5 h-5 rounded-full border border-white/40 flex items-center justify-center text-xs font-bold">?</span>
-                使い方
-              </button>
+                <HelpCircle className="w-5 h-5 mr-2" />
+                はじめての方へ
+              </Button>
             </div>
 
             {/* 新規登録キャンペーンバナー（コンパクト版）- 未ログインユーザーのみ表示 */}
@@ -1096,12 +1093,6 @@ export function PlatformTop() {
       {/* フッター */}
       <Footer />
 
-      {/* 使い方ガイドポップアップ */}
-      <HowToUseGuide
-        organizationName={null}
-        isOpen={isGuideOpen}
-        onClose={() => setIsGuideOpen(false)}
-      />
 
       {/* クーポンキャンペーンポップアップ */}
       {showCouponPopup && (

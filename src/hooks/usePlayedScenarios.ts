@@ -44,7 +44,7 @@ export function usePlayedScenarios() {
         .from('reservations')
         .select('scenario_master_id')
         .eq('customer_id', customer.id)
-        .in('status', ['confirmed', 'gm_confirmed'])
+        .not('status', 'in', '("cancelled","no_show")')
         .lte('requested_datetime', new Date().toISOString())
 
       reservations?.forEach(r => {
