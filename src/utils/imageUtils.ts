@@ -39,47 +39,10 @@ export function isSupabaseStorageUrl(url: string | undefined | null): boolean {
  */
 export function getOptimizedImageUrl(
   url: string | undefined | null,
-  options: ImageResizeOptions = {}
+  _options: ImageResizeOptions = {}
 ): string | undefined {
   if (!url) return undefined
-  
-  // Supabase Storage 以外のURLはそのまま返す（外部URL対応）
-  if (!isSupabaseStorageUrl(url)) {
-    return url
-  }
-  
-  const { width, height, quality = 80, format = 'origin' } = options
-  
-  try {
-    const urlObj = new URL(url)
-    const params = new URLSearchParams()
-    
-    // リサイズパラメータ
-    if (width) params.set('width', width.toString())
-    if (height) params.set('height', height.toString())
-    
-    // 品質パラメータ
-    if (quality !== 80) params.set('quality', quality.toString())
-    
-    // フォーマット変換（WebP等）
-    if (format !== 'origin') params.set('format', format)
-    
-    // パラメータがない場合は元のURLを返す
-    if (params.toString() === '') return url
-    
-    // 既存のクエリパラメータと結合
-    const existingParams = urlObj.searchParams.toString()
-    const newParams = params.toString()
-    const combinedParams = existingParams 
-      ? `${existingParams}&${newParams}` 
-      : newParams
-    
-    return `${urlObj.origin}${urlObj.pathname}?${combinedParams}`
-  } catch (error) {
-    // URLパースエラーの場合は元のURLを返す
-    logger.warn('Failed to optimize image URL:', error)
-    return url
-  }
+  return url
 }
 
 /**
