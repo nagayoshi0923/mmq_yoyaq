@@ -38,6 +38,11 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario, organizati
                 alt={scenario.scenario_title}
                 className="w-full h-full object-cover"
                 loading="lazy"
+                onError={(e) => {
+                  if (scenario.key_visual_url && e.currentTarget.src !== scenario.key_visual_url) {
+                    e.currentTarget.src = scenario.key_visual_url
+                  }
+                }}
               />
             </div>
           )}
