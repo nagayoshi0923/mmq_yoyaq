@@ -188,6 +188,11 @@ export const CalendarView = memo(function CalendarView({
                     const allDisplayEvents = allMergedEvents.filter((event: any) => {
                       const isPrivate = event.category === 'private' || event.is_private_booking === true
                       const isGm = event.category === 'gmtest' || event.category === 'testplay'
+                      if (hideSoldOut && (isPrivate || isGm)) return false
+                      if (hidePlayed && (isPrivate || isGm)) {
+                        const smId = event.scenario_master_id || event.scenario_id
+                        if (smId && playedScenarioIds.has(smId)) return false
+                      }
                       if (isPrivate || isGm) return true
                       if (hideSoldOut) {
                         const max = event.player_count_max || 8

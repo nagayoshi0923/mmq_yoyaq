@@ -128,6 +128,11 @@ export const ListView = memo(function ListView({
     const allEvents = allMerged.filter((ev: any) => {
       const isPrivate = ev.category === 'private' || ev.is_private_booking === true
       const isGm = ev.category === 'gmtest' || ev.category === 'testplay'
+      if (hideSoldOut && (isPrivate || isGm)) return false
+      if (hidePlayed && (isPrivate || isGm)) {
+        const smId = ev.scenario_master_id || ev.scenario_id
+        if (smId && playedScenarioIds.has(smId)) return false
+      }
       if (isPrivate || isGm) return true
       if (hideSoldOut) {
         const max = ev.player_count_max || 8
