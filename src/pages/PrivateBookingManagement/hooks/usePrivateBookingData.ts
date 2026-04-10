@@ -158,6 +158,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
         id: string
         reservation_number?: string
         scenario_id?: string
+        scenario_master_id?: string
         scenarios?: { title: string }
         title?: string
         customers?: { name: string; phone: string }
@@ -223,6 +224,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
             id: req.id,
             reservation_number: req.reservation_number || '',
             scenario_id: req.scenario_id,
+            scenario_master_id: req.scenario_master_id,
             scenario_title: req.scenarios?.title || req.title || 'シナリオ名不明',
             customer_name: req.customer_name || req.customers?.name || '顧客名不明',
             customer_email: req.customer_email || '',

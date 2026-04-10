@@ -63,6 +63,8 @@ Pages/Components
 
 | パス | 役割 |
 |------|------|
+| `supabase/schemas/` | テーブルの正規定義（カラム名確認はここを見る） |
+| `supabase/rpcs/` | RPC関数の正規定義 |
 | `src/lib/api/` | APIモジュール群（scheduleApi, reservationApi, scenarioApi 等16+ファイル） |
 | `src/lib/reservationApi.ts` | 予約APIのメインファイル（複数予約タイプで共用、変更時は全呼び出し元を確認） |
 | `src/hooks/` | 30+のカスタムフック。useEventOperations.ts・useScheduleData.ts が特に複雑 |
@@ -149,8 +151,10 @@ feature/* ブランチ
 - `storage.objects` に `COMMENT ON POLICY` を書かない
 - `anon` 必須テーブルの権限を壊さない（`organizations`, `stores`, `scenario_masters`, `schedule_events`, `organization_scenarios`, `business_hours_settings` 等）
 - **RPC を変更したら `npm run test:rpcs` を実行**（PL/pgSQL は作成時に構文チェックされない）
+- **中止判定などの RPC**: 正規定義は `supabase/rpcs/`。マイグレに全文を手打ちし直さず、`rpcs` を編集してからマイグレへコピーする（局所修正なら差分のみ）
 - `jsonb_each_text() AS alias(col1, col2)` は PL/pgSQL で壊れるため、サブクエリで展開する
 - カラムの型を確認する（`TEXT[]` に `@> jsonb_build_array()` は使えない、`ANY()` を使う）
+- **テーブルにカラムを追加/変更する場合**: `supabase/schemas/テーブル名.sql` も必ず同時に更新する（schemas/ を更新せずにマイグレだけ追加するのは禁止）
 
 ## デザインシステム
 
