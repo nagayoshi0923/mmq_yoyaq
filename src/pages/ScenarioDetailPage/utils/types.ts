@@ -20,9 +20,10 @@ export interface ScenarioCharacter {
 }
 
 export interface ScenarioDetail {
-  id?: string  // organization_scenarios.id
-  scenario_id: string
-  scenario_master_id?: string  // scenario_masters.id
+  /** scenario_masters.id（必須・常にUUID） */
+  scenario_master_id: string
+  /** organization_scenarios.id */
+  org_scenario_id?: string
   slug?: string  // organization_scenarios.slug
   scenario_title: string
   key_visual_url?: string

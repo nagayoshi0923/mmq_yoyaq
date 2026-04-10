@@ -263,7 +263,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       <BookingConfirmation
         eventId={selectedEvent.event_id}
         scenarioTitle={scenario.scenario_title}
-        scenarioId={scenario.scenario_id}
+        scenarioId={scenario.scenario_master_id}
         storeId={selectedEvent.store_id}
         eventDate={selectedEvent.date}
         startTime={selectedEvent.start_time}
@@ -287,7 +287,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     return (
       <PrivateBookingRequest
         scenarioTitle={scenario.scenario_title}
-        scenarioId={scenario.scenario_id}
+        scenarioId={scenario.scenario_master_id}
         participationFee={scenario.participation_fee}
         maxParticipants={scenario.player_count_max}
         scenarioDuration={scenario.duration}
@@ -569,7 +569,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
                       onClick={() => {
                         const params = new URLSearchParams()
-                        const scenarioIdToUse = scenario.scenario_id
+                        const scenarioIdToUse = scenario.scenario_master_id
                         if (scenarioIdToUse) params.set('scenarioId', scenarioIdToUse)
                         if (organizationSlug) params.set('org', organizationSlug)
                         params.set('mode', 'no-dates')
@@ -711,7 +711,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                         onRequestBooking={() => handlePrivateBookingRequest(!!user)}
                         reservationDeadlineHours={events[0]?.reservation_deadline_hours ?? 0}
                         hasPreReading={scenario.has_pre_reading}
-                        scenarioId={scenario.scenario_master_id || scenario.id}
+                        scenarioId={scenario.scenario_master_id}
                         organizationSlug={organizationSlug}
                       />
                     </div>

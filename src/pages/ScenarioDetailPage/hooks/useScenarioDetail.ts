@@ -219,7 +219,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   const charactersResult = orgScenarioResult?.characters || []
   
   const scenario: ScenarioDetail = {
-    scenario_id: scenarioData.id,
+    scenario_master_id: masterId || scenarioData.id,
+    org_scenario_id: orgScenarioId || undefined,
     slug: scenarioData.slug,
     scenario_title: scenarioData.title,
     key_visual_url: scenarioData.key_visual_url,

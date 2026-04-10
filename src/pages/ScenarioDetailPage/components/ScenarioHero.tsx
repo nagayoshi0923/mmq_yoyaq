@@ -63,7 +63,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
   if (scenario.female_count != null) genderRatioParts.push(`女性${scenario.female_count}人`)
   if (scenario.other_count != null) genderRatioParts.push(`その他${scenario.other_count}人`)
   const genderRatioText = genderRatioParts.join(' / ')
-  const scenarioIsFavorite = isFavorite(scenario.scenario_id)
+  const scenarioIsFavorite = isFavorite(scenario.scenario_master_id)
   
   // 体験済み登録用ステート
   const [isPlayed, setIsPlayed] = useState(false)
@@ -93,7 +93,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           .from('reservations')
           .select('id')
           .eq('customer_id', customer.id)
-          .eq('scenario_master_id', scenario.scenario_id)
+          .eq('scenario_master_id', scenario.scenario_master_id)
           .in('status', ['confirmed', 'gm_confirmed'])
           .lte('requested_datetime', new Date().toISOString())
           .limit(1)
@@ -109,7 +109,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
           .from('manual_play_history')
           .select('id')
           .eq('customer_id', customer.id)
-          .eq('scenario_master_id', scenario.scenario_id)
+          .eq('scenario_master_id', scenario.scenario_master_id)
           .limit(1)
           .maybeSingle()
         
@@ -122,7 +122,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
     }
     
     checkPlayed()
-  }, [user, scenario.scenario_id])
+  }, [user, scenario.scenario_master_id])
 
   // 全店舗を取得（ダイアログ用）
   useEffect(() => {
@@ -140,12 +140,12 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
   }, [])
   
   const handleFavoriteClick = () => {
-    toggleFavorite(scenario.scenario_id)
+    toggleFavorite(scenario.scenario_master_id)
   }
 
   const handleCreateGroup = () => {
     const params = new URLSearchParams()
-    params.set('scenarioId', scenario.scenario_id)
+    params.set('scenarioId', scenario.scenario_master_id)
     if (organizationSlug) params.set('org', organizationSlug)
     navigate(`/group/create?${params.toString()}`)
   }
@@ -199,7 +199,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [], 
         .insert({
           customer_id: customer.id,
           scenario_title: scenario.scenario_title,
-          scenario_master_id: scenario.scenario_id,
+          scenario_master_id: scenario.scenario_master_id,
           played_at: playedDate || null,
           venue: venueName,
         })
