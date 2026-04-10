@@ -384,7 +384,7 @@ export const scenarioApi = {
       'gm_costs', 'gm_count', 'gm_assignments',
       'production_cost', 'production_costs', 'depreciation_per_performance',
       'play_count', 'notes', 'participation_costs', 'flexible_pricing', 'use_flexible_pricing',
-      'booking_start_date', 'booking_end_date'
+      'booking_start_date', 'booking_end_date', 'private_booking_time_slots'
     ]
     
     for (const col of directOrgColumns) {

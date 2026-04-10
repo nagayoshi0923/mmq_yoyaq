@@ -119,7 +119,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   const [eventsData, storesData, orgScenarioResult, masterCautionResult, relatedScenariosResult] =
     await Promise.all([
       fetchScheduleEventsMergedForScenario(),
-      storeApi.getAll(false, orgId).catch((error) => {
+      storeApi.getAll(true, orgId).catch((error) => {
         logger.error('店舗データの取得エラー:', error)
         return []
       }),
@@ -129,7 +129,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
           if (orgId) {
             const { data: orgScenarioData } = await supabase
               .from('organization_scenarios')
-              .select('custom_caution, characters, private_booking_blocked_slots, booking_start_date, booking_end_date')
+              .select('custom_caution, characters, private_booking_blocked_slots, private_booking_time_slots, booking_start_date, booking_end_date')
               .eq('scenario_master_id', masterId)
               .eq('organization_id', orgId)
               .maybeSingle()
@@ -137,7 +137,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
           }
           const { data: orgScenarioRows } = await supabase
             .from('organization_scenarios')
-            .select('custom_caution, characters, private_booking_blocked_slots, booking_start_date, booking_end_date')
+            .select('custom_caution, characters, private_booking_blocked_slots, private_booking_time_slots, booking_start_date, booking_end_date')
             .eq('scenario_master_id', masterId)
             .not('characters', 'is', null)
             .limit(1)
@@ -243,7 +243,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     participation_costs: scenarioData.participation_costs || undefined,
     available_stores: scenarioData.available_stores || [],
     extra_preparation_time: scenarioData.extra_preparation_time || 0,
-    private_booking_time_slots: scenarioData.private_booking_time_slots || undefined,
+    private_booking_time_slots: orgScenarioResult?.private_booking_time_slots || undefined,
     private_booking_blocked_slots: orgScenarioResult?.private_booking_blocked_slots || undefined,
     booking_start_date: orgScenarioResult?.booking_start_date || null,
     booking_end_date: orgScenarioResult?.booking_end_date || null,
