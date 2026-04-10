@@ -68,44 +68,20 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       const scenarioAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
       const hasScenarioStoreLimit = Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0
       
-      // 利用可能な店舗を計算（オフィス除く、営業中のみ、シナリオ対応のみ）
+      // 利用可能な店舗を計算（オフィス除く、営業中のみ、シナリオ対応店舗）
+      // シナリオのavailable_storesに含まれる店舗はis_temporaryでも表示する
       const validStores = stores.filter(s => 
         s.ownership_type !== 'office' && 
         s.status === 'active' &&
-        (!hasScenarioStoreLimit || scenarioAvailableStores.includes(s.id))
+        (hasScenarioStoreLimit
+          ? scenarioAvailableStores.includes(s.id)
+          : !s.is_temporary)
       )
       
-      // 1店舗しかない場合は自動選択
-      if (validStores.length === 1) {
-        setSelectedStoreIdsInternal([validStores[0].id])
-        setSavedStoreIds([validStores[0].id])
-        return
-      }
-      
-      // 貸切用に保存された店舗がある場合はそれを使用
-      if (savedStoreIds.length > 0) {
-        const validStoreIds = savedStoreIds.filter(id => {
-          // 店舗が存在するかチェック
-          const storeExists = stores.some(s => s.id === id && s.ownership_type !== 'office')
-          // シナリオ対応店舗かチェック
-          const isScenarioStore = !hasScenarioStoreLimit || scenarioAvailableStores.includes(id)
-          return storeExists && isScenarioStore
-        })
-        // 有効な保存済み店舗がある場合のみ復元
-        if (validStoreIds.length > 0) {
-          setSelectedStoreIdsInternal(validStoreIds)
-        } else {
-          // 保存済みだが全て無効な場合は、利用可能な全店舗を選択
-          const allValidIds = validStores.map(s => s.id)
-          setSelectedStoreIdsInternal(allValidIds)
-          setSavedStoreIds(allValidIds)
-        }
-      } else {
-        // 保存された店舗がない場合は、利用可能な全店舗を初期選択
-        const allValidIds = validStores.map(s => s.id)
-        setSelectedStoreIdsInternal(allValidIds)
-        setSavedStoreIds(allValidIds)
-      }
+      // 対応可能な全店舗を初期選択
+      const allValidIds = validStores.map(s => s.id)
+      setSelectedStoreIdsInternal(allValidIds)
+      setSavedStoreIds(allValidIds)
     }
   }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario])
 
@@ -115,6 +91,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
   // - 1ヶ月ずつ取得（月が変わったら再取得）
   const [loadedMonthKey, setLoadedMonthKey] = useState<string | null>(null)
   const [isLoadingEvents, setIsLoadingEvents] = useState(false)
+  const [eventsLoaded, setEventsLoaded] = useState(false)
   
   useEffect(() => {
     // 貸切タブが非アクティブの場合はスキップ
@@ -129,6 +106,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     const loadMonthEvents = async () => {
       setIsLoadingEvents(true)
+      setEventsLoaded(false)
       try {
         // organizationSlugからorganization_idを取得
         let orgId: string | undefined = undefined
@@ -149,9 +127,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         
         setAllStoreEvents(validEvents)
         setLoadedMonthKey(monthKey)
+        setEventsLoaded(true)
       } catch (error) {
         logger.error('イベントの取得エラー:', error)
         setAllStoreEvents([])
+        setEventsLoaded(true)
       } finally {
         setIsLoadingEvents(false)
       }
@@ -197,9 +177,10 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
   // そのシナリオを公演可能な店舗IDを取得（シナリオのavailable_stores設定から）
   // オフィス（ownership_type='office'）と一時休業店舗は貸切リクエストの対象外
   const getAvailableStoreIds = useCallback((): Set<string> => {
-    // オフィスを除外し、営業中の店舗のみ
+    // オフィス・臨時会場を除外し、営業中の店舗のみ
     const validStores = stores.filter(s => 
       s.ownership_type !== 'office' && 
+      !s.is_temporary &&
       s.status === 'active'
     )
     
@@ -359,12 +340,12 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
   const checkTimeSlotAvailability = useCallback(async (date: string, slot: TimeSlot, storeIds?: string[]): Promise<boolean> => {
     const availableStoreIds = getAvailableStoreIds()
     
-    // 店舗データがまだ読み込まれていない場合は、とりあえずtrueを返す（後で再評価される）
-    if (stores.length === 0) return true
+    // 店舗データがまだ読み込まれていない場合はfalseを返す（ロード後に再評価される）
+    if (stores.length === 0) return false
     
-    // allStoreEventsがまだ読み込まれていない場合は、trueを返す（後で再評価される）
-    if (allStoreEvents.length === 0) {
-      return true
+    // イベントデータがまだロードされていない場合はfalseを返す（ロード後に再評価される）
+    if (!eventsLoaded) {
+      return false
     }
     
     // getTimeSlotsForDate と同一: privateBookingStoreSlotFeasibility（設定の営業時間＋公演隙間）
@@ -513,6 +494,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     return availableStoreIdsArray.some(storeId => checkStoreAvailability(storeId))
   }, [
     allStoreEvents,
+    eventsLoaded,
     getAvailableStoreIds,
     getEventStoreId,
     getTimeSlotFromLabel,
@@ -601,23 +583,17 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
 
   // シナリオが対応している店舗のみにフィルタリングした店舗リスト
   const availableStores = useMemo(() => {
-    // オフィスを除外し、営業中の店舗のみ
-    const validStores = stores.filter(s => 
+    const scenarioAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
+    const hasScenarioStoreLimit = Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0
+
+    // シナリオのavailable_storesに含まれる店舗はis_temporaryでも表示する
+    return stores.filter(s => 
       s.ownership_type !== 'office' && 
-      s.status === 'active'
+      s.status === 'active' &&
+      (hasScenarioStoreLimit
+        ? scenarioAvailableStores.includes(s.id)
+        : !s.is_temporary)
     )
-    
-    // シナリオにavailable_storesが設定されている場合のみ、その店舗に限定
-    if (scenario) {
-      const scenarioAvailableStores = scenario.available_stores || scenario.available_stores_ids
-      // 配列が存在し、かつ空でない場合のみ限定
-      if (Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0) {
-        return validStores.filter(s => scenarioAvailableStores.includes(s.id))
-      }
-    }
-    
-    // 設定されていない場合、または空配列の場合は全店舗を対象（オフィス除く、営業中のみ）
-    return validStores
   }, [scenario, stores])
 
   const isNextMonthDisabled = useMemo(() => {

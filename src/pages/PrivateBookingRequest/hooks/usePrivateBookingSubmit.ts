@@ -15,7 +15,8 @@ const PRIVATE_BOOKING_ERROR_MESSAGES: Record<string, string> = {
   'P0024': 'シナリオが見つかりません',
   'P0025': '参加人数が上限を超えています',
   'P0009': '顧客情報が見つかりません',
-  'P0011': 'この操作を行う権限がありません'
+  'P0011': 'この操作を行う権限がありません',
+  'P0030': '選択された全ての候補日時が既存の公演と重複しています。別の日時をお選びください。'
 }
 
 interface UsePrivateBookingSubmitProps {

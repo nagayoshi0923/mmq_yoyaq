@@ -136,15 +136,18 @@ export function PrivateBookingRequest({
   const [businessHoursByStore, setBusinessHoursByStore] = useState<
     Map<string, BusinessHoursSettingRow>
   >(new Map())
+  const [storeEvents, setStoreEvents] = useState<any[]>([])
 
   useEffect(() => {
     const ids = storeIdsForSlotResolution
     if (ids.length === 0) {
       setBusinessHoursByStore(new Map())
+      setStoreEvents([])
       return
     }
     let cancelled = false
-    ;(async () => {
+
+    const loadBusinessHours = async () => {
       const { data, error } = await supabase
         .from('business_hours_settings')
         .select('store_id, opening_hours, holidays, special_open_days, special_closed_days')
@@ -160,7 +163,31 @@ export function PrivateBookingRequest({
         map.set(row.store_id as string, row as BusinessHoursSettingRow)
       }
       setBusinessHoursByStore(map)
-    })()
+    }
+
+    const loadEvents = async () => {
+      const today = new Date()
+      const windowEnd = new Date(today)
+      windowEnd.setDate(today.getDate() + 180)
+      const { data, error } = await supabase
+        .from('schedule_events')
+        .select('*, stores(id, name)')
+        .in('store_id', ids)
+        .gte('date', today.toISOString().split('T')[0])
+        .lte('date', windowEnd.toISOString().split('T')[0])
+        .eq('is_cancelled', false)
+      if (cancelled) return
+      if (error) {
+        logger.error('貸切確認: イベント取得エラー', error)
+        setStoreEvents([])
+        return
+      }
+      setStoreEvents(data || [])
+    }
+
+    loadBusinessHours()
+    loadEvents()
+
     return () => {
       cancelled = true
     }
@@ -174,7 +201,7 @@ export function PrivateBookingRequest({
       storeIds: storeIdsForSlotResolution,
       businessHoursByStore,
       scenarioTiming,
-      allStoreEvents: [],
+      allStoreEvents: storeEvents,
       isCustomHoliday,
     })
   }, [
@@ -182,6 +209,7 @@ export function PrivateBookingRequest({
     storeIdsForSlotResolution,
     businessHoursByStore,
     scenarioTiming,
+    storeEvents,
     isCustomHoliday,
   ])
 
@@ -192,7 +220,7 @@ export function PrivateBookingRequest({
       storeIds: storeIdsForSlotResolution,
       businessHoursByStore,
       scenarioTiming,
-      allStoreEvents: [],
+      allStoreEvents: storeEvents,
       isCustomHoliday,
     })
     const picked = daySlots.find((s) => s.label === newSlotLabel)
