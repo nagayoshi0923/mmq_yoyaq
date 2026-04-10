@@ -319,16 +319,16 @@ export function PrivateBookingManagement() {
 
   // シナリオ対応店舗でフィルタリングした店舗リスト
   const filteredStores = useMemo(() => {
-    // オフィスを除外
-    const validStores = stores.filter(s => s.ownership_type !== 'office')
-    
-    // シナリオに対応店舗が設定されている場合のみフィルタリング
-    if (scenarioAvailableStores.length > 0) {
-      return validStores.filter(s => scenarioAvailableStores.includes(s.id))
-    }
-    
-    // 設定されていない場合は全店舗（オフィス除く）
-    return validStores
+    const hasScenarioStoreLimit = scenarioAvailableStores.length > 0
+
+    // シナリオのavailable_storesに含まれる店舗はis_temporaryでも表示する
+    return stores.filter(s => 
+      s.ownership_type !== 'office' && 
+      s.status === 'active' &&
+      (hasScenarioStoreLimit
+        ? scenarioAvailableStores.includes(s.id)
+        : !s.is_temporary)
+    )
   }, [stores, scenarioAvailableStores])
 
   // 店舗を地域ごとにグループ化
@@ -656,7 +656,7 @@ export function PrivateBookingManagement() {
                 gmResponses={availableGMs} // 全GMの回答情報を渡す
                 isReadOnly={false} // 確定済みでも編集可能に
                 isConfirmed={selectedRequest.status === 'confirmed'}
-                stores={stores.filter(s => s.ownership_type !== 'office')} // 全店舗の空き状況表示用（オフィス除く）
+                stores={stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)} // 全店舗の空き状況表示用（オフィス・臨時除く）
               />
 
               {/* 開催店舗の選択 */}

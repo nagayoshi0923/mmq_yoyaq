@@ -8,15 +8,17 @@ import { ShiftManual } from './ShiftManual'
 import { CouponManual } from './CouponManual'
 import { CouponReceptionManual } from './CouponReceptionManual'
 import { CheckinManual } from './CheckinManual'
+import { PreReadingSurveyManual } from './PreReadingSurveyManual'
 import { cn } from '@/lib/utils'
 import {
   BookOpen, Users, CalendarDays, FileText, Ticket, Scissors,
-  ClipboardCheck, ChevronDown, ChevronRight, Menu, X,
+  ClipboardCheck, ClipboardList, ChevronDown, ChevronRight, Menu, X,
 } from 'lucide-react'
 
 // スタッフ向けメニュー
 const STAFF_ITEMS = [
   { id: 'checkin', label: '受付・チェックイン', icon: ClipboardCheck },
+  { id: 'pre-reading-survey', label: '事前アンケート・配役', icon: ClipboardList },
   { id: 'coupon-reception', label: 'クーポン受付対応', icon: Scissors },
 ]
 
@@ -177,6 +179,7 @@ export function ManualPage() {
       case 'reservation': return <ReservationManual />
       case 'schedule': return <ShiftManual />
       case 'checkin': return <CheckinManual />
+      case 'pre-reading-survey': return <PreReadingSurveyManual />
       case 'coupon-reception': return <CouponReceptionManual />
       case 'coupon': return <CouponManual />
       default: return <ReservationManual />

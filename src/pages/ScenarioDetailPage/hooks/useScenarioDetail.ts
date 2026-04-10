@@ -220,6 +220,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   
   const scenario: ScenarioDetail = {
     scenario_id: scenarioData.id,
+    scenario_master_id: masterId || scenarioData.id,
     slug: scenarioData.slug,
     scenario_title: scenarioData.title,
     key_visual_url: scenarioData.key_visual_url,
@@ -279,6 +280,7 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
     events: data?.events ?? [],
     stores: data?.stores ?? [],
     relatedScenarios: data?.relatedScenarios ?? [],
+    organizationId: data?.organizationId ?? undefined,
     isLoading,
     loadScenarioDetail: refetch
   }

@@ -128,6 +128,7 @@ export function PrivateGroupInvite() {
   const [preferredStoreNames, setPreferredStoreNames] = useState<Array<{ id: string; name: string }>>([])
   const [showStoreEditSheet, setShowStoreEditSheet] = useState(false)
   const [allStores, setAllStores] = useState<Array<{ id: string; name: string; short_name: string }>>([])
+  const [isFilteredByScenario, setIsFilteredByScenario] = useState(false)
   const [loadingStoresForEdit, setLoadingStoresForEdit] = useState(false)
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [savingStores, setSavingStores] = useState(false)
@@ -361,7 +362,7 @@ export function PrivateGroupInvite() {
     fetchStoreNames()
   }, [group?.preferred_store_ids])
 
-  // 店舗編集用: 組織に紐づく店舗を取得（scenario_stores は未整備・scenario_id 未設定でも動くようにする）
+  // 店舗編集用: シナリオの available_stores に基づいて選択可能な店舗を取得
   const fetchAllStores = async () => {
     if (!group?.organization_id) {
       setAllStores([])
@@ -375,39 +376,66 @@ export function PrivateGroupInvite() {
     })
 
     try {
+      // シナリオの available_stores を取得
+      let scenarioAvailableStores: string[] = []
+      if (group.scenario_id) {
+        const { data: scenarioData } = await supabase
+          .from('organization_scenarios_with_master')
+          .select('available_stores')
+          .eq('scenario_master_id', group.scenario_id)
+          .eq('organization_id', group.organization_id)
+          .limit(1)
+          .maybeSingle()
+        scenarioAvailableStores = scenarioData?.available_stores || []
+      }
+
       const { data, error } = await supabase
         .from('stores')
-        .select('id, name, short_name, ownership_type')
+        .select('id, name, short_name, ownership_type, is_temporary')
         .eq('organization_id', group.organization_id)
         .eq('status', 'active')
         .order('name')
 
       if (error) throw error
 
-      // office（オフィス）とtemporary（臨時会場）を除外
-      let storeList = (data || [])
-        .filter(s => s.ownership_type !== 'office' && s.ownership_type !== 'temporary')
-        .map(mapRow)
+      let storeList: ReturnType<typeof mapRow>[]
 
-      // 既に希望に入っているが上記条件で落ちた店舗（仮設・オフィス等）も選択肢に残す
+      if (scenarioAvailableStores.length > 0) {
+        // シナリオに対応店舗が設定されている場合: その店舗のみ（is_temporary 問わず、オフィス除外）
+        storeList = (data || [])
+          .filter(s => s.ownership_type !== 'office' && scenarioAvailableStores.includes(s.id))
+          .map(mapRow)
+      } else {
+        // 未設定の場合: オフィス・臨時を除外（従来動作）
+        storeList = (data || [])
+          .filter(s => s.ownership_type !== 'office' && !s.is_temporary)
+          .map(mapRow)
+      }
+
+      // 既に希望に入っている店舗も選択肢に残す（同じフィルタ条件を適用）
       const missingIds = (group.preferred_store_ids || []).filter(
         (id) => !storeList.some((s) => s.id === id)
       )
       if (missingIds.length > 0) {
         const { data: extra, error: err2 } = await supabase
           .from('stores')
-          .select('id, name, short_name')
+          .select('id, name, short_name, ownership_type, is_temporary')
           .in('id', missingIds)
         if (err2) throw err2
         if (extra?.length) {
-          storeList = [...storeList, ...extra.map(mapRow)]
+          const validExtra = scenarioAvailableStores.length > 0
+            ? extra.filter(s => s.ownership_type !== 'office' && scenarioAvailableStores.includes(s.id))
+            : extra.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
+          storeList = [...storeList, ...validExtra.map(mapRow)]
         }
       }
 
       setAllStores(storeList)
+      setIsFilteredByScenario(scenarioAvailableStores.length > 0)
     } catch (err) {
       logger.error('全店舗取得エラー:', err)
       setAllStores([])
+      setIsFilteredByScenario(false)
       toast.error('店舗一覧の取得に失敗しました')
     }
   }
@@ -2089,9 +2117,14 @@ export function PrivateGroupInvite() {
               
               {/* コンテンツ */}
               <div className="overflow-y-auto flex-1 p-4">
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-sm text-muted-foreground mb-2">
                   利用を希望する店舗を選択してください。
                 </p>
+                {isFilteredByScenario && (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4">
+                    このシナリオで公演可能な店舗のみ表示しています。
+                  </p>
+                )}
                 <div className="space-y-2">
                   {loadingStoresForEdit ? (
                     <div className="text-center py-8 text-muted-foreground text-sm">

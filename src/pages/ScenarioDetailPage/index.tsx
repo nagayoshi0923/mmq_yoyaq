@@ -67,7 +67,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   }, [])
   
   // データ取得フック（organization_idでフィルタリング）
-  const { scenario, events, stores, relatedScenarios, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId, organizationSlug)
+  const { scenario, events, stores, relatedScenarios, organizationId, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId, organizationSlug)
 
   // URLがUUIDでシナリオにslugがある場合、slugのURLにリダイレクト
   useEffect(() => {
@@ -126,7 +126,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     changeMonth,
     toggleTimeSlot,
     getTimeSlotsForDate
-  } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug, isCustomHoliday, isActive: activeTab === 'private' })
+  } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationId, isCustomHoliday, isActive: activeTab === 'private' })
 
   // 選択されたイベントの日付に応じた参加費を計算
   const calculatedParticipationFee = useMemo(() => {

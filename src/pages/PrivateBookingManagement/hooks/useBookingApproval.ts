@@ -395,11 +395,12 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             })
 
             // 事前読み込みシナリオの場合、追加通知を送信
-            if (selectedRequest?.scenario_id) {
+            const preReadingScenarioMasterId = selectedRequest?.scenario_master_id || selectedRequest?.scenario_id
+            if (preReadingScenarioMasterId) {
               const { data: scenarioData } = await supabase
                 .from('scenario_masters')
                 .select('has_pre_reading')
-                .eq('id', selectedRequest.scenario_id)
+                .eq('id', preReadingScenarioMasterId)
                 .single()
 
               if (scenarioData?.has_pre_reading) {

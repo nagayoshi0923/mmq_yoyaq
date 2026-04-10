@@ -77,8 +77,9 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   const datesKey = availableDates.join(',')
 
   // slotsByDate を遅延計算（レンダーを先に完了させてから計算を実行）
+  // loading が false になったタイミングでも再計算する（データロード完了後にスロットを反映）
   useEffect(() => {
-    if (availableDates.length === 0) {
+    if (availableDates.length === 0 || loading) {
       setSlotsByDate({})
       return
     }
@@ -100,7 +101,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
       clearTimeout(timerId)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [datesKey, storeIdsKey])
+  }, [datesKey, storeIdsKey, loading])
 
   // slotsByDate を ref に保持し、availability チェックの依存から外す
   const slotsByDateRef = useRef(slotsByDate)

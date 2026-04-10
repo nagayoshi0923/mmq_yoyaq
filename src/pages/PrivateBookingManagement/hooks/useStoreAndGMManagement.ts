@@ -41,7 +41,7 @@ export function useStoreAndGMManagement() {
   // 店舗データの読み込み（組織対応済み）
   const loadStores = useCallback(async () => {
     try {
-      const data = await storeApi.getAll()
+      const data = await storeApi.getAll(true)
       setStores(data || [])
     } catch (error) {
       logger.error('店舗情報取得エラー:', error)

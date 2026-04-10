@@ -55,6 +55,8 @@ export type ScenarioTimingFromDb = {
   weekend_duration: number | null
   /** 追加準備分。通常貸切と同様にインターバル60分に加算して空き判定する */
   extra_preparation_time: number
+  /** シナリオが受け付ける貸切時間帯（未設定＝全枠許可） */
+  private_booking_time_slots?: string[] | null
 }
 
 /** 通常貸切（usePrivateBooking）と同じく公演間に最低これだけ空ける（分） */
@@ -104,7 +106,7 @@ export async function fetchScenarioTimingFromDb(
   if (organizationId) {
     const { data: os } = await supabase
       .from('organization_scenarios')
-      .select('duration, weekend_duration, extra_preparation_time')
+      .select('duration, weekend_duration, extra_preparation_time, private_booking_time_slots')
       .eq('organization_id', organizationId)
       .or(`id.eq.${lookup},scenario_master_id.eq.${lookup}`)
       .limit(1)
@@ -122,6 +124,7 @@ export async function fetchScenarioTimingFromDb(
             ? os.weekend_duration
             : null,
         extra_preparation_time: prep,
+        private_booking_time_slots: os.private_booking_time_slots ?? null,
       }
     }
   }
