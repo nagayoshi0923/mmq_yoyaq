@@ -540,6 +540,7 @@ npm run check:permissions:fix
 □ GRANT の対象関数にシグネチャ（引数の型）を指定したか？
 □ anon 必須テーブルの権限を壊していないか？
 □ RPC で参照するカラムが実際に存在するか確認したか？
+□ RPC 変更は `supabase/rpcs/*.sql` を正とし、マイグレはそのコピーまたは最小差分のみ（関数本文の手打ち全文差し替えは禁止）
 □ storage.objects に COMMENT ON POLICY を書いていないか？
 ```
 
@@ -549,3 +550,82 @@ organizations, stores, scenario_masters, schedule_events,
 organization_scenarios, business_hours_settings, booking_notices,
 private_groups, private_group_members, private_group_candidate_dates,
 private_group_date_responses, private_group_messages
+
+---
+
+## 未着手タスク: organization_scenarios のデータ取得パス統一
+
+### 背景
+`organization_scenarios` のカラム読み取りが2パスに分かれていて混乱の原因になっている:
+- パスA: `scenarioApi` → ビュー (`organization_scenarios_with_master`) → `ORG_SCENARIOS_VIEW_SELECT_FIELDS`
+- パスB: `supabase.from('organization_scenarios').select(...)` → 直接テーブル
+
+後から追加されたカラム（`private_booking_blocked_slots`, `private_booking_time_slots`, `characters` 等）はビュー未反映でパスBを使用。`booking_start_date` は両方から二重取得。
+
+### やるべきこと
+ビューに全カラムを投影するか、直接テーブル取得に統一するかを決め、1パスにする。`scenarioApi` は16+箇所から呼ばれるため慎重に段階的に実施する。
+
+---
+
+## テーブルスキーマの正規管理ルール（必須）🚨
+
+### 基本原則：「`supabase/schemas/` を常に最新に保つ」
+
+テーブルの現在の正規定義は `supabase/schemas/テーブル名.sql` に管理されている。
+305+のマイグレーションファイルを探し回る必要はなく、このファイルを見れば現在のカラム・型・制約が分かる。
+
+```
+supabase/
+  rpcs/          ← RPC の正規ソース（既存）
+  schemas/       ← テーブルの正規ソース
+    organization_scenarios.sql
+    schedule_events.sql
+    reservations.sql
+    ...
+```
+
+### 必須ルール
+
+1. **カラム追加・変更マイグレーションを作る場合**
+   → `supabase/schemas/テーブル名.sql` も必ず同時に更新する
+   → `schemas/` を更新せずにマイグレーションだけ追加するのは **禁止**
+
+2. **新しいテーブルを作る場合**
+   → `supabase/schemas/テーブル名.sql` にも正規定義を作成する
+
+3. **ビューを変更する場合**
+   → `supabase/schemas/ビュー名.sql` も更新する
+
+### schemas/ ファイルのフォーマット
+
+```sql
+-- 正規ソース: supabase/schemas/テーブル名.sql
+-- 最終更新: YYYY-MM-DD
+CREATE TABLE public.テーブル名 (
+  -- 全カラムを記載
+);
+
+-- Indexes
+CREATE INDEX ...;
+```
+
+実行可能なSQLとして書くが、実際にはマイグレーションでのみ適用する（`schemas/` は参照用）。
+
+### カラム名を確認するとき
+
+```bash
+# まず schemas/ を確認（正規ソース）
+cat supabase/schemas/テーブル名.sql
+
+# 型定義との整合性確認
+grep -rn "テーブル名" src/types/index.ts
+```
+
+### チェックリスト（テーブル変更時）
+
+```
+□ supabase/schemas/テーブル名.sql を更新したか？
+□ schemas/ の最終更新日を変更したか？
+□ src/types/index.ts の型定義と一致しているか？
+□ ビューに影響がある場合、schemas/ビュー名.sql も更新したか？
+```
