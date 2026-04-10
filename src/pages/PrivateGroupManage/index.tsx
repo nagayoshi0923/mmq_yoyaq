@@ -160,8 +160,8 @@ export function PrivateGroupManage() {
     if (group.preferred_store_ids && group.preferred_store_ids.length > 0) {
       params.set('storeIds', group.preferred_store_ids.join(','))
     }
-    if (group.scenario_id) {
-      params.set('scenarioId', group.scenario_id)
+    if (group.scenario_master_id) {
+      params.set('scenarioId', group.scenario_master_id)
     }
 
     navigate(`/private-booking?${params.toString()}`)
@@ -357,7 +357,7 @@ export function PrivateGroupManage() {
               currentMemberId={currentMemberId}
               members={group.members || []}
               fullHeight={true}
-              scenarioId={group.scenario_id || undefined}
+              scenarioId={group.scenario_master_id || undefined}
               organizationId={group.organization_id || undefined}
               performanceDate={group.candidate_dates?.[0]?.date}
             />
@@ -675,7 +675,7 @@ export function PrivateGroupManage() {
                         <AddCandidateDates
                           groupId={group.id}
                           organizationId={group.organization_id || ''}
-                          scenarioId={group.scenario_id || ''}
+                          scenarioId={group.scenario_master_id || ''}
                           storeIds={group.preferred_store_ids || []}
                           existingDates={group.candidate_dates || []}
                           onDatesAdded={refetch}
@@ -763,7 +763,7 @@ export function PrivateGroupManage() {
                   groupId={group.id}
                   currentMemberId={joinedMembers.find(m => m.user_id === user?.id)?.id || null}
                   members={joinedMembers}
-                  scenarioId={group.scenario_id || undefined}
+                  scenarioId={group.scenario_master_id || undefined}
                   organizationId={group.organization_id || undefined}
                   performanceDate={group.candidate_dates?.[0]?.date}
                 />

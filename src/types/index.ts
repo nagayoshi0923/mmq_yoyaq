@@ -930,7 +930,7 @@ export type DateResponse = 'ok' | 'ng' | 'maybe'
 export interface PrivateGroup {
   id: string
   organization_id: string
-  scenario_id: string | null
+  scenario_master_id: string | null
   organizer_id: string
   name: string | null
   invite_code: string

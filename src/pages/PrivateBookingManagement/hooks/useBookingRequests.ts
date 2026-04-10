@@ -102,14 +102,14 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
         return
       }
       
-      // reservationsテーブルから貸切リクエストを取得（private_groupsのinvite_codeとscenario_idも含む）
+      // reservationsテーブルから貸切リクエストを取得（private_groupsのinvite_codeとscenario_master_idも含む）
       let query = supabase
         .from('reservations')
         .select(`
           *,
           scenario_masters:scenario_master_id(title, official_duration),
           customers:customer_id(name, phone),
-          private_groups:private_group_id(invite_code, scenario_id)
+          private_groups:private_group_id(invite_code, scenario_master_id)
         `)
         .eq('organization_id', orgId)
         .eq('reservation_source', 'web_private')
@@ -166,8 +166,8 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
       const masterIdsForGmCount = [
         ...new Set(
           reservationsList
-            .map((r: { scenario_master_id?: string; private_groups?: { scenario_id?: string } }) =>
-              r.scenario_master_id || r.private_groups?.scenario_id
+            .map((r: { scenario_master_id?: string; private_groups?: { scenario_master_id?: string } }) =>
+              r.scenario_master_id || r.private_groups?.scenario_master_id
             )
             .filter(Boolean)
         ),
@@ -304,11 +304,11 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
             }
           }
           
-          // scenario_master_id のフォールバック: private_groups.scenario_id を使用
-          const scenarioMasterId = req.scenario_master_id || req.private_groups?.scenario_id
+          // scenario_master_id のフォールバック: private_groups.scenario_master_id を使用
+          const scenarioMasterId = req.scenario_master_id || req.private_groups?.scenario_master_id
           if (!scenarioMasterId) {
             privateBookingTrace(
-              `予約 ${req.id}: scenario_master_id 未設定（private_groups.scenario_id も未設定）`
+              `予約 ${req.id}: scenario_master_id 未設定（private_groups.scenario_master_id も未設定）`
             )
           }
 

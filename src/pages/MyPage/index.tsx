@@ -381,7 +381,7 @@ export default function MyPage() {
               status,
               created_at,
               reservation_id,
-              scenario_masters:scenario_id (id, title, key_visual_url, player_count_max)
+              scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_max)
             )
           `)
           .eq('user_id', user.id)

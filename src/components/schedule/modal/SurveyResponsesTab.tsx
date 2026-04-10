@@ -71,7 +71,7 @@ export function SurveyResponsesTab({
       try {
         const { data: groupData, error: groupError } = await supabase
           .from('private_groups')
-          .select('id, organization_id, scenario_id')
+          .select('id, organization_id, scenario_master_id')
           .eq('reservation_id', reservationId)
           .maybeSingle()
 
@@ -87,7 +87,7 @@ export function SurveyResponsesTab({
 
         const gId = groupData.id
         const organizationId = groupData.organization_id
-        const effectiveScenarioId = scenarioId || (groupData as any).scenario_id
+        const effectiveScenarioId = scenarioId || (groupData as any).scenario_master_id
         setGroupId(gId)
 
         // 配役情報を別クエリで安全に取得

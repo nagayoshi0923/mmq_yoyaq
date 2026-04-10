@@ -75,9 +75,9 @@ export function PrivateGroupInvite() {
 
   // デバッグログ
   if (group) {
-    logger.log('📋 PrivateGroupInvite: group data', { 
+    logger.log('📋 PrivateGroupInvite: group data', {
       id: group.id,
-      scenario_id: group.scenario_id,
+      scenario_master_id: group.scenario_master_id,
       organization_id: group.organization_id,
       status: group.status
     })
@@ -1073,8 +1073,8 @@ export function PrivateGroupInvite() {
       
       const scenarioTiming = await fetchScenarioTimingFromDb(supabase, {
         organizationId: orgId,
-        scenarioLookupId: group.scenario_id,
-        scenarioMasterId: group.scenario_id,
+        scenarioLookupId: group.scenario_master_id,
+        scenarioMasterId: group.scenario_master_id,
       })
 
       // 候補日時をJSONB形式で準備（終了は営業枠ではなくシナリオ公演時間）
@@ -1116,12 +1116,12 @@ export function PrivateGroupInvite() {
       }
 
       // パラメータの検証
-      if (!group.scenario_id) {
+      if (!group.scenario_master_id) {
         throw new Error('シナリオが選択されていません')
       }
-      
+
       logger.log('[貸切リクエスト] RPCパラメータ:', {
-        scenario_id: group.scenario_id,
+        scenario_id: group.scenario_master_id,
         customer_id: customerId,
         participant_count: bookingParticipantCount,
         candidateDatetimes,
@@ -1130,7 +1130,7 @@ export function PrivateGroupInvite() {
       
       // RPC経由で貸切予約を作成
       const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', {
-        p_scenario_id: group.scenario_id,
+        p_scenario_id: group.scenario_master_id,
         p_customer_id: customerId,
         p_customer_name: customerName,
         p_customer_email: customerEmail,
@@ -1278,7 +1278,7 @@ export function PrivateGroupInvite() {
   // 配役方法が未選択かつキャラクターが存在する場合
   const charAssignmentMethod = (group as any).character_assignment_method as string | null
   const scenarioCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)
-  const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_id && scenarioCharacters.length > 0 && charAssignmentMethod == null)
+  const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioCharacters.length > 0 && charAssignmentMethod == null)
 
   // 進捗ステップ数の計算
   // booking_requested以降のステータスであれば、ステップ1〜4は完了済みとして扱う
@@ -1489,7 +1489,7 @@ export function PrivateGroupInvite() {
                     <AddCandidateDates
                       groupId={group.id}
                       organizationId={group.organization_id || ''}
-                      scenarioId={group.scenario_id || ''}
+                      scenarioId={group.scenario_master_id || ''}
                       storeIds={group.preferred_store_ids || []}
                       existingDates={group.candidate_dates || []}
                       onDatesAdded={() => {
@@ -2381,7 +2381,7 @@ export function PrivateGroupInvite() {
               members={group.members || []}
               fullHeight={true}
               onGoToSchedule={() => setShowMobileDates(true)}
-              scenarioId={group.scenario_id || undefined}
+              scenarioId={group.scenario_master_id || undefined}
               organizationId={group.organization_id || undefined}
               performanceDate={group.candidate_dates?.[0]?.date}
               needsCharAssignmentChoice={needsCharAssignmentChoice}
@@ -2996,7 +2996,7 @@ export function PrivateGroupInvite() {
                 currentMemberId={existingMemberId}
                 members={group.members}
                 onGoToSchedule={() => setActiveTab('schedule')}
-                scenarioId={group.scenario_id || undefined}
+                scenarioId={group.scenario_master_id || undefined}
                 organizationId={group.organization_id || undefined}
                 performanceDate={group.candidate_dates?.[0]?.date}
                 needsCharAssignmentChoice={needsCharAssignmentChoice}
@@ -3101,7 +3101,7 @@ export function PrivateGroupInvite() {
                     <AddCandidateDates
                       groupId={group.id}
                       organizationId={group.organization_id || ''}
-                      scenarioId={group.scenario_id || ''}
+                      scenarioId={group.scenario_master_id || ''}
                       storeIds={group.preferred_store_ids || []}
                       existingDates={group.candidate_dates || []}
                       onDatesAdded={refetch}
@@ -3356,7 +3356,7 @@ export function PrivateGroupInvite() {
         )}
 
         {/* アンケート or キャラクター選択（配役方法選択済み・日程確定後） */}
-        {isScheduleConfirmedUi && existingMemberId && group.scenario_id && !needsCharAssignmentChoice && (() => {
+        {isScheduleConfirmedUi && existingMemberId && group.scenario_master_id && !needsCharAssignmentChoice && (() => {
           const hasCharacters = scenarioCharacters.length > 0
           const method = charAssignmentMethod
 
@@ -3365,7 +3365,7 @@ export function PrivateGroupInvite() {
               <SurveyResponseForm
                 groupId={group.id}
                 memberId={existingMemberId}
-                scenarioId={group.scenario_id}
+                scenarioId={group.scenario_master_id}
                 organizationId={group.organization_id}
                 performanceDate={group.candidate_dates?.find(cd => cd.order_num === 1)?.date}
                 characters={(group as any).scenario_characters || []}
