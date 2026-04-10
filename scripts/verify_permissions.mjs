@@ -22,11 +22,11 @@ function getEnv(key) {
 }
 
 const SUPABASE_URL = getEnv('VITE_SUPABASE_URL')
-const ANON_KEY = getEnv('VITE_SUPABASE_PUBLISHABLE_KEY')
+const ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY') || getEnv('VITE_SUPABASE_PUBLISHABLE_KEY')
 const shouldFix = process.argv.includes('--fix')
 
 if (!SUPABASE_URL || !ANON_KEY) {
-  console.error('❌ .env.local に VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY が必要です')
+  console.error('❌ .env.local に VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY が必要です')
   process.exit(1)
 }
 
