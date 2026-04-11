@@ -653,7 +653,13 @@ export function PrivateBookingManagement() {
                 gmResponses={availableGMs} // 全GMの回答情報を渡す
                 isReadOnly={false} // 確定済みでも編集可能に
                 isConfirmed={selectedRequest.status === 'confirmed'}
-                stores={stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)} // 全店舗の空き状況表示用（オフィス・臨時除く）
+                stores={(() => {
+                  const requestedStoreIds = selectedRequest.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
+                  if (requestedStoreIds.length > 0) {
+                    return stores.filter(s => requestedStoreIds.includes(s.id))
+                  }
+                  return stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
+                })()}
               />
 
               {/* 開催店舗の選択 */}
