@@ -51,7 +51,7 @@ export async function isReservationReadyForStoreAfterGmResponses(
     const { data: assigns } = await supabase
       .from('staff_scenario_assignments')
       .select('staff_id, can_main_gm, can_sub_gm')
-      .eq('scenario_id', scenarioMasterId)
+      .eq('scenario_master_id', scenarioMasterId)
       .eq('organization_id', orgId)
       .in('staff_id', staffIdsAll)
     for (const a of assigns || []) {

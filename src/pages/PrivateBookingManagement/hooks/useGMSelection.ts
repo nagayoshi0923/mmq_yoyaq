@@ -48,7 +48,7 @@ export const useGMSelection = (allGMs: Staff[]) => {
         const { data, error: assignmentError } = await supabase
           .from('staff_scenario_assignments')
           .select('staff_id')
-          .eq('scenario_id', scenarioMasterId)
+          .eq('scenario_master_id', scenarioMasterId)
           .or('can_main_gm.eq.true,can_sub_gm.eq.true')
 
         if (assignmentError) {

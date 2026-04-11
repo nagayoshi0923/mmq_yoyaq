@@ -333,10 +333,10 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
             const { data: gmRows, error: gmErr } = await supabase
               .from('staff_scenario_assignments')
               .select(
-                'scenario_id, can_main_gm, can_sub_gm, staff:staff_id ( name )'
+                'scenario_master_id, can_main_gm, can_sub_gm, staff:staff_id ( name )'
               )
               .eq('organization_id', organizationId)
-              .in('scenario_id', chunk)
+              .in('scenario_master_id', chunk)
               .or('can_main_gm.eq.true,can_sub_gm.eq.true')
             if (gmErr) throw gmErr
             buildGmListBadgeMap(gmRows || []).forEach((entries, sid) => {

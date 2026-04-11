@@ -508,7 +508,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               line_name
             )
           `)
-          .eq('scenario_id', scenarioId)
+          .eq('scenario_master_id', scenarioId)
           .order('assigned_at', { ascending: false })
         
         if (orgId) {
@@ -1013,7 +1013,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               .from('staff_scenario_assignments')
               .update({ can_main_gm, can_sub_gm })
               .eq('staff_id', staffId)
-              .eq('scenario_id', targetScenarioId)
+              .eq('scenario_master_id', targetScenarioId)
           }
           
           // 既存スタッフのメイン/サブ設定を更新
@@ -1027,7 +1027,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   can_sub_gm: assignment.can_sub_gm ?? true 
                 })
                 .eq('staff_id', staffId)
-                .eq('scenario_id', targetScenarioId)
+                .eq('scenario_master_id', targetScenarioId)
             }
           }
           // NOTE: staff.special_scenarios への同期は廃止

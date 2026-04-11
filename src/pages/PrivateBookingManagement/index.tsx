@@ -141,7 +141,6 @@ export function PrivateBookingManagement() {
     
     const result = await resendPrivateBookingDiscordNotification({
       id: request.id,
-      scenario_id: request.scenario_id,
       scenario_master_id: request.scenario_master_id,
       scenario_title: request.scenario_title,
       customer_name: request.customer_name,
@@ -264,7 +263,7 @@ export function PrivateBookingManagement() {
   // シナリオの対応店舗と担当GMを取得
   useEffect(() => {
     const loadScenarioData = async () => {
-      const scenarioId = (selectedRequest as any)?.scenario_master_id ?? selectedRequest?.scenario_id
+      const scenarioId = selectedRequest?.scenario_master_id
       if (scenarioId) {
         try {
           // 対応店舗とscenario_master_idを取得（organization_scenarios_with_masterで組織固有のavailable_stores）
@@ -284,14 +283,12 @@ export function PrivateBookingManagement() {
             setScenarioAvailableStores(scenarioData?.available_stores || [])
           }
           
-          // 担当GMを取得（staff_scenario_assignmentsテーブルを使用）
-          // scenario_idはscenario_master_idを参照している
           const masterId = scenarioData?.scenario_master_id ?? scenarioId
           if (masterId) {
             const { data: assignmentData, error: assignmentError } = await supabase
               .from('staff_scenario_assignments')
               .select('staff_id')
-              .eq('scenario_id', masterId)
+              .eq('scenario_master_id', masterId)
               .or('can_main_gm.eq.true,can_sub_gm.eq.true')
             
             if (assignmentError) {
@@ -315,7 +312,7 @@ export function PrivateBookingManagement() {
     }
     
     loadScenarioData()
-  }, [(selectedRequest as any)?.scenario_master_id ?? selectedRequest?.scenario_id])
+  }, [selectedRequest?.scenario_master_id])
 
   // シナリオ対応店舗でフィルタリングした店舗リスト
   const filteredStores = useMemo(() => {
@@ -632,7 +629,7 @@ export function PrivateBookingManagement() {
               {/* アンケート回答閲覧 */}
               <SurveyResponsesView
                 reservationId={selectedRequest.id}
-                scenarioId={(selectedRequest as any).scenario_master_id || selectedRequest.scenario_id || ''}
+                scenarioId={selectedRequest.scenario_master_id || ''}
               />
               
               <CandidateDateSelector

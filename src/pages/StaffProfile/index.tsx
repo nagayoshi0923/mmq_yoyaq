@@ -62,7 +62,7 @@ function needsTwoGmRoles(gmSlotCount: number): boolean {
 }
 
 interface Assignment {
-  scenario_id: string // scenario_master_id と統一済み
+  scenario_master_id: string
   can_main_gm: boolean
   can_sub_gm: boolean
   is_experienced: boolean
@@ -130,13 +130,12 @@ export function StaffProfile() {
           }))
         setScenarios(scenariosList)
 
-        // 現在のアサインメントを取得（scenario_id = scenario_master_id）
         const assignmentsData = await assignmentApi.getAllStaffAssignments(staffData.id)
         setAssignments(
           (assignmentsData || []).map((row) => {
             const r = row as Assignment
             return {
-              scenario_id: r.scenario_id,
+              scenario_master_id: r.scenario_master_id,
               can_main_gm: r.can_main_gm === true,
               can_sub_gm: r.can_sub_gm === true,
               is_experienced: r.is_experienced === true,
@@ -167,7 +166,7 @@ export function StaffProfile() {
 
   // シナリオのアサインメント状態を取得
   const getAssignment = useCallback((scenarioId: string) => {
-    return assignments.find(a => a.scenario_id === scenarioId)
+    return assignments.find(a => a.scenario_master_id === scenarioId)
   }, [assignments])
 
   /** 体験済みのみ（メイン・サブともにオフ） */
@@ -184,15 +183,15 @@ export function StaffProfile() {
   /** メイン／サブがオンなら体験済トグルは無効（シナリオ編集・DB制約と整合） */
   const toggleExperienced = useCallback((scenarioId: string) => {
     setAssignments((prev) => {
-      const existing = prev.find((a) => a.scenario_id === scenarioId)
+      const existing = prev.find((a) => a.scenario_master_id === scenarioId)
       if (existing?.can_main_gm || existing?.can_sub_gm) return prev
       if (existing?.is_experienced) {
-        return prev.filter((a) => a.scenario_id !== scenarioId)
+        return prev.filter((a) => a.scenario_master_id !== scenarioId)
       }
       return [
         ...prev,
         {
-          scenario_id: scenarioId,
+          scenario_master_id: scenarioId,
           can_main_gm: false,
           can_sub_gm: false,
           is_experienced: true,
@@ -207,11 +206,11 @@ export function StaffProfile() {
    */
   const setSingleGmCapability = useCallback((scenarioId: string, checked: boolean) => {
     setAssignments((prev) => {
-      const idx = prev.findIndex((a) => a.scenario_id === scenarioId)
+      const idx = prev.findIndex((a) => a.scenario_master_id === scenarioId)
       const prevRow = idx >= 0 ? prev[idx] : null
       if (checked) {
         const next: Assignment = {
-          scenario_id: scenarioId,
+          scenario_master_id: scenarioId,
           can_main_gm: true,
           can_sub_gm: false,
           is_experienced: false,
@@ -222,7 +221,7 @@ export function StaffProfile() {
         return copy
       }
       const next: Assignment = {
-        scenario_id: scenarioId,
+        scenario_master_id: scenarioId,
         can_main_gm: false,
         can_sub_gm: false,
         is_experienced: true,
@@ -237,13 +236,13 @@ export function StaffProfile() {
   /** メイン／サブ（staff_scenario_assignments。シナリオ編集の担当GMと同一） */
   const setGmRole = useCallback((scenarioId: string, role: 'main' | 'sub', checked: boolean) => {
     setAssignments((prev) => {
-      const idx = prev.findIndex((a) => a.scenario_id === scenarioId)
+      const idx = prev.findIndex((a) => a.scenario_master_id === scenarioId)
       const prevRow = idx >= 0 ? prev[idx] : null
       const can_main_gm = role === 'main' ? checked : Boolean(prevRow?.can_main_gm)
       const can_sub_gm = role === 'sub' ? checked : Boolean(prevRow?.can_sub_gm)
       const hasGm = can_main_gm || can_sub_gm
       const next: Assignment = {
-        scenario_id: scenarioId,
+        scenario_master_id: scenarioId,
         can_main_gm,
         can_sub_gm,
         is_experienced: hasGm ? false : true,
@@ -274,7 +273,7 @@ export function StaffProfile() {
 
       // アサインメントを更新
       const assignmentData = assignments.map(a => ({
-        scenarioId: a.scenario_id,
+        scenarioId: a.scenario_master_id,
         can_main_gm: a.can_main_gm,
         can_sub_gm: a.can_sub_gm,
         is_experienced: a.is_experienced

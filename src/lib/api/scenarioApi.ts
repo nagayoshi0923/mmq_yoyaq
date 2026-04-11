@@ -512,7 +512,7 @@ export const scenarioApi = {
     const { error: assignmentError } = await supabase
       .from('staff_scenario_assignments')
       .delete()
-      .eq('scenario_id', id)
+      .eq('scenario_master_id', id)
       .eq('organization_id', orgId)
     
     if (assignmentError) {
@@ -947,7 +947,7 @@ export const scenarioApi = {
       
       let query = supabase
         .from('schedule_events')
-        .select('scenario_id, is_cancelled, total_revenue, date, category')
+        .select('scenario_master_id, is_cancelled, total_revenue, date, category')
         .lte('date', today)
         .neq('category', 'offsite')
         .range(from, to)
@@ -972,7 +972,7 @@ export const scenarioApi = {
 
     const events = allEvents
 
-    // scenario_idごとに集計
+    // scenario_master_id ごとに集計
     const statsMap: Record<string, {
       performanceCount: number
       cancelledCount: number
@@ -980,10 +980,10 @@ export const scenarioApi = {
     }> = {}
 
     events?.forEach(event => {
-      if (!event.scenario_id) return
+      if (!event.scenario_master_id) return
 
-      if (!statsMap[event.scenario_id]) {
-        statsMap[event.scenario_id] = {
+      if (!statsMap[event.scenario_master_id]) {
+        statsMap[event.scenario_master_id] = {
           performanceCount: 0,
           cancelledCount: 0,
           totalRevenue: 0
@@ -991,10 +991,10 @@ export const scenarioApi = {
       }
 
       if (event.is_cancelled) {
-        statsMap[event.scenario_id].cancelledCount++
+        statsMap[event.scenario_master_id].cancelledCount++
       } else {
-        statsMap[event.scenario_id].performanceCount++
-        statsMap[event.scenario_id].totalRevenue += event.total_revenue || 0
+        statsMap[event.scenario_master_id].performanceCount++
+        statsMap[event.scenario_master_id].totalRevenue += event.total_revenue || 0
       }
     })
 

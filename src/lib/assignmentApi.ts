@@ -16,7 +16,7 @@ export const assignmentApi = {
       .from('staff_scenario_assignments')
       .select(`
         *,
-        scenario_masters:scenario_id (
+        scenario_masters:scenario_master_id (
           id,
           title,
           author
@@ -50,7 +50,7 @@ export const assignmentApi = {
       .from('staff_scenario_assignments')
       .select(`
         *,
-        scenario_masters:scenario_id (
+        scenario_masters:scenario_master_id (
           id,
           title,
           author
@@ -77,7 +77,7 @@ export const assignmentApi = {
       .from('staff_scenario_assignments')
       .select(`
         *,
-        scenario_masters:scenario_id (
+        scenario_masters:scenario_master_id (
           id,
           title,
           author
@@ -120,7 +120,7 @@ export const assignmentApi = {
           line_name
         )
       `)
-      .eq('scenario_id', scenarioId)
+      .eq('scenario_master_id', scenarioId)
       .order('assigned_at', { ascending: false })
     
     if (orgId) {
@@ -154,7 +154,7 @@ export const assignmentApi = {
           line_name
         )
       `)
-      .eq('scenario_id', scenarioId)
+      .eq('scenario_master_id', scenarioId)
       .order('assigned_at', { ascending: false })
     
     if (orgId) {
@@ -181,7 +181,7 @@ export const assignmentApi = {
           line_name
         )
       `)
-      .eq('scenario_id', scenarioId)
+      .eq('scenario_master_id', scenarioId)
       .order('assigned_at', { ascending: false })
     
     if (orgId) {
@@ -213,15 +213,15 @@ export const assignmentApi = {
       .from('staff_scenario_assignments')
       .upsert({
         staff_id: staffId,
-        scenario_id: scenarioId,
+        scenario_master_id: scenarioId,
         notes: notes || null,
         can_main_gm: true,
         can_sub_gm: true,
-        is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
+        is_experienced: false,
         assigned_at: new Date().toISOString(),
         organization_id: orgId
       }, {
-        onConflict: 'staff_id,scenario_id'
+        onConflict: 'staff_id,scenario_master_id'
       })
       .select()
       .single()
@@ -243,7 +243,7 @@ export const assignmentApi = {
         is_experienced: true  // GM経験者 = 体験済み
       })
       .eq('staff_id', staffId)
-      .eq('scenario_id', scenarioId)
+      .eq('scenario_master_id', scenarioId)
     
     if (orgId) {
       updateQuery = updateQuery.eq('organization_id', orgId)
@@ -277,7 +277,7 @@ export const assignmentApi = {
       // 既存の全レコードを取得
       let fetchQuery = supabase
         .from('staff_scenario_assignments')
-        .select('scenario_id, can_main_gm, can_sub_gm, is_experienced')
+        .select('scenario_master_id, can_main_gm, can_sub_gm, is_experienced')
         .eq('staff_id', staffId)
       if (orgId) {
         fetchQuery = fetchQuery.eq('organization_id', orgId)
@@ -287,7 +287,7 @@ export const assignmentApi = {
       
       const currentGmScenarioIds = (currentAll || [])
         .filter(a => a.can_main_gm || a.can_sub_gm)
-        .map(a => a.scenario_id)
+        .map(a => a.scenario_master_id)
       
       // GMから外れるシナリオ → 体験済みに降格（削除しない）
       const toRemoveFromGm = currentGmScenarioIds.filter(id => !newGmScenarioIds.includes(id))
@@ -296,7 +296,7 @@ export const assignmentApi = {
           .from('staff_scenario_assignments')
           .update({ can_main_gm: false, can_sub_gm: false, is_experienced: true })
           .eq('staff_id', staffId)
-          .in('scenario_id', toRemoveFromGm)
+          .in('scenario_master_id', toRemoveFromGm)
         if (orgId) {
           // Note: eq is already chained above, need separate query
         }
@@ -307,8 +307,8 @@ export const assignmentApi = {
       const toAddAsGm = newGmScenarioIds.filter(id => !currentGmScenarioIds.includes(id))
       if (toAddAsGm.length > 0) {
         const existingExpIds = (currentAll || [])
-          .filter(a => !a.can_main_gm && !a.can_sub_gm && toAddAsGm.includes(a.scenario_id))
-          .map(a => a.scenario_id)
+          .filter(a => !a.can_main_gm && !a.can_sub_gm && toAddAsGm.includes(a.scenario_master_id))
+          .map(a => a.scenario_master_id)
         
         // 体験済み → GM昇格
         if (existingExpIds.length > 0) {
@@ -316,7 +316,7 @@ export const assignmentApi = {
             .from('staff_scenario_assignments')
             .update({ can_main_gm: true, can_sub_gm: true, is_experienced: false })
             .eq('staff_id', staffId)
-            .in('scenario_id', existingExpIds)
+            .in('scenario_master_id', existingExpIds)
         }
         
         // 完全新規
@@ -324,7 +324,7 @@ export const assignmentApi = {
         if (trulyNew.length > 0) {
           const newRecords = trulyNew.map(scenarioId => ({
             staff_id: staffId,
-            scenario_id: scenarioId,
+            scenario_master_id: scenarioId,
             can_main_gm: true,
             can_sub_gm: true,
             is_experienced: false,
@@ -354,7 +354,7 @@ export const assignmentApi = {
         .filter(a => a.scenarioId && typeof a.scenarioId === 'string')
         .map(a => ({
           staff_id: staffId,
-          scenario_id: a.scenarioId,
+          scenario_master_id: a.scenarioId,
           can_main_gm: a.can_main_gm,
           can_sub_gm: a.can_sub_gm,
           is_experienced: a.is_experienced,
@@ -382,7 +382,7 @@ export const assignmentApi = {
     const fetchQuery = supabase
       .from('staff_scenario_assignments')
       .select('staff_id, can_main_gm, can_sub_gm, is_experienced')
-      .eq('scenario_id', scenarioId)
+      .eq('scenario_master_id', scenarioId)
       .eq('organization_id', orgId)
     
     const { data: currentAssignments, error: fetchError } = await fetchQuery
@@ -413,7 +413,7 @@ export const assignmentApi = {
           can_sub_gm: false,
           is_experienced: true
         })
-        .eq('scenario_id', scenarioId)
+        .eq('scenario_master_id', scenarioId)
         .eq('organization_id', orgId)
         .in('staff_id', toDelete)
       
@@ -438,7 +438,7 @@ export const assignmentApi = {
             can_sub_gm: true,
             is_experienced: false // DB制約: GM可能ならis_experiencedはfalse
           })
-          .eq('scenario_id', scenarioId)
+          .eq('scenario_master_id', scenarioId)
           .eq('organization_id', orgId)
           .in('staff_id', existingExpStaffIds)
         
@@ -450,7 +450,7 @@ export const assignmentApi = {
       if (trulyNew.length > 0) {
         const newAssignments = trulyNew.map(staffId => ({
           staff_id: staffId,
-          scenario_id: scenarioId,
+          scenario_master_id: scenarioId,
           can_main_gm: true,
           can_sub_gm: true,
           is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
@@ -479,7 +479,7 @@ export const assignmentApi = {
       .from('staff_scenario_assignments')
       .update(updates)
       .eq('staff_id', staffId)
-      .eq('scenario_id', scenarioId)
+      .eq('scenario_master_id', scenarioId)
     
     if (orgId) {
       updateQuery = updateQuery.eq('organization_id', orgId)
@@ -509,13 +509,13 @@ export const assignmentApi = {
       let query = supabase
         .from('staff_scenario_assignments')
         .select(`
-          scenario_id,
+          scenario_master_id,
           staff_id,
           can_main_gm,
           can_sub_gm,
           is_experienced
         `)
-        .in('scenario_id', batchIds)
+        .in('scenario_master_id', batchIds)
         .limit(10000)
       
       if (orgId) {
@@ -558,7 +558,7 @@ export const assignmentApi = {
     const assignmentMap = new Map<string, { gmStaff: string[], experiencedStaff: string[] }>()
     
     data?.forEach((assignment: any) => {
-      const scenarioId = assignment.scenario_id
+      const scenarioId = assignment.scenario_master_id
       const staffName = staffMap.get(assignment.staff_id)
       
       if (staffName) {
@@ -612,7 +612,7 @@ export const assignmentApi = {
         .from('staff_scenario_assignments')
         .select(`
           staff_id,
-          scenario_id,
+          scenario_master_id,
           can_main_gm,
           can_sub_gm,
           is_experienced
@@ -658,7 +658,7 @@ export const assignmentApi = {
 
     data?.forEach((assignment: any) => {
       const staffId = assignment.staff_id
-      const scenarioId = assignment.scenario_id
+      const scenarioId = assignment.scenario_master_id
 
       if (!assignmentMap.has(staffId)) {
         assignmentMap.set(staffId, {
@@ -694,19 +694,19 @@ export const assignmentApi = {
       const gmRows = (data || []).filter(
         (a: {
           staff_id: string
-          scenario_id?: string | null
+          scenario_master_id?: string | null
           can_main_gm?: boolean | null
           can_sub_gm?: boolean | null
         }) =>
           a.staff_id === staffId &&
-          !!a.scenario_id &&
+          !!a.scenario_master_id &&
           (a.can_main_gm === true || a.can_sub_gm === true)
       )
       staffData.gm_scenario_modes = buildGmScenarioModesFromAssignments(
         gmRows.map((r) => ({
           can_main_gm: r.can_main_gm,
           can_sub_gm: r.can_sub_gm,
-          scenarios: r.scenario_id ? { id: r.scenario_id } : null,
+          scenarios: r.scenario_master_id ? { id: r.scenario_master_id } : null,
         }))
       )
     }

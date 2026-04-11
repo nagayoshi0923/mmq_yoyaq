@@ -7,7 +7,6 @@ import { shouldIncludeGmResponseRow } from '../utils/gmAvailabilityStatus'
 export interface PrivateBookingRequest {
   id: string
   reservation_number: string
-  scenario_id?: string
   scenario_master_id?: string
   /** organization_scenarios.gm_count（担当作品と同じ解釈）。一覧取得時に付与、未設定は1 */
   required_gm_count?: number
@@ -99,11 +98,11 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
           // 担当シナリオのIDを取得
           const { data: assignments } = await supabase
             .from('staff_scenario_assignments')
-            .select('scenario_id')
+            .select('scenario_master_id')
             .eq('staff_id', staffData.id)
 
           if (assignments && assignments.length > 0) {
-            allowedScenarioIds = assignments.map(a => a.scenario_id)
+            allowedScenarioIds = assignments.map(a => a.scenario_master_id)
             logger.log(`✅ ${allowedScenarioIds.length}件の担当シナリオを検出`)
           } else {
             logger.log('⚠️ 担当シナリオなし - 空の結果を返します')
@@ -136,7 +135,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
           setLoading(false)
           return
         }
-        query = query.in('scenario_id', allowedScenarioIds)
+        query = query.in('scenario_master_id', allowedScenarioIds)
       }
 
       // タブによってフィルター
@@ -157,7 +156,6 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
       interface ReservationData {
         id: string
         reservation_number?: string
-        scenario_id?: string
         scenario_master_id?: string
         scenarios?: { title: string }
         title?: string
@@ -223,7 +221,6 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
           return {
             id: req.id,
             reservation_number: req.reservation_number || '',
-            scenario_id: req.scenario_id,
             scenario_master_id: req.scenario_master_id,
             scenario_title: req.scenarios?.title || req.title || 'シナリオ名不明',
             customer_name: req.customer_name || req.customers?.name || '顧客名不明',

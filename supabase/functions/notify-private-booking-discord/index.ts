@@ -159,12 +159,10 @@ async function sendNotificationToGMChannels(booking: any) {
   
   console.log(`📋 Scenario Master ID: ${scenarioMasterId}`)
   
-  // このシナリオを担当しているGMを取得（can_main_gm または can_sub_gm が true のスタッフのみ）
-  // staff_scenario_assignments.scenario_id には scenario_master_id が格納されている
   const { data: assignments, error: assignmentError } = await supabase
     .from('staff_scenario_assignments')
     .select('staff_id')
-    .eq('scenario_id', scenarioMasterId)
+    .eq('scenario_master_id', scenarioMasterId)
     .or('can_main_gm.eq.true,can_sub_gm.eq.true')
   
   if (assignmentError) {

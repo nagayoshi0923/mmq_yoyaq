@@ -73,15 +73,13 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
           .single()
         
         if (staffData) {
-          // 担当シナリオのIDを取得（staff_scenario_assignments.scenario_id = scenario_master_id）
           const { data: assignments } = await supabase
             .from('staff_scenario_assignments')
-            .select('scenario_id')
+            .select('scenario_master_id')
             .eq('staff_id', staffData.id)
           
           if (assignments && assignments.length > 0) {
-            // scenario_id は scenario_master_id を参照
-            allowedScenarioIds = assignments.map(a => a.scenario_id)
+            allowedScenarioIds = assignments.map(a => a.scenario_master_id)
             privateBookingTrace(`${allowedScenarioIds.length}件の担当シナリオを検出`)
           } else {
             privateBookingTrace('担当シナリオなし - 空の結果を返します')
@@ -314,7 +312,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
 
           let scenario_timing = await fetchScenarioTimingFromDb(supabase, {
             organizationId: orgId,
-            scenarioLookupId: req.scenario_id,
+            scenarioLookupId: req.scenario_master_id,
             scenarioMasterId,
           })
           if (
@@ -349,7 +347,6 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
           return {
             id: req.id,
             reservation_number: req.reservation_number || '',
-            scenario_id: req.scenario_id,
             scenario_master_id: scenarioMasterId,
             required_gm_count: scenarioMasterId
               ? (gmCountByMasterId.get(scenarioMasterId) ?? 1)

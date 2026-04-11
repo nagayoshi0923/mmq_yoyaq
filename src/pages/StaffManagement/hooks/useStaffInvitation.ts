@@ -168,7 +168,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       // 1. 既存のスタッフのシナリオ割り当て情報を取得（GM可能・体験済み）
       const { data: existingAssignments } = await supabase
         .from('staff_scenario_assignments')
-        .select('scenario_id, can_gm, has_experienced')
+            .select('scenario_master_id, can_gm, has_experienced')
         .eq('staff_id', linkingStaff.id)
       
       logger.log('既存のシナリオ割り当て情報:', existingAssignments?.length || 0, '件')

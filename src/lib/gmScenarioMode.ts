@@ -112,7 +112,7 @@ function staffNameFromStaffJoin(staff: unknown): string | null {
 }
 
 export type GmAssignmentRowForList = {
-  scenario_id: string
+  scenario_master_id: string
   can_main_gm?: boolean | null
   can_sub_gm?: boolean | null
   staff?: unknown
@@ -120,12 +120,12 @@ export type GmAssignmentRowForList = {
 
 /**
  * staff_scenario_assignments を organization 内で IN 取得した行から、
- * scenario_id → 一覧表示用バッジ配列（名前順）を組み立てる。
+ * scenario_master_id → 一覧表示用バッジ配列（名前順）を組み立てる。
  */
 export function buildGmListBadgeMap(rows: GmAssignmentRowForList[]): Map<string, GmListBadgeEntry[]> {
   const map = new Map<string, GmListBadgeEntry[]>()
   for (const row of rows) {
-    if (!row.scenario_id) continue
+    if (!row.scenario_master_id) continue
     const name = staffNameFromStaffJoin(row.staff)
     if (!name) continue
     const main = row.can_main_gm === true
@@ -136,9 +136,9 @@ export function buildGmListBadgeMap(rows: GmAssignmentRowForList[]): Map<string,
     else if (main) mode = 'main_only'
     else mode = 'sub_only'
     const displayLabel = mode === 'sub_only' ? `サブ${name}` : name
-    const list = map.get(row.scenario_id) || []
+    const list = map.get(row.scenario_master_id) || []
     list.push({ name, mode, displayLabel })
-    map.set(row.scenario_id, list)
+    map.set(row.scenario_master_id, list)
   }
   for (const [, list] of map) {
     list.sort((a, b) => a.displayLabel.localeCompare(b.displayLabel, 'ja'))
