@@ -81,10 +81,13 @@ CREATE TRIGGER trg_sync_ssa_scenario_ids
 -- 2. reservations — バックフィル + 同期トリガー
 -- ============================================================
 
--- 2a. バックフィル: scenario_id → scenario_master_id
-UPDATE public.reservations
-SET scenario_master_id = scenario_id
-WHERE scenario_master_id IS NULL AND scenario_id IS NOT NULL;
+-- 2a. バックフィル: scenario_id → scenario_master_id（FK整合性チェック付き）
+UPDATE public.reservations r
+SET scenario_master_id = r.scenario_id
+FROM public.scenario_masters sm
+WHERE r.scenario_master_id IS NULL
+  AND r.scenario_id IS NOT NULL
+  AND sm.id = r.scenario_id;
 
 -- 2b. 双方向同期トリガー
 DROP TRIGGER IF EXISTS trg_sync_reservations_scenario_ids ON public.reservations;
@@ -96,13 +99,17 @@ BEGIN
     IF NEW.scenario_master_id IS NOT NULL AND NEW.scenario_id IS NULL THEN
       NEW.scenario_id := NEW.scenario_master_id;
     ELSIF NEW.scenario_id IS NOT NULL AND NEW.scenario_master_id IS NULL THEN
-      NEW.scenario_master_id := NEW.scenario_id;
+      IF EXISTS (SELECT 1 FROM public.scenario_masters WHERE id = NEW.scenario_id) THEN
+        NEW.scenario_master_id := NEW.scenario_id;
+      END IF;
     END IF;
   ELSIF TG_OP = 'UPDATE' THEN
     IF NEW.scenario_master_id IS DISTINCT FROM OLD.scenario_master_id THEN
       NEW.scenario_id := NEW.scenario_master_id;
     ELSIF NEW.scenario_id IS DISTINCT FROM OLD.scenario_id THEN
-      NEW.scenario_master_id := NEW.scenario_id;
+      IF EXISTS (SELECT 1 FROM public.scenario_masters WHERE id = NEW.scenario_id) THEN
+        NEW.scenario_master_id := NEW.scenario_id;
+      END IF;
     END IF;
   END IF;
   RETURN NEW;
@@ -117,10 +124,13 @@ CREATE TRIGGER trg_sync_reservations_scenario_ids
 -- 3. schedule_events — バックフィル + 同期トリガー
 -- ============================================================
 
--- 3a. バックフィル: scenario_id → scenario_master_id
-UPDATE public.schedule_events
-SET scenario_master_id = scenario_id
-WHERE scenario_master_id IS NULL AND scenario_id IS NOT NULL;
+-- 3a. バックフィル: scenario_id → scenario_master_id（FK整合性チェック付き）
+UPDATE public.schedule_events se
+SET scenario_master_id = se.scenario_id
+FROM public.scenario_masters sm
+WHERE se.scenario_master_id IS NULL
+  AND se.scenario_id IS NOT NULL
+  AND sm.id = se.scenario_id;
 
 -- 3b. 双方向同期トリガー
 DROP TRIGGER IF EXISTS trg_sync_schedule_events_scenario_ids ON public.schedule_events;
@@ -132,13 +142,17 @@ BEGIN
     IF NEW.scenario_master_id IS NOT NULL AND NEW.scenario_id IS NULL THEN
       NEW.scenario_id := NEW.scenario_master_id;
     ELSIF NEW.scenario_id IS NOT NULL AND NEW.scenario_master_id IS NULL THEN
-      NEW.scenario_master_id := NEW.scenario_id;
+      IF EXISTS (SELECT 1 FROM public.scenario_masters WHERE id = NEW.scenario_id) THEN
+        NEW.scenario_master_id := NEW.scenario_id;
+      END IF;
     END IF;
   ELSIF TG_OP = 'UPDATE' THEN
     IF NEW.scenario_master_id IS DISTINCT FROM OLD.scenario_master_id THEN
       NEW.scenario_id := NEW.scenario_master_id;
     ELSIF NEW.scenario_id IS DISTINCT FROM OLD.scenario_id THEN
-      NEW.scenario_master_id := NEW.scenario_id;
+      IF EXISTS (SELECT 1 FROM public.scenario_masters WHERE id = NEW.scenario_id) THEN
+        NEW.scenario_master_id := NEW.scenario_id;
+      END IF;
     END IF;
   END IF;
   RETURN NEW;
