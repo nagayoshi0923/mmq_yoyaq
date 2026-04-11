@@ -38,6 +38,8 @@ export function isChunkLoadError(error: unknown): boolean {
       msg.includes('importing a module script failed') ||
       // Safari は "Load failed" を投げる
       (msg === 'load failed') ||
+      // iOS Safari が動的 import 失敗時に "Internal error" を投げるケース
+      (msg === 'internal error' && error.constructor.name === 'TypeError') ||
       // TypeError: Failed to fetch （ネットワーク由来ではなく import 由来のもの）
       (msg === 'failed to fetch' && error.constructor.name === 'TypeError')
     )

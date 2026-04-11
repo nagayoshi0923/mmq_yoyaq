@@ -28,7 +28,8 @@ export function generateMonthDays(currentDate: Date) {
 /**
  * 開始時刻からタイムスロットを判定
  */
-export function getTimeSlot(startTime: string): 'morning' | 'afternoon' | 'evening' {
+export function getTimeSlot(startTime: string | null | undefined): 'morning' | 'afternoon' | 'evening' {
+  if (!startTime) return 'morning'
   const hour = parseInt(startTime.split(':')[0])
   if (hour < 12) return 'morning'      // 0-11時 → 朝
   if (hour <= 17) return 'afternoon'   // 12-17時 → 昼（17時を含む）
