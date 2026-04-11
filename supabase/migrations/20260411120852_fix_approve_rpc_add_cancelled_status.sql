@@ -1,7 +1,4 @@
--- approve_private_booking: 全ての貸切予約ステータスから承認可能にする
--- UI側は pending, pending_gm, gm_confirmed, pending_store, cancelled 等を表示するが、
--- RPC側は pending, gm_confirmed, confirmed しか受け付けていなかったため不整合が発生していた
--- cancelled を含めることで、一度却下した予約の再承認も可能にする
+-- approve_private_booking: cancelled ステータスも承認可能にする（却下後の再承認対応）
 
 DROP FUNCTION IF EXISTS public.approve_private_booking(UUID, DATE, TIME, TIME, UUID, UUID, JSONB, TEXT, TEXT, UUID);
 
@@ -97,7 +94,6 @@ BEGIN
     RAISE EXCEPTION 'STORE_NOT_FOUND' USING ERRCODE = 'P0023';
   END IF;
 
-  -- 日本の公演カレンダー日（確定候補の date を優先。ISO は JST 暦日で解釈）
   v_calendar_date := p_selected_date;
   SELECT elem->>'date' INTO v_raw
   FROM jsonb_array_elements(COALESCE(p_candidate_datetimes->'candidates', '[]'::jsonb)) AS elem
@@ -252,4 +248,4 @@ GRANT EXECUTE ON FUNCTION approve_private_booking(
 COMMENT ON FUNCTION approve_private_booking(
   UUID, DATE, TIME, TIME, UUID, UUID, JSONB, TEXT, TEXT, UUID
 ) IS
-'貸切予約承認。確定候補の date を JST 暦で解釈して schedule_events.date に保存。';
+'貸切予約承認。却下後の再承認にも対応。確定候補の date を JST 暦で解釈して schedule_events.date に保存。';
