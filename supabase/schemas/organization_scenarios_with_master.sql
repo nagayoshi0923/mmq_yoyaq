@@ -50,7 +50,7 @@ SELECT
     SELECT array_agg(st.name ORDER BY st.name)
     FROM staff_scenario_assignments ssa
     JOIN staff st ON st.id = ssa.staff_id
-    WHERE ssa.scenario_id = os.scenario_master_id
+    WHERE ssa.scenario_master_id = os.scenario_master_id
       AND ssa.organization_id = os.organization_id
       AND (ssa.can_main_gm = true OR ssa.can_sub_gm = true)
   ), ARRAY[]::text[]) AS available_gms,
@@ -58,7 +58,7 @@ SELECT
     SELECT array_agg(st.name ORDER BY st.name)
     FROM staff_scenario_assignments ssa
     JOIN staff st ON st.id = ssa.staff_id
-    WHERE ssa.scenario_id = os.scenario_master_id
+    WHERE ssa.scenario_master_id = os.scenario_master_id
       AND ssa.organization_id = os.organization_id
       AND ssa.is_experienced = true
       AND COALESCE(ssa.can_main_gm, false) = false

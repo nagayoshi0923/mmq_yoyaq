@@ -238,7 +238,7 @@ BEGIN
   FOR v_gm_id IN
     SELECT ssa.staff_id
     FROM staff_scenario_assignments ssa
-    WHERE (ssa.scenario_id = p_scenario_id OR ssa.scenario_id = v_scenario_master_id)
+    WHERE (ssa.scenario_master_id = p_scenario_id OR ssa.scenario_master_id = v_scenario_master_id)
       AND (ssa.can_main_gm = true OR ssa.can_sub_gm = true)
   LOOP
     INSERT INTO gm_availability_responses (
