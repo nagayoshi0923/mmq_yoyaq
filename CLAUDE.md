@@ -127,17 +127,38 @@ new Date().toISOString()
 
 ### デプロイフロー
 
+**絶対禁止**: main / staging ブランチに直接コミットすること。main にマージ = Vercel が即座に本番デプロイ。
+
+**コード変更前の必須チェック**: ファイルを編集する前に `git branch --show-current` で現在のブランチを確認。main/staging にいる場合は `git checkout -b feature/xxx` で feature ブランチを作成してから作業する。
+
+#### フロントエンドのみの変更
+
 ```
-feature/* ブランチ
-  → PR作成（base: staging）        ← AIはここまで
-  → Vercelがstagingを自動デプロイ
-  → ユーザーがステージングで動作確認  ← ユーザーの役割
-  → staging → main マージ承認
-  → npm run db:push:prod（本番DB適用）
+feature/* ブランチで開発
+  → staging にマージ → Vercelがステージングを自動デプロイ
+  → ユーザーがステージングで動作確認
+  → 承認後 staging → main にマージ
 ```
 
+#### DBマイグレーションを伴う変更（順序が最重要）
+
+```
+feature/* ブランチで開発
+  → staging にマージ
+  → ステージングDBにマイグレーション適用（npm run db:push:staging）
+  → Vercelがステージングを自動デプロイ
+  → ユーザーがステージングで動作確認
+  → 承認後：
+    1. 先に本番DBにマイグレーション適用（npm run db:push:prod）← DB が先！
+    2. マイグレーション成功を確認
+    3. staging → main にマージ（Vercelが本番フロントエンドをデプロイ）
+```
+
+**順序の鉄則: DB変更 → フロントエンドデプロイ（逆は絶対禁止）**
+フロントが先に出ると存在しないカラムを参照して本番エラーになる（実際に事故発生済み）。
+
 **役割分担**:
-- AI: Issue実装・型チェック・`staging` 向けPR作成
+- AI: Issue実装・型チェック・`staging` 向けPR作成。main に直接コミットしない。
 - ユーザー: ステージング確認・main マージ・本番DB適用判断
 
 **ステージングURL**: `https://mmq-yoyaq-git-staging-nagayoshi0923s-projects.vercel.app`
