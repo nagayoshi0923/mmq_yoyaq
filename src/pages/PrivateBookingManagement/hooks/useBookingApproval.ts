@@ -395,7 +395,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             })
 
             // 事前読み込みシナリオの場合、追加通知を送信
-            const preReadingScenarioMasterId = selectedRequest?.scenario_master_id || selectedRequest?.scenario_id
+            const preReadingScenarioMasterId = selectedRequest?.scenario_master_id
             if (preReadingScenarioMasterId) {
               const { data: scenarioData } = await supabase
                 .from('scenario_masters')
@@ -429,12 +429,11 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             }
 
             // アンケートが有効な場合、回答案内を送信
-            const scenarioMasterId = selectedRequest?.scenario_master_id || selectedRequest?.scenario_id
+            const scenarioMasterId = selectedRequest?.scenario_master_id
             logger.log('📋 アンケート通知チェック:', { 
               scenarioMasterId, 
               organizationId,
               hasScenarioMasterId: !!selectedRequest?.scenario_master_id,
-              hasScenarioId: !!selectedRequest?.scenario_id
             })
             
             if (scenarioMasterId) {

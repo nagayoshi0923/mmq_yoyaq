@@ -99,7 +99,7 @@ export function PlayedScenariosPage() {
 
           // シナリオの画像を取得（scenario_master_id を優先、scenario_masters から）
           let keyVisualUrl = null
-          const scenarioMasterId = (reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id
+          const scenarioMasterId = reservation.scenario_master_id
           if (scenarioMasterId) {
             const { data: scenarioData } = await supabase
               .from('scenario_masters')
@@ -115,7 +115,7 @@ export function PlayedScenariosPage() {
               date: event.date,
               venue: event.venue,
               gms: event.gms || [],
-              scenario_id: ((reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id) || undefined,
+              scenario_id: reservation.scenario_master_id || undefined,
               key_visual_url: keyVisualUrl,
             })
           } else {
@@ -125,7 +125,7 @@ export function PlayedScenariosPage() {
               date: dateStr,
               venue: '店舗不明',
               gms: [],
-              scenario_id: ((reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id) || undefined,
+              scenario_id: reservation.scenario_master_id || undefined,
               key_visual_url: keyVisualUrl,
             })
           }

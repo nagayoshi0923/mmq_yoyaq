@@ -882,7 +882,7 @@ ${content.organizationName || '店舗'}
           schedule_event_id: event.id,
           organization_id: organizationId ?? event?.organization_id ?? null,
           title: currentEventData.scenario || '',
-          scenario_id: scenarioObj?.id || null,
+          scenario_master_id: scenarioObj?.id || null,
           store_id: storeObj?.id || null,
           customer_id: customerId,
           customer_notes: participantName,
@@ -1038,7 +1038,7 @@ ${content.organizationName || '店舗'}
                         .insert({
                           schedule_event_id: event.id,
                           organization_id: organizationId ?? event?.organization_id ?? null,
-                          scenario_id: scenarioObj?.id || null,
+                          scenario_master_id: scenarioObj?.id || null,
                           store_id: storeObj?.id || null,
                           customer_id: customerId,
                           customer_notes: 'デモ参加者',

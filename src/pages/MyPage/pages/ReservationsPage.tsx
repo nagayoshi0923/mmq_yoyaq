@@ -200,7 +200,7 @@ export function ReservationsPage() {
       // 関連データを並列取得
       if (data && data.length > 0) {
         const scenarioMasterIds = data
-          .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
+          .map(r => r.scenario_master_id)
           .filter((id): id is string => id !== null && id !== undefined)
         
         const storeIds = new Set<string>()
@@ -223,7 +223,7 @@ export function ReservationsPage() {
         const orgToScenarioIds = new Map<string, Set<string>>()
         const idsWithoutOrg = new Set<string>()
         data.forEach(r => {
-          const masterId = (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id
+          const masterId = r.scenario_master_id
           if (!masterId) return
           if (r.organization_id) {
             if (!orgToScenarioIds.has(r.organization_id)) orgToScenarioIds.set(r.organization_id, new Set())
@@ -374,7 +374,7 @@ export function ReservationsPage() {
       return null
     }
     
-    const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+    const scenarioMasterId = reservation.scenario_master_id
     const scenarioData = scenarioMasterId ? scenarioInfo[scenarioMasterId] : null
     const current = scheduleEvent?.current_participants || 0
     const max = scheduleEvent?.max_participants || scenarioData?.max || 8
@@ -429,7 +429,7 @@ export function ReservationsPage() {
   }
 
   const formatTitle = (reservation: Reservation) => {
-    const masterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+    const masterId = reservation.scenario_master_id
     const masterTitle = masterId ? scenarioTitles[masterId] : undefined
     if (masterTitle) {
       const prefix = reservation.title.match(/^【[^】]+】/)?.[0] ?? ''
@@ -610,9 +610,9 @@ export function ReservationsPage() {
         pricePerPerson = Math.round((editTarget.base_price || 0) / oldCount)
       }
       
-      if (!pricePerPerson && (editTarget as { scenario_master_id?: string | null }).scenario_master_id) {
+      if (!pricePerPerson && editTarget.scenario_master_id) {
         // それでもない場合は organization_scenarios_with_master から取得（フォールバック）
-        const scenarioMasterId = (editTarget as { scenario_master_id?: string | null }).scenario_master_id
+        const scenarioMasterId = editTarget.scenario_master_id
         const { data: scenarioData } = await supabase
           .from('organization_scenarios_with_master')
           .select('participation_fee')
@@ -717,7 +717,7 @@ export function ReservationsPage() {
 
   // 日程変更処理
   const handleDateChangeClick = async (reservation: Reservation) => {
-    const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+    const scenarioMasterId = reservation.scenario_master_id
     if (!scenarioMasterId) {
       toast.error('シナリオ情報がありません')
       return
@@ -969,7 +969,7 @@ export function ReservationsPage() {
                     <div className="flex items-start gap-3 mb-3">
                       <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
                         {(() => {
-                          const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+                          const scenarioMasterId = reservation.scenario_master_id
                           return scenarioMasterId && scenarioImages[scenarioMasterId] ? (
                             <OptimizedImage
                               src={scenarioImages[scenarioMasterId]}
@@ -1074,7 +1074,7 @@ export function ReservationsPage() {
                       {/* シナリオ画像 */}
                       <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
                         {(() => {
-                          const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+                          const scenarioMasterId = reservation.scenario_master_id
                           return scenarioMasterId && scenarioImages[scenarioMasterId] ? (
                           <OptimizedImage
                             src={scenarioImages[scenarioMasterId]}
@@ -1168,7 +1168,7 @@ export function ReservationsPage() {
                           <Users className="h-4 w-4 mr-1" />
                           人数変更
                         </Button>
-                        {((reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id) && reservation.schedule_event_id && (
+                        {reservation.scenario_master_id && reservation.schedule_event_id && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -1233,9 +1233,9 @@ export function ReservationsPage() {
                   <div className="flex items-start gap-3 mb-3">
                     {/* シナリオ画像 */}
                     <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
-                      {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
+                      {reservation.scenario_master_id && scenarioImages[reservation.scenario_master_id] ? (
                         <OptimizedImage
-                          src={scenarioImages[reservation.scenario_id]}
+                          src={scenarioImages[reservation.scenario_master_id]}
                           alt={reservation.title}
                           className="w-full h-full object-cover"
                           responsive={true}
@@ -1394,7 +1394,7 @@ export function ReservationsPage() {
                     {/* シナリオ画像 */}
                     <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
                       {(() => {
-                        const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+                        const scenarioMasterId = reservation.scenario_master_id
                         return scenarioMasterId && scenarioImages[scenarioMasterId] ? (
                           <OptimizedImage
                             src={scenarioImages[scenarioMasterId]}

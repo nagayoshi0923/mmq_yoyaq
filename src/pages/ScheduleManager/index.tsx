@@ -249,7 +249,7 @@ export function ScheduleManager() {
         schedule_event_id: string
         organization_id: string
         title: string
-        scenario_id: string | null
+        scenario_master_id: string | null
         store_id: string | null
         customer_id: null
         customer_notes: string
@@ -313,7 +313,7 @@ export function ScheduleManager() {
             schedule_event_id: event.id,
             organization_id: orgId,
             title: event.scenario || '',
-            scenario_id: event.scenario_id || null,
+            scenario_master_id: event.scenario_master_id || event.scenario_id || null,
             store_id: event.store_id || null,
             customer_id: null,
             customer_notes: `デモ参加者${neededParticipants}名`,

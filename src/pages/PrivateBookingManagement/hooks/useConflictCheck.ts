@@ -57,7 +57,7 @@ export const useConflictCheck = () => {
       // 貸切リクエストの情報を取得（reservationsテーブルから）
       const { data: requestData, error: requestError } = await supabase
         .from('reservations')
-        .select('candidate_datetimes, scenario_id')
+        .select('candidate_datetimes, scenario_master_id')
         .eq('id', reservationId)
         .single()
 

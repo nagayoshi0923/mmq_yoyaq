@@ -361,7 +361,7 @@ export default function MyPage() {
         // 予約を取得
         supabase
           .from('reservations')
-          .select('id, organization_id, reservation_number, title, scenario_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at')
+          .select('id, organization_id, reservation_number, title, scenario_id, scenario_master_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at')
           .eq('customer_id', customer.id)
           .order('requested_datetime', { ascending: false })
           .limit(50),
@@ -440,7 +440,7 @@ export default function MyPage() {
       
       const scenarioMasterIds = [...new Set([
         ...(reservationData || [])
-          .map(r => (r as { scenario_master_id?: string | null }).scenario_master_id ?? r.scenario_id)
+          .map(r => r.scenario_master_id)
           .filter((id): id is string => id !== null && id !== undefined),
         ...manualScenarioIds
       ])]
@@ -679,7 +679,7 @@ export default function MyPage() {
         }
 
         const played: PlayedScenario[] = pastReservations.map(reservation => {
-          const scenarioMasterId = (reservation as { scenario_master_id?: string | null }).scenario_master_id ?? reservation.scenario_id
+          const scenarioMasterId = reservation.scenario_master_id
           const title = reservation.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim() || ''
           const scenarioData = scenarioMasterId ? { key_visual_url: imageMap[scenarioMasterId], slug: scenarioMasterId } : null
           const titleFallback = title ? titleToScenarioData[title] : null
@@ -1090,7 +1090,7 @@ export default function MyPage() {
       return null
     }
     
-    const scenarioData = reservation.scenario_id ? scenarioInfo[reservation.scenario_id] : null
+    const scenarioData = reservation.scenario_master_id ? scenarioInfo[reservation.scenario_master_id] : null
     const current = event?.current_participants || 0
     const max = event?.max_participants || scenarioData?.max || 8
     const min = scenarioData?.min || 1
@@ -1525,7 +1525,7 @@ export default function MyPage() {
                       <h3 className="text-sm font-bold text-gray-700">日程調整中の貸切申込み</h3>
                     </div>
                     {pendingPrivateBookings.map((reservation) => {
-                      const imageUrl = reservation.scenario_id ? scenarioImages[reservation.scenario_id] : null
+                      const imageUrl = reservation.scenario_master_id ? scenarioImages[reservation.scenario_master_id] : null
                       const candidateDatetimes = reservation.candidate_datetimes as {
                         candidates?: Array<{ order: number; date: string; timeSlot: string; startTime: string; endTime: string; status: string }>
                         confirmedStore?: { storeId: string; storeName?: string }
@@ -1690,7 +1690,7 @@ export default function MyPage() {
                       const perf = getPerformanceDateTime(reservation)
                       const daysUntil = getDaysUntil(perf.date)
                       const store = reservation.store_id ? stores[reservation.store_id] : null
-                      const imageUrl = reservation.scenario_id ? scenarioImages[reservation.scenario_id] : null
+                      const imageUrl = reservation.scenario_master_id ? scenarioImages[reservation.scenario_master_id] : null
                       
                       // 貸切公演かどうか
                       const eventId = reservation.schedule_event_id

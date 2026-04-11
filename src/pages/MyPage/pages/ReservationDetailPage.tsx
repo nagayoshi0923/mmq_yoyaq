@@ -76,7 +76,7 @@ interface ReservationDetail {
   status: string
   payment_status: string
   notes: string | null
-  scenario_id: string | null
+  scenario_master_id: string | null
   store_id: string | null
   organization_id: string | null
   created_at: string
@@ -226,8 +226,8 @@ export function ReservationDetailPage() {
         if (orgData) setOrganization(orgData)
       }
 
-      // シナリオデータを取得（scenario_master_id を優先、organization_scenarios_with_master から取得して slug も取得）
-      const scenarioMasterId = (resData as { scenario_master_id?: string | null }).scenario_master_id ?? resData.scenario_id
+      // シナリオデータを取得（organization_scenarios_with_master から取得して slug も取得）
+      const scenarioMasterId = resData.scenario_master_id
       if (scenarioMasterId) {
         // organization_id があれば organization_scenarios_with_master から slug 付きで取得
         if (resData.organization_id) {

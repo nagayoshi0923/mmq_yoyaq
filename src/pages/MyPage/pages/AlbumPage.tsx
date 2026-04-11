@@ -331,7 +331,7 @@ export function AlbumPage() {
           let keyVisualUrl: string | null = null
           let author: string | null = null
           let finalScenarioId: string | null = null
-          const scenarioMasterId = (reservation as { scenario_master_id?: string }).scenario_master_id ?? reservation.scenario_id
+          const scenarioMasterId = reservation.scenario_master_id
           
           if (scenarioMasterId) {
             const { data: scenarioData } = await supabase

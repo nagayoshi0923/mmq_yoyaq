@@ -3,7 +3,6 @@ import { logger } from '@/utils/logger'
 
 interface ResendBookingData {
   id: string
-  scenario_id?: string
   scenario_master_id?: string
   scenario_title: string
   customer_name: string
@@ -39,7 +38,7 @@ export async function resendPrivateBookingDiscordNotification(
           table: 'reservations',
           record: {
             id: booking.id,
-            scenario_id: booking.scenario_master_id || booking.scenario_id,
+            scenario_id: booking.scenario_master_id,
             scenario_title: booking.scenario_title,
             customer_name: booking.customer_name,
             customer_email: booking.customer_email,

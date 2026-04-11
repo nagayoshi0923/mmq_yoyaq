@@ -957,13 +957,13 @@ export const reservationApi = {
     eventId: string, 
     gms: string[], 
     gmRoles: Record<string, string>, 
-    eventDetails?: { 
-      date: string, 
-      start_time: string, 
-      scenario_id?: string,
+    eventDetails?: {
+      date: string,
+      start_time: string,
+      scenario_master_id?: string,
       scenario_title?: string,
       store_id?: string,
-      duration?: number 
+      duration?: number
     }
   ): Promise<void> {
     try {
@@ -1051,7 +1051,7 @@ export const reservationApi = {
             schedule_event_id: eventId,
             reservation_number: reservationNumber,
             title: eventDetails.scenario_title || '',
-            scenario_id: eventDetails.scenario_id || null,
+            scenario_master_id: eventDetails.scenario_master_id || null,
             store_id: eventDetails.store_id || null,
             customer_id: null,
             customer_notes: staffName,

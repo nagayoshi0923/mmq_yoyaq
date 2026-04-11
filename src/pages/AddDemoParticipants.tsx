@@ -92,7 +92,7 @@ export function AddDemoParticipants() {
       log('公演を取得中（全カテゴリ）...', 'info')
       let eventsQuery = supabase
         .from('schedule_events')
-        .select('id, date, venue, scenario, scenario_id, gms, start_time, end_time, category, is_cancelled, current_participants, capacity, organization_id')
+        .select('id, date, venue, scenario, scenario_master_id, gms, start_time, end_time, category, is_cancelled, current_participants, capacity, organization_id')
         .lte('date', today.toISOString().split('T')[0])
         .eq('is_cancelled', false)
       if (organizationId) {
@@ -187,15 +187,15 @@ export function AddDemoParticipants() {
           continue
         }
 
-        // scenario_id があれば ID で検索、なければタイトルで検索
+        // scenario_master_id があれば ID で検索、なければタイトルで検索
         let scenario: any = null
         
-        if (event.scenario_id) {
-          // ID がある場合は ID で検索（scenario_master_id で organization_scenarios_with_master から取得）
+        if (event.scenario_master_id) {
+          // ビューの id は scenario_master_id と同一
           let idQuery = supabase
             .from('organization_scenarios_with_master')
             .select('id, title, duration, participation_fee, gm_test_participation_fee, player_count_max, player_count_min')
-            .eq('id', event.scenario_id)
+            .eq('id', event.scenario_master_id)
           if (organizationId) {
             idQuery = idQuery.eq('organization_id', organizationId)
           }
@@ -376,7 +376,7 @@ export function AddDemoParticipants() {
           organization_id: event.organization_id,
           reservation_number: reservationNumber,  // 予約番号を明示的に指定
           title: event.scenario || '',
-          scenario_id: scenario.id || null,
+          scenario_master_id: scenario.id || null,
           store_id: store.id || null,
           customer_id: demoCustomer.id,
           customer_notes: `デモ参加者（自動追加） - ${shortfall}名`,

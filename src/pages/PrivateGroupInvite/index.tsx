@@ -378,11 +378,11 @@ export function PrivateGroupInvite() {
     try {
       // シナリオの available_stores を取得
       let scenarioAvailableStores: string[] = []
-      if (group.scenario_id) {
+      if (group.scenario_master_id) {
         const { data: scenarioData } = await supabase
           .from('organization_scenarios_with_master')
           .select('available_stores')
-          .eq('scenario_master_id', group.scenario_id)
+          .eq('scenario_master_id', group.scenario_master_id)
           .eq('organization_id', group.organization_id)
           .limit(1)
           .maybeSingle()
