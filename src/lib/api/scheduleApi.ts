@@ -26,7 +26,7 @@ interface ScheduleEvent {
   venue: string
   store_id: string
   scenario: string
-  scenario_id: string
+  scenario_master_id?: string
   start_time: string
   end_time: string
   category: string
@@ -168,7 +168,7 @@ function removeMissingScheduleColumn(
   return null
 }
 
-// シナリオ名から自動でマッチングして scenario_id と正式名称を返す
+// シナリオ名から自動でマッチングして scenario_masters の id と正式名称を返す
 async function findMatchingScenario(scenarioName: string | undefined): Promise<{ id: string; title: string } | null> {
   if (!scenarioName || scenarioName.trim() === '') return null
   
@@ -585,7 +585,7 @@ export const scheduleApi = {
         .from('reservations')
         .select(`
           id,
-          scenario_id,
+          scenario_master_id,
           store_id,
           gm_staff,
           participant_count,
@@ -677,7 +677,7 @@ export const scheduleApi = {
                 venue: booking.store_id,
                 store_id: booking.store_id,
                 scenario: scenarioData?.title || '',
-                scenario_id: booking.scenario_id,
+                scenario_master_id: booking.scenario_master_id,
                 start_time: candidateStartTime,
                 end_time: candidateEndTime,
                 category: 'private',
@@ -773,7 +773,7 @@ export const scheduleApi = {
           player_count_max
         )
       `)
-      .eq('scenario_id', scenarioId)
+      .eq('scenario_master_id', scenarioId)
       .gte('date', startDate)
       .lte('date', endDate)
       .in('category', ['open', 'offsite'])
@@ -881,7 +881,7 @@ export const scheduleApi = {
     store_id: string
     venue?: string
     scenario?: string
-    scenario_id?: string | null
+    scenario_master_id?: string | null
     organization_scenario_id?: string | null  // 組織シナリオID（新UI対応）
     category: string
     start_time: string
@@ -902,33 +902,13 @@ export const scheduleApi = {
   }) {
     // シナリオ名から自動でマッチングして scenario_master_id と正式名称を設定
     const finalData: Record<string, unknown> = { ...eventData }
-    if (eventData.scenario && !eventData.scenario_id && !finalData.scenario_master_id) {
+    if (eventData.scenario && !eventData.scenario_master_id && !finalData.scenario_master_id) {
       const match = await findMatchingScenario(eventData.scenario)
       if (match) {
         // findMatchingScenario は scenario_masters から検索するので、scenario_master_id に設定
         finalData.scenario_master_id = match.id
         finalData.scenario = match.title // 正式名称に更新
         logger.info(`シナリオ自動マッチング: ${eventData.scenario} -> ${match.title} (scenario_master_id: ${match.id})`)
-      }
-    }
-    
-    // scenario_id が設定されていて scenario_master_id が未設定の場合
-    // scenario_id は実質 scenario_master_id と同じ値（organization_scenarios_with_master ビューの id = scenario_master_id）
-    if (finalData.scenario_id && !finalData.scenario_master_id) {
-      const scenarioIdStr = finalData.scenario_id as string
-      try {
-        const { data: masterData } = await supabase
-          .from('scenario_masters')
-          .select('id')
-          .eq('id', scenarioIdStr)
-          .single()
-        
-        if (masterData?.id) {
-          finalData.scenario_master_id = masterData.id
-          logger.info(`scenario_master_id 自動設定: ${masterData.id}`)
-        }
-      } catch (err) {
-        logger.warn('scenario_master_id の自動設定に失敗:', err)
       }
     }
     
@@ -1000,7 +980,7 @@ export const scheduleApi = {
     date: string
     store_id: string
     venue: string
-    scenario_id: string
+    scenario_master_id: string
     organization_scenario_id: string  // 組織シナリオID（新UI対応）
     scenario: string
     category: string
@@ -1022,33 +1002,13 @@ export const scheduleApi = {
   }>, organizationId?: string, expectedUpdatedAt?: string) {
     // シナリオ名から自動でマッチングして scenario_master_id と正式名称を設定
     const finalUpdates: Record<string, unknown> = { ...updates }
-    if (updates.scenario && !updates.scenario_id && !finalUpdates.scenario_master_id) {
+    if (updates.scenario && !updates.scenario_master_id && !finalUpdates.scenario_master_id) {
       const match = await findMatchingScenario(updates.scenario)
       if (match) {
         // findMatchingScenario は scenario_masters から検索するので、scenario_master_id に設定
         finalUpdates.scenario_master_id = match.id
         finalUpdates.scenario = match.title // 正式名称に更新
         logger.info(`シナリオ自動マッチング: ${updates.scenario} -> ${match.title} (scenario_master_id: ${match.id})`)
-      }
-    }
-    
-    // scenario_id が設定されていて scenario_master_id が未設定の場合
-    // scenario_id は実質 scenario_master_id と同じ値（organization_scenarios_with_master ビューの id = scenario_master_id）
-    if (finalUpdates.scenario_id && !finalUpdates.scenario_master_id) {
-      const scenarioIdStr = finalUpdates.scenario_id as string
-      try {
-        const { data: masterData } = await supabase
-          .from('scenario_masters')
-          .select('id')
-          .eq('id', scenarioIdStr)
-          .single()
-        
-        if (masterData?.id) {
-          finalUpdates.scenario_master_id = masterData.id
-          logger.info(`scenario_master_id 自動設定（更新）: ${masterData.id}`)
-        }
-      } catch (err) {
-        logger.warn('scenario_master_id の自動設定に失敗（更新）:', err)
       }
     }
     
@@ -1173,7 +1133,7 @@ export const scheduleApi = {
       
       let query = supabase
         .from('schedule_events')
-        .select('id, organization_id, scenario_id, scenario_master_id, scenario, store_id, date, start_time, category, gms, capacity, max_participants')
+        .select('id, organization_id, scenario_master_id, scenario, store_id, date, start_time, category, gms, capacity, max_participants')
         .eq('is_cancelled', false)
         .order('date', { ascending: true })
       

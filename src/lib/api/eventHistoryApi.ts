@@ -53,7 +53,7 @@ export const FIELD_LABELS: Record<string, string> = {
   venue: '店舗',
   store_id: '店舗',
   scenario: 'シナリオ',
-  scenario_id: 'シナリオID',
+  scenario_master_id: 'シナリオマスターID',
   gms: 'GM',
   gm_roles: 'GM役割',
   start_time: '開始時間',
@@ -94,7 +94,7 @@ function calculateChanges(
   // 比較対象のフィールド（重要なフィールドのみ）
   // DBカラム名と一致させること（capacity, store_idなど）
   const fieldsToCompare = [
-    'date', 'venue', 'store_id', 'scenario', 'scenario_id',
+    'date', 'venue', 'store_id', 'scenario', 'scenario_master_id',
     'gms', 'gm_roles', 'start_time', 'end_time',
     'category', 'capacity', 'notes',
     'is_cancelled', 'is_tentative', 'is_reservation_enabled',

@@ -69,7 +69,7 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
           id,
           date,
           store_id,
-          scenario_id,
+          scenario_master_id,
           gms,
           gm_roles,
           category,

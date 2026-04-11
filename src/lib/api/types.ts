@@ -26,7 +26,7 @@ export interface ScheduleEvent {
   venue: string
   store_id: string
   scenario: string
-  scenario_id: string
+  scenario_master_id: string
   start_time: string
   end_time: string
   category: string

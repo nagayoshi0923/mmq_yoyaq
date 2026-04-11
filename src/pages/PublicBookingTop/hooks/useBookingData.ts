@@ -361,8 +361,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   
   // イベントを加工
   const enrichedEvents = publicEvents.map((event: any) => {
-    const scenarioFromMap = scenarioDataMap.get(event.scenario_master_id) || 
-                            scenarioDataMap.get(event.scenario_id) || 
+    const scenarioFromMap = scenarioDataMap.get(event.scenario_master_id) ||
                             scenarioDataMap.get(event.scenario)
     
     const player_count_max = scenarioFromMap?.player_count_max || 8
@@ -387,7 +386,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
   const eventsByScenarioTitle = new Map<string, any[]>()
   
   enrichedEvents.forEach((event: any) => {
-    const scenarioId = event.scenario_master_id || event.scenario_id
+    const scenarioId = event.scenario_master_id
     if (scenarioId) {
       if (!eventsByScenarioId.has(scenarioId)) {
         eventsByScenarioId.set(scenarioId, [])

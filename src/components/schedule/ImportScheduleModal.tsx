@@ -1046,7 +1046,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         const matchedScenario = scenarioList.find(s => s.title === scenarioName)
         
         // 明示的にMEMOカテゴリが選択された場合のみMEMOとして扱う
-        // マッピングできないシナリオはそのまま公演として作成（scenario_idは未設定）
+        // マッピングできないシナリオはそのまま公演として作成（scenario_master_idは未設定）
         const shouldBeMemo = isMemo || event.category === 'memo'
         
         if (!matchedScenario && scenarioName && scenarioName.length > 0) {
@@ -1058,7 +1058,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           venue: sanitizeText(event.venue), // venueは必須
           store_id: event.store_id,
           scenario: shouldBeMemo ? '' : scenarioName, // MEMOの場合のみシナリオを空に
-          scenario_id: matchedScenario?.id || null, // マッピングできなければnull
+          scenario_master_id: matchedScenario?.id || null, // マッピングできなければnull
           gms: Array.isArray(event.gms) ? event.gms.map(sanitizeText) : [],
           gm_roles: event.gmRoles || {},
           start_time: event.start_time,
@@ -1110,7 +1110,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
             id: existingEvent.id,
             data: {
               scenario: mergedScenario,
-              scenario_id: updatedMatchedScenario?.id || null,
+              scenario_master_id: updatedMatchedScenario?.id || null,
               gms: mergedGms,
               start_time: eventData.start_time,
               end_time: eventData.end_time,

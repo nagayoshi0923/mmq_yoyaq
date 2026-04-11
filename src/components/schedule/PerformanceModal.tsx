@@ -489,7 +489,7 @@ export function PerformanceModal({
       }))
       setFormData({
         ...event,
-        scenario_id: selectedScenario?.id,  // IDを設定
+        scenario_master_id: selectedScenario?.id,  // scenario_masters.id
         time_slot: event.time_slot || (slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜'), // time_slotを設定
         max_participants: selectedScenario?.player_count_max ?? event.max_participants ?? DEFAULT_MAX_PARTICIPANTS, // シナリオの参加人数を反映
         gmRoles: event.gm_roles || {}, // 既存の役割があれば設定
@@ -605,7 +605,7 @@ export function PerformanceModal({
     setFormData((prev: EventFormData) => ({
       ...prev,
       scenario: scenarioTitle,
-      scenario_id: selectedScenario.id,
+      scenario_master_id: selectedScenario.id,
       start_time: adjustedStartTime,
       end_time: endTime,
       max_participants: selectedScenario.player_count_max
@@ -636,7 +636,7 @@ export function PerformanceModal({
     const saveData = {
       ...formData,
       scenario,
-      scenario_id: isVenueRental ? undefined : formData.scenario_id, // 場所貸しはシナリオIDもクリア
+      scenario_master_id: isVenueRental ? undefined : formData.scenario_master_id, // 場所貸しはシナリオIDもクリア
       notes,
       venue_rental_fee: venueRentalFee,
       gms: formData.gms,

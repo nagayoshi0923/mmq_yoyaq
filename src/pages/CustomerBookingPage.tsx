@@ -254,7 +254,7 @@ export function CustomerBookingPage() {
             current_participants: e.current_participants || 0,
             available_seats: (e.max_participants || e.capacity || 8) - (e.current_participants || 0),
             participation_fee: await calculateParticipationFee(
-              e.scenario_id,
+              e.scenario_master_id,
               e.start_time,
               e.date,
               organization?.id

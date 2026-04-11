@@ -87,7 +87,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const [scheduleEvents, setScheduleEvents] = useState<Array<{
     date: string
     store_id: string
-    scenario_id: string
+    scenario_master_id: string
     is_cancelled?: boolean
     current_participants?: number
     capacity?: number
@@ -343,7 +343,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
     const shortages: Array<{
       date: string
       store_id: string
-      scenario_id: string
+      scenario_master_id: string
       needed: number
       available: number
     }> = []
@@ -362,10 +362,10 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const dayEvents = scheduleEvents.filter(e => e.date === date)
       
       // 店舗×シナリオで集計（同じ日・店舗・シナリオは1キットで済む）
-      const needs = new Set<string>() // `${store_id}-${scenario_id}`
+      const needs = new Set<string>() // `${store_id}-${scenario_master_id}`
       for (const event of dayEvents) {
-        if (event.scenario_id) {
-          const key = `${event.store_id}-${event.scenario_id}`
+        if (event.scenario_master_id) {
+          const key = `${event.store_id}-${event.scenario_master_id}`
           needs.add(key)
         }
       }
@@ -391,7 +391,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
           shortages.push({
             date,
             store_id: storeId,
-            scenario_id: scenarioId,
+            scenario_master_id: scenarioId,
             needed,
             available
           })
@@ -610,7 +610,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const isPerformanceCancelled = useCallback((scenarioId: string, performanceDate: string, storeId: string): boolean => {
     const toGroupId = getStoreGroupId(storeId)
     const matchingEvents = scheduleEvents.filter(event => 
-      event.scenario_id === scenarioId &&
+      event.scenario_master_id === scenarioId &&
       event.date === performanceDate &&
       getStoreGroupId(event.store_id) === toGroupId
     )
@@ -768,29 +768,27 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         startDate,
         endDate,
         totalEvents: eventsData.length,
-        eventsWithScenarioId: eventsData.filter(e => e.scenario_id).length,
         eventsWithScenarioMasterId: eventsData.filter(e => e.scenario_master_id).length,
         cancelledEvents: eventsData.filter(e => e.is_cancelled).length,
         sampleEvents: eventsData.slice(0, 5).map(e => ({
           date: e.date,
           scenario: e.scenario,
-          scenario_id: e.scenario_id,
           scenario_master_id: e.scenario_master_id,
           store_id: e.store_id,
           is_cancelled: e.is_cancelled
         }))
       })
       
-      // scenario_master_id を優先して使用（scenarioMap との整合性のため）
+      // schedule_events は scenario_master_id のみ使用（scenarioMap との整合性のため）
       // is_cancelled, current_participants, capacity も含めて保持
       const processedEvents = eventsData.map(e => ({
         date: e.date,
         store_id: e.store_id || e.venue,
-        scenario_id: e.scenario_master_id || e.scenario_id || '',
+        scenario_master_id: e.scenario_master_id || '',
         is_cancelled: e.is_cancelled || false,
         current_participants: e.current_participants || 0,
         capacity: e.capacity || 0
-      })).filter(e => e.scenario_id)
+      })).filter(e => e.scenario_master_id)
       
       console.log('📅 処理後のイベント:', {
         total: processedEvents.length,
@@ -1044,20 +1042,20 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         kitState[scenarioId][loc.kit_number] = loc.store_id
       }
 
-      // 週間需要を構築（scenario_idがあるイベントのみ）
+      // 週間需要を構築（scenario_master_id があるイベントのみ）
       // 同じ日・同じ店舗・同じシナリオは1キットで済む（朝使ったキットを夜も使える）
       // demandDatesを使用して、移動日がカバーする期間全体の公演を含める
       const demandSet = new Set<string>()
       const demands: Array<{ date: string; store_id: string; scenario_id: string }> = []
       for (const event of scheduleEvents) {
-        if (demandDates.includes(event.date) && event.scenario_id) {
-          const key = `${event.date}::${event.store_id}::${event.scenario_id}`
+        if (demandDates.includes(event.date) && event.scenario_master_id) {
+          const key = `${event.date}::${event.store_id}::${event.scenario_master_id}`
           if (!demandSet.has(key)) {
             demandSet.add(key)
             demands.push({
               date: event.date,
               store_id: event.store_id,
-              scenario_id: event.scenario_id
+              scenario_id: event.scenario_master_id
             })
           }
         }
@@ -1752,7 +1750,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                   <div className="space-y-1 text-sm">
                     {kitShortages.slice(0, 5).map((shortage, index) => {
                       const store = storeMap.get(shortage.store_id)
-                      const scenario = scenarioMap.get(shortage.scenario_id)
+                      const scenario = scenarioMap.get(shortage.scenario_master_id)
                       return (
                         <div key={index} className="flex items-center gap-2 text-red-700 dark:text-red-300">
                           <span className="font-medium">{formatDate(shortage.date)}</span>
@@ -1798,7 +1796,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           <td className="p-2 font-medium">{formatDate(date)}</td>
                           {stores.filter(s => s.status === 'active').map(store => {
                             const storeEvents = dayEvents.filter(e => e.store_id === store.id)
-                            const scenarioIds = [...new Set(storeEvents.map(e => e.scenario_id))]
+                            const scenarioIds = [...new Set(storeEvents.map(e => e.scenario_master_id))]
                             
                             return (
                               <td key={store.id} className="p-2 text-center">
@@ -1807,7 +1805,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                     {scenarioIds.map(sid => {
                                       const scenario = scenarioMap.get(sid)
                                       if (!scenario) return null
-                                      const count = storeEvents.filter(e => e.scenario_id === sid).length
+                                      const count = storeEvents.filter(e => e.scenario_master_id === sid).length
                                       
                                       // この店舗（または同じグループの店舗）にあるキット数をチェック
                                       const kitsAtStore = kitLocations.filter(loc => 
@@ -1816,7 +1814,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                       
                                       // キット不足チェック
                                       const shortage = kitShortages.find(
-                                        s => s.date === date && s.store_id === store.id && s.scenario_id === sid
+                                        s => s.date === date && s.store_id === store.id && s.scenario_master_id === sid
                                       )
                                       const hasShortage = !!shortage
                                       const notAtStore = kitsAtStore === 0  // この店舗にキットがない
@@ -2382,7 +2380,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
                                                   const matchingEvents = scheduleEvents
                                                     .filter(event => 
-                                                      event.scenario_id === suggestion.scenario_id &&
+                                                      event.scenario_master_id === suggestion.scenario_id &&
                                                       getStoreGroupId(event.store_id) === toGroupId &&
                                                       demandDates.includes(event.date) &&
                                                       !event.is_cancelled
@@ -2492,7 +2490,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
                                                   const matchingEvents = scheduleEvents
                                                     .filter(event => 
-                                                      event.scenario_id === suggestion.scenario_id &&
+                                                      event.scenario_master_id === suggestion.scenario_id &&
                                                       getStoreGroupId(event.store_id) === toGroupId &&
                                                       demandDates.includes(event.date) &&
                                                       !event.is_cancelled

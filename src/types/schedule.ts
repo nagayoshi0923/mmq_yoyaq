@@ -5,7 +5,7 @@ export interface ScheduleEvent {
   date: string
   venue: string
   scenario: string
-  scenario_id?: string  // 旧シナリオID（scenarios テーブル）
+  scenario_master_id?: string  // schedule_events.scenario_master_id（scenario_masters.id）
   organization_scenario_id?: string  // 組織シナリオID（organization_scenarios テーブル）
   store_id?: string  // 店舗ID（メール設定取得などに使用）
   gms: string[]
@@ -45,7 +45,7 @@ export interface EventFormData {
   date: string
   venue: string
   scenario: string
-  scenario_id?: string
+  scenario_master_id?: string
   organization_scenario_id?: string  // 組織シナリオID（新UI対応）
   category: string
   start_time: string

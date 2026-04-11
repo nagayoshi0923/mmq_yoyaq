@@ -37,7 +37,7 @@ interface SalesEvent {
   id: string
   date: string
   store_id: string
-  scenario_id?: string
+  scenario_master_id?: string
   scenario?: string
   category: string
   start_time?: string
@@ -376,7 +376,7 @@ function calculateSalesData(
     revenue?: number; 
     store_id: string; 
     scenario?: string; 
-    scenario_id?: string; 
+    scenario_master_id?: string; 
     date: string;
     current_participants?: number;
     gms?: string[];
@@ -634,7 +634,7 @@ function calculateSalesData(
     const eventDate = new Date(event.date)
     const isPastEvent = eventDate < now // 今日より前の公演のみ
     
-    const scenarioId = event.scenario_id || event.scenario || '不明'
+    const scenarioId = event.scenario_master_id || event.scenario || '不明'
     const scenarioTitle = event.scenario || '不明'
     
     if (!scenarioRevenues.has(scenarioId)) {
@@ -994,7 +994,7 @@ function calculateSalesData(
       date: event.date,
       store_id: event.store_id,
       store_name: eventStore?.name || '不明',
-      scenario_id: event.scenario_id,
+      scenario_master_id: event.scenario_master_id,
       scenario_title: event.scenario || '不明',
       start_time: startTime,
       end_time: endTime,
@@ -1097,7 +1097,7 @@ function calculateSalesData(
             (costYear < endYear || (costYear === endYear && costMonth <= endMonth))
           
           if (isInPeriod) {
-            const key = `${event.scenario_id}-${cost.item}-${cost.startDate}`
+            const key = `${event.scenario_master_id}-${cost.item}-${cost.startDate}`
             if (!processedProductionCosts.has(key)) {
               processedProductionCosts.add(key)
               totalProductionCost += cost.amount
@@ -1127,7 +1127,7 @@ function calculateSalesData(
             (propYear < endYear || (propYear === endYear && propMonth <= endMonth))
           
           if (isInPeriod) {
-            const key = `${event.scenario_id}-${prop.item}-${prop.startDate}`
+            const key = `${event.scenario_master_id}-${prop.item}-${prop.startDate}`
             if (!processedPropsCosts.has(key)) {
               processedPropsCosts.add(key)
               totalPropsCost += prop.amount
@@ -1148,8 +1148,8 @@ function calculateSalesData(
     // シナリオIDからシナリオ名へのマップを作成（パフォーマンス最適化）
     const scenarioMap = new Map<string, string>()
     events.forEach(event => {
-      if (event.scenario_id && event.scenario) {
-        scenarioMap.set(event.scenario_id, event.scenario)
+      if (event.scenario_master_id && event.scenario) {
+        scenarioMap.set(event.scenario_master_id, event.scenario)
       }
     })
     

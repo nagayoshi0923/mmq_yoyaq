@@ -178,7 +178,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       store_id: event.store_id || stores.find(s => s.name === event.store_name)?.id || '',
       organization_id: event.organization_id, // 組織IDを追加（ReservationListで必要）
       scenario: event.scenario_title,
-      scenario_id: event.scenario_id || '', // シナリオIDを使用
+      scenario_master_id: event.scenario_master_id || '',
       start_time: event.start_time || '10:00',
       end_time: event.end_time || '18:00',
       category: event.category || 'open',
@@ -208,8 +208,8 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       // スケジュール更新用のデータを準備
       const updateData: any = {}
       
-      // scenario_id は明示的にnullも許可（場所貸しの場合クリアするため）
-      if (eventData.scenario_id !== undefined) updateData.scenario_id = eventData.scenario_id
+      // scenario_master_id は明示的にnullも許可（場所貸しの場合クリアするため）
+      if (eventData.scenario_master_id !== undefined) updateData.scenario_master_id = eventData.scenario_master_id
       // scenario は空文字も保存（場所貸しの場合クリアするため）
       if (eventData.scenario !== undefined) updateData.scenario = eventData.scenario
       if (eventData.category) updateData.category = eventData.category

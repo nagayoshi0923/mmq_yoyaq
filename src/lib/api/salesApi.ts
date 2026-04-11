@@ -7,7 +7,7 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const SCHEDULE_EVENT_SALES_SELECT_FIELDS =
-  'id, organization_id, date, start_time, end_time, store_id, venue, scenario_id, scenario_master_id, scenario, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled' as const
+  'id, organization_id, date, start_time, end_time, store_id, venue, scenario_master_id, scenario, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled' as const
 
 export const salesApi = {
   // 期間別売上データを取得
@@ -91,7 +91,7 @@ export const salesApi = {
     
     const staffNames = new Set(staff?.map(s => s.name) || [])
     
-    // シナリオ名でマッピング（scenario_idがない場合のフォールバック）
+    // シナリオ名でマッピング（scenario_master_idがない場合のフォールバック）
     const scenarioMap = new Map()
     scenarios?.forEach(s => {
       scenarioMap.set(s.title, s)
@@ -101,8 +101,8 @@ export const salesApi = {
     const enrichedEvents = await Promise.all(events.map(async (event) => {
       let scenarioInfo = null
       
-      // scenario_master_id を優先、なければ scenario_id、最後に scenario（TEXT）からマッチング
-      const scenarioKey = event.scenario_master_id ?? event.scenario_id
+      // scenario_master_id、なければ scenario（TEXT）からマッチング
+      const scenarioKey = event.scenario_master_id
       if (scenarioKey && scenarios) {
         scenarioInfo = scenarios.find(s => s.id === scenarioKey)
       } else if (event.scenario) {
@@ -416,7 +416,7 @@ export const salesApi = {
     
     events.forEach(event => {
       let scenarioInfo = null
-      const scenarioKey = event.scenario_master_id ?? event.scenario_id
+      const scenarioKey = event.scenario_master_id
       if (scenarioKey && scenarios) {
         scenarioInfo = scenarios.find(s => s.id === scenarioKey)
       } else if (event.scenario) {

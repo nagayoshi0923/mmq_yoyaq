@@ -249,10 +249,10 @@ const handleParticipantChange = (
 interface PerformanceData {
   id?: string
   date: string
-  store_id: string
+  store_id?: string
   venue: string
   scenario: string
-  scenario_id?: string
+  scenario_master_id?: string
   category: string
   start_time: string
   end_time: string
@@ -515,7 +515,7 @@ export function useEventOperations({
         store_id: dropTarget.venue,
         venue: stores.find(s => s.id === dropTarget.venue)?.name || '',
         scenario: draggedEvent.scenario,
-        scenario_id: scenarioId ?? undefined,
+        scenario_master_id: scenarioId ?? undefined,
         category: draggedEvent.category,
         start_time: startTime,
         end_time: endTime,
@@ -705,7 +705,7 @@ export function useEventOperations({
         store_id: dropTarget.venue,
         venue: stores.find(s => s.id === dropTarget.venue)?.name || '',
         scenario: draggedEvent.scenario,
-        scenario_id: scenarioId,
+        scenario_master_id: scenarioId,
         category: draggedEvent.category,
         start_time: startTime,
         end_time: endTime,
@@ -973,7 +973,7 @@ export function useEventOperations({
           store_id: storeData.id,
           venue: storeName,
           scenario: performanceData.scenario || '',
-          scenario_id: scenarioId,
+          scenario_master_id: scenarioId,
           category: performanceData.category,
           start_time: performanceData.start_time,
           end_time: performanceData.end_time,
@@ -1035,7 +1035,7 @@ export function useEventOperations({
             {
               date: performanceData.date,
               start_time: performanceData.start_time,
-              scenario_id: scenarioId || undefined,
+              scenario_master_id: scenarioId || undefined,
               scenario_title: performanceData.scenario,
               store_id: storeData.id
             }
@@ -1278,7 +1278,7 @@ export function useEventOperations({
           // 履歴用: 更新前の値を取得
           let oldEventQuery = supabase
             .from('schedule_events')
-            .select('id, organization_id, date, venue, store_id, scenario, scenario_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
+            .select('id, organization_id, date, venue, store_id, scenario, scenario_master_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
             .eq('id', performanceData.id)
           if (organizationId) {
             oldEventQuery = oldEventQuery.eq('organization_id', organizationId)
@@ -1301,7 +1301,7 @@ export function useEventOperations({
             store_id: performanceData.venue, // 店舗移動用（store_id）
             venue: storeName, // 店舗名
             scenario: performanceData.scenario,
-            scenario_id: scenarioId ?? undefined,
+            scenario_master_id: scenarioId ?? undefined,
             category: performanceData.category,
             start_time: performanceData.start_time,
             end_time: performanceData.end_time,
@@ -1398,7 +1398,7 @@ export function useEventOperations({
               {
                 date: performanceData.date,
                 start_time: performanceData.start_time,
-                scenario_id: scenarioId || undefined,
+                scenario_master_id: scenarioId || undefined,
                 scenario_title: performanceData.scenario,
                 store_id: performanceData.venue || undefined
               }
@@ -1483,7 +1483,7 @@ export function useEventOperations({
           // 削除前にイベント情報を取得（履歴用）
           let eventQuery = supabase
             .from('schedule_events')
-            .select('id, organization_id, date, venue, store_id, scenario, scenario_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
+            .select('id, organization_id, date, venue, store_id, scenario, scenario_master_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
             .eq('id', reservation.schedule_event_id)
           if (organizationId) {
             eventQuery = eventQuery.eq('organization_id', organizationId)
@@ -1571,7 +1571,7 @@ export function useEventOperations({
         // 削除前にイベント情報を取得（履歴用）
         let eventQuery = supabase
           .from('schedule_events')
-          .select('id, organization_id, date, venue, store_id, scenario, scenario_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
+          .select('id, organization_id, date, venue, store_id, scenario, scenario_master_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
           .eq('id', deletingEvent.id)
         if (organizationId) {
           eventQuery = eventQuery.eq('organization_id', organizationId)
@@ -1670,7 +1670,7 @@ export function useEventOperations({
           // 削除前にイベント情報を取得（履歴用）
           let eventQuery = supabase
             .from('schedule_events')
-            .select('id, organization_id, date, venue, store_id, scenario, scenario_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
+            .select('id, organization_id, date, venue, store_id, scenario, scenario_master_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
             .eq('id', reservation.schedule_event_id)
           if (organizationId) {
             eventQuery = eventQuery.eq('organization_id', organizationId)
