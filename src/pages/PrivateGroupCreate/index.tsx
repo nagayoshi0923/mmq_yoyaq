@@ -18,6 +18,7 @@ import {
   QUEENS_WALTZ_ORG_ID,
   resolveOrganizationFromPathSegment,
 } from '@/lib/organization'
+import { scenarioApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 
 export function PrivateGroupCreate() {
@@ -64,12 +65,21 @@ export function PrivateGroupCreate() {
           organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
         }
 
+        // scenarioId が UUID でない場合（slug）は、先に scenario_master_id を解決する
+        const isUuidLike = /^[0-9a-f]{8}-/.test(scenarioId)
+        let resolvedMasterId = scenarioId
+        if (!isUuidLike) {
+          const resolved = await scenarioApi.getByIdOrSlug(scenarioId, organizationId)
+          if (!resolved) throw new Error('シナリオが見つかりません')
+          resolvedMasterId = resolved.scenario_master_id || resolved.id
+        }
+
         const { data: scenarioData, error: scenarioError } = await supabase
           .from('organization_scenarios_with_master')
           .select(
             'id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max, available_stores'
           )
-          .eq('scenario_master_id', scenarioId)
+          .eq('scenario_master_id', resolvedMasterId)
           .eq('organization_id', organizationId)
           .single()
 

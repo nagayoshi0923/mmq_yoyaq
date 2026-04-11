@@ -117,7 +117,7 @@ async function sendSystemMessage(
 function applyEffectivePlayerBoundsFromOrgScenario(
   data: {
     scenario_masters?: Record<string, unknown> | null
-    scenario_id?: string | null
+    scenario_master_id?: string | null
     organization_id?: string | null
   },
   orgScenario: {
@@ -185,7 +185,7 @@ export function usePrivateGroup() {
         .from('private_groups')
         .insert({
           organization_id: organizationId,
-          scenario_id: params.scenarioId,
+          scenario_master_id: params.scenarioId,
           organizer_id: user.id,
           name: params.name || null,
           invite_code: inviteCode,
@@ -286,7 +286,7 @@ export function usePrivateGroup() {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url, player_count_min, player_count_max),
+          scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_min, player_count_max),
           members:private_group_members (*),
           candidate_dates:private_group_candidate_dates (
             *,
@@ -304,14 +304,14 @@ export function usePrivateGroup() {
       }
 
       // organization_scenariosからcharacters・人数上書きを取得
-      if (data?.scenario_id && data?.organization_id) {
+      if (data?.scenario_master_id && data?.organization_id) {
         try {
           const { data: orgScenario } = await supabase
             .from('organization_scenarios')
             .select(
               'characters, override_player_count_min, override_player_count_max'
             )
-            .eq('scenario_master_id', data.scenario_id)
+            .eq('scenario_master_id', data.scenario_master_id)
             .eq('organization_id', data.organization_id)
             .maybeSingle()
 
@@ -343,7 +343,7 @@ export function usePrivateGroup() {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url, player_count_min, player_count_max),
+          scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_min, player_count_max),
           members:private_group_members (*),
           candidate_dates:private_group_candidate_dates (
             *,
@@ -361,14 +361,14 @@ export function usePrivateGroup() {
       }
 
       // organization_scenariosからcharacters・人数上書きを取得
-      if (data?.scenario_id && data?.organization_id) {
+      if (data?.scenario_master_id && data?.organization_id) {
         try {
           const { data: orgScenario } = await supabase
             .from('organization_scenarios')
             .select(
               'characters, override_player_count_min, override_player_count_max'
             )
-            .eq('scenario_master_id', data.scenario_id)
+            .eq('scenario_master_id', data.scenario_master_id)
             .eq('organization_id', data.organization_id)
             .maybeSingle()
 
@@ -403,7 +403,7 @@ export function usePrivateGroup() {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url, player_count_min, player_count_max),
+          scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_min, player_count_max),
           members:private_group_members (*)
         `)
         .eq('organizer_id', user.id)
@@ -439,15 +439,15 @@ export function usePrivateGroup() {
 
       const { data: groupData } = await supabase
         .from('private_groups')
-        .select('organization_id, scenario_id')
+        .select('organization_id, scenario_master_id')
         .eq('id', params.groupId)
         .single()
 
-      if (groupData?.organization_id && groupData.scenario_id) {
+      if (groupData?.organization_id && groupData.scenario_master_id) {
         const bounds = await fetchScenarioPlayerBoundsForOrg(
           supabase,
           groupData.organization_id,
-          groupData.scenario_id
+          groupData.scenario_master_id
         )
         if (bounds) {
           const cap = memberInvitationCap(bounds)
@@ -692,7 +692,7 @@ export function usePrivateGroupData(groupId: string | null) {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url, player_count_min, player_count_max),
+          scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_min, player_count_max),
           members:private_group_members (
             *,
             date_responses:private_group_date_responses (*)
@@ -708,14 +708,14 @@ export function usePrivateGroupData(groupId: string | null) {
       if (error) throw error
 
       // organization_scenariosからcharacters・人数上書きを取得
-      if (data?.scenario_id && data?.organization_id) {
+      if (data?.scenario_master_id && data?.organization_id) {
         try {
           const { data: orgScenario } = await supabase
             .from('organization_scenarios')
             .select(
               'characters, override_player_count_min, override_player_count_max'
             )
-            .eq('scenario_master_id', data.scenario_id)
+            .eq('scenario_master_id', data.scenario_master_id)
             .eq('organization_id', data.organization_id)
             .maybeSingle()
 
@@ -811,7 +811,7 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null): {
         .from('private_groups')
         .select(`
           *,
-          scenario_masters:scenario_id (id, title, key_visual_url, player_count_min, player_count_max),
+          scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_min, player_count_max),
           members:private_group_members (
             *,
             date_responses:private_group_date_responses (*)
@@ -835,14 +835,14 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null): {
       }
 
       // organization_scenariosからcharacters・人数上書きを取得
-      if (data?.scenario_id && data?.organization_id) {
+      if (data?.scenario_master_id && data?.organization_id) {
         try {
           const { data: orgScenario } = await supabase
             .from('organization_scenarios')
             .select(
               'characters, override_player_count_min, override_player_count_max'
             )
-            .eq('scenario_master_id', data.scenario_id)
+            .eq('scenario_master_id', data.scenario_master_id)
             .eq('organization_id', data.organization_id)
             .maybeSingle()
 

@@ -355,7 +355,7 @@ ${scenariosText}
         // 手動入力の他社公演数を取得
         supabase
           .from('manual_external_performances')
-          .select('scenario_id, performance_count')
+          .select('scenario_master_id, performance_count')
           .eq('year', selectedYear)
           .eq('month', selectedMonth)
           .then(res => res.data || []),
@@ -375,7 +375,7 @@ ${scenariosText}
       const manualInputs: Record<string, number> = {}
       manualExternalData.forEach((item: any) => {
         if (item.performance_count > 0) {
-          manualInputs[item.scenario_id] = item.performance_count
+          manualInputs[item.scenario_master_id] = item.performance_count
         }
       })
       setExternalInputs(manualInputs)

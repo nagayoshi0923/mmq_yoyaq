@@ -330,21 +330,21 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
         // デバッグ: RPCの前提条件を確認
         const { data: groupData } = await supabase
           .from('private_groups')
-          .select('scenario_id, organization_id')
+          .select('scenario_master_id, organization_id')
           .eq('id', groupId)
           .single()
         console.log('🎭 DEBUG グループ情報:', groupData)
 
-        if (groupData?.scenario_id && groupData?.organization_id) {
+        if (groupData?.scenario_master_id && groupData?.organization_id) {
           const { data: os1 } = await supabase
             .from('organization_scenarios')
             .select('id')
-            .eq('scenario_master_id', groupData.scenario_id)
+            .eq('scenario_master_id', groupData.scenario_master_id)
             .eq('organization_id', groupData.organization_id)
             .maybeSingle()
           console.log('🎭 DEBUG org_scenario (by master_id):', os1)
 
-          const orgScenarioId = os1?.id || groupData.scenario_id
+          const orgScenarioId = os1?.id || groupData.scenario_master_id
           const { data: questions } = await supabase
             .from('org_scenario_survey_questions')
             .select('id, question_type, question_text')

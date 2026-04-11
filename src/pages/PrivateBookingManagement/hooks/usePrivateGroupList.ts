@@ -8,7 +8,7 @@ export interface PrivateGroupListItem {
   invite_code: string
   status: string
   organizer_id: string
-  scenario_id: string
+  scenario_master_id: string
   created_at: string
   updated_at: string
   scenario_masters: {
@@ -70,10 +70,10 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           invite_code,
           status,
           organizer_id,
-          scenario_id,
+          scenario_master_id,
           created_at,
           updated_at,
-          scenario_masters:scenario_id (
+          scenario_masters:scenario_master_id (
             id,
             title,
             key_visual_url,

@@ -91,7 +91,7 @@ export async function fetchScenarioTimingFromDb(
   supabase: SupabaseClient,
   params: {
     organizationId: string | null | undefined
-    /** private_groups.scenario_id / reservations.scenario_id 等 */
+    /** private_groups.scenario_master_id / reservations.scenario_master_id 等 */
     scenarioLookupId: string | null | undefined
     scenarioMasterId?: string | null | undefined
   }
