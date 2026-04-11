@@ -111,24 +111,23 @@ export function SurveyResponsesView({
         })
         setMembers(membersData)
 
-        // organization_scenariosからorg_scenario_idを取得
         let { data: orgScenario } = await supabase
-          .from('organization_scenarios')
-          .select('id, survey_enabled, characters')
+          .from('organization_scenarios_with_master')
+          .select('org_scenario_id, survey_enabled, characters')
           .eq('scenario_master_id', scenarioId)
           .eq('organization_id', organizationId)
           .maybeSingle()
 
         if (!orgScenario) {
           const { data: byOrgScenarioId } = await supabase
-            .from('organization_scenarios')
-            .select('id, survey_enabled, characters')
-            .eq('id', scenarioId)
+            .from('organization_scenarios_with_master')
+            .select('org_scenario_id, survey_enabled, characters')
+            .eq('org_scenario_id', scenarioId)
             .maybeSingle()
           orgScenario = byOrgScenarioId
         }
 
-        if (!orgScenario?.survey_enabled || !orgScenario.id) {
+        if (!orgScenario?.survey_enabled || !orgScenario.org_scenario_id) {
           setLoading(false)
           return
         }
@@ -147,7 +146,7 @@ export function SurveyResponsesView({
           .select(
             'id, org_scenario_id, question_text, question_type, options, is_required, order_num, created_at, updated_at'
           )
-          .eq('org_scenario_id', orgScenario.id)
+          .eq('org_scenario_id', orgScenario.org_scenario_id)
           .order('order_num', { ascending: true })
 
         if (questionsData && questionsData.length > 0) {

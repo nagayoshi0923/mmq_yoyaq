@@ -115,52 +115,16 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     })
   }
 
-  // Step 3+4 をまとめて並列（従来はイベント取得完了後に注意事項等を取りに行っていた）
-  const [eventsData, storesData, orgScenarioResult, masterCautionResult, relatedScenariosResult] =
+  // Step 3: イベント・店舗・関連シナリオを並列取得
+  // organization_scenarios の追加カラム（characters, caution, private_booking_* 等）は
+  // ビュー経由で scenarioData に含まれているため、別途取得不要
+  const [eventsData, storesData, relatedScenariosResult] =
     await Promise.all([
       fetchScheduleEventsMergedForScenario(),
       storeApi.getAll(true, orgId).catch((error) => {
         logger.error('店舗データの取得エラー:', error)
         return []
       }),
-      (async () => {
-        if (!masterId) return null
-        try {
-          if (orgId) {
-            const { data: orgScenarioData } = await supabase
-              .from('organization_scenarios')
-              .select('custom_caution, characters, private_booking_blocked_slots, private_booking_time_slots, booking_start_date, booking_end_date')
-              .eq('scenario_master_id', masterId)
-              .eq('organization_id', orgId)
-              .maybeSingle()
-            return orgScenarioData
-          }
-          const { data: orgScenarioRows } = await supabase
-            .from('organization_scenarios')
-            .select('custom_caution, characters, private_booking_blocked_slots, private_booking_time_slots, booking_start_date, booking_end_date')
-            .eq('scenario_master_id', masterId)
-            .not('characters', 'is', null)
-            .limit(1)
-          return orgScenarioRows?.[0] || null
-        } catch (e) {
-          logger.error('organization_scenarios取得エラー:', e)
-          return null
-        }
-      })(),
-      (async () => {
-        if (!masterId) return null
-        try {
-          const { data: masterData } = await supabase
-            .from('scenario_masters')
-            .select('caution')
-            .eq('id', masterId)
-            .maybeSingle()
-          return masterData?.caution ?? null
-        } catch (e) {
-          logger.error('マスター注意事項の取得エラー:', e)
-          return null
-        }
-      })(),
       (async () => {
         try {
           return await fetchPublicRelatedScenariosByAuthor({
@@ -212,12 +176,6 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
       }
     })
   
-  // 注意事項: organization_scenariosのカスタム注意事項を優先、なければマスターから
-  const cautionResult = orgScenarioResult?.custom_caution || masterCautionResult
-  
-  // キャラクター: organization_scenariosから取得
-  const charactersResult = orgScenarioResult?.characters || []
-  
   const scenario: ScenarioDetail = {
     scenario_master_id: masterId || scenarioData.id,
     org_scenario_id: orgScenarioId || undefined,
@@ -226,7 +184,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     key_visual_url: scenarioData.key_visual_url,
     synopsis: scenarioData.synopsis || scenarioData.description,
     description: scenarioData.description,
-    caution: cautionResult,
+    caution: (scenarioData as any).caution || null,
     author: scenarioData.author,
     genre: scenarioData.genre || [],
     duration: scenarioData.duration,
@@ -244,11 +202,11 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     participation_costs: scenarioData.participation_costs || undefined,
     available_stores: scenarioData.available_stores || [],
     extra_preparation_time: scenarioData.extra_preparation_time || 0,
-    private_booking_time_slots: orgScenarioResult?.private_booking_time_slots || undefined,
-    private_booking_blocked_slots: orgScenarioResult?.private_booking_blocked_slots || undefined,
-    booking_start_date: orgScenarioResult?.booking_start_date || null,
-    booking_end_date: orgScenarioResult?.booking_end_date || null,
-    characters: charactersResult
+    private_booking_time_slots: scenarioData.private_booking_time_slots || undefined,
+    private_booking_blocked_slots: scenarioData.private_booking_blocked_slots || undefined,
+    booking_start_date: scenarioData.booking_start_date || null,
+    booking_end_date: scenarioData.booking_end_date || null,
+    characters: (scenarioData as any).characters || []
   }
   
   return {

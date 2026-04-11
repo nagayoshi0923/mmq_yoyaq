@@ -438,7 +438,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             
             if (scenarioMasterId) {
               const { data: orgScenarioData, error: orgScenarioError } = await supabase
-                .from('organization_scenarios')
+                .from('organization_scenarios_with_master')
                 .select('survey_enabled, survey_deadline_days, characters')
                 .eq('scenario_master_id', scenarioMasterId)
                 .eq('organization_id', organizationId)

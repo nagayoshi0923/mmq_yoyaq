@@ -24,13 +24,13 @@ export async function isReservationReadyForStoreAfterGmResponses(
 
   let requiredGm = 1
   if (scenarioMasterId && orgId) {
-    const { data: os } = await supabase
-      .from('organization_scenarios')
+    const { data: viewRow } = await supabase
+      .from('organization_scenarios_with_master')
       .select('gm_count')
       .eq('scenario_master_id', scenarioMasterId)
       .eq('organization_id', orgId)
       .maybeSingle()
-    requiredGm = resolveStaffProfileGmSlotCount({ gm_count: os?.gm_count })
+    requiredGm = resolveStaffProfileGmSlotCount({ gm_count: viewRow?.gm_count })
   }
 
   const { data: responses } = await supabase

@@ -176,28 +176,26 @@ export function SurveyResponsesTab({
 
         let orgScenario = null as any
         if (effectiveScenarioId) {
-          const { data: orgScenarioByMaster } = await supabase
-            .from('organization_scenarios')
-            .select('id, survey_enabled, characters, scenario_masters(player_count_max)')
+          const { data: viewByMaster } = await supabase
+            .from('organization_scenarios_with_master')
+            .select('org_scenario_id, survey_enabled, characters, player_count_max, individual_notice_template')
             .eq('scenario_master_id', effectiveScenarioId)
             .eq('organization_id', organizationId)
             .maybeSingle()
-          orgScenario = orgScenarioByMaster
+          orgScenario = viewByMaster
 
           if (!orgScenario) {
-            const { data: orgScenarioById } = await supabase
-              .from('organization_scenarios')
-              .select('id, survey_enabled, characters, scenario_masters(player_count_max)')
-              .eq('id', effectiveScenarioId)
+            const { data: viewByOrgId } = await supabase
+              .from('organization_scenarios_with_master')
+              .select('org_scenario_id, survey_enabled, characters, player_count_max, individual_notice_template')
+              .eq('org_scenario_id', effectiveScenarioId)
               .maybeSingle()
-            orgScenario = orgScenarioById
+            orgScenario = viewByOrgId
           }
         }
-        
-        // シナリオの参加者上限を取得
-        const scenarioMaster = (orgScenario as any)?.scenario_masters
-        if (scenarioMaster?.player_count_max) {
-          setParticipantLimit(scenarioMaster.player_count_max)
+
+        if (orgScenario?.player_count_max) {
+          setParticipantLimit(orgScenario.player_count_max)
         }
         
         logger.log('📋 SurveyTab: orgScenario result', { 
@@ -206,23 +204,13 @@ export function SurveyResponsesTab({
           surveyEnabled: orgScenario?.survey_enabled 
         })
 
-        if (!orgScenario?.id) {
+        if (!orgScenario?.org_scenario_id) {
           logger.log('📋 SurveyTab: no orgScenario found')
           setLoading(false)
           return
         }
 
-        // 定型文を別クエリで安全に取得（カラム未追加の環境でもエラーにならない）
-        try {
-          const { data: templateData } = await supabase
-            .from('organization_scenarios')
-            .select('individual_notice_template')
-            .eq('id', orgScenario.id)
-            .maybeSingle()
-          setNoticeTemplate((templateData as any)?.individual_notice_template || null)
-        } catch {
-          // カラムが存在しない場合は無視
-        }
+        setNoticeTemplate(orgScenario.individual_notice_template || null)
 
         if (orgScenario.characters) {
           setCharacters(orgScenario.characters.map((c: any) => ({
@@ -239,7 +227,7 @@ export function SurveyResponsesTab({
           .select(
             'id, org_scenario_id, question_text, question_type, options, is_required, order_num, created_at, updated_at'
           )
-          .eq('org_scenario_id', orgScenario.id)
+          .eq('org_scenario_id', orgScenario.org_scenario_id)
           .order('order_num', { ascending: true })
 
         if (questionsData && questionsData.length > 0) {

@@ -85,7 +85,7 @@ export function performanceConflictsWithScheduledEvent(
 }
 
 /**
- * organization_scenarios を優先し、なければ scenario_masters.official_duration
+ * ビュー経由でシナリオ時間情報を取得（duration は COALESCE(org, master) 済み）
  */
 export async function fetchScenarioTimingFromDb(
   supabase: SupabaseClient,
@@ -104,33 +104,32 @@ export async function fetchScenarioTimingFromDb(
   }
 
   if (organizationId) {
-    const { data: os } = await supabase
-      .from('organization_scenarios')
+    const { data: viewRow } = await supabase
+      .from('organization_scenarios_with_master')
       .select('duration, weekend_duration, extra_preparation_time, private_booking_time_slots')
       .eq('organization_id', organizationId)
-      .or(`id.eq.${lookup},scenario_master_id.eq.${lookup}`)
+      .or(`org_scenario_id.eq.${lookup},scenario_master_id.eq.${lookup}`)
       .limit(1)
       .maybeSingle()
 
-    if (os && typeof os.duration === 'number' && os.duration > 0) {
+    if (viewRow && typeof viewRow.duration === 'number' && viewRow.duration > 0) {
       const prep =
-        typeof os.extra_preparation_time === 'number' && os.extra_preparation_time > 0
-          ? os.extra_preparation_time
+        typeof viewRow.extra_preparation_time === 'number' && viewRow.extra_preparation_time > 0
+          ? viewRow.extra_preparation_time
           : 0
       return {
-        duration: os.duration,
+        duration: viewRow.duration,
         weekend_duration:
-          typeof os.weekend_duration === 'number' && os.weekend_duration > 0
-            ? os.weekend_duration
+          typeof viewRow.weekend_duration === 'number' && viewRow.weekend_duration > 0
+            ? viewRow.weekend_duration
             : null,
         extra_preparation_time: prep,
-        private_booking_time_slots: os.private_booking_time_slots ?? null,
+        private_booking_time_slots: viewRow.private_booking_time_slots ?? null,
       }
     }
   }
 
   const masterId = scenarioMasterId || lookup
-  // scenario_masters には extra_preparation_time が無い環境がある（準備時間は organization_scenarios のみ）
   const { data: sm } = await supabase
     .from('scenario_masters')
     .select('official_duration')
