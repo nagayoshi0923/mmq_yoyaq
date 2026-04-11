@@ -409,22 +409,24 @@ git checkout -b feature/作業内容の短い説明
 
 ```
 1. feature/* ブランチで開発・コミット
-2. staging ブランチにマージ → Vercelがステージングを自動デプロイ
-3. ⚠️ ここで必ず停止 ⚠️
+2. npm run dev:staging でローカル確認（ステージングDB接続）
+3. staging ブランチにマージ → Vercelがステージングを自動デプロイ
+4. ⚠️ ここで必ず停止 ⚠️
    - 「ステージングにデプロイしました。動作確認をお願いします。」と伝える
    - ユーザーからの明示的な承認を待つ
-4. 承認後のみ、staging → main にマージ
+5. 承認後のみ、staging → main にマージ
 ```
 
 #### DBマイグレーションを伴う変更（最重要）🚨
 
 ```
 1. feature/* ブランチで開発・コミット（フロントエンド + マイグレーション）
-2. staging ブランチにマージ
+2. npm run db:mirror:staging（本番データでステージングDBを最新化）
 3. ステージングDBにマイグレーション適用（npm run db:push:staging）
-4. Vercelがステージングを自動デプロイ
-5. ⚠️ ここで必ず停止 ⚠️ → ユーザーの動作確認を待つ
-6. 承認後：
+4. npm run dev:staging でローカル確認（ステージングDB接続）
+5. staging ブランチにマージ → Vercelがステージングを自動デプロイ
+6. ⚠️ ここで必ず停止 ⚠️ → ユーザーの動作確認を待つ
+7. 承認後：
    a. 先に本番DBにマイグレーション適用（npm run db:push:prod）← DB が先！
    b. マイグレーション成功を確認
    c. その後 staging → main にマージ（Vercelが本番フロントエンドをデプロイ）
@@ -587,8 +589,14 @@ new Date().toISOString()  // "2026-02-17T04:30:00.000Z"
 ### 基本原則：「適用後は必ず権限検証を実行する」
 
 ```bash
+# 本番データでステージングDBを最新化（マイグレーション前に推奨）
+npm run db:mirror:staging
+
 # マイグレーション適用（自動で権限検証も実行される）
 npm run db:push:staging
+
+# ステージングDB接続で開発サーバー起動
+npm run dev:staging
 
 # 権限検証のみ実行
 npm run check:permissions

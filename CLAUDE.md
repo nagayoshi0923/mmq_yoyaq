@@ -10,7 +10,8 @@ Queens Waltz の6店舗対応マーダーミステリー店舗管理システム
 
 ```bash
 # 開発
-npm run dev                  # 開発サーバー起動
+npm run dev                  # 開発サーバー起動（本番DB接続）
+npm run dev:staging          # ステージングDB接続で開発サーバー起動
 npm run dev:local            # Supabase ローカル起動 + 開発サーバー
 
 # ビルド・チェック
@@ -24,6 +25,7 @@ npm run verify               # セキュリティ + 型チェック + lint + ビ
 npm run db:check             # スキーマ整合性確認
 npm run db:diff              # スキーマ差分確認
 npm run db:push:staging      # ステージングにマイグレーション適用（権限検証も実行）
+npm run db:mirror:staging    # 本番データをステージングDBに同期
 npm run check:permissions    # RLS権限検証
 npm run check:permissions:fix # 権限修復SQL表示
 
@@ -135,6 +137,7 @@ new Date().toISOString()
 
 ```
 feature/* ブランチで開発
+  → npm run dev:staging でローカル確認（ステージングDB接続）
   → staging にマージ → Vercelがステージングを自動デプロイ
   → ユーザーがステージングで動作確認
   → 承認後 staging → main にマージ
@@ -144,9 +147,10 @@ feature/* ブランチで開発
 
 ```
 feature/* ブランチで開発
-  → staging にマージ
+  → npm run db:mirror:staging（本番データでステージングDBを最新化）
   → ステージングDBにマイグレーション適用（npm run db:push:staging）
-  → Vercelがステージングを自動デプロイ
+  → npm run dev:staging でローカル確認
+  → staging にマージ → Vercelがステージングを自動デプロイ
   → ユーザーがステージングで動作確認
   → 承認後：
     1. 先に本番DBにマイグレーション適用（npm run db:push:prod）← DB が先！
@@ -156,6 +160,12 @@ feature/* ブランチで開発
 
 **順序の鉄則: DB変更 → フロントエンドデプロイ（逆は絶対禁止）**
 フロントが先に出ると存在しないカラムを参照して本番エラーになる（実際に事故発生済み）。
+
+#### ステージングDB同期
+
+- `npm run db:mirror:staging` で本番データをステージングDBに同期（約1分）
+- GitHub Actions で毎日 AM 3:00 JST に自動同期（`SUPABASE_DB_PROD_PASSWORD` / `SUPABASE_DB_STAGING_PASSWORD` Secrets必要）
+- `npm run dev:staging` でローカルからステージングDBに接続して開発（`.env.staging` の設定が必要）
 
 **役割分担**:
 - AI: Issue実装・型チェック・`staging` 向けPR作成。main に直接コミットしない。

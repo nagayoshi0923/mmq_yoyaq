@@ -34,6 +34,8 @@
     "supabase:functions:serve": "npx supabase functions serve",
     "dev:local": "npm run supabase:start && npm run dev",
     "test:rpcs": "psql \"$(npx supabase status --output json | jq -r '.DB_URL')\" -f supabase/tests/smoke_test_rpcs.sql",
+    "db:mirror:staging": "bash scripts/mirror-prod-to-staging.sh",
+    "dev:staging": "test -f .env.staging || (echo '\\n❌ .env.staging が見つかりません\\n  cp .env.staging.example .env.staging\\n  Supabase Dashboard からステージングの Anon Key を取得して設定してください\\n' && exit 1) && vite --mode staging",
     "db:push:staging": "SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-staging -a postgres -w) npx supabase link --project-ref lavutzztfqbdndjiwluc && SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-staging -a postgres -w) npx supabase db push --linked --include-all && npm run check:permissions && SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-prod -a postgres -w) npx supabase link --project-ref cznpcewciwywcqcxktba",
     "db:push:prod": "SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-prod -a postgres -w) npx supabase link --project-ref cznpcewciwywcqcxktba && SUPABASE_DB_PASSWORD=$(security find-generic-password -s supabase-db-prod -a postgres -w) npx supabase db push --linked --include-all && npm run check:permissions"
   },

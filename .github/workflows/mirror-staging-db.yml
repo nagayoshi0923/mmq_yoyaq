@@ -1,0 +1,28 @@
+name: Mirror Production DB to Staging
+
+on:
+  schedule:
+    # 毎日 AM 3:00 JST (= 18:00 UTC 前日)
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    name: Mirror Prod → Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Run mirror script
+        env:
+          PROD_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PROD_PASSWORD }}
+          STAGING_DB_PASSWORD: ${{ secrets.SUPABASE_DB_STAGING_PASSWORD }}
+        run: bash scripts/mirror-prod-to-staging.sh
