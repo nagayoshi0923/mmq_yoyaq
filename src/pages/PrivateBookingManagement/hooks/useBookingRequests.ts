@@ -173,34 +173,20 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
       const gmCountByMasterId = new Map<string, number>()
       const playerRangeByMasterId = new Map<string, { min: number; max: number }>()
       if (masterIdsForGmCount.length > 0) {
-        const { data: smPlayerRows } = await supabase
-          .from('scenario_masters')
-          .select('id, player_count_min, player_count_max')
-          .in('id', masterIdsForGmCount)
-
-        const smById = new Map(
-          (smPlayerRows || []).map((s) => [s.id as string, s])
-        )
-
-        const { data: osRows } = await supabase
-          .from('organization_scenarios')
-          .select(
-            'scenario_master_id, gm_count, override_player_count_min, override_player_count_max'
-          )
+        const { data: viewRows } = await supabase
+          .from('organization_scenarios_with_master')
+          .select('scenario_master_id, gm_count, player_count_min, player_count_max')
           .eq('organization_id', orgId)
           .in('scenario_master_id', masterIdsForGmCount)
 
-        for (const row of osRows || []) {
+        for (const row of viewRows || []) {
           if (!row.scenario_master_id) continue
           gmCountByMasterId.set(
             row.scenario_master_id,
             resolveStaffProfileGmSlotCount({ gm_count: row.gm_count })
           )
-          const sm = smById.get(row.scenario_master_id)
-          const pMin =
-            row.override_player_count_min ?? sm?.player_count_min ?? null
-          const pMax =
-            row.override_player_count_max ?? sm?.player_count_max ?? null
+          const pMin = row.player_count_min
+          const pMax = row.player_count_max
           if (
             typeof pMin === 'number' &&
             typeof pMax === 'number' &&
@@ -210,23 +196,6 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
             playerRangeByMasterId.set(row.scenario_master_id, {
               min: pMin,
               max: pMax,
-            })
-          }
-        }
-
-        for (const masterId of masterIdsForGmCount) {
-          if (playerRangeByMasterId.has(masterId)) continue
-          const sm = smById.get(masterId)
-          if (
-            sm &&
-            typeof sm.player_count_min === 'number' &&
-            typeof sm.player_count_max === 'number' &&
-            sm.player_count_min > 0 &&
-            sm.player_count_max >= sm.player_count_min
-          ) {
-            playerRangeByMasterId.set(masterId, {
-              min: sm.player_count_min,
-              max: sm.player_count_max,
             })
           }
         }

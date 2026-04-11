@@ -6,7 +6,6 @@ import { privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
 import {
   fetchScenarioPlayerBoundsForOrg,
   memberInvitationCap,
-  mergeScenarioPlayerBounds,
 } from '@/lib/privateGroupPlayerCap'
 import type {
   PrivateGroup,
@@ -113,27 +112,33 @@ async function sendSystemMessage(
   }
 }
 
-/** organization_scenarios の人数上書きを scenario_masters 付きグループ行に反映（invite / manage 画面用） */
-function applyEffectivePlayerBoundsFromOrgScenario(
+/** ビュー経由でキャラクター・人数上限を取得し scenario_masters に反映 */
+async function enrichGroupWithViewData(
   data: {
     scenario_masters?: Record<string, unknown> | null
     scenario_master_id?: string | null
     organization_id?: string | null
-  },
-  orgScenario: {
-    override_player_count_min?: number | null
-    override_player_count_max?: number | null
-  } | null
-) {
-  if (!data.scenario_masters || !orgScenario) return
-  const sm = data.scenario_masters as {
-    player_count_min?: number
-    player_count_max?: number
   }
-  const merged = mergeScenarioPlayerBounds(sm, orgScenario)
-  if (merged) {
-    data.scenario_masters.effective_player_count_min = merged.min
-    data.scenario_masters.effective_player_count_max = merged.max
+) {
+  if (!data.scenario_master_id || !data.organization_id) return
+  try {
+    const { data: viewRow } = await supabase
+      .from('organization_scenarios_with_master')
+      .select('characters, player_count_min, player_count_max')
+      .eq('scenario_master_id', data.scenario_master_id)
+      .eq('organization_id', data.organization_id)
+      .maybeSingle()
+
+    if (!viewRow || !data.scenario_masters) return
+    if (viewRow.characters) {
+      (data.scenario_masters as Record<string, unknown>).characters = viewRow.characters
+    }
+    if (typeof viewRow.player_count_min === 'number' && typeof viewRow.player_count_max === 'number') {
+      data.scenario_masters.effective_player_count_min = viewRow.player_count_min
+      data.scenario_masters.effective_player_count_max = viewRow.player_count_max
+    }
+  } catch {
+    // ゲストユーザーはRLSでアクセスできない場合がある
   }
 }
 
@@ -303,26 +308,7 @@ export function usePrivateGroup() {
         throw error
       }
 
-      // organization_scenariosからcharacters・人数上書きを取得
-      if (data?.scenario_master_id && data?.organization_id) {
-        try {
-          const { data: orgScenario } = await supabase
-            .from('organization_scenarios')
-            .select(
-              'characters, override_player_count_min, override_player_count_max'
-            )
-            .eq('scenario_master_id', data.scenario_master_id)
-            .eq('organization_id', data.organization_id)
-            .maybeSingle()
-
-          if (orgScenario?.characters && data.scenario_masters) {
-            (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
-          }
-          applyEffectivePlayerBoundsFromOrgScenario(data, orgScenario)
-        } catch {
-          // ゲストユーザーはRLSでアクセスできない場合がある
-        }
-      }
+      await enrichGroupWithViewData(data)
 
       return data as PrivateGroup
 
@@ -360,26 +346,7 @@ export function usePrivateGroup() {
         throw error
       }
 
-      // organization_scenariosからcharacters・人数上書きを取得
-      if (data?.scenario_master_id && data?.organization_id) {
-        try {
-          const { data: orgScenario } = await supabase
-            .from('organization_scenarios')
-            .select(
-              'characters, override_player_count_min, override_player_count_max'
-            )
-            .eq('scenario_master_id', data.scenario_master_id)
-            .eq('organization_id', data.organization_id)
-            .maybeSingle()
-
-          if (orgScenario?.characters && data.scenario_masters) {
-            (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
-          }
-          applyEffectivePlayerBoundsFromOrgScenario(data, orgScenario)
-        } catch {
-          // ゲストユーザーはRLSでアクセスできない場合がある
-        }
-      }
+      await enrichGroupWithViewData(data)
 
       return data as PrivateGroup
 
@@ -707,26 +674,7 @@ export function usePrivateGroupData(groupId: string | null) {
 
       if (error) throw error
 
-      // organization_scenariosからcharacters・人数上書きを取得
-      if (data?.scenario_master_id && data?.organization_id) {
-        try {
-          const { data: orgScenario } = await supabase
-            .from('organization_scenarios')
-            .select(
-              'characters, override_player_count_min, override_player_count_max'
-            )
-            .eq('scenario_master_id', data.scenario_master_id)
-            .eq('organization_id', data.organization_id)
-            .maybeSingle()
-
-          if (orgScenario?.characters && data.scenario_masters) {
-            (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
-          }
-          applyEffectivePlayerBoundsFromOrgScenario(data, orgScenario)
-        } catch {
-          // ゲストユーザーはRLSでアクセスできない場合がある
-        }
-      }
+      await enrichGroupWithViewData(data)
 
       let resStatus: string | null = null
       if (data?.reservation_id) {
@@ -834,26 +782,7 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null): {
         throw error
       }
 
-      // organization_scenariosからcharacters・人数上書きを取得
-      if (data?.scenario_master_id && data?.organization_id) {
-        try {
-          const { data: orgScenario } = await supabase
-            .from('organization_scenarios')
-            .select(
-              'characters, override_player_count_min, override_player_count_max'
-            )
-            .eq('scenario_master_id', data.scenario_master_id)
-            .eq('organization_id', data.organization_id)
-            .maybeSingle()
-
-          if (orgScenario?.characters && data.scenario_masters) {
-            (data.scenario_masters as Record<string, unknown>).characters = orgScenario.characters
-          }
-          applyEffectivePlayerBoundsFromOrgScenario(data, orgScenario)
-        } catch {
-          // ゲストユーザーはRLSでアクセスできない場合がある
-        }
-      }
+      await enrichGroupWithViewData(data)
 
       let resStatus: string | null = null
       let confirmedBy: string | null = null

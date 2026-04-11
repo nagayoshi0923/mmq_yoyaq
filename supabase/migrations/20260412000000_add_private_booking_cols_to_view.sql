@@ -1,8 +1,6 @@
--- 正規ソース: supabase/schemas/organization_scenarios_with_master.sql
--- 最終更新: 2026-04-12
--- ビュー定義: organization_scenarios と scenario_masters を結合し、
--- COALESCE でオーバーライドフィールドを適用する。
--- available_gms / experienced_staff は staff_scenario_assignments から動的に集計。
+-- organization_scenarios_with_master ビューに private_booking_time_slots / private_booking_blocked_slots を追加
+-- これにより scenarioApi 経由で全カラムを取得可能にし、直接テーブルクエリを削減する
+
 CREATE OR REPLACE VIEW public.organization_scenarios_with_master AS
 SELECT
   os.scenario_master_id AS id,

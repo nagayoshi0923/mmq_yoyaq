@@ -344,10 +344,19 @@ export interface Scenario {
   gm_assignments?: Array<{ role: string; staff_id?: string; reward?: number }> // GM配置情報
   extra_preparation_time?: number // 追加準備時間（分）。通常の60分に加算される
   private_booking_time_slots?: string[] // 貸切受付可能時間枠（'朝公演', '昼公演', '夜公演'）。未設定の場合は全て受付
+  private_booking_blocked_slots?: string[] // 貸切ブロック済み時間枠
   booking_start_date?: string | null // 貸切募集開始日（YYYY-MM-DD）。NULLの場合は制限なし
   booking_end_date?: string | null // 貸切募集終了日（YYYY-MM-DD）。NULLの場合は制限なし
   individual_notice_template?: string | null // 個別お知らせ送信時に添付できる定型文
   character_assignment_method?: 'survey' | 'self' // 配役方法
+  org_status?: 'available' | 'unavailable' | 'coming_soon' // 組織側ステータス（生値）
+  pricing_patterns?: any[] // 料金パターン
+  survey_url?: string | null // アンケートURL
+  survey_enabled?: boolean // アンケート有効フラグ
+  survey_deadline_days?: number // アンケート締切日数
+  characters?: any[] // キャラクター情報
+  pre_reading_notice_message?: string | null // 事前読み通知メッセージ
+  master_status?: string // マスタステータス
 }
 
 // 顧客向け公演情報（予約サイト用）
