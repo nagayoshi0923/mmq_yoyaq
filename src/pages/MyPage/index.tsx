@@ -463,7 +463,7 @@ export default function MyPage() {
         await Promise.all([
           eventIds.length > 0
             ? supabase
-                .from('schedule_events')
+                .from('schedule_events_public')
                 .select('id, date, start_time, category, current_participants, max_participants')
                 .in('id', eventIds)
             : Promise.resolve({ data: [] }),

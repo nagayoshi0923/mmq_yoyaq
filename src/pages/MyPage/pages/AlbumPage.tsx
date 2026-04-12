@@ -319,10 +319,10 @@ export function AlbumPage() {
           const reservationDate = new Date(reservation.requested_datetime)
           const dateStr = reservationDate.toISOString().split('T')[0]
           
-          // スケジュールイベントを検索
+          // スケジュールイベントを検索（公開用ビュー - GM情報を除外）
           const { data: event, error: eventError } = await supabase
-            .from('schedule_events')
-            .select('scenario, date, venue, gms')
+            .from('schedule_events_public')
+            .select('scenario, date, venue')
             .eq('date', dateStr)
             .eq('scenario', reservation.title)
             .maybeSingle()
@@ -359,7 +359,7 @@ export function AlbumPage() {
               scenario: event.scenario,
               date: event.date,
               venue: event.venue,
-              gms: event.gms || [],
+              gms: [], // GM情報は非公開
               scenario_id: finalScenarioId || undefined,
               key_visual_url: keyVisualUrl || undefined,
               author: author || undefined,
