@@ -112,6 +112,38 @@ async function sendSystemMessage(
   }
 }
 
+/**
+ * RPC 経由でメンバー名を取得し、グループデータにマージする。
+ * anon のカラム制限で guest_name が直接取得できないため、
+ * SECURITY DEFINER RPC を使って招待コード検証付きで名前を取得する。
+ */
+async function enrichMembersWithNames(
+  data: { members?: any[]; invite_code?: string },
+  inviteCode?: string
+) {
+  const code = inviteCode || data.invite_code
+  if (!code || !data.members?.length) return
+
+  try {
+    const { data: rpcMembers } = await supabase.rpc('get_group_members_by_invite_code', {
+      p_invite_code: code,
+    })
+    if (!rpcMembers?.length) return
+
+    const nameMap = new Map<string, string>()
+    for (const rm of rpcMembers) {
+      if (rm.id && rm.guest_name) nameMap.set(rm.id, rm.guest_name)
+    }
+    for (const m of data.members) {
+      if (nameMap.has(m.id)) {
+        m.guest_name = nameMap.get(m.id)
+      }
+    }
+  } catch {
+    // RPC 失敗時は名前なしで続行
+  }
+}
+
 /** ビュー経由でキャラクター・人数上限を取得し scenario_masters に反映 */
 async function enrichGroupWithViewData(
   data: {
@@ -309,6 +341,7 @@ export function usePrivateGroup() {
       }
 
       await enrichGroupWithViewData(data)
+      await enrichMembersWithNames(data, inviteCode)
 
       return data as PrivateGroup
 
@@ -347,6 +380,7 @@ export function usePrivateGroup() {
       }
 
       await enrichGroupWithViewData(data)
+      await enrichMembersWithNames(data)
 
       return data as PrivateGroup
 
@@ -675,6 +709,7 @@ export function usePrivateGroupData(groupId: string | null) {
       if (error) throw error
 
       await enrichGroupWithViewData(data)
+      await enrichMembersWithNames(data)
 
       let resStatus: string | null = null
       if (data?.reservation_id) {
@@ -783,6 +818,7 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null): {
       }
 
       await enrichGroupWithViewData(data)
+      await enrichMembersWithNames(data, inviteCode)
 
       let resStatus: string | null = null
       let confirmedBy: string | null = null
