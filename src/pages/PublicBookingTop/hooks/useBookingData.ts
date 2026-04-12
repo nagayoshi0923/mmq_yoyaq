@@ -159,13 +159,12 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
       }
     })(),
     
-    // 2. 店舗取得
+    // 2. 店舗取得（公開用ビューを使用 - コスト情報を除外）
     (async () => {
       try {
         let query = supabase
-          .from('stores')
-          .select('id, organization_id, name, short_name, address, color, capacity, rooms, ownership_type, status, is_temporary, temporary_dates, temporary_venue_names, display_order, region, transport_allowance')
-          .or('ownership_type.is.null,ownership_type.neq.office')
+          .from('stores_public')
+          .select('id, organization_id, name, short_name, address, color, capacity, rooms, status, is_temporary, temporary_dates, temporary_venue_names, display_order, region')
         
         if (orgId) {
           query = query.eq('organization_id', orgId)
@@ -209,11 +208,11 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
       }
     })(),
     
-    // 6. 公演データ取得
+    // 6. 公演データ取得（公開用ビューを使用 - PII/財務情報を除外）
     (async () => {
       try {
         let query = supabase
-          .from('schedule_events')
+          .from('schedule_events_public')
           .select(`
             id,
             date,

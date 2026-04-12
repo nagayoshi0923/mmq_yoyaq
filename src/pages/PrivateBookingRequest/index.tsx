@@ -169,9 +169,10 @@ export function PrivateBookingRequest({
       const today = new Date()
       const windowEnd = new Date(today)
       windowEnd.setDate(today.getDate() + 180)
+      // 公開用ビューを使用（PII/財務情報を除外）
       const { data, error } = await supabase
-        .from('schedule_events')
-        .select('*, stores(id, name)')
+        .from('schedule_events_public')
+        .select('id, date, start_time, end_time, store_id, scenario, category, is_cancelled')
         .in('store_id', ids)
         .gte('date', today.toISOString().split('T')[0])
         .lte('date', windowEnd.toISOString().split('T')[0])

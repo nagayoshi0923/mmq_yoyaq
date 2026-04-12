@@ -228,9 +228,9 @@ const checkReservationLimits = async (
   customerEmail?: string
 ): Promise<{ allowed: boolean; reason?: string }> => {
   try {
-    // 公演の最大参加人数とstore_idを取得
+    // 公演の最大参加人数とstore_idを取得（公開用ビュー）
     const { data: eventData, error: eventError } = await supabase
-      .from('schedule_events')
+      .from('schedule_events_public')
       .select('max_participants, capacity, reservation_deadline_hours, store_id')
       .eq('id', eventId)
       .single()
@@ -428,9 +428,9 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         throw new Error(limitCheck.reason || '予約制限により予約できません')
       }
 
-      // 組織IDを取得（料金計算と予約作成に必要）
+      // 組織IDを取得（料金計算と予約作成に必要）- 公開用ビュー
       const { data: eventOrg, error: eventOrgError } = await supabase
-        .from('schedule_events')
+        .from('schedule_events_public')
         .select('organization_id')
         .eq('id', props.eventId)
         .single()
