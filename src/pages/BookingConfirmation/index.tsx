@@ -173,7 +173,8 @@ export function BookingConfirmation({
     storeAddress,
     participationFee,
     currentParticipants,
-    userId: user?.id
+    userId: user?.id,
+    organizationSlug
   })
 
   // 選択中のクーポン情報

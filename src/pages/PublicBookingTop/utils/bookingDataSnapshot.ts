@@ -40,3 +40,14 @@ export function writeBookingDataSnapshot(slug: string, data: BookingDataResult):
     /* 容量超過等 */
   }
 }
+
+/**
+ * 予約完了後など、スナップショットが古くなったときに削除して次回マウント時に強制再取得させる
+ */
+export function clearBookingDataSnapshot(slug: string): void {
+  try {
+    sessionStorage.removeItem(`booking-data-snapshot-v1-${slug}`)
+  } catch {
+    /* ignore */
+  }
+}
