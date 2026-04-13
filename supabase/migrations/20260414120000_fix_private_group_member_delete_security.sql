@@ -112,7 +112,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.delete_guest_member IS
+COMMENT ON FUNCTION public.delete_guest_member(UUID, TEXT) IS
   'ゲストメンバーを削除する。認証済みは本人/主催者のみ、未認証は invite_code で所属確認。';
 
 -- 確認ログ
