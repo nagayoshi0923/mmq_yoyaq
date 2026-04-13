@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDate } from '../utils/bookingFormatters'
 import { getCurrentParticipantsCount } from '@/lib/participantUtils'
 import { reservationApi } from '@/lib/reservationApi'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
+import { clearBookingDataSnapshot } from '@/pages/PublicBookingTop/utils/bookingDataSnapshot'
 
 /**
  * 参加費を計算する関数
@@ -375,12 +377,14 @@ interface UseBookingSubmitProps {
   participationFee: number
   currentParticipants: number
   userId?: string
+  organizationSlug?: string
 }
 
 /**
  * 予約送信処理フック
  */
 export function useBookingSubmit(props: UseBookingSubmitProps) {
+  const queryClient = useQueryClient()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   // 冪等性: 同一フォーム送信のリトライでは同じ予約番号を使う
@@ -598,7 +602,13 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         discountAmount: reservationData.discount_amount ?? 0
       })
       setSuccess(true)
-      
+
+      // 予約完了後: トップページの残り席数が古い値を表示しないようキャッシュを無効化
+      queryClient.invalidateQueries({ queryKey: ['booking-data'] })
+      if (props.organizationSlug) {
+        clearBookingDataSnapshot(props.organizationSlug)
+      }
+
     } catch (error) {
       logger.error('予約処理エラー:', error)
       throw error
