@@ -69,12 +69,12 @@ export const kitApi = {
           scenario_master_id,
           scenario_masters(id, title)
         ),
-        legacy_scenario:scenarios!scenario_kit_locations_scenario_id_fkey(id, title, kit_count),
+        scenario_master:scenario_masters!scenario_kit_locations_scenario_master_id_fkey(id, title),
         store:stores(id, name, short_name)
       `)
       .eq('organization_id', orgId)
       .order('org_scenario_id', { nullsFirst: false })
-      .order('scenario_id', { nullsFirst: false })
+      .order('scenario_master_id', { nullsFirst: false })
       .order('kit_number')
 
     if (error) {
@@ -82,25 +82,24 @@ export const kitApi = {
       throw error
     }
 
-    // org_scenario または legacy_scenario から scenario 形式に変換
-    // scenario.id は scenario_master_id を使用（scenarioApi.getAll() との整合性のため）
+    // org_scenario または scenario_master から scenario 形式に変換
     const transformed = (data || []).map(item => {
       if (item.org_scenario) {
         return {
           ...item,
           scenario: {
-            id: item.org_scenario.scenario_master_id,  // scenario_master_id を使用
+            id: item.org_scenario.scenario_master_id,
             title: item.org_scenario.scenario_masters?.title || '',
             kit_count: 1
           }
         }
-      } else if (item.legacy_scenario) {
+      } else if (item.scenario_master) {
         return {
           ...item,
           scenario: {
-            id: item.legacy_scenario.id,
-            title: item.legacy_scenario.title || '',
-            kit_count: item.legacy_scenario.kit_count || 1
+            id: item.scenario_master.id,
+            title: item.scenario_master.title || '',
+            kit_count: 1
           }
         }
       }
@@ -128,16 +127,16 @@ export const kitApi = {
           scenario_master_id,
           scenario_masters(id, title)
         ),
-        legacy_scenario:scenarios!scenario_kit_locations_scenario_id_fkey(id, title, kit_count),
+        scenario_master:scenario_masters!scenario_kit_locations_scenario_master_id_fkey(id, title),
         store:stores(id, name, short_name)
       `)
       .eq('organization_id', orgId)
       .eq('org_scenario_id', scenarioId)
       .order('kit_number')
 
-    // 結果がなければ legacy scenario_id で検索
+    // 結果がなければ scenario_master_id で検索
     if (!data || data.length === 0) {
-      const legacyResult = await supabase
+      const masterResult = await supabase
         .from('scenario_kit_locations')
         .select(`
           *,
@@ -146,15 +145,15 @@ export const kitApi = {
             scenario_master_id,
             scenario_masters(id, title)
           ),
-          legacy_scenario:scenarios!scenario_kit_locations_scenario_id_fkey(id, title, kit_count),
+          scenario_master:scenario_masters!scenario_kit_locations_scenario_master_id_fkey(id, title),
           store:stores(id, name, short_name)
         `)
         .eq('organization_id', orgId)
-        .eq('scenario_id', scenarioId)
+        .eq('scenario_master_id', scenarioId)
         .order('kit_number')
       
-      data = legacyResult.data
-      error = legacyResult.error
+      data = masterResult.data
+      error = masterResult.error
     }
 
     if (error) {
@@ -167,18 +166,18 @@ export const kitApi = {
         return {
           ...item,
           scenario: {
-            id: item.org_scenario.id,
+            id: item.org_scenario.scenario_master_id,
             title: item.org_scenario.scenario_masters?.title || '',
             kit_count: 1
           }
         }
-      } else if (item.legacy_scenario) {
+      } else if (item.scenario_master) {
         return {
           ...item,
           scenario: {
-            id: item.legacy_scenario.id,
-            title: item.legacy_scenario.title || '',
-            kit_count: item.legacy_scenario.kit_count || 1
+            id: item.scenario_master.id,
+            title: item.scenario_master.title || '',
+            kit_count: 1
           }
         }
       }
@@ -202,13 +201,13 @@ export const kitApi = {
 
     const resolvedOrgScenarioId = await resolveOrgScenarioId(orgId, scenarioId)
 
-    let existing: { id: string; org_scenario_id: string | null; scenario_id: string | null } | null =
+    let existing: { id: string; org_scenario_id: string | null; scenario_master_id: string | null } | null =
       null
 
     if (resolvedOrgScenarioId) {
       const r1 = await supabase
         .from('scenario_kit_locations')
-        .select('id, org_scenario_id, scenario_id')
+        .select('id, org_scenario_id, scenario_master_id')
         .eq('organization_id', orgId)
         .eq('kit_number', kitNumber)
         .eq('org_scenario_id', resolvedOrgScenarioId)
@@ -219,10 +218,10 @@ export const kitApi = {
     if (!existing) {
       const r2 = await supabase
         .from('scenario_kit_locations')
-        .select('id, org_scenario_id, scenario_id')
+        .select('id, org_scenario_id, scenario_master_id')
         .eq('organization_id', orgId)
         .eq('kit_number', kitNumber)
-        .or(`org_scenario_id.eq.${scenarioId},scenario_id.eq.${scenarioId}`)
+        .or(`org_scenario_id.eq.${scenarioId},scenario_master_id.eq.${scenarioId}`)
         .maybeSingle()
       existing = r2.data
     }
@@ -327,7 +326,7 @@ export const kitApi = {
     if (resolved) {
       q = q.eq('org_scenario_id', resolved)
     } else {
-      q = q.or(`org_scenario_id.eq.${scenarioId},scenario_id.eq.${scenarioId}`)
+      q = q.or(`org_scenario_id.eq.${scenarioId},scenario_master_id.eq.${scenarioId}`)
     }
 
     const { data, error } = await q
