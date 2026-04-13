@@ -166,12 +166,12 @@ export function ReservationDetailPage() {
         return
       }
       
-      // schedule_eventを別途取得
+      // schedule_eventを別途取得（公開用ビュー）
       let scheduleEvent = null
       let eventStoreId: string | null = null
       if (resData.schedule_event_id) {
         const { data: eventData, error: eventError } = await supabase
-          .from('schedule_events')
+          .from('schedule_events_public')
           .select('date, start_time, category, current_participants, max_participants, store_id')
           .eq('id', resData.schedule_event_id)
           .maybeSingle()
@@ -473,9 +473,9 @@ export function ReservationDetailPage() {
       
       if (countDiff < 0 && reservation.schedule_event_id) {
         try {
-          // 公演情報を取得（organization_idも含めて取得）
+          // 公演情報を取得（公開用ビュー）
           const { data: eventData } = await supabase
-            .from('schedule_events')
+            .from('schedule_events_public')
             .select('date, start_time, end_time, scenario, venue, organization_id')
             .eq('id', reservation.schedule_event_id)
             .single()

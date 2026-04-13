@@ -572,11 +572,11 @@ export function ReservationsPage() {
     setEditTarget(reservation)
     setNewParticipantCount(reservation.participant_count)
     
-    // 公演の空席情報を取得
+    // 公演の空席情報を取得（公開用ビュー）
     if (reservation.schedule_event_id) {
       try {
         const { data: eventData } = await supabase
-          .from('schedule_events')
+          .from('schedule_events_public')
           .select('max_participants, current_participants')
           .eq('id', reservation.schedule_event_id)
           .single()
@@ -672,9 +672,9 @@ export function ReservationsPage() {
       
       if (countDiff < 0 && editTarget.schedule_event_id) {
         try {
-          // 公演情報を取得（organization_idも含めて取得）
+          // 公演情報を取得（公開用ビュー）
           const { data: eventData } = await supabase
-            .from('schedule_events')
+            .from('schedule_events_public')
             .select('date, start_time, end_time, scenario, venue, organization_id')
             .eq('id', editTarget.schedule_event_id)
             .single()
@@ -730,13 +730,11 @@ export function ReservationsPage() {
 
     try {
       // 同じシナリオの今後の公演を取得（現在の予約を除く）
+      // 公開用ビューを使用（リレーションは使えないため店舗は別途取得）
       const today = new Date().toISOString().split('T')[0]
       const { data: events, error } = await supabase
-        .from('schedule_events')
-        .select(`
-          id, date, start_time, end_time, max_participants, current_participants,
-          stores:store_id (id, name)
-        `)
+        .from('schedule_events_public')
+        .select('id, date, start_time, end_time, max_participants, current_participants, store_id')
         .eq('scenario_master_id', scenarioMasterId)
         .gte('date', today)
         .eq('is_cancelled', false)
@@ -745,6 +743,19 @@ export function ReservationsPage() {
         .order('start_time', { ascending: true })
 
       if (error) throw error
+
+      // 店舗情報を取得
+      const storeIds = [...new Set((events || []).map(e => e.store_id).filter(Boolean))]
+      let storeMap = new Map<string, { id: string; name: string }>()
+      if (storeIds.length > 0) {
+        const { data: storesData } = await supabase
+          .from('stores_public')
+          .select('id, name')
+          .in('id', storeIds)
+        for (const s of storesData || []) {
+          storeMap.set(s.id, s)
+        }
+      }
 
       // 空席がある公演のみフィルタ
       const availableEventsData = (events || [])
@@ -759,8 +770,8 @@ export function ReservationsPage() {
           end_time: e.end_time,
           max_participants: e.max_participants || 0,
           current_participants: e.current_participants || 0,
-          store_name: (e.stores as { name?: string } | null)?.name || '未定',
-          store_id: (e.stores as { id?: string } | null)?.id || ''
+          store_name: storeMap.get(e.store_id)?.name || '未定',
+          store_id: e.store_id || ''
         }))
 
       setAvailableEvents(availableEventsData)

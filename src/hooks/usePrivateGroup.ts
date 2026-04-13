@@ -112,6 +112,38 @@ async function sendSystemMessage(
   }
 }
 
+/**
+ * RPC 経由でメンバー名を取得し、グループデータにマージする。
+ * anon のカラム制限で guest_name が直接取得できないため、
+ * SECURITY DEFINER RPC を使って招待コード検証付きで名前を取得する。
+ */
+async function enrichMembersWithNames(
+  data: { members?: any[]; invite_code?: string },
+  inviteCode?: string
+) {
+  const code = inviteCode || data.invite_code
+  if (!code || !data.members?.length) return
+
+  try {
+    const { data: rpcMembers } = await supabase.rpc('get_group_members_by_invite_code', {
+      p_invite_code: code,
+    })
+    if (!rpcMembers?.length) return
+
+    const nameMap = new Map<string, string>()
+    for (const rm of rpcMembers) {
+      if (rm.id && rm.guest_name) nameMap.set(rm.id, rm.guest_name)
+    }
+    for (const m of data.members) {
+      if (nameMap.has(m.id)) {
+        m.guest_name = nameMap.get(m.id)
+      }
+    }
+  } catch {
+    // RPC 失敗時は名前なしで続行
+  }
+}
+
 /** ビュー経由でキャラクター・人数上限を取得し scenario_masters に反映 */
 async function enrichGroupWithViewData(
   data: {
@@ -287,12 +319,13 @@ export function usePrivateGroup() {
     setError(null)
 
     try {
+      // anon は private_group_members を直接取得できないため、
+      // グループ本体と候補日程のみ取得し、メンバーは RPC 経由で取得
       const { data, error } = await supabase
         .from('private_groups')
         .select(`
           *,
           scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_min, player_count_max),
-          members:private_group_members (*),
           candidate_dates:private_group_candidate_dates (
             *,
             responses:private_group_date_responses (*)
@@ -307,6 +340,12 @@ export function usePrivateGroup() {
         }
         throw error
       }
+
+      // メンバー情報を RPC 経由で取得（PII 保護）
+      const { data: members } = await supabase.rpc('get_group_members_by_invite_code', {
+        p_invite_code: inviteCode,
+      })
+      data.members = members || []
 
       await enrichGroupWithViewData(data)
 
@@ -330,7 +369,6 @@ export function usePrivateGroup() {
         .select(`
           *,
           scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_min, player_count_max),
-          members:private_group_members (*),
           candidate_dates:private_group_candidate_dates (
             *,
             responses:private_group_date_responses (*)
@@ -345,6 +383,12 @@ export function usePrivateGroup() {
         }
         throw error
       }
+
+      // メンバー情報を RPC 経由で取得（認証済みユーザー用）
+      const { data: members } = await supabase.rpc('get_group_members_by_group_id', {
+        p_group_id: groupId,
+      })
+      data.members = members || []
 
       await enrichGroupWithViewData(data)
 
@@ -393,14 +437,14 @@ export function usePrivateGroup() {
     setError(null)
 
     try {
-      const { data: existingMember } = await supabase
-        .from('private_group_members')
-        .select('id')
-        .eq('group_id', params.groupId)
-        .eq(params.userId ? 'user_id' : 'guest_email', params.userId || params.guestEmail)
-        .single()
+      // メンバー重複チェック（RPC 経由 - PII 保護）
+      const { data: memberExists } = await supabase.rpc('check_member_exists', {
+        p_group_id: params.groupId,
+        p_user_id: params.userId || null,
+        p_guest_email: params.guestEmail || null,
+      })
 
-      if (existingMember) {
+      if (memberExists) {
         throw new Error('既にグループに参加しています')
       }
 
@@ -418,11 +462,10 @@ export function usePrivateGroup() {
         )
         if (bounds) {
           const cap = memberInvitationCap(bounds)
-          const { count: currentMemberCount } = await supabase
-            .from('private_group_members')
-            .select('id', { count: 'exact', head: true })
-            .eq('group_id', params.groupId)
-            .eq('status', 'joined')
+          // メンバー数チェック（RPC 経由 - PII 保護）
+          const { data: currentMemberCount } = await supabase.rpc('get_group_member_count', {
+            p_group_id: params.groupId,
+          })
 
           if (currentMemberCount !== null && currentMemberCount >= cap) {
             throw new Error(`参加人数が上限（${cap}名）に達しています`)
@@ -675,6 +718,7 @@ export function usePrivateGroupData(groupId: string | null) {
       if (error) throw error
 
       await enrichGroupWithViewData(data)
+      await enrichMembersWithNames(data)
 
       let resStatus: string | null = null
       if (data?.reservation_id) {
@@ -783,6 +827,7 @@ export function usePrivateGroupByInviteCode(inviteCode: string | null): {
       }
 
       await enrichGroupWithViewData(data)
+      await enrichMembersWithNames(data, inviteCode)
 
       let resStatus: string | null = null
       let confirmedBy: string | null = null

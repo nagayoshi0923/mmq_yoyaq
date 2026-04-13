@@ -51,6 +51,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     (scenarioData as { org_scenario_id?: string | null }).org_scenario_id ?? null
 
   // ラインナップと同様に、scenario_master_id に加え organization_scenario_id・scenario 名で公演を取得してマージする
+  // 公開用ビューを使用するため、リレーションではなくカラムのみを取得
   const scheduleEventSelect = `
           id,
           date,
@@ -64,14 +65,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
           store_id,
           current_participants,
           reservation_deadline_hours,
-          venue,
-          stores:store_id (
-            id,
-            name,
-            short_name,
-            color,
-            address
-          )
+          venue
         `
 
   async function fetchScheduleEventsMergedForScenario(): Promise<any[]> {
@@ -85,7 +79,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     }
 
     const run = async (build: (q: any) => any) => {
-      const query = build(supabase.from('schedule_events').select(scheduleEventSelect))
+      // 公開用ビューを使用（PII/財務情報を除外）
+      const query = build(supabase.from('schedule_events_public').select(scheduleEventSelect))
       const { data, error } = await applyRangeAndOrg(query)
       if (error) {
         logger.error('スケジュール取得エラー:', error)
@@ -121,7 +116,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
   const [eventsData, storesData, relatedScenariosResult] =
     await Promise.all([
       fetchScheduleEventsMergedForScenario(),
-      storeApi.getAll(true, orgId).catch((error) => {
+      // 公開用ビューを使用（コスト情報を除外）
+      (orgId ? storeApi.getAllPublic(orgId) : Promise.resolve([])).catch((error) => {
         logger.error('店舗データの取得エラー:', error)
         return []
       }),
@@ -140,6 +136,12 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
       })(),
     ])
 
+  // 店舗マップを作成（公開用ビューではリレーションが使えないため）
+  const storeMap = new Map<string, any>()
+  for (const s of storesData) {
+    storeMap.set(s.id, s)
+  }
+
   // イベントデータを整形
   const scenarioEvents = eventsData
     .filter((event: any) => {
@@ -149,7 +151,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
       return event.is_reservation_enabled !== false
     })
     .map((event: any) => {
-      const store = event.stores
+      // 公開用ビューではリレーションが使えないため、storeMap から取得
+      const store = storeMap.get(event.store_id)
       
       const maxParticipants = scenarioData.player_count_max || 8
       const currentParticipants = event.current_participants || 0

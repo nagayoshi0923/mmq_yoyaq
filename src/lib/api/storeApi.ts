@@ -66,6 +66,19 @@ export const storeApi = {
     return sortedData
   },
 
+  // 公開ページ用: 店舗一覧を取得（コスト情報を除外）
+  // @param organizationId - 組織ID（必須）
+  async getAllPublic(organizationId: string): Promise<Store[]> {
+    const { data, error } = await supabase
+      .from('stores_public')
+      .select('id, organization_id, name, short_name, address, access_info, opening_date, status, capacity, rooms, color, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, kit_group_id, created_at, updated_at')
+      .eq('organization_id', organizationId)
+      .order('display_order', { ascending: true, nullsFirst: false })
+    
+    if (error) throw error
+    return (data || []) as Store[]
+  },
+
   // 店舗の表示順序を一括更新
   async updateDisplayOrder(storeOrders: { id: string; display_order: number }[]): Promise<void> {
     const orgId = await getCurrentOrganizationId()
