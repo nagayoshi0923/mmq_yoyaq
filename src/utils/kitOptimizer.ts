@@ -76,7 +76,7 @@ export type KitState = Record<string, Record<number, string>>
 interface Demand {
   date: string
   store_id: string
-  scenario_id: string
+  scenario_master_id: string
 }
 
 /**
@@ -155,7 +155,7 @@ export function calculateKitTransfers(
         storeNeeds.set(demand.store_id, new Map())
       }
       const scenarioNeeds = storeNeeds.get(demand.store_id)!
-      scenarioNeeds.set(demand.scenario_id, (scenarioNeeds.get(demand.scenario_id) || 0) + 1)
+      scenarioNeeds.set(demand.scenario_master_id, (scenarioNeeds.get(demand.scenario_master_id) || 0) + 1)
     }
     
     // 各店舗の需要を満たすようにキットを配置
@@ -202,7 +202,7 @@ export function calculateKitTransfers(
               // 移動日当日に移動元グループでこのシナリオが使われるかチェック
               let usedOnTransferDate = false
               for (const transferDemand of transferDateDemands) {
-                if (transferDemand.scenario_id === scenarioId && 
+                if (transferDemand.scenario_master_id === scenarioId && 
                     isSameGroup(transferDemand.store_id, currentLocation)) {
                   usedOnTransferDate = true
                   break
@@ -281,7 +281,7 @@ export function calculateKitTransfers(
             const fromStore = storeMap.get(fromStoreId)
             
             suggestions.push({
-              scenario_id: scenarioId,
+              scenario_master_id: scenarioId,
               scenario_title: scenario.title,
               kit_number: kitNumber,
               from_store_id: fromStoreId,
@@ -367,7 +367,7 @@ function deduplicateTransfers(suggestions: KitTransferSuggestion[]): KitTransfer
   
   for (const suggestion of suggestions) {
     // 同じキットの同じ日の移動は後勝ち
-    const key = `${suggestion.scenario_id}-${suggestion.kit_number}-${suggestion.transfer_date}`
+    const key = `${suggestion.scenario_master_id}-${suggestion.kit_number}-${suggestion.transfer_date}`
     seen.set(key, suggestion)
   }
   
@@ -393,10 +393,10 @@ export function optimizeWeeklyTransfers(
   const finalState: KitState = JSON.parse(JSON.stringify(initialState))
   
   for (const transfer of transfers) {
-    if (!finalState[transfer.scenario_id]) {
-      finalState[transfer.scenario_id] = {}
+    if (!finalState[transfer.scenario_master_id]) {
+      finalState[transfer.scenario_master_id] = {}
     }
-    finalState[transfer.scenario_id][transfer.kit_number] = transfer.to_store_id
+    finalState[transfer.scenario_master_id][transfer.kit_number] = transfer.to_store_id
   }
   
   return { transfers, finalState }
@@ -442,10 +442,10 @@ export function validateTransferPlan(
     // この日の移動を適用
     const dayTransfers = transfersByDate.get(date) || []
     for (const transfer of dayTransfers) {
-      if (!state[transfer.scenario_id]) {
-        state[transfer.scenario_id] = {}
+      if (!state[transfer.scenario_master_id]) {
+        state[transfer.scenario_master_id] = {}
       }
-      state[transfer.scenario_id][transfer.kit_number] = transfer.to_store_id
+      state[transfer.scenario_master_id][transfer.kit_number] = transfer.to_store_id
     }
     
     // この日の需要を検証
@@ -457,7 +457,7 @@ export function validateTransferPlan(
         storeNeeds.set(demand.store_id, new Map())
       }
       const scenarioNeeds = storeNeeds.get(demand.store_id)!
-      scenarioNeeds.set(demand.scenario_id, (scenarioNeeds.get(demand.scenario_id) || 0) + 1)
+      scenarioNeeds.set(demand.scenario_master_id, (scenarioNeeds.get(demand.scenario_master_id) || 0) + 1)
     }
     
     for (const [storeId, scenarioNeeds] of storeNeeds) {

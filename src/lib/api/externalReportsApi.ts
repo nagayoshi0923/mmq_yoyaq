@@ -15,7 +15,7 @@ export async function createExternalReport(
   const { data, error } = await supabase
     .from('external_performance_reports')
     .insert({
-      scenario_id: report.scenario_id,
+      scenario_master_id: report.scenario_master_id,
       organization_id: report.organization_id,
       reported_by: report.reported_by,
       performance_date: report.performance_date,
@@ -99,7 +99,7 @@ export async function getAllExternalReports(
     query = query.lte('performance_date', filters.endDate)
   }
   if (filters?.scenarioId) {
-    query = query.eq('scenario_id', filters.scenarioId)
+    query = query.eq('scenario_master_id', filters.scenarioId)
   }
   if (filters?.organizationId) {
     query = query.eq('organization_id', filters.organizationId)
@@ -224,7 +224,7 @@ export async function getLicensePerformanceSummary(
   // ビューから取得
   const { data, error } = await supabase
     .from('license_performance_summary')
-    .select('scenario_id, scenario_title, author, license_amount, internal_performance_count, external_performance_count, total_performance_count, total_license_fee')
+    .select('scenario_master_id, scenario_title, author, license_amount, internal_performance_count, external_performance_count, total_performance_count, total_license_fee')
 
   if (error) {
     logger.error('Failed to fetch license performance summary:', error)

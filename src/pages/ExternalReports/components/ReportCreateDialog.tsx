@@ -53,7 +53,7 @@ export function ReportCreateDialog({
   const [scenarios, setScenarios] = useState<ManagedScenario[]>([])
   const [isScenariosLoading, setIsScenariosLoading] = useState(true)
   const [formData, setFormData] = useState({
-    scenario_id: '',
+    scenario_master_id: '',
     performance_date: format(new Date(), 'yyyy-MM-dd'),
     performance_count: 1,
     participant_count: '',
@@ -80,10 +80,10 @@ export function ReportCreateDialog({
     }
   }, [isOpen])
 
-  const selectedScenario = scenarios.find(s => s.id === formData.scenario_id)
+  const selectedScenario = scenarios.find(s => s.id === formData.scenario_master_id)
 
   const handleSubmit = async () => {
-    if (!formData.scenario_id) {
+    if (!formData.scenario_master_id) {
       toast.error('シナリオを選択してください')
       return
     }
@@ -99,7 +99,7 @@ export function ReportCreateDialog({
     setIsLoading(true)
     try {
       await createExternalReport({
-        scenario_id: formData.scenario_id,
+        scenario_master_id: formData.scenario_master_id,
         organization_id: organizationId,
         reported_by: staffId,
         performance_date: formData.performance_date,
@@ -113,7 +113,7 @@ export function ReportCreateDialog({
       onSuccess()
       // フォームをリセット
       setFormData({
-        scenario_id: '',
+        scenario_master_id: '',
         performance_date: format(new Date(), 'yyyy-MM-dd'),
         performance_count: 1,
         participant_count: '',
@@ -149,8 +149,8 @@ export function ReportCreateDialog({
               </div>
             ) : (
               <Select
-                value={formData.scenario_id}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, scenario_id: value }))}
+                value={formData.scenario_master_id}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, scenario_master_id: value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="シナリオを選択" />

@@ -625,20 +625,6 @@ private_group_date_responses, private_group_messages
 
 ---
 
-## 未着手タスク: organization_scenarios のデータ取得パス統一
-
-### 背景
-`organization_scenarios` のカラム読み取りが2パスに分かれていて混乱の原因になっている:
-- パスA: `scenarioApi` → ビュー (`organization_scenarios_with_master`) → `ORG_SCENARIOS_VIEW_SELECT_FIELDS`
-- パスB: `supabase.from('organization_scenarios').select(...)` → 直接テーブル
-
-後から追加されたカラム（`private_booking_blocked_slots`, `private_booking_time_slots`, `characters` 等）はビュー未反映でパスBを使用。`booking_start_date` は両方から二重取得。
-
-### やるべきこと
-ビューに全カラムを投影するか、直接テーブル取得に統一するかを決め、1パスにする。`scenarioApi` は16+箇所から呼ばれるため慎重に段階的に実施する。
-
----
-
 ## テーブルスキーマの正規管理ルール（必須）🚨
 
 ### 基本原則：「`supabase/schemas/` を常に最新に保つ」
