@@ -16,7 +16,7 @@ export type { Author }
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const AUTHOR_SELECT_FIELDS = 'id, name, email, notes, created_at, updated_at' as const
 const AUTHOR_PERFORMANCE_REPORT_SELECT_FIELDS =
-  'author_email, author_name, scenario_id, scenario_title, organization_id, organization_name, report_id, performance_date, performance_count, participant_count, venue_name, report_status, reported_at, license_amount, calculated_license_fee' as const
+  'author_email, author_name, scenario_master_id, scenario_title, organization_id, organization_name, report_id, performance_date, performance_count, participant_count, venue_name, report_status, reported_at, license_amount, calculated_license_fee' as const
 const AUTHOR_SUMMARY_SELECT_FIELDS =
   'author_email, total_scenarios, total_approved_reports, total_performance_count, total_license_fee, organizations_count' as const
 

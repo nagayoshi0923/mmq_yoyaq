@@ -106,7 +106,7 @@ export interface Author {
 export interface AuthorPerformanceReport {
   author_email: string
   author_name: string
-  scenario_id: string
+  scenario_master_id: string
   scenario_title: string
   organization_id: string
   organization_name: string
@@ -359,41 +359,6 @@ export interface Scenario {
   master_status?: string // マスタステータス
 }
 
-// 顧客向け公演情報（予約サイト用）
-export interface PublicScenarioEvent {
-  id: string
-  scenario_id: string
-  scenario_title: string
-  scenario_description?: string
-  synopsis?: string
-  key_visual_url?: string
-  author: string
-  genre: string[]
-  duration: number
-  player_count_min: number
-  player_count_max: number
-  difficulty: number
-  rating?: number
-  has_pre_reading: boolean
-  official_site_url?: string
-  // 公演情報
-  events: Array<{
-    event_id: string
-    date: string
-    start_time: string
-    end_time: string
-    store_name: string
-    store_short_name: string
-    store_color?: string
-    store_address?: string
-    max_participants: number
-    current_participants: number
-    available_seats: number
-    participation_fee: number
-    reservation_deadline_hours: number
-  }>
-}
-
 // スケジュール関連の型定義
 export interface ScheduleEvent {
   id: string
@@ -419,24 +384,6 @@ export interface User {
   id: string
   email: string
   role: 'admin' | 'staff' | 'customer' | 'license_admin'
-  created_at: string
-  updated_at: string
-}
-
-// 注意: 顧客関連の型定義は下記（362行目付近）に定義されています
-// 注意: 予約関連の型定義は下記（380行目付近）に定義されています
-
-// 在庫関連の型定義
-export interface PerformanceKit {
-  id: string
-  organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
-  scenario_id: string
-  scenario_title: string
-  kit_number: number
-  condition: 'excellent' | 'good' | 'fair' | 'poor' | 'damaged'
-  last_used?: string
-  notes?: string
-  store_id: string
   created_at: string
   updated_at: string
 }
