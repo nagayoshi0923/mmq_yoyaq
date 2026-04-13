@@ -627,13 +627,25 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   const mergedSuggestions = useMemo(() => {
     const filteredSuggestions = [...suggestions]
     
-    // org_scenario_id → scenario情報 のマッピング（kitLocationsから構築）
+    // org_scenario_id → scenario情報 のマッピング（複数ソースから構築）
     const orgScenarioInfoMap = new Map<string, { scenarioMasterId: string; title: string }>()
+    
+    // 1. kitLocations から構築
     for (const loc of kitLocations) {
       if (loc.org_scenario_id && loc.scenario) {
         orgScenarioInfoMap.set(loc.org_scenario_id, {
           scenarioMasterId: loc.scenario.id,
           title: loc.scenario.title
+        })
+      }
+    }
+    
+    // 2. suggestions からも構築（キット移動後でも情報を保持）
+    for (const s of suggestions) {
+      if (s.org_scenario_id && s.scenario_title && !orgScenarioInfoMap.has(s.org_scenario_id)) {
+        orgScenarioInfoMap.set(s.org_scenario_id, {
+          scenarioMasterId: s.scenario_master_id,
+          title: s.scenario_title
         })
       }
     }
@@ -667,7 +679,19 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const scenarioFromList = !orgInfo ? scenarios.find(s => s.id === c.scenario_master_id) : undefined
       const scenarioTitle = orgInfo?.title || scenarioFromList?.title
       const scenarioMasterId = orgInfo?.scenarioMasterId || c.scenario_master_id
-      if (!scenarioTitle) continue
+      
+      // シナリオ情報が取得できない場合はログを出力してスキップ
+      if (!scenarioTitle) {
+        console.warn('⚠️ 完了記録のシナリオ情報が見つかりません:', {
+          completion_id: c.id,
+          org_scenario_id: c.org_scenario_id,
+          scenario_master_id: c.scenario_master_id,
+          orgInfoFound: !!orgInfo,
+          scenarioFromListFound: !!scenarioFromList,
+          orgScenarioInfoMapSize: orgScenarioInfoMap.size
+        })
+        continue
+      }
       
       // 店舗情報を取得
       const fromStore = stores.find(s => s.id === c.from_store_id)

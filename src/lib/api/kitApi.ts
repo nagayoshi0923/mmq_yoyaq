@@ -715,12 +715,24 @@ export const kitApi = {
       data = result.data
       error = result.error
     } else {
+      // org_scenario_id から scenario_master_id を取得
+      let scenarioMasterId: string | null = null
+      const { data: orgScenario } = await supabase
+        .from('organization_scenarios')
+        .select('scenario_master_id')
+        .eq('id', scenarioId)
+        .maybeSingle()
+      if (orgScenario) {
+        scenarioMasterId = orgScenario.scenario_master_id
+      }
+
       // 新規レコードを挿入
       const result = await supabase
         .from('kit_transfer_completions')
         .insert({
           organization_id: orgId,
           org_scenario_id: scenarioId,
+          scenario_master_id: scenarioMasterId,
           kit_number: kitNumber,
           performance_date: performanceDate,
           from_store_id: fromStoreId,
