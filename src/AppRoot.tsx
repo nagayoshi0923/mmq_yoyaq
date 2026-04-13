@@ -306,8 +306,10 @@ function AppRoutes() {
     const isCompleteProfilePage = location.pathname === '/complete-profile'
     // 認証フローページにいるログイン済み顧客はプロフィールゲート対象外（ループ防止）
     const isAuthPage = ['/signup', '/login', '/register', '/reset-password', '/set-password'].includes(location.pathname)
+    // 招待リンクはゲスト向けのため、ログイン済みでもプロフィールゲート対象外
+    const isInvitePage = location.pathname.startsWith('/group/invite/')
 
-    if (!user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage) {
+    if (!user || user.role !== 'customer' || isCompleteProfilePage || isAuthPage || isInvitePage) {
       setIsProfileCheckRunning(false)
       return
     }

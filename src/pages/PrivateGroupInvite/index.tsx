@@ -1905,6 +1905,7 @@ export function PrivateGroupInvite() {
                           if (existingMemberId) {
                             const { error: deleteError } = await supabase.rpc('delete_guest_member', {
                               p_member_id: existingMemberId,
+                              p_invite_code: code ?? null,
                             })
                             if (deleteError) throw deleteError
                             toast.success('グループから退出しました')
@@ -3452,6 +3453,7 @@ export function PrivateGroupInvite() {
                   // RPC経由で削除（RLSを回避）
                   const { error: deleteError } = await supabase.rpc('delete_guest_member', {
                     p_member_id: existingMemberId,
+                    p_invite_code: code ?? null,
                   })
                   if (deleteError) throw deleteError
                   toast.success('グループから退出しました')
