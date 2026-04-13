@@ -103,8 +103,8 @@ export function LicenseSummaryCard({ summary }: LicenseSummaryCardProps) {
                 {/* シナリオ別の内訳 */}
                 <div className="space-y-2 mt-3 pt-3 border-t">
                   {author.scenarios.map((scenario) => (
-                    <div 
-                      key={scenario.scenario_id}
+                    <div
+                      key={scenario.scenario_master_id}
                       className="flex items-center justify-between text-sm"
                     >
                       <div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ export function LicenseSummaryCard({ summary }: LicenseSummaryCardProps) {
               </thead>
               <tbody>
                 {summary.map((s) => (
-                  <tr key={s.scenario_id} className="border-b hover:bg-muted/50">
+                  <tr key={s.scenario_master_id} className="border-b hover:bg-muted/50">
                     <td className="py-2 px-3 font-medium">{s.scenario_title}</td>
                     <td className="py-2 px-3">{s.author}</td>
                     <td className="py-2 px-3 text-right">

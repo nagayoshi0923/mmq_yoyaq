@@ -544,11 +544,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
   }, [])
   
   // 完了状態のマップ（高速ルックアップ用）- フルキーとルーズキーの両方で登録
-  // org_scenario_id を優先、なければ scenario_id を使用
+  // org_scenario_id を優先、なければ scenario_master_id を使用
   const completionMapFull = useMemo(() => {
     const map = new Map<string, KitTransferCompletion>()
     for (const c of completions) {
-      const scenarioId = c.org_scenario_id || c.scenario_id
+      const scenarioId = c.org_scenario_id || c.scenario_master_id
       const key = getCompletionKeyFull(scenarioId, c.kit_number, c.performance_date, c.to_store_id)
       map.set(key, c)
     }
@@ -563,7 +563,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       (a.performance_date || '').localeCompare(b.performance_date || '')
     )
     for (const c of sorted) {
-      const scenarioId = c.org_scenario_id || c.scenario_id
+      const scenarioId = c.org_scenario_id || c.scenario_master_id
       const key = getCompletionKeyLoose(scenarioId, c.kit_number)
       map.set(key, c)
     }
@@ -638,13 +638,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       }
     }
     
-    // 既存提案のフルキーを収集（org_scenario_id と scenario_id の両方で登録）
+    // 既存提案のフルキーを収集（org_scenario_id と scenario_master_id の両方で登録）
     const suggestionFullKeys = new Set<string>()
     for (const s of filteredSuggestions) {
-      const orgId = s.org_scenario_id || s.scenario_id
+      const orgId = s.org_scenario_id || s.scenario_master_id
       suggestionFullKeys.add(`${orgId}-${s.kit_number}-${s.performance_date}-${s.to_store_id}`)
-      if (s.org_scenario_id && s.org_scenario_id !== s.scenario_id) {
-        suggestionFullKeys.add(`${s.scenario_id}-${s.kit_number}-${s.performance_date}-${s.to_store_id}`)
+      if (s.org_scenario_id && s.org_scenario_id !== s.scenario_master_id) {
+        suggestionFullKeys.add(`${s.scenario_master_id}-${s.kit_number}-${s.performance_date}-${s.to_store_id}`)
       }
     }
     
@@ -658,15 +658,15 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       if (!demandDates.includes(c.performance_date)) continue
       
       // フルキーで重複チェック（org_scenario_id を優先）
-      const cScenarioId = c.org_scenario_id || c.scenario_id
+      const cScenarioId = c.org_scenario_id || c.scenario_master_id
       const fullKey = `${cScenarioId}-${c.kit_number}-${c.performance_date}-${c.to_store_id}`
       if (suggestionFullKeys.has(fullKey)) continue
       
       // シナリオ情報を取得（org_scenario_id からの解決を優先）
       const orgInfo = c.org_scenario_id ? orgScenarioInfoMap.get(c.org_scenario_id) : undefined
-      const scenarioFromList = !orgInfo ? scenarios.find(s => s.id === c.scenario_id) : undefined
+      const scenarioFromList = !orgInfo ? scenarios.find(s => s.id === c.scenario_master_id) : undefined
       const scenarioTitle = orgInfo?.title || scenarioFromList?.title
-      const scenarioMasterId = orgInfo?.scenarioMasterId || c.scenario_id
+      const scenarioMasterId = orgInfo?.scenarioMasterId || c.scenario_master_id
       if (!scenarioTitle) continue
       
       // 店舗情報を取得
@@ -679,7 +679,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const actualTransferDate = `${pickedUpDate.getFullYear()}-${String(pickedUpDate.getMonth() + 1).padStart(2, '0')}-${String(pickedUpDate.getDate()).padStart(2, '0')}`
       
       additionalFromCompletions.push({
-        scenario_id: scenarioMasterId,
+        scenario_master_id: scenarioMasterId,
         scenario_title: scenarioTitle,
         kit_number: c.kit_number,
         from_store_id: c.from_store_id || '',
@@ -731,7 +731,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         sampleLocations: locationsData.slice(0, 5).map(l => ({
           id: l.id,
           org_scenario_id: l.org_scenario_id,
-          scenario_id: l.scenario_id,
+          scenario_master_id: l.scenario_master_id,
           scenario_title: l.scenario?.title,
           store_id: l.store_id
         })),
@@ -1046,7 +1046,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       // 同じ日・同じ店舗・同じシナリオは1キットで済む（朝使ったキットを夜も使える）
       // demandDatesを使用して、移動日がカバーする期間全体の公演を含める
       const demandSet = new Set<string>()
-      const demands: Array<{ date: string; store_id: string; scenario_id: string }> = []
+      const demands: Array<{ date: string; store_id: string; scenario_master_id: string }> = []
       for (const event of scheduleEvents) {
         if (demandDates.includes(event.date) && event.scenario_master_id) {
           const key = `${event.date}::${event.store_id}::${event.scenario_master_id}`
@@ -1055,7 +1055,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
             demands.push({
               date: event.date,
               store_id: event.store_id,
-              scenario_id: event.scenario_master_id
+              scenario_master_id: event.scenario_master_id
             })
           }
         }
@@ -1104,7 +1104,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       // 結果に org_scenario_id を付加（API呼び出し用）
       const resultWithOrgScenarioId = result.map(suggestion => ({
         ...suggestion,
-        org_scenario_id: scenarioIdToOrgScenarioId.get(suggestion.scenario_id) || suggestion.scenario_id
+        org_scenario_id: scenarioIdToOrgScenarioId.get(suggestion.scenario_master_id) || suggestion.scenario_master_id
       }))
 
       console.log('📦 移動計算結果:', resultWithOrgScenarioId)
@@ -2041,8 +2041,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         
                         // キットが既に目的地にある場合はスキップ（移動不要）
                         // ただし回収済み or 設置完了済みはチェック状態表示のため残す
-                        const currentLocation = kitCurrentLocationMap.get(`${item.scenario_id}-${item.kit_number}`)
-                        const itemLookupScenarioId = item.org_scenario_id || item.scenario_id
+                        const currentLocation = kitCurrentLocationMap.get(`${item.scenario_master_id}-${item.kit_number}`)
+                        const itemLookupScenarioId = item.org_scenario_id || item.scenario_master_id
                         const itemPickedUp = isPickedUp(itemLookupScenarioId, item.kit_number, item.performance_date, item.to_store_id)
                         const itemDelivered = isDelivered(itemLookupScenarioId, item.kit_number, item.performance_date, item.to_store_id)
                         if (currentLocation === item.to_store_id && !itemPickedUp && !itemDelivered) {
@@ -2109,7 +2109,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                         for (const item of items) {
                           const fromGroupId = getStoreGroupId(item.from_store_id)
                           const toGroupId = getStoreGroupId(item.to_store_id)
-                          const routeKey = `${fromGroupId}->${toGroupId}::${item.scenario_id}`
+                          const routeKey = `${fromGroupId}->${toGroupId}::${item.scenario_master_id}`
                           
                           if (!routeGroups.has(routeKey)) {
                             routeGroups.set(routeKey, [])
@@ -2380,7 +2380,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
                                                   const matchingEvents = scheduleEvents
                                                     .filter(event => 
-                                                      event.scenario_master_id === suggestion.scenario_id &&
+                                                      event.scenario_master_id === suggestion.scenario_master_id &&
                                                       getStoreGroupId(event.store_id) === toGroupId &&
                                                       demandDates.includes(event.date) &&
                                                       !event.is_cancelled
@@ -2402,13 +2402,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const remainingSeats = totalCapacity - totalParticipants
                                                   
                                                   // ルックアップには org_scenario_id を優先して使用（DBに保存されるID）
-                                                  const lookupScenarioId = suggestion.org_scenario_id || suggestion.scenario_id
+                                                  const lookupScenarioId = suggestion.org_scenario_id || suggestion.scenario_master_id
                                                   const pickedUp = isPickedUp(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const delivered = isDelivered(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const completion = getCompletion(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   
                                                   // 公演がキャンセルされたかチェック（scheduleEventsはscenario_master_idを使用）
-                                                  const isCancelled = isPerformanceCancelled(suggestion.scenario_id, suggestion.performance_date, suggestion.to_store_id)
+                                                  const isCancelled = isPerformanceCancelled(suggestion.scenario_master_id, suggestion.performance_date, suggestion.to_store_id)
                                                   // 移動日が過去かつ公演キャンセル → 移動中止
                                                   const isTransferCancelled = isPastTransferDate && isCancelled && !pickedUp && !delivered
                                                   
@@ -2425,7 +2425,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       ) : (
                                                         <div 
                                                           className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 ${pickedUp ? 'cursor-pointer active:scale-95 hover:border-green-400' : 'cursor-not-allowed opacity-30'} ${delivered ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}
-                                                          onClick={() => handleToggleDelivery(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id, suggestion.scenario_title, suggestion.org_scenario_id)}
+                                                          onClick={() => handleToggleDelivery(suggestion.scenario_master_id, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id, suggestion.scenario_title, suggestion.org_scenario_id)}
                                                           title={pickedUp ? '設置完了' : '回収してから設置できます'}
                                                         >
                                                           {delivered && <Check className="h-3 w-3 text-white" />}
@@ -2490,7 +2490,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const toGroupId = getStoreGroupId(suggestion.to_store_id)
                                                   const matchingEvents = scheduleEvents
                                                     .filter(event => 
-                                                      event.scenario_master_id === suggestion.scenario_id &&
+                                                      event.scenario_master_id === suggestion.scenario_master_id &&
                                                       getStoreGroupId(event.store_id) === toGroupId &&
                                                       demandDates.includes(event.date) &&
                                                       !event.is_cancelled
@@ -2512,13 +2512,13 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                   const remainingSeats = totalCapacity - totalParticipants
                                                   
                                                   // ルックアップには org_scenario_id を優先して使用（DBに保存されるID）
-                                                  const lookupScenarioId = suggestion.org_scenario_id || suggestion.scenario_id
+                                                  const lookupScenarioId = suggestion.org_scenario_id || suggestion.scenario_master_id
                                                   const pickedUp = isPickedUp(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const delivered = isDelivered(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   const completion = getCompletion(lookupScenarioId, suggestion.kit_number, suggestion.performance_date, suggestion.to_store_id)
                                                   
                                                   // 公演がキャンセルされたかチェック（scheduleEventsはscenario_master_idを使用）
-                                                  const isCancelled = isPerformanceCancelled(suggestion.scenario_id, suggestion.performance_date, suggestion.to_store_id)
+                                                  const isCancelled = isPerformanceCancelled(suggestion.scenario_master_id, suggestion.performance_date, suggestion.to_store_id)
                                                   // 移動日が過去かつ公演キャンセル → 移動中止
                                                   const isTransferCancelled = isPastTransferDate && isCancelled && !pickedUp && !delivered
                                                   
@@ -2535,7 +2535,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       ) : (
                                                         <div 
                                                           className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 sm:border flex items-center justify-center shrink-0 cursor-pointer active:scale-95 hover:border-blue-400 ${pickedUp ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
-                                                          onClick={() => handleTogglePickup(suggestion.scenario_id, suggestion.kit_number, suggestion.performance_date, suggestion.from_store_id, suggestion.to_store_id, suggestion.org_scenario_id)}
+                                                          onClick={() => handleTogglePickup(suggestion.scenario_master_id, suggestion.kit_number, suggestion.performance_date, suggestion.from_store_id, suggestion.to_store_id, suggestion.org_scenario_id)}
                                                           title="回収"
                                                         >
                                                           {pickedUp && <Check className="h-3 w-3 text-white" />}
@@ -2622,7 +2622,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                           {/* キット一覧 */}
                           <div className="space-y-1">
                             {group.items.map(event => {
-                              const scenario = scenarioMap.get(event.scenario_id)
+                              const scenario = scenarioMap.get(event.scenario_master_id)
                               // 実際の行き先店舗名を取得
                               const actualToStore = storeMap.get(event.to_store_id)
                               const showActualStore = group.isGrouped && event.to_store_id !== group.to_store_id

@@ -55,7 +55,7 @@ export interface OrganizationInvitation {
 // 外部公演報告の型定義
 export interface ExternalPerformanceReport {
   id: string
-  scenario_id: string
+  scenario_master_id: string
   organization_id: string
   reported_by: string  // staff.id
   performance_date: string
@@ -78,7 +78,7 @@ export interface ExternalPerformanceReport {
 
 // ライセンス集計サマリーの型定義
 export interface LicensePerformanceSummary {
-  scenario_id: string
+  scenario_master_id: string
   scenario_title: string
   author: string
   license_amount: number
@@ -774,8 +774,8 @@ export const KIT_CONDITION_COLORS: Record<KitCondition, string> = {
 export interface KitLocation {
   id: string
   organization_id: string
-  scenario_id: string
-  org_scenario_id?: string | null  // organization_scenarios.id（新規参照先）
+  scenario_master_id: string
+  org_scenario_id?: string | null  // organization_scenarios.id
   kit_number: number  // 1から始まるキット番号
   store_id: string
   condition: KitCondition  // キットの状態
@@ -791,8 +791,8 @@ export interface KitLocation {
 export interface KitTransferEvent {
   id: string
   organization_id: string
-  scenario_id: string
-  org_scenario_id?: string | null  // organization_scenarios.id（新規参照先）
+  scenario_master_id: string
+  org_scenario_id?: string | null  // organization_scenarios.id
   kit_number: number
   from_store_id: string
   to_store_id: string
@@ -810,8 +810,8 @@ export interface KitTransferEvent {
 
 // キット移動提案（最適化アルゴリズムの出力）
 export interface KitTransferSuggestion {
-  scenario_id: string  // scenario_master_id（需要マッチング用）
-  org_scenario_id?: string  // organization_scenarios.id（API呼び出し用）
+  scenario_master_id: string
+  org_scenario_id?: string  // organization_scenarios.id
   scenario_title: string
   kit_number: number
   from_store_id: string
@@ -828,7 +828,7 @@ export interface KitDemand {
   date: string
   store_id: string
   store_name: string
-  scenario_id: string
+  scenario_master_id: string
   scenario_title: string
   event_count: number  // その日のその店舗でのそのシナリオの公演数
 }
@@ -837,8 +837,8 @@ export interface KitDemand {
 export interface KitTransferCompletion {
   id: string
   organization_id: string
-  scenario_id: string  // 旧: scenarios.id（後方互換性のため残す）
-  org_scenario_id?: string  // 新: organization_scenarios.id
+  scenario_master_id: string
+  org_scenario_id?: string  // organization_scenarios.id
   kit_number: number
   performance_date: string  // YYYY-MM-DD形式
   from_store_id: string
