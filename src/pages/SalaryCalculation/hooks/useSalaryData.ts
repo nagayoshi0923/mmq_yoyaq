@@ -64,7 +64,7 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
 
       // GMデータ取得（schedule_eventsとscenariosをJOIN）
       let gmQuery = supabase
-        .from('schedule_events')
+        .from('schedule_events_staff_view')
         .select(`
           id,
           date,

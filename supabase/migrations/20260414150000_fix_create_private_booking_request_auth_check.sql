@@ -1,9 +1,18 @@
--- =============================================================================
--- create_private_booking_request: 貸切予約リクエストを作成
--- 正規ソース: supabase/rpcs/create_private_booking_request.sql
--- =============================================================================
+-- ====================================================================
+-- セキュリティ修正: create_private_booking_request の認証チェック追加
+--
+-- 問題1: p_customer_id が auth.uid() と照合されていないため、
+--        authenticated ユーザーが他人の customer_id で予約リクエストを作成できた。
+--
+-- 問題2: anon も EXECUTE 可能（PostgreSQL デフォルトで public に付与）
+--
+-- 修正:
+--   - auth.uid() IS NULL なら拒否（anon 禁止）
+--   - p_customer_id != auth.uid() なら拒否（なりすまし禁止）
+--   - REVOKE EXECUTE FROM public / GRANT TO authenticated
+-- ====================================================================
 
-CREATE OR REPLACE FUNCTION create_private_booking_request(
+CREATE OR REPLACE FUNCTION public.create_private_booking_request(
   p_scenario_id UUID,
   p_customer_id UUID,
   p_customer_name TEXT,
@@ -56,13 +65,13 @@ BEGIN
   END IF;
 
   -- シナリオ情報を取得（organization_scenariosから）
-  SELECT 
+  SELECT
     COALESCE(os.override_title, sm.title),
     COALESCE(os.duration, sm.official_duration),
     os.participation_fee,
     os.organization_id,
     os.scenario_master_id
-  INTO 
+  INTO
     v_scenario_title,
     v_duration,
     v_participation_fee,
@@ -72,14 +81,14 @@ BEGIN
   JOIN scenario_masters sm ON os.scenario_master_id = sm.id
   WHERE os.id = p_scenario_id
      OR os.scenario_master_id = p_scenario_id;
-  
+
   -- organization_scenarios で見つからない場合は scenarios_v2 ビューから取得
   IF v_scenario_title IS NULL THEN
     SELECT title, duration, participation_fee
     INTO v_scenario_title, v_duration, v_participation_fee
     FROM scenarios_v2
     WHERE id = p_scenario_id;
-    
+
     v_scenario_master_id := p_scenario_id;
   END IF;
 
@@ -89,7 +98,7 @@ BEGIN
     INTO v_scenario_title, v_duration
     FROM scenario_masters
     WHERE id = p_scenario_id;
-    
+
     v_scenario_master_id := p_scenario_id;
   END IF;
 
@@ -116,7 +125,7 @@ BEGIN
        OR os.scenario_master_id = v_scenario_master_id
     LIMIT 1;
   END IF;
-  
+
   IF v_org_id IS NULL THEN
     RAISE EXCEPTION 'Organization not found for scenario' USING ERRCODE = 'P0026';
   END IF;
@@ -128,8 +137,6 @@ BEGIN
 
   -- =========================================================================
   -- サーバー側空き判定: 全候補×全希望店舗で衝突チェック
-  -- 少なくとも1つの候補が1つの店舗で空いていれば通す。
-  -- 全候補が全店舗で既存公演と衝突する場合のみ拒否する。
   -- =========================================================================
   v_requested_store_count := jsonb_array_length(
     COALESCE(p_candidate_datetimes->'requestedStores', '[]'::jsonb)
@@ -153,7 +160,6 @@ BEGIN
       LOOP
         v_store_uuid := v_store_id_text::UUID;
 
-        -- 60分バッファ込みで衝突がなければ空きあり
         IF NOT EXISTS (
           SELECT 1 FROM schedule_events se
           WHERE se.store_id = v_store_uuid
@@ -180,7 +186,6 @@ BEGIN
         USING ERRCODE = 'P0030';
     END IF;
   END IF;
-  -- =========================================================================
 
   -- 料金計算
   v_total_price := p_participant_count * v_participation_fee;
@@ -188,8 +193,8 @@ BEGIN
   -- 最初の候補日時を取得
   v_first_candidate := p_candidate_datetimes->'candidates'->0;
   v_requested_datetime := (
-    (v_first_candidate->>'date') || 'T' || 
-    COALESCE(v_first_candidate->>'startTime', '10:00') || 
+    (v_first_candidate->>'date') || 'T' ||
+    COALESCE(v_first_candidate->>'startTime', '10:00') ||
     '+09:00'
   )::TIMESTAMPTZ;
 
@@ -246,8 +251,7 @@ BEGIN
     WHERE id = p_private_group_id;
   END IF;
 
-  -- GM確認レコードを作成（担当GMがいる場合のみ）
-  -- staff_scenario_assignments から担当GMを取得
+  -- GM確認レコードを作成
   FOR v_gm_id IN
     SELECT ssa.staff_id
     FROM staff_scenario_assignments ssa
@@ -277,3 +281,10 @@ $$;
 -- anon は実行不可、authenticated のみ
 REVOKE EXECUTE ON FUNCTION public.create_private_booking_request(UUID, UUID, TEXT, TEXT, TEXT, INTEGER, JSONB, TEXT, TEXT, UUID) FROM public;
 GRANT EXECUTE ON FUNCTION public.create_private_booking_request(UUID, UUID, TEXT, TEXT, TEXT, INTEGER, JSONB, TEXT, TEXT, UUID) TO authenticated;
+
+DO $$
+BEGIN
+  RAISE NOTICE '🔒 セキュリティ修正完了:';
+  RAISE NOTICE '  - create_private_booking_request: auth.uid() チェックを追加';
+  RAISE NOTICE '  - anon の EXECUTE 権限を剥奪';
+END $$;

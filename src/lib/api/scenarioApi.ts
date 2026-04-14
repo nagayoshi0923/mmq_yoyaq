@@ -722,7 +722,7 @@ export const scenarioApi = {
     // 公演イベントを取得して売上・コストを集計（今日まで、出張公演除外）
     // ※ 中止公演もリスト表示のため取得（サマリー計算からは除外）
     let eventsQuery = supabase
-      .from('schedule_events')
+      .from('schedule_events_staff_view')
       .select('id, date, category, current_participants, total_revenue, gm_cost, license_cost, start_time, store_id, is_cancelled, stores:store_id(venue_cost_per_performance)')
       .eq('scenario_master_id', scenarioId)
       .lte('date', today)
@@ -946,7 +946,7 @@ export const scenarioApi = {
       const to = from + pageSize - 1
       
       let query = supabase
-        .from('schedule_events')
+        .from('schedule_events_staff_view')
         .select('scenario_master_id, is_cancelled, total_revenue, date, category')
         .lte('date', today)
         .neq('category', 'offsite')

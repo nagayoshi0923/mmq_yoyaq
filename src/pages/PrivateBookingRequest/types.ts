@@ -21,6 +21,7 @@ export interface PrivateBookingRequestProps {
   selectedStoreIds: string[]
   stores: any[]
   scenarioAvailableStores?: string[] // シナリオ対応店舗ID（未設定=全店舗可）
+  privateBookingTimeSlots?: string[] // 受付可能時間帯（未設定=全時間帯可）
   organizationSlug?: string  // 組織slug（パス方式用）
   groupId?: string  // 貸切グループID（グループからの申請時のみ）
   onBack: () => void

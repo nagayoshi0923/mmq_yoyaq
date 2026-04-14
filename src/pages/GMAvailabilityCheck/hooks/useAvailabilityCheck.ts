@@ -104,7 +104,7 @@ export function useAvailabilityCheck() {
       const dates = Array.from(new Set(request.candidate_datetimes.candidates.map(c => c.date).filter(Boolean)))
       if (dates.length > 0) {
         const { data: gmEvents } = await supabase
-          .from('schedule_events')
+          .from('schedule_events_staff_view')
           .select('date, start_time, end_time, gms')
           .in('date', dates)
           .eq('is_cancelled', false)
