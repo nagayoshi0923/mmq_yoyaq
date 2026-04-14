@@ -52,6 +52,16 @@ function timeToMinutes(time: string): number {
 }
 
 /**
+ * 開始時刻と所要時間（分）から終了時刻を計算（HH:MM形式）
+ */
+function calcEndTime(startTime: string, durationMinutes: number): string {
+  const total = timeToMinutes(startTime) + durationMinutes
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+}
+
+/**
  * 2つの時間帯が重複しているかチェック（準備時間を考慮）
  * 準備時間は「次の公演が始まる前に必要な時間」として扱う
  * 
@@ -470,20 +480,22 @@ export function useEventOperations({
       // 移動先の時間を計算（組織設定から取得）
       const defaults = getSlotDefaults(dropTarget.date, targetTimeSlot)
       
-      // 時間帯が同じなら元の時間を保持、違うならデフォルト時間を使用
+      // シナリオIDと所要時間を取得
+      let scenarioId = draggedEvent.scenarios?.id || null
+      const matchingScenario = scenarios.find(s => s.title === draggedEvent.scenario)
+      if (!scenarioId) scenarioId = matchingScenario?.id || null
+
+      // 時間帯が同じなら元の時間を保持、違うならデフォルト開始時刻＋シナリオ所要時間で計算
       const isSameTimeSlot = sourceTimeSlot === targetTimeSlot
       const startTime = isSameTimeSlot ? draggedEvent.start_time : defaults.start_time
-      const endTime = isSameTimeSlot ? draggedEvent.end_time : defaults.end_time
+      const endTime = isSameTimeSlot
+        ? draggedEvent.end_time
+        : matchingScenario?.duration
+          ? calcEndTime(startTime, matchingScenario.duration)
+          : defaults.end_time
 
       const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       const isRealEventId = uuidPattern.test(draggedEvent.id)
-
-      // シナリオIDを取得（元のイベントから、またはシナリオリストから検索）
-      let scenarioId = draggedEvent.scenarios?.id || null
-      if (!scenarioId && draggedEvent.scenario) {
-        const matchingScenario = scenarios.find(s => s.title === draggedEvent.scenario)
-        scenarioId = matchingScenario?.id || null
-      }
 
       // 新しい位置に公演を作成/更新
       // organization_idが取得できない場合はエラー
@@ -663,17 +675,19 @@ export function useEventOperations({
       // 複製先の時間を計算（組織設定から取得）
       const defaults = getSlotDefaults(dropTarget.date, targetTimeSlot)
       
-      // 時間帯が同じなら元の時間を保持、違うならデフォルト時間を使用
+      // シナリオIDと所要時間を取得
+      let scenarioId = draggedEvent.scenarios?.id || null
+      const matchingScenario = scenarios.find(s => s.title === draggedEvent.scenario)
+      if (!scenarioId) scenarioId = matchingScenario?.id || null
+
+      // 時間帯が同じなら元の時間を保持、違うならデフォルト開始時刻＋シナリオ所要時間で計算
       const isSameTimeSlot = sourceTimeSlot === targetTimeSlot
       const startTime = isSameTimeSlot ? draggedEvent.start_time : defaults.start_time
-      const endTime = isSameTimeSlot ? draggedEvent.end_time : defaults.end_time
-
-      // シナリオIDを取得（元のイベントから、またはシナリオリストから検索）
-      let scenarioId = draggedEvent.scenarios?.id || null
-      if (!scenarioId && draggedEvent.scenario) {
-        const matchingScenario = scenarios.find(s => s.title === draggedEvent.scenario)
-        scenarioId = matchingScenario?.id || null
-      }
+      const endTime = isSameTimeSlot
+        ? draggedEvent.end_time
+        : matchingScenario?.duration
+          ? calcEndTime(startTime, matchingScenario.duration)
+          : defaults.end_time
 
       // 新しい位置に公演を作成（元の公演は残す）
       // organization_idが取得できない場合はエラー
