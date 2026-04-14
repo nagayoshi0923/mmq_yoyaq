@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger, generateCorrelationId, createCorrelatedLogger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
-import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES, AUTO_MANAGED_STAFF_SOURCES } from '@/lib/constants'
+import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES, AUTO_MANAGED_STAFF_SOURCES, GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
@@ -689,7 +689,7 @@ export const reservationApi = {
       // システムメッセージ設定を取得
       const { data: settings } = await supabase
         .from('global_settings')
-        .select('system_msg_booking_cancelled_title, system_msg_booking_cancelled_body')
+        .select(GLOBAL_SETTINGS_MSG_SELECT.BOOKING_CANCELLED)
         .eq('organization_id', reservation.organization_id)
         .maybeSingle()
       

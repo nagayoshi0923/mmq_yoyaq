@@ -114,6 +114,21 @@ reservation_source: RESERVATION_SOURCE.DEMO_AUTO
 
 新しいソースを追加する場合は `src/lib/constants.ts` と `src/types/index.ts` の型定義を同時に更新すること。
 
+### global_settings のシステムメッセージ SELECT は定数を使う
+
+`global_settings` テーブルのシステムメッセージカラムを SELECT する際は、`src/lib/constants.ts` の `GLOBAL_SETTINGS_MSG_SELECT` を使うこと。
+
+```typescript
+// ❌ 禁止
+.select('system_msg_booking_cancelled_title, system_msg_booking_cancelled_body')
+
+// ✅ 正しい
+import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
+.select(GLOBAL_SETTINGS_MSG_SELECT.BOOKING_CANCELLED)
+```
+
+新しいユースケース（新しいメッセージ種別）が必要な場合は `GLOBAL_SETTINGS_MSG_SELECT` に新しいキーを追加すること。カラムを追加・変更した場合は `GLOBAL_SETTINGS_MSG_SELECT` の該当エントリを更新すること。
+
 ---
 
 ## コミットメッセージ

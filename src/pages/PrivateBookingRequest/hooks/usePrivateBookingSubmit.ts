@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
+import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 import type { TimeSlot } from '../types'
 
 // 貸切予約用RPCエラーコード → ユーザー向けメッセージのマッピング
@@ -240,7 +241,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
               const msgOrgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
               const { data: msgSettings } = await supabase
                 .from('global_settings')
-                .select('system_msg_booking_requested_title, system_msg_booking_requested_body')
+                .select(GLOBAL_SETTINGS_MSG_SELECT.BOOKING_REQUESTED)
                 .eq('organization_id', msgOrgId)
                 .maybeSingle()
               

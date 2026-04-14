@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
+import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 import {
   fetchScenarioPlayerBoundsForOrg,
   memberInvitationCap,
@@ -52,9 +53,7 @@ async function getSystemMessageSettings(orgId: string) {
     // まず全カラムを取得してから必要なものを抽出
     const { data, error } = await supabase
       .from('global_settings')
-      .select(
-        'system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body'
-      )
+      .select(GLOBAL_SETTINGS_MSG_SELECT.GROUP_AND_BOOKING)
       .eq('organization_id', orgId)
       .maybeSingle()
     
