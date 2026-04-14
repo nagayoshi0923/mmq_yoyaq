@@ -147,8 +147,8 @@ serve(async (req) => {
   }
 
   try {
-    // 認証チェック
-    const authResult = await verifyAuth(req)
+    // 認証チェック（フロントエンドからの publishable key 対応）
+    const authResult = await verifyAuth(req, undefined, { allowAnonymous: true })
     if (!authResult.success) {
       return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
     }

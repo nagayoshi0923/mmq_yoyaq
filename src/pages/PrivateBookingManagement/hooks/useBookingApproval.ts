@@ -261,7 +261,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           const storeAddress = selectedStore?.address || undefined
           const priceToUse = updatedReservation?.final_price || updatedReservation?.total_price || 0
 
-          await supabase.functions.invoke('send-private-booking-confirmation', {
+          const { error: emailInvokeError } = await supabase.functions.invoke('send-private-booking-confirmation', {
             body: {
               organizationId,
               storeId: selectedStoreId,
@@ -280,7 +280,11 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
               notes: selectedRequest?.notes || updatedReservation?.customer_notes || undefined
             }
           })
-          logger.log('貸切予約確定メール送信成功:', customerEmail)
+          if (emailInvokeError) {
+            logger.error('貸切予約確定メール送信エラー:', emailInvokeError)
+          } else {
+            logger.log('貸切予約確定メール送信成功:', customerEmail)
+          }
         }
       } catch (emailError) {
         logger.error('メール送信エラー:', emailError)
