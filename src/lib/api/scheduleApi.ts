@@ -225,7 +225,7 @@ export const scheduleApi = {
     
     // 1. GM（メインGM/サブGM）として割り当てられた公演を取得
     let gmQuery = supabase
-      .from('schedule_events')
+      .from('schedule_events_staff_view')
       .select(`
         *,
         stores:store_id (
@@ -380,9 +380,9 @@ export const scheduleApi = {
     const lastDay = new Date(year, month, 0).getDate()
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     
-    // 通常公演を取得（必要なカラムのみ選択してパフォーマンス向上）
+    // 通常公演を取得（スタッフ専用ビュー経由で全カラムにアクセス）
     let query = supabase
-      .from('schedule_events')
+      .from('schedule_events_staff_view')
       .select(`
         id,
         date,
@@ -760,7 +760,10 @@ export const scheduleApi = {
     let query = supabase
       .from('schedule_events')
       .select(`
-        *,
+        id, date, start_time, end_time, time_slot,
+        store_id, scenario_master_id, organization_scenario_id,
+        category, is_cancelled, is_reservation_enabled,
+        current_participants, max_participants, capacity, organization_id,
         stores:store_id (
           id,
           name,
@@ -941,28 +944,22 @@ export const scheduleApi = {
       finalData.category = 'open'
     }
     
+    // INSERT: id のみ返す（authenticated のカラム制限を回避）
+    // 全カラムの取得はスタッフ専用ビューから別途行う
     let insertPayload: Record<string, unknown> = { ...finalData }
     let lastError: { message?: string; details?: string; hint?: string } | null = null
+    let insertedId: string | null = null
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const { data, error } = await supabase
         .from('schedule_events')
         .insert([insertPayload])
-        .select(`
-          *,
-          stores:store_id (
-            id,
-            name,
-            short_name
-          ),
-          scenario_masters:scenario_master_id (
-            id,
-            title,
-            player_count_max
-          )
-        `)
+        .select('id')
         .single()
 
-      if (!error) return data
+      if (!error) {
+        insertedId = data.id
+        break
+      }
 
       lastError = error
       const removal = removeMissingScheduleColumn(insertPayload, error)
@@ -972,7 +969,29 @@ export const scheduleApi = {
       logger.warn(`schedule_events insert: missing column "${removal.removedColumn}", retrying without it`)
     }
 
-    throw lastError
+    if (!insertedId) throw lastError
+
+    // スタッフ専用ビューから全カラム（JOIN含む）を取得して返す
+    const { data: fullEvent, error: fetchError } = await supabase
+      .from('schedule_events_staff_view')
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          short_name
+        ),
+        scenario_masters:scenario_master_id (
+          id,
+          title,
+          player_count_max
+        )
+      `)
+      .eq('id', insertedId)
+      .single()
+
+    if (fetchError) throw fetchError
+    return fullEvent
   },
 
   // 公演を更新
@@ -1054,22 +1073,10 @@ export const scheduleApi = {
         query = query.eq('updated_at', expectedUpdatedAt)
       }
 
-      const { data, error } = await query
-        .select(`
-          *,
-          stores:store_id (
-            id,
-            name,
-            short_name
-          ),
-          scenario_masters:scenario_master_id (
-            id,
-            title
-          )
-        `)
-        .single()
+      // id のみ返す（authenticated のカラム制限を回避、楽観的ロック失敗検出には十分）
+      const { data, error } = await query.select('id').single()
 
-      if (!error) return data
+      if (!error) break
 
       // 楽観的ロック失敗（PGRST116 = 0 rows = 他の人が先に更新した）
       if (expectedUpdatedAt && error.code === 'PGRST116') {
@@ -1084,7 +1091,28 @@ export const scheduleApi = {
       logger.warn(`schedule_events update: missing column "${removal.removedColumn}", retrying without it`)
     }
 
-    throw lastError
+    if (lastError) throw lastError
+
+    // スタッフ専用ビューから全カラム（JOIN含む）を取得して返す（INSERT と同パターン）
+    const { data: fullEvent, error: fetchError } = await supabase
+      .from('schedule_events_staff_view')
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          short_name
+        ),
+        scenario_masters:scenario_master_id (
+          id,
+          title
+        )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (fetchError) throw fetchError
+    return fullEvent
   },
 
   // 公演を削除（関連する予約はCASCADEで自動削除）
@@ -1114,14 +1142,21 @@ export const scheduleApi = {
       updateData.cancelled_at = null
     }
     
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('schedule_events')
       .update(updateData)
       .eq('id', id)
-      .select()
-      .single()
-    
+
     if (error) throw error
+
+    // スタッフ専用ビューから更新後のデータを取得（カラム制限を回避）
+    const { data, error: fetchError } = await supabase
+      .from('schedule_events_staff_view')
+      .select()
+      .eq('id', id)
+      .single()
+
+    if (fetchError) throw fetchError
     return data
   },
 
@@ -1132,7 +1167,7 @@ export const scheduleApi = {
       const orgId = await getCurrentOrganizationId()
       
       let query = supabase
-        .from('schedule_events')
+        .from('schedule_events_staff_view')
         .select('id, organization_id, scenario_master_id, scenario, store_id, date, start_time, category, gms, capacity, max_participants')
         .eq('is_cancelled', false)
         .order('date', { ascending: true })

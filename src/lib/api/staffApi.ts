@@ -113,7 +113,7 @@ export const staffApi = {
       
       // 1. schedule_eventsのgms配列を更新
       let scheduleQuery = supabase
-        .from('schedule_events')
+        .from('schedule_events_staff_view')
         .select('id, gms')
         .contains('gms', [oldName])
       if (orgId) scheduleQuery = scheduleQuery.eq('organization_id', orgId)

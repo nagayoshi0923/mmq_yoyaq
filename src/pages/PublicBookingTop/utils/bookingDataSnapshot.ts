@@ -1,6 +1,9 @@
 import type { BookingDataResult } from '../hooks/useBookingData'
 
-const SNAPSHOT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+// 5分: 空席状況はリアルタイム性が重要なため短く設定
+// refetchOnMount: 'always' で裏側で常に最新を取得するが、
+// スナップショットが古すぎると満席公演を「空きあり」と表示してしまう
+const SNAPSHOT_MAX_AGE_MS = 5 * 60 * 1000
 
 interface StoredWrapper {
   v: 1

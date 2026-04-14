@@ -180,7 +180,7 @@ export function ScheduleManager() {
       
       // まず対象のイベントを取得（シナリオの定員情報も含む、現在の組織のみ）
       const { data: events, error: fetchError } = await supabase
-        .from('schedule_events')
+        .from('schedule_events_staff_view')
         .select('id, scenario, max_participants, capacity, current_participants, date, start_time, scenario_id, scenario_master_id, store_id, gms, scenario_masters:scenario_master_id(player_count_max)')
         .eq('organization_id', orgId)
         .gte('date', startDate)

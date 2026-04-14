@@ -18,7 +18,7 @@ export const salesApi = {
     
     // まずschedule_eventsを取得
     let query = supabase
-      .from('schedule_events')
+      .from('schedule_events_staff_view')
       .select(SCHEDULE_EVENT_SALES_SELECT_FIELDS)
       .gte('date', startDate)
       .lte('date', endDate)
@@ -237,7 +237,7 @@ export const salesApi = {
     const orgId = await getCurrentOrganizationId()
     
     let query = supabase
-      .from('schedule_events')
+      .from('schedule_events_staff_view')
       .select(`
         *,
         stores:store_id (
@@ -263,13 +263,13 @@ export const salesApi = {
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('is_cancelled', false)
-    
+
     if (orgId) {
       query = query.eq('organization_id', orgId)
     }
-    
+
     const { data, error } = await query
-    
+
     if (error) throw error
     return data || []
   },
@@ -277,9 +277,9 @@ export const salesApi = {
   // シナリオ別売上データを取得
   async getSalesByScenario(startDate: string, endDate: string) {
     const orgId = await getCurrentOrganizationId()
-    
+
     let query = supabase
-      .from('schedule_events')
+      .from('schedule_events_staff_view')
       .select(`
         *,
         stores:store_id (
@@ -321,7 +321,7 @@ export const salesApi = {
     const orgId = await getCurrentOrganizationId()
     
     let query = supabase
-      .from('schedule_events')
+      .from('schedule_events_staff_view')
       .select(`
         date,
         scenario_masters:scenario_master_id (
@@ -368,7 +368,7 @@ export const salesApi = {
     const orgId = await getCurrentOrganizationId()
     
     let query = supabase
-      .from('schedule_events')
+      .from('schedule_events_staff_view')
       .select(SCHEDULE_EVENT_SALES_SELECT_FIELDS)
       .gte('date', startDate)
       .lte('date', endDate)

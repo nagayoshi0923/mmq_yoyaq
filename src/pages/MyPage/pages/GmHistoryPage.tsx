@@ -50,7 +50,7 @@ export function GmHistoryPage() {
     try {
       // スタッフが担当した公演を取得
       const { data, error } = await supabase
-        .from('schedule_events')
+        .from('schedule_events_staff_view')
         .select('scenario, date, venue')
         .contains('gms', [staffInfo.name])
         .eq('is_cancelled', false)

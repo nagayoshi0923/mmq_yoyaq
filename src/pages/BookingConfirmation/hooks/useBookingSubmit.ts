@@ -4,7 +4,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDate } from '../utils/bookingFormatters'
-import { getCurrentParticipantsCount } from '@/lib/participantUtils'
 import { reservationApi } from '@/lib/reservationApi'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { clearBookingDataSnapshot } from '@/pages/PublicBookingTop/utils/bookingDataSnapshot'
@@ -230,10 +229,11 @@ const checkReservationLimits = async (
   customerEmail?: string
 ): Promise<{ allowed: boolean; reason?: string }> => {
   try {
-    // 公演の最大参加人数とstore_idを取得（公開用ビュー）
+    // 公演の最大参加人数・現在参加人数・store_idを取得（公開用ビュー）
+    // current_participants はトリガーで常に再計算されるため、正確な集計値として使用
     const { data: eventData, error: eventError } = await supabase
       .from('schedule_events_public')
-      .select('max_participants, capacity, reservation_deadline_hours, store_id')
+      .select('max_participants, capacity, current_participants, reservation_deadline_hours, store_id')
       .eq('id', eventId)
       .single()
 
@@ -267,9 +267,11 @@ const checkReservationLimits = async (
       return { allowed: false, reason: `最大参加人数は${maxParticipants}名です` }
     }
 
-    // 🚨 CRITICAL: 現在の参加人数を予約テーブルから直接集計
-    // DBのcurrent_participantsは古い可能性があるため、信頼しない
-    const currentParticipants = await getCurrentParticipantsCount(eventId)
+    // 🚨 CRITICAL: 現在の参加人数を schedule_events_public.current_participants から取得
+    // reservations テーブルは RLS により顧客自身の行しか見えないため直接集計できない。
+    // current_participants はトリガー（recalc_current_participants_for_event）によって
+    // INSERT/UPDATE/DELETE 後に常に再計算されるため、信頼できる集計値として使用する。
+    const currentParticipants = eventData.current_participants ?? 0
     logger.log(`空席チェック: eventId=${eventId}, current=${currentParticipants}, max=${maxParticipants}, requesting=${participantCount}`)
 
     if ((currentParticipants + participantCount) > maxParticipants) {

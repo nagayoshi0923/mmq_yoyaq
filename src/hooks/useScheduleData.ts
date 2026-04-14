@@ -48,7 +48,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
     
     // 今日以前の公演を取得（中止されていない、カテゴリーがopenまたはgmtest、組織でフィルタ）
     const { data: pastEvents, error: eventsError } = await supabase
-      .from('schedule_events')
+      .from('schedule_events_staff_view')
       .select(`
         id,
         date,

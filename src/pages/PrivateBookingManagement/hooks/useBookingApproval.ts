@@ -96,7 +96,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       // 🚨 CRITICAL: 同じ日時・店舗に既存の公演がないかチェック
       // 再承認の場合は、この予約に紐づくイベントを除外する
       const existingEventsQuery = supabase
-        .from('schedule_events')
+        .from('schedule_events_staff_view')
         .select('id, scenario, start_time, end_time, reservation_id')
         .eq('date', selectedDateYmd)
         .eq('store_id', selectedStoreId)

@@ -96,7 +96,7 @@ export const useConflictCheck = () => {
       // 1. schedule_events テーブル（手動追加・インポートされた全公演）
       // ただし、この予約に紐づくイベントは除外する（再承認時のため）
       const { data: allEvents, error: eventsError } = await supabase
-        .from('schedule_events')
+        .from('schedule_events_staff_view')
         .select('id, scenario, date, start_time, end_time, store_id, reservation_id')
         .in('date', candidateDates)
         .eq('is_cancelled', false)
@@ -238,7 +238,7 @@ export const useConflictCheck = () => {
 
         // 🚨 CRITICAL: 1. schedule_eventsからGMの競合をチェック
         const { data: conflictEvents, error: conflictError } = await supabase
-          .from('schedule_events')
+          .from('schedule_events_staff_view')
           .select('id, gms, reservation_id')
           .eq('date', date)
           .eq('is_cancelled', false)

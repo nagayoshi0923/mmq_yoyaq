@@ -2,7 +2,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { getCurrentParticipantsCount } from '@/lib/participantUtils'
+import { supabase } from '@/lib/supabase'
 import type { EventSchedule } from '../utils/types'
 
 interface UseBookingActionsProps {
@@ -68,9 +68,16 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
     
     // 🚨 CRITICAL: リアルタイムで最新の空席状況をチェック
     // ページロード時のデータ(event.is_available)は古い可能性がある
+    // 注: reservations テーブルは RLS により顧客自身の行しか見えないため
+    //     schedule_events_public.current_participants（トリガーで常に最新）を使用する
     try {
-      const currentParticipants = await getCurrentParticipantsCount(event.event_id)
-      const maxParticipants = event.max_participants || 8
+      const { data: freshEventData } = await supabase
+        .from('schedule_events_public')
+        .select('current_participants, max_participants, capacity')
+        .eq('id', event.event_id)
+        .single()
+      const currentParticipants = freshEventData?.current_participants ?? event.current_participants
+      const maxParticipants = freshEventData?.max_participants || freshEventData?.capacity || event.max_participants || 8
       const availableSeats = maxParticipants - currentParticipants
 
       // 満席の場合でも予約確認画面に遷移（キャンセル待ち登録が可能）

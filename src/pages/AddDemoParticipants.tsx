@@ -91,7 +91,7 @@ export function AddDemoParticipants() {
       // 今日以前の公演を取得（全カテゴリ対象、組織フィルタ付き）
       log('公演を取得中（全カテゴリ）...', 'info')
       let eventsQuery = supabase
-        .from('schedule_events')
+        .from('schedule_events_staff_view')
         .select('id, date, venue, scenario, scenario_master_id, gms, start_time, end_time, category, is_cancelled, current_participants, capacity, organization_id')
         .lte('date', today.toISOString().split('T')[0])
         .eq('is_cancelled', false)
