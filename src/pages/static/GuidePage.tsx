@@ -1348,6 +1348,11 @@ export function GuidePage() {
                 <p className="font-medium text-gray-900 mb-1">Q. リクエスト送信後の流れは？</p>
                 <p className="text-gray-600 leading-relaxed">店舗側で候補日を確認し、日程を確定します。確定すると<strong>メールとグループ内の両方に通知</strong>が届きます。</p>
               </div>
+              <div>
+                <p className="font-medium text-gray-900 mb-1">Q. 作成した貸切グループを削除したい</p>
+                <p className="text-gray-600 leading-relaxed mb-1.5">グループページ右上の<strong>歯車アイコン</strong>を押して設定を開き、「グループを削除する」から削除できます。</p>
+                <p className="text-gray-600 leading-relaxed">ただし削除できるのは<strong>日程リクエストを送信する前</strong>のグループのみです。すでにリクエストを送信した場合は、お問い合わせフォームまたはメールにて「招待コード」と「削除希望」の旨をご連絡ください。</p>
+              </div>
             </div>
           </div>
         </div>

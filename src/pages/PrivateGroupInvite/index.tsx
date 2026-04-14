@@ -1359,9 +1359,11 @@ export function PrivateGroupInvite() {
   const isChatMode = existingMemberId && activeTab === 'chat'
 
   // 配役方法が未選択かつキャラクターが存在する場合
+  // has_pre_reading=true のシナリオのみ配役フローを表示（表示目的のキャラクター登録では発火しない）
   const charAssignmentMethod = (group as any).character_assignment_method as string | null
   const scenarioCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)
-  const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioCharacters.length > 0 && charAssignmentMethod == null)
+  const scenarioSurveyEnabled = !!(group.scenario_masters as any)?.survey_enabled
+  const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioSurveyEnabled && scenarioCharacters.length > 0 && charAssignmentMethod == null)
 
   // 進捗ステップ数の計算
   // booking_requested以降のステータスであれば、ステップ1〜4は完了済みとして扱う

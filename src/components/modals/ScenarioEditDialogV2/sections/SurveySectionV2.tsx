@@ -246,6 +246,10 @@ export function SurveySectionV2({ formData, setFormData }: SurveySectionV2Props)
                     <SelectItem value="3">3日前まで</SelectItem>
                     <SelectItem value="5">5日前まで</SelectItem>
                     <SelectItem value="7">7日前まで</SelectItem>
+                    <SelectItem value="10">10日前まで</SelectItem>
+                    <SelectItem value="14">14日前まで</SelectItem>
+                    <SelectItem value="21">21日前まで</SelectItem>
+                    <SelectItem value="30">30日前まで</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className={hintStyle}>

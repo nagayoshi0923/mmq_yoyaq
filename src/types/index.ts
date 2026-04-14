@@ -900,10 +900,11 @@ export interface PrivateGroup {
   created_at: string
   updated_at: string
   // JOIN時の拡張フィールド
-  scenario_masters?: { 
+  scenario_masters?: {
     id: string
     title: string
     key_visual_url: string | null
+    survey_enabled?: boolean
     characters?: Array<{
       name: string
       gender?: string

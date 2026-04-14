@@ -360,22 +360,6 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
             </div>
           </div>
 
-          {/* 事前読み込み */}
-          <div className="flex items-start gap-2 mt-5 pt-4 border-t">
-            <Checkbox
-              id="has_pre_reading"
-              checked={formData.has_pre_reading}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, has_pre_reading: checked === true }))}
-              className="mt-0.5"
-            />
-            <div>
-              <Label htmlFor="has_pre_reading" className="text-sm cursor-pointer">
-                事前読み込みあり
-              </Label>
-              <p className={hintStyle}>ONにすると予約時に「事前に資料を読む必要があります」と表示されます</p>
-            </div>
-          </div>
-
           {/* 貸切受付不可時間帯 */}
           <div className="mt-5 pt-4 border-t">
             <Label className={labelStyle}>貸切受付不可時間帯</Label>

@@ -1,6 +1,6 @@
-import { 
-  CheckCircle2, AlertCircle, 
-  Search, Mail, MessageSquare, Clock, XCircle
+import {
+  CheckCircle2, AlertCircle,
+  Search, Mail, MessageSquare, Clock, XCircle, Trash2
 } from 'lucide-react'
 
 export function ReservationManual() {
@@ -107,6 +107,26 @@ export function ReservationManual() {
                 電話などでキャンセル連絡を受けた場合は、管理画面から手動でステータスを「キャンセル」に変更してください。
                 メモ欄に「電話にて受付（担当：〇〇）」と残しておくと、後で経緯が分かりやすくなります。
               </p>
+          </div>
+
+          <div className="border rounded-lg p-4 hover:bg-muted/20 transition-colors">
+            <div className="flex items-center gap-2 mb-2">
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
+              <h4 className="font-medium text-sm">貸切グループの削除依頼が届いた場合</h4>
+            </div>
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p>お客様からメールなどで「グループを消したい」と連絡が来た場合の対応手順です。</p>
+              <ol className="list-decimal pl-5 space-y-1">
+                <li>メール本文に記載の<strong>招待コード</strong>（例: A65EPKHY）を手元に控えます。</li>
+                <li>管理画面の<strong>「貸切確認」</strong>ページを開きます。</li>
+                <li>検索欄に招待コードを入力し、該当のグループを見つけます。</li>
+                <li>カードをクリックして詳細を開き、一番下にある<strong>「この申込を完全に削除する」</strong>（赤いリンク）をクリックします。</li>
+                <li>確認ダイアログが表示されたら「OK」を押して完了です。</li>
+              </ol>
+              <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700 mt-2">
+                <strong>注意:</strong> 削除すると、グループ・メンバー・候補日程・チャット履歴がすべて消えます。復元はできないため、お客様の意思を必ず確認してから実行してください。
+              </div>
+            </div>
           </div>
 
           <div className="border rounded-lg p-4 hover:bg-muted/20 transition-colors">
