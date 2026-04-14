@@ -156,7 +156,7 @@ async function enrichGroupWithViewData(
   try {
     const { data: viewRow } = await supabase
       .from('organization_scenarios_with_master')
-      .select('characters, player_count_min, player_count_max')
+      .select('characters, player_count_min, player_count_max, survey_enabled')
       .eq('scenario_master_id', data.scenario_master_id)
       .eq('organization_id', data.organization_id)
       .maybeSingle()
@@ -165,6 +165,7 @@ async function enrichGroupWithViewData(
     if (viewRow.characters) {
       (data.scenario_masters as Record<string, unknown>).characters = viewRow.characters
     }
+    ;(data.scenario_masters as Record<string, unknown>).survey_enabled = viewRow.survey_enabled ?? false
     if (typeof viewRow.player_count_min === 'number' && typeof viewRow.player_count_max === 'number') {
       data.scenario_masters.effective_player_count_min = viewRow.player_count_min
       data.scenario_masters.effective_player_count_max = viewRow.player_count_max

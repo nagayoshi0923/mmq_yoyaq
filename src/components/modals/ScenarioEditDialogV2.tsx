@@ -54,7 +54,7 @@ const TABS = [
   { id: 'gm', label: 'GM', icon: Users },
   { id: 'costs', label: '売上', icon: TrendingUp },
   { id: 'performances', label: '公演実績', icon: CalendarDays },
-  { id: 'survey', label: 'アンケート', icon: ClipboardList },
+  { id: 'survey', label: '事前配役アンケート', icon: ClipboardList },
 ] as const
 
 type TabId = typeof TABS[number]['id']

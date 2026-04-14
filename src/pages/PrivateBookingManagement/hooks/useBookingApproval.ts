@@ -394,48 +394,16 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
               message: confirmedMessage
             })
 
-            // 事前読み込みシナリオの場合、追加通知を送信
-            const preReadingScenarioMasterId = selectedRequest?.scenario_master_id
-            if (preReadingScenarioMasterId) {
-              const { data: scenarioData } = await supabase
-                .from('scenario_masters')
-                .select('has_pre_reading')
-                .eq('id', preReadingScenarioMasterId)
-                .single()
-
-              if (scenarioData?.has_pre_reading) {
-                // 全体設定から事前読み込み通知メッセージを取得
-                const { data: globalSettings } = await supabase
-                  .from('global_settings')
-                  .select('pre_reading_notice_message')
-                  .eq('organization_id', organizationId)
-                  .maybeSingle()
-
-                const preReadingMessage = globalSettings?.pre_reading_notice_message || 
-                  '【ご確認ください】\n\nこのシナリオには事前読み込みがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
-
-                const preReadingSystemMessage = JSON.stringify({
-                  type: 'system',
-                  action: 'pre_reading_notice',
-                  message: preReadingMessage
-                })
-
-                await supabase.from('private_group_messages').insert({
-                  group_id: reservation.private_group_id,
-                  member_id: organizerMember.id,
-                  message: preReadingSystemMessage
-                })
-              }
-            }
-
-            // アンケートが有効な場合、回答案内を送信
+            // 事前配役アンケートが有効な場合の通知
+            // survey_enabled=true かつキャラクターあり → 事前配役シナリオ（pre-reading通知のみ、配役方法選択は客側で行う）
+            // survey_enabled=true かつキャラクターなし → 即座にアンケート通知を送信
             const scenarioMasterId = selectedRequest?.scenario_master_id
-            logger.log('📋 アンケート通知チェック:', { 
-              scenarioMasterId, 
+            logger.log('📋 事前配役アンケート通知チェック:', {
+              scenarioMasterId,
               organizationId,
               hasScenarioMasterId: !!selectedRequest?.scenario_master_id,
             })
-            
+
             if (scenarioMasterId) {
               const { data: orgScenarioData, error: orgScenarioError } = await supabase
                 .from('organization_scenarios_with_master')
@@ -446,42 +414,54 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
               logger.log('📋 organization_scenarios取得結果:', { orgScenarioData, orgScenarioError })
 
-              // キャラクターがあるシナリオは配役方法選択が先なので、ここではアンケート通知を送らない
               const hasPlayableCharacters = Array.isArray(orgScenarioData?.characters) && orgScenarioData.characters.some((c: any) => !c.is_npc)
 
-              if (orgScenarioData?.survey_enabled && !hasPlayableCharacters) {
-                // 確定日からアンケート期限を計算
-                const confirmedCandidate = selectedRequest.candidate_datetimes?.candidates?.find(
-                  (c: any) => c.order === selectedCandidateOrder
-                )
-                let deadlineText = ''
-                if (confirmedCandidate?.date && orgScenarioData.survey_deadline_days !== undefined) {
-                  const perfDate = new Date(confirmedCandidate.date + 'T00:00:00+09:00')
-                  perfDate.setDate(perfDate.getDate() - orgScenarioData.survey_deadline_days)
-                  deadlineText = `\n\n回答期限: ${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`
-                }
+              if (orgScenarioData?.survey_enabled) {
+                if (hasPlayableCharacters) {
+                  // 事前配役シナリオ: グループ全員の参加を促す通知を送信
+                  const { data: globalSettings } = await supabase
+                    .from('global_settings')
+                    .select('pre_reading_notice_message')
+                    .eq('organization_id', organizationId)
+                    .maybeSingle()
 
-                const surveyMessage = `【アンケートのご協力のお願い】\n\nこちらの公演では事前アンケートへのご回答をお願いしております。\n\n上記の「日程を確認・回答する」ボタンからアンケートにお答えください。${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
+                  const preReadingMessage = globalSettings?.pre_reading_notice_message ||
+                    '【ご確認ください】\n\nこのシナリオには事前配役アンケートがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
 
-                const surveySystemMessage = JSON.stringify({
-                  type: 'system',
-                  action: 'survey_notice',
-                  message: surveyMessage
-                })
-
-                const { error: surveyMsgError } = await supabase.from('private_group_messages').insert({
-                  group_id: reservation.private_group_id,
-                  member_id: organizerMember.id,
-                  message: surveySystemMessage
-                })
-                
-                if (surveyMsgError) {
-                  logger.error('📋 アンケート通知送信エラー:', surveyMsgError)
+                  await supabase.from('private_group_messages').insert({
+                    group_id: reservation.private_group_id,
+                    member_id: organizerMember.id,
+                    message: JSON.stringify({ type: 'system', action: 'pre_reading_notice', message: preReadingMessage })
+                  })
+                  logger.log('📋 事前配役シナリオ: pre_reading_notice送信成功')
                 } else {
-                  logger.log('📋 アンケート通知送信成功')
+                  // キャラクターなし: 即座にアンケート通知を送信
+                  const confirmedCandidate = selectedRequest.candidate_datetimes?.candidates?.find(
+                    (c: any) => c.order === selectedCandidateOrder
+                  )
+                  let deadlineText = ''
+                  if (confirmedCandidate?.date && orgScenarioData.survey_deadline_days !== undefined) {
+                    const perfDate = new Date(confirmedCandidate.date + 'T00:00:00+09:00')
+                    perfDate.setDate(perfDate.getDate() - orgScenarioData.survey_deadline_days)
+                    deadlineText = `\n\n回答期限: ${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`
+                  }
+
+                  const surveyMessage = `【事前配役アンケートのご協力のお願い】\n\nこちらの公演では事前配役アンケートへのご回答をお願いしております。\n\n上記の「日程を確認・回答する」ボタンからアンケートにお答えください。${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
+
+                  const { error: surveyMsgError } = await supabase.from('private_group_messages').insert({
+                    group_id: reservation.private_group_id,
+                    member_id: organizerMember.id,
+                    message: JSON.stringify({ type: 'system', action: 'survey_notice', message: surveyMessage })
+                  })
+
+                  if (surveyMsgError) {
+                    logger.error('📋 アンケート通知送信エラー:', surveyMsgError)
+                  } else {
+                    logger.log('📋 アンケート通知送信成功')
+                  }
                 }
               } else {
-                logger.log('📋 アンケートが無効のためスキップ:', { survey_enabled: orgScenarioData?.survey_enabled })
+                logger.log('📋 事前配役アンケートが無効のためスキップ:', { survey_enabled: orgScenarioData?.survey_enabled })
               }
             } else {
               logger.log('📋 scenario_master_idがないためアンケート通知スキップ')
