@@ -42,15 +42,17 @@ CREATE OR REPLACE FUNCTION public.notify_private_booking_discord_trigger()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
-  v_base_url  text;
-  v_anon_key  text;
-  v_url       text;
-  v_headers   text;
+  v_base_url       text;
+  v_anon_key       text;
+  v_trigger_secret text;
+  v_body           jsonb;
 BEGIN
-  SELECT value INTO v_base_url FROM public.app_config WHERE key = 'supabase_url';
-  SELECT value INTO v_anon_key FROM public.app_config WHERE key = 'supabase_anon_key';
+  SELECT value INTO v_base_url       FROM public.app_config WHERE key = 'supabase_url';
+  SELECT value INTO v_anon_key       FROM public.app_config WHERE key = 'supabase_anon_key';
+  SELECT value INTO v_trigger_secret FROM public.app_config WHERE key = 'trigger_secret';
 
   -- 設定値が未投入の場合はスキップ（エラーにしない）
   IF v_base_url IS NULL THEN
@@ -58,14 +60,26 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  v_url     := v_base_url || '/functions/v1/notify-private-booking-discord';
-  v_headers := jsonb_build_object(
-    'Content-type', 'application/json',
-    'Authorization', 'Bearer ' || v_anon_key
-  )::text;
+  v_body := jsonb_build_object(
+    'type',   'INSERT',
+    'table',  'reservations',
+    'schema', 'public',
+    'record', row_to_json(NEW)::jsonb
+  );
 
-  PERFORM supabase_functions.http_request(v_url, 'POST', v_headers, '{}', '1000');
+  PERFORM net.http_post(
+    url     := v_base_url || '/functions/v1/notify-private-booking-discord',
+    body    := v_body,
+    headers := jsonb_build_object(
+      'Content-type',      'application/json',
+      'Authorization',     'Bearer ' || v_anon_key,
+      'x-mmq-cron-secret', v_trigger_secret
+    )
+  );
 
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'Discord 通知エラー（予約処理は続行）: %', SQLERRM;
   RETURN NEW;
 END;
 $$;
