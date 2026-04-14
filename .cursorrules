@@ -211,6 +211,40 @@ npm run dev
 - **リグレッション確認**: 変更したファイルを呼び出している箇所、共通ロジックを使っている隣接機能を列挙する
 - 純粋なリファクタリングでも「挙動が同じこと」の確認項目を出す
 - マイグレーションを含む場合は DB の確認項目を追加する
+- **Edge Function が関係する場合は必ず以下を含める（下記ルール参照）**
+
+---
+
+## Edge Function 発火確認（必須）🚨
+
+操作後に Edge Function の発火が期待される場合、ユーザーが「操作した」と言ったら**その場で必ず DB クエリを実行して副作用を確認すること**。
+
+Supabase の Edge Function ログは Management API 経由ではステージングで取得できないため、**DB への副作用を確認することで発火を検証する**。
+
+### 各 Edge Function の確認方法
+
+| Edge Function | 確認コマンド |
+|---|---|
+| `send-private-booking-request-confirmation`（貸切申込メール） | `npx supabase db query --db-url "$STAGING_DB_URL" "SELECT id, reservation_number, created_at FROM reservations ORDER BY created_at DESC LIMIT 1"` |
+| `notify-private-booking-discord`（Discord通知） | `npx supabase db query --db-url "$STAGING_DB_URL" "SELECT id, created_at FROM reservations ORDER BY created_at DESC LIMIT 1"` ＋ Discord チャンネルを直接確認 |
+| `notify-gm-private-booking-confirmed`（GM確定通知） | `npx supabase db query --db-url "$STAGING_DB_URL" "SELECT id, status, updated_at FROM private_groups ORDER BY updated_at DESC LIMIT 1"` |
+| system_message 挿入（グループチャット） | `npx supabase db query --db-url "$STAGING_DB_URL" "SELECT id, message, created_at FROM private_group_messages ORDER BY created_at DESC LIMIT 3"` |
+
+### DB クエリの実行方法
+
+```bash
+npx supabase db query --linked "SELECT ..."
+```
+
+（`--linked` を付けると現在リンクしているプロジェクト＝ステージングDBに対して実行される）
+
+### チェックリストへの追加形式
+
+```
+### Edge Function 確認
+- [ ] `send-private-booking-request-confirmation`: 最新 reservation レコードが存在する（VS Code で DB クエリ実行）
+- [ ] `notify-private-booking-discord`: Discord の #貸切通知 チャンネルに通知が届いている
+```
 
 ---
 
