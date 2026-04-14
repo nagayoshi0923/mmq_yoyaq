@@ -1,14 +1,106 @@
-When generating git commit messages, always write them in Japanese.
-Use conventional commit format with Japanese descriptions.
+# 開発ルール（正規ソース）
+# Claude Code / Cursor 共通。このファイルが唯一の正規ソース。
 
-Example:
+---
+
+## プロジェクト概要
+
+Queens Waltz の6店舗対応マーダーミステリー店舗管理システム。React + TypeScript + Supabase（PostgreSQL）のマルチテナント SPA。
+
+---
+
+## コマンド
+
+```bash
+# 開発
+npm run dev                  # 開発サーバー起動（本番DB接続）
+npm run dev:staging          # ステージングDB接続で開発サーバー起動
+npm run dev:local            # Supabase ローカル起動 + 開発サーバー
+
+# ビルド・チェック
+npm run build                # 型チェック + ビルド（デプロイ前必須）
+npm run build:fast           # 型チェックなし高速ビルド
+npm run typecheck            # 型チェックのみ
+npm run lint                 # ESLint（max-warnings 100）
+npm run verify               # セキュリティ + 型チェック + lint + ビルド（コミット前推奨）
+
+# データベース
+npm run db:check             # スキーマ整合性確認
+npm run db:diff              # スキーマ差分確認
+npm run db:push:staging      # ステージングにマイグレーション適用（権限検証も実行）
+npm run db:push:prod         # 本番にマイグレーション適用（権限検証も実行）
+npm run db:mirror:staging    # 本番データをステージングDBに同期
+npm run db:status            # マイグレーション適用状態確認（未適用のみ表示）
+npm run check:permissions    # RLS権限検証
+npm run check:permissions:fix # 権限修復SQL表示
+
+# テスト
+npm run test:rpcs            # RPCスモークテスト（ローカルSupabase起動中に実行）
+npm run test:e2e             # Playwright E2Eテスト
+npm run test:e2e:ui          # Playwright UIモードで実行
+
+# マイグレーション作成
+npm run supabase:migration:new  # 新規マイグレーションファイル作成
+```
+
+**コミット前チェック**: `npm run pre-commit`（セキュリティ + マルチテナント + 型チェック）
+
+---
+
+## アーキテクチャ
+
+### データフロー
+
+```
+Pages/Components
+  ↓ カスタムフック（src/hooks/）でデータ管理
+  ↓ APIモジュール（src/lib/api/）でSupabase操作
+  ↓ Supabase（PostgreSQL + RLS + RPC関数）
+```
+
+- **データ取得**: TanStack React Query（staleTime: 5分）でキャッシュ管理
+- **状態管理**: カスタムフック + React Query。グローバル状態は `src/contexts/`（AuthContext, RouteScrollRestorationContext）のみ
+- **ページ状態の保持**: `usePageState` フック（sessionStorage）でフィルタ・スクロール位置を復元
+
+### 重要な設計上の制約
+
+**マルチテナント**: 全データは `organization_id` で分離。INSERT/SELECT で必ず付与・フィルタすること。`organization_id` 不要なテーブルは `users`, `organizations`, `authors`, `auth_logs` のみ。RLS で保護されているが、コード側でも必ずフィルタを追加する。
+
+**RPC関数**: `supabase.rpc()` に移行した場合、直接INSERT時に保存していた全フィールドがサポートされているか必ず確認する（過去に `payment_method` 欠落バグあり）。PL/pgSQL は関数作成時にボディを構文チェックしないため、マイグレーションでRPCを変更した場合は必ず `npm run test:rpcs` でスモークテストを実行すること。
+
+### ディレクトリ構成の重要ポイント
+
+| パス | 役割 |
+|------|------|
+| `supabase/schemas/` | テーブルの正規定義（カラム名確認はここを見る） |
+| `supabase/rpcs/` | RPC関数の正規定義 |
+| `src/lib/api/` | APIモジュール群（scheduleApi, reservationApi, scenarioApi 等16+ファイル） |
+| `src/lib/reservationApi.ts` | 予約APIのメインファイル（複数予約タイプで共用、変更時は全呼び出し元を確認） |
+| `src/hooks/` | 30+のカスタムフック。useEventOperations.ts・useScheduleData.ts が特に複雑 |
+| `src/types/index.ts` | 全型定義の正規ソース。DBカラム名と一致させる |
+| `src/contexts/AuthContext.tsx` | 認証 + ロールベースアクセス制御 |
+| `supabase/migrations/` | マイグレーションファイル群 |
+| `docs/` | 機能・開発ルール・デザインガイドライン |
+
+### スケジュール管理の特殊仕様
+
+`ScheduleManager` は通常のグリッドカレンダーではなく、`scheduleEvents[monthKey: DaySchedule[]]` の階層構造を持つ独自のリスト型カレンダー。朝・昼・夜の3時間帯 + 自由時間設定。localStorage と Supabase の双方向同期。
+
+---
+
+## コミットメッセージ
+
+**必ず日本語で記述**（Conventional Commits 形式）:
+
+```
 feat: 新機能を追加
 fix: バグを修正
+refactor: コードをリファクタリング
 docs: ドキュメントを更新
 style: コードスタイルを修正
-refactor: コードをリファクタリング
 test: テストを追加・修正
 chore: ビルドプロセスや補助ツールの変更
+```
 
 ---
 
@@ -18,32 +110,20 @@ chore: ビルドプロセスや補助ツールの変更
 
 共有関数（API、ユーティリティ、フック等）を変更する際は、意図せぬ破壊（リグレッション）を防ぐため、必ず以下を確認すること。
 
-### 変更前の必須確認事項
-
 ```bash
-# 1. 呼び出し元を全て特定する
+# 呼び出し元を全て特定する
 grep -rn "関数名" src --include="*.ts" --include="*.tsx"
-
-# 2. 各呼び出し元がどのパラメータ・フィールドに依存しているか確認
-# 3. 変更後も全ての呼び出し元が正しく動作するか検証
 ```
 
 ### 危険な変更パターン
 
 ❌ **絶対に避けるべき変更**
 
-1. **関数の戻り値・副作用の変更**
-   - 例: `create()` が保存するフィールドを減らす
-   - 例: 戻り値の型を変更する
+1. **関数の戻り値・副作用の変更** — 例: `create()` が保存するフィールドを減らす
+2. **内部実装の置き換え（直接INSERT → RPC等）** — 新しい実装が全てのユースケースをカバーしているか確認必須
+3. **デフォルト値や暗黙の動作の変更** — 呼び出し元が暗黙的に依存している可能性
 
-2. **内部実装の置き換え（直接INSERT → RPC等）**
-   - 新しい実装が全てのユースケースをカバーしているか確認必須
-   - 元の実装で使われていたフィールドが全て保存されるか確認
-
-3. **デフォルト値や暗黙の動作の変更**
-   - 呼び出し元が暗黙的に依存している可能性
-
-### 実例：今回のバグ
+### 実例：過去のバグ
 
 ```typescript
 // ❌ 問題のあった変更
@@ -54,21 +134,7 @@ await supabase.from('reservations').insert([{ ...reservation }])
 await supabase.rpc('create_reservation_with_lock_v2', {
   p_schedule_event_id: ...,  // payment_method, participant_names が欠落！
 })
-
 // → syncStaffReservations() が壊れた
-//   （payment_method='staff' が保存されず、重複チェックが機能しなくなった）
-```
-
-### 安全な変更手順
-
-```
-1. 呼び出し元を全てリストアップ
-2. 各呼び出し元が依存するフィールド・動作を特定
-3. 変更後も全ての依存が満たされるか確認
-4. 満たされない場合は：
-   - 呼び出し元も同時に修正する
-   - または別関数として実装し、段階的に移行する
-5. 可能であればテストを追加して自動検証
 ```
 
 ### 特に注意が必要な共有関数
@@ -80,7 +146,7 @@ await supabase.rpc('create_reservation_with_lock_v2', {
 | 認証・セッション関連 | 全画面に影響 |
 | 日時処理ユーティリティ | 予約・キャンセル判定に影響 |
 
-### チェックリスト（共有関数を変更する前に）
+### チェックリスト
 
 ```
 □ grep で全ての呼び出し元を特定したか？
@@ -94,59 +160,15 @@ await supabase.rpc('create_reservation_with_lock_v2', {
 
 ## 機能削除の禁止ルール（必須）🚨
 
-### 基本原則：「困った時に機能を削って解決しようとしない」
-
-バグ修正や問題解決の際、**既存機能を削除・無効化して「解決」しようとすることは絶対に禁止。**
-
-### 禁止される行動パターン
-
-❌ **絶対にやってはいけないこと**
-
-1. **デバッグが難しいからコードを削除する**
-   - 「この機能が原因っぽいので削除しました」は NG
-   - 原因を特定して正しく修正すること
-
-2. **エラーを回避するために機能を無効化する**
-   - `// TODO: 後で直す` で機能をコメントアウトして放置は NG
-   - 条件分岐で機能をスキップさせるのも NG
-
-3. **「シンプルにするため」という理由で機能を削る**
-   - ユーザーが使っている機能を勝手に削除しない
-   - リファクタリングは機能を維持したまま行う
-
-4. **テストが通らないからテスト対象の機能を削る**
-   - テストを直すか、機能を直す
-   - 機能を削ってテストをパスさせるのは本末転倒
-
-### 正しい対処法
-
-```
-1. エラーの原因を正確に特定する（ログ、デバッグ）
-2. 原因を理解した上で最小限の修正を行う
-3. 既存機能が維持されていることを確認する
-4. 不明な場合はユーザーに確認を取る
-```
-
-### 機能削除が許可されるケース
-
-✅ **ユーザーから明示的に依頼された場合のみ**
-- 「この機能を削除して」「この機能は不要」等の明確な指示があった場合
-
-### 禁止事項の例
+**絶対禁止**: バグ修正のために既存機能を削除・無効化・コメントアウトすること。機能削除はユーザーからの明示的な指示がある場合のみ。
 
 ```typescript
-// ❌ NG: エラーが出るからreturn
-if (someCondition) {
-  return  // 「エラー回避のため早期リターン」← 機能が動かなくなる！
-}
-
-// ❌ NG: 問題のあるコードを削除
+// ❌ NG
+if (someCondition) return  // 「エラー回避のため早期リターン」
 // await sendNotification(...)  // 「通知でエラーが出るのでコメントアウト」
+const FEATURE_ENABLED = false  // 「一時的に無効化」
 
-// ❌ NG: 機能を条件付きで無効化
-const FEATURE_ENABLED = false  // 「一時的に無効化」← 一時的のまま放置される
-
-// ✅ OK: 原因を特定して正しく修正
+// ✅ OK
 await sendNotification(...).catch(err => {
   logger.error('通知エラー:', err)  // エラーをログして継続
 })
@@ -156,62 +178,21 @@ await sendNotification(...).catch(err => {
 
 ## データベースカラム名の事前確認ルール（必須）🚨
 
-### 基本原則：「実装前にデータベーススキーマを確認する」
-
 **Supabaseクエリを書く前に、必ずカラム名を確認すること。**
-カラム名の間違い（例: `response_type` vs `response_status`）は実行時エラーになり、デバッグが困難。
-
-### 確認手順（実装前に必須）
 
 ```bash
-# 1. テーブルのカラム一覧を確認
-# Supabase SQL Editor で実行:
-SELECT column_name, data_type FROM information_schema.columns 
-WHERE table_name = 'テーブル名' ORDER BY ordinal_position;
+# まず schemas/ を確認（正規ソース）
+cat supabase/schemas/テーブル名.sql
 
-# 2. 既存コードで使用されている名前を確認
+# 既存コードで使用されている名前を確認
 grep -rn "テーブル名" src --include="*.ts" --include="*.tsx" | head -20
 ```
 
-### Supabaseクエリ作成時のルール
-
-```typescript
-// ✅ 正しい例：事前にカラム名を確認してから実装
-// gm_availability_responses テーブルの実際のカラム名: response_status
-const { data } = await supabase
-  .from('gm_availability_responses')
-  .select('staff_id, response_status, available_candidates')  // 正しいカラム名
-
-// ❌ 間違った例：推測でカラム名を書く
-const { data } = await supabase
-  .from('gm_availability_responses')
-  .select('staff_id, response_type, available_candidates')  // カラム名が間違い！
-```
-
-### 型定義との整合性
-
-```typescript
-// データベースカラム名と型定義は必ず一致させる
-interface GMResponse {
-  staff_id: string
-  response_status: string  // ← DBカラム名と同じ
-  available_candidates: number[]
-}
-```
+型定義（`src/types/index.ts`）は DB カラム名（snake_case）と必ず一致させる。フロントエンド変数は camelCase。同じ概念に複数の名前を作らない。
 
 ---
 
 ## データ命名規則（必須）
-
-### 基本原則：「既存の名前を確認してから命名する」
-
-新しいフィールド/変数を作成する前に、必ず以下を確認：
-
-1. **データベースのカラム名を確認** - Supabaseのテーブル定義が正解
-2. **型定義を確認** - `src/types/index.ts` で既存の命名パターンを確認
-3. **類似フィールドを検索** - 同じ概念に別名がないか `grep` で確認
-
-### 命名規則
 
 | 場所 | ケース | 例 |
 |------|--------|-----|
@@ -220,404 +201,188 @@ interface GMResponse {
 | React state/変数 | camelCase | `participantCount`, `storeId` |
 | コンポーネントProps | camelCase | `onParticipantChange` |
 
-### 禁止事項
-
-❌ 同じ概念に複数の名前を作らない
-- 悪い例: `discord_user_id` と `discord_id` を混在
-- 悪い例: `min_players` と `player_count_min` を混在
-- 悪い例: `participant_count` と `current_participants` を混在
-
-❌ 既存のパターンを無視して新しい名前を作らない
-- 新規追加時は必ず既存の類似フィールドを確認
-
-### 新しいフィールド追加時のチェックリスト
-
-```
-□ データベースにカラムを追加した場合
-  → src/types/index.ts の該当interfaceに同じ名前で追加
-  
-□ フロントエンドで新しいプロパティを使う場合
-  → 型定義に存在するか確認（なければ追加）
-  
-□ 既存と似た名前のフィールドがある場合
-  → 既存の命名パターンに合わせる（新しい名前を作らない）
-```
-
-### 確認コマンド
-
-```bash
-# 類似の命名がないか確認
-grep -r "participant" src/types/
-
-# データベースと型定義の整合性確認
-npm run db:check
-```
+❌ 同じ概念に複数の名前を作らない（例: `discord_user_id` と `discord_id` の混在）
 
 ---
 
 ## TypeScript 型安全ルール（必須）
 
-### ビルド前の型チェック必須
 - `npm run build` は必ず `tsc --noEmit` を実行してから `vite build` を行う
 - 型エラーがある状態でのデプロイは禁止
-- 急ぎの場合のみ `npm run build:fast` を使用可（型チェックをスキップ）
-
-### コード変更時のルール
-1. **新しいプロパティを追加する場合**: 必ず対応する型定義（interface/type）も更新する
-2. **データベースカラム名を使用する場合**: types/index.ts の型定義と一致させる
-3. **Supabaseクエリの結果を使用する場合**: 適切な型アサーションを行う
-4. **コンポーネントにpropsを追加する場合**: Props interfaceを必ず定義する
-
-### 型エラーの対処
-- `Property 'xxx' does not exist` → 型定義に追加するか、プロパティ名を修正
-- `Type 'A' is not assignable to type 'B'` → 型の不整合を解消
-- `Module has no exported member` → インポート先を確認、または `npm ci` を実行
-
-### 定期チェック推奨
-```bash
-npm run typecheck  # 型チェックのみ実行
-```
+- 新しいプロパティを追加する場合、必ず対応する型定義（interface/type）も更新する
+- Supabaseクエリの結果を使用する場合、適切な型アサーションを行う
 
 ---
 
 ## マルチテナント対応ルール（必須）🚨
 
-### 基本原則：「organization_id を必ず設定・フィルタする」
+**organization_id の設定漏れは他組織のデータ漏洩につながる重大なセキュリティ問題。**
 
-このプロジェクトはマルチテナント（複数組織）に対応しています。
-**organization_id の設定漏れは他組織のデータ漏洩につながる重大なセキュリティ問題です。**
-
-### データベース操作時のルール
-
-#### 1. INSERT / UPSERT 時
 ```typescript
-// ✅ 正しい例
-const orgId = await getCurrentOrganizationId()
-await supabase.from('reservations').insert({
-  ...data,
-  organization_id: orgId  // 必須
-})
+// ✅ INSERT 時
+await supabase.from('reservations').insert({ ...data, organization_id: orgId })
 
-// ❌ 間違った例
-await supabase.from('reservations').insert(data)  // organization_id がない！
-```
-
-#### 2. SELECT 時
-```typescript
-// ✅ 正しい例
-const orgId = await getCurrentOrganizationId()
+// ✅ SELECT 時
 let query = supabase.from('reservations').select('*')
-if (orgId) {
-  query = query.eq('organization_id', orgId)
-}
+if (orgId) query = query.eq('organization_id', orgId)
 
-// ❌ 間違った例
-await supabase.from('reservations').select('*')  // フィルタなし！
+// ❌ フィルタなし
+await supabase.from('reservations').select('*')
 ```
 
-#### 3. UPDATE / DELETE 時
-```typescript
-// ID で特定する場合は RLS で保護されるため OK
-// ただし、範囲更新/削除する場合は organization_id フィルタ必須
-```
+**organization_id 不要なテーブル**: `users`, `organizations`, `authors`, `auth_logs`
 
-### 例外（organization_id 不要なテーブル）
-
-以下のテーブルは organization_id 不要：
-- `users` - 認証テーブル
-- `organizations` - 組織テーブル自体
-- `authors` - 共有マスタデータ
-- `auth_logs` - システムログ
-
-### 新機能追加時のチェックリスト
-
+チェックリスト:
 ```
 □ INSERT/UPSERT に organization_id を含めているか？
 □ SELECT に organization_id フィルタを追加しているか？
-□ 新しいテーブルに organization_id カラムがあるか？
 □ 新しいテーブルに RLS ポリシーを設定したか？
-□ organization_id カラムにインデックスがあるか？
 ```
-
-### 確認コマンド
-
-```bash
-# organization_id が漏れている INSERT を検索
-grep -rn "\.insert(" src --include="*.ts" --include="*.tsx" | xargs -I {} sh -c 'grep -L "organization_id" {}'
-
-# RLS ポリシーの確認（Supabase SQL Editor で実行）
-SELECT tablename, policyname FROM pg_policies WHERE schemaname = 'public';
-```
-
-### 多層防御
-
-1. **RLS（Row Level Security）** - データベースレベルで強制保護
-2. **コード側フィルタ** - 明示的な organization_id フィルタ
-3. **インデックス** - パフォーマンス確保
-
-**RLS だけでも保護されますが、コード側でも必ずフィルタを追加してください。**
 
 ---
 
 ## ステージング・本番デプロイルール（必須）🚨
 
-### 基本原則：「ステージングで確認後、ユーザー承認を得てから本番デプロイ」
-
-**絶対に守ること：ステージングにデプロイしたら、必ずユーザーの確認を待つ。**
-勝手に本番（main）にマージしたり、本番にデプロイしたりしないこと。
-
-### ⚠️ Supabase環境の区別（重要）
-
-```
-supabase db push --linked  → 本番環境（絶対に注意！）
-supabase functions deploy --project-ref xxx  → プロジェクト指定でデプロイ
-```
-
-**`--linked` は本番に接続されています。ステージングではありません。**
-
-マイグレーションをステージングに適用したい場合は、ユーザーに確認してから実行すること。
-
-### ブランチ戦略（絶対厳守）🚨
+### ブランチ戦略（絶対厳守）
 
 ```
 ❌ 絶対禁止: main ブランチに直接コミットすること
 ❌ 絶対禁止: staging ブランチに直接コミットすること
-❌ 絶対禁止: フロントエンド変更を main にマージしてから DB マイグレーションを適用すること
 ```
 
-**main にマージ = Vercel が即座に本番デプロイ** という前提で行動すること。
-DB変更を伴う場合、フロントエンドが先に本番に出ると、存在しないカラムを参照してエラーになる。
+**main にマージ = Vercel が即座に本番デプロイ。**
 
-### コード変更前の必須チェック（絶対厳守）🚨
-
-**ファイルを編集する前に、必ず以下を実行すること：**
-
-```bash
-# 1. 現在のブランチを確認
-git branch --show-current
-
-# 2. main または staging にいる場合 → feature ブランチを作成
-git checkout -b feature/作業内容の短い説明
-```
-
-**main/staging にいるまま編集・コミットしてはいけない。**
-前のタスク完了後に main/staging に切り替えた場合、次のタスクで feature ブランチを切り忘れやすい。
+**コード変更前の必須チェック**: ファイルを編集する前に `git branch --show-current` で確認。main/staging にいる場合は `git checkout -b feature/xxx` で feature ブランチを作成してから作業する。
 
 ### デプロイフロー
 
-#### フロントエンドのみの変更（DBマイグレーションなし）
+#### フロントエンドのみの変更
 
 ```
-1. feature/* ブランチで開発・コミット
-2. npm run dev:staging でローカル確認（ステージングDB接続）
-3. staging ブランチにマージ → Vercelがステージングを自動デプロイ
-4. ⚠️ ここで必ず停止 ⚠️
-   - 「ステージングにデプロイしました。動作確認をお願いします。」と伝える
-   - ユーザーからの明示的な承認を待つ
-5. 承認後のみ、staging → main にマージ
+feature/* ブランチで開発
+  → npm run dev:staging でローカル確認
+  → staging にマージ → Vercelがステージングを自動デプロイ
+  → ユーザーがステージングで動作確認
+  → 承認後 staging → main にマージ
 ```
 
-#### DBマイグレーションを伴う変更（最重要）🚨
+#### DBマイグレーションを伴う変更（順序が最重要）🚨
 
 ```
-1. feature/* ブランチで開発・コミット（フロントエンド + マイグレーション）
-2. npm run db:mirror:staging（本番データでステージングDBを最新化）
-3. ステージングDBにマイグレーション適用（npm run db:push:staging）
-4. npm run dev:staging でローカル確認（ステージングDB接続）
-5. staging ブランチにマージ → Vercelがステージングを自動デプロイ
-6. ⚠️ ここで必ず停止 ⚠️ → ユーザーの動作確認を待つ
-7. 承認後：
-   a. 先に本番DBにマイグレーション適用（npm run db:push:prod）← DB が先！
-   b. マイグレーション成功を確認
-   c. その後 staging → main にマージ（Vercelが本番フロントエンドをデプロイ）
+feature/* ブランチで開発
+  → npm run db:mirror:staging（本番データでステージングDBを最新化）
+  → npm run db:push:staging（ステージングDBにマイグレーション適用）
+  → npm run dev:staging でローカル確認
+  → staging にマージ → Vercelがステージングを自動デプロイ
+  → ユーザーがステージングで動作確認
+  → 承認後：
+    1. npm run db:status で未適用マイグレーションを確認
+    2. npm run db:push:prod（本番DBにマイグレーション適用）← DB が先！
+    3. マイグレーション成功を確認
+    4. staging → main にマージ（Vercelが本番フロントエンドをデプロイ）
 ```
 
 **順序の鉄則: DB変更 → フロントエンドデプロイ（逆は絶対禁止）**
+フロントが先に出ると存在しないカラムを参照して本番エラーになる（実際に事故発生済み）。
+
+### マイグレーション適用状態の確認
+
+`npm run db:status` を実行すると未適用マイグレーションのみ表示される。
+手動で確認する場合は `npx supabase migration list` を実行し、リモート列（2列目）が空の行が未適用。
+
+```
+# 適用済み（両列に値あり）
+20260414180000 | 20260414180000 | 2026-04-14 18:00:00
+
+# 未適用（リモート列が空）
+20260415000000 |               |
+```
+
+### ステージング・本番の環境情報
+
+- ステージングURL: `https://mmq-yoyaq-git-staging-nagayoshi0923s-projects.vercel.app`
+- ステージングDB: `lavutzztfqbdndjiwluc`（`npm run db:push:staging` で適用）
+- 本番DB: `cznpcewciwywcqcxktba`（`npm run db:push:prod` で適用）
+- `supabase db push --linked` は**本番環境**に接続（ステージングとは別物）
+
+### 役割分担
+
+- AI: Issue実装・型チェック・staging 向けPR作成。main に直接コミットしない。
+- ユーザー: ステージング確認・main マージ・本番DB適用判断
 
 ### AIエージェントへの厳守事項
 
 ❌ **禁止事項**
-- main ブランチに直接コミットすること（feature/* → staging → main の順守）
-- ステージングデプロイ後、ユーザー確認なしにmainにマージ
-- 「効率のため」「問題なさそうなので」等の理由で本番デプロイをスキップ
-- ユーザーが「マージして」と言っただけで本番まで進める（ステージング確認の意図かもしれない）
-- DBマイグレーション適用前にフロントエンド変更を main にマージすること
+- ステージングデプロイ後、ユーザー確認なしに main にマージ
+- DBマイグレーション適用前にフロントエンド変更を main にマージ
+- 「効率のため」「問題なさそうなので」等の理由で確認をスキップ
 
 ✅ **必須事項**
-- 開発は必ず feature/* ブランチで行う
-- ステージングデプロイ後は必ず「確認してください」と伝えて停止
-- ユーザーから「本番に適用して」「mainにマージして」等の明確な指示があるまで待機
-- DB変更がある場合は「先に本番DBにマイグレーションを適用してからmainにマージします」と伝える
-- 不明な場合は「本番に適用してよろしいですか？」と確認
+- ステージングデプロイ後は「確認してください」と伝えて停止
+- DB変更がある場合は PR説明にマイグレーション適用状況を明記
+- mainマージ前に `npm run db:status` で未適用がないことを確認
 
 ### 過去の事故事例
 
 ```
 ❌ 実際に起きた事故:
-   Phase 2フロントエンド変更を main に直接コミット
+   フロントエンド変更を main に直接コミット
    → Vercel が即座に本番デプロイ
-   → しかし本番DBにはまだ scenario_master_id カラムが存在しない
+   → 本番DBにはまだ scenario_master_id カラムが存在しない
    → 本番で 409 エラー発生（公演保存不可）
-   → 緊急で本番DBにマイグレーション適用して復旧
 
-✅ 正しい手順だった場合:
+✅ 正しい手順:
    feature/* で開発 → staging にマージ → ステージング確認
-   → 本番DBにマイグレーション適用 → main にマージ → 本番フロントデプロイ
-   → エラーなし
+   → 本番DBにマイグレーション適用 → main にマージ → エラーなし
 ```
-
-### 理由
-
-本番環境への変更は即座にユーザーに影響します。
-ステージングでのテストなしに本番適用すると：
-- バグがユーザーに直接影響
-- ロールバックが困難な場合がある
-- 信頼性の低下
-
-**ステージング環境は「本番前の最終確認」のために存在します。必ず活用してください。**
 
 ---
 
 ## 日時・タイムゾーンルール（必須）🚨
 
-### 基本原則：「すべての日時はJST（日本標準時）を基準とする」
+全日時は **JST（+09:00）を明示**。タイムゾーン指定の漏れはキャンセル期限や予約時間の誤判定につながる。
 
-このプロジェクトは日本国内向けサービスです。
-**タイムゾーン指定の漏れは、キャンセル期限や予約時間の誤判定につながる重大なバグの原因になります。**
-
-### データベース保存時のルール
-
-#### 1. timestamptz カラムへの保存時
 ```typescript
-// ✅ 正しい例：JSTを明示的に指定
+// ✅ 正しい
 const eventDateTime = `${date}T${time}+09:00`
-await supabase.from('reservations').insert({
-  requested_datetime: eventDateTime  // "2026-02-17T13:30:00+09:00"
-})
 
-// ❌ 間違った例：タイムゾーン指定なし（サーバー設定依存で不整合が発生）
-const eventDateTime = `${date}T${time}`  // "2026-02-17T13:30:00" ← NG！
+// ❌ NG（タイムゾーンなし）
+const eventDateTime = `${date}T${time}`
+
+// ❌ NG（UTCになる）
+new Date().toISOString()
 ```
 
-#### 2. schedule_events の date + start_time を使う場合
-```typescript
-// schedule_eventsのdate（YYYY-MM-DD）とstart_time（HH:MM:SS）はJSTとして保存されている
-// 組み合わせる際は +09:00 を付与してJSTとして解釈する
-const eventDateTime = new Date(`${scheduleEvent.date}T${scheduleEvent.start_time}+09:00`)
-```
-
-### フロントエンドでの日時計算
+`schedule_events` の `date`（YYYY-MM-DD）と `start_time`（HH:MM:SS）は JST として保存されているため、Date 化する際は `+09:00` を付与する。
 
 ```typescript
-// ✅ 正しい例：UTC比較（Date.now()とgetTime()は両方UTCミリ秒）
-const eventDateTime = new Date(`${date}T${time}+09:00`)
-const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
-
-// ✅ 正しい例：JST表示用の変換
-const jstFormatter = new Intl.DateTimeFormat('ja-JP', { 
-  timeZone: 'Asia/Tokyo',
-  year: 'numeric', month: '2-digit', day: '2-digit',
-  hour: '2-digit', minute: '2-digit'
-})
-```
-
-### 日付の比較・フィルタリング（重要）
-
-**「今日」や「過去/未来」の判定は必ずJST基準で行う。**
-
-```typescript
-// ✅ 正しい例：JST基準で今日の日付を取得
+// ✅ JST基準で今日の日付を取得
 const now = new Date()
-const jstOffset = 9 * 60 // JST は UTC+9
+const jstOffset = 9 * 60
 const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
 const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
-
-// 日付文字列同士で比較（JSTとして正確）
-if (dateStr >= todayStr) {
-  // 今日以降
-}
-
-// ❌ 間違った例：new Date() をそのまま使う
-const today = new Date()
-today.setHours(0, 0, 0, 0)  // ← ローカルタイムゾーン依存で危険！
-```
-
-### ユーザーが指定する時間の解釈
-
-**ユーザーが指定する時間（フォーム入力、パラメータ等）は全て日本時間として解釈する。**
-
-```typescript
-// ユーザーが「14:00」と入力した場合 → JST 14:00 として扱う
-const userInputTime = '14:00'
-const eventDateTime = `${date}T${userInputTime}+09:00`  // JST として保存
-```
-
-### チェックリスト
-
-```
-□ timestamptz カラムに保存する文字列に +09:00 が付いているか？
-□ Date オブジェクトを作成する際、タイムゾーンを明示しているか？
-□ 日時比較は UTC ベースで行っているか？
-□ ユーザー表示は JST で行っているか？
-```
-
-### 禁止事項
-
-❌ タイムゾーン指定なしの日時文字列をDBに保存しない
-```typescript
-// NG
-`${date}T${time}`        // タイムゾーンなし
-new Date(date + 'T' + time)  // ローカル時間依存
-
-// OK
-`${date}T${time}+09:00`  // JST明示
-```
-
-❌ `toISOString()` をそのまま保存しない（UTCになる）
-```typescript
-// NG: UTCとして保存される
-new Date().toISOString()  // "2026-02-17T04:30:00.000Z"
-
-// OK: JSTとして保存
-`${date}T${time}+09:00`
 ```
 
 ---
 
-## マイグレーション適用手順（必須）🚨
-
-### 基本原則：「適用後は必ず権限検証を実行する」
-
-```bash
-# 本番データでステージングDBを最新化（マイグレーション前に推奨）
-npm run db:mirror:staging
-
-# マイグレーション適用（自動で権限検証も実行される）
-npm run db:push:staging
-
-# ステージングDB接続で開発サーバー起動
-npm run dev:staging
-
-# 権限検証のみ実行
-npm run check:permissions
-
-# 権限が壊れた場合の修復SQL表示
-npm run check:permissions:fix
-```
-
-### マイグレーション作成時のチェックリスト
+## マイグレーション作成時のチェックリスト（必須）🚨
 
 ```
 □ CREATE POLICY の前に DROP POLICY IF EXISTS があるか？
 □ GRANT の対象関数にシグネチャ（引数の型）を指定したか？
 □ anon 必須テーブルの権限を壊していないか？
 □ RPC で参照するカラムが実際に存在するか確認したか？
-□ RPC 変更は `supabase/rpcs/*.sql` を正とし、マイグレはそのコピーまたは最小差分のみ（関数本文の手打ち全文差し替えは禁止）
+□ RPC を変更したら npm run test:rpcs を実行したか？
+□ RPC 変更は supabase/rpcs/*.sql を正とし、マイグレはそのコピーまたは最小差分のみ
 □ storage.objects に COMMENT ON POLICY を書いていないか？
+□ テーブルにカラムを追加/変更する場合、supabase/schemas/テーブル名.sql も更新したか？
 ```
 
-### anon SELECT 必須テーブル（公開ページ用）
+その他の注意事項:
+- `jsonb_each_text() AS alias(col1, col2)` は PL/pgSQL で壊れるため、サブクエリで展開する
+- カラムの型を確認する（`TEXT[]` に `@> jsonb_build_array()` は使えない、`ANY()` を使う）
 
+**anon SELECT 必須テーブル（公開ページ用）**:
 organizations, stores, scenario_masters, schedule_events,
 organization_scenarios, business_hours_settings, booking_notices,
 private_groups, private_group_members, private_group_candidate_dates,
@@ -627,63 +392,47 @@ private_group_date_responses, private_group_messages
 
 ## テーブルスキーマの正規管理ルール（必須）🚨
 
-### 基本原則：「`supabase/schemas/` を常に最新に保つ」
+テーブルの現在の正規定義は `supabase/schemas/テーブル名.sql` に管理されている。マイグレーションファイルを探し回る必要はなく、このファイルを見れば現在のカラム・型・制約が分かる。
 
-テーブルの現在の正規定義は `supabase/schemas/テーブル名.sql` に管理されている。
-305+のマイグレーションファイルを探し回る必要はなく、このファイルを見れば現在のカラム・型・制約が分かる。
+**必須ルール**:
+1. カラム追加・変更マイグレーションを作る場合 → `supabase/schemas/テーブル名.sql` も必ず同時に更新する
+2. 新しいテーブルを作る場合 → `supabase/schemas/テーブル名.sql` にも正規定義を作成する
+3. ビューを変更する場合 → `supabase/schemas/ビュー名.sql` も更新する
 
-```
-supabase/
-  rpcs/          ← RPC の正規ソース（既存）
-  schemas/       ← テーブルの正規ソース
-    organization_scenarios.sql
-    schedule_events.sql
-    reservations.sql
-    ...
-```
+---
 
-### 必須ルール
+## デザインシステム
 
-1. **カラム追加・変更マイグレーションを作る場合**
-   → `supabase/schemas/テーブル名.sql` も必ず同時に更新する
-   → `schemas/` を更新せずにマイグレーションだけ追加するのは **禁止**
+**タイポグラフィ**: `text-*`, `font-*`, `leading-*` の Tailwind クラスは**使用禁止**。`globals.css` の設定が自動適用される。
 
-2. **新しいテーブルを作る場合**
-   → `supabase/schemas/テーブル名.sql` にも正規定義を作成する
+**レイアウト統一**: `container mx-auto px-4` + `space-y-6`
 
-3. **ビューを変更する場合**
-   → `supabase/schemas/ビュー名.sql` も更新する
+**コンポーネント**: ShadCN UI（`src/components/ui/`）を優先。自作コンポーネントは最小限。
 
-### schemas/ ファイルのフォーマット
+**入力エリア統一色**: `#F6F9FB`（Input, Textarea, Select 全て）
 
-```sql
--- 正規ソース: supabase/schemas/テーブル名.sql
--- 最終更新: YYYY-MM-DD
-CREATE TABLE public.テーブル名 (
-  -- 全カラムを記載
-);
+### 店舗識別色（全ページ必須）
 
--- Indexes
-CREATE INDEX ...;
-```
+| 店舗 | Badge/Tag | Card/Background |
+|------|-----------|-----------------|
+| 高田馬場（青） | `bg-blue-100 text-blue-800` | `bg-blue-50 border-blue-200` |
+| 別館①（緑） | `bg-green-100 text-green-800` | `bg-green-50 border-green-200` |
+| 別館②（紫） | `bg-purple-100 text-purple-800` | `bg-purple-50 border-purple-200` |
+| 大久保（橙） | `bg-orange-100 text-orange-800` | `bg-orange-50 border-orange-200` |
+| 大塚（赤） | `bg-red-100 text-red-800` | `bg-red-50 border-red-200` |
+| 埼玉大宮（茶） | `bg-amber-100 text-amber-800` | `bg-amber-50 border-amber-200` |
 
-実行可能なSQLとして書くが、実際にはマイグレーションでのみ適用する（`schemas/` は参照用）。
+### 公演カテゴリ色
 
-### カラム名を確認するとき
+- オープン公演: `bg-blue-100 text-blue-800`
+- 貸切公演: `bg-purple-100 text-purple-800`
+- GMテスト: `bg-orange-100 text-orange-800`
 
-```bash
-# まず schemas/ を確認（正規ソース）
-cat supabase/schemas/テーブル名.sql
+---
 
-# 型定義との整合性確認
-grep -rn "テーブル名" src/types/index.ts
-```
+## ドキュメント更新ルール
 
-### チェックリスト（テーブル変更時）
-
-```
-□ supabase/schemas/テーブル名.sql を更新したか？
-□ schemas/ の最終更新日を変更したか？
-□ src/types/index.ts の型定義と一致しているか？
-□ ビューに影響がある場合、schemas/ビュー名.sql も更新したか？
-```
+- ページ追加・変更時 → `docs/pages.md` を更新
+- 重要機能変更時 → `docs/development/critical-features.md` を更新
+- UI要素追加時 → `docs/development/ui-design.md` を更新
+- ドキュメント変更はコードと同じコミットに含める
