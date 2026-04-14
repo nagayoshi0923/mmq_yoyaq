@@ -53,7 +53,7 @@ export function useAvailabilityCheck() {
     
     // その日・その店舗の既存公演を取得
     const { data: existingEvents } = await supabase
-      .from('schedule_events')
+      .from('schedule_events_staff_view')
       .select('start_time, end_time')
       .eq('date', candidate.date)
       .eq('store_id', storeId)
@@ -104,7 +104,7 @@ export function useAvailabilityCheck() {
       const dates = Array.from(new Set(request.candidate_datetimes.candidates.map(c => c.date).filter(Boolean)))
       if (dates.length > 0) {
         const { data: gmEvents } = await supabase
-          .from('schedule_events')
+          .from('schedule_events_staff_view')
           .select('date, start_time, end_time, gms')
           .in('date', dates)
           .eq('is_cancelled', false)

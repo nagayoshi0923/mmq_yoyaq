@@ -1147,7 +1147,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         const { error, data } = await supabase
           .from('schedule_events')
           .insert(newInserts)
-          .select()
+          .select('id')
         
         logger.log('📥 新規挿入結果:', { error, insertedCount: data?.length })
         
@@ -1450,7 +1450,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         const endDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
         
         const { data } = await supabase
-          .from('schedule_events')
+          .from('schedule_events_staff_view')
           .select('id, date, store_id, start_time, is_cancelled, scenario, notes, gms, reservation_info')
           .gte('date', startDate)
           .lte('date', endDate)

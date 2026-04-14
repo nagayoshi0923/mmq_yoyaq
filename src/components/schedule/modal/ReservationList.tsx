@@ -679,7 +679,7 @@ ${content.organizationName || '店舗'}
       if (isStaff && onGmsChange && cancellingReservation.participant_names?.length) {
         const staffName = cancellingReservation.participant_names[0]
         const { data: eventData } = await supabase
-          .from('schedule_events')
+          .from('schedule_events_staff_view')
           .select('gms, gm_roles')
           .eq('id', event.id)
           .single()

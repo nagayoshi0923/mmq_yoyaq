@@ -55,7 +55,7 @@ export function useAnnualAnalysis(
       let from = 0
       while (true) {
         let q = supabase
-          .from('schedule_events')
+          .from('schedule_events_staff_view')
           .select('id, date, category, venue_rental_fee')
           .gte('date', startDate)
           .lte('date', endDate)

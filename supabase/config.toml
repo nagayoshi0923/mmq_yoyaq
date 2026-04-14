@@ -79,6 +79,9 @@ verify_jwt = false
 [functions.send-waitlist-registration-confirmation]
 verify_jwt = false
 
+[functions.notify-gm-private-booking-confirmed]
+verify_jwt = false
+
 [functions.notify-waitlist]
 verify_jwt = false
 

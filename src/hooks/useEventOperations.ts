@@ -1277,7 +1277,7 @@ export function useEventOperations({
           
           // 履歴用: 更新前の値を取得
           let oldEventQuery = supabase
-            .from('schedule_events')
+            .from('schedule_events_staff_view')
             .select('id, organization_id, date, venue, store_id, scenario, scenario_master_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
             .eq('id', performanceData.id)
           if (organizationId) {
@@ -1482,14 +1482,14 @@ export function useEventOperations({
         if (reservation?.schedule_event_id) {
           // 削除前にイベント情報を取得（履歴用）
           let eventQuery = supabase
-            .from('schedule_events')
+            .from('schedule_events_staff_view')
             .select('id, organization_id, date, venue, store_id, scenario, scenario_master_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
             .eq('id', reservation.schedule_event_id)
           if (organizationId) {
             eventQuery = eventQuery.eq('organization_id', organizationId)
           }
           const { data: eventToDelete } = await eventQuery.single()
-          
+
           let scheduleDeleteQuery = supabase
             .from('schedule_events')
             .delete()
@@ -1570,7 +1570,7 @@ export function useEventOperations({
         // 予約がない場合のみ削除を実行
         // 削除前にイベント情報を取得（履歴用）
         let eventQuery = supabase
-          .from('schedule_events')
+          .from('schedule_events_staff_view')
           .select('id, organization_id, date, venue, store_id, scenario, scenario_master_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
           .eq('id', deletingEvent.id)
         if (organizationId) {
@@ -1669,7 +1669,7 @@ export function useEventOperations({
         if (reservation?.schedule_event_id) {
           // 削除前にイベント情報を取得（履歴用）
           let eventQuery = supabase
-            .from('schedule_events')
+            .from('schedule_events_staff_view')
             .select('id, organization_id, date, venue, store_id, scenario, scenario_master_id, gms, gm_roles, start_time, end_time, category, capacity, max_participants, notes, is_cancelled, is_tentative, is_reservation_enabled, reservation_name, time_slot, venue_rental_fee')
             .eq('id', reservation.schedule_event_id)
           if (organizationId) {

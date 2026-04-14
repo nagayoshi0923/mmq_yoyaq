@@ -186,6 +186,9 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
         scenarioTiming: { duration: scenarioDur, weekend_duration: weekendDur },
         allStoreEvents: [],
         isCustomHoliday,
+        privateBookingTimeSlots: Array.isArray(scenario.private_booking_time_slots)
+          ? scenario.private_booking_time_slots
+          : undefined,
       })
       const found = slots.find((s) => s.key === slotKey)
       if (cancelled) return
@@ -280,6 +283,11 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
       selectedStoreIds={selectedStoreIds}
       stores={stores}
       scenarioAvailableStores={scenario.available_stores || []}
+      privateBookingTimeSlots={
+        Array.isArray(scenario.private_booking_time_slots)
+          ? scenario.private_booking_time_slots
+          : undefined
+      }
       organizationSlug={organizationSlug}
       groupId={groupId || undefined}
       onBack={handleBack}

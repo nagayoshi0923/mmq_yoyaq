@@ -454,10 +454,63 @@ export function PrivateGroupInvite() {
         .from('private_groups')
         .update({ preferred_store_ids: selectedStoreIds })
         .eq('id', group.id)
-      
+
       if (error) throw error
-      
-      toast.success('希望店舗を更新しました')
+
+      // 店舗変更後、既存候補日がすべての新選択店舗と競合していないか確認
+      // 競合する候補日（全選択店舗が埋まっている日）は自動削除して通知する
+      const candidateDatesToCheck = group.candidate_dates || []
+      if (candidateDatesToCheck.length > 0 && selectedStoreIds.length > 0) {
+        // 競合チェックあり（toast は if/else 内で出す）
+        const today = new Date().toISOString().split('T')[0]
+        const windowEnd = new Date()
+        windowEnd.setDate(windowEnd.getDate() + 180)
+        const windowEndStr = windowEnd.toISOString().split('T')[0]
+
+        const { data: eventsForNewStores } = await supabase
+          .from('schedule_events_public')
+          .select('id, date, store_id, start_time, end_time, is_cancelled')
+          .in('store_id', selectedStoreIds)
+          .gte('date', today)
+          .lte('date', windowEndStr)
+          .eq('is_cancelled', false)
+
+        // "09:00" or "09:00:00" → 分数に変換（秒付き形式にも対応）
+        const toMin = (t: string) => {
+          const parts = t.split(':').map(Number)
+          return parts[0] * 60 + (parts[1] || 0)
+        }
+
+        const conflictingIds: string[] = []
+        for (const cd of candidateDatesToCheck) {
+          if (cd.status === 'rejected') continue
+          const cdStartMin = toMin(cd.start_time)
+          const cdEndMin = toMin(cd.end_time)
+          // 全選択店舗が当該日時に埋まっているか確認
+          const storeHasFreeSlot = selectedStoreIds.some(storeId => {
+            const storeEvents = (eventsForNewStores || []).filter(e => e.store_id === storeId && e.date === cd.date)
+            return !storeEvents.some(e =>
+              toMin(e.start_time) < cdEndMin && toMin(e.end_time) > cdStartMin
+            )
+          })
+          if (!storeHasFreeSlot) {
+            conflictingIds.push(cd.id)
+          }
+        }
+
+        if (conflictingIds.length > 0) {
+          await supabase
+            .from('private_group_candidate_dates')
+            .delete()
+            .in('id', conflictingIds)
+          toast.warning(`希望店舗を更新しました（空き枠のない候補日 ${conflictingIds.length} 件を削除しました）`)
+        } else {
+          toast.success('希望店舗を更新しました')
+        }
+      } else {
+        toast.success('希望店舗を更新しました')
+      }
+
       setShowStoreEditSheet(false)
       refetch()
     } catch (err) {
@@ -1186,6 +1239,8 @@ export function PrivateGroupInvite() {
           errorMessage = '参加人数が上限を超えています'
         } else if (rpcError.code === 'P0026') {
           errorMessage = '組織情報が見つかりません'
+        } else if (rpcError.code === 'P0030' || (rpcError.message && rpcError.message.includes('conflict'))) {
+          errorMessage = '選択された全ての候補日時が既存の公演と重複しています。別の日時をお選びください。'
         } else if (rpcError.message) {
           errorMessage = rpcError.message
         }
@@ -1304,9 +1359,11 @@ export function PrivateGroupInvite() {
   const isChatMode = existingMemberId && activeTab === 'chat'
 
   // 配役方法が未選択かつキャラクターが存在する場合
+  // has_pre_reading=true のシナリオのみ配役フローを表示（表示目的のキャラクター登録では発火しない）
   const charAssignmentMethod = (group as any).character_assignment_method as string | null
   const scenarioCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)
-  const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioCharacters.length > 0 && charAssignmentMethod == null)
+  const scenarioSurveyEnabled = !!(group.scenario_masters as any)?.survey_enabled
+  const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioSurveyEnabled && scenarioCharacters.length > 0 && charAssignmentMethod == null)
 
   // 進捗ステップ数の計算
   // booking_requested以降のステータスであれば、ステップ1〜4は完了済みとして扱う

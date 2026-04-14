@@ -39,6 +39,7 @@ export function PrivateBookingRequest({
   selectedStoreIds: initialStoreIds,
   stores,
   scenarioAvailableStores,
+  privateBookingTimeSlots,
   organizationSlug,
   groupId,
   onBack,
@@ -204,6 +205,7 @@ export function PrivateBookingRequest({
       scenarioTiming,
       allStoreEvents: storeEvents,
       isCustomHoliday,
+      privateBookingTimeSlots,
     })
   }, [
     pickerDate,
@@ -223,6 +225,7 @@ export function PrivateBookingRequest({
       scenarioTiming,
       allStoreEvents: storeEvents,
       isCustomHoliday,
+      privateBookingTimeSlots,
     })
     const picked = daySlots.find((s) => s.label === newSlotLabel)
     if (!picked) {

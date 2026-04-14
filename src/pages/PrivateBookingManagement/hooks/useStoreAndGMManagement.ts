@@ -139,7 +139,7 @@ export function useStoreAndGMManagement() {
       // ⚠️ 全件取得するとSupabaseの1000件制限に達する可能性があるため
       // ⚠️ reservation_idも取得して、現在編集中の予約のイベントを除外する
       let scheduleQuery = supabase
-        .from('schedule_events')
+        .from('schedule_events_staff_view')
         .select('id, store_id, date, start_time, end_time, scenario, gms, is_cancelled, reservation_id')
         .eq('is_cancelled', false)
 
