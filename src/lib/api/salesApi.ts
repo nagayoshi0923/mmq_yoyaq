@@ -321,7 +321,7 @@ export const salesApi = {
     const orgId = await getCurrentOrganizationId()
     
     let query = supabase
-      .from('schedule_events')
+      .from('schedule_events_staff_view')
       .select(`
         date,
         scenario_masters:scenario_master_id (

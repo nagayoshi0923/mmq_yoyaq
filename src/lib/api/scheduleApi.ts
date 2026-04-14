@@ -1073,22 +1073,10 @@ export const scheduleApi = {
         query = query.eq('updated_at', expectedUpdatedAt)
       }
 
-      const { data, error } = await query
-        .select(`
-          *,
-          stores:store_id (
-            id,
-            name,
-            short_name
-          ),
-          scenario_masters:scenario_master_id (
-            id,
-            title
-          )
-        `)
-        .single()
+      // id のみ返す（authenticated のカラム制限を回避、楽観的ロック失敗検出には十分）
+      const { data, error } = await query.select('id').single()
 
-      if (!error) return data
+      if (!error) break
 
       // 楽観的ロック失敗（PGRST116 = 0 rows = 他の人が先に更新した）
       if (expectedUpdatedAt && error.code === 'PGRST116') {
@@ -1103,7 +1091,28 @@ export const scheduleApi = {
       logger.warn(`schedule_events update: missing column "${removal.removedColumn}", retrying without it`)
     }
 
-    throw lastError
+    if (lastError) throw lastError
+
+    // スタッフ専用ビューから全カラム（JOIN含む）を取得して返す（INSERT と同パターン）
+    const { data: fullEvent, error: fetchError } = await supabase
+      .from('schedule_events_staff_view')
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          short_name
+        ),
+        scenario_masters:scenario_master_id (
+          id,
+          title
+        )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (fetchError) throw fetchError
+    return fullEvent
   },
 
   // 公演を削除（関連する予約はCASCADEで自動削除）

@@ -99,8 +99,8 @@ export function usePrivateBookingSlotData({
         windowEnd.setDate(today.getDate() + 180)
 
         const { data, error } = await supabase
-          .from('schedule_events')
-          .select('id, date, store_id, start_time, end_time, is_cancelled, stores(id, name)')
+          .from('schedule_events_public')
+          .select('id, date, store_id, start_time, end_time, is_cancelled')
           .in('store_id', effectiveStoreIds)
           .gte('date', today.toISOString().split('T')[0])
           .lte('date', windowEnd.toISOString().split('T')[0])

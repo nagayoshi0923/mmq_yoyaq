@@ -234,6 +234,8 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
     enabled: !!scenarioId,
     staleTime: 2 * 60 * 1000, // 2分間はfreshとみなす（スケルトン表示なし）
     gcTime: 10 * 60 * 1000, // 10分間キャッシュ保持
+    // 空席状況はリアルタイム性が重要なため、毎回マウント時に必ずバックグラウンド再取得
+    refetchOnMount: 'always',
   })
 
   return {
