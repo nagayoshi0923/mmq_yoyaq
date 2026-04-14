@@ -88,6 +88,34 @@ Pages/Components
 
 ---
 
+## 定数管理ルール（必須）🚨
+
+### reservation_source は必ず定数を使う
+
+`reservation_source` の値を文字列リテラルで直接書くことは禁止。必ず `src/lib/constants.ts` の定数を使うこと。
+
+```typescript
+// ❌ 禁止
+r.reservation_source === 'staff_entry'
+.eq('reservation_source', 'web_private')
+reservation_source: 'demo_auto'
+
+// ✅ 正しい
+import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES } from '@/lib/constants'
+r.reservation_source === RESERVATION_SOURCE.STAFF_ENTRY
+.eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
+reservation_source: RESERVATION_SOURCE.DEMO_AUTO
+```
+
+スタッフ系・デモ系のまとめてチェックには専用グループ定数を使う:
+- `STAFF_RESERVATION_SOURCES` — staff_entry + staff_participation
+- `AUTO_MANAGED_STAFF_SOURCES` — staff_entry のみ（GM欄から自動作成・削除される）
+- `DEMO_RESERVATION_SOURCES` — demo + demo_auto
+
+新しいソースを追加する場合は `src/lib/constants.ts` と `src/types/index.ts` の型定義を同時に更新すること。
+
+---
+
 ## コミットメッセージ
 
 **必ず日本語で記述**（Conventional Commits 形式）:

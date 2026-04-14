@@ -54,6 +54,7 @@ import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, Eye
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
+import { RESERVATION_SOURCE } from '@/lib/constants'
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -332,7 +333,7 @@ export function ScheduleManager() {
             payment_method: 'onsite',
             payment_status: 'paid',
             status: 'confirmed',
-            reservation_source: 'demo',
+            reservation_source: RESERVATION_SOURCE.DEMO,
             reservation_number: reservationNumber
           })
           

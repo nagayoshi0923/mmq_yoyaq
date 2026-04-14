@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { RESERVATION_SOURCE } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -41,7 +42,7 @@ import {
 /** 貸切・オープンでキャンセル料テーブル・受付期限を切り替える */
 function isPrivateReservation(reservation: Reservation): boolean {
   if (reservation.private_group_id) return true
-  if (reservation.reservation_source === 'web_private') return true
+  if (reservation.reservation_source === RESERVATION_SOURCE.WEB_PRIVATE) return true
   const raw = reservation.schedule_events
   const ev = Array.isArray(raw) ? raw[0] : raw
   if (ev && typeof ev === 'object' && 'is_private_booking' in ev && ev.is_private_booking) return true
@@ -932,7 +933,7 @@ export function ReservationsPage() {
   )
   const cancelledReservations = reservations.filter((r) => r.status === 'cancelled')
   const pendingPrivateBookings = reservations.filter(
-    (r) => r.reservation_source === 'web_private' && 
+    (r) => r.reservation_source === RESERVATION_SOURCE.WEB_PRIVATE &&
            ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)
   )
 

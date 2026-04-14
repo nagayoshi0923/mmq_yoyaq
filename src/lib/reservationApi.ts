@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger, generateCorrelationId, createCorrelatedLogger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
+import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES, AUTO_MANAGED_STAFF_SOURCES } from '@/lib/constants'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
@@ -977,8 +978,7 @@ export const reservationApi = {
       // ※ キャンセル済みは除外して、アクティブな予約のみを対象にする
       const activeStaffReservations = currentReservations.filter(r =>
         r.status !== 'cancelled' && (
-          r.reservation_source === 'staff_entry' ||
-          r.reservation_source === 'staff_participation' ||
+          (STAFF_RESERVATION_SOURCES as readonly string[]).includes(r.reservation_source ?? '') ||
           r.payment_method === 'staff'
         )
       )
@@ -988,7 +988,7 @@ export const reservationApi = {
       // ※ staff_participation（予約者タブから手動追加）は保護 — GM欄と独立した手動操作のため
       // ※ web（予約サイト）や walk_in（当日飛び込み）は保護
       const managedStaffReservations = currentReservations.filter(r =>
-        r.reservation_source === 'staff_entry'
+        (AUTO_MANAGED_STAFF_SOURCES as readonly string[]).includes(r.reservation_source ?? '')
       )
 
       // 5. 追加が必要なスタッフ（アクティブな予約のみをチェック）
@@ -1068,7 +1068,7 @@ export const reservationApi = {
             payment_method: 'staff',
             payment_status: 'paid',
             status: 'confirmed',
-            reservation_source: 'staff_entry'
+            reservation_source: RESERVATION_SOURCE.STAFF_ENTRY
           }
 
           logger.log('📝 スタッフ予約を作成:', { staffName, reservationNumber })

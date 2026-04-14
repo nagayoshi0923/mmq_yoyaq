@@ -7,7 +7,7 @@ import { supabase } from '../supabase'
 import { logger } from '@/utils/logger'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
-import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET } from '@/lib/constants'
+import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET, RESERVATION_SOURCE } from '@/lib/constants'
 
 // 候補日時の型定義
 interface CandidateDateTime {
@@ -516,7 +516,7 @@ export const scheduleApi = {
         isPrivateBooking = true
         // time_slotが未設定の場合のみ、予約情報から取得（フォールバック）
         if (!timeSlot) {
-          const privateReservation = reservations.find(r => r.reservation_source === 'web_private')
+          const privateReservation = reservations.find(r => r.reservation_source === RESERVATION_SOURCE.WEB_PRIVATE)
           if (privateReservation?.candidate_datetimes?.candidates) {
             const confirmedCandidate = privateReservation.candidate_datetimes.candidates.find(
               (c) => c.status === 'confirmed'
@@ -604,7 +604,7 @@ export const scheduleApi = {
             address
           )
         `)
-        .eq('reservation_source', 'web_private')
+        .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
         .eq('status', 'confirmed')
         .is('schedule_event_id', null)
       
@@ -1289,9 +1289,9 @@ export const scheduleApi = {
               payment_method: 'onsite',
               payment_status: 'paid',
               status: 'confirmed',
-              reservation_source: 'demo'
+              reservation_source: RESERVATION_SOURCE.DEMO
             }
-            
+
             const { error: insertError } = await supabase
               .from('reservations')
               .insert(demoReservation)
@@ -1333,7 +1333,7 @@ export const scheduleApi = {
     try {
       // reservation_source = 'demo' の予約をすべて削除
       const { data: deletedCount, error } = await supabase.rpc('admin_delete_reservations_by_source', {
-        p_reservation_source: 'demo'
+        p_reservation_source: RESERVATION_SOURCE.DEMO
       })
       
       if (error) {
