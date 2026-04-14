@@ -296,7 +296,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     console.log('🎭 handleCharConfirmAndSend 開始')
     setCharSubmitting(true)
     try {
-      const activeMembers = members.filter(m => m.status === 'active' || m.status === 'joined')
+      const activeMembers = members.filter(m => (m.status as string) === 'active' || m.status === 'joined')
       console.log('🎭 activeMembers:', activeMembers.length, 'charDecisions:', charDecisions)
       const lines = activeMembers.map(m => {
         const charId = charDecisions[m.id]
@@ -1101,7 +1101,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
           {charAssignmentMethod === 'self' && characters.length > 0 && !messages.some(m => {
             try { return JSON.parse(m.message)?.action === 'character_assignment' } catch { return false }
           }) && (() => {
-            const activeMembers = members.filter(m => m.status === 'active' || m.status === 'joined')
+            const activeMembers = members.filter(m => (m.status as string) === 'active' || m.status === 'joined')
             const charNameById = (id: string | undefined) => id ? characters.find(c => c.id === id)?.name : null
             const allPreferred = activeMembers.every(m => charPreferences[m.id])
             const myPreference = currentMemberId ? charPreferences[currentMemberId] : undefined

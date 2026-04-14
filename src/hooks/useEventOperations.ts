@@ -1419,7 +1419,7 @@ export function useEventOperations({
   }, [modalMode, stores, scenarios, setEvents, organizationId, fetchSchedule])
 
   // 削除確認ダイアログを開く
-  const handleDeletePerformance = useCallback((event: ScheduleEvent) => {
+  const handleDeletePerformance = useCallback(async (event: ScheduleEvent) => {
     setDeletingEvent(event)
     setIsDeleteDialogOpen(true)
   }, [])

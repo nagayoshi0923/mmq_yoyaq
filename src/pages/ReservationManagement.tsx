@@ -79,7 +79,7 @@ export function ReservationManagement() {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
 
   // 検索入力のデバウンス（400ms待ってから検索実行）
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {

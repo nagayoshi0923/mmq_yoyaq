@@ -275,7 +275,7 @@ export function SurveyResponsesTab({
               } catch { /* ignore */ }
               return null
             })
-            .filter(Boolean)
+            .filter((x): x is NonNullable<typeof x> => x !== null)
           setSentNotices(notices)
         }
       } catch (err) {

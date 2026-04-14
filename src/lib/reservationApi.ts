@@ -9,28 +9,50 @@ import type { Reservation, Customer, ReservationSummary } from '@/types'
 const CUSTOMER_SELECT_FIELDS =
   'id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at' as const
 
-/** 予約一覧・モーダル等で共通利用（select('*') 回避用） */
-/** DB に scenario_title 列はない。シナリオ表示名は title（および必要なら schedule_events.scenario）を使う */
+// =============================================================================
+// 予約 SELECT フィールド定数
+//
+// 用途に応じて以下を使い分けること（select('*') 禁止）:
+//
+//   RESERVATION_SELECT_FIELDS
+//     → 予約テーブルのみ。getAll / getByCustomer / 作成後の再取得など。
+//
+//   RESERVATION_WITH_CUSTOMER_SELECT_FIELDS
+//     → 予約 + customers JOIN。モーダル・中止処理・承認フローなど
+//       顧客情報を画面表示 or メール本文に使う場合。
+//
+//   RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS
+//     → 予約 + customers + schedule_events JOIN。
+//       キャンセルフロー（GM・貸切グループへの通知 + is_private_booking 判定が必要）。
+//
+//   RESERVATION_FOR_UPDATE_EMAIL_SELECT_FIELDS
+//     → 予約 + customers + schedule_events JOIN（変更メール向け最小列）。
+//       予約変更確認メール送信時のみ。
+//
+// ⚠ DB に scenario_title 列はない。表示名は title / schedule_events.scenario を使う。
+// =============================================================================
+
+/** 予約テーブルのみ（JOIN なし） */
 export const RESERVATION_SELECT_FIELDS =
   'id, organization_id, reservation_number, reservation_page_id, title, scenario_id, scenario_master_id, store_id, customer_id, schedule_event_id, requested_datetime, actual_datetime, duration, participant_count, participant_names, assigned_staff, gm_staff, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, payment_method, payment_datetime, status, customer_notes, staff_notes, special_requests, cancellation_reason, cancelled_at, external_reservation_id, reservation_source, created_by, created_at, updated_at, customer_name, customer_email, customer_phone, private_group_id, candidate_datetimes' as const
 
-/** 予約 + customers（貸切・公演モーダル・中止処理など） */
+/** 予約 + customers JOIN（モーダル・承認フローなど顧客情報が必要な場合） */
 export const RESERVATION_WITH_CUSTOMER_SELECT_FIELDS =
   `${RESERVATION_SELECT_FIELDS}, customers(${CUSTOMER_SELECT_FIELDS})` as const
-
-const SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL =
-  'schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, store_id)'
-
-/** 予約変更メール用（予約 + 顧客 + 公演スナップショット） */
-const RESERVATION_FOR_UPDATE_WITH_RELATIONS_SELECT =
-  `${RESERVATION_WITH_CUSTOMER_SELECT_FIELDS}, ${SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL}` as const
 
 const SCHEDULE_EVENT_EMBED_FOR_CANCEL =
   'schedule_events!schedule_event_id(id, date, start_time, end_time, venue, scenario, organization_id, is_private_booking, gms, store_id)'
 
-/** キャンセルフロー初期取得（メール・GM・貸切グループ用） */
-const RESERVATION_FOR_CANCEL_FETCH_SELECT =
+/** 予約 + customers + schedule_events JOIN（キャンセルフロー用: GM通知・is_private_booking 判定が必要） */
+export const RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS =
   `${RESERVATION_WITH_CUSTOMER_SELECT_FIELDS}, ${SCHEDULE_EVENT_EMBED_FOR_CANCEL}` as const
+
+const SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL =
+  'schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario, store_id)'
+
+/** 予約 + customers + schedule_events JOIN（予約変更確認メール用: is_private_booking 不要） */
+export const RESERVATION_FOR_UPDATE_EMAIL_SELECT_FIELDS =
+  `${RESERVATION_WITH_CUSTOMER_SELECT_FIELDS}, ${SCHEDULE_EVENT_EMBED_FOR_UPDATE_EMAIL}` as const
 
 /** customers 埋め込みが PostgREST の型推論で配列になる場合があるため正規化 */
 export function joinedCustomerFromReservation(
@@ -568,7 +590,7 @@ export const reservationApi = {
     if (sendEmail) {
       const { data: original, error: fetchError } = await supabase
         .from('reservations')
-        .select(RESERVATION_FOR_UPDATE_WITH_RELATIONS_SELECT)
+        .select(RESERVATION_FOR_UPDATE_EMAIL_SELECT_FIELDS)
         .eq('id', id)
         .single()
 
@@ -588,7 +610,7 @@ export const reservationApi = {
     // 更新後のデータを取得
     const { data, error } = await supabase
       .from('reservations')
-      .select(RESERVATION_FOR_UPDATE_WITH_RELATIONS_SELECT)
+      .select(RESERVATION_FOR_UPDATE_EMAIL_SELECT_FIELDS)
       .eq('id', id)
       .single()
 
@@ -666,7 +688,7 @@ export const reservationApi = {
     // 予約情報を取得（メール送信用、GM通知用にis_private_bookingとgmsも取得）
     const { data: reservation, error: fetchError } = await supabase
       .from('reservations')
-      .select(RESERVATION_FOR_CANCEL_FETCH_SELECT)
+      .select(RESERVATION_WITH_CUSTOMER_AND_EVENT_SELECT_FIELDS)
       .eq('id', id)
       .single()
 

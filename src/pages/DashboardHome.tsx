@@ -83,7 +83,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       const startDate = format(startOfMonth(subMonths(currentMonth, 1)), 'yyyy-MM-dd')
       const endDate = format(endOfMonth(addMonths(currentMonth, 1)), 'yyyy-MM-dd')
       const events = await scheduleApi.getMySchedule(staff.name, startDate, endDate)
-      setMySchedule(events as ScheduleEvent[])
+      setMySchedule(events as unknown as ScheduleEvent[])
     } catch (error) {
       logger.error('データ取得エラー:', error)
     } finally {
@@ -130,7 +130,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
 
     const count = thisMonthEvents.length
     const salary = thisMonthEvents.reduce((sum, event) => {
-      const gmCost = event.scenarios?.gm_costs || 0
+      const gmCost = (event as any).scenarios?.gm_costs || 0
       return sum + gmCost
     }, 0)
 
@@ -358,16 +358,16 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">
-                      {event.category === 'MTG' || event.category === 'mtg'
+                      {event.category === 'mtg'
                         ? 'MTG'
                         : event.scenarios?.title || event.scenario || 'タイトル未定'}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {event.start_time?.slice(0, 5) || ''}〜 @ {event.stores?.name || event.venue}
+                      {event.start_time?.slice(0, 5) || ''}〜 @ {(event as any).stores?.name || event.venue}
                     </div>
                   </div>
                   <div className="flex-shrink-0 text-xs text-muted-foreground">
-                    {event.current_participants}/{event.max_participants ?? event.capacity ?? 8}名
+                    {event.current_participants}/{(event as any).max_participants ?? (event as any).capacity ?? 8}名
                   </div>
                 </div>
               ))}
@@ -439,7 +439,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                     <div className="flex flex-col gap-0.5 mt-0.5 w-full px-0.5 overflow-hidden">
                       {dayEvents.slice(0, 2).map((e, i) => {
                         // タイトル表示ロジック: MTGカテゴリ → シナリオタイトル → 「タイトル未定」
-                        const displayTitle = e.category === 'MTG' || e.category === 'mtg'
+                        const displayTitle = e.category === 'mtg'
                           ? 'MTG'
                           : e.scenarios?.title || e.scenario || 'タイトル未定'
                         const startTime = e.start_time?.slice(0, 5) || ''
@@ -566,7 +566,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           <div className="space-y-4 mt-2">
             {selectedDateEvents.map((event, i) => {
               // タイトル表示ロジック: MTGカテゴリ → シナリオタイトル → 「タイトル未定」
-              const displayTitle = event.category === 'MTG' || event.category === 'mtg'
+              const displayTitle = event.category === 'mtg'
                 ? 'MTG'
                 : event.scenarios?.title || event.scenario || 'タイトル未定'
               return (
@@ -578,11 +578,11 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                 <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
-                    <span>{event.stores?.name || event.venue}</span>
+                    <span>{(event as any).stores?.name || event.venue}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    <span>予約: {event.current_participants}名</span>
+                    <span>予約: {(event as any).current_participants}名</span>
                   </div>
                 </div>
               </div>
