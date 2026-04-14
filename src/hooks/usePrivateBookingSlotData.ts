@@ -32,6 +32,7 @@ export function usePrivateBookingSlotData({
   privateBookingTimeSlots,
 }: UsePrivateBookingSlotDataOptions): UsePrivateBookingSlotDataResult {
   const [fallbackStoreIds, setFallbackStoreIds] = useState<string[]>([])
+  const [fallbackLoading, setFallbackLoading] = useState(false)
   const [allStoreEvents, setAllStoreEvents] = useState<any[]>([])
   const [businessHoursByStore, setBusinessHoursByStore] = useState<Map<string, BusinessHoursSettingRow>>(new Map())
   const [scenarioTiming, setScenarioTiming] = useState<ScenarioTimingFromDb | null>(null)
@@ -46,9 +47,11 @@ export function usePrivateBookingSlotData({
   useEffect(() => {
     if (storeIds.length > 0 || !isActive) {
       setFallbackStoreIds([])
+      setFallbackLoading(false)
       return
     }
     let cancelled = false
+    setFallbackLoading(true)
     ;(async () => {
       try {
         const { data } = await supabase
@@ -63,6 +66,8 @@ export function usePrivateBookingSlotData({
         }
       } catch {
         if (!cancelled) setFallbackStoreIds([])
+      } finally {
+        if (!cancelled) setFallbackLoading(false)
       }
     })()
     return () => { cancelled = true }
@@ -177,7 +182,7 @@ export function usePrivateBookingSlotData({
     return () => { cancelled = true }
   }, [isActive, organizationId, scenarioId])
 
-  const loading = eventsLoading || !eventsLoaded || !businessHoursLoaded || !scenarioTimingLoaded
+  const loading = fallbackLoading || eventsLoading || !eventsLoaded || !businessHoursLoaded || !scenarioTimingLoaded
 
   const resolvedTimeSlots = privateBookingTimeSlots ?? scenarioTiming?.private_booking_time_slots ?? undefined
 
