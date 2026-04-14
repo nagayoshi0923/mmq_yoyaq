@@ -29,6 +29,7 @@ import { SurveyResponsesTab } from './modal/SurveyResponsesTab'
 import { getEmptySlotMemo, clearEmptySlotMemo } from './SlotMemoInput'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 import { useOrganization } from '@/hooks/useOrganization'
+import { scheduleTimeSlotToEn, timeSlotEnToSchedule } from '@/lib/timeSlot'
 
 interface PerformanceModalProps {
   isOpen: boolean
@@ -464,10 +465,7 @@ export function PerformanceModal({
       // time_slotが存在する場合はそれを使用、なければstart_timeから判定
       let slot: 'morning' | 'afternoon' | 'evening' = 'morning'
       if (event.time_slot) {
-        // time_slotが'朝'/'昼'/'夜'形式の場合
-        if (event.time_slot === '朝') slot = 'morning'
-        else if (event.time_slot === '昼') slot = 'afternoon'
-        else if (event.time_slot === '夜') slot = 'evening'
+        slot = scheduleTimeSlotToEn(event.time_slot) ?? 'morning'
       } else {
         // start_timeから判定（フォールバック）
         const startHour = parseInt(event.start_time.split(':')[0])
@@ -490,7 +488,7 @@ export function PerformanceModal({
       setFormData({
         ...event,
         scenario_master_id: selectedScenario?.id,  // scenario_masters.id
-        time_slot: event.time_slot || (slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜'), // time_slotを設定
+        time_slot: event.time_slot || timeSlotEnToSchedule(slot), // time_slotを設定
         max_participants: selectedScenario?.player_count_max ?? event.max_participants ?? DEFAULT_MAX_PARTICIPANTS, // シナリオの参加人数を反映
         gmRoles: event.gm_roles || {}, // 既存の役割があれば設定
         capacity: event.max_participants || 0, // capacityを追加
@@ -581,7 +579,7 @@ export function PerformanceModal({
 
   // 時間帯（morning/afternoon/evening）を'朝'/'昼'/'夜'にマッピング
   const getTimeSlotLabel = (slot: 'morning' | 'afternoon' | 'evening'): string => {
-    return slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜'
+    return timeSlotEnToSchedule(slot)
   }
 
   // シナリオ変更を実際に formData に適用する
@@ -1358,7 +1356,7 @@ export function PerformanceModal({
               cellInfo={formData.date && formData.venue ? {
                 date: formData.date,
                 storeId: formData.venue,
-                timeSlot: formData.time_slot || (timeSlot === 'morning' ? '朝' : timeSlot === 'afternoon' ? '昼' : '夜')
+                timeSlot: formData.time_slot || timeSlotEnToSchedule(timeSlot)
               } : undefined}
               organizationId={organizationId || undefined}
             />

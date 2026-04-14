@@ -22,6 +22,7 @@ import {
   sendPrivateBookingCustomerChangeEmail,
 } from '@/lib/privateBookingCustomerChangeEmail'
 import type { ScheduleEvent } from '@/types/schedule'
+import { scheduleTimeSlotToEn, timeSlotEnToSchedule, scheduleTimeSlotToCandidate, timeSlotEnToLabel } from '@/lib/timeSlot'
 
 /** 貸切の予約変更通知メール送信前の確認（OK=送信 / キャンセル=送信しない） */
 function confirmSendPrivateBookingChangeEmail(): boolean {
@@ -32,26 +33,12 @@ function confirmSendPrivateBookingChangeEmail(): boolean {
 }
 
 /**
- * time_slot（'朝'/'昼'/'夜'）を英語形式に変換
- * 保存された枠を優先して使用するため
- */
-function convertTimeSlot(timeSlot: string | undefined | null): 'morning' | 'afternoon' | 'evening' | null {
-  if (!timeSlot) return null
-  switch (timeSlot) {
-    case '朝': return 'morning'
-    case '昼': return 'afternoon'
-    case '夜': return 'evening'
-    default: return null
-  }
-}
-
-/**
  * イベントの時間帯を取得（保存された枠を優先）
  */
 function getEventTimeSlot(event: ScheduleEvent | { start_time: string; timeSlot?: string; time_slot?: string | null }): 'morning' | 'afternoon' | 'evening' {
   // ScheduleEvent.time_slot または ローカル型の timeSlot を参照
   const timeSlotValue = 'timeSlot' in event ? event.timeSlot : event.time_slot
-  const savedSlot = convertTimeSlot(timeSlotValue)
+  const savedSlot = scheduleTimeSlotToEn(timeSlotValue)
   if (savedSlot) return savedSlot
   return getTimeSlot(event.start_time)
 }
@@ -172,10 +159,7 @@ async function syncRelatedDataOnEventDateChange(
       }
 
       // schedule_events の time_slot(朝/昼/夜) → candidate_dates の time_slot(午前/午後/夜間)
-      let candidateTimeSlot: string | undefined
-      if (newTimeSlotSchedule === '朝') candidateTimeSlot = '午前'
-      else if (newTimeSlotSchedule === '昼') candidateTimeSlot = '午後'
-      else if (newTimeSlotSchedule === '夜') candidateTimeSlot = '夜間'
+      const candidateTimeSlot = newTimeSlotSchedule ? scheduleTimeSlotToCandidate(newTimeSlotSchedule) : undefined
 
       const updatePayload: Record<string, string> = {
         date: newDate,
@@ -349,7 +333,7 @@ export function useEventOperations({
     let suggestedStartTime: string | undefined = undefined
     
     // time_slotを日本語形式に変換（DBに保存されている形式）
-    const timeSlotJa = time_slot === 'morning' ? '朝' : time_slot === 'afternoon' ? '昼' : '夜'
+    const timeSlotJa = timeSlotEnToSchedule(time_slot)
     
     // 同じ日・同じ店舗・同じ時間帯のイベントのみ取得
     const sameSlotEvents = events.filter(e => 
@@ -462,9 +446,9 @@ export function useEventOperations({
       // 🚨 CRITICAL: 移動先の重複チェック
       const conflict = checkConflict(dropTarget.date, dropTarget.venue, dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening', draggedEvent.id)
       if (conflict) {
-        const timeSlotLabel = dropTarget.timeSlot === 'morning' ? '午前' : dropTarget.timeSlot === 'afternoon' ? '午後' : '夜'
+        const timeSlotLabel = timeSlotEnToLabel(dropTarget.timeSlot, 'candidate')
         const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
-        
+
         if (!confirm(
           `移動先の${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。\n` +
           `既存の公演を削除して移動しますか？`
@@ -508,8 +492,8 @@ export function useEventOperations({
       }
       
       // 時間帯ラベルを移動先に更新
-      const timeSlotLabel = targetTimeSlot === 'morning' ? '朝' : targetTimeSlot === 'afternoon' ? '昼' : '夜'
-      
+      const timeSlotLabel = timeSlotEnToSchedule(targetTimeSlot)
+
       const newEventData = {
         date: dropTarget.date,
         store_id: dropTarget.venue,
@@ -656,9 +640,9 @@ export function useEventOperations({
       const targetTimeSlot = dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening'
       const conflict = checkConflict(dropTarget.date, dropTarget.venue, targetTimeSlot)
       if (conflict) {
-        const timeSlotLabel = targetTimeSlot === 'morning' ? '午前' : targetTimeSlot === 'afternoon' ? '午後' : '夜'
+        const timeSlotLabel = timeSlotEnToLabel(targetTimeSlot, 'candidate')
         const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
-        
+
         if (!confirm(
           `複製先の${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。\n` +
           `既存の公演を削除して複製しますか？`
@@ -698,7 +682,7 @@ export function useEventOperations({
       }
       
       // 時間帯ラベルを複製先に更新
-      const timeSlotLabel = targetTimeSlot === 'morning' ? '朝' : targetTimeSlot === 'afternoon' ? '昼' : '夜'
+      const timeSlotLabel = timeSlotEnToSchedule(targetTimeSlot)
       
       const newEventData = {
         date: dropTarget.date,
@@ -756,7 +740,7 @@ export function useEventOperations({
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
     // タイムスロットを判定（保存された枠time_slotを優先、なければstart_timeから判定）
     let timeSlot: 'morning' | 'afternoon' | 'evening'
-    const savedSlot = convertTimeSlot(performanceData.time_slot)
+    const savedSlot = scheduleTimeSlotToEn(performanceData.time_slot)
     if (savedSlot) {
       timeSlot = savedSlot
     } else {
@@ -787,7 +771,7 @@ export function useEventOperations({
     
     if (slotConflictingEvents.length > 0) {
       const conflictingEvent = slotConflictingEvents[0]
-      const timeSlotLabel = timeSlot === 'morning' ? '午前' : timeSlot === 'afternoon' ? '午後' : '夜'
+      const timeSlotLabel = timeSlotEnToLabel(timeSlot, 'candidate')
       const storeName = stores.find(s => s.id === performanceData.venue)?.name || performanceData.venue
       
       // 重複警告モーダルを表示
@@ -906,12 +890,8 @@ export function useEventOperations({
         
         // スロットメモとして保存（localStorage）
         // time_slotを英語形式に変換（'朝'→'morning', '昼'→'afternoon', '夜'→'evening'）
-        let timeSlotKey: 'morning' | 'afternoon' | 'evening' = 'afternoon'
-        const ts = performanceData.time_slot
-        if (ts === '朝' || ts === 'morning') timeSlotKey = 'morning'
-        else if (ts === '昼' || ts === 'afternoon') timeSlotKey = 'afternoon'
-        else if (ts === '夜' || ts === 'evening') timeSlotKey = 'evening'
-        
+        const timeSlotKey: 'morning' | 'afternoon' | 'evening' = scheduleTimeSlotToEn(performanceData.time_slot) ?? 'afternoon'
+
         saveEmptySlotMemo(performanceData.date, storeId, timeSlotKey, memoText)
         logger.log('✅ スロットメモ保存成功:', performanceData.date, storeId, timeSlotKey, memoText.substring(0, 50))
         
@@ -2047,7 +2027,7 @@ export function useEventOperations({
     try {
       // タイムスロットを判定（保存された枠time_slotを優先）
       let timeSlot: 'morning' | 'afternoon' | 'evening'
-      const savedSlot = convertTimeSlot(pendingPerformanceData.time_slot)
+      const savedSlot = scheduleTimeSlotToEn(pendingPerformanceData.time_slot)
       if (savedSlot) {
         timeSlot = savedSlot
       } else {

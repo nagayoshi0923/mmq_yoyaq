@@ -131,6 +131,43 @@ import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 
 ---
 
+### 【ルール 1-3】time_slot 変換は必ず `src/lib/timeSlot.ts` の関数を使うこと
+
+このプロジェクトでは time_slot が3形式で存在する:
+
+| 形式 | 値 | 使用箇所 |
+|------|----|----------|
+| 形式A | `'朝' \| '昼' \| '夜'` | `schedule_events.time_slot`（DB） |
+| 形式B | `'morning' \| 'afternoon' \| 'evening'` | フック内部の英語表現 |
+| 形式C | `'午前' \| '午後' \| '夜間'` | `private_group_candidate_dates.time_slot`（DB） |
+
+変換は必ず `src/lib/timeSlot.ts` から import した関数を使うこと。
+
+```typescript
+import { scheduleTimeSlotToEn, timeSlotEnToSchedule, scheduleTimeSlotToCandidate, timeSlotEnToLabel, candidateTimeSlotToDb, candidateTimeSlotFromDb } from '@/lib/timeSlot'
+
+// 形式A → 形式B
+scheduleTimeSlotToEn('朝')           // → 'morning'
+
+// 形式B → 形式A
+timeSlotEnToSchedule('morning')      // → '朝'
+
+// 形式A → 形式C
+scheduleTimeSlotToCandidate('朝')    // → '午前'
+
+// 形式B → UI表示（午前/午後/夜）
+timeSlotEnToLabel('morning', 'candidate')  // → '午前'
+
+// 形式C（DB保存・読み出し）
+candidateTimeSlotToDb('夜')          // → '夜間'
+candidateTimeSlotFromDb('夜間')      // → '夜'
+```
+
+**禁止**: `=== '朝' ? 'morning'` のようなインライン変換ロジックを各ファイルに書くこと。
+`src/lib/privateGroupTimeSlot.ts` は後方互換のみ。新規コードでは直接 `timeSlot.ts` を使うこと。
+
+---
+
 ## コミットメッセージ
 
 **必ず日本語で記述**（Conventional Commits 形式）:
