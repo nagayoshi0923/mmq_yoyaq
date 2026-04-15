@@ -226,6 +226,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
             current_participants,
             is_cancelled,
             is_reservation_enabled,
+            published,
             category,
             is_private_booking,
             is_extended,
@@ -313,7 +314,9 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     // 貸切公演は予約サイトには表示しない
     const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
     if (isPrivateBooking) return false
-    
+    // 非公開イベントは表示しない
+    if (event.published === false) return false
+
     // 通常公演・出張公演: category='open' or 'offsite' かつ is_reservation_enabled=true
     const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open' || event.category === 'offsite')
 
@@ -328,10 +331,11 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
     return isOpenAndEnabled
   })
   
-  // GMテスト・貸切公演等
+  // GMテスト・MTG・貸切公演等（非公開でも貸切申込を受け付けないカテゴリ）
   const blockedSlotsData = allEventsData.filter((event: any) => {
-    const isBlocked = event.category === 'gmtest' 
+    const isBlocked = event.category === 'gmtest'
       || event.category === 'testplay'
+      || event.category === 'mtg'
       || event.category === 'private'
       || event.is_private_booking === true
     return isBlocked

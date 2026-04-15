@@ -391,7 +391,11 @@ export const CalendarView = memo(function CalendarView({
                         const occupiedStoreIds = new Set(slotEvents.map((e: any) => e.store_id))
                         const hasAvailableStores = selectedStoreIds.length > 0 &&
                           selectedStoreIds.some(id => !occupiedStoreIds.has(id))
-                        const showPrivateButton = selectedStore && canApplyPrivateBooking && isSlotAvailable(slot)
+                        // GMテスト・MTG等が含まれるスロットは貸切申込を非表示
+                        const hasNonBookableEvent = slotEvents.some((e: any) =>
+                          e.category === 'gmtest' || e.category === 'testplay' || e.category === 'mtg'
+                        )
+                        const showPrivateButton = selectedStore && canApplyPrivateBooking && isSlotAvailable(slot) && !hasNonBookableEvent
 
                         if (hasEvents && hasAvailableStores && showPrivateButton) {
                           const suggestedTime = getSuggestedStartTime(slot)
