@@ -5,6 +5,7 @@ import { resolveOrganizationFromPathSegment } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
 import { readBookingDataSnapshot, writeBookingDataSnapshot } from '../utils/bookingDataSnapshot'
+import { getAvailableSeats, getAvailabilityStatus } from '@/lib/participantUtils'
 
 export interface ScenarioCard {
   scenario_id: string
@@ -50,19 +51,6 @@ export interface BookingDataResult {
   /** DB の public_booking_hero_description（空ならフロントでデフォルト） */
   organizationPublicBookingHeroDescription: string | null
   organizationNotFound: boolean
-}
-
-/**
- * 空席状況を判定（最大人数に対する割合で判定）
- */
-function getAvailabilityStatus(max: number, current: number): 'available' | 'few_seats' | 'sold_out' {
-  const available = max - current
-  if (available === 0) return 'sold_out'
-  
-  // 最大人数の20%以下を「残りわずか」とする（最低1席は残りわずかの対象）
-  const threshold = Math.max(1, Math.floor(max * 0.2))
-  if (available <= threshold) return 'few_seats'
-  return 'available'
 }
 
 /**
@@ -477,9 +465,7 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         const maxParticipants = scenario.player_count_max || 8
         const minParticipants = scenario.player_count_min || 1
         const currentParticipants = event.current_participants || 0
-        const availableSeats = event.is_private_booking === true 
-          ? 0 
-          : maxParticipants - currentParticipants
+        const availableSeats = getAvailableSeats(event, maxParticipants)
         const isConfirmed = currentParticipants >= minParticipants && currentParticipants < maxParticipants
         
         return {
@@ -495,13 +481,9 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
         }
       })
       
-      let status: 'available' | 'few_seats' | 'sold_out' | 'private_booking' = 'private_booking'
+      let status: 'available' | 'few_seats' | 'sold_out' | 'private_booking' = 'sold_out'
       if (sortedEvents.length > 0) {
-        const nextEvent = sortedEvents[0]
-        const isPrivateBooking = nextEvent.is_private_booking === true
-        const maxParticipants = scenario.player_count_max || 8
-        const currentParticipants = nextEvent.current_participants || 0
-        status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(maxParticipants, currentParticipants)
+        status = getAvailabilityStatus(sortedEvents[0], scenario.player_count_max || undefined)
       }
       
       if (nextEvents.length > 0 || futureEvents.length > 0) {

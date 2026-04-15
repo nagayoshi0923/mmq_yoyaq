@@ -22,6 +22,7 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { ScenarioCard, type ScenarioCardData } from '@/pages/PublicBookingTop/components/ScenarioCard'
+import { getAvailableSeats } from '@/lib/participantUtils'
 
 // シナリオカード用の型（直近公演情報を含む）- ScenarioCardDataを拡張
 interface ScenarioWithEvents extends ScenarioCardData {
@@ -263,7 +264,7 @@ export function PlatformTop() {
         supabase
           .from('schedule_events')
           .select(`
-            id, date, start_time, current_participants, organization_id,
+            id, date, start_time, current_participants, max_participants, organization_id,
             scenario_masters:scenario_master_id!inner (id, title, key_visual_url, player_count_min, player_count_max, official_duration, author),
             stores:store_id (id, name, short_name, color, region)
           `)
@@ -409,9 +410,12 @@ export function PlatformTop() {
           
           // 最大10件まで追加
           if (scenarioMap[scenarioKey].next_events.length < 10) {
-            // 予約テーブルから計算した参加者数を使用（なければDBの値、それもなければ0）
-            const currentParticipants = participantsMap[e.id] ?? e.current_participants ?? 0
-            const remainingSlots = scenario.player_count_max - currentParticipants
+            // schedule_events.current_participants（トリガー維持）を正とする
+            const currentParticipants = e.current_participants ?? 0
+            const remainingSlots = getAvailableSeats(
+              { current_participants: currentParticipants, max_participants: (e as any).max_participants },
+              scenario.player_count_max
+            )
             const isConfirmed = currentParticipants >= scenario.player_count_min && remainingSlots > 0
             scenarioMap[scenarioKey].next_events.push({
               date: e.date,

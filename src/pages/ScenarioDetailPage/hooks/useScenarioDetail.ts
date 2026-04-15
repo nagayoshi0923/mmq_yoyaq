@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { fetchPublicRelatedScenariosByAuthor } from '@/lib/scenarioRelatedPublic'
 import { formatDateJST } from '@/utils/dateUtils'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
+import { getAvailableSeats } from '@/lib/participantUtils'
 
 /**
  * シナリオ詳細データを取得する関数
@@ -66,6 +67,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
           organization_id,
           store_id,
           current_participants,
+          max_participants,
+          capacity,
           reservation_deadline_hours,
           venue
         `
@@ -159,9 +162,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
       // 公開用ビューではリレーションが使えないため、storeMap から取得
       const store = storeMap.get(event.store_id)
       
-      const maxParticipants = scenarioData.player_count_max || 8
-      const currentParticipants = event.current_participants || 0
-      const available = maxParticipants - currentParticipants
+      const scenarioMax = scenarioData.player_count_max || undefined
+      const available = getAvailableSeats(event, scenarioMax)
       
       const storeColorName = store?.color
       const storeColor = storeColorName ? getColorFromName(storeColorName) : '#6B7280'
@@ -176,8 +178,8 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
         store_short_name: store?.short_name || event.venue,
         store_color: storeColor,
         store_address: store?.address,
-        max_participants: maxParticipants,
-        current_participants: currentParticipants,
+        max_participants: event.max_participants ?? event.capacity ?? scenarioData.player_count_max ?? 8,
+        current_participants: event.current_participants ?? 0,
         available_seats: available,
         reservation_deadline_hours: event.reservation_deadline_hours ?? 0,
         is_available: available > 0
