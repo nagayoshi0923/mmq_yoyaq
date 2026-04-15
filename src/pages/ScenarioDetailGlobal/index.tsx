@@ -438,20 +438,13 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         return // リダイレクト後はこの関数の実行を中断
       }
       
-      // 公演データを取得（組織情報も含めてJOIN）
+      // 公演データを取得（schedule_events_public ビュー経由: published=true が DB レベルで保証される）
       const { data: eventData, error: eventError } = await supabase
-        .from('schedule_events')
-        .select(`
-          id, date, start_time, time_slot, current_participants, category, is_cancelled, organization_id,
-          scenario_masters:scenario_master_id (id, title, player_count_max),
-          stores:store_id (id, name, short_name, color, region),
-          organizations:organization_id (id, slug, name)
-        `)
+        .from('schedule_events_public')
+        .select('id, date, start_time, time_slot, current_participants, organization_id, store_id')
         .eq('scenario_master_id', masterId)
         .gte('date', today)
         .in('category', ['open', 'offsite'])
-        .eq('is_cancelled', false)
-        .eq('published', true)
         .order('date', { ascending: true })
         .order('start_time', { ascending: true })
         .limit(50)
@@ -460,13 +453,21 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         logger.error('Failed to fetch events:', eventError, 'message:', eventError.message, 'code:', eventError.code)
       }
 
+      // 店舗情報を stores_public から別途取得
+      const storeIds = [...new Set((eventData || []).map((e: any) => e.store_id).filter(Boolean))]
+      const storeMap: Record<string, { id: string; name: string; short_name: string; color: string | null; region: string | null }> = {}
+      if (storeIds.length > 0) {
+        const { data: storesData } = await supabase
+          .from('stores_public')
+          .select('id, name, short_name, color, region')
+          .in('id', storeIds)
+        storesData?.forEach((s: any) => { storeMap[s.id] = s })
+      }
+
       const formattedEvents: EventWithOrg[] = (eventData || [])
         .map((e: any) => {
-          const scenario = e.scenario_masters
-          const store = e.stores
-          // 直接JOINした組織情報を優先、なければorgMapから取得
-          const orgFromJoin = e.organizations
-          const org = orgFromJoin || (e.organization_id ? orgMap[e.organization_id] : null)
+          const store = storeMap[e.store_id] || null
+          const org = e.organization_id ? orgMap[e.organization_id] : null
 
           return {
             id: e.id,
@@ -474,7 +475,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
             start_time: e.start_time || '',
             time_slot: e.time_slot || '',
             current_participants: e.current_participants || 0,
-            player_count_max: scenario?.player_count_max || masterData.player_count_max,
+            player_count_max: masterData.player_count_max,
             organization_id: e.organization_id || '',
             organization_slug: org?.slug || '',
             organization_name: org?.name || '不明',
