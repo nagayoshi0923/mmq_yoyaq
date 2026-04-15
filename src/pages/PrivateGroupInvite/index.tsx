@@ -141,6 +141,9 @@ export function PrivateGroupInvite() {
   const [bookingNotes, setBookingNotes] = useState('')
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
 
+  // 配役方法選択の楽観的更新：DB の refetch 完了前に即座に UI に反映するためのローカル状態
+  const [localCharAssignmentMethod, setLocalCharAssignmentMethod] = useState<string | null>(null)
+
   // SessionStorageキー
   const getStorageKey = (inviteCode: string) => `guest_session_${inviteCode}`
 
@@ -269,6 +272,11 @@ export function PrivateGroupInvite() {
       }
     }
   }, [group, user])
+
+  // group の character_assignment_method が DB から更新されたらローカルオーバーライドをクリア
+  useEffect(() => {
+    setLocalCharAssignmentMethod(null)
+  }, [(group as any)?.character_assignment_method])
 
   // ログインユーザーの利用可能クーポンを取得
   useEffect(() => {
@@ -1361,7 +1369,7 @@ export function PrivateGroupInvite() {
 
   // 配役方法が未選択かつキャラクターが存在する場合
   // has_pre_reading=true のシナリオのみ配役フローを表示（表示目的のキャラクター登録では発火しない）
-  const charAssignmentMethod = (group as any).character_assignment_method as string | null
+  const charAssignmentMethod = localCharAssignmentMethod ?? ((group as any).character_assignment_method as string | null)
   const scenarioCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)
   const scenarioSurveyEnabled = !!(group.scenario_masters as any)?.survey_enabled
   const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioSurveyEnabled && scenarioCharacters.length > 0 && charAssignmentMethod == null)
@@ -2478,6 +2486,7 @@ export function PrivateGroupInvite() {
               performanceDate={group.candidate_dates?.[0]?.date}
               needsCharAssignmentChoice={needsCharAssignmentChoice}
               onCharAssignmentMethodSelected={async (method) => {
+                setLocalCharAssignmentMethod(method)
                 await supabase.from('private_groups').update({ character_assignment_method: method, character_assignments: null }).eq('id', group.id)
                 await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
                 const methodLabel = method === 'survey' ? 'アンケート' : '自分たちで決める'
@@ -2486,16 +2495,17 @@ export function PrivateGroupInvite() {
                   member_id: existingMemberId,
                   message: JSON.stringify({ type: 'system', action: 'character_method_selected', title: `配役方法が選択されました`, body: `「${methodLabel}」が選択されました。` }),
                 })
-                refetch()
+                await refetch()
               }}
               charAssignmentMethod={charAssignmentMethod}
               characters={scenarioCharacters}
               isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
               onCharAssignmentConfirmed={() => refetch()}
               onResetCharAssignmentMethod={async () => {
+                setLocalCharAssignmentMethod(null)
                 await supabase.from('private_groups').update({ character_assignment_method: null, character_assignments: null }).eq('id', group.id)
                 await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
-                refetch()
+                await refetch()
               }}
               scenarioPlayerCount={scenarioMax}
             />
@@ -3093,6 +3103,7 @@ export function PrivateGroupInvite() {
                 performanceDate={group.candidate_dates?.[0]?.date}
                 needsCharAssignmentChoice={needsCharAssignmentChoice}
                 onCharAssignmentMethodSelected={async (method) => {
+                  setLocalCharAssignmentMethod(method)
                   await supabase.from('private_groups').update({ character_assignment_method: method, character_assignments: null }).eq('id', group.id)
                   await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
                   const methodLabel = method === 'survey' ? 'アンケート' : '自分たちで決める'
@@ -3101,16 +3112,17 @@ export function PrivateGroupInvite() {
                     member_id: existingMemberId,
                     message: JSON.stringify({ type: 'system', action: 'character_method_selected', title: `配役方法が選択されました`, body: `「${methodLabel}」が選択されました。` }),
                   })
-                  refetch()
+                  await refetch()
                 }}
                 charAssignmentMethod={charAssignmentMethod}
                 characters={scenarioCharacters}
                 isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
                 onCharAssignmentConfirmed={() => refetch()}
                 onResetCharAssignmentMethod={async () => {
+                  setLocalCharAssignmentMethod(null)
                   await supabase.from('private_groups').update({ character_assignment_method: null, character_assignments: null }).eq('id', group.id)
                   await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
-                  refetch()
+                  await refetch()
                 }}
                 scenarioPlayerCount={scenarioMax}
               />

@@ -15,6 +15,12 @@ import type {
   PrivateGroupDateResponse,
   DateResponse,
 } from '@/types'
+import type {
+  RpcGetGroupMembersByInviteCodeParams,
+  RpcGetGroupMembersByGroupIdParams,
+  RpcCheckMemberExistsParams,
+  RpcGetGroupMemberCountParams,
+} from '@/lib/rpcTypes'
 
 interface CandidateDateInput {
   date: string
@@ -143,7 +149,13 @@ async function enrichMembersWithNames(
   }
 }
 
-/** ビュー経由でキャラクター・人数上限を取得し scenario_masters に反映 */
+/** organization_scenarios から直接キャラクター・人数上限・survey_enabled を取得し scenario_masters に反映
+ *
+ * NOTE: organization_scenarios_with_master ビューは scenario_masters との INNER JOIN を含むため、
+ * scenario_masters の RLS（master_status='approved' 必須）によりカスタマーが内部シナリオの
+ * データを取得できない場合がある。organization_scenarios テーブルに直接アクセスすることで
+ * このRLS制限を回避する。
+ */
 async function enrichGroupWithViewData(
   data: {
     scenario_masters?: Record<string, unknown> | null
@@ -153,21 +165,21 @@ async function enrichGroupWithViewData(
 ) {
   if (!data.scenario_master_id || !data.organization_id) return
   try {
-    const { data: viewRow } = await supabase
-      .from('organization_scenarios_with_master')
-      .select('characters, player_count_min, player_count_max, survey_enabled')
+    const { data: osRow } = await supabase
+      .from('organization_scenarios')
+      .select('characters, override_player_count_min, override_player_count_max, survey_enabled')
       .eq('scenario_master_id', data.scenario_master_id)
       .eq('organization_id', data.organization_id)
       .maybeSingle()
 
-    if (!viewRow || !data.scenario_masters) return
-    if (viewRow.characters) {
-      (data.scenario_masters as Record<string, unknown>).characters = viewRow.characters
+    if (!osRow || !data.scenario_masters) return
+    if (osRow.characters) {
+      (data.scenario_masters as Record<string, unknown>).characters = osRow.characters
     }
-    (data.scenario_masters as Record<string, unknown>).survey_enabled = viewRow.survey_enabled ?? false
-    if (typeof viewRow.player_count_min === 'number' && typeof viewRow.player_count_max === 'number') {
-      data.scenario_masters.effective_player_count_min = viewRow.player_count_min
-      data.scenario_masters.effective_player_count_max = viewRow.player_count_max
+    (data.scenario_masters as Record<string, unknown>).survey_enabled = osRow.survey_enabled ?? false
+    if (typeof osRow.override_player_count_min === 'number' && typeof osRow.override_player_count_max === 'number') {
+      data.scenario_masters.effective_player_count_min = osRow.override_player_count_min
+      data.scenario_masters.effective_player_count_max = osRow.override_player_count_max
     }
   } catch {
     // ゲストユーザーはRLSでアクセスできない場合がある
@@ -342,9 +354,8 @@ export function usePrivateGroup() {
       }
 
       // メンバー情報を RPC 経由で取得（PII 保護）
-      const { data: members } = await supabase.rpc('get_group_members_by_invite_code', {
-        p_invite_code: inviteCode,
-      })
+      const byInviteCodeParams: RpcGetGroupMembersByInviteCodeParams = { p_invite_code: inviteCode }
+      const { data: members } = await supabase.rpc('get_group_members_by_invite_code', byInviteCodeParams)
       data.members = members || []
 
       await enrichGroupWithViewData(data)
@@ -385,9 +396,8 @@ export function usePrivateGroup() {
       }
 
       // メンバー情報を RPC 経由で取得（認証済みユーザー用）
-      const { data: members } = await supabase.rpc('get_group_members_by_group_id', {
-        p_group_id: groupId,
-      })
+      const byGroupIdParams: RpcGetGroupMembersByGroupIdParams = { p_group_id: groupId }
+      const { data: members } = await supabase.rpc('get_group_members_by_group_id', byGroupIdParams)
       data.members = members || []
 
       await enrichGroupWithViewData(data)
@@ -438,11 +448,12 @@ export function usePrivateGroup() {
 
     try {
       // メンバー重複チェック（RPC 経由 - PII 保護）
-      const { data: memberExists } = await supabase.rpc('check_member_exists', {
+      const checkMemberParams: RpcCheckMemberExistsParams = {
         p_group_id: params.groupId,
         p_user_id: params.userId || null,
         p_guest_email: params.guestEmail || null,
-      })
+      }
+      const { data: memberExists } = await supabase.rpc('check_member_exists', checkMemberParams)
 
       if (memberExists) {
         throw new Error('既にグループに参加しています')
@@ -463,9 +474,8 @@ export function usePrivateGroup() {
         if (bounds) {
           const cap = memberInvitationCap(bounds)
           // メンバー数チェック（RPC 経由 - PII 保護）
-          const { data: currentMemberCount } = await supabase.rpc('get_group_member_count', {
-            p_group_id: params.groupId,
-          })
+          const memberCountParams: RpcGetGroupMemberCountParams = { p_group_id: params.groupId }
+          const { data: currentMemberCount } = await supabase.rpc('get_group_member_count', memberCountParams)
 
           if (currentMemberCount !== null && currentMemberCount >= cap) {
             throw new Error(`参加人数が上限（${cap}名）に達しています`)

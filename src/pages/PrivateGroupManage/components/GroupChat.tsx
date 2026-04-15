@@ -119,6 +119,13 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     })()
   }, [scenarioId, organizationId, performanceDate])
 
+  // pre_reading_notice が送信済みであれば配役フローを表示する
+  // enrichGroupWithViewData が RLS 制限等で失敗した場合のフォールバック
+  const hasPreReadingNotice = messages.some(m => {
+    try { return JSON.parse(m.message)?.action === 'pre_reading_notice' } catch { return false }
+  })
+  const effectiveNeedsCharAssignmentChoice = needsCharAssignmentChoice || (hasPreReadingNotice && !charAssignmentMethod)
+
   // デバッグログ
   logger.log('📋 GroupChat: props', { groupId, currentMemberId, scenarioId, organizationId, performanceDate })
 
@@ -1047,7 +1054,7 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
             ))
           )}
           {/* 配役方法の選択カード（主催者のみ） */}
-          {needsCharAssignmentChoice && isOrganizer && onCharAssignmentMethodSelected && (
+          {effectiveNeedsCharAssignmentChoice && isOrganizer && onCharAssignmentMethodSelected && (
             <div className="flex justify-center my-4">
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
                 <div className="flex items-center gap-2 mb-3">
