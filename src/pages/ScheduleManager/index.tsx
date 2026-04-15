@@ -1,5 +1,5 @@
 // React
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -409,22 +409,45 @@ export function ScheduleManager() {
   // シナリオ候補（MultiSelect用）
   const scenarioOptions = useMemo(() => {
     const scenarios = (modals?.performanceModal?.scenarios || []) as Array<any>
-    const map = new Map<string, { id: string; name: string; displayInfo?: string; displayInfoSearchText?: string }>()
+    const events = scheduleTableProps.events || []
+
+    // 表示中の月のイベントからシナリオごとに公演数・中止数を集計
+    const scheduledCount = new Map<string, number>()
+    const cancelledCount = new Map<string, number>()
+    events.forEach((ev: any) => {
+      const sid = ev.scenario_master_id
+      if (!sid) return
+      if (ev.is_cancelled) {
+        cancelledCount.set(sid, (cancelledCount.get(sid) || 0) + 1)
+      } else {
+        scheduledCount.set(sid, (scheduledCount.get(sid) || 0) + 1)
+      }
+    })
+
+    const map = new Map<string, { id: string; name: string; displayInfo?: React.ReactNode; displayInfoSearchText?: string }>()
     scenarios.forEach((s) => {
       const id = String(s?.id || '').trim()
       const title = String(s?.title || s?.scenario || '').trim()
       if (!id || !title) return
       if (map.has(id)) return
-      const max = s?.player_count_max ? `〜${s.player_count_max}` : undefined
+      const scheduled = scheduledCount.get(id) || 0
+      const cancelled = cancelledCount.get(id) || 0
+      const displayInfo = (
+        <span className="flex items-center gap-0.5 text-xs">
+          <span className="text-foreground font-medium">{scheduled}</span>
+          <span className="text-muted-foreground">/</span>
+          <span className={cancelled > 0 ? 'text-orange-500 font-medium' : 'text-muted-foreground'}>{cancelled}</span>
+        </span>
+      )
       map.set(id, {
         id,
         name: title,
-        displayInfo: max,
-        displayInfoSearchText: max
+        displayInfo,
+        displayInfoSearchText: `${scheduled}/${cancelled}`
       })
     })
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
-  }, [modals?.performanceModal?.scenarios])
+  }, [modals?.performanceModal?.scenarios, scheduleTableProps.events])
 
   const selectedScenarioId = selectedScenarioIds[0] || null
   const selectedScenarioTitle = useMemo(() => {
