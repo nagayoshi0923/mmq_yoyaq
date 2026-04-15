@@ -415,7 +415,8 @@ export function ScheduleManager() {
     const scheduledCount = new Map<string, number>()
     const cancelledCount = new Map<string, number>()
     events.forEach((ev: any) => {
-      const sid = ev.scenario_master_id
+      // フォーマット後のイベントは scenarios.id に scenario_master_id が入っている
+      const sid = ev.scenarios?.id
       if (!sid) return
       if (ev.is_cancelled) {
         cancelledCount.set(sid, (cancelledCount.get(sid) || 0) + 1)
