@@ -59,6 +59,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
           end_time,
           category,
           is_reservation_enabled,
+          published,
           is_cancelled,
           scenario_master_id,
           organization_id,
@@ -74,6 +75,7 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
         .gte('date', todayJST)
         .lte('date', endDateStr)
         .eq('is_cancelled', false)
+        .eq('published', true)
       if (orgId) x = x.eq('organization_id', orgId)
       return x.order('date', { ascending: true }).order('start_time', { ascending: true })
     }
@@ -147,8 +149,11 @@ async function fetchScenarioDetail(scenarioId: string, organizationSlug?: string
     .filter((event: any) => {
       // open公演のみ（private除外）
       if (event.category === 'private') return false
-      // 予約可能な公演のみ
-      return event.is_reservation_enabled !== false
+      // 非公開イベントは表示しない（nullも非公開扱い）
+      if (!event.published) return false
+      // 予約受付オフのイベントは表示しない（nullも無効扱い）
+      if (!event.is_reservation_enabled) return false
+      return true
     })
     .map((event: any) => {
       // 公開用ビューではリレーションが使えないため、storeMap から取得
