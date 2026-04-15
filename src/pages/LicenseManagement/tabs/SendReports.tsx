@@ -443,6 +443,7 @@ ${normalText}${externalText}
         supabase
           .from('manual_internal_performance_overrides')
           .select('scenario_key, performance_count')
+          .eq('organization_id', organizationId)
           .eq('year', selectedYear)
           .eq('month', selectedMonth)
           .then(res => res.data || [], () => []),
@@ -1761,7 +1762,7 @@ ${normalText}${externalText}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
           <MonthSwitcher value={currentDate} onChange={setCurrentDate} />
-          {isSavingExternal && (
+          {(isSavingExternal || isSavingInternal) && (
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
               <span>保存中...</span>
