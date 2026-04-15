@@ -9,6 +9,55 @@ import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 
+// ---- localStorage → DB 一回限りの移行 ----
+
+const MIGRATION_DONE_KEY = 'slot-memo-migration-v1-done'
+
+export async function migrateLocalStorageSlotMemos(organizationId: string): Promise<void> {
+  if (typeof window === 'undefined') return
+  if (localStorage.getItem(MIGRATION_DONE_KEY)) return
+
+  const prefix = 'slot-memo-'
+  const entries: { date: string; storeId: string; timeSlot: string; memo: string }[] = []
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key?.startsWith(prefix)) continue
+    const memo = localStorage.getItem(key)
+    if (!memo?.trim()) continue
+    // key = slot-memo-{date}-{storeId}-{timeSlot}
+    const rest = key.slice(prefix.length)
+    // date は YYYY-MM-DD (10文字), 次が storeId (uuid=36文字), 次が timeSlot
+    const dateStr = rest.slice(0, 10)
+    const remaining = rest.slice(11) // skip '-'
+    const storeId = remaining.slice(0, 36)
+    const timeSlot = remaining.slice(37) // skip '-'
+    if (!dateStr || !storeId || !timeSlot) continue
+    entries.push({ date: dateStr, storeId, timeSlot, memo })
+  }
+
+  if (entries.length > 0) {
+    const rows = entries.map(e => ({
+      organization_id: organizationId,
+      date: e.date,
+      store_id: e.storeId,
+      time_slot: e.timeSlot,
+      memo: e.memo,
+      updated_at: new Date().toISOString()
+    }))
+    const { error } = await supabase
+      .from('schedule_slot_memos')
+      .upsert(rows, { onConflict: 'organization_id,date,store_id,time_slot', ignoreDuplicates: true })
+    if (error) {
+      logger.error('localStorage メモ移行エラー:', error)
+      return // 失敗した場合は done フラグを立てない（次回再試行）
+    }
+    logger.log(`✅ localStorage スロットメモ ${entries.length} 件を DB に移行しました`)
+  }
+
+  localStorage.setItem(MIGRATION_DONE_KEY, '1')
+}
+
 // ---- Supabase ヘルパー ----
 
 export async function getEmptySlotMemo(date: string, storeId: string, timeSlot: string): Promise<string> {
@@ -94,6 +143,14 @@ export function SlotMemoInput({ date, storeId, timeSlot }: SlotMemoInputProps) {
   const [memo, setMemo] = useState('')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { organizationId } = useOrganization()
+
+  // 初回マウント時に localStorage → DB への一回限りの移行を実行
+  useEffect(() => {
+    if (organizationId) {
+      void migrateLocalStorageSlotMemos(organizationId)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId])
 
   // マウント時に DB からメモを取得
   useEffect(() => {
