@@ -451,6 +451,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         .gte('date', today)
         .in('category', ['open', 'offsite'])
         .eq('is_cancelled', false)
+        .eq('published', true)
         .order('date', { ascending: true })
         .order('start_time', { ascending: true })
         .limit(50)
