@@ -30,6 +30,13 @@ export interface RpcCancelReservationParams {
   p_cancellation_reason: string | null
 }
 
+/** 通常キャンセル専用: 予約キャンセル + 貸切グループキャンセルを1トランザクションで実行 */
+export interface RpcCancelReservationAndGroupParams {
+  p_reservation_id: string
+  p_customer_id: string | null
+  p_cancellation_reason: string | null
+}
+
 export interface RpcUpdateReservationParticipantsParams {
   p_reservation_id: string
   p_new_count: number

@@ -7,6 +7,7 @@ import type { Reservation, Customer, ReservationSummary } from '@/types'
 import type {
   RpcCreateReservationParams,
   RpcCancelReservationParams,
+  RpcCancelReservationAndGroupParams,
   RpcUpdateReservationParticipantsParams,
   RpcRecalculateReservationPricesParams,
   RpcAdminUpdateReservationFieldsParams,
@@ -416,6 +417,25 @@ export const reservationApi = {
     return true
   },
 
+  // 予約 + 貸切グループを同一トランザクションでキャンセル（通常キャンセル専用）
+  // 却下フロー（skipGroupCancel: true）では使わず、cancelWithLock を使い続けること
+  async cancelWithGroupLock(reservationId: string, customerId: string | null, reason?: string): Promise<boolean> {
+    const params: RpcCancelReservationAndGroupParams = {
+      p_reservation_id: reservationId,
+      p_customer_id: customerId,
+      p_cancellation_reason: reason ?? null,
+    }
+    const { data, error } = await supabase.rpc('cancel_reservation_and_group_with_lock', params)
+    if (error) {
+      logger.error('予約+グループキャンセルRPCエラー:', error)
+      throw error
+    }
+    if (data !== true) {
+      throw new Error('予約のキャンセルに失敗しました（DB側で処理できませんでした）')
+    }
+    return true
+  },
+
   // 参加人数を変更（RPC + FOR UPDATE）
   async updateParticipantsWithLock(
     reservationId: string,
@@ -711,16 +731,17 @@ export const reservationApi = {
       throw new Error('予約情報の取得に失敗しました')
     }
 
-    // customer_id が NULL でも動作するように修正（スタッフ予約・貸切予約対応）
-    await reservationApi.cancelWithLock(id, reservation.customer_id ?? null, cancellationReason)
-    
-    // 貸切予約の場合、関連するグループもキャンセル状態に更新（skipGroupCancelオプションがない場合のみ）
+    // 通常キャンセル: 予約 + グループを1トランザクションで処理
+    // 却下フロー（skipGroupCancel: true）は cancelWithLock のみ使い、グループは別RPC で date_adjusting へ
+    if (options?.skipGroupCancel) {
+      await reservationApi.cancelWithLock(id, reservation.customer_id ?? null, cancellationReason)
+    } else {
+      await reservationApi.cancelWithGroupLock(id, reservation.customer_id ?? null, cancellationReason)
+      clog.info('予約+グループをatomicにキャンセル', { reservationId: id, groupId: reservation.private_group_id })
+    }
+
+    // 貸切グループのシステムメッセージ送信（グループキャンセルの場合のみ）
     if (reservation.private_group_id && !options?.skipGroupCancel) {
-      await supabase
-        .from('private_groups')
-        .update({ status: 'cancelled' })
-        .eq('id', reservation.private_group_id)
-      clog.info('グループステータスをキャンセルに更新', { groupId: reservation.private_group_id })
       
       // システムメッセージ設定を取得
       const { data: settings } = await supabase
