@@ -1,23 +1,7 @@
--- manual_external_performances に performance_type カラムを追加
--- GMテストと通常公演の他社回数を独立して管理できるようにする
+-- 前2マイグレーション適用後のスキーマキャッシュ強制リフレッシュ
+-- license_report_history の新カラムと upsert_manual_external_performance の新シグネチャを反映
 
-ALTER TABLE public.manual_external_performances
-  ADD COLUMN IF NOT EXISTS performance_type TEXT NOT NULL DEFAULT 'normal';
-
-COMMENT ON COLUMN public.manual_external_performances.performance_type IS '公演種別。normal=通常, gmtest=GMテスト';
-
--- 既存のユニーク制約を削除して performance_type を含む新しい制約に置き換える
-ALTER TABLE public.manual_external_performances
-  DROP CONSTRAINT IF EXISTS manual_external_performances_unique_key;
-
-ALTER TABLE public.manual_external_performances
-  ADD CONSTRAINT manual_external_performances_unique_key
-    UNIQUE (organization_id, scenario_id, year, month, performance_type);
-
-COMMENT ON CONSTRAINT manual_external_performances_unique_key ON public.manual_external_performances
-  IS '組織・シナリオ・年月・公演種別の組み合わせでユニーク';
-
--- RPC関数を更新して performance_type を受け取れるようにする
+-- upsert_manual_external_performance を GRANT 付きで再作成（キャッシュ確実化）
 CREATE OR REPLACE FUNCTION public.upsert_manual_external_performance(
   p_organization_id UUID,
   p_scenario_id UUID,
@@ -36,10 +20,10 @@ DECLARE
 BEGIN
   SELECT id INTO v_existing_id
   FROM public.manual_external_performances
-  WHERE organization_id = p_organization_id
-    AND scenario_id     = p_scenario_id
-    AND year            = p_year
-    AND month           = p_month
+  WHERE organization_id  = p_organization_id
+    AND scenario_id      = p_scenario_id
+    AND year             = p_year
+    AND month            = p_month
     AND performance_type = p_performance_type;
 
   IF v_existing_id IS NOT NULL THEN
@@ -63,5 +47,4 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.upsert_manual_external_performance(UUID, UUID, INTEGER, INTEGER, INTEGER, UUID, TEXT) TO authenticated;
 
--- PostgRESTスキーマキャッシュをリフレッシュ
 NOTIFY pgrst, 'reload schema';
