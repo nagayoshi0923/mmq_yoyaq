@@ -630,33 +630,36 @@ ${normalText}${externalText}
         scenarios
           .filter(s => s.author)  // 作者がいるシナリオ全て
           .forEach(scenario => {
-            // 既に追加されていればスキップ
-            if (itemsByScenario.has(scenario.id)) return
-
-            const externalEvents = externalCountByScenario.get(scenario.id) || 0
+            // カスタム行でも使うため外側で定義
             const externalLicenseAmount = scenario.franchise_license_amount || scenario.license_amount || 0
-            const externalLicenseCost = externalLicenseAmount * externalEvents
 
-            itemsByScenario.set(scenario.id, {
-              scenarioId: scenario.id,
-              scenarioKey: scenario.id,
-              scenarioTitle: scenario.title,
-              author: scenario.author,
-              reportDisplayName: scenario.report_display_name || scenario.author,
-              authorEmail: scenario.author_email || null,
-              events: externalEvents,
-              internalEvents: 0,
-              externalEvents,
-              licenseCost: externalLicenseCost,
-              internalLicenseCost: 0,
-              externalLicenseCost,
-              internalLicenseAmount: scenario.license_amount || 0,
-              externalLicenseAmount,
-              isGMTest: false,
-              scenarioType: scenario.scenario_type || 'normal'
-            })
+            // 通常行：まだ追加されていない場合のみ追加
+            if (!itemsByScenario.has(scenario.id)) {
+              const externalEvents = externalCountByScenario.get(scenario.id) || 0
+              const externalLicenseCost = externalLicenseAmount * externalEvents
+
+              itemsByScenario.set(scenario.id, {
+                scenarioId: scenario.id,
+                scenarioKey: scenario.id,
+                scenarioTitle: scenario.title,
+                author: scenario.author,
+                reportDisplayName: scenario.report_display_name || scenario.author,
+                authorEmail: scenario.author_email || null,
+                events: externalEvents,
+                internalEvents: 0,
+                externalEvents,
+                licenseCost: externalLicenseCost,
+                internalLicenseCost: 0,
+                externalLicenseCost,
+                internalLicenseAmount: scenario.license_amount || 0,
+                externalLicenseAmount,
+                isGMTest: false,
+                scenarioType: scenario.scenario_type || 'normal'
+              })
+            }
 
             // GMテスト行（gm_test_license_amount が設定されている場合）
+            // ※ 通常行の有無に関わらず独立してチェック
             const gmtestKey = `${scenario.id}_gmtest`
             if (!itemsByScenario.has(gmtestKey) && (scenario.gm_test_license_amount ?? 0) > 0) {
               itemsByScenario.set(gmtestKey, {

@@ -1091,8 +1091,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               gm_test_license_amount: scenarioData.gm_test_license_amount,
               franchise_license_amount: scenarioData.franchise_license_amount,
               franchise_gm_test_license_amount: scenarioData.franchise_gm_test_license_amount,
-              external_license_amount: scenarioData.external_license_amount,
-              external_gm_test_license_amount: scenarioData.external_gm_test_license_amount,
+              external_license_amount: formData.external_license_amount,
+              external_gm_test_license_amount: formData.external_gm_test_license_amount,
               // フランチャイズ公演時
               fc_receive_license_amount: formData.fc_receive_license_amount,
               fc_receive_gm_test_license_amount: formData.fc_receive_gm_test_license_amount,

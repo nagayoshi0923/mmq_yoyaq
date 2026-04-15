@@ -1,8 +1,6 @@
--- 正規ソース: supabase/schemas/organization_scenarios_with_master.sql
--- 最終更新: 2026-04-16
--- ビュー定義: organization_scenarios と scenario_masters を結合し、
--- COALESCE でオーバーライドフィールドを適用する。
--- available_gms / experienced_staff は staff_scenario_assignments から動的に集計。
+-- organization_scenarios_with_master ビューに external_license_amount 等を追加
+-- これらのフィールドが欠けていたため、シナリオ編集ダイアログで受取金額が保存されなかった
+
 CREATE OR REPLACE VIEW public.organization_scenarios_with_master AS
 SELECT
   os.scenario_master_id AS id,
@@ -108,3 +106,5 @@ SELECT
   COALESCE(os.private_booking_blocked_slots, ARRAY[]::text[]) AS private_booking_blocked_slots
 FROM organization_scenarios os
 JOIN scenario_masters sm ON sm.id = os.scenario_master_id;
+
+NOTIFY pgrst, 'reload schema';
