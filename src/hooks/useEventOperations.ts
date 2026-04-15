@@ -907,7 +907,7 @@ export function useEventOperations({
         // time_slotを英語形式に変換（'朝'→'morning', '昼'→'afternoon', '夜'→'evening'）
         const timeSlotKey: 'morning' | 'afternoon' | 'evening' = scheduleTimeSlotToEn(performanceData.time_slot) ?? 'afternoon'
 
-        saveEmptySlotMemo(performanceData.date, storeId, timeSlotKey, memoText)
+        void saveEmptySlotMemo(performanceData.date, storeId, timeSlotKey, memoText)
         logger.log('✅ スロットメモ保存成功:', performanceData.date, storeId, timeSlotKey, memoText.substring(0, 50))
         
         // 編集モードの場合、元の公演を削除
@@ -2130,7 +2130,7 @@ export function useEventOperations({
       const timeSlotKey = getEventTimeSlot(event)
       
       // スロットメモとして保存
-      saveEmptySlotMemo(event.date, storeId, timeSlotKey, memoText)
+      void saveEmptySlotMemo(event.date, storeId, timeSlotKey, memoText)
       logger.log('✅ スロットメモ保存成功:', event.date, storeId, timeSlotKey, memoText.substring(0, 50))
       
       // 公演を削除

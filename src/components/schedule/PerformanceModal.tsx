@@ -456,6 +456,11 @@ export function PerformanceModal({
     if (mode === 'add' && isTimeSlotSettingsLoading) {
       return
     }
+    void initForm()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, event, initialData, getDefaultsForDate, isTimeSlotSettingsLoading])
+
+  const initForm = async () => {
     
     if (mode === 'edit' && event) {
       // 編集モード：既存データで初期化
@@ -511,9 +516,9 @@ export function PerformanceModal({
         ? dayDefaults[slot] 
         : DEFAULT_TIME_SLOTS[slot]
       
-      // スロットメモを取得（localStorageから）
-      const slotMemo = getEmptySlotMemo(initialData.date, initialData.venue, slot)
-      
+      // スロットメモを取得（DB から非同期で取得）
+      const slotMemo = await getEmptySlotMemo(initialData.date, initialData.venue, slot)
+
       // 前の公演がある場合は推奨開始時間を使用、なければスロットのデフォルトを使用
       const startTime = initialData.suggestedStartTime || slotDefaults.start_time
       
@@ -549,8 +554,7 @@ export function PerformanceModal({
         reservation_name: ''  // 予約者名（初期値は空）
       })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, event, initialData, getDefaultsForDate, isTimeSlotSettingsLoading])
+  }
 
   // 終了時間を自動計算する関数
   const calculateEndTime = (startTime: string, scenarioTitle: string) => {
@@ -653,7 +657,7 @@ export function PerformanceModal({
     
     // 追加モードの場合、スロットメモをクリア（備考に引き継いだので不要）
     if (mode === 'add' && initialData) {
-      clearEmptySlotMemo(initialData.date, initialData.venue, timeSlot)
+      void clearEmptySlotMemo(initialData.date, initialData.venue, timeSlot)
     }
     
     const success = await onSave(saveData)
