@@ -301,6 +301,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         // 貸切専用（顧客メールではGM名を出さない）
         .replace(/{gm_name}/g, '')
         .replace(/{notes}/g, bookingData.notes || '')
+        // 未置換変数を除去
+        .replace(/\{[a-z_]+\}/g, '')
     }
 
     // カスタムテンプレートをHTMLに変換

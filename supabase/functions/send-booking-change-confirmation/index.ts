@@ -322,6 +322,8 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
         .replace(/{new_date}/g, changeData.newEventDate ? formatDate(changeData.newEventDate) : '')
         .replace(/{old_participants}/g, String(changeData.oldParticipantCount || ''))
         .replace(/{new_participants}/g, String(changeData.newParticipantCount || ''))
+        // 未置換変数を除去
+        .replace(/\{[a-z_]+\}/g, '')
     }
 
     // カスタムテンプレートをHTMLに変換

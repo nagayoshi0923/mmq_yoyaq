@@ -167,6 +167,8 @@ serve(async (req) => {
       .replace(/{company_name}/g, companyName)
       .replace(/{company_phone}/g, companyPhone || '')
       .replace(/{company_email}/g, companyEmail || '')
+      // 未置換変数を除去
+      .replace(/\{[a-z_]+\}/g, '')
 
     // カスタムテンプレートをHTMLに変換
     const templateToHtml = (template: string) => {

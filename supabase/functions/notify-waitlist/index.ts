@@ -449,6 +449,8 @@ ${emailTemplates.footer}
           // 追加変数（キャンセル待ち専用）
           .replace(/{booking_url}/g, bookingUrl)
           .replace(/{freed_seats}/g, String(data.freedSeats || ''))
+          // 未置換変数を除去
+          .replace(/\{[a-z_]+\}/g, '')
       }
 
       // カスタムテンプレートをHTMLに変換
