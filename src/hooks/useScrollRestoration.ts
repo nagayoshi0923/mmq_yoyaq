@@ -125,8 +125,6 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     let attempts = 0
     const maxAttempts = 40
     let timerId: ReturnType<typeof setTimeout> | undefined
-    let rafId: number | undefined
-
     const tryRestore = () => {
       attempts++
 
@@ -143,7 +141,7 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     }
 
     // レイアウト確定後に 1 フレーム遅らせて試行
-    rafId = requestAnimationFrame(tryRestore)
+    const rafId = requestAnimationFrame(tryRestore)
 
     return () => {
       if (timerId) clearTimeout(timerId)

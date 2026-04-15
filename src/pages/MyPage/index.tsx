@@ -612,7 +612,7 @@ export default function MyPage() {
         if (nameRpcError) {
           logger.warn('get_user_display_names RPC エラー（メンバー名が一部省略される場合があります）:', nameRpcError)
         } else {
-          ;(nameRows as { user_id: string; display_name: string }[] | null)?.forEach((row) => {
+          (nameRows as { user_id: string; display_name: string }[] | null)?.forEach((row) => {
             if (row.user_id && row.display_name?.trim()) {
               displayByUserId[row.user_id] = row.display_name.trim()
             }

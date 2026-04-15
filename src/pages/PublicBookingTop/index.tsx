@@ -239,7 +239,6 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     loadData().catch((error) => {
       logger.error('PublicBookingTop データ取得エラー:', error)
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadData])
 
   // タブ変更時にURL更新（メモ化）

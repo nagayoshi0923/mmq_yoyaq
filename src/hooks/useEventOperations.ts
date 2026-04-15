@@ -137,6 +137,7 @@ async function syncRelatedDataOnEventDateChange(
     if (!reservations || reservations.length === 0) return
 
     for (const reservation of reservations) {
+      // eslint-disable-next-line no-restricted-syntax
       const { error: resUpdateError } = await supabase
         .from('reservations')
         .update({ requested_datetime: newRequestedDatetime })

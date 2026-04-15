@@ -747,7 +747,7 @@ export function ReservationsPage() {
 
       // 店舗情報を取得
       const storeIds = [...new Set((events || []).map(e => e.store_id).filter(Boolean))]
-      let storeMap = new Map<string, { id: string; name: string }>()
+      const storeMap = new Map<string, { id: string; name: string }>()
       if (storeIds.length > 0) {
         const { data: storesData } = await supabase
           .from('stores_public')

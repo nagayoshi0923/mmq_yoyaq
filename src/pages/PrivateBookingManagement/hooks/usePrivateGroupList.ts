@@ -105,7 +105,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
 
       // 主催者情報を取得
       const organizerIds = [...new Set((data || []).map(g => g.organizer_id).filter(Boolean))]
-      let organizerMap: Map<string, { name: string; nickname?: string; email?: string }> = new Map()
+      const organizerMap: Map<string, { name: string; nickname?: string; email?: string }> = new Map()
 
       if (organizerIds.length > 0) {
         const { data: customers } = await supabase

@@ -37,8 +37,8 @@ export function useCustomerData() {
 
       // 予約データから累計支払額と予約数を集計
       const customerIds = (data || []).map(c => c.id)
-      let reservationStats: Record<string, { total_paid: number; reservation_count: number }> = {}
-      let couponStatsMap: Record<string, CustomerCouponStats> = {}
+      const reservationStats: Record<string, { total_paid: number; reservation_count: number }> = {}
+      const couponStatsMap: Record<string, CustomerCouponStats> = {}
       
       if (customerIds.length > 0) {
         let resQuery = supabase
