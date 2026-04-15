@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { useAuth } from '@/contexts/AuthContext'
+import { RESERVATION_SOURCE } from '@/lib/constants'
 
 /**
  * 貸切「店舗承認待ち」件数
@@ -30,7 +31,7 @@ export function useStoreConfirmationPendingCount() {
         let statusQuery = supabase
           .from('reservations')
           .select('id', { count: 'exact', head: true })
-          .eq('reservation_source', 'web_private')
+          .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
           .in('status', ['gm_confirmed', 'pending_store'])
         
         if (orgId) {
@@ -51,7 +52,7 @@ export function useStoreConfirmationPendingCount() {
             id,
             gm_availability_responses!inner(available_candidates)
           `)
-          .eq('reservation_source', 'web_private')
+          .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
           .in('status', ['pending', 'pending_gm'])
         
         if (orgId) {
@@ -92,7 +93,7 @@ export function useStoreConfirmationPendingCount() {
           event: '*',
           schema: 'public',
           table: 'reservations',
-          filter: 'reservation_source=eq.web_private'
+          filter: `reservation_source=eq.${RESERVATION_SOURCE.WEB_PRIVATE}`
         },
         () => {
           fetchCount()

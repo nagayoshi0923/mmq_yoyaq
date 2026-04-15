@@ -24,6 +24,7 @@ import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { SurveyResponseForm } from './components/SurveyResponseForm'
+import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 
 interface Coupon {
   id: string
@@ -1266,7 +1267,7 @@ export function PrivateGroupInvite() {
       // システムメッセージを送信
       const { data: msgSettings } = await supabase
         .from('global_settings')
-        .select('system_msg_booking_requested_title, system_msg_booking_requested_body')
+        .select(GLOBAL_SETTINGS_MSG_SELECT.BOOKING_REQUESTED)
         .eq('organization_id', group.organization_id)
         .maybeSingle()
       

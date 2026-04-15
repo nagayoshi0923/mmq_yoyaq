@@ -11,6 +11,7 @@ import { handleSupabaseError, getUserFriendlyMessage, logApiError } from '@/lib/
 import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff } from '@/types'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { RESERVATION_SOURCE, DEMO_RESERVATION_SOURCES } from '@/lib/constants'
 
 // 過去の定員未満の公演にデモ参加者を追加する関数
 export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ success: number; failed: number; skipped: number }> {
@@ -131,8 +132,8 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       }
       
       // 既にdemo_autoで追加された予約があるか、または無記名（空配列）の予約があるかチェック
-      const hasDemoParticipant = existingReservations?.some(r => 
-        r.reservation_source === 'demo_auto' ||
+      const hasDemoParticipant = existingReservations?.some(r =>
+        r.reservation_source === RESERVATION_SOURCE.DEMO_AUTO ||
         !r.participant_names || 
         r.participant_names.length === 0 ||
         r.participant_names?.includes('デモ参加者') || 
@@ -226,10 +227,10 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         payment_method: 'onsite',
         payment_status: 'paid',
         status: 'confirmed',
-        reservation_source: 'demo_auto',
+        reservation_source: RESERVATION_SOURCE.DEMO_AUTO,
         organization_id: event.organization_id // マルチテナント対応
       }
-      
+
       const { error: insertError } = await supabase
         .from('reservations')
         .insert(demoReservation)
@@ -331,7 +332,7 @@ async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise
             payment_method: 'onsite',
             payment_status: 'paid',
             status: 'confirmed',
-            reservation_source: 'demo',
+            reservation_source: RESERVATION_SOURCE.DEMO,
             organization_id: event.organization_id // マルチテナント対応
           }
           
@@ -918,7 +919,7 @@ export function useScheduleData(currentDate: Date) {
               nickname
             )
           `)
-          .eq('reservation_source', 'web_private')
+          .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
           .eq('status', 'confirmed') // 確定のみ表示
           .is('schedule_event_id', null) // schedule_eventsに未登録のもののみ
         
@@ -1308,7 +1309,7 @@ export function useScheduleData(currentDate: Date) {
             nickname
           )
         `)
-        .eq('reservation_source', 'web_private')
+        .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
         .eq('status', 'confirmed')
         .is('schedule_event_id', null) // schedule_eventsに未登録のもののみ
       
@@ -1503,7 +1504,7 @@ export function useScheduleData(currentDate: Date) {
           const reservation = (payload.new || payload.old) as { reservation_source?: string; status?: string } | null
           
           // web_private かつ confirmed のみ処理
-          if (reservation?.reservation_source !== 'web_private' || reservation?.status !== 'confirmed') {
+          if (reservation?.reservation_source !== RESERVATION_SOURCE.WEB_PRIVATE || reservation?.status !== 'confirmed') {
             logger.log('⏭️ Realtime: 対象外の予約のため無視')
             return
           }

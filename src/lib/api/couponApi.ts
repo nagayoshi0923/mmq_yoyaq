@@ -32,7 +32,7 @@ async function findCustomerByUserId(
     query = query.eq('organization_id', organizationId)
   }
   const { data } = await query.order('created_at', { ascending: true }).limit(1)
-  return (data?.[0] as Record<string, unknown>) ?? null
+  return (data?.[0] as unknown as Record<string, unknown>) ?? null
 }
 
 // キャンペーン統計

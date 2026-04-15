@@ -53,6 +53,7 @@ export function useAnnualAnalysis(
       const allEvents: EventRow[] = []
       const pageSize = 1000
       let from = 0
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         let q = supabase
           .from('schedule_events_staff_view')
@@ -81,6 +82,7 @@ export function useAnnualAnalysis(
       for (let i = 0; i < eventIds.length; i += batchSize) {
         const batch = eventIds.slice(i, i + batchSize)
         let rFrom = 0
+        // eslint-disable-next-line no-constant-condition
         while (true) {
           let rq = supabase
             .from('reservations')

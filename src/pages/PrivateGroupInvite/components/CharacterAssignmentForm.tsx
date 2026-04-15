@@ -43,7 +43,7 @@ export function CharacterAssignmentForm({
   const [step, setStep] = useState<'preferences' | 'confirm'>('preferences')
   const [decisions, setDecisions] = useState<Record<string, string>>({})
 
-  const activeMembers = members.filter(m => m.status === 'active' || m.status === 'joined')
+  const activeMembers = members.filter(m => (m.status as string) === 'active' || m.status === 'joined')
   const charNameById = (id: string | undefined) => id ? characters.find(c => c.id === id)?.name : null
 
   // リアルタイム同期

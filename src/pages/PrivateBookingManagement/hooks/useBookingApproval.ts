@@ -5,6 +5,7 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { normalizeToJapanCalendarYmd } from '@/lib/japanCalendarDate'
+import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 import {
   reservationApi,
   RESERVATION_WITH_CUSTOMER_SELECT_FIELDS,
@@ -376,7 +377,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             // 設定からメッセージ文言を取得
             const { data: msgSettings } = await supabase
               .from('global_settings')
-              .select('system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body')
+              .select(GLOBAL_SETTINGS_MSG_SELECT.SCHEDULE_CONFIRMED)
               .eq('organization_id', organizationId)
               .maybeSingle()
             
@@ -545,7 +546,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           // システムメッセージ設定を取得
           const { data: settings } = await supabase
             .from('global_settings')
-            .select('system_msg_booking_rejected_title, system_msg_booking_rejected_body')
+            .select(GLOBAL_SETTINGS_MSG_SELECT.BOOKING_REJECTED)
             .eq('organization_id', organizationId)
             .maybeSingle()
           

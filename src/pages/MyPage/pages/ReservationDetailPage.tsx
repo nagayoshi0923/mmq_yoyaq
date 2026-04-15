@@ -1,4 +1,5 @@
 import { logger } from '@/utils/logger'
+import { RESERVATION_SOURCE } from '@/lib/constants'
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
@@ -368,7 +369,7 @@ export function ReservationDetailPage() {
   }
 
   const perf = getPerformanceDateTime()
-  const isPrivateBookingRequest = reservation.reservation_source === 'web_private'
+  const isPrivateBookingRequest = reservation.reservation_source === RESERVATION_SOURCE.WEB_PRIVATE
   const isPendingPrivate = isPrivateBookingRequest && ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(reservation.status)
   const statusDisplay = getStatusDisplay(reservation.status, isPrivateBookingRequest)
   const paymentDisplay = getPaymentStatusDisplay(reservation.payment_status)

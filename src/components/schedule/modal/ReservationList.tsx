@@ -26,6 +26,7 @@ import { createEventHistory } from '@/lib/api/eventHistoryApi'
 import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { EmailPreview } from './EmailPreview'
+import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES } from '@/lib/constants'
 
 interface ReservationListProps {
   event: ScheduleEvent | null
@@ -392,9 +393,8 @@ ${content.organizationName || '店舗'}
       setCancellingReservation(reservation)
       
       // スタッフ参加かどうかを判定
-      const isStaffReservation = 
-        reservation.reservation_source === 'staff_entry' ||
-        reservation.reservation_source === 'staff_participation' ||
+      const isStaffReservation =
+        (STAFF_RESERVATION_SOURCES as readonly string[]).includes(reservation.reservation_source ?? '') ||
         reservation.payment_method === 'staff'
 
       const customerName = reservation.customer_name || 
@@ -542,9 +542,9 @@ ${content.organizationName || '店舗'}
       const reservationId = cancellingReservation.id
 
       // スタッフ参加の場合はシンプルなキャンセル
-      const isStaffReservation = cancellingReservation.reservation_source === 'staff_entry' ||
-                                 cancellingReservation.reservation_source === 'staff_participation' ||
-                                 cancellingReservation.payment_method === 'staff'
+      const isStaffReservation =
+        (STAFF_RESERVATION_SOURCES as readonly string[]).includes(cancellingReservation.reservation_source ?? '') ||
+        cancellingReservation.payment_method === 'staff'
       
       if (isStaffReservation) {
         // スタッフ予約: RPC経由で在庫返却のみ（通知不要）
@@ -672,8 +672,8 @@ ${content.organizationName || '店舗'}
       }
 
       // スタッフ参加の場合、GM欄からも連動して削除
-      const isStaff = cancellingReservation.reservation_source === 'staff_entry' ||
-        cancellingReservation.reservation_source === 'staff_participation' ||
+      const isStaff =
+        (STAFF_RESERVATION_SOURCES as readonly string[]).includes(cancellingReservation.reservation_source ?? '') ||
         cancellingReservation.payment_method === 'staff'
       
       if (isStaff && onGmsChange && cancellingReservation.participant_names?.length) {
@@ -1055,7 +1055,7 @@ ${content.organizationName || '店舗'}
                           payment_method: 'onsite',
                           payment_status: 'paid',
                           status: 'confirmed',
-                          reservation_source: 'walk_in'
+                          reservation_source: RESERVATION_SOURCE.WALK_IN
                         })
                       
                       if (insertError) {
@@ -1321,9 +1321,8 @@ ${content.organizationName || '店舗'}
                                 </>
                               )}
                               {/* スタッフ参加バッジ */}
-                              {!isCancelled && (reservation.payment_method === 'staff' || 
-                                reservation.reservation_source === 'staff_participation' || 
-                                reservation.reservation_source === 'staff_entry') && (
+                              {!isCancelled && (reservation.payment_method === 'staff' ||
+                                (STAFF_RESERVATION_SOURCES as readonly string[]).includes(reservation.reservation_source ?? '')) && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 border border-blue-200">
                                   スタッフ
                                 </span>
@@ -1581,10 +1580,10 @@ ${content.organizationName || '店舗'}
                               <div className="space-y-2">
                                 <Label className="text-xs text-muted-foreground">予約ソース</Label>
                                 <div className="text-sm">
-                                  {reservation.reservation_source === 'demo' ? 'デモ' : 
-                                   reservation.reservation_source === 'staff_participation' ? 'スタッフ参加' :
-                                   reservation.reservation_source === 'web' ? 'Web予約' :
-                                   reservation.reservation_source === 'walk_in' ? '当日予約' :
+                                  {reservation.reservation_source === RESERVATION_SOURCE.DEMO ? 'デモ' :
+                                   reservation.reservation_source === RESERVATION_SOURCE.STAFF_PARTICIPATION ? 'スタッフ参加' :
+                                   reservation.reservation_source === RESERVATION_SOURCE.WEB ? 'Web予約' :
+                                   reservation.reservation_source === RESERVATION_SOURCE.WALK_IN ? '当日予約' :
                                    reservation.reservation_source || '-'}
                                 </div>
                               </div>

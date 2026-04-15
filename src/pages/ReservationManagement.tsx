@@ -30,6 +30,7 @@ import { useReservationStats } from '@/hooks/useReservationStats'
 import { devDb } from '@/components/ui/DevField'
 import { format, isPast } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
+import { RESERVATION_SOURCE } from '@/lib/constants'
 
 // 支払い方法を日本語に変換
 const formatPaymentMethod = (method: string | null | undefined): string => {
@@ -50,7 +51,7 @@ const getReservationAlerts = (reservation: ReservationWithDetails) => {
   if (isEventPast && ['pending', 'pending_gm', 'pending_store'].includes(reservation.status)) {
     alerts.push({ type: 'warning', message: '過去の未処理予約' })
   }
-  if (reservation.status === 'confirmed' && !reservation.event_date && reservation.reservation_source === 'web_private') {
+  if (reservation.status === 'confirmed' && !reservation.event_date && reservation.reservation_source === RESERVATION_SOURCE.WEB_PRIVATE) {
     alerts.push({ type: 'error', message: '日時未確定の確定予約' })
   }
   if (reservation.payment_status === 'unpaid' && reservation.status !== 'cancelled') {
@@ -78,7 +79,7 @@ export function ReservationManagement() {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
 
   // 検索入力のデバウンス（400ms待ってから検索実行）
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {

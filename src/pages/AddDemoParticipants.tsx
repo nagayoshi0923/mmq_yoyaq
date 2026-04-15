@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
+import { RESERVATION_SOURCE } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
@@ -146,8 +147,8 @@ export function AddDemoParticipants() {
           .in('status', ['confirmed', 'pending'])
         
         // デモ参加者の予約を抽出
-        const demoReservations = existingReservations?.filter(r => 
-          r.reservation_source === 'demo_auto' ||
+        const demoReservations = existingReservations?.filter(r =>
+          r.reservation_source === RESERVATION_SOURCE.DEMO_AUTO ||
           !r.participant_names || 
           r.participant_names.length === 0
         ) || []
@@ -393,7 +394,7 @@ export function AddDemoParticipants() {
           payment_method: 'onsite',
           payment_status: 'paid',
           status: 'confirmed',
-          reservation_source: 'demo_auto'
+          reservation_source: RESERVATION_SOURCE.DEMO_AUTO
         }
         
         const { error: insertError } = await supabase

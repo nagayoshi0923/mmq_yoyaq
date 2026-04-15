@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger, privateBookingTrace } from '@/utils/logger'
+import { RESERVATION_SOURCE } from '@/lib/constants'
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
@@ -110,7 +111,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
           private_groups:private_group_id(invite_code, scenario_master_id)
         `)
         .eq('organization_id', orgId)
-        .eq('reservation_source', 'web_private')
+        .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
         .order('created_at', { ascending: false })
 
       // スタッフの場合、担当シナリオのみに絞り込み

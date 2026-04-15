@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { RESERVATION_SOURCE } from '@/lib/constants'
 import { sortGmResponsesByReplyTime } from '../utils/bookingFormatters'
 import { shouldIncludeGmResponseRow } from '../utils/gmAvailabilityStatus'
 
@@ -124,7 +125,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
           scenario_masters:scenario_master_id(title),
           customers:customer_id(name, phone)
         `)
-        .eq('reservation_source', 'web_private')
+        .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
         .order('created_at', { ascending: false })
 
       // スタッフの場合、担当シナリオのみに絞り込み

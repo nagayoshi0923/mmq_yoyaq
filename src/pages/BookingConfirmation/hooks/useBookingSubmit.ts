@@ -7,6 +7,7 @@ import { formatDate } from '../utils/bookingFormatters'
 import { reservationApi } from '@/lib/reservationApi'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { clearBookingDataSnapshot } from '@/pages/PublicBookingTop/utils/bookingDataSnapshot'
+import { RESERVATION_SOURCE } from '@/lib/constants'
 
 /**
  * 参加費を計算する関数
@@ -559,7 +560,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: customerPhone,
-        reservation_source: 'web',
+        reservation_source: RESERVATION_SOURCE.WEB,
         created_by: props.userId,
         organization_id: organizationId,
         reservation_number: reservationNumberRef.current,

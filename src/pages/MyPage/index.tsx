@@ -18,6 +18,7 @@ import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import type { Reservation, Store } from '@/types'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
+import { RESERVATION_SOURCE } from '@/lib/constants'
 
 const SettingsPage = lazyWithRetry(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
@@ -611,7 +612,7 @@ export default function MyPage() {
         if (nameRpcError) {
           logger.warn('get_user_display_names RPC エラー（メンバー名が一部省略される場合があります）:', nameRpcError)
         } else {
-          ;(nameRows as { user_id: string; display_name: string }[] | null)?.forEach((row) => {
+          (nameRows as { user_id: string; display_name: string }[] | null)?.forEach((row) => {
             if (row.user_id && row.display_name?.trim()) {
               displayByUserId[row.user_id] = row.display_name.trim()
             }
@@ -1170,7 +1171,7 @@ export default function MyPage() {
   // 調整中の貸切申込み（pending, pending_gm, gm_confirmed, pending_store）- 申込順（新しい順）
   const pendingPrivateBookings = reservations
     .filter(
-      r => r.reservation_source === 'web_private' && 
+      r => r.reservation_source === RESERVATION_SOURCE.WEB_PRIVATE &&
            ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'].includes(r.status)
     )
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())

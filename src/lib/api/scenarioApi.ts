@@ -7,6 +7,7 @@ import type { Scenario } from '@/types'
 import type { PaginatedResponse } from './types'
 import { logger } from '@/utils/logger'
 import { fetchSalarySettings, calculateGmWage } from '@/hooks/useSalarySettings'
+import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES, DEMO_RESERVATION_SOURCES } from '@/lib/constants'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const SCENARIO_SELECT_FIELDS =
@@ -771,13 +772,12 @@ export const scenarioApi = {
           const count = res.participant_count || 0
           
           // デモ予約
-          if (res.reservation_source === 'demo' || res.reservation_source === 'demo_auto') {
-            demoParticipantsMap[res.schedule_event_id] = 
+          if ((DEMO_RESERVATION_SOURCES as readonly string[]).includes(res.reservation_source ?? '')) {
+            demoParticipantsMap[res.schedule_event_id] =
               (demoParticipantsMap[res.schedule_event_id] || 0) + count
           }
           // スタッフ参加
-          else if (res.reservation_source === 'staff_entry' || 
-                   res.reservation_source === 'staff_participation' || 
+          else if ((STAFF_RESERVATION_SOURCES as readonly string[]).includes(res.reservation_source ?? '') ||
                    res.payment_method === 'staff') {
             staffParticipantsMap[res.schedule_event_id] = 
               (staffParticipantsMap[res.schedule_event_id] || 0) + count

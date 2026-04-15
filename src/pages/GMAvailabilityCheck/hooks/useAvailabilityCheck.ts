@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { GMRequest } from './useGMRequests'
+import { RESERVATION_SOURCE } from '@/lib/constants'
 
 /**
  * スケジュール競合チェックフック
@@ -73,7 +74,7 @@ export function useAvailabilityCheck() {
     const { data: confirmedPrivateEvents } = await supabase
       .from('reservations')
       .select('candidate_datetimes, store_id')
-      .eq('reservation_source', 'web_private')
+      .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
       .in('status', ['confirmed', 'gm_confirmed'])
       .eq('store_id', storeId)
     
