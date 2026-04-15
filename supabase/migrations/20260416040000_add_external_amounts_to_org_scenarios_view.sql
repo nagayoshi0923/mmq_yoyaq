@@ -1,7 +1,10 @@
 -- organization_scenarios_with_master ビューに external_license_amount 等を追加
 -- これらのフィールドが欠けていたため、シナリオ編集ダイアログで受取金額が保存されなかった
+-- CREATE OR REPLACE は既存のカラム順を変更できないため DROP して再作成する
 
-CREATE OR REPLACE VIEW public.organization_scenarios_with_master AS
+DROP VIEW IF EXISTS public.organization_scenarios_with_master;
+
+CREATE VIEW public.organization_scenarios_with_master AS
 SELECT
   os.scenario_master_id AS id,
   os.id AS org_scenario_id,
