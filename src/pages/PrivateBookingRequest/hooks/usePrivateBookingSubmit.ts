@@ -6,6 +6,7 @@ import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } fro
 import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 import type { TimeSlot } from '../types'
 import type { RpcCreatePrivateBookingRequestParams } from '@/lib/rpcTypes'
+import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 
 // 貸切予約用RPCエラーコード → ユーザー向けメッセージのマッピング
 const PRIVATE_BOOKING_ERROR_MESSAGES: Record<string, string> = {
@@ -213,14 +214,12 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       console.log('[貸切リクエスト] グループステータス更新チェック', { effectiveGroupId, parentReservationId })
       if (effectiveGroupId && parentReservationId) {
         console.log('[貸切リクエスト] グループステータス更新開始')
-        const { error: groupUpdateError } = await supabase
-          .from('private_groups')
-          .update({
-            status: 'booking_requested',
-            reservation_id: parentReservationId
-          })
-          .eq('id', effectiveGroupId)
-        
+        let groupUpdateError: Error | null = null
+        try {
+          await updatePrivateGroupStatus(effectiveGroupId, 'booking_requested', { reservationId: parentReservationId })
+        } catch (err: any) {
+          groupUpdateError = err
+        }
         if (groupUpdateError) {
           console.error('[貸切リクエスト] グループステータス更新エラー:', groupUpdateError)
           logger.error('グループステータス更新エラー:', groupUpdateError)

@@ -34,6 +34,7 @@ import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/li
 import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { SurveyResponseForm } from './components/SurveyResponseForm'
 import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
+import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 
 interface Coupon {
   id: string
@@ -1272,15 +1273,9 @@ export function PrivateGroupInvite() {
       const parentReservationId = reservationId as string
       
       // グループのステータスを「申込済み」に更新
-      const { error: groupUpdateError } = await supabase
-        .from('private_groups')
-        .update({
-          status: 'booking_requested',
-          reservation_id: parentReservationId
-        })
-        .eq('id', group.id)
-      
-      if (groupUpdateError) {
+      try {
+        await updatePrivateGroupStatus(group.id, 'booking_requested', { reservationId: parentReservationId })
+      } catch (groupUpdateError) {
         logger.error('グループステータス更新エラー:', groupUpdateError)
       }
       
