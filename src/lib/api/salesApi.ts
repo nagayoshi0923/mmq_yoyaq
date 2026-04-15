@@ -373,7 +373,6 @@ export const salesApi = {
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('is_cancelled', false)
-      .neq('category', 'offsite')
 
     if (orgId) {
       query = query.eq('organization_id', orgId)
