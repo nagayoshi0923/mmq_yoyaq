@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { EventSchedule } from '../utils/types'
+import { getAvailableSeats } from '@/lib/participantUtils'
 
 interface UseBookingActionsProps {
   events: EventSchedule[]
@@ -78,7 +79,9 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
         .single()
       const currentParticipants = freshEventData?.current_participants ?? event.current_participants
       const maxParticipants = freshEventData?.max_participants || freshEventData?.capacity || event.max_participants || 8
-      const availableSeats = maxParticipants - currentParticipants
+      const availableSeats = getAvailableSeats(
+        { current_participants: currentParticipants, max_participants: maxParticipants }
+      )
 
       // 満席の場合でも予約確認画面に遷移（キャンセル待ち登録が可能）
       if (availableSeats <= 0) {

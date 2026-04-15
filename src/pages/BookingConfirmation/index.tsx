@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import type { BookingConfirmationProps } from './types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
+import { getAvailableSeats } from '@/lib/participantUtils'
 
 export function BookingConfirmation({
   eventId,
@@ -56,7 +57,7 @@ export function BookingConfirmation({
   // 予約サイトのベースパス
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
   const { user } = useAuth()
-  const availableSeats = maxParticipants - currentParticipants
+  const availableSeats = getAvailableSeats({ max_participants: maxParticipants, current_participants: currentParticipants })
 
   // 重複予約警告用のstate
   const [duplicateWarning, setDuplicateWarning] = useState<{

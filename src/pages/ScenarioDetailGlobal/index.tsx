@@ -28,6 +28,7 @@ import { saveScrollPositionForCurrentUrl } from '@/hooks/useScrollRestoration'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
 import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
+import { getAvailableSeats } from '@/lib/participantUtils'
 
 interface ScenarioDetailGlobalProps {
   scenarioSlug: string
@@ -441,7 +442,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       // 公演データを取得（schedule_events_public ビュー経由: published=true が DB レベルで保証される）
       const { data: eventData, error: eventError } = await supabase
         .from('schedule_events_public')
-        .select('id, date, start_time, time_slot, current_participants, organization_id, store_id')
+        .select('id, date, start_time, time_slot, current_participants, max_participants, capacity, organization_id, store_id, is_reservation_enabled, is_private_booking')
         .eq('scenario_master_id', masterId)
         .gte('date', today)
         .in('category', ['open', 'offsite'])
@@ -465,6 +466,8 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       }
 
       const formattedEvents: EventWithOrg[] = (eventData || [])
+        // 貸切公演・予約受付オフは除外（NULL は除外しない）
+        .filter((e: any) => e.is_private_booking !== true && e.is_reservation_enabled !== false)
         .map((e: any) => {
           const store = storeMap[e.store_id] || null
           const org = e.organization_id ? orgMap[e.organization_id] : null
@@ -475,7 +478,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
             start_time: e.start_time || '',
             time_slot: e.time_slot || '',
             current_participants: e.current_participants || 0,
-            player_count_max: masterData.player_count_max,
+            player_count_max: e.max_participants ?? e.capacity ?? masterData.player_count_max,
             organization_id: e.organization_id || '',
             organization_slug: org?.slug || '',
             organization_name: org?.name || '不明',
@@ -486,7 +489,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
             store_region: store?.region || null
           }
         })
-      
+
       // organization_slugがあるイベントのみ表示（is_activeな組織のみ）
       const filteredEvents = formattedEvents.filter((e: EventWithOrg) => e.organization_slug)
 
@@ -1095,7 +1098,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                       <div className="space-y-2">
                         {eventsWithinMonth.map(event => {
                           const dateInfo = formatDate(event.date)
-                          const available = event.player_count_max - event.current_participants
+                          const available = getAvailableSeats(
+                            { current_participants: event.current_participants },
+                            event.player_count_max
+                          )
                           const isFull = available <= 0
 
                           return (
@@ -1180,7 +1186,10 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                           <div className="mt-3 space-y-2">
                             {eventsAfterMonth.map(event => {
                               const dateInfo = formatDate(event.date)
-                              const available = event.player_count_max - event.current_participants
+                              const available = getAvailableSeats(
+                            { current_participants: event.current_participants },
+                            event.player_count_max
+                          )
                               const isFull = available <= 0
 
                               return (
