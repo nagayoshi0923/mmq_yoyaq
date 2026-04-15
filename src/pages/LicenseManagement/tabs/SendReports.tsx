@@ -152,7 +152,10 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   const [sortAsc, setSortAsc] = useSessionState<boolean>('licenseManagementSortAsc', false)
   
   // 送信履歴
-  const [sentHistory, setSentHistory] = useState<Map<string, { sentAt: string; totalEvents: number; totalCost: number }>>(new Map())
+  const [sentHistory, setSentHistory] = useState<Map<string, { sentAt: string; totalEvents: number; totalCost: number; emailBody?: string; subject?: string }>>(new Map())
+  const [isEmailBodyEditOpen, setIsEmailBodyEditOpen] = useState(false)
+  const [emailBodyEditTarget, setEmailBodyEditTarget] = useState<{ authorName: string; emailBody: string; subject: string } | null>(null)
+  const [isSavingEmailBody, setIsSavingEmailBody] = useState(false)
   
   // コピー済み状態（作者名 → タイムアウトID）
   const [copiedAuthor, setCopiedAuthor] = useState<string | null>(null)
@@ -388,7 +391,7 @@ ${normalText}${externalText}
         // 送信履歴を取得
         supabase
           .from('license_report_history')
-          .select('author_name, sent_at, total_events, total_license_cost')
+          .select('author_name, sent_at, total_events, total_license_cost, email_body, subject')
           .eq('year', selectedYear)
           .eq('month', selectedMonth)
           .then(res => res.data || []),
@@ -425,12 +428,14 @@ ${normalText}${externalText}
       setExternalInputs(manualInputs)
 
       // 送信履歴をMapに変換
-      const historyMap = new Map<string, { sentAt: string; totalEvents: number; totalCost: number }>()
+      const historyMap = new Map<string, { sentAt: string; totalEvents: number; totalCost: number; emailBody?: string; subject?: string }>()
       historyData.forEach((h: any) => {
         historyMap.set(h.author_name, {
           sentAt: h.sent_at,
           totalEvents: h.total_events,
-          totalCost: h.total_license_cost
+          totalCost: h.total_license_cost,
+          emailBody: h.email_body ?? undefined,
+          subject: h.subject ?? undefined,
         })
       })
       setSentHistory(historyMap)
@@ -817,6 +822,42 @@ ${normalText}${externalText}
     return { ...item, internalEvents, internalLicenseCost, externalEvents, externalLicenseCost, events, licenseCost }
   }
 
+  // メール本文の編集保存
+  const handleSaveEmailBody = async () => {
+    if (!emailBodyEditTarget) return
+    setIsSavingEmailBody(true)
+    try {
+      await supabase
+        .from('license_report_history')
+        .update({ email_body: emailBodyEditTarget.emailBody, subject: emailBodyEditTarget.subject })
+        .eq('organization_id', organizationId)
+        .eq('author_name', emailBodyEditTarget.authorName)
+        .eq('year', selectedYear)
+        .eq('month', selectedMonth)
+
+      setSentHistory(prev => {
+        const newMap = new Map(prev)
+        const existing = newMap.get(emailBodyEditTarget.authorName)
+        if (existing) {
+          newMap.set(emailBodyEditTarget.authorName, {
+            ...existing,
+            emailBody: emailBodyEditTarget.emailBody,
+            subject: emailBodyEditTarget.subject,
+          })
+        }
+        return newMap
+      })
+      showToast.success('保存しました')
+      setIsEmailBodyEditOpen(false)
+      setEmailBodyEditTarget(null)
+    } catch (error) {
+      logger.error('メール本文の保存に失敗:', error)
+      showToast.error('保存に失敗しました')
+    } finally {
+      setIsSavingEmailBody(false)
+    }
+  }
+
   // 送信実行
   const handleConfirmSend = async () => {
     if (!sendPreviewTarget) return
@@ -862,6 +903,9 @@ ${normalText}${externalText}
 
       if (error) throw error
 
+      const sentSubject = `【${selectedYear}年${selectedMonth}月】ライセンス料レポート - ${sendPreviewTarget.authorName}`
+      const sentBody = emailBodyText || generateEmailBodyForItems(sendPreviewTarget, selectedScenarioIds)
+
       // 送信履歴を保存
       await supabase
         .from('license_report_history')
@@ -873,6 +917,8 @@ ${normalText}${externalText}
           month: selectedMonth,
           total_events: totalEvents,
           total_license_cost: totalLicenseCost,
+          email_body: sentBody,
+          subject: sentSubject,
           scenarios: selectedItems.map(item => ({
             title: item.scenarioTitle,
             events: item.events,
@@ -886,7 +932,9 @@ ${normalText}${externalText}
         newMap.set(sendPreviewTarget.authorName, {
           sentAt: new Date().toISOString(),
           totalEvents,
-          totalCost: totalLicenseCost
+          totalCost: totalLicenseCost,
+          emailBody: sentBody,
+          subject: sentSubject,
         })
         return newMap
       })
@@ -976,6 +1024,9 @@ ${normalText}${externalText}
         })
         if (error) throw error
 
+        const batchSubject = `【${selectedYear}年${selectedMonth}月】ライセンス料レポート - ${group.authorName}`
+        const batchBody = generateEmailBodyForItems(group, new Set(paidItems.map(item => item.scenarioKey)))
+
         // 送信履歴を保存
         await supabase
           .from('license_report_history')
@@ -987,6 +1038,8 @@ ${normalText}${externalText}
             month: selectedMonth,
             total_events: paidTotalEvents,
             total_license_cost: paidTotalLicenseCost,
+            email_body: batchBody,
+            subject: batchSubject,
             scenarios: paidItems.map(item => ({
               title: item.scenarioTitle,
               events: item.events,
@@ -1000,7 +1053,9 @@ ${normalText}${externalText}
           newMap.set(group.authorName, {
             sentAt: new Date().toISOString(),
             totalEvents: paidTotalEvents,
-            totalCost: paidTotalLicenseCost
+            totalCost: paidTotalLicenseCost,
+            emailBody: batchBody,
+            subject: batchSubject,
           })
           return newMap
         })
@@ -1259,6 +1314,45 @@ ${normalText}${externalText}
         onSaved={handleScenarioSaved}
       />
 
+
+      {/* 送信済みメール確認・編集ダイアログ */}
+      <Dialog open={isEmailBodyEditOpen} onOpenChange={(open) => { if (!open) { setIsEmailBodyEditOpen(false); setEmailBodyEditTarget(null) } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>送信済みメールの確認・編集</DialogTitle>
+            <DialogDescription>
+              {emailBodyEditTarget?.authorName} 宛 {selectedYear}年{selectedMonth}月分
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-sm">件名</Label>
+              <Input
+                value={emailBodyEditTarget?.subject ?? ''}
+                onChange={(e) => setEmailBodyEditTarget(prev => prev ? { ...prev, subject: e.target.value } : prev)}
+                disabled={isSavingEmailBody}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">本文</Label>
+              <Textarea
+                value={emailBodyEditTarget?.emailBody ?? ''}
+                onChange={(e) => setEmailBodyEditTarget(prev => prev ? { ...prev, emailBody: e.target.value } : prev)}
+                className="font-mono text-xs h-96 resize-none"
+                disabled={isSavingEmailBody}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsEmailBodyEditOpen(false); setEmailBodyEditTarget(null) }} disabled={isSavingEmailBody}>
+              キャンセル
+            </Button>
+            <Button onClick={handleSaveEmailBody} disabled={isSavingEmailBody}>
+              {isSavingEmailBody ? '保存中...' : '保存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 一括メール登録ダイアログ */}
       <Dialog open={isBulkEmailDialogOpen} onOpenChange={setIsBulkEmailDialogOpen}>
@@ -1821,7 +1915,20 @@ ${normalText}${externalText}
                             </Badge>
                           )}
                           {sentHistory.has(group.authorName) && (
-                            <Badge className="text-xs bg-green-100 text-green-800 hover:bg-green-100">
+                            <Badge
+                              className="text-xs bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const h = sentHistory.get(group.authorName)!
+                                setEmailBodyEditTarget({
+                                  authorName: group.authorName,
+                                  emailBody: h.emailBody ?? '',
+                                  subject: h.subject ?? `【${selectedYear}年${selectedMonth}月】ライセンス料レポート - ${group.authorName}`,
+                                })
+                                setIsEmailBodyEditOpen(true)
+                              }}
+                              title="クリックしてメール内容を確認・編集"
+                            >
                               ✓ 送信済 {new Date(sentHistory.get(group.authorName)!.sentAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
                             </Badge>
                           )}
