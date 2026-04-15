@@ -249,7 +249,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
         )
         scenariosResult = await supabase
           .from('organization_scenarios_with_master')
-          .select('*')
+          .select(ORG_SCENARIOS_WITH_MASTER_LIST_SELECT)
           .eq('organization_id', organizationId)
           .order('title', { ascending: true })
       }
