@@ -744,7 +744,10 @@ export const reservationApi = {
 
     // キャンセル確認メールを送信
     const cancelMailCustomer = joinedCustomerFromReservation(reservation.customers)
-    if (reservation && cancelMailCustomer) {
+    // 貸切予約など customers.email が null の場合は reservation.customer_email をフォールバックとして使う
+    const cancelMailEmail = cancelMailCustomer?.email || (reservation as any).customer_email || null
+    const cancelMailName = cancelMailCustomer?.name || (reservation as any).customer_name || null
+    if (reservation && cancelMailEmail) {
       try {
         const scheduleEvent = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
         const storeName = scheduleEvent?.venue || '店舗不明'
@@ -762,8 +765,8 @@ export const reservationApi = {
             organizationId: orgIdForEmail,
             storeId: scheduleEvent?.store_id,
             reservationId: reservation.id,
-            customerEmail: cancelMailCustomer.email,
-            customerName: cancelMailCustomer.name,
+            customerEmail: cancelMailEmail,
+            customerName: cancelMailName,
             scenarioTitle: reservation.title || scheduleEvent?.scenario,
             eventDate: scheduleEvent?.date,
             startTime: scheduleEvent?.start_time,
