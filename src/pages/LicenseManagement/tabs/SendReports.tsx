@@ -146,6 +146,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<Set<string>>(new Set())
   const [emailBodyText, setEmailBodyText] = useState('')
   const [sendPreviewTab, setSendPreviewTab] = useState<'scenarios' | 'body'>('scenarios')
+  const [isBodyManuallyEdited, setIsBodyManuallyEdited] = useState(false)
   
   // ソート設定（sessionStorageで保持 - リロード後も維持）
   type SortKey = 'hasEvents' | 'name' | 'email' | 'events' | 'cost'
@@ -861,6 +862,7 @@ ${normalText}${externalText}
     setSelectedScenarioIds(defaultSelected)
     setEmailBodyText(generateEmailBodyForItems(group, defaultSelected))
     setSendPreviewTab('scenarios')
+    setIsBodyManuallyEdited(false)
     setIsSendPreviewOpen(true)
   }
 
@@ -1592,7 +1594,14 @@ ${normalText}${externalText}
             </div>
           </div>
 
-          <Tabs value={sendPreviewTab} onValueChange={(v) => setSendPreviewTab(v as 'scenarios' | 'body')}>
+          <Tabs value={sendPreviewTab} onValueChange={(v) => {
+            const tab = v as 'scenarios' | 'body'
+            setSendPreviewTab(tab)
+            // メール本文タブに切り替えるとき、手動編集していなければ現在の選択から再生成
+            if (tab === 'body' && !isBodyManuallyEdited && sendPreviewTarget) {
+              setEmailBodyText(generateEmailBodyForItems(sendPreviewTarget, selectedScenarioIds))
+            }
+          }}>
             <TabsList className="w-full">
               <TabsTrigger value="scenarios" className="flex-1">シナリオ選択</TabsTrigger>
               <TabsTrigger value="body" className="flex-1">メール本文</TabsTrigger>
@@ -1712,6 +1721,7 @@ ${normalText}${externalText}
                   onClick={() => {
                     if (sendPreviewTarget) {
                       setEmailBodyText(generateEmailBodyForItems(sendPreviewTarget, selectedScenarioIds))
+                      setIsBodyManuallyEdited(false)
                     }
                   }}
                 >
@@ -1720,7 +1730,10 @@ ${normalText}${externalText}
               </div>
               <Textarea
                 value={emailBodyText}
-                onChange={(e) => setEmailBodyText(e.target.value)}
+                onChange={(e) => {
+                  setEmailBodyText(e.target.value)
+                  setIsBodyManuallyEdited(true)
+                }}
                 className="font-mono text-xs h-80 resize-none"
                 placeholder="メール本文"
               />
