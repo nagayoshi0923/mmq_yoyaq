@@ -115,12 +115,13 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   // 表示モード切り替え（自社のみ/他社のみ/合計）
   const [viewMode, setViewMode] = useState<ViewMode>('all')
   
-  // 他社報告入力用（シナリオIDごとの入力値）
+  // 他社報告入力用（scenarioKeyごとの入力値）
   const [externalInputs, setExternalInputs] = useState<Record<string, number | undefined>>({})
   const [isSavingExternal, setIsSavingExternal] = useState(false)
-  // 自社公演数の手動上書き（キー: scenarioId + '_gmtest' など）
+  // 自社公演数の手動上書き（scenarioKey: uuid or uuid_gmtest）
   // undefined = 実際の公演数を使用、数値 = 手動上書き値
   const [internalInputs, setInternalInputs] = useState<Record<string, number | undefined>>({})
+  const [isSavingInternal, setIsSavingInternal] = useState(false)
   
   // シナリオ編集ダイアログ
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -342,6 +343,47 @@ ${normalText}${externalText}
     }
   }, [organizationId, selectedYear, selectedMonth])
   
+  // 自社公演数の上書きを保存
+  const saveInternalInput = useCallback(async (scenarioKey: string, count: number) => {
+    if (savingScenarios.current.has(`internal_${scenarioKey}`)) return
+    try {
+      savingScenarios.current.add(`internal_${scenarioKey}`)
+      setIsSavingInternal(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      const authUserId = user?.id || null
+      const { error } = await supabase.rpc('upsert_manual_internal_performance_override', {
+        p_organization_id: organizationId,
+        p_scenario_key: scenarioKey,
+        p_year: selectedYear,
+        p_month: selectedMonth,
+        p_performance_count: count,
+        p_updated_by: authUserId,
+      })
+      if (error) {
+        logger.error('Failed to save internal override:', error)
+        showToast.error('自社公演数の保存に失敗しました', getSafeErrorMessage(error))
+      }
+    } catch (error) {
+      logger.error('Failed to save internal override:', error)
+      showToast.error('自社公演数の保存に失敗しました')
+    } finally {
+      savingScenarios.current.delete(`internal_${scenarioKey}`)
+      if (savingScenarios.current.size === 0) setIsSavingInternal(false)
+    }
+  }, [organizationId, selectedYear, selectedMonth])
+
+  // 自社公演数の入力ハンドラ（debounce付き）
+  const handleInternalInputChange = useCallback((scenarioKey: string, value: number | undefined) => {
+    setInternalInputs(prev => ({ ...prev, [scenarioKey]: value }))
+    const existingTimer = saveTimeoutRefs.current.get(`internal_${scenarioKey}`)
+    if (existingTimer) clearTimeout(existingTimer)
+    const timer = setTimeout(() => {
+      saveInternalInput(scenarioKey, value ?? 0)
+      saveTimeoutRefs.current.delete(`internal_${scenarioKey}`)
+    }, 500)
+    saveTimeoutRefs.current.set(`internal_${scenarioKey}`, timer)
+  }, [saveInternalInput])
+
   // 他社公演数の入力ハンドラ（debounce付き。キー = scenarioKey）
   const handleExternalInputChange = useCallback((scenarioKey: string, value: number) => {
     setExternalInputs(prev => ({
@@ -376,7 +418,7 @@ ${normalText}${externalText}
       const endStr = endDate.toISOString().split('T')[0]
 
       // データを並行取得
-      const [scenarios, stores, performance, externalReports, historyData, manualExternalData, authorsData] = await Promise.all([
+      const [scenarios, stores, performance, externalReports, historyData, manualExternalData, internalOverrideData, authorsData] = await Promise.all([
         scenarioApi.getAll(),
         storeApi.getAll(),
         salesApi.getScenarioPerformance(startStr, endStr),
@@ -397,6 +439,13 @@ ${normalText}${externalText}
           .eq('year', selectedYear)
           .eq('month', selectedMonth)
           .then(res => res.data || []),
+        // 自社公演数の手動上書きを取得
+        supabase
+          .from('manual_internal_performance_overrides')
+          .select('scenario_key, performance_count')
+          .eq('year', selectedYear)
+          .eq('month', selectedMonth)
+          .then(res => res.data || [], () => []),
         // 作者データを取得（メモ含む）
         authorApi.getAll().catch(() => [] as Author[])
       ])
@@ -424,6 +473,15 @@ ${normalText}${externalText}
         }
       })
       setExternalInputs(manualInputs)
+
+      // 自社公演数の上書き値を設定
+      const internalOverrides: Record<string, number> = {}
+      internalOverrideData.forEach((item: any) => {
+        if (item.performance_count !== undefined) {
+          internalOverrides[item.scenario_key] = item.performance_count
+        }
+      })
+      setInternalInputs(internalOverrides)
 
       // 送信履歴をMapに変換
       const historyMap = new Map<string, { sentAt: string; totalEvents: number; totalCost: number; emailBody?: string; subject?: string }>()
@@ -1588,10 +1646,8 @@ ${normalText}${externalText}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => {
                               const raw = e.target.value
-                              setInternalInputs(prev => ({
-                                ...prev,
-                                [key]: raw === '' ? undefined : (parseInt(raw) || 0)
-                              }))
+                              const val = raw === '' ? undefined : (parseInt(raw) || 0)
+                              handleInternalInputChange(key, val)
                             }}
                           />
                           <span className="text-muted-foreground">@¥{item.internalLicenseAmount.toLocaleString()}</span>
