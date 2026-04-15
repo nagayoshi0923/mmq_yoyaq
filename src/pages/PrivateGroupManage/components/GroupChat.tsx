@@ -948,6 +948,34 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                     )
                   }
 
+                  // 配役方法選択
+                  if (systemMsg && systemMsg.action === 'character_method_selected') {
+                    return (
+                      <div key={msg.id} className="flex justify-center my-4">
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 w-full max-w-sm">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
+                              <Users className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-purple-800">
+                                {systemMsg.title || '配役方法が選択されました'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(msg.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 border border-purple-100">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {systemMsg.body}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
                   // キャラクター配役確定（方法がリセットされている場合は非表示）
                   if (systemMsg && systemMsg.action === 'character_assignment') {
                     if (!charAssignmentMethod) return null
