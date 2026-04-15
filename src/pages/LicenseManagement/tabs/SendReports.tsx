@@ -1576,7 +1576,7 @@ ${normalText}${externalText}
                 placeholder="メール本文"
               />
               <p className="text-xs text-muted-foreground">
-                ※ HTMLメールはシステムが自動生成します。ここで編集した内容はテキスト版に反映されます。
+                ※ プレーンテキストメールとして送信されます。
               </p>
             </TabsContent>
           </Tabs>
