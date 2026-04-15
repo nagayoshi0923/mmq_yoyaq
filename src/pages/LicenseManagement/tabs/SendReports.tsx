@@ -301,31 +301,32 @@ ${normalText}${externalText}
   // 保存中のシナリオを追跡
   const savingScenarios = useRef<Set<string>>(new Set())
   
-  // 他社公演数を保存（SELECT→INSERT/UPDATEパターン）
-  const saveExternalInput = useCallback(async (scenarioId: string, count: number) => {
-    // 既に保存中なら待機
-    if (savingScenarios.current.has(scenarioId)) {
-      return
-    }
-    
+  // 他社公演数を保存（scenarioKey = scenarioId or scenarioId_gmtest）
+  const saveExternalInput = useCallback(async (scenarioKey: string, count: number) => {
+    if (savingScenarios.current.has(scenarioKey)) return
+
+    // scenarioKey から scenarioId と performance_type を分解
+    const isGMTestKey = scenarioKey.endsWith('_gmtest')
+    const scenarioId = isGMTestKey ? scenarioKey.slice(0, -'_gmtest'.length) : scenarioKey
+    const performanceType = isGMTestKey ? 'gmtest' : 'normal'
+
     try {
-      savingScenarios.current.add(scenarioId)
+      savingScenarios.current.add(scenarioKey)
       setIsSavingExternal(true)
-      
-      // 認証ユーザーのIDを取得（usersテーブルのid）
+
       const { data: { user } } = await supabase.auth.getUser()
       const authUserId = user?.id || null
-      
-      // RPC関数でupsert（RLSをバイパスして確実に実行）
+
       const { error } = await supabase.rpc('upsert_manual_external_performance', {
         p_organization_id: organizationId,
         p_scenario_id: scenarioId,
         p_year: selectedYear,
         p_month: selectedMonth,
         p_performance_count: count,
-        p_updated_by: authUserId
+        p_updated_by: authUserId,
+        p_performance_type: performanceType,
       })
-      
+
       if (error) {
         logger.error('Failed to save manual_external_performance:', error)
         showToast.error('他社公演数の保存に失敗しました', getSafeErrorMessage(error))
@@ -334,34 +335,28 @@ ${normalText}${externalText}
       logger.error('Failed to save external input:', error)
       showToast.error('他社公演数の保存に失敗しました')
     } finally {
-      savingScenarios.current.delete(scenarioId)
-      // 他に保存中がなければフラグをオフ
+      savingScenarios.current.delete(scenarioKey)
       if (savingScenarios.current.size === 0) {
         setIsSavingExternal(false)
       }
     }
   }, [organizationId, selectedYear, selectedMonth])
   
-  // 他社公演数の入力ハンドラ（debounce付き - シナリオごと）
-  const handleExternalInputChange = useCallback((scenarioId: string, value: number) => {
-    // stateを即座に更新
+  // 他社公演数の入力ハンドラ（debounce付き。キー = scenarioKey）
+  const handleExternalInputChange = useCallback((scenarioKey: string, value: number) => {
     setExternalInputs(prev => ({
       ...prev,
-      [scenarioId]: value
+      [scenarioKey]: value
     }))
-    
-    // このシナリオの既存タイマーをクリア
-    const existingTimer = saveTimeoutRefs.current.get(scenarioId)
-    if (existingTimer) {
-      clearTimeout(existingTimer)
-    }
-    
-    // 500ms後に保存
+
+    const existingTimer = saveTimeoutRefs.current.get(scenarioKey)
+    if (existingTimer) clearTimeout(existingTimer)
+
     const timer = setTimeout(() => {
-      saveExternalInput(scenarioId, value)
-      saveTimeoutRefs.current.delete(scenarioId)
+      saveExternalInput(scenarioKey, value)
+      saveTimeoutRefs.current.delete(scenarioKey)
     }, 500)
-    saveTimeoutRefs.current.set(scenarioId, timer)
+    saveTimeoutRefs.current.set(scenarioKey, timer)
   }, [saveExternalInput])
 
   // データ取得
@@ -398,7 +393,7 @@ ${normalText}${externalText}
         // 手動入力の他社公演数を取得
         supabase
           .from('manual_external_performances')
-          .select('scenario_master_id, performance_count')
+          .select('scenario_id, performance_count, performance_type')
           .eq('year', selectedYear)
           .eq('month', selectedMonth)
           .then(res => res.data || []),
@@ -418,11 +413,14 @@ ${normalText}${externalText}
         }
       })
 
-      // 手動入力値をexternalInputsに設定
+      // 手動入力値をexternalInputsに設定（キー = scenarioKey: id or id_gmtest）
       const manualInputs: Record<string, number> = {}
       manualExternalData.forEach((item: any) => {
         if (item.performance_count > 0) {
-          manualInputs[item.scenario_master_id] = item.performance_count
+          const key = item.performance_type === 'gmtest'
+            ? `${item.scenario_id}_gmtest`
+            : item.scenario_id
+          manualInputs[key] = item.performance_count
         }
       })
       setExternalInputs(manualInputs)
@@ -489,8 +487,8 @@ ${normalText}${externalText}
           ? (scenario.franchise_gm_test_license_amount || scenario.franchise_license_amount || scenario.gm_test_license_amount || scenario.license_amount || 0)
           : (scenario.franchise_license_amount || scenario.license_amount || 0)
 
-        // 他社報告数（GMテスト・カスタムでない場合のみ）
-        const externalEvents = (isGMTest || isCustomCategory) ? 0 : (externalCountByScenario.get(scenario.id) || 0)
+        // 他社報告数（カスタム以外）。GMテストも手動入力で対応
+        const externalEvents = isCustomCategory ? 0 : (externalCountByScenario.get(scenarioKey) || externalCountByScenario.get(scenario.id) || 0)
         const totalEvents = internalEvents + externalEvents
         
         const internalLicenseCost = internalLicenseAmount * internalEvents
@@ -793,8 +791,8 @@ ${normalText}${externalText}
     const defaultSelected = new Set(
       group.items
         .filter(item => {
-          const extEvents = item.scenarioType === 'managed' && !item.isGMTest 
-            ? (externalInputs[item.scenarioId] ?? item.externalEvents)
+          const extEvents = item.scenarioType === 'managed'
+            ? (externalInputs[item.scenarioKey] ?? item.externalEvents)
             : 0
           const totalCost = item.internalLicenseCost + (extEvents * item.externalLicenseAmount)
           return totalCost > 0
@@ -813,8 +811,8 @@ ${normalText}${externalText}
     const internalEvents = internalInputs[internalKey] ?? item.internalEvents
     const internalLicenseCost = internalEvents * item.internalLicenseAmount
 
-    const externalEvents = item.scenarioType === 'managed' && !item.isGMTest
-      ? (externalInputs[item.scenarioId] ?? item.externalEvents)
+    const externalEvents = item.scenarioType === 'managed'
+      ? (externalInputs[item.scenarioKey] ?? item.externalEvents)
       : 0
     const externalLicenseCost = externalEvents * item.externalLicenseAmount
     const events = internalEvents + externalEvents
@@ -1598,21 +1596,21 @@ ${normalText}${externalText}
                           />
                           <span className="text-muted-foreground">@¥{item.internalLicenseAmount.toLocaleString()}</span>
                         </div>
-                        {item.scenarioType === 'managed' && !item.isGMTest && (
+                        {item.scenarioType === 'managed' && (
                           <div className="flex items-center gap-1">
                             <Building className="w-3 h-3 text-green-500" />
                             <Input
                               type="number"
                               min={0}
-                              className={`w-14 h-6 text-xs px-1 ${externalInputs[item.scenarioId] !== undefined ? 'text-orange-500 font-medium' : ''}`}
+                              className={`w-14 h-6 text-xs px-1 ${externalInputs[item.scenarioKey] !== undefined ? 'text-orange-500 font-medium' : ''}`}
                               placeholder={item.externalEvents.toString()}
-                              value={externalInputs[item.scenarioId] !== undefined ? externalInputs[item.scenarioId] : ''}
+                              value={externalInputs[item.scenarioKey] !== undefined ? externalInputs[item.scenarioKey] : ''}
                               onClick={(e) => e.stopPropagation()}
                               onChange={(e) => {
                                 const raw = e.target.value
                                 setExternalInputs(prev => ({
                                   ...prev,
-                                  [item.scenarioId]: raw === '' ? undefined : (parseInt(raw) || 0)
+                                  [item.scenarioKey]: raw === '' ? undefined : (parseInt(raw) || 0)
                                 }))
                               }}
                             />
@@ -2145,21 +2143,21 @@ ${normalText}${externalText}
                                     </div>
                                   )
                                 })()}
-                                {/* 他社（回数 × 単価 = 金額）- 管理作品のみ表示・編集可能 */}
-                                {item.scenarioType === 'managed' && !item.isGMTest ? (
+                                {/* 他社（回数 × 単価 = 金額）- 管理作品のみ表示・編集可能（GMテスト含む） */}
+                                {item.scenarioType === 'managed' ? (
                                   <div className="w-28 text-right">
                                     <div className="flex items-center justify-end gap-1">
                                       <Building className="w-3 h-3 text-green-500" />
                                       <Input
                                         type="number"
                                         min={0}
-                                        className={`w-14 h-6 text-xs text-right px-1 ${externalInputs[item.scenarioId] !== undefined ? 'text-orange-500 font-medium' : ''}`}
+                                        className={`w-14 h-6 text-xs text-right px-1 ${externalInputs[item.scenarioKey] !== undefined ? 'text-orange-500 font-medium' : ''}`}
                                         placeholder={item.externalEvents.toString()}
-                                        value={externalInputs[item.scenarioId] !== undefined ? externalInputs[item.scenarioId] : ''}
+                                        value={externalInputs[item.scenarioKey] !== undefined ? externalInputs[item.scenarioKey] : ''}
                                         onChange={(e) => {
                                           const raw = e.target.value
                                           const val = raw === '' ? 0 : (parseInt(raw) || 0)
-                                          handleExternalInputChange(item.scenarioId, val)
+                                          handleExternalInputChange(item.scenarioKey, val)
                                         }}
                                       />
                                       <span className="text-xs">回</span>
@@ -2167,8 +2165,8 @@ ${normalText}${externalText}
                                     <div className="text-xs text-muted-foreground">
                                       @¥{item.externalLicenseAmount.toLocaleString()}
                                     </div>
-                                    <div className={`font-medium ${externalInputs[item.scenarioId] !== undefined ? 'text-orange-500' : 'text-green-600'}`}>
-                                      ¥{((externalInputs[item.scenarioId] ?? item.externalEvents) * item.externalLicenseAmount).toLocaleString()}
+                                    <div className={`font-medium ${externalInputs[item.scenarioKey] !== undefined ? 'text-orange-500' : 'text-green-600'}`}>
+                                      ¥{((externalInputs[item.scenarioKey] ?? item.externalEvents) * item.externalLicenseAmount).toLocaleString()}
                                     </div>
                                   </div>
                                 ) : (
