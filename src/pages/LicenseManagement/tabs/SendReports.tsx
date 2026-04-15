@@ -6,7 +6,7 @@
  * - author_email なし → 管理会社に報告
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSessionState } from '@/hooks/useSessionState'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -54,6 +54,7 @@ import { logger } from '@/utils/logger'
 import { StickyNote } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface SendReportsProps {
   organizationId: string
@@ -64,6 +65,7 @@ interface SendReportsProps {
 // 報告データ
 interface ReportItem {
   scenarioId: string
+  scenarioKey: string  // map キー（scenarioId + '_gmtest' or '_カスタム種別' など）
   scenarioTitle: string
   author: string  // 元の作者名
   reportDisplayName: string  // 報告用表示名（report_display_name || author）
@@ -114,8 +116,11 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   const [viewMode, setViewMode] = useState<ViewMode>('all')
   
   // 他社報告入力用（シナリオIDごとの入力値）
-  const [externalInputs, setExternalInputs] = useState<Record<string, number>>({})
+  const [externalInputs, setExternalInputs] = useState<Record<string, number | undefined>>({})
   const [isSavingExternal, setIsSavingExternal] = useState(false)
+  // 自社公演数の手動上書き（キー: scenarioId + '_gmtest' など）
+  // undefined = 実際の公演数を使用、数値 = 手動上書き値
+  const [internalInputs, setInternalInputs] = useState<Record<string, number | undefined>>({})
   
   // シナリオ編集ダイアログ
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -138,11 +143,13 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   const [isSendPreviewOpen, setIsSendPreviewOpen] = useState(false)
   const [sendPreviewTarget, setSendPreviewTarget] = useState<ReportGroup | null>(null)
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<Set<string>>(new Set())
+  const [emailBodyText, setEmailBodyText] = useState('')
+  const [sendPreviewTab, setSendPreviewTab] = useState<'scenarios' | 'body'>('scenarios')
   
-  // ソート設定
+  // ソート設定（sessionStorageで保持 - リロード後も維持）
   type SortKey = 'hasEvents' | 'name' | 'email' | 'events' | 'cost'
-  const [sortKey, setSortKey] = useState<SortKey>('hasEvents')
-  const [sortAsc, setSortAsc] = useState(false)  // 公演あり優先は降順
+  const [sortKey, setSortKey] = useSessionState<SortKey>('licenseManagementSortKey', 'hasEvents')
+  const [sortAsc, setSortAsc] = useSessionState<boolean>('licenseManagementSortAsc', false)
   
   // 送信履歴
   const [sentHistory, setSentHistory] = useState<Map<string, { sentAt: string; totalEvents: number; totalCost: number }>>(new Map())
@@ -209,6 +216,60 @@ ${scenariosText}
 `
   }
   
+  // 選択シナリオから送信用メール本文を生成
+  const generateEmailBodyForItems = (group: ReportGroup, selectedIds: Set<string>) => {
+    const paidItems = group.items
+      .filter(item => selectedIds.has(item.scenarioKey))
+      .map(getPreviewItem)
+      .filter(item => item.licenseCost > 0)
+
+    const totalEvents = paidItems.reduce((sum, item) => sum + item.events, 0)
+    const totalLicenseCost = paidItems.reduce((sum, item) => sum + item.licenseCost, 0)
+
+    const nextMonth = selectedMonth === 12 ? 1 : selectedMonth + 1
+    const nextYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear
+    const paymentDate = `${nextYear}年${nextMonth}月20日`
+
+    const normalItems = paidItems.filter(item => item.internalEvents > 0)
+    const externalItems = paidItems.filter(item => item.externalEvents > 0)
+
+    const normalText = normalItems.map(item => {
+      const gmTestLabel = item.isGMTest ? '（GMテスト）' : ''
+      const cost = item.internalLicenseCost || 0
+      return `・${item.scenarioTitle}${gmTestLabel}: ${item.internalEvents}回 × @¥${item.internalLicenseAmount.toLocaleString()}/回 = ¥${cost.toLocaleString()}`
+    }).join('\n')
+
+    const externalText = externalItems.length > 0
+      ? '\n\n【他店公演分】\n' + externalItems.map(item => {
+          const cost = item.externalLicenseCost || 0
+          return `・${item.scenarioTitle}: ${item.externalEvents}回 × @¥${item.externalLicenseAmount.toLocaleString()}/回 = ¥${cost.toLocaleString()}`
+        }).join('\n')
+      : ''
+
+    return `${group.authorName} 様
+
+いつもお世話になっております。
+
+${selectedYear}年${selectedMonth}月のライセンス料をご報告いたします。
+
+■ 概要
+総公演数: ${totalEvents}回
+総ライセンス料: ¥${totalLicenseCost.toLocaleString()}
+
+■ 詳細
+${normalText}${externalText}
+
+■ お支払いについて
+お支払い予定日: ${paymentDate}まで
+
+請求書は queens.waltz@gmail.com 宛にお送りください。
+
+何かご不明点がございましたら、お気軽にお問い合わせください。
+
+よろしくお願いいたします。
+`
+  }
+
   // メール本文をコピー
   const handleCopyEmail = async (group: ReportGroup) => {
     const text = generateEmailText(group)
@@ -223,35 +284,14 @@ ${scenariosText}
     }
   }
   
-  // 月選択（URLパラメータで保持）
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [currentDate, setCurrentDate] = useState(() => {
-    const yearParam = searchParams.get('year')
-    const monthParam = searchParams.get('month')
-    if (yearParam && monthParam) {
-      const year = parseInt(yearParam, 10)
-      const month = parseInt(monthParam, 10)
-      if (!isNaN(year) && !isNaN(month) && month >= 1 && month <= 12) {
-        return new Date(year, month - 1, 1)
-      }
-    }
-    return new Date()
-  })
-  const selectedYear = currentDate.getFullYear()
-  const selectedMonth = currentDate.getMonth() + 1
-  
-  // 月が変更されたらURLパラメータを更新
-  useEffect(() => {
-    const currentYear = searchParams.get('year')
-    const currentMonth = searchParams.get('month')
-    if (currentYear !== String(selectedYear) || currentMonth !== String(selectedMonth)) {
-      setSearchParams(prev => {
-        prev.set('year', String(selectedYear))
-        prev.set('month', String(selectedMonth))
-        return prev
-      }, { replace: true })
-    }
-  }, [selectedYear, selectedMonth, searchParams, setSearchParams])
+  // 月選択（sessionStorageで保持 - ページリロード・タブ遷移後も維持）
+  const [selectedYear, setSelectedYear] = useSessionState('licenseManagementYear', new Date().getFullYear())
+  const [selectedMonth, setSelectedMonth] = useSessionState('licenseManagementMonth', new Date().getMonth() + 1)
+  const currentDate = new Date(selectedYear, selectedMonth - 1, 1)
+  const setCurrentDate = useCallback((date: Date) => {
+    setSelectedYear(date.getFullYear())
+    setSelectedMonth(date.getMonth() + 1)
+  }, [setSelectedYear, setSelectedMonth])
   
   // 他社公演数の保存（debounce用 - シナリオごとに管理）
   const saveTimeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map())
@@ -363,11 +403,15 @@ ${scenariosText}
         authorApi.getAll().catch(() => [] as Author[])
       ])
       
-      // 作者メモをMapに変換
+      // 作者メモ・ライセンス組織名をMapに変換
       const authorNotesMap = new Map<string, string>()
+      const authorOrgNameMap = new Map<string, string>()  // 作者名 → license_organization_name
       authorsData.forEach((author: Author) => {
         if (author.notes) {
           authorNotesMap.set(author.name, author.notes)
+        }
+        if (author.license_organization_name) {
+          authorOrgNameMap.set(author.name, author.license_organization_name)
         }
       })
 
@@ -410,28 +454,38 @@ ${scenariosText}
         const store = stores.find(s => s.id === perf.store_id)
         const isFranchise = store?.ownership_type === 'franchise'
         const isGMTest = perf.category === 'gmtest'
+        // カスタムカテゴリ判定（プリセット以外 = license_rewards から単価を検索）
+        const KNOWN_CATEGORIES = new Set(['open','private','gmtest','testplay','offsite','venue_rental','venue_rental_free','package','mtg','memo',''])
+        const isCustomCategory = !KNOWN_CATEGORIES.has(perf.category || '') && !isGMTest
         const internalEvents = perf.events || 0
-        const scenarioKey = isGMTest ? `${scenario.id}_gmtest` : scenario.id
+        const scenarioKey = isGMTest ? `${scenario.id}_gmtest`
+          : isCustomCategory ? `${scenario.id}_${perf.category}`
+          : scenario.id
 
-        // 自社公演の単価（店舗の所有形態で判定）
+        // 自社公演の単価（店舗の所有形態・カテゴリで判定）
         let internalLicenseAmount = 0
-        if (isFranchise) {
-          internalLicenseAmount = isGMTest 
+        if (isCustomCategory) {
+          // カスタム: participation_costs の licenseAmount フィールドから検索
+          const customCost = (scenario.participation_costs as Array<{ time_slot: string; licenseAmount?: number }> | undefined)
+            ?.find(c => c.time_slot === perf.category)
+          internalLicenseAmount = customCost?.licenseAmount ?? scenario.license_amount ?? 0
+        } else if (isFranchise) {
+          internalLicenseAmount = isGMTest
             ? (scenario.franchise_gm_test_license_amount || scenario.franchise_license_amount || scenario.gm_test_license_amount || scenario.license_amount || 0)
             : (scenario.franchise_license_amount || scenario.license_amount || 0)
         } else {
-          internalLicenseAmount = isGMTest 
+          internalLicenseAmount = isGMTest
             ? (scenario.gm_test_license_amount || 0)
-            : (scenario.license_amount || 0)
+            : (scenario.license_amount || scenario.license_rewards?.find(r => r.item === 'normal')?.amount || 0)
         }
 
         // 他社報告の単価（franchise_license_amount を使用）
-        const externalLicenseAmount = isGMTest 
+        const externalLicenseAmount = isGMTest
           ? (scenario.franchise_gm_test_license_amount || scenario.franchise_license_amount || scenario.gm_test_license_amount || scenario.license_amount || 0)
           : (scenario.franchise_license_amount || scenario.license_amount || 0)
 
-        // 他社報告数（GMテストでない場合のみ）
-        const externalEvents = isGMTest ? 0 : (externalCountByScenario.get(scenario.id) || 0)
+        // 他社報告数（GMテスト・カスタムでない場合のみ）
+        const externalEvents = (isGMTest || isCustomCategory) ? 0 : (externalCountByScenario.get(scenario.id) || 0)
         const totalEvents = internalEvents + externalEvents
         
         const internalLicenseCost = internalLicenseAmount * internalEvents
@@ -449,7 +503,10 @@ ${scenariosText}
         } else {
           itemsByScenario.set(scenarioKey, {
             scenarioId: scenario.id,
-            scenarioTitle: isGMTest ? `${perf.title}（GMテスト）` : perf.title,
+            scenarioKey,
+            scenarioTitle: isGMTest ? `${perf.title}（GMテスト）`
+              : isCustomCategory ? `${perf.title}（${perf.category}）`
+              : perf.title,
             author: scenario.author,
             reportDisplayName: scenario.report_display_name || scenario.author,
             authorEmail: scenario.author_email || null,
@@ -485,6 +542,7 @@ ${scenariosText}
 
           itemsByScenario.set(scenarioId, {
             scenarioId,
+            scenarioKey: scenarioId,
             scenarioTitle: scenarioInfo.title,
             author: scenarioInfo.author,
             reportDisplayName: scenario?.report_display_name || scenarioInfo.author,
@@ -505,6 +563,7 @@ ${scenariosText}
 
       // 全シナリオを表示（公演がなくても他社公演入力のため）
       if (isLicenseManager) {
+        const PRESET_COST_SLOTS = new Set(['normal', 'gmtest', 'weekend', 'holiday', 'late_night'])
         scenarios
           .filter(s => s.author)  // 作者がいるシナリオ全て
           .forEach(scenario => {
@@ -517,6 +576,7 @@ ${scenariosText}
 
             itemsByScenario.set(scenario.id, {
               scenarioId: scenario.id,
+              scenarioKey: scenario.id,
               scenarioTitle: scenario.title,
               author: scenario.author,
               reportDisplayName: scenario.report_display_name || scenario.author,
@@ -532,6 +592,60 @@ ${scenariosText}
               isGMTest: false,
               scenarioType: scenario.scenario_type || 'normal'
             })
+
+            // GMテスト行（gm_test_license_amount が設定されている場合）
+            const gmtestKey = `${scenario.id}_gmtest`
+            if (!itemsByScenario.has(gmtestKey) && (scenario.gm_test_license_amount ?? 0) > 0) {
+              itemsByScenario.set(gmtestKey, {
+                scenarioId: scenario.id,
+                scenarioKey: gmtestKey,
+                scenarioTitle: `${scenario.title}（GMテスト）`,
+                author: scenario.author,
+                reportDisplayName: scenario.report_display_name || scenario.author,
+                authorEmail: scenario.author_email || null,
+                events: 0,
+                internalEvents: 0,
+                externalEvents: 0,
+                licenseCost: 0,
+                internalLicenseCost: 0,
+                externalLicenseCost: 0,
+                internalLicenseAmount: scenario.gm_test_license_amount || 0,
+                externalLicenseAmount: scenario.franchise_gm_test_license_amount || scenario.gm_test_license_amount || 0,
+                isGMTest: true,
+                scenarioType: scenario.scenario_type || 'normal'
+              })
+            }
+
+            // カスタム種別行（participation_costs の licenseAmount が設定されている項目）
+            const seenCustomSlots = new Set<string>()
+            ;(scenario.participation_costs as Array<{ time_slot: string; licenseAmount?: number }> | undefined)
+              ?.forEach(cost => {
+                if (!cost.time_slot) return
+                if (PRESET_COST_SLOTS.has(cost.time_slot)) return
+                if (seenCustomSlots.has(cost.time_slot)) return
+                if ((cost.licenseAmount ?? 0) <= 0) return
+                seenCustomSlots.add(cost.time_slot)
+                const customKey = `${scenario.id}_${cost.time_slot}`
+                if (itemsByScenario.has(customKey)) return
+                itemsByScenario.set(customKey, {
+                  scenarioId: scenario.id,
+                  scenarioKey: customKey,
+                  scenarioTitle: `${scenario.title}（${cost.time_slot}）`,
+                  author: scenario.author,
+                  reportDisplayName: scenario.report_display_name || scenario.author,
+                  authorEmail: scenario.author_email || null,
+                  events: 0,
+                  internalEvents: 0,
+                  externalEvents: 0,
+                  licenseCost: 0,
+                  internalLicenseCost: 0,
+                  externalLicenseCost: 0,
+                  internalLicenseAmount: cost.licenseAmount || 0,
+                  externalLicenseAmount,
+                  isGMTest: false,
+                  scenarioType: scenario.scenario_type || 'normal'
+                })
+              })
           })
       }
 
@@ -590,19 +704,28 @@ ${scenariosText}
         }
       })
 
-      // 一部未登録フラグと作者メモを設定、メアドグループの表示名を更新
+      // 一部未登録フラグ・メモ・グループ表示名を確定
       groupMap.forEach((group, key) => {
         group.hasPartialEmail = group.itemsWithEmail > 0 && group.itemsWithoutEmail > 0
-        // 元の作者名でメモを探す（まだ設定されていない場合）
+
+        // メモ
         if (!group.authorNotes) {
           group.authorNotes = authorNotesMap.get(group.originalAuthorName) || null
         }
-        
-        // メアドでグループ化された場合、複数の作者名を結合して表示
-        if (key.startsWith('email:') && group.authorEmail) {
+
+        // グループ表示名の優先順位:
+        //   1. グループ内いずれかの作者が持つ license_organization_name
+        //   2. メアドグループの場合、report_display_name の結合
+        //   3. そのままの reportDisplayName
+        const orgName = group.items
+          .map(item => authorOrgNameMap.get(item.author))
+          .find(name => !!name)
+
+        if (orgName) {
+          group.authorName = orgName
+        } else if (key.startsWith('email:') && group.authorEmail) {
           const displayNames = emailDisplayNames.get(group.authorEmail)
           if (displayNames && displayNames.size > 1) {
-            // 複数の作者名がある場合は結合（例: "作者A / 作者B"）
             group.authorName = Array.from(displayNames).sort().join(' / ')
           }
         }
@@ -671,21 +794,27 @@ ${scenariosText}
           const totalCost = item.internalLicenseCost + (extEvents * item.externalLicenseAmount)
           return totalCost > 0
         })
-        .map(item => item.scenarioId + (item.isGMTest ? '_gmtest' : ''))
+        .map(item => item.scenarioKey)
     )
     setSelectedScenarioIds(defaultSelected)
+    setEmailBodyText(generateEmailBodyForItems(group, defaultSelected))
+    setSendPreviewTab('scenarios')
     setIsSendPreviewOpen(true)
   }
 
   // プレビュー用に編集後の値を計算するヘルパー
   const getPreviewItem = (item: ReportItem) => {
+    const internalKey = item.scenarioKey
+    const internalEvents = internalInputs[internalKey] ?? item.internalEvents
+    const internalLicenseCost = internalEvents * item.internalLicenseAmount
+
     const externalEvents = item.scenarioType === 'managed' && !item.isGMTest
       ? (externalInputs[item.scenarioId] ?? item.externalEvents)
       : 0
     const externalLicenseCost = externalEvents * item.externalLicenseAmount
-    const events = item.internalEvents + externalEvents
-    const licenseCost = item.internalLicenseCost + externalLicenseCost
-    return { ...item, externalEvents, externalLicenseCost, events, licenseCost }
+    const events = internalEvents + externalEvents
+    const licenseCost = internalLicenseCost + externalLicenseCost
+    return { ...item, internalEvents, internalLicenseCost, externalEvents, externalLicenseCost, events, licenseCost }
   }
 
   // 送信実行
@@ -693,7 +822,7 @@ ${scenariosText}
     if (!sendPreviewTarget) return
 
     const selectedItems = sendPreviewTarget.items
-      .filter(item => selectedScenarioIds.has(item.scenarioId + (item.isGMTest ? '_gmtest' : '')))
+      .filter(item => selectedScenarioIds.has(item.scenarioKey))
       .map(getPreviewItem)
 
     if (selectedItems.length === 0) {
@@ -715,6 +844,7 @@ ${scenariosText}
           month: selectedMonth,
           totalEvents,
           totalLicenseCost,
+          customTextBody: emailBodyText || undefined,
           scenarios: selectedItems.map(item => ({
             title: item.scenarioTitle,
             events: item.events,
@@ -774,7 +904,7 @@ ${scenariosText}
 
   // シナリオ選択トグル
   const toggleScenarioSelection = (item: ReportItem) => {
-    const key = item.scenarioId + (item.isGMTest ? '_gmtest' : '')
+    const key = item.scenarioKey
     const newSet = new Set(selectedScenarioIds)
     if (newSet.has(key)) {
       newSet.delete(key)
@@ -971,7 +1101,8 @@ ${scenariosText}
     totalExternalLicense: filteredGroups.reduce((sum, g) => sum + g.totalExternalLicenseCost, 0)
   }
 
-  const getGroupKey = (group: ReportGroup) => group.authorName
+  const getGroupKey = (group: ReportGroup) =>
+    group.authorEmail ? `email:${group.authorEmail}` : `name:${group.originalAuthorName}`
 
   // グループが0円のみかどうか（編集後の値を考慮）
   const isGroupZeroCostOnly = (group: ReportGroup) => {
@@ -1026,10 +1157,25 @@ ${scenariosText}
       if (error) throw error
 
       showToast.success('一括登録完了', `${scenarioIds.length}件のシナリオにメールアドレスを登録しました`)
+
+      // 画面リロードなしでstateを直接更新
+      const newEmail = bulkEmail.trim()
+      setReportGroups(prev => prev.map(group => {
+        if (group.authorName !== bulkEmailTarget.authorName) return group
+        const updatedItems = group.items.map(item => ({ ...item, authorEmail: newEmail }))
+        return {
+          ...group,
+          authorEmail: newEmail,
+          items: updatedItems,
+          itemsWithEmail: updatedItems.length,
+          itemsWithoutEmail: 0,
+          hasPartialEmail: false,
+        }
+      }))
+
       setIsBulkEmailDialogOpen(false)
       setBulkEmailTarget(null)
       setBulkEmail('')
-      loadData() // データ再読み込み
     } catch (error) {
       logger.error('一括メール登録エラー:', error)
       showToast.error('登録に失敗しました')
@@ -1046,7 +1192,7 @@ ${scenariosText}
     setIsDisplayNameDialogOpen(true)
   }
 
-  // 報告用表示名とメモを保存（同じ作者の全シナリオを更新）
+  // 報告用表示名とメモを保存
   const handleSaveDisplayName = async () => {
     if (!displayNameTarget || !newDisplayName.trim()) {
       showToast.error('表示名を入力してください')
@@ -1056,38 +1202,34 @@ ${scenariosText}
     try {
       setIsSavingDisplayName(true)
 
-      // 元の作者名と同じ場合はNULLにリセット
-      const displayNameValue = newDisplayName.trim() === displayNameTarget.originalAuthorName 
-        ? null 
-        : newDisplayName.trim()
-
-      // 同じ作者名を持つ全シナリオを更新（RPC関数経由でRLSをバイパス）
-      const { data: rpcResult, error } = await supabase.rpc('update_report_display_name', {
-        p_author_name: displayNameTarget.originalAuthorName,
-        p_display_name: displayNameValue
-      })
-
-      if (error) throw error
-      if (rpcResult && !rpcResult.success) throw new Error(rpcResult.error)
-
-      // メモをauthorsテーブルに保存
+      const trimmedDisplayName = newDisplayName.trim()
       const notesValue = newAuthorNotes.trim() || null
-      try {
-        await authorApi.upsertByName(displayNameTarget.originalAuthorName, {
-          notes: notesValue
-        })
-      } catch (notesError) {
-        logger.warn('メモの保存に失敗（authorsテーブル）:', notesError)
-        // メモの保存失敗は警告だけで続行
+
+      // グループ内の全ユニーク元作者に license_organization_name を保存
+      // （同じメアド＝同じ会社として全員に同じ会社名を設定）
+      // set_author_organization_name 専用RPC を使用（upsert_authorのキャッシュ問題を回避）
+      const uniqueAuthors = [...new Set(displayNameTarget.items.map(item => item.author))]
+      for (const authorName of uniqueAuthors) {
+        const notes = authorName === displayNameTarget.originalAuthorName ? notesValue : undefined
+        await authorApi.setOrganizationName(authorName, trimmedDisplayName, notes)
       }
 
-      const count = rpcResult?.updated_count || 0
-      showToast.success('更新完了', `${count}件のシナリオの表示名を更新しました`)
+      showToast.success('更新完了', '会社名（ライセンス組織名）を更新しました')
+
+      // 画面リロードなしでグループ表示名を直接更新
+      setReportGroups(prev => prev.map(group => {
+        if (group.authorName !== displayNameTarget.authorName) return group
+        return {
+          ...group,
+          authorName: trimmedDisplayName,
+          authorNotes: notesValue,
+        }
+      }))
+
       setIsDisplayNameDialogOpen(false)
       setDisplayNameTarget(null)
       setNewDisplayName('')
       setNewAuthorNotes('')
-      loadData() // データ再読み込み
     } catch (error) {
       logger.error('表示名更新エラー:', error)
       showToast.error('更新に失敗しました')
@@ -1268,7 +1410,7 @@ ${scenariosText}
 
       {/* 送信プレビューダイアログ */}
       <Dialog open={isSendPreviewOpen} onOpenChange={setIsSendPreviewOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>レポート送信プレビュー</DialogTitle>
             <DialogDescription>
@@ -1277,41 +1419,45 @@ ${scenariosText}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            {/* 送信内容サマリー */}
-            <div className="flex gap-4 p-3 bg-muted rounded-lg">
-              <div className="text-center">
-                <div className="text-2xl font-bold">
-                  {sendPreviewTarget?.items
-                    .filter(item => selectedScenarioIds.has(item.scenarioId + (item.isGMTest ? '_gmtest' : '')))
-                    .map(getPreviewItem)
-                    .reduce((sum, item) => sum + item.events, 0) || 0}
-                </div>
-                <div className="text-xs text-muted-foreground">公演数</div>
+          {/* 送信内容サマリー */}
+          <div className="flex gap-6 px-1 py-2 bg-muted rounded-lg">
+            <div className="text-center">
+              <div className="text-2xl font-bold">
+                {sendPreviewTarget?.items
+                  .filter(item => selectedScenarioIds.has(item.scenarioKey))
+                  .map(getPreviewItem)
+                  .reduce((sum, item) => sum + item.events, 0) || 0}
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold">
-                  ¥{(sendPreviewTarget?.items
-                    .filter(item => selectedScenarioIds.has(item.scenarioId + (item.isGMTest ? '_gmtest' : '')))
-                    .map(getPreviewItem)
-                    .reduce((sum, item) => sum + item.licenseCost, 0) || 0).toLocaleString()}
-                </div>
-                <div className="text-xs text-muted-foreground">ライセンス料</div>
-              </div>
+              <div className="text-xs text-muted-foreground">公演数</div>
             </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">
+                ¥{(sendPreviewTarget?.items
+                  .filter(item => selectedScenarioIds.has(item.scenarioKey))
+                  .map(getPreviewItem)
+                  .reduce((sum, item) => sum + item.licenseCost, 0) || 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-muted-foreground">ライセンス料</div>
+            </div>
+          </div>
 
-            {/* シナリオ一覧（チェックボックス付き） */}
-            <div className="space-y-2">
-              <Label>送信するシナリオを選択</Label>
-              <div className="max-h-60 overflow-y-auto border rounded-md divide-y">
+          <Tabs value={sendPreviewTab} onValueChange={(v) => setSendPreviewTab(v as 'scenarios' | 'body')}>
+            <TabsList className="w-full">
+              <TabsTrigger value="scenarios" className="flex-1">シナリオ選択</TabsTrigger>
+              <TabsTrigger value="body" className="flex-1">メール本文</TabsTrigger>
+            </TabsList>
+
+            {/* シナリオ選択タブ */}
+            <TabsContent value="scenarios" className="space-y-3 mt-3">
+              <div className="max-h-72 overflow-y-auto border rounded-md divide-y">
                 {sendPreviewTarget?.items.map((item, idx) => {
-                  const key = item.scenarioId + (item.isGMTest ? '_gmtest' : '')
+                  const key = item.scenarioKey
                   const isSelected = selectedScenarioIds.has(key)
                   const previewItem = getPreviewItem(item)
                   const isZeroCost = previewItem.licenseCost === 0
 
                   return (
-                    <div 
+                    <div
                       key={idx}
                       className={`p-3 ${isZeroCost ? 'bg-muted/30' : ''}`}
                     >
@@ -1322,7 +1468,7 @@ ${scenariosText}
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span 
+                            <span
                               className={`text-sm truncate cursor-pointer hover:underline ${isZeroCost ? 'text-muted-foreground' : ''}`}
                               onClick={() => toggleScenarioSelection(item)}
                             >
@@ -1337,11 +1483,25 @@ ${scenariosText}
                           </div>
                         </div>
                       </div>
-                      {/* 詳細行：自社・他社・合計 */}
                       <div className="mt-2 ml-7 flex items-center gap-4 text-xs">
+                        {/* 自社公演数（手動上書き可能） */}
                         <div className="flex items-center gap-1">
                           <Home className="w-3 h-3 text-blue-500" />
-                          <span>{item.internalEvents}回</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            className={`w-14 h-6 text-xs px-1 ${internalInputs[key] !== undefined ? 'text-orange-500 font-medium' : ''}`}
+                            placeholder={item.internalEvents.toString()}
+                            value={internalInputs[key] !== undefined ? internalInputs[key] : ''}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              const raw = e.target.value
+                              setInternalInputs(prev => ({
+                                ...prev,
+                                [key]: raw === '' ? undefined : (parseInt(raw) || 0)
+                              }))
+                            }}
+                          />
                           <span className="text-muted-foreground">@¥{item.internalLicenseAmount.toLocaleString()}</span>
                         </div>
                         {item.scenarioType === 'managed' && !item.isGMTest && (
@@ -1350,14 +1510,15 @@ ${scenariosText}
                             <Input
                               type="number"
                               min={0}
-                              className="w-16 h-6 text-xs px-1"
-                              value={externalInputs[item.scenarioId] ?? item.externalEvents}
+                              className={`w-14 h-6 text-xs px-1 ${externalInputs[item.scenarioId] !== undefined ? 'text-orange-500 font-medium' : ''}`}
+                              placeholder={item.externalEvents.toString()}
+                              value={externalInputs[item.scenarioId] !== undefined ? externalInputs[item.scenarioId] : ''}
                               onClick={(e) => e.stopPropagation()}
                               onChange={(e) => {
-                                const val = parseInt(e.target.value) || 0
+                                const raw = e.target.value
                                 setExternalInputs(prev => ({
                                   ...prev,
-                                  [item.scenarioId]: val
+                                  [item.scenarioId]: raw === '' ? undefined : (parseInt(raw) || 0)
                                 }))
                               }}
                             />
@@ -1372,11 +1533,53 @@ ${scenariosText}
                   )
                 })}
               </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">※ 0円のシナリオはデフォルトで除外されています</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => {
+                    if (sendPreviewTarget) {
+                      const body = generateEmailBodyForItems(sendPreviewTarget, selectedScenarioIds)
+                      setEmailBodyText(body)
+                      setSendPreviewTab('body')
+                    }
+                  }}
+                >
+                  本文を確認 →
+                </Button>
+              </div>
+            </TabsContent>
+
+            {/* メール本文タブ */}
+            <TabsContent value="body" className="space-y-2 mt-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">メール本文（編集可能）</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => {
+                    if (sendPreviewTarget) {
+                      setEmailBodyText(generateEmailBodyForItems(sendPreviewTarget, selectedScenarioIds))
+                    }
+                  }}
+                >
+                  選択内容から再生成
+                </Button>
+              </div>
+              <Textarea
+                value={emailBodyText}
+                onChange={(e) => setEmailBodyText(e.target.value)}
+                className="font-mono text-xs h-80 resize-none"
+                placeholder="メール本文"
+              />
               <p className="text-xs text-muted-foreground">
-                ※ 0円のシナリオはデフォルトで除外されています
+                ※ HTMLメールはシステムが自動生成します。ここで編集した内容はテキスト版に反映されます。
               </p>
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
 
           <DialogFooter>
             <Button
@@ -1800,19 +2003,41 @@ ${scenariosText}
                           <div className="flex items-center gap-2 text-sm">
                             {isLicenseManager ? (
                               <>
-                                {/* 自社（回数 × 単価 = 金額） */}
-                                <div className="w-24 text-right">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Home className="w-3 h-3 text-blue-500" />
-                                    <span>{item.internalEvents}回</span>
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    @¥{item.internalLicenseAmount.toLocaleString()}
-                                  </div>
-                                  <div className="font-medium text-blue-600">
-                                    ¥{item.internalLicenseCost.toLocaleString()}
-                                  </div>
-                                </div>
+                                {/* 自社（手動上書き可能） */}
+                                {(() => {
+                                  const internalKey = item.scenarioKey
+                                  const isOverridden = internalInputs[internalKey] !== undefined
+                                  const effectiveInternal = internalInputs[internalKey] ?? item.internalEvents
+                                  const effectiveInternalCost = effectiveInternal * item.internalLicenseAmount
+                                  return (
+                                    <div className="w-24 text-right">
+                                      <div className="flex items-center justify-end gap-1">
+                                        <Home className="w-3 h-3 text-blue-500" />
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          className={`w-14 h-6 text-xs text-right px-1 ${isOverridden ? 'text-orange-500 font-medium' : ''}`}
+                                          placeholder={item.internalEvents.toString()}
+                                          value={isOverridden ? effectiveInternal : ''}
+                                          onChange={(e) => {
+                                            const raw = e.target.value
+                                            setInternalInputs(prev => ({
+                                              ...prev,
+                                              [internalKey]: raw === '' ? undefined : (parseInt(raw) || 0)
+                                            }))
+                                          }}
+                                        />
+                                        <span className="text-xs">回</span>
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        @¥{item.internalLicenseAmount.toLocaleString()}
+                                      </div>
+                                      <div className={`font-medium ${isOverridden ? 'text-orange-500' : 'text-blue-600'}`}>
+                                        ¥{effectiveInternalCost.toLocaleString()}
+                                      </div>
+                                    </div>
+                                  )
+                                })()}
                                 {/* 他社（回数 × 単価 = 金額）- 管理作品のみ表示・編集可能 */}
                                 {item.scenarioType === 'managed' && !item.isGMTest ? (
                                   <div className="w-28 text-right">
@@ -1821,10 +2046,12 @@ ${scenariosText}
                                       <Input
                                         type="number"
                                         min={0}
-                                        className="w-14 h-6 text-xs text-right px-1"
-                                        value={externalInputs[item.scenarioId] ?? item.externalEvents}
+                                        className={`w-14 h-6 text-xs text-right px-1 ${externalInputs[item.scenarioId] !== undefined ? 'text-orange-500 font-medium' : ''}`}
+                                        placeholder={item.externalEvents.toString()}
+                                        value={externalInputs[item.scenarioId] !== undefined ? externalInputs[item.scenarioId] : ''}
                                         onChange={(e) => {
-                                          const val = parseInt(e.target.value) || 0
+                                          const raw = e.target.value
+                                          const val = raw === '' ? 0 : (parseInt(raw) || 0)
                                           handleExternalInputChange(item.scenarioId, val)
                                         }}
                                       />
@@ -1833,7 +2060,7 @@ ${scenariosText}
                                     <div className="text-xs text-muted-foreground">
                                       @¥{item.externalLicenseAmount.toLocaleString()}
                                     </div>
-                                    <div className="font-medium text-green-600">
+                                    <div className={`font-medium ${externalInputs[item.scenarioId] !== undefined ? 'text-orange-500' : 'text-green-600'}`}>
                                       ¥{((externalInputs[item.scenarioId] ?? item.externalEvents) * item.externalLicenseAmount).toLocaleString()}
                                     </div>
                                   </div>
@@ -1845,18 +2072,13 @@ ${scenariosText}
                                 {/* 合計 */}
                                 <div className="w-24 text-right">
                                   {(() => {
-                                    const extEvents = item.scenarioType === 'managed' && !item.isGMTest 
-                                      ? (externalInputs[item.scenarioId] ?? item.externalEvents)
-                                      : 0
-                                    const extCost = extEvents * item.externalLicenseAmount
-                                    const totalEvents = item.internalEvents + extEvents
-                                    const totalCost = item.internalLicenseCost + extCost
+                                    const pi = getPreviewItem(item)
                                     return (
                                       <>
-                                        <div className="font-medium">{totalEvents}回</div>
+                                        <div className="font-medium">{pi.events}回</div>
                                         <div className="text-xs text-muted-foreground">&nbsp;</div>
                                         <div className="font-bold">
-                                          ¥{totalCost.toLocaleString()}
+                                          ¥{pi.licenseCost.toLocaleString()}
                                         </div>
                                       </>
                                     )

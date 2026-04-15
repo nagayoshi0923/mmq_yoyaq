@@ -12,6 +12,7 @@ interface AuthorReportRequest {
   month: number
   totalEvents: number
   totalLicenseCost: number
+  customTextBody?: string  // 編集済みテキスト本文（省略時は自動生成）
   scenarios: Array<{
     title: string
     events: number
@@ -54,7 +55,7 @@ serve(async (req) => {
       month: body.month,
     })
     
-    const { organizationId, to, authorName, year, month, totalEvents, totalLicenseCost, scenarios }: AuthorReportRequest = body
+    const { organizationId, to, authorName, year, month, totalEvents, totalLicenseCost, customTextBody, scenarios }: AuthorReportRequest = body
 
     // 入力バリデーション
     if (!to || !authorName || !year || !month) {
@@ -80,6 +81,8 @@ serve(async (req) => {
     const resendApiKey = emailSettings?.resendApiKey || Deno.env.get('RESEND_API_KEY')
     const senderEmail = emailSettings?.senderEmail || Deno.env.get('SENDER_EMAIL') || 'noreply@mmq.game'
     const senderName = emailSettings?.senderName || Deno.env.get('SENDER_NAME') || 'MMQ予約システム'
+    // 自社の返信先メール（送信確認コピーの宛先にも使用）
+    const replyToEmail = emailSettings?.replyToEmail || Deno.env.get('REPLY_TO_EMAIL') || null
     
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set')
@@ -344,13 +347,14 @@ MMQ
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'MMQ ライセンス管理 <noreply@mmq.game>',
-        reply_to: 'queens.waltz@gmail.com',
+        from: `${senderName} <noreply@mmq.game>`,
+        ...(replyToEmail ? { reply_to: replyToEmail } : {}),
         to: [to],
-        bcc: ['queens.waltz@gmail.com'],
+        // 自社メールアドレスに送信確認コピーを送る
+        ...(replyToEmail ? { bcc: [replyToEmail] } : {}),
         subject: `【${year}年${month}月】ライセンス料レポート - ${authorName}`,
         html: emailHtml,
-        text: emailText,
+        text: customTextBody || emailText,
       }),
     })
 

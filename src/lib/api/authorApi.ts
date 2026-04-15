@@ -15,6 +15,49 @@ export type { Author }
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const AUTHOR_SELECT_FIELDS = 'id, name, email, notes, created_at, updated_at' as const
+
+// ============================================================
+// notes フィールドへの license_organization_name エンコード
+// PostgRESTスキーマキャッシュが更新されないため、新規カラムを
+// 直接使えない。notes に JSON で格納して回避する暫定実装。
+// 形式: {"__org__":"会社名","memo":"振込先情報..."} または プレーンテキスト（旧形式）
+// ============================================================
+const ORG_NOTES_KEY = '__org__'
+
+function parseAuthorNotes(rawNotes: string | null | undefined): { orgName: string | null; memo: string | null } {
+  if (!rawNotes) return { orgName: null, memo: null }
+  try {
+    const parsed = JSON.parse(rawNotes)
+    if (parsed && typeof parsed === 'object' && ORG_NOTES_KEY in parsed) {
+      return {
+        orgName: (parsed[ORG_NOTES_KEY] as string) || null,
+        memo: (parsed.memo as string) || null
+      }
+    }
+  } catch { /* 非JSON = 旧来のプレーンテキスト */ }
+  return { orgName: null, memo: rawNotes }
+}
+
+function encodeAuthorNotes(orgName: string | null, memo: string | null): string | null {
+  if (!orgName && !memo) return null
+  if (!orgName) return memo  // org名がない場合はプレーンテキストのまま維持
+  return JSON.stringify({ [ORG_NOTES_KEY]: orgName, memo: memo || '' })
+}
+
+/** RPC/DBから返された生のauthorデータを Author 型に変換（notesデコード込み） */
+function decodeAuthor(raw: Record<string, unknown>): Author {
+  const { orgName, memo } = parseAuthorNotes(raw.notes as string | null)
+  return {
+    id: raw.id as string,
+    name: raw.name as string,
+    email: raw.email as string | null ?? null,
+    // license_organization_name は notes から復元（カラムがキャッシュにあればそちらも使う）
+    license_organization_name: orgName ?? (raw.license_organization_name as string | null) ?? null,
+    notes: memo,
+    created_at: raw.created_at as string,
+    updated_at: raw.updated_at as string,
+  }
+}
 const AUTHOR_PERFORMANCE_REPORT_SELECT_FIELDS =
   'author_email, author_name, scenario_master_id, scenario_title, organization_id, organization_name, report_id, performance_date, performance_count, participant_count, venue_name, report_status, reported_at, license_amount, calculated_license_fee' as const
 const AUTHOR_SUMMARY_SELECT_FIELDS =
@@ -28,15 +71,15 @@ export const authorApi = {
   // 全作者を取得
   async getAll(): Promise<Author[]> {
     const { data, error } = await supabase.rpc('get_all_authors')
-    
+
     if (error) {
       logger.warn('get_all_authors error:', error)
       return []
     }
-    
-    // RPC関数はJSONB配列を返す
+
+    // RPC関数はJSONB配列を返す。notesをデコードして license_organization_name を復元
     if (Array.isArray(data)) {
-      return data as Author[]
+      return (data as Record<string, unknown>[]).map(decodeAuthor)
     }
     return []
   },
@@ -44,22 +87,15 @@ export const authorApi = {
   // 作者を名前で取得
   async getByName(name: string): Promise<Author | null> {
     const { data, error } = await supabase.rpc('get_author_by_name', { p_name: name })
-    
+
     if (error) {
       logger.warn('get_author_by_name error:', error)
       return null
     }
-    
+
     // RPC関数は { found: boolean, ...author } を返す
     if (data && data.found) {
-      return {
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        notes: data.notes,
-        created_at: data.created_at,
-        updated_at: data.updated_at
-      } as Author
+      return decodeAuthor(data as Record<string, unknown>)
     }
     return null
   },
@@ -93,7 +129,8 @@ export const authorApi = {
     const { data, error } = await supabase.rpc('upsert_author', {
       p_name: name,
       p_email: updates.email ?? null,
-      p_notes: updates.notes ?? null
+      p_notes: updates.notes ?? null,
+      p_license_organization_name: updates.license_organization_name ?? null
     })
     
     if (error) {
@@ -111,6 +148,29 @@ export const authorApi = {
       throw new Error('Failed to retrieve updated author')
     }
     return author
+  },
+
+  // 作者のライセンス組織名（会社名）を設定する専用メソッド
+  // license_organization_name カラムの代わりに notes フィールドにエンコードして保存
+  async setOrganizationName(authorName: string, organizationName: string, memo?: string | null): Promise<void> {
+    // memo が undefined の場合は既存のメモを保持
+    let currentMemo = memo
+    if (memo === undefined) {
+      const current = await this.getByName(authorName)
+      currentMemo = current?.notes ?? null
+    }
+
+    const encodedNotes = encodeAuthorNotes(organizationName, currentMemo ?? null)
+
+    const { error } = await supabase
+      .from('authors')
+      .update({ notes: encodedNotes })
+      .eq('name', authorName)
+
+    if (error) {
+      logger.error('authors update (setOrganizationName) error:', error)
+      throw error
+    }
   },
 
   // 作者を削除
