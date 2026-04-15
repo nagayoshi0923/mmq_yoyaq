@@ -85,14 +85,27 @@ jobs:
             "notify-kit-transfer-plan"
           )
           
-          # すべての関数をデプロイ（まずJWT検証ありでデプロイ）
-          supabase functions deploy --all
-          
-          # JWT検証をスキップする関数を再デプロイ
-          for func in "${NO_VERIFY_JWT_FUNCTIONS[@]}"; do
-            if [ -d "supabase/functions/$func" ]; then
-              echo "🔓 Re-deploying $func with --no-verify-jwt..."
+          # すべての関数をデプロイ
+          for func_dir in supabase/functions/*/; do
+            func=$(basename "$func_dir")
+            # _shared などのヘルパーディレクトリはスキップ
+            if [[ "$func" == _* ]]; then
+              continue
+            fi
+            # JWT検証スキップリストに含まれるか確認
+            no_verify=false
+            for no_jwt_func in "${NO_VERIFY_JWT_FUNCTIONS[@]}"; do
+              if [ "$func" == "$no_jwt_func" ]; then
+                no_verify=true
+                break
+              fi
+            done
+            if [ "$no_verify" = true ]; then
+              echo "🔓 Deploying $func with --no-verify-jwt..."
               supabase functions deploy "$func" --no-verify-jwt
+            else
+              echo "🔒 Deploying $func..."
+              supabase functions deploy "$func"
             fi
           done
 
@@ -165,14 +178,27 @@ jobs:
             "notify-kit-transfer-plan"
           )
           
-          # すべての関数をデプロイ（まずJWT検証ありでデプロイ）
-          supabase functions deploy --all
-          
-          # JWT検証をスキップする関数を再デプロイ
-          for func in "${NO_VERIFY_JWT_FUNCTIONS[@]}"; do
-            if [ -d "supabase/functions/$func" ]; then
-              echo "🔓 Re-deploying $func with --no-verify-jwt..."
+          # すべての関数をデプロイ
+          for func_dir in supabase/functions/*/; do
+            func=$(basename "$func_dir")
+            # _shared などのヘルパーディレクトリはスキップ
+            if [[ "$func" == _* ]]; then
+              continue
+            fi
+            # JWT検証スキップリストに含まれるか確認
+            no_verify=false
+            for no_jwt_func in "${NO_VERIFY_JWT_FUNCTIONS[@]}"; do
+              if [ "$func" == "$no_jwt_func" ]; then
+                no_verify=true
+                break
+              fi
+            done
+            if [ "$no_verify" = true ]; then
+              echo "🔓 Deploying $func with --no-verify-jwt..."
               supabase functions deploy "$func" --no-verify-jwt
+            else
+              echo "🔒 Deploying $func..."
+              supabase functions deploy "$func"
             fi
           done
 
