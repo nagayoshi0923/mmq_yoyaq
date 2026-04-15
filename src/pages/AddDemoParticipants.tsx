@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import type { RpcAdminDeleteReservationsByIdsParams } from '@/lib/rpcTypes'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -304,9 +305,10 @@ export function AddDemoParticipants() {
             for (const demoRes of demoReservations) {
               if (deletedCount >= excessCount) break
               
-              const { error: deleteError } = await supabase.rpc('admin_delete_reservations_by_ids', {
-                p_reservation_ids: [demoRes.id]
-              })
+              const deleteDemoParams: RpcAdminDeleteReservationsByIdsParams = {
+                p_reservation_ids: [demoRes.id],
+              }
+              const { error: deleteError } = await supabase.rpc('admin_delete_reservations_by_ids', deleteDemoParams)
               
               if (deleteError) {
                 log(`❌ デモ予約削除エラー [${event.date} ${event.scenario}]`, 'error')

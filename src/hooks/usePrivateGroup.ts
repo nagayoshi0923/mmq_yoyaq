@@ -130,9 +130,8 @@ async function enrichMembersWithNames(
   if (!code || !data.members?.length) return
 
   try {
-    const { data: rpcMembers } = await supabase.rpc('get_group_members_by_invite_code', {
-      p_invite_code: code,
-    })
+    const byInviteCodeParams: RpcGetGroupMembersByInviteCodeParams = { p_invite_code: code }
+    const { data: rpcMembers } = await supabase.rpc('get_group_members_by_invite_code', byInviteCodeParams)
     if (!rpcMembers?.length) return
 
     const nameMap = new Map<string, string>()

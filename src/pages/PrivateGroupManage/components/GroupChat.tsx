@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Send, Loader2, Calendar, CheckCircle2, X, ClipboardList, AlertCircle, Users, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import type { RpcSetCharacterPreferenceParams, RpcUpsertCharacterAssignmentsToSurveyParams } from '@/lib/rpcTypes'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
@@ -271,11 +272,12 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
     setCharPreferences(prev => ({ ...prev, [currentMemberId]: charId }))
     setCharSaving(true)
     try {
-      const { error } = await supabase.rpc('set_character_preference', {
+      const charPrefParams: RpcSetCharacterPreferenceParams = {
         p_group_id: groupId,
         p_member_id: currentMemberId,
         p_character_id: charId,
-      })
+      }
+      const { error } = await supabase.rpc('set_character_preference', charPrefParams)
       if (error) throw error
     } catch (err) {
       logger.error('キャラクター選択エラー:', err)
@@ -361,10 +363,11 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
         }
 
         console.log('🎭 配役→アンケート反映 RPC呼び出し:', { groupId, charDecisions })
-        const { data: rpcData, error: rpcError } = await supabase.rpc('upsert_character_assignments_to_survey', {
+        const upsertCharParams: RpcUpsertCharacterAssignmentsToSurveyParams = {
           p_group_id: groupId,
           p_assignments: charDecisions,
-        })
+        }
+        const { data: rpcData, error: rpcError } = await supabase.rpc('upsert_character_assignments_to_survey', upsertCharParams)
         console.log('🎭 配役→アンケート反映 RPC結果:', { rpcData, rpcError })
         if (rpcError) {
           console.error('🎭 アンケート回答への配役反映エラー:', rpcError)

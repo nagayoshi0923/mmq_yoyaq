@@ -8,6 +8,7 @@
  */
 import { logger } from '@/utils/logger'
 import { supabase } from '../supabase'
+import type { RpcGetAuthorByNameParams, RpcUpsertAuthorParams } from '@/lib/rpcTypes'
 import type { Author, AuthorPerformanceReport, AuthorSummary } from '@/types'
 
 // 旧形式の互換性のため
@@ -43,7 +44,8 @@ export const authorApi = {
 
   // 作者を名前で取得
   async getByName(name: string): Promise<Author | null> {
-    const { data, error } = await supabase.rpc('get_author_by_name', { p_name: name })
+    const getAuthorParams: RpcGetAuthorByNameParams = { p_name: name }
+    const { data, error } = await supabase.rpc('get_author_by_name', getAuthorParams)
     
     if (error) {
       logger.warn('get_author_by_name error:', error)
@@ -90,11 +92,12 @@ export const authorApi = {
 
   // 名前で更新または作成（upsert）- RPC関数を使用
   async upsertByName(name: string, updates: Partial<Omit<Author, 'id' | 'name' | 'created_at' | 'updated_at'>>): Promise<Author> {
-    const { data, error } = await supabase.rpc('upsert_author', {
+    const upsertAuthorParams: RpcUpsertAuthorParams = {
       p_name: name,
       p_email: updates.email ?? null,
-      p_notes: updates.notes ?? null
-    })
+      p_notes: updates.notes ?? null,
+    }
+    const { data, error } = await supabase.rpc('upsert_author', upsertAuthorParams)
     
     if (error) {
       logger.error('upsert_author error:', error)

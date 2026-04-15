@@ -23,6 +23,7 @@ import {
 } from '@/lib/privateBookingCustomerChangeEmail'
 import type { ScheduleEvent } from '@/types/schedule'
 import { scheduleTimeSlotToEn, timeSlotEnToSchedule, scheduleTimeSlotToCandidate, timeSlotEnToLabel } from '@/lib/timeSlot'
+import type { RpcAdminUpdateReservationFieldsParams, RpcAdminDeleteReservationsByIdsParams } from '@/lib/rpcTypes'
 
 /** 貸切の予約変更通知メール送信前の確認（OK=送信 / キャンセル=送信しない） */
 function confirmSendPrivateBookingChangeEmail(): boolean {
@@ -1111,13 +1112,14 @@ export function useEventOperations({
           
           // reservations テーブルを更新（店舗と編集された予約者名）
           // customer_name は元のMMQ予約者名として保持し、display_customer_name に編集後の名前を保存
-          const { error: reservationError } = await supabase.rpc('admin_update_reservation_fields', {
+          const updateStoreParams: RpcAdminUpdateReservationFieldsParams = {
             p_reservation_id: performanceData.reservation_id,
             p_updates: {
               store_id: storeId,
-              display_customer_name: performanceData.reservation_name || null
-            }
-          })
+              display_customer_name: performanceData.reservation_name || null,
+            },
+          }
+          const { error: reservationError } = await supabase.rpc('admin_update_reservation_fields', updateStoreParams)
           
           if (reservationError) {
             logger.error('❌ reservations更新エラー:', reservationError)
@@ -1467,12 +1469,11 @@ export function useEventOperations({
         }
         
         // 予約を削除
-        const { error } = await supabase.rpc('admin_delete_reservations_by_ids', {
-          p_reservation_ids: [reservationId]
-        })
-        
+        const deleteParams1: RpcAdminDeleteReservationsByIdsParams = { p_reservation_ids: [reservationId] }
+        const { error } = await supabase.rpc('admin_delete_reservations_by_ids', deleteParams1)
+
         if (error) throw error
-        
+
         // schedule_event_idが紐付いている場合、schedule_eventsも削除
         if (reservation?.schedule_event_id) {
           // 削除前にイベント情報を取得（履歴用）
@@ -1654,12 +1655,11 @@ export function useEventOperations({
         }
         
         // 予約を削除
-        const { error } = await supabase.rpc('admin_delete_reservations_by_ids', {
-          p_reservation_ids: [reservationId]
-        })
-        
+        const deleteParams2: RpcAdminDeleteReservationsByIdsParams = { p_reservation_ids: [reservationId] }
+        const { error } = await supabase.rpc('admin_delete_reservations_by_ids', deleteParams2)
+
         if (error) throw error
-        
+
         // schedule_event_idが紐付いている場合、schedule_eventsも削除
         if (reservation?.schedule_event_id) {
           // 削除前にイベント情報を取得（履歴用）
@@ -1904,12 +1904,11 @@ export function useEventOperations({
       
       // 貸切予約の場合は予約ステータスも更新
       if (event.is_private_request && event.reservation_id) {
-        const { error } = await supabase.rpc('admin_update_reservation_fields', {
+        const uncancelParams: RpcAdminUpdateReservationFieldsParams = {
           p_reservation_id: event.reservation_id,
-          p_updates: {
-            status: 'gm_confirmed'
-          }
-        })
+          p_updates: { status: 'gm_confirmed' },
+        }
+        const { error } = await supabase.rpc('admin_update_reservation_fields', uncancelParams)
         
         if (error) {
           logger.error('予約ステータス更新エラー:', error)
@@ -2074,8 +2073,8 @@ export function useEventOperations({
       for (const conflictEvent of conflictingEvents) {
         if (conflictEvent.is_private_request && conflictEvent.reservation_id) {
           await supabase.rpc('admin_delete_reservations_by_ids', {
-            p_reservation_ids: [conflictEvent.reservation_id]
-          })
+            p_reservation_ids: [conflictEvent.reservation_id],
+          } as RpcAdminDeleteReservationsByIdsParams)
         } else {
           await scheduleApi.delete(conflictEvent.id)
         }

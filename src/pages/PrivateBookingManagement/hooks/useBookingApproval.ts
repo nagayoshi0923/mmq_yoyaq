@@ -12,6 +12,7 @@ import {
   joinedCustomerFromReservation,
 } from '@/lib/reservationApi'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
+import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
 
 interface UseBookingApprovalProps {
   onSuccess: () => void
@@ -162,7 +163,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         .replace(/^【貸切】/, '')
         .trim()
       
-      const rpcParams = {
+      const rpcParams: RpcApprovePrivateBookingParams = {
         p_reservation_id: requestId,
         p_selected_date: selectedDateYmd,
         p_selected_start_time: selectedCandidate.startTime,

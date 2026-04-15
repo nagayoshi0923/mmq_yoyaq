@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { reservationApi } from '@/lib/reservationApi'
+import type { RpcChangeReservationScheduleParams } from '@/lib/rpcTypes'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { parseIntSafe } from '@/utils/number'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -803,11 +804,12 @@ export function ReservationsPage() {
       if (!customer) throw new Error('顧客情報が取得できません')
 
       // 🔒 RPCで日程変更（在庫をアトミックに調整）
-      const { error } = await supabase.rpc('change_reservation_schedule', {
+      const changeScheduleParams: RpcChangeReservationScheduleParams = {
         p_reservation_id: dateChangeTarget.id,
         p_new_schedule_event_id: selectedNewEventId,
-        p_customer_id: customer.id
-      })
+        p_customer_id: customer.id,
+      }
+      const { error } = await supabase.rpc('change_reservation_schedule', changeScheduleParams)
 
       if (error) {
         logger.error('日程変更RPCエラー:', error)

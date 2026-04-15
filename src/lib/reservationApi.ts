@@ -4,6 +4,15 @@ import { logger, generateCorrelationId, createCorrelatedLogger } from '@/utils/l
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES, AUTO_MANAGED_STAFF_SOURCES, GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
+import type {
+  RpcCreateReservationParams,
+  RpcCancelReservationParams,
+  RpcUpdateReservationParticipantsParams,
+  RpcRecalculateReservationPricesParams,
+  RpcAdminUpdateReservationFieldsParams,
+  RpcAdminDeleteReservationsByIdsParams,
+  RpcAdminDeleteReservationsBySourceParams,
+} from '@/lib/rpcTypes'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const CUSTOMER_SELECT_FIELDS =
@@ -103,7 +112,7 @@ export const customerApi = {
     const { data, error } = await supabase
       .from('customers')
       .insert([{ ...customer, organization_id: organizationId }])
-      .select()
+      .select(CUSTOMER_SELECT_FIELDS)
       .single()
     
     if (error) throw error
@@ -129,7 +138,7 @@ export const customerApi = {
       .from('customers')
       .update(safeUpdates)
       .eq('id', id)
-      .select()
+      .select(CUSTOMER_SELECT_FIELDS)
       .single()
     
     if (error) throw error
@@ -309,18 +318,19 @@ export const reservationApi = {
     let reservationId: string | null = null
     let error: any = null
 
-    const res = await supabase.rpc('create_reservation_with_lock_v2', {
-      p_schedule_event_id: reservation.schedule_event_id,
+    const createParams: RpcCreateReservationParams = {
+      p_schedule_event_id: reservation.schedule_event_id!,
       p_participant_count: reservation.participant_count,
-      p_customer_id: reservation.customer_id,
+      p_customer_id: reservation.customer_id!,
       p_customer_name: reservation.customer_name ?? null,
       p_customer_email: reservation.customer_email ?? null,
       p_customer_phone: reservation.customer_phone ?? null,
       p_notes: reservation.customer_notes ?? null,
       p_how_found: (reservation as any).how_found ?? null,
       p_reservation_number: reservationNumber,
-      p_customer_coupon_id: (reservation as any).customer_coupon_id ?? null
-    })
+      p_customer_coupon_id: (reservation as any).customer_coupon_id ?? null,
+    }
+    const res = await supabase.rpc('create_reservation_with_lock_v2', createParams)
 
     if (!res.error) {
       reservationId = res.data as any
@@ -381,11 +391,12 @@ export const reservationApi = {
 
   // 予約をキャンセル（RPC + FOR UPDATE）
   async cancelWithLock(reservationId: string, customerId: string | null, reason?: string): Promise<boolean> {
-    const { data, error } = await supabase.rpc('cancel_reservation_with_lock', {
+    const cancelParams: RpcCancelReservationParams = {
       p_reservation_id: reservationId,
       p_customer_id: customerId,
-      p_cancellation_reason: reason ?? null
-    })
+      p_cancellation_reason: reason ?? null,
+    }
+    const { data, error } = await supabase.rpc('cancel_reservation_with_lock', cancelParams)
 
     if (error) {
       logger.error('予約キャンセルRPCエラー:', error)
@@ -411,11 +422,12 @@ export const reservationApi = {
     newCount: number,
     customerId: string | null
   ): Promise<boolean> {
-    const { data, error } = await supabase.rpc('update_reservation_participants', {
+    const updateParticipantsParams: RpcUpdateReservationParticipantsParams = {
       p_reservation_id: reservationId,
       p_new_count: newCount,
-      p_customer_id: customerId
-    })
+      p_customer_id: customerId,
+    }
+    const { data, error } = await supabase.rpc('update_reservation_participants', updateParticipantsParams)
 
     if (error) {
       logger.error('参加人数更新RPCエラー:', error)
@@ -442,10 +454,11 @@ export const reservationApi = {
 
   // 料金/参加者名の再計算（サーバー側で実施）
   async recalculatePrices(reservationId: string, participantNames?: string[] | null): Promise<boolean> {
-    const { data, error } = await supabase.rpc('admin_recalculate_reservation_prices', {
+    const recalcParams: RpcRecalculateReservationPricesParams = {
       p_reservation_id: reservationId,
-      p_participant_names: participantNames ?? null
-    })
+      p_participant_names: participantNames ?? null,
+    }
+    const { data, error } = await supabase.rpc('admin_recalculate_reservation_prices', recalcParams)
     if (error) throw error
     return !!data
   },
@@ -599,10 +612,11 @@ export const reservationApi = {
     }
 
     // 🚨 lint/no-restricted-syntax 対応: reservations はRPC経由で更新
-    const { data: ok, error: updateError } = await supabase.rpc('admin_update_reservation_fields', {
+    const updateFieldsParams: RpcAdminUpdateReservationFieldsParams = {
       p_reservation_id: id,
-      p_updates: updates as unknown as Record<string, unknown>
-    })
+      p_updates: updates as unknown as Record<string, unknown>,
+    }
+    const { data: ok, error: updateError } = await supabase.rpc('admin_update_reservation_fields', updateFieldsParams)
 
     if (updateError) throw updateError
     if (!ok) throw new Error('予約の更新に失敗しました')
@@ -923,9 +937,10 @@ export const reservationApi = {
 
   // 予約を削除
   async delete(id: string): Promise<void> {
-    const { error } = await supabase.rpc('admin_delete_reservations_by_ids', {
-      p_reservation_ids: [id]
-    })
+    const deleteByIdsParams: RpcAdminDeleteReservationsByIdsParams = {
+      p_reservation_ids: [id],
+    }
+    const { error } = await supabase.rpc('admin_delete_reservations_by_ids', deleteByIdsParams)
     if (error) throw error
   },
 

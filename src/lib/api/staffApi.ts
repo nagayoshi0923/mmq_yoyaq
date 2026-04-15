@@ -2,6 +2,7 @@
  * スタッフ関連API
  */
 import { supabase } from '../supabase'
+import type { RpcAdminUpdateReservationFieldsParams } from '@/lib/rpcTypes'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
@@ -157,10 +158,11 @@ export const staffApi = {
             updates.gm_staff = newName
           }
           
-          return supabase.rpc('admin_update_reservation_fields', {
+          const params: RpcAdminUpdateReservationFieldsParams = {
             p_reservation_id: reservation.id,
-            p_updates: updates
-          })
+            p_updates: updates,
+          }
+          return supabase.rpc('admin_update_reservation_fields', params)
         })
         
         await Promise.all(updatePromises)

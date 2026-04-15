@@ -18,6 +18,7 @@ import {
   History,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import type { RpcSendStaffGroupMessageParams } from '@/lib/rpcTypes'
 import { showToast } from '@/utils/toast'
 import { usePrivateGroupList, type PrivateGroupListItem } from '../hooks/usePrivateGroupList'
 import { PrivateGroupAnnouncementHistoryDialog } from './PrivateGroupAnnouncementHistoryDialog'
@@ -91,10 +92,11 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
     setSending(true)
     try {
       // スタッフ用RPCでメッセージを送信
-      const { error: rpcError } = await supabase.rpc('send_staff_group_message', {
+      const msgParams: RpcSendStaffGroupMessageParams = {
         p_group_id: selectedGroup.id,
-        p_message: message.trim()
-      })
+        p_message: message.trim(),
+      }
+      const { error: rpcError } = await supabase.rpc('send_staff_group_message', msgParams)
       
       if (rpcError) {
         console.error('メッセージ送信エラー:', rpcError)

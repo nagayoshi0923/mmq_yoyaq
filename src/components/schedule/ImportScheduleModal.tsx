@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { supabase } from '@/lib/supabase'
+import type { RpcAdminDeleteReservationsByScheduleEventIdsParams } from '@/lib/rpcTypes'
 import { memoApi } from '@/lib/api/memoApi'
 import { staffApi } from '@/lib/api/staffApi'
 import { scenarioApi } from '@/lib/api/scenarioApi'
@@ -940,9 +941,10 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           // 関連するreservationsを先に削除（外部キー制約対策）
           for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
             const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-            const { error: resDeleteError } = await supabase.rpc('admin_delete_reservations_by_schedule_event_ids', {
-              p_schedule_event_ids: batchIds
-            })
+            const deleteByEventIdsParams: RpcAdminDeleteReservationsByScheduleEventIdsParams = {
+              p_schedule_event_ids: batchIds,
+            }
+            const { error: resDeleteError } = await supabase.rpc('admin_delete_reservations_by_schedule_event_ids', deleteByEventIdsParams)
             
             if (resDeleteError) {
               logger.warn('予約削除警告:', resDeleteError.message)
