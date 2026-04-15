@@ -99,6 +99,7 @@ export interface Author {
   email?: string | null
   notes?: string | null
   license_organization_name?: string | null
+  last_email_sent_ym?: string | null  // "YYYY-MM" 形式。notesのJSONに __sent_ym__ として保存
   created_at: string
   updated_at: string
 }

@@ -11,6 +11,7 @@ import { AuthorLicenseEmailPreview } from './AuthorLicenseEmailPreview'
 import type { AuthorPerformance } from '../types'
 import { generateEmailUrl } from '../utils/reportFormatters'
 import { supabase } from '@/lib/supabase'
+import { authorApi } from '@/lib/api'
 
 interface AuthorLicenseEmailDialogProps {
   isOpen: boolean
@@ -19,6 +20,7 @@ interface AuthorLicenseEmailDialogProps {
   year: number
   month: number
   email: string
+  onSent?: () => void
 }
 
 export function AuthorLicenseEmailDialog({
@@ -27,7 +29,8 @@ export function AuthorLicenseEmailDialog({
   author,
   year,
   month,
-  email
+  email,
+  onSent,
 }: AuthorLicenseEmailDialogProps) {
   const [emailAddress, setEmailAddress] = useState(email)
   const [sending, setSending] = useState(false)
@@ -76,6 +79,13 @@ export function AuthorLicenseEmailDialog({
         throw new Error(data?.error || 'メール送信に失敗しました')
       }
 
+      // 送信済みをDBに記録
+      try {
+        await authorApi.markEmailSent(author.author, year, month)
+      } catch {
+        // 記録失敗はサイレントに無視（メール送信自体は成功しているため）
+      }
+      onSent?.()
       showToast.success('メールを送信しました')
       onClose()
     } catch (error: any) {

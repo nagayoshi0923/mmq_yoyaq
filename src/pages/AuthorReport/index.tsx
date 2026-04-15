@@ -160,6 +160,13 @@ export default function AuthorReport() {
 
           successCount++
 
+          // 送信済みをDBに記録
+          try {
+            await authorApi.markEmailSent(author.author, selectedYear, selectedMonth)
+          } catch {
+            // 記録失敗はサイレントに無視
+          }
+
           // レート制限を避けるため、少し待つ
           if (i < authorsWithEmail.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 300))
@@ -175,6 +182,8 @@ export default function AuthorReport() {
       } else {
         showToast.success(`${successCount}件のメールを送信しました`)
       }
+      // 送信済みバッジを更新するため再読み込み
+      loadAuthors()
     } catch (error) {
       logger.error('一括送信に失敗:', error)
       showToast.error('一括送信に失敗しました')
@@ -264,6 +273,9 @@ export default function AuthorReport() {
             setIsEmailPreviewOpen(false)
             setPreviewAuthor(null)
             setPreviewEmail('')
+          }}
+          onSent={() => {
+            loadAuthors()
           }}
           author={previewAuthor}
           year={selectedYear}
@@ -389,10 +401,19 @@ export default function AuthorReport() {
                                 </Button>
                               </TableCell>
                               <TableCell className="p-2 sm:p-4">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-xs sm:text-sm">{author.author}</span>
                                   {authors.get(author.author)?.email && (
                                     <span title="メールアドレス設定済み"><Mail className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" /></span>
+                                  )}
+                                  {authors.get(author.author)?.last_email_sent_ym === `${selectedYear}-${String(selectedMonth).padStart(2, '0')}` && (
+                                    <span
+                                      className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full"
+                                      title="今月のメール送信済み"
+                                    >
+                                      <MailCheck className="h-3 w-3" />
+                                      送信済み
+                                    </span>
                                   )}
                                   <Button
                                     variant="ghost"

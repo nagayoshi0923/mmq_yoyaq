@@ -23,30 +23,36 @@ const AUTHOR_SELECT_FIELDS = 'id, name, email, notes, created_at, updated_at' as
 // 形式: {"__org__":"会社名","memo":"振込先情報..."} または プレーンテキスト（旧形式）
 // ============================================================
 const ORG_NOTES_KEY = '__org__'
+const SENT_YM_KEY = '__sent_ym__'
 
-function parseAuthorNotes(rawNotes: string | null | undefined): { orgName: string | null; memo: string | null } {
-  if (!rawNotes) return { orgName: null, memo: null }
+function parseAuthorNotes(rawNotes: string | null | undefined): { orgName: string | null; memo: string | null; sentYm: string | null } {
+  if (!rawNotes) return { orgName: null, memo: null, sentYm: null }
   try {
     const parsed = JSON.parse(rawNotes)
     if (parsed && typeof parsed === 'object' && ORG_NOTES_KEY in parsed) {
       return {
         orgName: (parsed[ORG_NOTES_KEY] as string) || null,
-        memo: (parsed.memo as string) || null
+        memo: (parsed.memo as string) || null,
+        sentYm: (parsed[SENT_YM_KEY] as string) || null,
       }
     }
   } catch { /* 非JSON = 旧来のプレーンテキスト */ }
-  return { orgName: null, memo: rawNotes }
+  return { orgName: null, memo: rawNotes, sentYm: null }
 }
 
-function encodeAuthorNotes(orgName: string | null, memo: string | null): string | null {
-  if (!orgName && !memo) return null
-  if (!orgName) return memo  // org名がない場合はプレーンテキストのまま維持
-  return JSON.stringify({ [ORG_NOTES_KEY]: orgName, memo: memo || '' })
+function encodeAuthorNotes(orgName: string | null, memo: string | null, sentYm?: string | null): string | null {
+  if (!orgName && !memo && !sentYm) return null
+  if (!orgName && !sentYm) return memo  // org名もsentYmもない場合はプレーンテキストのまま維持
+  return JSON.stringify({
+    [ORG_NOTES_KEY]: orgName || '',
+    memo: memo || '',
+    ...(sentYm ? { [SENT_YM_KEY]: sentYm } : {}),
+  })
 }
 
 /** RPC/DBから返された生のauthorデータを Author 型に変換（notesデコード込み） */
 function decodeAuthor(raw: Record<string, unknown>): Author {
-  const { orgName, memo } = parseAuthorNotes(raw.notes as string | null)
+  const { orgName, memo, sentYm } = parseAuthorNotes(raw.notes as string | null)
   return {
     id: raw.id as string,
     name: raw.name as string,
@@ -54,6 +60,7 @@ function decodeAuthor(raw: Record<string, unknown>): Author {
     // license_organization_name は notes から復元（カラムがキャッシュにあればそちらも使う）
     license_organization_name: orgName ?? (raw.license_organization_name as string | null) ?? null,
     notes: memo,
+    last_email_sent_ym: sentYm,
     created_at: raw.created_at as string,
     updated_at: raw.updated_at as string,
   }
@@ -155,12 +162,14 @@ export const authorApi = {
   async setOrganizationName(authorName: string, organizationName: string, memo?: string | null): Promise<void> {
     // memo が undefined の場合は既存のメモを保持
     let currentMemo = memo
+    let currentSentYm: string | null = null
     if (memo === undefined) {
       const current = await this.getByName(authorName)
       currentMemo = current?.notes ?? null
+      currentSentYm = current?.last_email_sent_ym ?? null
     }
 
-    const encodedNotes = encodeAuthorNotes(organizationName, currentMemo ?? null)
+    const encodedNotes = encodeAuthorNotes(organizationName, currentMemo ?? null, currentSentYm)
 
     const { error } = await supabase
       .from('authors')
@@ -169,6 +178,27 @@ export const authorApi = {
 
     if (error) {
       logger.error('authors update (setOrganizationName) error:', error)
+      throw error
+    }
+  },
+
+  // メール送信済みを記録する（notesのJSONに __sent_ym__ として保存）
+  async markEmailSent(authorName: string, year: number, month: number): Promise<void> {
+    const sentYm = `${year}-${String(month).padStart(2, '0')}`
+    const current = await this.getByName(authorName)
+    const encodedNotes = encodeAuthorNotes(
+      current?.license_organization_name ?? null,
+      current?.notes ?? null,
+      sentYm
+    )
+
+    const { error } = await supabase
+      .from('authors')
+      .update({ notes: encodedNotes })
+      .eq('name', authorName)
+
+    if (error) {
+      logger.error('authors update (markEmailSent) error:', error)
       throw error
     }
   },
