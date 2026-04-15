@@ -56,7 +56,7 @@ export interface ScenarioFormData {
     endDate?: string
   }[]
   // 時間帯別料金設定
-  participation_costs: { 
+  participation_costs: {
     time_slot: string
     amount: number
     type: 'percentage' | 'fixed'
@@ -64,6 +64,7 @@ export interface ScenarioFormData {
     usageCount?: number
     startDate?: string
     endDate?: string
+    licenseAmount?: number  // カスタム公演種別のライセンス料（participation_costsに直接保存）
   }[]
   // 柔軟な料金設定
   use_flexible_pricing: boolean

@@ -1232,8 +1232,18 @@ export function PerformanceModal({
                   <SelectItem value="package" className="text-xs py-1">パッケージ会</SelectItem>
                   <SelectItem value="mtg" className="text-xs py-1">MTG</SelectItem>
                   <SelectItem value="memo" className="text-xs py-1">メモに変換</SelectItem>
+                  <SelectItem value="__custom__" className="text-xs py-1">カスタム…</SelectItem>
                 </SelectContent>
               </Select>
+              {/* カスタムカテゴリの入力欄 */}
+              {(formData.category === '__custom__' || !['open','private','gmtest','testplay','offsite','venue_rental','venue_rental_free','package','mtg','memo'].includes(formData.category)) && !formData.is_private_request && (
+                <Input
+                  value={['__custom__'].includes(formData.category) ? '' : formData.category}
+                  onChange={(e) => setFormData((prev: any) => ({ ...prev, category: e.target.value || '__custom__' }))}
+                  placeholder="カスタム種別名（例: 体験公演）"
+                  className="h-7 text-xs mt-1"
+                />
+              )}
               {formData.is_private_request && (
                 <p className="text-[11px] text-purple-600 mt-0.5">
                   ※ 貸切のため変更不可

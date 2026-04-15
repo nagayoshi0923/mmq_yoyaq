@@ -98,6 +98,7 @@ export interface Author {
   name: string
   email?: string | null
   notes?: string | null
+  license_organization_name?: string | null
   created_at: string
   updated_at: string
 }

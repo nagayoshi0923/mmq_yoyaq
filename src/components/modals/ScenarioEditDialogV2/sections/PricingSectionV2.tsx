@@ -50,6 +50,20 @@ function getStatusColor(status: 'active' | 'ready' | 'legacy'): string {
   }
 }
 
+// プリセットの time_slot 一覧（カスタムはこれ以外の文字列）
+const PRESET_SLOTS = ['normal', 'gmtest', 'weekend', 'holiday', 'late_night'] as const
+
+function getSlotLabel(timeSlot: string): string {
+  switch (timeSlot) {
+    case 'normal': return '通常公演'
+    case 'gmtest': return 'GMテスト'
+    case 'weekend': return '土日祝'
+    case 'holiday': return '祝日'
+    case 'late_night': return '深夜'
+    default: return timeSlot  // カスタムはそのまま表示
+  }
+}
+
 export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Props) {
   // 参加費の操作
   const handleAddParticipationCost = () => {
@@ -64,26 +78,45 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
   }
 
   const handleRemoveParticipationCost = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      participation_costs: prev.participation_costs?.filter((_, i) => i !== index) || []
-    }))
+    setFormData(prev => {
+      const removedSlot = prev.participation_costs?.[index]?.time_slot
+      // カスタム種別が削除されたら対応するlicense_rewardsも削除
+      const newRewards = removedSlot && !PRESET_SLOTS.includes(removedSlot as typeof PRESET_SLOTS[number])
+        ? (prev.license_rewards || []).filter(r => r.item !== removedSlot)
+        : prev.license_rewards
+      return {
+        ...prev,
+        participation_costs: prev.participation_costs?.filter((_, i) => i !== index) || [],
+        license_rewards: newRewards
+      }
+    })
   }
 
   const handleUpdateParticipationCost = (index: number, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
-      participation_costs: prev.participation_costs?.map((item, i) => 
+      participation_costs: prev.participation_costs?.map((item, i) =>
         i === index ? { ...item, [field]: value } : item
       ) || []
     }))
   }
 
-  // ライセンス料の操作
+  // カスタム公演種別のライセンス料を更新（participation_costs の licenseAmount フィールドに保存）
+  // license_rewards は 'normal'/'gmtest' の2項目しか保存されないため、カスタムは participation_costs に直接格納
+  const handleUpdateCustomLicenseAmount = (timeSlot: string, amount: number) => {
+    setFormData(prev => ({
+      ...prev,
+      participation_costs: (prev.participation_costs || []).map(c =>
+        c.time_slot === timeSlot ? { ...c, licenseAmount: amount } : c
+      )
+    }))
+  }
+
+  // ライセンス料の操作（プリセット用）
   const handleUpdateLicenseReward = (index: number, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
-      license_rewards: prev.license_rewards?.map((item, i) => 
+      license_rewards: prev.license_rewards?.map((item, i) =>
         i === index ? { ...item, [field]: value } : item
       ) || []
     }))
@@ -108,25 +141,43 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
           <div className="space-y-4 mt-3">
             {(formData.participation_costs || []).map((cost, index) => {
               const status = getPeriodStatus(cost.startDate, cost.endDate)
+              const isCustom = !PRESET_SLOTS.includes(cost.time_slot as typeof PRESET_SLOTS[number])
               return (
                 <div key={index} className="p-3 border rounded-lg bg-muted/20 space-y-3">
-                  {/* 1行目: 時間帯・金額・削除 */}
+                  {/* 1行目: 種別・金額・削除 */}
                   <div className={rowStyle}>
-                    <Select
-                      value={cost.time_slot}
-                      onValueChange={(value) => handleUpdateParticipationCost(index, 'time_slot', value)}
-                    >
-                      <SelectTrigger className={`${inputStyle} w-36`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="normal">通常公演</SelectItem>
-                        <SelectItem value="gmtest">GMテスト</SelectItem>
-                        <SelectItem value="weekend">土日祝</SelectItem>
-                        <SelectItem value="holiday">祝日</SelectItem>
-                        <SelectItem value="late_night">深夜</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {isCustom ? (
+                      /* カスタム種別: テキスト入力 */
+                      <Input
+                        value={cost.time_slot}
+                        onChange={(e) => handleUpdateParticipationCost(index, 'time_slot', e.target.value)}
+                        placeholder="項目名を入力"
+                        className={`${inputStyle} w-36`}
+                      />
+                    ) : (
+                      <Select
+                        value={cost.time_slot}
+                        onValueChange={(value) => {
+                          if (value === '__custom__') {
+                            handleUpdateParticipationCost(index, 'time_slot', '')
+                          } else {
+                            handleUpdateParticipationCost(index, 'time_slot', value)
+                          }
+                        }}
+                      >
+                        <SelectTrigger className={`${inputStyle} w-36`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="normal">通常公演</SelectItem>
+                          <SelectItem value="gmtest">GMテスト</SelectItem>
+                          <SelectItem value="weekend">土日祝</SelectItem>
+                          <SelectItem value="holiday">祝日</SelectItem>
+                          <SelectItem value="late_night">深夜</SelectItem>
+                          <SelectItem value="__custom__">カスタム…</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                     <div className="flex-1 relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
                       <Input
@@ -192,22 +243,51 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
           <Label className={labelStyle}>ライセンス料（自店用）</Label>
           <p className={hintStyle}>自店で公演した場合に作者に支払う金額</p>
           <div className="grid grid-cols-2 gap-5 mt-1.5">
-            {(formData.license_rewards || []).map((reward, index) => (
-              <div key={index} className={rowStyle}>
-                <span className="text-sm w-20 shrink-0">
-                  {reward.item === 'normal' ? '通常公演' : 'GMテスト'}
-                </span>
-                <div className="flex-1 relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                  <Input
-                    type="number"
-                    value={reward.amount}
-                    onChange={(e) => handleUpdateLicenseReward(index, 'amount', parseIntSafe(e.target.value, 0))}
-                    className={`${inputStyle} !pl-7`}
-                  />
+            {/* プリセット（通常・GMテスト）*/}
+            {(formData.license_rewards || [])
+              .filter(r => PRESET_SLOTS.includes(r.item as typeof PRESET_SLOTS[number]))
+              .map((reward, _) => {
+                const idx = (formData.license_rewards || []).indexOf(reward)
+                return (
+                  <div key={reward.item} className={rowStyle}>
+                    <span className="text-sm w-20 shrink-0">{getSlotLabel(reward.item)}</span>
+                    <div className="flex-1 relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                      <Input
+                        type="number"
+                        value={reward.amount}
+                        onChange={(e) => handleUpdateLicenseReward(idx, 'amount', parseIntSafe(e.target.value, 0))}
+                        className={`${inputStyle} !pl-7`}
+                      />
+                    </div>
+                  </div>
+                )
+              })
+            }
+            {/* カスタム種別（participation_costsに存在するカスタム項目を表示）
+                licenseAmount は participation_costs エントリに直接保存（license_rewards は保存されない） */}
+            {(formData.participation_costs || [])
+              .filter((c, i, arr) =>
+                c.time_slot &&
+                !PRESET_SLOTS.includes(c.time_slot as typeof PRESET_SLOTS[number]) &&
+                // 同じ time_slot の最初のエントリのみ表示（重複を除去）
+                arr.findIndex(x => x.time_slot === c.time_slot) === i
+              )
+              .map(c => (
+                <div key={c.time_slot} className={rowStyle}>
+                  <span className="text-sm w-20 shrink-0 truncate" title={c.time_slot}>{c.time_slot}</span>
+                  <div className="flex-1 relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                    <Input
+                      type="number"
+                      value={c.licenseAmount ?? 0}
+                      onChange={(e) => handleUpdateCustomLicenseAmount(c.time_slot, parseIntSafe(e.target.value, 0))}
+                      className={`${inputStyle} !pl-7`}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            }
           </div>
         </CardContent>
       </Card>
