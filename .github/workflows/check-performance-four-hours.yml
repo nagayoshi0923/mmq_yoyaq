@@ -1,0 +1,38 @@
+name: 公演中止判定（4時間前チェック）
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # 毎時 :00 UTC = 毎時 :00 JST
+  workflow_dispatch:       # GitHub UI からの手動実行（失敗時の再実行用）
+
+jobs:
+  check:
+    name: 4時間前中止判定
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: 公演中止判定 Edge Function を呼び出し
+        run: |
+          echo "🕐 実行時刻 (UTC): $(date -u '+%Y-%m-%d %H:%M')"
+          echo "🕐 実行時刻 (JST): $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')"
+
+          HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d '{"check_type":"four_hours_before"}' \
+            "https://${{ secrets.SUPABASE_PROD_PROJECT_ID }}.supabase.co/functions/v1/check-performance-cancellation")
+
+          echo "📊 レスポンス:"
+          cat /tmp/response.json | python3 -m json.tool 2>/dev/null || cat /tmp/response.json
+          echo ""
+          echo "HTTP Status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "❌ Edge Function がエラーを返しました (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
+
+          echo "✅ 公演中止判定が正常に完了しました"

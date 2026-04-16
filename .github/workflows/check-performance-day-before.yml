@@ -1,0 +1,44 @@
+name: 公演中止判定（前日チェック）
+
+on:
+  schedule:
+    - cron: '59 14 * * *'  # 23:59 JST = 14:59 UTC
+  workflow_dispatch:        # GitHub UI からの手動実行（失敗時の再実行用）
+
+jobs:
+  check:
+    name: 前日中止判定
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: target_date を計算（翌日 JST）
+        id: date
+        # cron は 14:59 UTC に起動する。このとき UTC 日付はまだ当日（UTCの日付変更は 00:00 UTC = 09:00 JST）。
+        # よって UTC +1 day = 公演対象日（翌日 JST）が正確に求まる。
+        # GitHub Actions が数分遅延しても UTC 日付はまだ当日のため安全。
+        run: echo "target_date=$(date -u -d '+1 day' '+%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: 公演中止判定 Edge Function を呼び出し
+        run: |
+          echo "📅 対象日: ${{ steps.date.outputs.target_date }}"
+
+          HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d "{\"check_type\":\"day_before\",\"target_date\":\"${{ steps.date.outputs.target_date }}\"}" \
+            "https://${{ secrets.SUPABASE_PROD_PROJECT_ID }}.supabase.co/functions/v1/check-performance-cancellation")
+
+          echo "📊 レスポンス:"
+          cat /tmp/response.json | python3 -m json.tool 2>/dev/null || cat /tmp/response.json
+          echo ""
+          echo "HTTP Status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "❌ Edge Function がエラーを返しました (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
+
+          echo "✅ 公演中止判定が正常に完了しました"
