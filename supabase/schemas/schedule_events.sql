@@ -16,7 +16,7 @@ CREATE TABLE public.schedule_events (
   store_id UUID REFERENCES public.stores(id),
   start_at TIMESTAMPTZ,
   end_at TIMESTAMPTZ,
-  published BOOLEAN DEFAULT FALSE,
+  published BOOLEAN DEFAULT TRUE,
   capacity INTEGER,
   status TEXT DEFAULT 'scheduled'::text,
   created_at TIMESTAMPTZ DEFAULT NOW(),
