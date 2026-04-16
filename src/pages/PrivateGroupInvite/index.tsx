@@ -17,15 +17,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { usePrivateGroup, usePrivateGroupByInviteCode } from '@/hooks/usePrivateGroup'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
-import type {
-  RpcAuthenticateGuestByPinParams,
-  RpcSaveGuestAccessPinParams,
-  RpcApplyCouponToGroupMemberParams,
-  RpcRemoveCouponFromGroupMemberParams,
-  RpcCreatePrivateBookingRequestParams,
-  RpcDeleteGuestMemberParams,
-  RpcClearCharacterSelectionFromSurveyParams,
-} from '@/lib/rpcTypes'
 import { logger } from '@/utils/logger'
 import type { DateResponse, PrivateGroupCandidateDate } from '@/types'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
@@ -33,8 +24,6 @@ import { useCustomHolidays } from '@/hooks/useCustomHolidays'
 import { fetchScenarioTimingFromDb, getPrivateBookingDisplayEndTime } from '@/lib/privateBookingScenarioTime'
 import { memberInvitationCap } from '@/lib/privateGroupPlayerCap'
 import { SurveyResponseForm } from './components/SurveyResponseForm'
-import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
-import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 
 interface Coupon {
   id: string
@@ -151,9 +140,6 @@ export function PrivateGroupInvite() {
   const [bookingNotes, setBookingNotes] = useState('')
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
 
-  // 配役方法選択の楽観的更新：DB の refetch 完了前に即座に UI に反映するためのローカル状態
-  const [localCharAssignmentMethod, setLocalCharAssignmentMethod] = useState<string | null>(null)
-
   // SessionStorageキー
   const getStorageKey = (inviteCode: string) => `guest_session_${inviteCode}`
 
@@ -217,12 +203,11 @@ export function PrivateGroupInvite() {
       // RPCでPIN認証
       logger.info('PIN認証リクエスト:', { groupId: group.id, email: pinEmail, pinLength: pinCode.length })
       
-      const authParams: RpcAuthenticateGuestByPinParams = {
+      const { data: authResult, error: authError } = await supabase.rpc('authenticate_guest_by_pin', {
         p_group_id: group.id,
         p_email: pinEmail,
         p_pin: pinCode,
-      }
-      const { data: authResult, error: authError } = await supabase.rpc('authenticate_guest_by_pin', authParams)
+      })
 
       logger.info('PIN認証結果:', { authResult, authError })
 
@@ -283,11 +268,6 @@ export function PrivateGroupInvite() {
       }
     }
   }, [group, user])
-
-  // group の character_assignment_method が DB から更新されたらローカルオーバーライドをクリア
-  useEffect(() => {
-    setLocalCharAssignmentMethod(null)
-  }, [(group as any)?.character_assignment_method])
 
   // ログインユーザーの利用可能クーポンを取得
   useEffect(() => {
@@ -708,11 +688,10 @@ export function PrivateGroupInvite() {
         if (!user && guestEmail) {
           newPin = generatePin()
           // RPC経由でPINを保存（RLSを回避）
-          const pinParams: RpcSaveGuestAccessPinParams = {
+          const { error: pinError } = await supabase.rpc('save_guest_access_pin', {
             p_member_id: memberId,
             p_pin: newPin,
-          }
-          const { error: pinError } = await supabase.rpc('save_guest_access_pin', pinParams)
+          })
           if (pinError) {
             logger.error('PIN保存エラー:', pinError)
           }
@@ -748,18 +727,18 @@ export function PrivateGroupInvite() {
 
       // クーポン適用（ログインユーザーで選択済みの場合）
       if (user && selectedCouponId && perPersonPrice > 0) {
-        const applyCouponParams: RpcApplyCouponToGroupMemberParams = {
+        const { error: couponError } = await supabase.rpc('apply_coupon_to_group_member', {
           p_member_id: memberId,
           p_coupon_id: selectedCouponId,
-        }
-        const { error: couponError } = await supabase.rpc('apply_coupon_to_group_member', applyCouponParams)
+        })
         if (couponError) {
           logger.error('クーポン適用エラー:', couponError)
         }
       } else if (user && !selectedCouponId && perPersonPrice > 0) {
         // クーポン未選択の場合、既存のクーポンを解除
-        const removeCouponParams: RpcRemoveCouponFromGroupMemberParams = { p_member_id: memberId }
-        await supabase.rpc('remove_coupon_from_group_member', removeCouponParams)
+        await supabase.rpc('remove_coupon_from_group_member', {
+          p_member_id: memberId,
+        })
       }
 
       if (!options?.skipSuccessPage) {
@@ -1231,7 +1210,7 @@ export function PrivateGroupInvite() {
       })
       
       // RPC経由で貸切予約を作成
-      const createBookingParams: RpcCreatePrivateBookingRequestParams = {
+      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', {
         p_scenario_id: group.scenario_master_id,
         p_customer_id: customerId,
         p_customer_name: customerName,
@@ -1241,9 +1220,8 @@ export function PrivateGroupInvite() {
         p_candidate_datetimes: candidateDatetimes,
         p_notes: bookingNotes || null,
         p_reservation_number: baseReservationNumber,
-        p_private_group_id: group.id,
-      }
-      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', createBookingParams)
+        p_private_group_id: group.id
+      })
       
       if (rpcError) {
         logger.error('貸切リクエストエラー:', {
@@ -1273,16 +1251,22 @@ export function PrivateGroupInvite() {
       const parentReservationId = reservationId as string
       
       // グループのステータスを「申込済み」に更新
-      try {
-        await updatePrivateGroupStatus(group.id, 'booking_requested', { reservationId: parentReservationId })
-      } catch (groupUpdateError) {
+      const { error: groupUpdateError } = await supabase
+        .from('private_groups')
+        .update({
+          status: 'booking_requested',
+          reservation_id: parentReservationId
+        })
+        .eq('id', group.id)
+      
+      if (groupUpdateError) {
         logger.error('グループステータス更新エラー:', groupUpdateError)
       }
       
       // システムメッセージを送信
       const { data: msgSettings } = await supabase
         .from('global_settings')
-        .select(GLOBAL_SETTINGS_MSG_SELECT.BOOKING_REQUESTED)
+        .select('system_msg_booking_requested_title, system_msg_booking_requested_body')
         .eq('organization_id', group.organization_id)
         .maybeSingle()
       
@@ -1376,7 +1360,7 @@ export function PrivateGroupInvite() {
 
   // 配役方法が未選択かつキャラクターが存在する場合
   // has_pre_reading=true のシナリオのみ配役フローを表示（表示目的のキャラクター登録では発火しない）
-  const charAssignmentMethod = localCharAssignmentMethod ?? ((group as any).character_assignment_method as string | null)
+  const charAssignmentMethod = (group as any).character_assignment_method as string | null
   const scenarioCharacters = ((group.scenario_masters as any)?.characters || []).filter((c: any) => !c.is_npc)
   const scenarioSurveyEnabled = !!(group.scenario_masters as any)?.survey_enabled
   const needsCharAssignmentChoice = !!(isScheduleConfirmedUi && group.scenario_master_id && scenarioSurveyEnabled && scenarioCharacters.length > 0 && charAssignmentMethod == null)
@@ -1976,11 +1960,10 @@ export function PrivateGroupInvite() {
                         if (!confirm('本当にこのグループから退出しますか？')) return
                         try {
                           if (existingMemberId) {
-                            const deleteMemberParams: RpcDeleteGuestMemberParams = {
+                            const { error: deleteError } = await supabase.rpc('delete_guest_member', {
                               p_member_id: existingMemberId,
                               p_invite_code: code ?? null,
-                            }
-                            const { error: deleteError } = await supabase.rpc('delete_guest_member', deleteMemberParams)
+                            })
                             if (deleteError) throw deleteError
                             toast.success('グループから退出しました')
                             setExistingMemberId(null)
@@ -2494,26 +2477,24 @@ export function PrivateGroupInvite() {
               performanceDate={group.candidate_dates?.[0]?.date}
               needsCharAssignmentChoice={needsCharAssignmentChoice}
               onCharAssignmentMethodSelected={async (method) => {
-                setLocalCharAssignmentMethod(method)
                 await supabase.from('private_groups').update({ character_assignment_method: method, character_assignments: null }).eq('id', group.id)
-                await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id } as RpcClearCharacterSelectionFromSurveyParams)
+                await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
                 const methodLabel = method === 'survey' ? 'アンケート' : '自分たちで決める'
                 await supabase.from('private_group_messages').insert({
                   group_id: group.id,
                   member_id: existingMemberId,
                   message: JSON.stringify({ type: 'system', action: 'character_method_selected', title: `配役方法が選択されました`, body: `「${methodLabel}」が選択されました。` }),
                 })
-                await refetch()
+                refetch()
               }}
               charAssignmentMethod={charAssignmentMethod}
               characters={scenarioCharacters}
               isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
               onCharAssignmentConfirmed={() => refetch()}
               onResetCharAssignmentMethod={async () => {
-                setLocalCharAssignmentMethod(null)
                 await supabase.from('private_groups').update({ character_assignment_method: null, character_assignments: null }).eq('id', group.id)
-                await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id } as RpcClearCharacterSelectionFromSurveyParams)
-                await refetch()
+                await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                refetch()
               }}
               scenarioPlayerCount={scenarioMax}
             />
@@ -3111,26 +3092,24 @@ export function PrivateGroupInvite() {
                 performanceDate={group.candidate_dates?.[0]?.date}
                 needsCharAssignmentChoice={needsCharAssignmentChoice}
                 onCharAssignmentMethodSelected={async (method) => {
-                  setLocalCharAssignmentMethod(method)
                   await supabase.from('private_groups').update({ character_assignment_method: method, character_assignments: null }).eq('id', group.id)
-                  await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id } as RpcClearCharacterSelectionFromSurveyParams)
+                  await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
                   const methodLabel = method === 'survey' ? 'アンケート' : '自分たちで決める'
                   await supabase.from('private_group_messages').insert({
                     group_id: group.id,
                     member_id: existingMemberId,
                     message: JSON.stringify({ type: 'system', action: 'character_method_selected', title: `配役方法が選択されました`, body: `「${methodLabel}」が選択されました。` }),
                   })
-                  await refetch()
+                  refetch()
                 }}
                 charAssignmentMethod={charAssignmentMethod}
                 characters={scenarioCharacters}
                 isOrganizer={group.members?.find(m => m.id === existingMemberId)?.is_organizer || false}
                 onCharAssignmentConfirmed={() => refetch()}
                 onResetCharAssignmentMethod={async () => {
-                  setLocalCharAssignmentMethod(null)
                   await supabase.from('private_groups').update({ character_assignment_method: null, character_assignments: null }).eq('id', group.id)
-                  await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id } as RpcClearCharacterSelectionFromSurveyParams)
-                  await refetch()
+                  await supabase.rpc('clear_character_selection_from_survey', { p_group_id: group.id })
+                  refetch()
                 }}
                 scenarioPlayerCount={scenarioMax}
               />
@@ -3529,11 +3508,10 @@ export function PrivateGroupInvite() {
               try {
                 if (existingMemberId) {
                   // RPC経由で削除（RLSを回避）
-                  const deleteMemberParams2: RpcDeleteGuestMemberParams = {
+                  const { error: deleteError } = await supabase.rpc('delete_guest_member', {
                     p_member_id: existingMemberId,
                     p_invite_code: code ?? null,
-                  }
-                  const { error: deleteError } = await supabase.rpc('delete_guest_member', deleteMemberParams2)
+                  })
                   if (deleteError) throw deleteError
                   toast.success('グループから退出しました')
                   setExistingMemberId(null)
