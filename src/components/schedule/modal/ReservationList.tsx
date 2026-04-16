@@ -1558,22 +1558,29 @@ ${content.organizationName || '店舗'}
                             {isCancelled ? (
                               <div className="flex flex-col gap-0.5 min-w-0">
                                 <span className="text-xs text-red-500">キャンセル済</span>
-                                <span className="text-[10px] text-gray-400 leading-tight">
-                                  {(() => {
-                                    const reason = reservation.cancellation_reason
-                                    // お客様・顧客都合のキャンセルのみそのまま表示
-                                    if (reason && (reason.includes('お客様') || reason.includes('顧客'))) return reason
-                                    // それ以外（店舗都合・長文・null）→ 公演中止なら「公演中止によるキャンセル」
-                                    return event?.is_cancelled ? '公演中止によるキャンセル' : (reason || '')
-                                  })()}
-                                </span>
-                                {(reservation.cancelled_at || reservation.updated_at) && (
-                                  <span className="text-[10px] text-gray-400 leading-tight">
-                                    {new Date(reservation.cancelled_at || reservation.updated_at!).toLocaleString('ja-JP', {
-                                      month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                                    })}
-                                  </span>
-                                )}
+                                {(() => {
+                                  const reason = reservation.cancellation_reason
+                                  const isCustomerCancel = reason && (reason.includes('お客様') || reason.includes('顧客'))
+                                  const isEventCancel = event?.is_cancelled && !isCustomerCancel
+                                  const displayReason = isCustomerCancel
+                                    ? reason
+                                    : (event?.is_cancelled ? '公演中止によるキャンセル' : (reason || ''))
+                                  const colorClass = isEventCancel ? 'text-orange-500' : 'text-gray-400'
+                                  return (
+                                    <>
+                                      {displayReason && (
+                                        <span className={`text-[10px] leading-tight ${colorClass}`}>{displayReason}</span>
+                                      )}
+                                      {(reservation.cancelled_at || reservation.updated_at) && (
+                                        <span className={`text-[10px] leading-tight ${colorClass}`}>
+                                          {new Date(reservation.cancelled_at || reservation.updated_at!).toLocaleString('ja-JP', {
+                                            month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                          })}
+                                        </span>
+                                      )}
+                                    </>
+                                  )
+                                })()}
                               </div>
                             ) : reservation.status === 'checked_in' ? (
                               <span className="w-[80px] h-8 text-xs text-green-600 font-semibold flex items-center gap-1">
