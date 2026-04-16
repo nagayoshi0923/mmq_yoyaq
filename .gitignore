@@ -45,3 +45,12 @@ SUPABASE_ACCESS_TOKEN
 .vercel
 supabase/.temp/
 supabase/schema_snapshot.sql
+
+# Claude Code memory
+.claude/
+
+# Staging env backups
+.env.staging.save
+
+# AI team runtime state
+scripts/ai-team/.processed_issues
