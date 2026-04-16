@@ -162,10 +162,6 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         onConfirmCancel: eventOperations.handleConfirmCancel,
         cancellationReason: eventOperations.cancellationReason,
         onCancellationReasonChange: eventOperations.setCancellationReason,
-        // 復活機能はhandleUncancelPerformanceで直接実行される（ダイアログなし）
-        // isRestoreDialogOpen: eventOperations.isRestoreDialogOpen,
-        // onCloseRestoreDialog: () => eventOperations.setIsRestoreDialogOpen(false),
-        // onConfirmRestore: eventOperations.handleConfirmRestore
       },
       moveOrCopyDialog: {
         isOpen: eventOperations.isMoveOrCopyDialogOpen,

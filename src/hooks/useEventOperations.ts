@@ -297,7 +297,7 @@ export function useEventOperations({
   // 削除ダイアログ状態
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [deletingEvent, setDeletingEvent] = useState<ScheduleEvent | null>(null)
-  
+
   // 中止ダイアログ状態
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
   const [cancellingEvent, setCancellingEvent] = useState<ScheduleEvent | null>(null)
@@ -594,6 +594,30 @@ export function useEventOperations({
           )
         }
 
+        // 履歴を記録（移動）
+        if (organizationId) {
+          try {
+            const srcStoreName = stores.find(s => s.id === (draggedEvent.store_id || draggedEvent.venue))?.name || draggedEvent.venue
+            const dstStoreName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+            // 移動元セル
+            await createEventHistory(
+              savedEvent.id, organizationId, 'move_out',
+              draggedEvent as unknown as Record<string, unknown>, newEventData,
+              { date: draggedEvent.date, storeId: draggedEvent.store_id || draggedEvent.venue, timeSlot: draggedEvent.time_slot || null },
+              { notes: `→ ${dropTarget.date} ${dstStoreName}` }
+            )
+            // 移動先セル
+            await createEventHistory(
+              savedEvent.id, organizationId, 'move_in',
+              draggedEvent as unknown as Record<string, unknown>, newEventData,
+              { date: dropTarget.date, storeId: dropTarget.venue, timeSlot: timeSlotLabel },
+              { notes: `← ${draggedEvent.date} ${srcStoreName}` }
+            )
+          } catch (historyError) {
+            logger.error('履歴記録エラー（移動）:', historyError)
+          }
+        }
+
         // ローカル状態を更新（scenariosは元のイベントから保持）
         setEvents(prev => prev.map(event => {
           if (event.id !== draggedEvent.id) return event
@@ -615,6 +639,29 @@ export function useEventOperations({
         }))
       } else {
         const savedEvent = await scheduleApi.create(newEventData)
+
+        // 履歴を記録（移動 - 仮IDの場合）
+        if (organizationId) {
+          try {
+            const srcStoreName = stores.find(s => s.id === (draggedEvent.store_id || draggedEvent.venue))?.name || draggedEvent.venue
+            const dstStoreName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+            await createEventHistory(
+              null, organizationId, 'move_out',
+              draggedEvent as unknown as Record<string, unknown>, newEventData,
+              { date: draggedEvent.date, storeId: draggedEvent.store_id || draggedEvent.venue, timeSlot: draggedEvent.time_slot || null },
+              { notes: `→ ${dropTarget.date} ${dstStoreName}` }
+            )
+            await createEventHistory(
+              savedEvent.id, organizationId, 'move_in',
+              draggedEvent as unknown as Record<string, unknown>, newEventData,
+              { date: dropTarget.date, storeId: dropTarget.venue, timeSlot: timeSlotLabel },
+              { notes: `← ${draggedEvent.date} ${srcStoreName}` }
+            )
+          } catch (historyError) {
+            logger.error('履歴記録エラー（移動）:', historyError)
+          }
+        }
+
         // ローカル状態を更新（scenariosは元のイベントから保持）
         setEvents(prev => {
           const filtered = prev.filter(e => e.id !== draggedEvent.id)
@@ -728,6 +775,21 @@ export function useEventOperations({
       }
 
       const savedEvent = await scheduleApi.create(newEventData)
+
+      // 履歴を記録（複製）
+      if (organizationId) {
+        try {
+          const srcStoreName = stores.find(s => s.id === (draggedEvent.store_id || draggedEvent.venue))?.name || draggedEvent.venue
+          await createEventHistory(
+            savedEvent.id, organizationId, 'copy',
+            null, newEventData,
+            { date: dropTarget.date, storeId: dropTarget.venue, timeSlot: timeSlotLabel },
+            { notes: `← ${draggedEvent.date} ${srcStoreName} から複製` }
+          )
+        } catch (historyError) {
+          logger.error('履歴記録エラー（複製）:', historyError)
+        }
+      }
 
       // ローカル状態を更新（元の公演は残す、scenariosは元のイベントから保持）
       const newEvent: ScheduleEvent = {
@@ -1606,7 +1668,7 @@ export function useEventOperations({
       setDeletingEvent(null)
     } catch (error) {
       logger.error('公演削除エラー:', error)
-      
+
       // エラーメッセージを詳細化
       showToast.error(getSafeErrorMessage(error, '公演の削除に失敗しました'))
       
@@ -1958,19 +2020,33 @@ export function useEventOperations({
   const handleToggleTentative = useCallback(async (event: ScheduleEvent) => {
     try {
       const newStatus = !event.is_tentative
-      
+
       await scheduleApi.update(event.id, {
         is_tentative: newStatus
       })
 
-      setEvents(prev => prev.map(e => 
+      // 履歴を記録
+      if (organizationId) {
+        try {
+          await createEventHistory(
+            event.id, organizationId, 'update',
+            { is_tentative: event.is_tentative },
+            { is_tentative: newStatus },
+            { date: event.date, storeId: event.store_id || event.venue, timeSlot: event.time_slot || null }
+          )
+        } catch (historyError) {
+          logger.error('履歴記録エラー（仮状態）:', historyError)
+        }
+      }
+
+      setEvents(prev => prev.map(e =>
         e.id === event.id ? { ...e, is_tentative: newStatus } : e
       ))
     } catch (error) {
       logger.error('仮状態の更新エラー:', error)
       throw error
     }
-  }, [setEvents])
+  }, [setEvents, organizationId])
 
   // 予約サイト公開/非公開トグル（直接切り替え）
   const handleToggleReservation = useCallback(async (event: ScheduleEvent) => {
@@ -1988,19 +2064,33 @@ export function useEventOperations({
     
     try {
       const newStatus = !event.is_reservation_enabled
-      
+
       await scheduleApi.update(event.id, {
         is_reservation_enabled: newStatus
       })
 
-      setEvents(prev => prev.map(e => 
+      // 履歴を記録
+      if (organizationId) {
+        try {
+          await createEventHistory(
+            event.id, organizationId, newStatus ? 'publish' : 'unpublish',
+            { is_reservation_enabled: event.is_reservation_enabled },
+            { is_reservation_enabled: newStatus },
+            { date: event.date, storeId: event.store_id || event.venue, timeSlot: event.time_slot || null }
+          )
+        } catch (historyError) {
+          logger.error('履歴記録エラー（予約受付）:', historyError)
+        }
+      }
+
+      setEvents(prev => prev.map(e =>
         e.id === event.id ? { ...e, is_reservation_enabled: newStatus } : e
       ))
     } catch (error) {
       logger.error('予約サイト公開状態の更新エラー:', error)
       showToast.error('予約サイト公開状態の更新に失敗しました')
     }
-  }, [setEvents])
+  }, [setEvents, organizationId])
   
   const handleConfirmPublishToggle = useCallback(async () => {
     if (!publishingEvent) return
@@ -2134,8 +2224,23 @@ export function useEventOperations({
       
       // 公演を削除
       await scheduleApi.delete(event.id)
+
+      // 履歴を記録
+      if (organizationId) {
+        try {
+          await createEventHistory(
+            null, organizationId, 'delete',
+            event as unknown as Record<string, unknown>, {},
+            { date: event.date, storeId: event.store_id || event.venue, timeSlot: event.time_slot || null },
+            { notes: 'メモに変換', deletedEventScenario: event.scenario }
+          )
+        } catch (historyError) {
+          logger.error('履歴記録エラー（メモ変換）:', historyError)
+        }
+      }
+
       showToast.success('公演をメモに変換しました')
-      
+
       // スケジュールを再読み込み
       if (fetchSchedule) {
         await fetchSchedule()
@@ -2144,7 +2249,7 @@ export function useEventOperations({
       logger.error('メモ変換エラー:', error)
       showToast.error('メモへの変換に失敗しました')
     }
-  }, [fetchSchedule])
+  }, [fetchSchedule, organizationId])
 
   return {
     // モーダル状態
@@ -2156,7 +2261,7 @@ export function useEventOperations({
     // 削除ダイアログ状態
     isDeleteDialogOpen,
     deletingEvent,
-    
+
     // 中止ダイアログ状態
     isCancelDialogOpen,
     cancellingEvent,

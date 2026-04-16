@@ -9,7 +9,7 @@ const EVENT_HISTORY_SELECT_FIELDS =
   'id, schedule_event_id, organization_id, event_date, store_id, time_slot, changed_by_user_id, changed_by_staff_id, changed_by_name, action_type, changes, old_values, new_values, deleted_event_scenario, notes, created_at' as const
 
 // 変更アクションの種類
-export type ActionType = 
+export type ActionType =
   | 'create'              // 新規作成
   | 'update'              // 更新
   | 'delete'              // 削除
@@ -19,6 +19,9 @@ export type ActionType =
   | 'unpublish'           // 非公開
   | 'add_participant'     // 参加者追加
   | 'remove_participant'  // 参加者削除
+  | 'move_out'            // 移動（移動元セル）
+  | 'move_in'             // 移動（移動先セル）
+  | 'copy'                // 複製・ペースト（複製先セル）
 
 // 履歴エントリの型定義
 export interface EventHistory {
@@ -80,6 +83,9 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   unpublish: '非公開',
   add_participant: '参加者追加',
   remove_participant: '参加者削除',
+  move_out: '移動（移動元）',
+  move_in: '移動（移動先）',
+  copy: '複製',
 }
 
 /**
@@ -138,12 +144,15 @@ export async function createEventHistory(
     const { data: { user } } = await supabase.auth.getUser()
     
     // 変更差分を計算
-    const changes = actionType === 'create' 
-      ? {} // 新規作成時は差分なし
+    // 作成・移動・複製は差分ではなく「操作の事実」を記録するため changes は空にする
+    const noDiffActions: ActionType[] = ['create', 'move_out', 'move_in', 'copy']
+    const changes = noDiffActions.includes(actionType)
+      ? {}
       : calculateChanges(oldValues, newValues)
-    
-    // 変更がない場合はスキップ（新規作成・削除以外）
-    if (actionType !== 'create' && actionType !== 'delete' && Object.keys(changes).length === 0) {
+
+    // 変更がない場合はスキップ（操作の事実自体を記録するアクションは除外）
+    const alwaysRecord: ActionType[] = ['create', 'delete', 'move_out', 'move_in', 'copy']
+    if (!alwaysRecord.includes(actionType) && Object.keys(changes).length === 0) {
       logger.log('変更がないため履歴をスキップ')
       return
     }
@@ -184,69 +193,55 @@ export async function createEventHistory(
 }
 
 /**
- * イベントの履歴を取得
- * セルベースで全履歴を取得（現在の公演 + 過去に削除された公演すべて）
+ * セルの履歴を取得
+ * セル（日付＋会場＋時間帯）単位で全履歴を取得（現在の公演 + 過去に削除された公演すべて）
  */
 export async function getEventHistory(
-  scheduleEventId: string | undefined,
-  cellInfo?: CellInfo,
+  cellInfo: CellInfo,
   organizationId?: string
 ): Promise<EventHistory[]> {
   const allHistory: EventHistory[] = []
   const seenIds = new Set<string>()
-  
-  // 1. セル情報がある場合、そのセルの全履歴を取得（メイン）
-  if (cellInfo && organizationId) {
-    // time_slotがnullの場合は.is()を使う、それ以外は.eq()を使う
-    let query = supabase
-      .from('schedule_event_history')
-      .select(EVENT_HISTORY_SELECT_FIELDS)
-      .eq('organization_id', organizationId)
-      .eq('event_date', cellInfo.date)
-      .eq('store_id', cellInfo.storeId)
-    
-    if (cellInfo.timeSlot === null) {
-      query = query.is('time_slot', null)
-    } else {
-      query = query.eq('time_slot', cellInfo.timeSlot)
-    }
-    
-    const { data: cellHistory, error: cellError } = await query.order('created_at', { ascending: false })
-    
-    if (cellError) {
-      logger.error('セル履歴取得エラー:', cellError)
-    } else if (cellHistory) {
-      for (const h of cellHistory) {
-        if (!seenIds.has(h.id)) {
-          seenIds.add(h.id)
-          allHistory.push(h as EventHistory)
-        }
+
+  const orgId = organizationId || await getCurrentOrganizationId()
+  if (!orgId) return allHistory
+
+  const baseQuery = () => supabase
+    .from('schedule_event_history')
+    .select(EVENT_HISTORY_SELECT_FIELDS)
+    .eq('organization_id', orgId)
+    .eq('event_date', cellInfo.date)
+    .eq('store_id', cellInfo.storeId)
+
+  // time_slot で絞り込んで取得
+  let query = baseQuery()
+  if (cellInfo.timeSlot === null) {
+    query = query.is('time_slot', null)
+  } else {
+    query = query.eq('time_slot', cellInfo.timeSlot)
+  }
+
+  const { data: cellHistory, error: cellError } = await query.order('created_at', { ascending: false })
+
+  if (cellError) {
+    logger.error('セル履歴取得エラー:', cellError)
+  } else if (cellHistory) {
+    for (const h of cellHistory) {
+      if (!seenIds.has(h.id)) {
+        seenIds.add(h.id)
+        allHistory.push(h as EventHistory)
       }
     }
   }
-  
-  // 2. 現在の公演IDがある場合、その公演の履歴も取得（重複を防ぐ）
-  //    ※セル情報が古い形式で保存されていない場合に備えて
-  if (scheduleEventId) {
-    // 組織フィルタ（マルチテナント対応）
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let eventQuery = supabase
-      .from('schedule_event_history')
-      .select(EVENT_HISTORY_SELECT_FIELDS)
-      .eq('schedule_event_id', scheduleEventId)
+
+  // time_slot が null の古いレコードも拾うフォールバック（time_slot 未設定で保存された履歴対応）
+  if (cellInfo.timeSlot !== null) {
+    const { data: nullSlotHistory } = await baseQuery()
+      .is('time_slot', null)
       .order('created_at', { ascending: false })
-    
-    if (orgId) {
-      eventQuery = eventQuery.eq('organization_id', orgId)
-    }
-    
-    const { data: eventHistory, error: eventError } = await eventQuery
-    
-    if (eventError) {
-      logger.error('公演履歴取得エラー:', eventError)
-    } else if (eventHistory) {
-      for (const h of eventHistory) {
+
+    if (nullSlotHistory) {
+      for (const h of nullSlotHistory) {
         if (!seenIds.has(h.id)) {
           seenIds.add(h.id)
           allHistory.push(h as EventHistory)
@@ -254,10 +249,10 @@ export async function getEventHistory(
       }
     }
   }
-  
+
   // 日時順にソート（新しい順）
   allHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  
+
   return allHistory
 }
 
