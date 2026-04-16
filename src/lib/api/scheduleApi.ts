@@ -534,11 +534,14 @@ export const scheduleApi = {
       const maxParticipants = maxForSync
       
       // 表示用の参加者数
-      // - 予約がある公演: 実予約数（active）を表示（キャンセルで減るのも反映）
-      // - 予約がない公演: 手動入力された current_participants を表示（過去データ/手動満席など）
-      const effectiveParticipants = hasAnyReservations
-        ? cappedActualParticipants
-        : Math.min(event.current_participants || 0, maxParticipants)
+      // - 中止公演: 全予約（キャンセル含む）の合計 or DB値の大きい方（中止前の人数を保持）
+      // - 通常公演・予約あり: 実予約数（active）を表示（キャンセルで減るのも反映）
+      // - 通常公演・予約なし: 手動入力された current_participants を表示（過去データ/手動満席など）
+      const effectiveParticipants = event.is_cancelled
+        ? Math.max(cappedActualParticipants, Math.min(event.current_participants || 0, maxParticipants))
+        : (hasAnyReservations
+            ? cappedActualParticipants
+            : Math.min(event.current_participants || 0, maxParticipants))
       
       return {
         ...event,
