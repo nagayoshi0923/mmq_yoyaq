@@ -126,14 +126,21 @@ export const ListView = memo(function ListView({
       return (a.start_time || '').localeCompare(b.start_time || '')
     })
     const allEvents = allMerged.filter((ev: any) => {
+      // 内部カテゴリは公開リストに表示しない（blockedSlotsで貸切申込ブロックは維持）
+      const isHiddenCategory = ev.category === 'mtg'
+        || ev.category === 'gmtest'
+        || ev.category === 'testplay'
+        || ev.category === 'venue_rental'
+        || ev.category === 'venue_rental_free'
+        || ev.category === 'package'
+      if (isHiddenCategory) return false
       const isPrivate = ev.category === 'private' || ev.is_private_booking === true
-      const isGm = ev.category === 'gmtest' || ev.category === 'testplay'
-      if (hideSoldOut && (isPrivate || isGm)) return false
-      if (hidePlayed && (isPrivate || isGm)) {
+      if (hideSoldOut && isPrivate) return false
+      if (hidePlayed && isPrivate) {
         const smId = ev.scenario_master_id || ev.scenario_id
         if (smId && playedScenarioIds.has(smId)) return false
       }
-      if (isPrivate || isGm) return true
+      if (isPrivate) return true
       if (hideSoldOut) {
         const max = ev.player_count_max || 8
         const cur = ev.current_participants || 0
@@ -205,8 +212,7 @@ export const ListView = memo(function ListView({
       const available = maxParticipants - currentParticipants
       const isFull = available === 0
       const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
-      const isGmTest = event.category === 'gmtest' || event.category === 'testplay'
-      const isReserved = isPrivateBooking || isGmTest // 予約済みかどうか
+      const isReserved = isPrivateBooking
       const storeColor = getColorFromName(store.color)
       
       // シナリオ情報を取得（クリック時のscenario_id用）
