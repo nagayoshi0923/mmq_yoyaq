@@ -30,8 +30,8 @@ export function PublicLayout({
   hideFooter = false,
   hideNavigation = false
 }: PublicLayoutProps) {
-  const { user } = useAuth()
-  const shouldShowNavigation = !hideNavigation && user && user.role !== 'customer' && user.role !== undefined
+  const { isStaff } = useAuth()
+  const shouldShowNavigation = !hideNavigation && isStaff
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

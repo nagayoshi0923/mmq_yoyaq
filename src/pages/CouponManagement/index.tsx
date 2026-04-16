@@ -21,7 +21,7 @@ import { CampaignStats } from './components/CampaignStats'
 import { toast } from 'sonner'
 
 export function CouponManagement() {
-  const { user } = useAuth()
+  const { user, isStaff } = useAuth()
   const navigate = useNavigate()
   const { organization } = useOrganization()
 
@@ -127,7 +127,7 @@ export function CouponManagement() {
     loadCampaigns()
   }
 
-  const shouldShowNavigation = user && user.role !== 'customer'
+  const shouldShowNavigation = isStaff
 
   return (
     <div className="min-h-screen bg-background">

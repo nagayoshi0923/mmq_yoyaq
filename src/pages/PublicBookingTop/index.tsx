@@ -41,10 +41,10 @@ interface PublicBookingTopProps {
 }
 
 export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicBookingTopProps) {
-  const { user } = useAuth()
+  const { user, isStaff } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
+  const shouldShowNavigation = isStaff
 
   // 詳細ページから戻ったときカレンダー／リストの表示月を維持する（sessionStorage）
   const bookingViewPersistSlug = organizationSlug ?? 'platform'
@@ -467,8 +467,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             <TabsTrigger value="list" className="text-sm px-2 py-1.5">リスト</TabsTrigger>
           </TabsList>
 
-          {/* 残りわずか公演（タブの直下） */}
-          {!isLoading && nearlyConfirmed.length > 0 && (
+          {/* 残りわずか公演（ラインナップタブのみ） */}
+          {!isLoading && activeTab === 'lineup' && nearlyConfirmed.length > 0 && (
             <section className="mb-6 md:mb-8">
               <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
                 <h2 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-3">

@@ -63,8 +63,8 @@ const getUIMode = (): 'legacy' | 'new' => {
 export function ScenarioManagement() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const canEditScenarios = user?.role === 'admin' || user?.role === 'license_admin'
+  const { isAdmin } = useAuth()
+  const canEditScenarios = isAdmin
 
   // UI状態
   const [uiMode, setUIMode] = useState<'legacy' | 'new'>(() =>
