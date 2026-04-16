@@ -1,4 +1,4 @@
-import { useState, Fragment, useEffect } from 'react'
+import { useState, Fragment, useEffect, lazy, Suspense } from 'react'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,9 +16,9 @@ import { supabase } from '@/lib/supabase'
 import { renderExpandedRow } from './utils/tableColumns'
 import { useScenariosQuery } from '../ScenarioManagement/hooks/useScenarioQuery'
 import type { AuthorPerformance } from './types'
-import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
-import { AuthorEmailDialog } from './components/AuthorEmailDialog'
-import { AuthorLicenseEmailDialog } from './components/AuthorLicenseEmailDialog'
+const ScenarioEditDialogV2 = lazy(() => import('@/components/modals/ScenarioEditDialogV2').then(m => ({ default: m.ScenarioEditDialogV2 })))
+const AuthorEmailDialog = lazy(() => import('./components/AuthorEmailDialog').then(m => ({ default: m.AuthorEmailDialog })))
+const AuthorLicenseEmailDialog = lazy(() => import('./components/AuthorLicenseEmailDialog').then(m => ({ default: m.AuthorLicenseEmailDialog })))
 import { authorApi, storeApi, type Author } from '@/lib/api'
 import type { Store } from '@/types'
 
@@ -245,44 +245,46 @@ export default function AuthorReport() {
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6">
-      <ScenarioEditDialogV2
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
-        scenarioId={editScenarioId}
-        onScenarioChange={setEditScenarioId}
-        onSaved={() => {
-          // 保存完了時に作者レポートをリフレッシュ
-          refresh()
-        }}
-      />
-      <AuthorEmailDialog
-        isOpen={isEmailDialogOpen}
-        onClose={() => {
-          setIsEmailDialogOpen(false)
-          setSelectedAuthorName('')
-        }}
-        authorName={selectedAuthorName}
-        onSave={() => {
-          loadAuthors()
-        }}
-      />
-      {previewAuthor && (
-        <AuthorLicenseEmailDialog
-          isOpen={isEmailPreviewOpen}
-          onClose={() => {
-            setIsEmailPreviewOpen(false)
-            setPreviewAuthor(null)
-            setPreviewEmail('')
+      <Suspense fallback={null}>
+        <ScenarioEditDialogV2
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          scenarioId={editScenarioId}
+          onScenarioChange={setEditScenarioId}
+          onSaved={() => {
+            // 保存完了時に作者レポートをリフレッシュ
+            refresh()
           }}
-          onSent={() => {
+        />
+        <AuthorEmailDialog
+          isOpen={isEmailDialogOpen}
+          onClose={() => {
+            setIsEmailDialogOpen(false)
+            setSelectedAuthorName('')
+          }}
+          authorName={selectedAuthorName}
+          onSave={() => {
             loadAuthors()
           }}
-          author={previewAuthor}
-          year={selectedYear}
-          month={selectedMonth}
-          email={previewEmail}
         />
-      )}
+        {previewAuthor && (
+          <AuthorLicenseEmailDialog
+            isOpen={isEmailPreviewOpen}
+            onClose={() => {
+              setIsEmailPreviewOpen(false)
+              setPreviewAuthor(null)
+              setPreviewEmail('')
+            }}
+            onSent={() => {
+              loadAuthors()
+            }}
+            author={previewAuthor}
+            year={selectedYear}
+            month={selectedMonth}
+            email={previewEmail}
+          />
+        )}
+      </Suspense>
       {/* ヘッダー */}
       <PageHeader
         title="作者レポート"
