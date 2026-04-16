@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, lazy, Suspense } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useSessionState } from '@/hooks/useSessionState'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
@@ -16,36 +16,16 @@ const SALES_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'salary-calculation', label: '給与計算', icon: FileText, description: 'スタッフ給与計算' }
 ]
 // 作者レポートはライセンス管理に移動
-import SalaryCalculation from '../SalaryCalculation/index'
-import { StaffSalaryReport } from './components/StaffSalaryReport'
 import { useSalesData } from './hooks/useSalesData'
-import { SalesOverview } from './components/SalesOverview'
-import { ScenarioPerformance } from './components/ScenarioPerformance'
-import { MiscellaneousTransactions } from './components/MiscellaneousTransactions'
-import { ExternalSales } from './components/ExternalSales'
-import { AnnualAnalysis } from './components/AnnualAnalysis'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js'
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-)
+// chart.jsを使うコンポーネントは遅延ロード（初期バンドルサイズ削減）
+const SalesOverview = lazy(() => import('./components/SalesOverview').then(m => ({ default: m.SalesOverview })))
+const AnnualAnalysis = lazy(() => import('./components/AnnualAnalysis').then(m => ({ default: m.AnnualAnalysis })))
+const ScenarioPerformance = lazy(() => import('./components/ScenarioPerformance').then(m => ({ default: m.ScenarioPerformance })))
+const MiscellaneousTransactions = lazy(() => import('./components/MiscellaneousTransactions').then(m => ({ default: m.MiscellaneousTransactions })))
+const ExternalSales = lazy(() => import('./components/ExternalSales').then(m => ({ default: m.ExternalSales })))
+const StaffSalaryReport = lazy(() => import('./components/StaffSalaryReport').then(m => ({ default: m.StaffSalaryReport })))
+const SalaryCalculation = lazy(() => import('../SalaryCalculation/index'))
 
 /**
  * 売上管理メインページ
@@ -228,7 +208,9 @@ const SalesManagement: React.FC = () => {
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
-      {renderContent()}
+      <Suspense fallback={<div className="flex items-center justify-center h-40 text-muted-foreground text-sm">読み込み中...</div>}>
+        {renderContent()}
+      </Suspense>
     </AppLayout>
   )
 }

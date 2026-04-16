@@ -1,6 +1,19 @@
 import React, { useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Bar, Line } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend)
 import { useAnnualAnalysis } from '../hooks/useAnnualAnalysis'
 import { TrendingUp, TrendingDown, Calendar, Banknote } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'

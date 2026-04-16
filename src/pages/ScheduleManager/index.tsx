@@ -1,5 +1,5 @@
 // React
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -37,17 +37,19 @@ import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { HelpButton } from '@/components/ui/help-button'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 
-// Schedule Components
-import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
+// Schedule Components（常時表示）
 import { ContextMenu, Copy, Clipboard } from '@/components/schedule/ContextMenu'
-import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
-import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
-import { PerformanceModal } from '@/components/schedule/PerformanceModal'
-import { HistoryModal } from '@/components/schedule/modal/HistoryModal'
 import { CategoryGmStatsBar } from '@/components/schedule/CategoryGmStatsBar'
 import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
-import { KitManagementDialog } from './components/KitManagementDialog'
+
+// Schedule Modals（遅延ロード：開くまで不要）
+const ConflictWarningModal = lazy(() => import('@/components/schedule/ConflictWarningModal').then(m => ({ default: m.ConflictWarningModal })))
+const ImportScheduleModal = lazy(() => import('@/components/schedule/ImportScheduleModal').then(m => ({ default: m.ImportScheduleModal })))
+const MoveOrCopyDialog = lazy(() => import('@/components/schedule/MoveOrCopyDialog').then(m => ({ default: m.MoveOrCopyDialog })))
+const PerformanceModal = lazy(() => import('@/components/schedule/PerformanceModal').then(m => ({ default: m.PerformanceModal })))
+const HistoryModal = lazy(() => import('@/components/schedule/modal/HistoryModal').then(m => ({ default: m.HistoryModal })))
+const KitManagementDialog = lazy(() => import('./components/KitManagementDialog').then(m => ({ default: m.KitManagementDialog })))
 
 // Icons
 import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users } from 'lucide-react'
@@ -1057,7 +1059,8 @@ export function ScheduleManager() {
         ↑
       </Button>
 
-      {/* モーダル・ダイアログ群 */}
+      {/* モーダル・ダイアログ群（遅延ロード） */}
+      <Suspense fallback={null}>
       <PerformanceModal
         isOpen={modals.performanceModal.isOpen}
         onClose={modals.performanceModal.onClose}
@@ -1438,6 +1441,7 @@ export function ScheduleManager() {
         isOpen={isKitManagementOpen}
         onClose={() => setIsKitManagementOpen(false)}
       />
+      </Suspense>
     </AppLayout>
   )
 }

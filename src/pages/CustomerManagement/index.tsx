@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -18,14 +18,14 @@ export default function CustomerManagement() {
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null)
 
   // フィルタリング
-  const filteredCustomers = customers.filter((customer) => {
+  const filteredCustomers = useMemo(() => {
     const search = searchTerm.toLowerCase()
-    return (
+    return customers.filter((customer) =>
       customer.name.toLowerCase().includes(search) ||
       customer.email?.toLowerCase().includes(search) ||
       customer.phone?.includes(search)
     )
-  })
+  }, [customers, searchTerm])
 
   const handleEdit = (customer: Customer) => {
     setSelectedCustomer(customer)
