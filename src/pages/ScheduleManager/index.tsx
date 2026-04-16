@@ -464,7 +464,13 @@ export function ScheduleManager() {
         displayInfoSearchText: `${scheduled}/${cancelled}`
       })
     })
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+    // 公演数降順 → 名前昇順
+    return [...map.values()].sort((a, b) => {
+      const aCount = scheduledCount.get(a.id) || 0
+      const bCount = scheduledCount.get(b.id) || 0
+      if (bCount !== aCount) return bCount - aCount
+      return a.name.localeCompare(b.name, 'ja')
+    })
   }, [modals?.performanceModal?.scenarios, scheduleTableProps.events])
 
   const selectedScenarioId = selectedScenarioIds[0] || null
