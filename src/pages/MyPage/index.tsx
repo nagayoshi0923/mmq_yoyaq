@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, Eye, UserPlus, MoreVertical, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -103,9 +103,23 @@ export default function MyPage() {
   const { user } = useAuth()
   const { organizationId } = useOrganization()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<string>('reservations')
-  /** 予約タブ内: 公演予約 vs 貸切（グループ・申込調整） */
-  const [reservationsSubTab, setReservationsSubTab] = useState<'bookings' | 'private'>('bookings')
+  // タブ・サブタブ状態をURLパラメータで管理（ブラウザバックでタブが戻る）
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') ?? 'reservations'
+  const reservationsSubTab = (searchParams.get('sub') ?? 'bookings') as 'bookings' | 'private'
+
+  const setActiveTab = (tab: string) => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    next.set('tab', tab)
+    next.delete('sub')
+    return next
+  }, { replace: true })
+
+  const setReservationsSubTab = (sub: 'bookings' | 'private') => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    next.set('sub', sub)
+    return next
+  }, { replace: true })
   
   // データ
   const [reservations, setReservations] = useState<Reservation[]>([])
