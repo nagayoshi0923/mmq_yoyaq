@@ -1051,6 +1051,13 @@ ${content.organizationName || '店舗'}
         </div>
       ) : (
         <div>
+          {/* 公演中止バナー */}
+          {event?.is_cancelled && (
+            <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+              <span className="text-red-600 font-semibold text-xs">公演中止済み</span>
+              <span className="text-red-500 text-xs">— 下記の予約は公演中止によりキャンセルまたは無効です</span>
+            </div>
+          )}
           <div className="mb-4">
             {!isAddingParticipant ? (
               <div className="flex gap-2">
@@ -1552,9 +1559,13 @@ ${content.organizationName || '店舗'}
                               <div className="flex flex-col gap-0.5 min-w-0">
                                 <span className="text-xs text-red-500">キャンセル済</span>
                                 <span className="text-[10px] text-gray-400 leading-tight">
-                                  {event?.is_cancelled || reservation.cancellation_reason === '店舗都合によるキャンセル'
-                                    ? '公演中止によるキャンセル'
-                                    : reservation.cancellation_reason || ''}
+                                  {(() => {
+                                    const reason = reservation.cancellation_reason
+                                    // 顧客・スタッフ固有の理由がある場合はそちらを優先
+                                    if (reason && reason !== '店舗都合によるキャンセル') return reason
+                                    // 理由なし or 店舗都合 → 公演中止イベントなら公演中止と表示
+                                    return event?.is_cancelled ? '公演中止によるキャンセル' : (reason || '')
+                                  })()}
                                 </span>
                               </div>
                             ) : reservation.status === 'checked_in' ? (
