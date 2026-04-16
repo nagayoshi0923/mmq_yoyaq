@@ -9,6 +9,7 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET, RESERVATION_SOURCE } from '@/lib/constants'
 import type { RpcAdminDeleteReservationsBySourceParams } from '@/lib/rpcTypes'
+import { getScenarioAliases } from '@/lib/api/scenarioAliasApi'
 
 // 候補日時の型定義
 interface CandidateDateTime {
@@ -93,36 +94,6 @@ function resolveMaxParticipants(
   return event.max_participants || event.capacity || 8
 }
 
-// シナリオ名のエイリアスマッピング（表記ゆれ対応）
-const SCENARIO_ALIAS: Record<string, string> = {
-  '真渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
-  '真渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-  '渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
-  '渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-  '真・渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-  '土牢の悲鳴に谺して': '土牢に悲鳴は谺して',
-  '百鬼の夜月光の影': '百鬼の夜、月光の影',
-  'インビジブル亡霊列車': 'Invisible-亡霊列車-',
-  'くずの葉の森': 'くずの葉のもり',
-  'ドクターテラスの秘密の実験': 'ドクター・テラスの秘密の実験',
-  'あるミステリーについて': 'あるマーダーミステリーについて',
-  'MurderWonderLand': 'リアルマダミス-MurderWonderLand',
-  'GROLIAMEMORIES': 'グロリアメモリーズ',
-  '募SORCIER': 'SORCIER〜賢者達の物語〜',
-  'SORCIER': 'SORCIER〜賢者達の物語〜',
-  'ソルシエ': 'SORCIER〜賢者達の物語〜',
-  '藍雨': '藍雨廻逢',
-  "THEREALFOLK'30s": "TheRealFork30's",
-  'THEREALFOLK': "TheRealFork30's",
-  'TheRealFolk': "TheRealFork30's",
-  'トレタリ': '超特急の呪いの館で撮れ高足りてますか？',
-  'さきこさん': '裂き子さん',
-  '廻る弾丸輪舞': '廻る弾丸輪舞（ダンガンロンド）',
-  '狂気山脈1': '狂気山脈　陰謀の分水嶺（１）',
-  '狂気山脈2': '狂気山脈　星降る天辺（２）',
-  '狂気山脈3': '狂気山脈　薄明三角点（３）',
-  '狂気山脈2.5': '狂気山脈　2.5　頂上戦争',
-}
 
 // シナリオ名を正規化（プレフィックス除去等）
 function normalizeScenarioName(name: string): string {
@@ -176,16 +147,16 @@ async function findMatchingScenario(scenarioName: string | undefined): Promise<{
   const cleanName = normalizeScenarioName(scenarioName)
   if (cleanName.length < 2) return null
   
-  // エイリアスマッピングを適用
-  let searchName = cleanName
-  if (SCENARIO_ALIAS[cleanName]) {
-    searchName = SCENARIO_ALIAS[cleanName]
-  }
-  // 部分一致でエイリアスを探す
-  for (const [alias, formal] of Object.entries(SCENARIO_ALIAS)) {
-    if (cleanName.includes(alias)) {
-      searchName = formal
-      break
+  // エイリアスマッピングを適用（DBから取得）
+  const aliasMap = await getScenarioAliases()
+  let searchName = aliasMap[cleanName] ?? cleanName
+  if (searchName === cleanName) {
+    // 部分一致でエイリアスを探す
+    for (const [alias, formal] of Object.entries(aliasMap)) {
+      if (cleanName.includes(alias)) {
+        searchName = formal
+        break
+      }
     }
   }
   
@@ -500,10 +471,13 @@ export const scheduleApi = {
       // 予約テーブルが single source of truth（active: confirmed/pending/gm_confirmed/checked_in）
       // ※ cancelled のみのケースでも reservations は存在し得るが、人数計算は active のみで行う
       const hasAnyReservations = reservations.length > 0
-      const actualParticipants = reservations.reduce((sum, reservation) => {
-        if (!reservation.status || !ACTIVE_RESERVATION_STATUSES_SET.has(reservation.status)) return sum
-        return sum + (reservation.participant_count || 0)
-      }, 0)
+      // 中止公演は「中止時点で集まっていた人数」を表示するため、全ステータスを合算する
+      const actualParticipants = event.is_cancelled
+        ? reservations.reduce((sum, r) => sum + (r.participant_count || 0), 0)
+        : reservations.reduce((sum, reservation) => {
+            if (!reservation.status || !ACTIVE_RESERVATION_STATUSES_SET.has(reservation.status)) return sum
+            return sum + (reservation.participant_count || 0)
+          }, 0)
       
       let timeSlot: string | undefined
       let isPrivateBooking = false
@@ -542,7 +516,7 @@ export const scheduleApi = {
       //   予約が1件も無い公演では current_participants を上書きしない。
       // - デモ参加者を「予約として」追加している場合は hasAnyReservations=true になるので、
       //   この同期処理で消えることはない（active集計に含まれる）。
-      if (hasAnyReservations && cappedActualParticipants !== (event.current_participants || 0)) {
+      if (!event.is_cancelled && hasAnyReservations && cappedActualParticipants !== (event.current_participants || 0)) {
         Promise.resolve(
           supabase
             .from('schedule_events')
