@@ -187,4 +187,5 @@ export interface RpcUpsertAuthorParams {
   p_name: string
   p_email: string | null
   p_notes: string | null
+  p_license_organization_name?: string | null
 }

@@ -256,25 +256,28 @@ export function PerformanceModal({
           )
         : null
       
-      return {
-        value: scenario.title,
-        label: scenario.title + (!isAvailableAtCurrentVenue ? ' [公演不可]' : ''),
-        // renderContentを使わず、常にdisplayInfoを使用（公演不可バッジはlabelに含める）
-        renderContent: !isAvailableAtCurrentVenue ? () => (
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1">
-              <span className="truncate">{scenario.title}</span>
+      const renderedContent = (
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1">
+            <span className="truncate">{scenario.title}</span>
+            {!isAvailableAtCurrentVenue && (
               <span className="inline-flex items-center px-1 py-0 rounded text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300 flex-shrink-0">
                 公演不可
               </span>
-            </div>
-            {gmDisplayInfo && (
-              <div className="text-xs text-muted-foreground mt-0.5">
-                {gmDisplayInfo}
-              </div>
             )}
           </div>
-        ) : undefined,
+          {gmDisplayInfo && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {gmDisplayInfo}
+            </div>
+          )}
+        </div>
+      )
+
+      return {
+        value: scenario.title,
+        label: scenario.title + (!isAvailableAtCurrentVenue ? ' [公演不可]' : ''),
+        renderedContent,
         displayInfo: gmDisplayInfo,
         // 検索用テキストは「出勤かつ担当」のGMのみ
         displayInfoSearchText: filteredDisplayGMs
@@ -282,18 +285,19 @@ export function PerformanceModal({
           .map(({ gm }) => gm.name).join(', '),
         // ソート用の優先度
         sortPriority,
-        scenarioTitle: scenario.title
+        scenarioTitle: scenario.title,
+        playCount: scenario.play_count ?? 0
       }
     })
-    // ソート: 優先度順 → 同一優先度内はタイトル順
+    // ソート: 優先度順 → 同一優先度内は公演数の多い順
     .sort((a, b) => {
       if (a.sortPriority !== b.sortPriority) {
         return a.sortPriority - b.sortPriority
       }
-      return a.scenarioTitle.localeCompare(b.scenarioTitle, 'ja')
+      return b.playCount - a.playCount
     })
     // ソート後、不要なプロパティを除去
-    .map(({ sortPriority, scenarioTitle, ...rest }) => rest)
+    .map(({ sortPriority, scenarioTitle, playCount, ...rest }) => rest)
   }, [scenarios, formData.venue, staff, allAvailableStaff])
 
   /** アンケートタブ用 scenario_master_id（レンダー内 IIFE + logger だと毎回ログが爆発するため useMemo） */

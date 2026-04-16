@@ -1,4 +1,5 @@
 import * as React from "react"
+import { startTransition } from "react"
 import { Check, ChevronsUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -21,6 +22,7 @@ export interface ComboboxOption {
   label: string
   displayInfo?: string
   renderContent?: () => React.ReactNode
+  renderedContent?: React.ReactNode
 }
 
 interface ComboboxProps {
@@ -49,7 +51,13 @@ export function Combobox({
   const selectedOption = options.find((option) => option.value === value)
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(newOpen) => {
+      if (newOpen) {
+        startTransition(() => setOpen(true))
+      } else {
+        setOpen(false)
+      }
+    }}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -88,7 +96,7 @@ export function Combobox({
                     value === option.value ? "opacity-100" : "opacity-0"
                   )}
                 />
-                {option.renderContent ? (
+                {option.renderedContent ?? (option.renderContent ? (
                   option.renderContent()
                 ) : (
                   <div className="flex-1 min-w-0">
@@ -99,7 +107,7 @@ export function Combobox({
                       </div>
                     )}
                   </div>
-                )}
+                ))}
               </CommandItem>
             ))}
           </CommandGroup>
