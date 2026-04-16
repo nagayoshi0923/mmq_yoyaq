@@ -260,6 +260,9 @@ export function PerformanceModal({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
             <span className="truncate">{scenario.title}</span>
+            {scenario.player_count_max && (
+              <span className="text-[10px] text-muted-foreground shrink-0">{scenario.player_count_max}名</span>
+            )}
             {!isAvailableAtCurrentVenue && (
               <span className="inline-flex items-center px-1 py-0 rounded text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300 flex-shrink-0">
                 公演不可
@@ -728,7 +731,20 @@ export function PerformanceModal({
     }}>
       <DialogContent size="md" className="h-[85vh] sm:h-[80vh] max-w-[480px] overflow-hidden flex flex-col p-0 gap-0">
         <DialogHeader className="px-2 sm:px-4 py-1.5 sm:py-2 border-b shrink-0">
-          <DialogTitle className="text-sm sm:text-base">{modalTitle}</DialogTitle>
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="text-sm sm:text-base">{modalTitle}</DialogTitle>
+            {mode === 'edit' && event && !event.is_private_request && !event.is_private_booking && (
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
+                localCurrentParticipants >= (event.scenarios?.player_count_max || event.max_participants || 8)
+                  ? 'bg-green-100 text-green-700'
+                  : localCurrentParticipants >= Math.ceil((event.scenarios?.player_count_max || event.max_participants || 8) / 2)
+                  ? 'bg-yellow-100 text-yellow-700'
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {localCurrentParticipants}/{event.scenarios?.player_count_max || event.max_participants || 8}名
+              </span>
+            )}
+          </div>
           <DialogDescription className="text-[11px] sm:text-xs">
             {modalDescription}
           </DialogDescription>

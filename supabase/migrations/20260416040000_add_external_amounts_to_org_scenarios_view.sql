@@ -110,4 +110,8 @@ SELECT
 FROM organization_scenarios os
 JOIN scenario_masters sm ON sm.id = os.scenario_master_id;
 
+-- DROP+CREATE でGRANTが消えるため再付与
+GRANT SELECT ON public.organization_scenarios_with_master TO authenticated;
+GRANT SELECT ON public.organization_scenarios_with_master TO anon;
+
 NOTIFY pgrst, 'reload schema';

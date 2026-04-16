@@ -16,6 +16,7 @@ import { QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { getTimeSlot } from '@/utils/scheduleUtils'
+import { getScenarioAliases } from '@/lib/api/scenarioAliasApi'
 
 interface ImportScheduleModalProps {
   isOpen: boolean
@@ -70,102 +71,6 @@ const STORE_MAPPING: Record<string, string | null> = {
   "オフィス": null  // オフィス
 }
 
-// シナリオ名の揺らぎを統一するマッピング（略称 → 正式名称）
-const SCENARIO_NAME_MAPPING: Record<string, string> = {
-  // 季節マダミス（全バリエーション）
-  "カノケリ": "季節／カノケリ",
-  "アニクシィ": "季節／アニクシィ",
-  "シノポロ": "季節／シノポロ",
-  "キモナス": "季節／キモナス",
-  "ニィホン": "季節／ニィホン",
-  "季節カノケリ": "季節／カノケリ",
-  "季節アニクシィ": "季節／アニクシィ",
-  "季節シノポロ": "季節／シノポロ",
-  "季節キモナス": "季節／キモナス",
-  "季節ニィホン": "季節／ニィホン",
-  "季節／カノケリ": "季節／カノケリ",
-  "季節／アニクシィ": "季節／アニクシィ",
-  "季節／シノポロ": "季節／シノポロ",
-  "季節／キモナス": "季節／キモナス",
-  "季節／ニィホン": "季節／ニィホン",
-  "季節/カノケリ": "季節／カノケリ",
-  "季節/アニクシィ": "季節／アニクシィ",
-  "季節/シノポロ": "季節／シノポロ",
-  "季節/キモナス": "季節／キモナス",
-  "季節/ニィホン": "季節／ニィホン",
-  "季節マーダー／カノケリ": "季節／カノケリ",
-  "季節マーダー／アニクシィ": "季節／アニクシィ",
-  "季節マーダー／シノポロ": "季節／シノポロ",
-  "季節マーダー／キモナス": "季節／キモナス",
-  "季節のマーダーミステリー／ニィホン": "季節／ニィホン",
-  // 略称
-  "さきこさん": "裂き子さん",
-  "サキコサン": "裂き子さん",
-  "トレタリ": "超特急の呪いの館で撮れ高足りてますか？",
-  "赤鬼": "赤鬼が泣いた夜",
-  "invisible": "Invisible-亡霊列車-",
-  "Invisible": "Invisible-亡霊列車-",
-  "童話裁判": "傲慢女王とアリスの不条理裁判",
-  "傲慢な女王とアリスの不条理裁判": "傲慢女王とアリスの不条理裁判",
-  // 数字の揺らぎ
-  "凍てつくあなたに6つの灯火": "凍てつくあなたに６つの灯火",
-  // REDRUM
-  "REDRUM1": "REDRUM01泉涌館の変転",
-  "REDRUM2": "REDRUM02虚像のF",
-  "REDRUM3": "REDRUM03致命的観測をもう一度",
-  "REDRUM4": "REDRUM4アルテミスの断罪",
-  // ナナイロ
-  "ナナイロ橙": "ナナイロの迷宮 橙 オンラインゲーム殺人事件",
-  "ナナイロ緑": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
-  "ナナイロ黄": "ナナイロの迷宮 黄 エレクトリカル吹奏楽部殺人事件",
-  // 狂気山脈
-  "狂気山脈1": "狂気山脈　陰謀の分水嶺（１）",
-  "狂気山脈2": "狂気山脈　星降る天辺（２）",
-  "狂気山脈3": "狂気山脈　薄明三角点（３）",
-  "狂気山脈２．５": "狂気山脈　2.5　頂上戦争",
-  "狂気山脈2.5": "狂気山脈　2.5　頂上戦争",
-  "狂気山脈１": "狂気山脈　陰謀の分水嶺（１）",
-  "狂気山脈２": "狂気山脈　星降る天辺（２）",
-  "狂気山脈３": "狂気山脈　薄明三角点（３）",
-  // その他
-  "TOOLS": "TOOLS〜ぎこちない椅子",
-  "MTG": "MTG（マネージャーミーティング）",
-  "ENIGMA CODE": "ENIGMACODE廃棄ミライの犠牲者たち",
-  "ソルシエ": "SORCIER〜賢者達の物語〜",
-  "SORCIER": "SORCIER〜賢者達の物語〜",
-  "藍雨": "藍雨廻逢",
-  "THEREALFOLK'30s": "TheRealFork30's",
-  "THEREALFOLK": "TheRealFork30's",
-  "TheRealFolk": "TheRealFork30's",
-  // 表記ゆれ
-  "真渋谷陰陽奇譚": "真・渋谷陰陽奇譚",
-  "真渋谷陰陽綺譚": "真・渋谷陰陽奇譚",
-  "渋谷陰陽奇譚": "真・渋谷陰陽奇譚",
-  "渋谷陰陽綺譚": "真・渋谷陰陽奇譚",
-  "真・渋谷陰陽綺譚": "真・渋谷陰陽奇譚",
-  "土牢の悲鳴に谺して": "土牢に悲鳴は谺して",
-  "ナナイロの迷宮-緑-アペイロン研究所殺人事件": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
-  "ナナイロの迷宮・緑アペイロン研究所殺人事件": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
-  "ナナイロの迷宮　緑　アペイロン研究所殺人事件": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
-  "百鬼の夜月光の影": "百鬼の夜、月光の影",
-  "インビジブル亡霊列車": "Invisible-亡霊列車-",
-  "くずの葉の森": "くずの葉のもり",
-  "ドクターテラスの秘密の実験": "ドクター・テラスの秘密の実験",
-  "あるミステリーについて": "あるマーダーミステリーについて",
-  "MurderWonderLand": "リアルマダミス-MurderWonderLand",
-  "GROLIAMEMORIES": "グロリアメモリーズ",
-  "グロリアメモリーズ": "グロリアメモリーズ",
-  "REDRUM02「虚像のF」": "REDRUM02虚像のF",
-  // 画像から追加
-  "女皇の書架": "女皇の書架",
-  "クロノフォビア": "クロノフォビア",
-  "人類最後の皆様へ": "人類最後の皆様へ／終末の眠り姫",
-  "人類最後の皆様へ／終末の眠り姫": "人類最後の皆様へ／終末の眠り姫",
-  "終末の眠り姫": "人類最後の皆様へ／終末の眠り姫",
-  "黒と白の狭間に": "黒と白の狭間に",
-  "ナナイロ　緑": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
-  "ナナイロ 緑": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
-}
 
 // スタッフ名の揺らぎを統一するマッピング
 const STAFF_NAME_MAPPING: Record<string, string> = {
@@ -350,7 +255,9 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
   // マスターデータ
   const [staffList, setStaffList] = useState<Array<{ id: string; name: string }>>([])
   const [scenarioList, setScenarioList] = useState<Array<{ id: string; title: string }>>([])
-  
+  // シナリオエイリアスマップ（DBから取得）
+  const [scenarioAliasMap, setScenarioAliasMap] = useState<Record<string, string>>({})
+
   // マスターデータを取得（組織対応済み）
   useEffect(() => {
     if (isOpen) {
@@ -358,10 +265,16 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       staffApi.getAll().then((data) => {
         setStaffList(data.map(s => ({ id: s.id, name: s.name })))
       })
-      
+
       // シナリオ一覧を取得
       scenarioApi.getAll().then((data) => {
         setScenarioList(data.map(s => ({ id: s.id, title: s.title })))
+      })
+
+      // シナリオエイリアスをDBから取得（scenarioAliasApiの共有キャッシュを使用）
+      getScenarioAliases().then((aliasMap) => {
+        setScenarioAliasMap(aliasMap)
+        scenarioMatchCache.clear()
       })
     }
   }, [isOpen])
@@ -528,9 +441,9 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       return scenarioMatchCache.get(normalizedInput) || null
     }
     
-    // 1. 静的マッピングチェック
-    if (SCENARIO_NAME_MAPPING[normalizedInput]) {
-      const result = SCENARIO_NAME_MAPPING[normalizedInput]
+    // 1. エイリアスマップチェック（DB取得済み、フォールバックはハードコード）
+    if (scenarioAliasMap[normalizedInput]) {
+      const result = scenarioAliasMap[normalizedInput]
       scenarioMatchCache.set(normalizedInput, result)
       return result
     }
@@ -568,8 +481,8 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
     if (seasonStripped !== normalizedInput && seasonStripped.length >= 2) {
       // 季節マダミスの場合、プレフィックスを追加して検索
       const seasonalMatch = `季節／${seasonStripped}`
-      if (SCENARIO_NAME_MAPPING[seasonStripped]) {
-        const result = SCENARIO_NAME_MAPPING[seasonStripped]
+      if (scenarioAliasMap[seasonStripped]) {
+        const result = scenarioAliasMap[seasonStripped]
         scenarioMatchCache.set(normalizedInput, result)
         return result
       }

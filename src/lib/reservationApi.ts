@@ -817,39 +817,7 @@ export const reservationApi = {
           }
         })
         logger.log('キャンセル確認メール送信成功')
-
-        // 通知ダイアログ用（RLS でクライアント直接 INSERT が禁止の環境では 403 になる → メール送信は上で成功していれば続行）
-        try {
-          const eventDateStr = scheduleEvent?.date || ''
-          const eventTimeStr = scheduleEvent?.start_time?.slice(0, 5) || ''
-          const { error: notifInsertError } = await supabase
-            .from('user_notifications')
-            .insert({
-              customer_id: reservation.customer_id,
-              type: 'reservation_cancelled',
-              title: '予約がキャンセルされました',
-              message: `「${reservation.title || scheduleEvent?.scenario}」${eventDateStr} ${eventTimeStr}`,
-              link: '/mypage',
-              metadata: {
-                reservationId: reservation.id,
-                reservationNumber: reservation.reservation_number,
-                scenarioTitle: reservation.title || scheduleEvent?.scenario,
-                eventDate: eventDateStr,
-                startTime: eventTimeStr,
-                cancellationReason: cancellationReason || 'キャンセル'
-              }
-            })
-          if (notifInsertError) {
-            logger.warn(
-              'キャンセル通知の user_notifications 挿入をスキップ（RLS または権限）:',
-              notifInsertError
-            )
-          } else {
-            logger.log('キャンセル通知をuser_notificationsに挿入')
-          }
-        } catch (notifError) {
-          logger.warn('キャンセル通知の挿入に失敗（続行）:', notifError)
-        }
+        // user_notifications への挿入は send-cancellation-confirmation Edge Function 内で Service Role を使って実行
 
         // キャンセル待ち通知を送信
         const orgIdForWaitlist = reservation.organization_id || scheduleEvent?.organization_id

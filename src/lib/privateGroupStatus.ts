@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 import type { PrivateGroupStatus } from '@/types'
 
 /**
@@ -11,11 +12,41 @@ import type { PrivateGroupStatus } from '@/types'
  *              date_adjusting → booking_requested
  *   any → cancelled
  */
+
+/** 許可される状態遷移マップ。key=現在の状態、value=遷移可能な状態の配列 */
+const ALLOWED_TRANSITIONS: Record<PrivateGroupStatus, PrivateGroupStatus[]> = {
+  gathering:         ['booking_requested', 'cancelled'],
+  date_adjusting:    ['booking_requested', 'cancelled'],
+  booking_requested: ['confirmed', 'date_adjusting', 'cancelled'],
+  confirmed:         ['cancelled'],
+  cancelled:         [],
+}
+
+export function isValidTransition(from: PrivateGroupStatus, to: PrivateGroupStatus): boolean {
+  return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false
+}
+
 export async function updatePrivateGroupStatus(
   groupId: string,
   status: PrivateGroupStatus,
   extra?: { reservationId?: string }
 ): Promise<void> {
+  // 現在の状態を取得してバリデーション
+  const { data: current, error: fetchError } = await supabase
+    .from('private_groups')
+    .select('status')
+    .eq('id', groupId)
+    .single()
+
+  if (fetchError) throw fetchError
+
+  const currentStatus = current.status as PrivateGroupStatus
+  if (!isValidTransition(currentStatus, status)) {
+    const msg = `Invalid private group status transition: ${currentStatus} → ${status} (groupId: ${groupId})`
+    logger.error(msg)
+    throw new Error(msg)
+  }
+
   const data: Record<string, unknown> = { status }
   if (extra?.reservationId) {
     data.reservation_id = extra.reservationId
@@ -27,4 +58,6 @@ export async function updatePrivateGroupStatus(
     .eq('id', groupId)
 
   if (error) throw error
+
+  logger.log(`Private group status: ${currentStatus} → ${status} (groupId: ${groupId})`)
 }

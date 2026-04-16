@@ -36,9 +36,11 @@ export interface InviteStaffResponse {
  */
 export async function inviteStaff(request: InviteStaffRequest): Promise<InviteStaffResponse> {
   try {
-    // 現在のセッションを取得
-    const { data: { session } } = await supabase.auth.getSession()
-    
+    // getSession()はキャッシュを返すため期限切れトークンを送る可能性がある
+    // refreshSession()でサーバー側と同期して最新のaccess_tokenを取得する
+    const { data: refreshData } = await supabase.auth.refreshSession()
+    const session = refreshData.session ?? (await supabase.auth.getSession()).data.session
+
     if (!session) {
       throw new Error('ログインが必要です')
     }

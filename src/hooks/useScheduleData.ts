@@ -12,6 +12,7 @@ import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff } from '@/types'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { RESERVATION_SOURCE, DEMO_RESERVATION_SOURCES } from '@/lib/constants'
+import { getScenarioAliases } from '@/lib/api/scenarioAliasApi'
 
 // 過去の定員未満の公演にデモ参加者を追加する関数
 export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ success: number; failed: number; skipped: number }> {
@@ -734,55 +735,8 @@ export function useScheduleData(currentDate: Date) {
           scenarioByTitle.set(s.title, s)
         })
         
-        // シナリオ略称マッピング
-        const SCENARIO_ALIAS: Record<string, string> = {
-          'さきこさん': '裂き子さん',
-          'サキコサン': '裂き子さん',
-          'トレタリ': '撮れ高足りてますか',
-          'ナナイロ橙': 'ナナイロの迷宮 橙',
-          'ナナイロ緑': 'ナナイロの迷宮 緑',
-          'ナナイロ黄': 'ナナイロの迷宮 黄',
-          '童話裁判': '不思議の国の童話裁判',
-          'TOOLS': 'TOOLS〜ぎこちない椅子',
-          'カノケリ': '季節／カノケリ',
-          'アニクシィ': '季節／アニクシィ',
-          'シノポロ': '季節／シノポロ',
-          'キモナス': '季節／キモナス',
-          'ニィホン': '季節／ニィホン',
-          '凍てつくあなたに6つの灯火': '凍てつくあなたに６つの灯火',
-          'REDRUM1': 'REDRUM01泉涌館の変転',
-          '傲慢な女王とアリスの不条理裁判': '傲慢女王とアリスの不条理裁判',
-          // 狂気山脈
-          '狂気山脈1': '狂気山脈　陰謀の分水嶺（１）',
-          '狂気山脈2': '狂気山脈　星降る天辺（２）',
-          '狂気山脈3': '狂気山脈　薄明三角点（３）',
-          '狂気山脈１': '狂気山脈　陰謀の分水嶺（１）',
-          '狂気山脈２': '狂気山脈　星降る天辺（２）',
-          '狂気山脈３': '狂気山脈　薄明三角点（３）',
-          '狂気山脈2.5': '狂気山脈　2.5　頂上戦争',
-          '狂気山脈２．５': '狂気山脈　2.5　頂上戦争',
-          // ソルシエ
-          'ソルシエ': 'SORCIER〜賢者達の物語〜',
-          'SORCIER': 'SORCIER〜賢者達の物語〜',
-          // 藍雨
-          '藍雨': '藍雨廻逢',
-          // TheRealFork
-          "THEREALFOLK'30s": "TheRealFork30's",
-          'THEREALFOLK': "TheRealFork30's",
-          'TheRealFolk': "TheRealFork30's",
-          // 表記ゆれ
-          '真渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
-          '真渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-          '渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
-          '渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-          '真・渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-          '土牢の悲鳴に谺して': '土牢に悲鳴は谺して',
-          '百鬼の夜月光の影': '百鬼の夜、月光の影',
-          'インビジブル亡霊列車': 'Invisible-亡霊列車-',
-          'くずの葉の森': 'くずの葉のもり',
-          'ドクターテラスの秘密の実験': 'ドクター・テラスの秘密の実験',
-          'あるミステリーについて': 'あるマーダーミステリーについて',
-        }
+        // シナリオ略称マッピング（DBから取得）
+        const SCENARIO_ALIAS = await getScenarioAliases()
         
         const normalize = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
         
@@ -1135,55 +1089,8 @@ export function useScheduleData(currentDate: Date) {
         scenarioByTitle2.set(s.title, s)
       })
       
-      // シナリオ略称マッピング（fetchSchedule用）
-      const SCENARIO_ALIAS2: Record<string, string> = {
-        'さきこさん': '裂き子さん',
-        'サキコサン': '裂き子さん',
-        'トレタリ': '撮れ高足りてますか',
-        'ナナイロ橙': 'ナナイロの迷宮 橙',
-        'ナナイロ緑': 'ナナイロの迷宮 緑',
-        'ナナイロ黄': 'ナナイロの迷宮 黄',
-        '童話裁判': '不思議の国の童話裁判',
-        'TOOLS': 'TOOLS〜ぎこちない椅子',
-        'カノケリ': '季節／カノケリ',
-        'アニクシィ': '季節／アニクシィ',
-        'シノポロ': '季節／シノポロ',
-        'キモナス': '季節／キモナス',
-        'ニィホン': '季節／ニィホン',
-        '凍てつくあなたに6つの灯火': '凍てつくあなたに６つの灯火',
-        'REDRUM1': 'REDRUM01泉涌館の変転',
-        '傲慢な女王とアリスの不条理裁判': '傲慢女王とアリスの不条理裁判',
-        // 狂気山脈
-        '狂気山脈1': '狂気山脈　陰謀の分水嶺（１）',
-        '狂気山脈2': '狂気山脈　星降る天辺（２）',
-        '狂気山脈3': '狂気山脈　薄明三角点（３）',
-        '狂気山脈１': '狂気山脈　陰謀の分水嶺（１）',
-        '狂気山脈２': '狂気山脈　星降る天辺（２）',
-        '狂気山脈３': '狂気山脈　薄明三角点（３）',
-        '狂気山脈2.5': '狂気山脈　2.5　頂上戦争',
-        '狂気山脈２．５': '狂気山脈　2.5　頂上戦争',
-        // ソルシエ
-        'ソルシエ': 'SORCIER〜賢者達の物語〜',
-        'SORCIER': 'SORCIER〜賢者達の物語〜',
-        // 藍雨
-        '藍雨': '藍雨廻逢',
-        // TheRealFork
-        "THEREALFOLK'30s": "TheRealFork30's",
-        'THEREALFOLK': "TheRealFork30's",
-        'TheRealFolk': "TheRealFork30's",
-        // 表記ゆれ
-        '真渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
-        '真渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-        '渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
-        '渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-        '真・渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
-        '土牢の悲鳴に谺して': '土牢に悲鳴は谺して',
-        '百鬼の夜月光の影': '百鬼の夜、月光の影',
-        'インビジブル亡霊列車': 'Invisible-亡霊列車-',
-        'くずの葉の森': 'くずの葉のもり',
-        'ドクターテラスの秘密の実験': 'ドクター・テラスの秘密の実験',
-        'あるミステリーについて': 'あるマーダーミステリーについて',
-      }
+      // シナリオ略称マッピング（DBから取得、fetchSchedule用）
+      const SCENARIO_ALIAS2 = await getScenarioAliases()
       
       const normalize2 = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
       

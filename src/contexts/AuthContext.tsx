@@ -54,6 +54,12 @@ interface AuthContextType {
   user: AuthUser | null
   loading: boolean
   isInitialized: boolean  // 初期認証が完了したか（タイムアウトではなく、実際に完了）
+  /** admin または license_admin ロール */
+  isAdmin: boolean
+  /** staff / admin / license_admin ロール（顧客・未ログイン以外） */
+  isStaff: boolean
+  /** customer ロール（または未ログイン） */
+  isCustomer: boolean
   signIn: (email: string, password: string) => Promise<{ user: User }>
   signOut: () => Promise<void>
   refreshSession: () => Promise<void>  // 手動でセッションをリフレッシュ
@@ -1078,10 +1084,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
+  const isAdmin = !!user && (user.role === 'admin' || user.role === 'license_admin')
+  const isStaff = !!user && user.role !== 'customer'
+  const isCustomer = !user || user.role === 'customer'
+
   const value = {
     user,
     loading,
     isInitialized,
+    isAdmin,
+    isStaff,
+    isCustomer,
     signIn,
     signOut,
     refreshSession,

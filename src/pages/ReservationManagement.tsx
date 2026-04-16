@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { HelpButton } from '@/components/ui/help-button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { 
@@ -176,14 +177,64 @@ export function ReservationManagement() {
 
   if (isLoading) {
     return (
-      <AppLayout currentPage="reservations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
-        <div className="flex items-center justify-center py-20">
-          <div className="text-muted-foreground text-lg flex items-center gap-2">
-            <span
-              aria-hidden
-              className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"
-            />
-            <span>読み込み中...</span>
+      <AppLayout currentPage="reservations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6" className="mx-auto">
+        <div className="space-y-6">
+          {/* ヘッダー骨格 */}
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-7 w-32" />
+            <Skeleton className="h-9 w-28" />
+          </div>
+          {/* 検索・フィルターバー骨格 */}
+          <div className="flex gap-2">
+            <Skeleton className="h-10 flex-1 max-w-sm" />
+            <Skeleton className="h-10 w-10" />
+            <Skeleton className="h-10 w-10" />
+          </div>
+          {/* テーブル骨格（PC） */}
+          <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
+            <div className="bg-gray-50 px-4 py-3 flex gap-4">
+              {[50,100,160,180,120,1,1,1,1,1,80].map((w, i) => (
+                <Skeleton key={i} className="h-4" style={{ width: w === 1 ? undefined : w, flex: w === 1 ? 1 : undefined }} />
+              ))}
+            </div>
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="px-4 py-3 border-t flex gap-4 items-center h-16">
+                <Skeleton className="h-4 w-[50px]" />
+                <Skeleton className="h-4 w-[100px]" />
+                <Skeleton className="h-4 w-[160px]" />
+                <Skeleton className="h-4 w-[180px]" />
+                <Skeleton className="h-5 w-[80px] rounded-full" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 w-12" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-8" />
+                <Skeleton className="h-8 w-16 ml-auto" />
+              </div>
+            ))}
+          </div>
+          {/* モバイル骨格 */}
+          <div className="md:hidden space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="border rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-3 py-2 flex justify-between">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-4 w-10" />
+                </div>
+                {Array.from({ length: 3 }).map((_, j) => (
+                  <div key={j} className="p-3 border-t space-y-2">
+                    <div className="flex justify-between">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                    <div className="flex justify-between">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
       </AppLayout>

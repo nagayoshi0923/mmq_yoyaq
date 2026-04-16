@@ -15,7 +15,7 @@ import { searchUserByEmail, getAllUsers, updateUserRole, type User } from '@/lib
 import { logger } from '@/utils/logger'
 
 export function UserManagementContent() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const [searchEmail, setSearchEmail] = useState('')
   const [searchResult, setSearchResult] = useState<User | null>(null)
   const [allUsers, setAllUsers] = useState<User[]>([])
@@ -24,9 +24,6 @@ export function UserManagementContent() {
   const [message, setMessage] = useState('')
   const [showAllUsers, setShowAllUsers] = useState(false)
   const [roleChangeConfirm, setRoleChangeConfirm] = useState<{ user: User; newRole: 'admin' | 'staff' | 'customer' | 'license_admin' } | null>(null)
-
-  // 管理者チェック（admin または license_admin）
-  const isAdmin = user?.role === 'admin' || user?.role === 'license_admin'
   if (!user || !isAdmin) {
     return (
       <Card className="border-red-200 bg-red-50 shadow-none">

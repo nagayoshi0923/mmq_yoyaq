@@ -53,6 +53,10 @@ otp_expiry = 3600
 [functions.delete-my-account]
 verify_jwt = false
 
+# invite-staff は関数内でJWT検証と管理者ロール確認を行うため、ゲートウェイでの検証をスキップ
+[functions.invite-staff]
+verify_jwt = false
+
 # send-contact-inquiry は公開フォーム用（認証不要）
 [functions.send-contact-inquiry]
 verify_jwt = false

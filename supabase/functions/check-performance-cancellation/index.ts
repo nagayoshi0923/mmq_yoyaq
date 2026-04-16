@@ -67,7 +67,7 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}))
     let check_type = body.check_type as string | undefined
-    
+
     // check_typeが未指定の場合、現在時刻に基づいてデフォルトを決定
     if (!check_type || (check_type !== 'day_before' && check_type !== 'four_hours_before')) {
       const now = new Date()
@@ -76,7 +76,16 @@ serve(async (req) => {
       check_type = (jstHour >= 23 || jstHour < 1) ? 'day_before' : 'four_hours_before'
       console.log(`⚠️ check_type未指定/無効: デフォルト "${check_type}" を使用 (JST ${jstHour}時)`)
     }
-    
+
+    // target_date: cronがキュー積み時点で計算した対象日付（レースコンディション対策）
+    // 渡されない場合は RPC 内で NOW()+1 にフォールバックする
+    const target_date = body.target_date as string | undefined
+    if (target_date) {
+      console.log(`📅 target_date（cronから）: ${target_date}`)
+    } else {
+      console.log('⚠️ target_date未指定: RPCがNOW()+1で計算します')
+    }
+
     console.log('🔍 公演中止チェック開始:', check_type)
 
     let result: {
@@ -89,7 +98,8 @@ serve(async (req) => {
 
     // RPC関数を実行（RETURNS TABLEは配列を返すため[0]で取得）
     if (check_type === 'day_before') {
-      const { data, error } = await serviceClient.rpc('check_performances_day_before')
+      const rpcParams = target_date ? { p_target_date: target_date } : {}
+      const { data, error } = await serviceClient.rpc('check_performances_day_before', rpcParams)
       if (error) throw error
       const row = Array.isArray(data) ? data[0] : data
       result = {
