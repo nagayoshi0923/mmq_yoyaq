@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { LogOut, User, Building2, ChevronRight, LayoutDashboard } from 'lucide-react'
+import { LogOut, User, Building2, ChevronRight, LayoutDashboard, Search } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { devDb } from '@/components/ui/DevField'
 import { getOrganizationBySlug } from '@/lib/organization'
@@ -206,6 +206,19 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                   >
                     <LayoutDashboard className="h-4 w-4" />
                     <span className="hidden sm:inline">管理</span>
+                  </button>
+                )}
+                {/* グローバル検索ボタン（Cmd+K） */}
+                {isStaffOrAdmin && (
+                  <button
+                    onClick={() => {
+                      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))
+                    }}
+                    className="hidden sm:inline-flex items-center gap-1.5 h-7 px-2 text-xs text-white/60 hover:text-white/90 hover:bg-white/10 transition-colors border border-white/20 rounded"
+                    title="グローバル検索 (⌘K)"
+                  >
+                    <Search className="h-3 w-3" />
+                    <span className="text-[10px]">⌘K</span>
                   </button>
                 )}
                 <button 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AutocompleteInput } from '@/components/ui/autocomplete-input'
 import { Mail, ChevronDown, ChevronUp } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   reservationApi,
   RESERVATION_SELECT_FIELDS,
@@ -60,6 +61,9 @@ export function ReservationList({
 }: ReservationListProps) {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loadingReservations, setLoadingReservations] = useState(false)
+  // リアルタイム更新トリガー（他スタッフが予約を変更したとき増分）
+  const [realtimeRefreshKey, setRealtimeRefreshKey] = useState(0)
+  const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [expandedReservation, setExpandedReservation] = useState<string | null>(null)
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set())
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
@@ -249,7 +253,48 @@ ${content.organizationName || '店舗'}
     
     loadReservations()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, event?.id, event?.is_private_request, event?.reservation_id])
+  }, [mode, event?.id, event?.is_private_request, event?.reservation_id, realtimeRefreshKey])
+
+  // リアルタイム購読: 他スタッフが同じ公演の予約を変更したとき自動更新
+  useEffect(() => {
+    if (mode !== 'edit' || !event?.id) return
+
+    const eventId = event.id
+    const channelName = `reservation_list_${eventId}`
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reservations',
+          // 貸切予約は reservation_id で紐付くため、schedule_event_id フィルターは貸切非対応
+          // → クライアント側で event.id をチェックして絞り込む
+        },
+        (payload) => {
+          const record = (payload.new || payload.old) as { schedule_event_id?: string } | null
+          // 現在開いている公演の予約変更のみ処理
+          if (record?.schedule_event_id !== eventId) return
+
+          logger.log('📡 ReservationList Realtime: 予約変更検知', payload.eventType)
+
+          // デバウンス: 500ms 以内の連続更新をまとめる
+          if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current)
+          realtimeDebounceRef.current = setTimeout(() => {
+            setRealtimeRefreshKey(k => k + 1)
+          }, 500)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current)
+      supabase.removeChannel(channel)
+      logger.log('🔌 ReservationList Realtime: 購読解除', channelName)
+    }
+  }, [mode, event?.id])
 
   // 顧客名を取得（customersテーブル + 過去予約のparticipant_names）
   useEffect(() => {
@@ -338,28 +383,29 @@ ${content.organizationName || '店舗'}
 
   // 予約ステータスを更新する関数
   const handleUpdateReservationStatus = async (reservationId: string, newStatus: Reservation['status']) => {
+    const reservation = reservations.find(r => r.id === reservationId)
+    if (!reservation) return
+
+    const oldStatus = reservation.status
+
+    if (newStatus === 'cancelled' && oldStatus !== 'cancelled') {
+      // 直接メール文面付き確認ダイアログを開く
+      openCancelDialog(reservation)
+      return
+    }
+
+    // オプティミスティックUI: APIレスポンスを待たずに即座にUIを更新
+    setReservations(prev =>
+      prev.map(r => r.id === reservationId ? { ...r, status: newStatus } : r)
+    )
+
     try {
-      const reservation = reservations.find(r => r.id === reservationId)
-      if (!reservation) return
-      
-      const oldStatus = reservation.status
-      
-      if (newStatus === 'cancelled' && oldStatus !== 'cancelled') {
-        // 直接メール文面付き確認ダイアログを開く
-        openCancelDialog(reservation)
-        return
-      }
-      
       await reservationApi.update(reservationId, { status: newStatus })
-      
-      setReservations(prev => 
-        prev.map(r => r.id === reservationId ? { ...r, status: newStatus } : r)
-      )
-      
+
       if (event?.id) {
         const wasActive = ACTIVE_RESERVATION_STATUSES_SET.has(oldStatus)
         const isActive = ACTIVE_RESERVATION_STATUSES_SET.has(newStatus)
-        
+
         // アクティブ状態が変わる場合、またはチェックインの場合は再計算
         // （checked_in は pending/confirmed/gm_confirmed と同様にカウントするため）
         if (wasActive !== isActive || newStatus === 'checked_in') {
@@ -374,12 +420,16 @@ ${content.organizationName || '店舗'}
           }
         }
       }
-      
+
       if (newStatus === 'checked_in') {
         showToast.success('チェックインしました')
       }
       logger.log('予約ステータス更新成功:', { id: reservationId, oldStatus, newStatus })
     } catch (error) {
+      // ロールバック: APIが失敗したら元のステータスに戻す
+      setReservations(prev =>
+        prev.map(r => r.id === reservationId ? { ...r, status: oldStatus } : r)
+      )
       logger.error('予約ステータス更新エラー:', error)
       showToast.error('ステータスの更新に失敗しました')
     }
@@ -981,8 +1031,23 @@ ${content.organizationName || '店舗'}
   return (
     <>
       {loadingReservations ? (
-        <div className="text-center py-8 text-muted-foreground">
-          読み込み中...
+        <div className="space-y-3 py-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="border rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+              <div className="flex gap-2 mt-1">
+                <Skeleton className="h-7 w-20 rounded-md" />
+                <Skeleton className="h-7 w-20 rounded-md" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <div>
@@ -1320,6 +1385,12 @@ ${content.organizationName || '店舗'}
                                   )}
                                 </>
                               )}
+                              {/* 貸切バッジ */}
+                              {reservation.private_group_id && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                                  貸切
+                                </span>
+                              )}
                               {/* スタッフ参加バッジ */}
                               {!isCancelled && (reservation.payment_method === 'staff' ||
                                 (STAFF_RESERVATION_SOURCES as readonly string[]).includes(reservation.reservation_source ?? '')) && (
@@ -1456,18 +1527,36 @@ ${content.organizationName || '店舗'}
                               </Select>
                             )}
                             <span className="hidden sm:block text-xs text-muted-foreground w-[100px]">
-                              {reservation.created_at ? new Date(reservation.created_at).toLocaleString('ja-JP', {
-                                month: 'numeric',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              }) : '-'}
+                              {isCancelled && reservation.cancelled_at ? (
+                                <span title="キャンセル日時">
+                                  {new Date(reservation.cancelled_at).toLocaleString('ja-JP', {
+                                    month: 'numeric',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              ) : reservation.created_at ? (
+                                new Date(reservation.created_at).toLocaleString('ja-JP', {
+                                  month: 'numeric',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })
+                              ) : '-'}
                             </span>
                           </div>
                           
                           <div className="flex items-center gap-2 ml-6 sm:ml-0 flex-wrap">
                             {isCancelled ? (
-                              <span className="w-[80px] h-8 text-xs text-red-500 flex items-center">キャンセル済</span>
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <span className="text-xs text-red-500">キャンセル済</span>
+                                <span className="text-[10px] text-gray-400 leading-tight">
+                                  {event?.is_cancelled || reservation.cancellation_reason === '店舗都合によるキャンセル'
+                                    ? '公演中止によるキャンセル'
+                                    : reservation.cancellation_reason || ''}
+                                </span>
+                              </div>
                             ) : reservation.status === 'checked_in' ? (
                               <span className="w-[80px] h-8 text-xs text-green-600 font-semibold flex items-center gap-1">
                                 ✓ 来店済

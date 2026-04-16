@@ -2,29 +2,22 @@
 //
 // アプリ全体では `RouteScrollRestorationProvider`（AppRoot）が pathname+search ごとに本フックを呼ぶ。
 // データ取得中は各画面から `useReportRouteScrollRestoration` で isLoading / isFetching を報告する。
+//
+// stickyLayout ページ（AppLayout stickyLayout={true}）はウィンドウではなく内側 div がスクロールする。
+// その div には `data-scroll-container` 属性が付いており、本フックはそれを優先的に使用する。
 
 import { useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 
 interface UseScrollRestorationOptions {
-  /** ページ識別用のキー（デフォルト: 'page'） */
   pageKey?: string
-  /** データ読み込み中かどうか */
   isLoading?: boolean
-  /**
-   * バックグラウンド再取得中。レイアウトが一瞬崩れて scrollY=0 が保存されるのを防ぐ
-   */
   isFetching?: boolean
 }
 
-/**
- * ルート単位のスクロール保存キー（`RouteScrollRestorationProvider` と一致させる）
- * pathname は先頭スラッシュ付き、search は `?foo=bar` 形式（空なら省略）
- */
 export function scrollRestorationPageKeyFromLocation(pathname: string, search: string): string {
   return `route:${pathname}${search || ''}`
 }
 
-/** 現在の URL に対応するキーで即座に保存（遷移直前の明示保存用） */
 export function saveScrollPositionForCurrentUrl(): void {
   if (typeof window === 'undefined') return
   saveScrollPositionForPage(
@@ -32,12 +25,47 @@ export function saveScrollPositionForCurrentUrl(): void {
   )
 }
 
-/** sessionStorage のキーは useScrollRestoration と同じ規則（一覧→詳細の直前に明示保存する用） */
 export function saveScrollPositionForPage(pageKey: string): void {
   try {
-    sessionStorage.setItem(`${pageKey}ScrollY`, window.scrollY.toString())
+    const container = document.querySelector('[data-scroll-container]') as HTMLElement | null
+    const scrollY = container ? container.scrollTop : window.scrollY
+    sessionStorage.setItem(`${pageKey}ScrollY`, scrollY.toString())
   } catch {
     // ignore
+  }
+}
+
+// ---------------------------------------------------------------------------
+// スクロールターゲット（stickyLayout の内側 div か window か）
+// ---------------------------------------------------------------------------
+interface ScrollTarget {
+  getScrollY: () => number
+  scrollTo: (y: number) => void
+  getMaxScroll: () => number
+  addScrollListener: (fn: EventListener) => () => void
+}
+
+function resolveScrollTarget(): ScrollTarget {
+  const container = document.querySelector('[data-scroll-container]') as HTMLElement | null
+  if (container) {
+    return {
+      getScrollY: () => container.scrollTop,
+      scrollTo: (y) => { container.scrollTop = y },
+      getMaxScroll: () => container.scrollHeight - container.clientHeight,
+      addScrollListener: (fn) => {
+        container.addEventListener('scroll', fn, { passive: true })
+        return () => container.removeEventListener('scroll', fn)
+      },
+    }
+  }
+  return {
+    getScrollY: () => window.scrollY,
+    scrollTo: (y) => window.scrollTo(0, y),
+    getMaxScroll: () => document.documentElement.scrollHeight - window.innerHeight,
+    addScrollListener: (fn) => {
+      window.addEventListener('scroll', fn, { passive: true })
+      return () => window.removeEventListener('scroll', fn)
+    },
   }
 }
 
@@ -48,10 +76,6 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
   const scrollYKey = `${pageKey}ScrollY`
   const restoringRef = useRef(false)
   const prevIsFetchingRef = useRef(false)
-  /**
-   * プログラムの scrollTo 以外で一度でも scroll が走ったら true。
-   * 上/下どちらに動かしたかは見ない（位置ヒューリスティックは使わない）。
-   */
   const userAdjustedScrollRef = useRef(false)
 
   // ブラウザのデフォルトのスクロール復元を無効化
@@ -65,9 +89,13 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     if (isLoading) userAdjustedScrollRef.current = false
   }, [isLoading])
 
-  // スクロール位置の保存 + ユーザー操作検知（復元中の scroll はプログラム起因なので無視）
+  // スクロール位置の保存
+  // document レベルで capture 登録することで、lazy load 前に useEffect が走っても
+  // [data-scroll-container] の scroll イベントを確実に拾える。
+  // 保存時に resolveScrollTarget() を再評価して正しい位置を取得する。
   useEffect(() => {
     let scrollTimer: NodeJS.Timeout
+
     const handleScroll = () => {
       if (!restoringRef.current) {
         userAdjustedScrollRef.current = true
@@ -76,28 +104,28 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
       clearTimeout(scrollTimer)
       scrollTimer = setTimeout(() => {
         if (!restoringRef.current && !suspendPersistence) {
-          sessionStorage.setItem(scrollYKey, window.scrollY.toString())
+          const target = resolveScrollTarget()
+          sessionStorage.setItem(scrollYKey, target.getScrollY().toString())
         }
       }, 200)
     }
 
-    window.addEventListener('scroll', handleScroll, { passive: true })
-
+    // capture: true で document に登録 → container・window 両方のスクロールを捕捉
+    document.addEventListener('scroll', handleScroll, { capture: true, passive: true })
     return () => {
-      window.removeEventListener('scroll', handleScroll)
+      document.removeEventListener('scroll', handleScroll, { capture: true })
       clearTimeout(scrollTimer)
     }
   }, [scrollYKey, suspendPersistence])
 
-  // リロード直前は debounce 200ms が間に合わないことがある → 即フラッシュ
+  // リロード直前にスクロール位置を即フラッシュ
   useEffect(() => {
     const flush = () => {
       if (restoringRef.current) return
       try {
-        sessionStorage.setItem(scrollYKey, window.scrollY.toString())
-      } catch {
-        /* ignore */
-      }
+        const target = resolveScrollTarget()
+        sessionStorage.setItem(scrollYKey, target.getScrollY().toString())
+      } catch { /* ignore */ }
     }
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') flush()
@@ -110,14 +138,12 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     }
   }, [scrollYKey])
 
-  // データ読み込み完了後にスクロール位置を復元（リトライ付き）
-  // useLayoutEffect でペイント前に試行し、一覧→戻る時のチラつきを抑える
+  // 初回スクロール復元（ペイント前・データ読み込み完了後に実行）
   useLayoutEffect(() => {
     if (isLoading) return
 
     const savedY = sessionStorage.getItem(scrollYKey)
     if (!savedY) return
-
     const targetY = parseInt(savedY, 10)
     if (targetY <= 0) return
 
@@ -125,24 +151,24 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     let attempts = 0
     const maxAttempts = 40
     let timerId: ReturnType<typeof setTimeout> | undefined
+    const target = resolveScrollTarget()
+
     const tryRestore = () => {
       attempts++
+      const maxScroll = target.getMaxScroll()
 
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight
-
-      if (maxScroll >= targetY || attempts >= maxAttempts) {
-        window.scrollTo(0, Math.min(targetY, Math.max(0, maxScroll)))
-        setTimeout(() => {
-          restoringRef.current = false
-        }, 300)
+      if (maxScroll >= targetY) {
+        target.scrollTo(Math.min(targetY, Math.max(0, maxScroll)))
+        setTimeout(() => { restoringRef.current = false }, 300)
+      } else if (attempts >= maxAttempts) {
+        // コンテンツ不足でタイムアウト → 0 に強制しない。ポーリングフォールバックに委ねる
+        restoringRef.current = false
       } else {
         timerId = setTimeout(tryRestore, 50)
       }
     }
 
-    // レイアウト確定後に 1 フレーム遅らせて試行
     const rafId = requestAnimationFrame(tryRestore)
-
     return () => {
       if (timerId) clearTimeout(timerId)
       if (rafId !== undefined) cancelAnimationFrame(rafId)
@@ -150,17 +176,14 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     }
   }, [isLoading, scrollYKey])
 
-  // React Query の refetch 完了時は isLoading が true にならないため、上の effect が走らず
-  // ドキュメント高さの変化で scroll が 0 付近に落ちたままになる。fetch 終了時に必ず復元する。
+  // React Query refetch 完了時の復元
   useLayoutEffect(() => {
     if (isLoading) {
       prevIsFetchingRef.current = isFetching
       return
     }
-
     const wasFetching = prevIsFetchingRef.current
     prevIsFetchingRef.current = isFetching
-
     if (!wasFetching || isFetching) return
 
     const raw = sessionStorage.getItem(scrollYKey)
@@ -172,29 +195,31 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     let attempts = 0
     const maxAttempts = 30
     let timerId: ReturnType<typeof setTimeout> | undefined
+    const target = resolveScrollTarget()
 
     const tryRestore = () => {
       attempts++
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight
-      if (maxScroll >= targetY - 8 || attempts >= maxAttempts) {
-        window.scrollTo(0, Math.min(targetY, Math.max(0, maxScroll)))
-        setTimeout(() => {
-          restoringRef.current = false
-        }, 200)
+      const maxScroll = target.getMaxScroll()
+      if (maxScroll >= targetY - 8) {
+        target.scrollTo(Math.min(targetY, Math.max(0, maxScroll)))
+        setTimeout(() => { restoringRef.current = false }, 200)
+      } else if (attempts >= maxAttempts) {
+        restoringRef.current = false
       } else {
         timerId = setTimeout(tryRestore, 40)
       }
     }
 
     tryRestore()
-
     return () => {
       if (timerId) clearTimeout(timerId)
       restoringRef.current = false
     }
   }, [isFetching, isLoading, scrollYKey])
 
-  // 画像・非同期レンダーで document 高さが後から伸びると、初回復元が届かないことがある
+  // ポーリングフォールバック
+  // データ読み込みに時間がかかるページ（useReportRouteScrollRestoration 未使用含む）向け。
+  // コンテンツが伸びるまで 100ms ごとにチェックし、伸びたら即座に復元する。最大 10 秒。
   useEffect(() => {
     if (isLoading) return
     const raw = sessionStorage.getItem(scrollYKey)
@@ -202,26 +227,49 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     const targetY = parseInt(raw, 10)
     if (targetY <= 0) return
 
-    const delays = [300, 800, 2000]
-    const ids = delays.map((ms) =>
-      setTimeout(() => {
-        if (restoringRef.current || userAdjustedScrollRef.current) return
-        const maxScroll = document.documentElement.scrollHeight - window.innerHeight
-        if (maxScroll < targetY - 8) return
+    let attempts = 0
+    const maxAttempts = 100  // 100 × 100ms = 10秒
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    const poll = () => {
+      // ユーザーが手動スクロール済み → 復元不要
+      if (userAdjustedScrollRef.current) return
+
+      // 他の復元処理が進行中 → 待機して再試行
+      if (restoringRef.current) {
+        attempts++
+        if (attempts < maxAttempts) timer = setTimeout(poll, 100)
+        return
+      }
+
+      // ポーリング時点で動的にターゲットを解決（lazy load 後に container が現れる場合を考慮）
+      const target = resolveScrollTarget()
+      const maxScroll = target.getMaxScroll()
+      if (maxScroll >= targetY - 8) {
+        // コンテンツが十分な高さになった
         const y = Math.min(targetY, Math.max(0, maxScroll))
-        // ユーザーが一度でもスクロールしていたらここには来ない。来るのは「高さ不足で届かず残っている」だけ。
-        if (Math.abs(window.scrollY - y) <= 12) return
-        restoringRef.current = true
-        window.scrollTo(0, y)
-        setTimeout(() => {
-          restoringRef.current = false
-        }, 200)
-      }, ms)
-    )
-    return () => ids.forEach(clearTimeout)
+        if (Math.abs(target.getScrollY() - y) > 12) {
+          // まだ復元されていない → 復元する
+          restoringRef.current = true
+          target.scrollTo(y)
+          setTimeout(() => { restoringRef.current = false }, 200)
+        }
+        // 既に正しい位置にある（useLayoutEffect が成功済み）場合も終了
+        return
+      }
+
+      // まだ短い → 再試行
+      attempts++
+      if (attempts < maxAttempts) timer = setTimeout(poll, 100)
+    }
+
+    // useLayoutEffect のリトライループより少し遅らせてスタート
+    timer = setTimeout(poll, 100)
+    return () => {
+      if (timer) clearTimeout(timer)
+    }
   }, [isLoading, scrollYKey])
 
-  // スクロール位置をクリアする関数を返す
   const clearScrollPosition = useCallback(() => {
     sessionStorage.removeItem(scrollYKey)
   }, [scrollYKey])

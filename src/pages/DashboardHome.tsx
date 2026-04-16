@@ -3,6 +3,7 @@ import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { 
   Store, 
   Calendar as CalendarIcon, 
@@ -338,7 +339,21 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           </div>
           
           {loading && staffName === '' ? (
-            <div className="text-sm text-muted-foreground">読み込み中...</div>
+            <div className="border rounded-lg divide-y divide-border bg-background">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="px-3 py-2 flex items-center gap-3">
+                  <div className="w-12 shrink-0 space-y-1">
+                    <Skeleton className="h-3 w-8 mx-auto" />
+                    <Skeleton className="h-3 w-6 mx-auto" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                  <Skeleton className="h-3 w-10 shrink-0" />
+                </div>
+              ))}
+            </div>
           ) : upcomingEvents.length > 0 ? (
             <div className="border rounded-lg divide-y divide-border bg-background">
               {upcomingEvents.map(event => (

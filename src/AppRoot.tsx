@@ -11,6 +11,7 @@ import { lazyWithRetry } from '@/utils/lazyWithRetry'
 import { isCustomerProfileComplete } from '@/utils/customerProfileGate'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { useFavicon } from '@/hooks/useFavicon'
+import { GlobalCommandPalette } from '@/components/GlobalCommandPalette'
 
 export { getOrganizationSlugFromPath }
 
@@ -506,6 +507,7 @@ function App() {
         <ErrorBoundary>
           <AuthProvider>
             <AppContent />
+            <GlobalCommandPalette />
             <Toaster
               position="top-center"
               richColors

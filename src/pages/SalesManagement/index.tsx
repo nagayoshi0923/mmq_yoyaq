@@ -1,6 +1,6 @@
 import React, { useEffect, lazy, Suspense } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { useSessionState } from '@/hooks/useSessionState'
+import { useLocalState } from '@/hooks/useLocalState'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { TrendingUp, BarChart, BarChart3, FileText, Store, ShoppingBag, Users } from 'lucide-react'
 
@@ -31,9 +31,9 @@ const SalaryCalculation = lazy(() => import('../SalaryCalculation/index'))
  * 売上管理メインページ
  */
 const SalesManagement: React.FC = () => {
-  // タブ状態管理
-  const [activeTab, setActiveTab] = useSessionState('salesActiveTab', 'overview')
-  const [selectedStoreIds, setSelectedStoreIds] = useSessionState<string[]>('salesSelectedStoreIds', [])
+  // タブ・店舗選択をlocalStorageで永続化（ブラウザを閉じても維持）
+  const [activeTab, setActiveTab] = useLocalState('salesActiveTab', 'overview')
+  const [selectedStoreIds, setSelectedStoreIds] = useLocalState<string[]>('salesSelectedStoreIds', [])
   
   // データ取得フック
   const {

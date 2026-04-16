@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, isMissingColumnOrSchemaSelectError } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -1079,10 +1080,32 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-muted-foreground flex items-center gap-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
-          読み込み中...
+      <div className="space-y-3">
+        {/* 検索・フィルターバー骨格 */}
+        <div className="flex gap-2 flex-wrap">
+          <Skeleton className="h-9 w-56" />
+          <Skeleton className="h-9 w-32" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+        {/* テーブルヘッダー骨格 */}
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-muted/50 px-4 py-2 flex gap-3">
+            {[48, 120, 80, 60, 60, 80, 60].map((w, i) => (
+              <Skeleton key={i} className="h-3" style={{ width: w }} />
+            ))}
+            <Skeleton className="h-3 flex-1" />
+          </div>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="px-4 py-3 border-t flex gap-3 items-center">
+              <Skeleton className="h-10 w-10 rounded shrink-0" />
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="h-4 w-20 hidden md:block" />
+              <Skeleton className="h-4 w-16 hidden md:block" />
+              <Skeleton className="h-5 w-14 rounded-full hidden md:block" />
+              <Skeleton className="h-4 flex-1 hidden md:block" />
+              <Skeleton className="h-8 w-16 ml-auto" />
+            </div>
+          ))}
         </div>
       </div>
     )
