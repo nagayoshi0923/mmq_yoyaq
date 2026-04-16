@@ -1567,6 +1567,13 @@ ${content.organizationName || '店舗'}
                                     return event?.is_cancelled ? '公演中止によるキャンセル' : (reason || '')
                                   })()}
                                 </span>
+                                {(reservation.cancelled_at || reservation.updated_at) && (
+                                  <span className="text-[10px] text-gray-400 leading-tight">
+                                    {new Date(reservation.cancelled_at || reservation.updated_at!).toLocaleString('ja-JP', {
+                                      month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                    })}
+                                  </span>
+                                )}
                               </div>
                             ) : reservation.status === 'checked_in' ? (
                               <span className="w-[80px] h-8 text-xs text-green-600 font-semibold flex items-center gap-1">
