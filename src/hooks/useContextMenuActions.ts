@@ -96,7 +96,7 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
       // 🚨 CRITICAL: ペースト先の重複チェック
       const conflict = checkConflict(targetDate, targetVenue, targetTimeSlot)
       if (conflict) {
-        const timeSlotLabel = timeSlotEnToLabel(targetTimeSlot, 'candidate')
+        const timeSlotLabel = timeSlotEnToLabel(targetTimeSlot, 'schedule')
         const storeName = stores.find(s => s.id === targetVenue)?.name || targetVenue
         
         if (!confirm(
