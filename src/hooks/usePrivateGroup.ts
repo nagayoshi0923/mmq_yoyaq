@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
+import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 import {
   fetchScenarioPlayerBoundsForOrg,
@@ -14,6 +15,7 @@ import type {
   PrivateGroupCandidateDate,
   PrivateGroupDateResponse,
   DateResponse,
+  PrivateGroupStatus,
 } from '@/types'
 import type {
   RpcGetGroupMembersByInviteCodeParams,
@@ -130,9 +132,8 @@ async function enrichMembersWithNames(
   if (!code || !data.members?.length) return
 
   try {
-    const { data: rpcMembers } = await supabase.rpc('get_group_members_by_invite_code', {
-      p_invite_code: code,
-    })
+    const byInviteCodeParams: RpcGetGroupMembersByInviteCodeParams = { p_invite_code: code }
+    const { data: rpcMembers } = await supabase.rpc('get_group_members_by_invite_code', byInviteCodeParams)
     if (!rpcMembers?.length) return
 
     const nameMap = new Map<string, string>()
@@ -576,30 +577,17 @@ export function usePrivateGroup() {
 
   const updateGroupStatus = async (
     groupId: string,
-    status: 'gathering' | 'booking_requested' | 'confirmed' | 'cancelled',
+    status: PrivateGroupStatus,
     reservationId?: string
   ): Promise<void> => {
     setLoading(true)
     setError(null)
 
     try {
-      const updateData: Record<string, unknown> = { status }
-      if (reservationId) {
-        updateData.reservation_id = reservationId
-      }
-
-      const { error } = await supabase
-        .from('private_groups')
-        .update(updateData)
-        .eq('id', groupId)
-
-      if (error) {
-        logger.error('Failed to update group status', error)
-        throw new Error('グループステータスの更新に失敗しました')
-      }
-
+      await updatePrivateGroupStatus(groupId, status, reservationId ? { reservationId } : undefined)
     } catch (err: any) {
-      setError(err.message)
+      logger.error('Failed to update group status', err)
+      setError(err.message || 'グループステータスの更新に失敗しました')
       throw err
     } finally {
       setLoading(false)

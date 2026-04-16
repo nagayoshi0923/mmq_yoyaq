@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { scheduleApi } from '@/lib/api'
+import { createEventHistory } from '@/lib/api/eventHistoryApi'
 import { getTimeSlot } from '@/utils/scheduleUtils'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
@@ -169,6 +170,21 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
       }
 
       const savedEvent = await scheduleApi.create(newEventData)
+
+      // 履歴を記録（ペースト）
+      if (organizationId) {
+        try {
+          const srcStoreName = stores.find(s => s.id === (clipboardEvent.store_id || clipboardEvent.venue))?.name || clipboardEvent.venue
+          await createEventHistory(
+            savedEvent.id, organizationId, 'copy',
+            null, newEventData,
+            { date: targetDate, storeId: targetVenue, timeSlot: timeSlotLabel },
+            { notes: `← ${clipboardEvent.date} ${srcStoreName} からペースト` }
+          )
+        } catch (historyError) {
+          logger.error('履歴記録エラー（ペースト）:', historyError)
+        }
+      }
 
       // ローカル状態を更新
       const newEvent: ScheduleEvent = {

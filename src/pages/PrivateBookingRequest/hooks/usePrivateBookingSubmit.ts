@@ -5,6 +5,8 @@ import { logger } from '@/utils/logger'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
 import type { TimeSlot } from '../types'
+import type { RpcCreatePrivateBookingRequestParams } from '@/lib/rpcTypes'
+import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 
 // 貸切予約用RPCエラーコード → ユーザー向けメッセージのマッピング
 const PRIVATE_BOOKING_ERROR_MESSAGES: Record<string, string> = {
@@ -175,7 +177,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       })
       
       // RPC経由で貸切予約を作成（サーバー側でバリデーション・料金計算を強制）
-      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', {
+      const createPrivateParams: RpcCreatePrivateBookingRequestParams = {
         p_scenario_id: props.scenarioId,
         p_customer_id: customerId,
         p_customer_name: customerName,
@@ -184,9 +186,10 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         p_participant_count: props.maxParticipants,
         p_candidate_datetimes: candidateDatetimes,
         p_notes: notes || null,
-        p_reservation_number: baseReservationNumber,  // 冪等性キー
-        p_private_group_id: effectiveGroupId || null
-      })
+        p_reservation_number: baseReservationNumber,
+        p_private_group_id: effectiveGroupId || null,
+      }
+      const { data: reservationId, error: rpcError } = await supabase.rpc('create_private_booking_request', createPrivateParams)
       
       if (rpcError) {
         console.error('[貸切リクエスト] RPC エラー詳細:', {
@@ -211,14 +214,12 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       console.log('[貸切リクエスト] グループステータス更新チェック', { effectiveGroupId, parentReservationId })
       if (effectiveGroupId && parentReservationId) {
         console.log('[貸切リクエスト] グループステータス更新開始')
-        const { error: groupUpdateError } = await supabase
-          .from('private_groups')
-          .update({
-            status: 'booking_requested',
-            reservation_id: parentReservationId
-          })
-          .eq('id', effectiveGroupId)
-        
+        let groupUpdateError: Error | null = null
+        try {
+          await updatePrivateGroupStatus(effectiveGroupId, 'booking_requested', { reservationId: parentReservationId })
+        } catch (err: any) {
+          groupUpdateError = err
+        }
         if (groupUpdateError) {
           console.error('[貸切リクエスト] グループステータス更新エラー:', groupUpdateError)
           logger.error('グループステータス更新エラー:', groupUpdateError)

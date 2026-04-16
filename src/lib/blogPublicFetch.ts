@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import type { RpcGetPublicBlogPostParams } from '@/lib/rpcTypes'
 import { getOrganizationBySlug } from '@/lib/organization'
 import type { BlogPost } from '@/types'
 
@@ -69,10 +70,11 @@ export async function fetchPublishedBlogPost(params: {
     return blogPostFromJoinedRow(joined as unknown as JoinedRow)
   }
 
-  const { data: rpcRows, error: rpcError } = await supabase.rpc('get_public_blog_post', {
+  const blogParams: RpcGetPublicBlogPostParams = {
     p_org_slug: orgSlugForRpc,
     p_article_slug: articleSlug,
-  })
+  }
+  const { data: rpcRows, error: rpcError } = await supabase.rpc('get_public_blog_post', blogParams)
 
   if (!rpcError) {
     const row = Array.isArray(rpcRows) ? rpcRows[0] : null

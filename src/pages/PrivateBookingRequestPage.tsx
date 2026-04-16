@@ -8,6 +8,7 @@ import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
 import type { BusinessHoursSettingRow } from '@/lib/privateGroupCandidateSlots'
 import { computePrivateBookingSlots } from '@/lib/computePrivateBookingSlots'
+import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 
 interface TimeSlot {
   label: string
@@ -230,10 +231,7 @@ export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRe
     // グループIDがある場合、グループのステータスを更新
     if (groupId) {
       try {
-        await supabase
-          .from('private_groups')
-          .update({ status: 'booking_requested' })
-          .eq('id', groupId)
+        await updatePrivateGroupStatus(groupId, 'booking_requested')
         logger.log('グループステータスを booking_requested に更新:', groupId)
       } catch (error) {
         logger.error('グループステータス更新エラー:', error)

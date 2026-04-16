@@ -4,7 +4,7 @@ import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
 import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
-import { Clock, User, ArrowRight, Plus, Trash2, Ban, RotateCcw, Eye, EyeOff, Loader2, UserPlus, UserMinus } from 'lucide-react'
+import { Clock, User, ArrowRight, Plus, Trash2, Ban, RotateCcw, Eye, EyeOff, Loader2, UserPlus, UserMinus, MoveRight, MoveLeft, Copy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
@@ -20,9 +20,9 @@ import {
 import { cn } from '@/lib/utils'
 
 interface EventHistoryTabProps {
-  eventId: string | undefined
-  cellInfo?: CellInfo           // セル情報（削除された履歴を取得するため）
+  cellInfo?: CellInfo           // セル情報（日付＋会場＋時間帯）
   organizationId?: string       // 組織ID
+  stores?: Array<{ id: string; name: string }>  // 店舗一覧（UUID→名前解決用）
 }
 
 // アクションタイプに応じたアイコンを取得
@@ -46,6 +46,12 @@ function getActionIcon(actionType: ActionType) {
       return <UserPlus className="h-4 w-4 text-green-600" />
     case 'remove_participant':
       return <UserMinus className="h-4 w-4 text-red-600" />
+    case 'move_out':
+      return <MoveRight className="h-4 w-4 text-purple-600" />
+    case 'move_in':
+      return <MoveLeft className="h-4 w-4 text-purple-600" />
+    case 'copy':
+      return <Copy className="h-4 w-4 text-indigo-600" />
     default:
       return <Clock className="h-4 w-4 text-gray-600" />
   }
@@ -72,32 +78,51 @@ function getActionBadgeStyle(actionType: ActionType): string {
       return 'bg-teal-100 text-teal-800 border-teal-200'
     case 'remove_participant':
       return 'bg-pink-100 text-pink-800 border-pink-200'
+    case 'move_out':
+    case 'move_in':
+      return 'bg-purple-100 text-purple-800 border-purple-200'
+    case 'copy':
+      return 'bg-indigo-100 text-indigo-800 border-indigo-200'
     default:
       return 'bg-gray-100 text-gray-800 border-gray-200'
   }
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function resolveStoreName(value: unknown, stores?: Array<{ id: string; name: string }>): string {
+  if (!stores || value === null || value === undefined) return formatValue('', value)
+  const str = String(value)
+  if (UUID_PATTERN.test(str)) {
+    return stores.find(s => s.id === str)?.name ?? str
+  }
+  return str
+}
+
 // 変更内容を表示するコンポーネント
-function ChangeItem({ field, oldValue, newValue, allOldValues, allNewValues }: { 
+function ChangeItem({ field, oldValue, newValue, allOldValues, allNewValues, stores }: {
   field: string
   oldValue: unknown
   newValue: unknown
   allOldValues?: Record<string, unknown> | null
   allNewValues?: Record<string, unknown> | null
+  stores?: Array<{ id: string; name: string }>
 }) {
   const label = FIELD_LABELS[field] || field
-  
+
   // GMフィールドの場合は役割も含めて表示
   let oldStr: string
   let newStr: string
-  
+
   if (field === 'gms') {
     const oldRoles = allOldValues?.gm_roles as Record<string, string> | undefined
     const newRoles = allNewValues?.gm_roles as Record<string, string> | undefined
     oldStr = formatGMsWithRoles(oldValue as string[] | null, oldRoles)
     newStr = formatGMsWithRoles(newValue as string[] | null, newRoles)
+  } else if (field === 'store_id' || field === 'venue') {
+    oldStr = resolveStoreName(oldValue, stores)
+    newStr = resolveStoreName(newValue, stores)
   } else if (field === 'gm_roles') {
-    // gm_rolesは個別に表示（GMと一緒に表示されるのでスキップ可能にする）
     oldStr = formatValue(field, oldValue)
     newStr = formatValue(field, newValue)
   } else {
@@ -158,14 +183,19 @@ function getCreateSummary(newValues: Record<string, unknown> | null): { field: s
 }
 
 // 履歴エントリを表示するコンポーネント
-function HistoryEntry({ entry }: { entry: EventHistory }) {
+function HistoryEntry({ entry, stores }: { entry: EventHistory; stores?: Array<{ id: string; name: string }> }) {
   const date = new Date(entry.created_at)
   const formattedDate = format(date, 'M/d(E) HH:mm', { locale: ja })
   const changes = entry.changes as Record<string, { old: unknown; new: unknown }>
   const changeKeys = Object.keys(changes)
   const isDeleted = entry.schedule_event_id === null
   const changeSummary = getChangeSummary(changes)
-  const createSummary = entry.action_type === 'create' ? getCreateSummary(entry.new_values) : []
+  const contentSummaryActions: ActionType[] = ['create', 'copy', 'move_in']
+  const contentSummary = contentSummaryActions.includes(entry.action_type as ActionType)
+    ? getCreateSummary(entry.new_values)
+    : entry.action_type === 'move_out'
+    ? getCreateSummary(entry.old_values)
+    : []
   
   return (
     <div className={cn(
@@ -214,23 +244,29 @@ function HistoryEntry({ entry }: { entry: EventHistory }) {
           {changeKeys
             // gmsが変更されている場合はgm_rolesをスキップ（GMと一緒に表示される）
             .filter(field => !(field === 'gm_roles' && changeKeys.includes('gms')))
+            // store_idがある場合はvenueをスキップ（重複表示を防ぐ）
+            .filter(field => !(field === 'venue' && changeKeys.includes('store_id')))
             .map((field) => (
-            <ChangeItem 
+            <ChangeItem
               key={field}
               field={field}
               oldValue={changes[field].old}
               newValue={changes[field].new}
               allOldValues={entry.old_values}
               allNewValues={entry.new_values}
+              stores={stores}
             />
           ))}
         </div>
-      ) : entry.action_type === 'create' && createSummary.length > 0 ? (
+      ) : contentSummary.length > 0 ? (
         <div className="border-t pt-2 mt-2 space-y-1">
-          {createSummary.map(({ field, value }) => (
+          {entry.action_type === 'move_out' && (
+            <p className="text-xs text-red-600 mb-1">このセルから移動しました</p>
+          )}
+          {contentSummary.map(({ field, value }) => (
             <div key={field} className="flex items-start gap-2 text-xs">
               <span className="text-muted-foreground shrink-0 w-20">{field}:</span>
-              <span className="text-green-700 font-medium">{value}</span>
+              <span className={entry.action_type === 'move_out' ? 'text-red-400 line-through' : 'text-green-700 font-medium'}>{value}</span>
             </div>
           ))}
         </div>
@@ -244,36 +280,37 @@ function HistoryEntry({ entry }: { entry: EventHistory }) {
         </div>
       ) : null}
       
-      {/* メモ */}
+      {/* 補足情報（移動元・複製元など） */}
       {entry.notes && (
         <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
-          メモ: {entry.notes}
+          {(['move_out', 'move_in'] as ActionType[]).includes(entry.action_type as ActionType)
+            ? entry.action_type === 'move_out' ? `移動先: ${entry.notes.replace(/^→\s*/, '')}` : `移動元: ${entry.notes.replace(/^←\s*/, '')}`
+            : entry.action_type === 'copy' ? `複製元: ${entry.notes.replace(/^←\s*/, '').replace(/\s*から(複製|ペースト)$/, '')}`
+            : entry.notes}
         </div>
       )}
     </div>
   )
 }
 
-export function EventHistoryTab({ eventId, cellInfo, organizationId }: EventHistoryTabProps) {
+export function EventHistoryTab({ cellInfo, organizationId, stores }: EventHistoryTabProps) {
   const [history, setHistory] = useState<EventHistory[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   useEffect(() => {
     async function fetchHistory() {
-      // イベントIDもセル情報もない場合
-      if (!eventId && !cellInfo) {
+      if (!cellInfo) {
         setHistory([])
         setIsLoading(false)
         return
       }
-      
+
       setIsLoading(true)
       setError(null)
-      
+
       try {
-        // セル情報がある場合は、削除された公演の履歴も含めて取得
-        const data = await getEventHistory(eventId, cellInfo, organizationId)
+        const data = await getEventHistory(cellInfo, organizationId)
         setHistory(data)
       } catch (err) {
         logger.error('履歴取得エラー:', err)
@@ -282,12 +319,11 @@ export function EventHistoryTab({ eventId, cellInfo, organizationId }: EventHist
         setIsLoading(false)
       }
     }
-    
+
     fetchHistory()
-  }, [eventId, cellInfo, organizationId])
-  
-  // 新規作成時でもセル情報があれば過去の履歴を表示
-  if (!eventId && !cellInfo) {
+  }, [cellInfo, organizationId])
+
+  if (!cellInfo) {
     return (
       <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
         公演を保存すると履歴が表示されます
@@ -325,7 +361,7 @@ export function EventHistoryTab({ eventId, cellInfo, organizationId }: EventHist
     <ScrollArea className="h-[400px] pr-3">
       <div className="space-y-3">
         {history.map((entry) => (
-          <HistoryEntry key={entry.id} entry={entry} />
+          <HistoryEntry key={entry.id} entry={entry} stores={stores} />
         ))}
       </div>
     </ScrollArea>

@@ -8,6 +8,37 @@ import { validateRedirectUrl } from '@/lib/utils'
 import { setUser as setSentryUser } from '@/lib/sentry'
 
 /**
+ * staffテーブルを user_id → email の順で検索し、該当すれば 'staff' を返す。
+ * user_id/email のどちらにも一致しなければ null を返す。
+ * ロール判定のフォールバック処理で重複していた検索ロジックを1箇所に集約。
+ */
+async function lookupStaffRole(
+  userId: string,
+  email: string | undefined | null
+): Promise<'staff' | null> {
+  try {
+    const { data: byId } = await supabase
+      .from('staff')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (byId) return 'staff'
+
+    if (email) {
+      const { data: byEmail } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle()
+      if (byEmail) return 'staff'
+    }
+  } catch {
+    // staff テーブルへのアクセス失敗は無視
+  }
+  return null
+}
+
+/**
  * 現在のURLからorganizationSlugを抽出するヘルパー関数
  */
 function getOrganizationSlugFromUrl(): string {
@@ -725,37 +756,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             role = existingUser.role
             authTrace('🔄 タイムアウト: 既存のロールを保持:', role)
           } else {
-            // スタッフテーブルをチェック（user_idとemailの両方で検索）
-            try {
-              const { data: staffByUserId } = await supabase
-                .from('staff')
-                .select('id')
-                .eq('user_id', supabaseUser.id)
-                .maybeSingle()
-              
-              if (staffByUserId) {
-                role = 'staff'
-                authTrace('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
-              } else {
-                // メールアドレスでも検索
-                const { data: staffByEmail } = await supabase
-                  .from('staff')
-                  .select('id')
-                  .eq('email', supabaseUser.email)
-                  .maybeSingle()
-                
-                if (staffByEmail) {
-                  role = 'staff'
-                  authTrace('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
-                } else {
-                  role = determineUserRole(supabaseUser.email)
-                  authTrace('🔄 タイムアウトフォールバック:', role)
-                }
-              }
-            } catch {
-              role = determineUserRole(supabaseUser.email)
-              authTrace('🔄 タイムアウトフォールバック:', role)
-            }
+            role = (await lookupStaffRole(supabaseUser.id, supabaseUser.email)) ?? 'customer'
+            authTrace('🔄 タイムアウトフォールバック: staffテーブル検索結果 ->', role)
           }
         } else {
           // その他のエラー: 既存のユーザー情報があればそのロールを保持
@@ -763,37 +765,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             role = existingUser.role
             authTrace('🔄 例外発生、既存のロールを保持:', role)
           } else {
-            // スタッフテーブルをチェック（user_idとemailの両方で検索）
-            try {
-              const { data: staffByUserId } = await supabase
-                .from('staff')
-                .select('id')
-                .eq('user_id', supabaseUser.id)
-                .maybeSingle()
-              
-              if (staffByUserId) {
-                role = 'staff'
-                authTrace('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
-              } else {
-                // メールアドレスでも検索
-                const { data: staffByEmail } = await supabase
-                  .from('staff')
-                  .select('id')
-                  .eq('email', supabaseUser.email)
-                  .maybeSingle()
-                
-                if (staffByEmail) {
-                  role = 'staff'
-                  authTrace('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
-                } else {
-                  role = determineUserRole(supabaseUser.email)
-                  authTrace('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
-                }
-              }
-            } catch {
-              role = determineUserRole(supabaseUser.email)
-              authTrace('🔄 例外フォールバック:', role)
-            }
+            role = (await lookupStaffRole(supabaseUser.id, supabaseUser.email)) ?? 'customer'
+            authTrace('🔄 例外フォールバック: staffテーブル検索結果 ->', role)
           }
         }
       }

@@ -12,6 +12,8 @@ import {
   joinedCustomerFromReservation,
 } from '@/lib/reservationApi'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
+import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
+import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 
 interface UseBookingApprovalProps {
   onSuccess: () => void
@@ -162,7 +164,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         .replace(/^【貸切】/, '')
         .trim()
       
-      const rpcParams = {
+      const rpcParams: RpcApprovePrivateBookingParams = {
         p_reservation_id: requestId,
         p_selected_date: selectedDateYmd,
         p_selected_start_time: selectedCandidate.startTime,
@@ -354,15 +356,11 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
         if (reservation?.private_group_id) {
           // グループのステータスを confirmed に更新
-          const { error: groupUpdateError } = await supabase
-            .from('private_groups')
-            .update({ status: 'confirmed' })
-            .eq('id', reservation.private_group_id)
-          
-          if (groupUpdateError) {
-            logger.error('グループステータス更新エラー:', groupUpdateError)
-          } else {
+          try {
+            await updatePrivateGroupStatus(reservation.private_group_id, 'confirmed')
             logger.log('グループステータスをconfirmedに更新:', reservation.private_group_id)
+          } catch (groupUpdateError) {
+            logger.error('グループステータス更新エラー:', groupUpdateError)
           }
 
           // 主催者のメンバーIDを取得

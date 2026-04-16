@@ -100,10 +100,9 @@ export function ScheduleManager() {
   const [isFixingData, setIsFixingData] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
   
-  // 履歴モーダル
+  // 履歴モーダル（セルベース）
   const [historyModal, setHistoryModal] = useState<{
     isOpen: boolean
-    eventId?: string
     cellInfo?: { date: string; storeId: string; timeSlot: string | null }
     title?: string
   }>({ isOpen: false })
@@ -1176,18 +1175,14 @@ export function ScheduleManager() {
                   label: '履歴を表示',
                   icon: <Clock className="w-4 h-4" />,
                   onClick: () => {
-                    const timeSlotMap: Record<string, string> = { 'morning': '朝', 'afternoon': '昼', 'evening': '夜' }
-                    const hour = parseInt(event.start_time?.split(':')[0] || '12')
-                    const slot = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
+                    const stores = scheduleTableProps.viewConfig.stores
+                    const storeId = event.store_id || event.venue
+                    const storeName = stores.find(s => s.id === storeId)?.name || event.venue
+                    const timeSlotLabel = event.time_slot || ''
                     setHistoryModal({
                       isOpen: true,
-                      eventId: event.id,
-                      cellInfo: {
-                        date: event.date,
-                        storeId: event.venue,
-                        timeSlot: timeSlotMap[slot] || null
-                      },
-                      title: `${event.scenario || '公演'} の更新履歴`
+                      cellInfo: { date: event.date, storeId, timeSlot: event.time_slot || null },
+                      title: `${event.date} ${storeName}${timeSlotLabel ? ' ' + timeSlotLabel : ''} の更新履歴`
                     })
                     modals.contextMenu.setContextMenu(null)
                   },
@@ -1395,16 +1390,14 @@ export function ScheduleManager() {
                   label: '履歴を表示',
                   icon: <Clock className="w-4 h-4" />,
                   onClick: () => {
-                    const timeSlotMap: Record<string, string> = { 'morning': '朝', 'afternoon': '昼', 'evening': '夜' }
+                    const dbTimeSlotMap: Record<string, string> = { 'morning': '朝', 'afternoon': '昼', 'evening': '夜' }
+                    const stores = scheduleTableProps.viewConfig.stores
+                    const storeName = stores.find(s => s.id === venue)?.name || venue
+                    const timeSlotLabel = dbTimeSlotMap[timeSlot] || ''
                     setHistoryModal({
                       isOpen: true,
-                      eventId: undefined,
-                      cellInfo: {
-                        date,
-                        storeId: venue,
-                        timeSlot: timeSlotMap[timeSlot] || null
-                      },
-                      title: 'このセルの履歴'
+                      cellInfo: { date, storeId: venue, timeSlot: dbTimeSlotMap[timeSlot] || null },
+                      title: `${date} ${storeName} ${timeSlotLabel} の更新履歴`
                     })
                     modals.contextMenu.setContextMenu(null)
                   },
@@ -1434,10 +1427,10 @@ export function ScheduleManager() {
       <HistoryModal
         isOpen={historyModal.isOpen}
         onClose={() => setHistoryModal({ isOpen: false })}
-        eventId={historyModal.eventId}
         cellInfo={historyModal.cellInfo}
         organizationId={organizationId || undefined}
         title={historyModal.title}
+        stores={scheduleTableProps.viewConfig.stores}
       />
 
       {/* キット配置管理ダイアログ */}

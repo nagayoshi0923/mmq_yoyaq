@@ -1365,14 +1365,14 @@ export function PerformanceModal({
           </TabsContent>
 
           <TabsContent value="history" className="flex-1 overflow-y-auto px-2 sm:px-4 py-2 sm:py-3 mt-0 min-h-0">
-            <EventHistoryTab 
-              eventId={event?.id} 
+            <EventHistoryTab
               cellInfo={formData.date && formData.venue ? {
                 date: formData.date,
-                storeId: formData.venue,
+                storeId: event?.store_id || formData.venue,
                 timeSlot: formData.time_slot || timeSlotEnToSchedule(timeSlot)
               } : undefined}
               organizationId={organizationId || undefined}
+              stores={stores}
             />
           </TabsContent>
         </Tabs>

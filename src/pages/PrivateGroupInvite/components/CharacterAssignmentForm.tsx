@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { Users, CheckCircle2, Loader2, X, Send, ArrowLeft, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import type { RpcSetCharacterPreferenceParams } from '@/lib/rpcTypes'
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import type { PrivateGroupMember } from '@/types'
@@ -83,11 +84,12 @@ export function CharacterAssignmentForm({
     setPreferences(prev => ({ ...prev, [memberId]: charId }))
     setSaving(true)
     try {
-      const { error } = await supabase.rpc('set_character_preference', {
+      const charPrefParams: RpcSetCharacterPreferenceParams = {
         p_group_id: groupId,
         p_member_id: memberId,
         p_character_id: charId,
-      })
+      }
+      const { error } = await supabase.rpc('set_character_preference', charPrefParams)
       if (error) throw error
     } catch (err) {
       logger.error('キャラクター選択エラー:', err)

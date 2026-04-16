@@ -8,19 +8,19 @@ import type { CellInfo } from '@/lib/api/eventHistoryApi'
 interface HistoryModalProps {
   isOpen: boolean
   onClose: () => void
-  eventId?: string          // 公演ID（既存公演の場合）
-  cellInfo?: CellInfo       // セル情報（削除された公演の履歴を見る場合）
+  cellInfo?: CellInfo       // セル情報（日付＋会場＋時間帯）
   organizationId?: string   // 組織ID
   title?: string            // モーダルのタイトル
+  stores?: Array<{ id: string; name: string }>  // 店舗一覧（UUID→名前解決用）
 }
 
-export function HistoryModal({ 
-  isOpen, 
-  onClose, 
-  eventId,
+export function HistoryModal({
+  isOpen,
+  onClose,
   cellInfo,
   organizationId,
-  title = '更新履歴'
+  title = '更新履歴',
+  stores
 }: HistoryModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -29,10 +29,10 @@ export function HistoryModal({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-hidden">
-          <EventHistoryTab 
-            eventId={eventId}
+          <EventHistoryTab
             cellInfo={cellInfo}
             organizationId={organizationId}
+            stores={stores}
           />
         </div>
       </DialogContent>

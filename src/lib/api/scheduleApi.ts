@@ -8,6 +8,7 @@ import { logger } from '@/utils/logger'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET, RESERVATION_SOURCE } from '@/lib/constants'
+import type { RpcAdminDeleteReservationsBySourceParams } from '@/lib/rpcTypes'
 
 // 候補日時の型定義
 interface CandidateDateTime {
@@ -1332,9 +1333,10 @@ export const scheduleApi = {
   async removeAllDemoReservations() {
     try {
       // reservation_source = 'demo' の予約をすべて削除
-      const { data: deletedCount, error } = await supabase.rpc('admin_delete_reservations_by_source', {
-        p_reservation_source: RESERVATION_SOURCE.DEMO
-      })
+      const deleteBySourceParams: RpcAdminDeleteReservationsBySourceParams = {
+        p_reservation_source: RESERVATION_SOURCE.DEMO,
+      }
+      const { data: deletedCount, error } = await supabase.rpc('admin_delete_reservations_by_source', deleteBySourceParams)
       
       if (error) {
         logger.error('デモ予約の削除に失敗:', error)

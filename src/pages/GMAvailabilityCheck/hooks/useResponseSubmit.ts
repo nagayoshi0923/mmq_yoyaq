@@ -4,6 +4,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { isReservationReadyForStoreAfterGmResponses } from '@/pages/PrivateBookingManagement/utils/privateBookingGmReadiness'
 import type { GMRequest } from './useGMRequests'
+import type { RpcAdminUpdateReservationFieldsParams } from '@/lib/rpcTypes'
 
 interface UseResponseSubmitProps {
   requests: GMRequest[]
@@ -92,10 +93,11 @@ export function useResponseSubmit({
             updated_at: new Date().toISOString(),
           }
 
-          const { error: reservationError } = await supabase.rpc('admin_update_reservation_fields', {
+          const gmResponseParams: RpcAdminUpdateReservationFieldsParams = {
             p_reservation_id: request.reservation_id,
             p_updates: updateData,
-          })
+          }
+          const { error: reservationError } = await supabase.rpc('admin_update_reservation_fields', gmResponseParams)
 
           if (reservationError) {
             logger.error('予約更新エラー:', reservationError)
