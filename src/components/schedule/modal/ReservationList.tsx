@@ -1561,9 +1561,9 @@ ${content.organizationName || '店舗'}
                                 <span className="text-[10px] text-gray-400 leading-tight">
                                   {(() => {
                                     const reason = reservation.cancellation_reason
-                                    // 顧客・スタッフ固有の理由がある場合はそちらを優先
-                                    if (reason && reason !== '店舗都合によるキャンセル') return reason
-                                    // 理由なし or 店舗都合 → 公演中止イベントなら公演中止と表示
+                                    // お客様・顧客都合のキャンセルのみそのまま表示
+                                    if (reason && (reason.includes('お客様') || reason.includes('顧客'))) return reason
+                                    // それ以外（店舗都合・長文・null）→ 公演中止なら「公演中止によるキャンセル」
                                     return event?.is_cancelled ? '公演中止によるキャンセル' : (reason || '')
                                   })()}
                                 </span>
