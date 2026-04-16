@@ -9,25 +9,13 @@ import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 import type { ScheduleEvent } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-
-/**
- * time_slot（'朝'/'昼'/'夜'）を英語形式に変換
- */
-function convertTimeSlot(timeSlot: string | undefined | null): 'morning' | 'afternoon' | 'evening' | null {
-  if (!timeSlot) return null
-  switch (timeSlot) {
-    case '朝': return 'morning'
-    case '昼': return 'afternoon'
-    case '夜': return 'evening'
-    default: return null
-  }
-}
+import { scheduleTimeSlotToEn, timeSlotEnToSchedule, timeSlotEnToLabel } from '@/lib/timeSlot'
 
 /**
  * イベントの時間帯を取得（保存された枠を優先）
  */
 function getEventTimeSlot(event: ScheduleEvent): 'morning' | 'afternoon' | 'evening' {
-  const savedSlot = convertTimeSlot(event.time_slot)
+  const savedSlot = scheduleTimeSlotToEn(event.time_slot)
   if (savedSlot) return savedSlot
   return getTimeSlot(event.start_time)
 }
@@ -108,7 +96,7 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
       // 🚨 CRITICAL: ペースト先の重複チェック
       const conflict = checkConflict(targetDate, targetVenue, targetTimeSlot)
       if (conflict) {
-        const timeSlotLabel = targetTimeSlot === 'morning' ? '午前' : targetTimeSlot === 'afternoon' ? '午後' : '夜'
+        const timeSlotLabel = timeSlotEnToLabel(targetTimeSlot, 'candidate')
         const storeName = stores.find(s => s.id === targetVenue)?.name || targetVenue
         
         if (!confirm(
@@ -141,7 +129,7 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
       }
       
       // 時間帯ラベルをペースト先に更新
-      const timeSlotLabel = targetTimeSlot === 'morning' ? '朝' : targetTimeSlot === 'afternoon' ? '昼' : '夜'
+      const timeSlotLabel = timeSlotEnToSchedule(targetTimeSlot)
       
       const newEventData = {
         date: targetDate,
