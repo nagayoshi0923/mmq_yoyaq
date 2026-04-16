@@ -82,21 +82,6 @@ const SalesManagement: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customStartDate, customEndDate, selectedPeriod, activeTab, stores.length])
 
-  // タブ切り替え時のスクロール復元
-  useEffect(() => {
-    const savedPosition = sessionStorage.getItem(`sales-scroll-${activeTab}`)
-    if (savedPosition) {
-      window.scrollTo(0, parseInt(savedPosition))
-    }
-
-    const handleScroll = () => {
-      sessionStorage.setItem(`sales-scroll-${activeTab}`, window.scrollY.toString())
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [activeTab])
-
   // コンテンツの条件分岐表示
   const renderContent = () => {
     switch (activeTab) {
