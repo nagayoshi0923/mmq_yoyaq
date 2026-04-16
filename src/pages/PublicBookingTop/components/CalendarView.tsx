@@ -186,16 +186,21 @@ export const CalendarView = memo(function CalendarView({
                     })
                     
                     const allDisplayEvents = allMergedEvents.filter((event: any) => {
-                      // MTGは公開カレンダーに表示しない（貸切申込ブロック用にblockedSlotsには残す）
-                      if (event.category === 'mtg') return false
+                      // 内部カテゴリは公開カレンダーに表示しない（blockedSlotsで貸切申込ブロックは維持）
+                      const isHiddenCategory = event.category === 'mtg'
+                        || event.category === 'gmtest'
+                        || event.category === 'testplay'
+                        || event.category === 'venue_rental'
+                        || event.category === 'venue_rental_free'
+                        || event.category === 'package'
+                      if (isHiddenCategory) return false
                       const isPrivate = event.category === 'private' || event.is_private_booking === true
-                      const isGm = event.category === 'gmtest' || event.category === 'testplay'
-                      if (hideSoldOut && (isPrivate || isGm)) return false
-                      if (hidePlayed && (isPrivate || isGm)) {
+                      if (hideSoldOut && isPrivate) return false
+                      if (hidePlayed && isPrivate) {
                         const smId = event.scenario_master_id || event.scenario_id
                         if (smId && playedScenarioIds.has(smId)) return false
                       }
-                      if (isPrivate || isGm) return true
+                      if (isPrivate) return true
                       if (hideSoldOut) {
                         const max = event.player_count_max || 8
                         const cur = event.current_participants || 0
@@ -282,8 +287,7 @@ export const CalendarView = memo(function CalendarView({
                       const available = maxParticipants - currentParticipants
                       const isFull = available === 0
                       const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
-                      const isGmTest = event.category === 'gmtest' || event.category === 'testplay'
-                      const isReserved = isPrivateBooking || isGmTest
+                      const isReserved = isPrivateBooking
                       const storeName = getStoreName(event)
                       const storeColor = getStoreColor(event)
                       
@@ -390,11 +394,13 @@ export const CalendarView = memo(function CalendarView({
                           ? slotEvents.map((event: any, idx: number) => renderEvent(event, idx))
                           : []
 
-                        const occupiedStoreIds = new Set(slotEvents.map((e: any) => e.store_id))
+                        // 非表示イベントも含めて占有・ブロック判定する（allMergedEventsを使用）
+                        const allSlotEvents = allMergedEvents.filter((e: any) => getTimeSlot(e.start_time) === slot)
+                        const occupiedStoreIds = new Set(allSlotEvents.map((e: any) => e.store_id))
                         const hasAvailableStores = selectedStoreIds.length > 0 &&
                           selectedStoreIds.some(id => !occupiedStoreIds.has(id))
                         // GMテスト・MTG等が含まれるスロットは貸切申込を非表示
-                        const hasNonBookableEvent = slotEvents.some((e: any) =>
+                        const hasNonBookableEvent = allSlotEvents.some((e: any) =>
                           e.category === 'gmtest' || e.category === 'testplay' || e.category === 'mtg'
                         )
                         const showPrivateButton = selectedStore && canApplyPrivateBooking && isSlotAvailable(slot) && !hasNonBookableEvent

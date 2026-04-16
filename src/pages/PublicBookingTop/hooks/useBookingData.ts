@@ -325,6 +325,9 @@ async function fetchBookingData(organizationSlug?: string): Promise<BookingDataR
       || event.category === 'testplay'
       || event.category === 'mtg'
       || event.category === 'private'
+      || event.category === 'venue_rental'
+      || event.category === 'venue_rental_free'
+      || event.category === 'package'
       || event.is_private_booking === true
     return isBlocked
   })
