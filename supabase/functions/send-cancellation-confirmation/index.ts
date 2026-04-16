@@ -54,7 +54,7 @@ serve(async (req) => {
     // 予約の正当性を検証
     const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
-      .select('id, customer_email, organization_id')
+      .select('id, customer_email, customer_id, organization_id')
       .eq('id', cancellationData.reservationId)
       .single()
 
@@ -94,8 +94,11 @@ serve(async (req) => {
     const replyToEmail = emailSettings?.replyToEmail || null
     
     if (!resendApiKey) {
-      console.error('RESEND_API_KEY is not set')
-      throw new Error('メール送信サービスが設定されていません')
+      console.warn('Resend API key not configured, skipping email')
+      return new Response(
+        JSON.stringify({ success: false, skipped: true, reason: 'resend_not_configured' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      )
     }
 
     // 店舗のメール設定（テンプレート・会社情報）を取得
@@ -418,11 +421,39 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
     const result = await resendResponse.json()
     console.log('Email sent successfully:', result)
 
+    // user_notifications にキャンセル通知を挿入（Service Role で RLS をバイパス）
+    if (reservation.customer_id) {
+      const eventDateStr = cancellationData.eventDate || ''
+      const eventTimeStr = cancellationData.startTime ? cancellationData.startTime.slice(0, 5) : ''
+      const { error: notifError } = await serviceClient
+        .from('user_notifications')
+        .insert({
+          customer_id: reservation.customer_id,
+          organization_id: resolvedOrganizationId || null,
+          type: 'reservation_cancelled',
+          title: '予約がキャンセルされました',
+          message: `「${cancellationData.scenarioTitle}」${eventDateStr} ${eventTimeStr}`,
+          link: '/mypage',
+          related_reservation_id: cancellationData.reservationId,
+          metadata: {
+            reservationId: cancellationData.reservationId,
+            reservationNumber: cancellationData.reservationNumber,
+            scenarioTitle: cancellationData.scenarioTitle,
+            eventDate: eventDateStr,
+            startTime: eventTimeStr,
+            cancellationReason: cancellationData.cancellationReason || 'キャンセル'
+          }
+        })
+      if (notifError) {
+        console.warn('user_notifications 挿入失敗（続行）:', notifError)
+      }
+    }
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: 'キャンセル確認メールを送信しました',
-        emailId: result.id 
+        emailId: result.id
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
