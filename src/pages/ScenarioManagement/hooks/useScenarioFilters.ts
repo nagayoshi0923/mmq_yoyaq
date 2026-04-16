@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { Scenario } from '@/types'
 
 type ScenarioSortField = 'title' | 'author' | 'duration' | 'player_count' | 'player_count_min' | 'difficulty' | 'participation_fee' | 'status' | 'available_gms' | 'genre' | 'performance_count'
@@ -13,10 +14,25 @@ interface ScenarioStats {
  * シナリオのフィルタリング・検索・ソート機能を管理するフック
  */
 export function useScenarioFilters(scenarios: Scenario[], scenarioStats?: Record<string, ScenarioStats>) {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  
-  // ソート状態
+  const [searchParams, setSearchParams] = useSearchParams()
+  const searchTerm = searchParams.get('search') ?? ''
+  const statusFilter = searchParams.get('status') ?? 'all'
+
+  const setSearchTerm = (v: string) => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    if (v) next.set('search', v)
+    else next.delete('search')
+    return next
+  }, { replace: true })
+
+  const setStatusFilter = (v: string) => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    if (v !== 'all') next.set('status', v)
+    else next.delete('status')
+    return next
+  }, { replace: true })
+
+  // ソート状態（ナビゲーションに影響しないのでuseStateのまま）
   const [sortState, setSortState] = useState<{ field: ScenarioSortField; direction: 'asc' | 'desc' } | undefined>(undefined)
 
   // ソートハンドラー

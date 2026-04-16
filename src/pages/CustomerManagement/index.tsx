@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -12,7 +13,12 @@ import type { Customer } from '@/types'
 
 export default function CustomerManagement() {
   const { customers, loading, couponStats, refreshCustomers } = useCustomerData()
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const searchTerm = searchParams.get('search') ?? ''
+  const setSearchTerm = (v: string) => setSearchParams(
+    v ? { search: v } : {},
+    { replace: true }
+  )
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null)
