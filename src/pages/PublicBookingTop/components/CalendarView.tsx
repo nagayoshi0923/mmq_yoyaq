@@ -186,6 +186,8 @@ export const CalendarView = memo(function CalendarView({
                     })
                     
                     const allDisplayEvents = allMergedEvents.filter((event: any) => {
+                      // MTGは公開カレンダーに表示しない（貸切申込ブロック用にblockedSlotsには残す）
+                      if (event.category === 'mtg') return false
                       const isPrivate = event.category === 'private' || event.is_private_booking === true
                       const isGm = event.category === 'gmtest' || event.category === 'testplay'
                       if (hideSoldOut && (isPrivate || isGm)) return false
