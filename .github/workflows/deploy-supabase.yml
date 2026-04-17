@@ -12,7 +12,7 @@ on:
       environment:
         description: 'デプロイ先環境'
         required: true
-        default: 'production'
+        default: 'staging'
         type: choice
         options:
           - staging
@@ -24,12 +24,11 @@ env:
 jobs:
   # ============================================================================
   # ステージング環境へのデプロイ
-  # main または staging ブランチへの push 時に自動実行
-  # （ローカル開発は staging DB に接続しているため、push のたびにマイグレーションを反映）
+  # stagingブランチへのpush時に実行
   # ============================================================================
   deploy-staging:
     name: Deploy to Staging
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    if: github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
     runs-on: ubuntu-latest
     environment: staging
 
@@ -118,12 +117,11 @@ jobs:
 
   # ============================================================================
   # 本番環境へのデプロイ
-  # 手動トリガー（workflow_dispatch）のみ実行
-  # staging で確認後、GitHub Actions の「Run workflow」から実行する
+  # mainブランチへのpush時に実行
   # ============================================================================
   deploy-production:
     name: Deploy to Production
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
     runs-on: ubuntu-latest
     environment: production
 
