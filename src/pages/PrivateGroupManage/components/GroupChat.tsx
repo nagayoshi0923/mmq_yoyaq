@@ -1450,7 +1450,6 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   scenarioId={scenarioId}
                   organizationId={organizationId}
                   performanceDate={performanceDate}
-                  hideCharacterSelection={charAssignmentMethod === 'survey'}
                 />
               )}
             </div>

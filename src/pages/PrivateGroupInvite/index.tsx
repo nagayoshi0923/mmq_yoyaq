@@ -3500,7 +3500,6 @@ export function PrivateGroupInvite() {
                 organizationId={group.organization_id}
                 performanceDate={group.candidate_dates?.find(cd => cd.order_num === 1)?.date}
                 characters={(group as any).scenario_characters || []}
-                hideCharacterSelection={method === 'survey'}
               />
             )
           }
