@@ -2,13 +2,14 @@ import React, { useEffect, lazy, Suspense } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useLocalState } from '@/hooks/useLocalState'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { TrendingUp, BarChart, BarChart3, FileText, Store, ShoppingBag, Users } from 'lucide-react'
+import { TrendingUp, BarChart, BarChart3, FileText, Store, ShoppingBag, Users, CalendarCheck } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
 const SALES_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'sales-overview', label: '売上概要', icon: TrendingUp, description: '売上サマリーを表示' },
   { id: 'annual-analysis', label: '年間分析', icon: BarChart3, description: '年間推移・成長率' },
   { id: 'scenario-performance', label: 'シナリオ別', icon: BarChart, description: 'シナリオ別売上' },
+  { id: 'open-event-analysis', label: '公演分析', icon: CalendarCheck, description: 'オープン公演の満席率・満席日数' },
   { id: 'external-sales', label: '外部売上', icon: ShoppingBag, description: 'BOOTH・他店公演' },
   { id: 'misc-transactions', label: '雑収支管理', icon: FileText, description: '公演外の収支を管理' },
   { id: 'franchise-sales', label: 'フランチャイズ', icon: Store, description: 'FC店舗の売上' },
@@ -26,6 +27,7 @@ const MiscellaneousTransactions = lazy(() => import('./components/MiscellaneousT
 const ExternalSales = lazy(() => import('./components/ExternalSales').then(m => ({ default: m.ExternalSales })))
 const StaffSalaryReport = lazy(() => import('./components/StaffSalaryReport').then(m => ({ default: m.StaffSalaryReport })))
 const SalaryCalculation = lazy(() => import('../SalaryCalculation/index'))
+const OpenEventAnalysis = lazy(() => import('./components/OpenEventAnalysis').then(m => ({ default: m.OpenEventAnalysis })))
 
 /**
  * 売上管理メインページ
@@ -116,6 +118,16 @@ const SalesManagement: React.FC = () => {
             onStoreIdsChange={(storeIds) => {
               setSelectedStoreIds(storeIds)
               loadSalesData(selectedPeriod, storeIds)
+            }}
+          />
+        )
+      case 'open-event-analysis':
+        return (
+          <OpenEventAnalysis
+            stores={stores}
+            selectedStoreIds={selectedStoreIds}
+            onStoreIdsChange={(storeIds) => {
+              setSelectedStoreIds(storeIds)
             }}
           />
         )

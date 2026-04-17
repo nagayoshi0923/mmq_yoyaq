@@ -461,6 +461,46 @@ export const salesApi = {
     }))
 
     return result
+  },
+
+  // オープン公演分析データを取得
+  async getOpenEventAnalysis(startDate: string, endDate: string, storeIds?: string[]) {
+    const orgId = await getCurrentOrganizationId()
+
+    // オープン公演を取得
+    let eventsQuery = supabase
+      .from('schedule_events_staff_view')
+      .select('id, date, start_time, scenario, scenario_master_id, max_participants, current_participants, is_cancelled, created_at, store_id')
+      .eq('category', 'open')
+      .gte('date', startDate)
+      .lte('date', endDate)
+
+    if (orgId) {
+      eventsQuery = eventsQuery.eq('organization_id', orgId)
+    }
+
+    if (storeIds && storeIds.length > 0) {
+      eventsQuery = eventsQuery.in('store_id', storeIds)
+    }
+
+    const { data: events, error: eventsError } = await eventsQuery.order('date', { ascending: true })
+
+    if (eventsError) throw eventsError
+    if (!events || events.length === 0) return { events: [], reservations: [] }
+
+    // 対象イベントの予約を取得（満席日数計算のため）
+    const eventIds = events.map(e => e.id)
+    const { data: reservations, error: reservationsError } = await supabase
+      .from('reservations')
+      .select('id, schedule_event_id, created_at, participant_count, status')
+      .in('schedule_event_id', eventIds)
+      .in('status', ['confirmed', 'completed', 'checked_in', 'no_show'])
+
+    if (reservationsError) {
+      logger.error('予約データの取得に失敗:', reservationsError)
+    }
+
+    return { events, reservations: reservations || [] }
   }
 }
 
