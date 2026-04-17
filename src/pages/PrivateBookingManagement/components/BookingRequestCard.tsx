@@ -89,6 +89,8 @@ export const BookingRequestCard = ({
   const handleResend = async () => {
     if (!onResendDiscordNotification || resending) return
     setResending(true)
+    // ブラウザに描画を先に済ませてもらう（INP対策）
+    await new Promise(resolve => setTimeout(resolve, 0))
     try {
       await onResendDiscordNotification(request)
     } finally {
