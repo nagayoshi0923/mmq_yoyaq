@@ -100,3 +100,7 @@ verify_jwt = false
 # Sentry は Supabase JWT を持たないため、関数内で x-sentry-webhook-secret を照合する
 [functions.sentry-to-github]
 verify_jwt = false
+
+# Discord 貸切予約通知（DBトリガー / 管理画面からの再送、どちらも関数内でロール確認）
+[functions.notify-private-booking-discord]
+verify_jwt = false
