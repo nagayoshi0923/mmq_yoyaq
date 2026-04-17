@@ -65,6 +65,21 @@ export function useBlockedSlots(): UseBlockedSlotsReturn {
     [blockedSlots]
   )
 
+  const writeLog = useCallback(
+    async (orgId: string, date: string, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening', action: 'blocked' | 'unblocked') => {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('schedule_blocked_slot_logs').insert({
+        organization_id: orgId,
+        date,
+        store_id: storeId,
+        time_slot: timeSlot,
+        action,
+        performed_by: user?.id ?? null,
+      })
+    },
+    []
+  )
+
   const blockSlot = useCallback(
     async (date: string, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
       const key = createSlotKey(date, storeId, timeSlot)
@@ -82,13 +97,14 @@ export function useBlockedSlots(): UseBlockedSlotsReturn {
           setBlockedSlots(prev => { const s = new Set(prev); s.delete(key); return s })
         } else {
           logger.log(`📛 募集中止: ${date} ${storeId} ${timeSlot}`)
+          writeLog(orgId, date, storeId, timeSlot, 'blocked')
         }
       } catch (error) {
         logger.error('募集中止の保存エラー:', error)
         setBlockedSlots(prev => { const s = new Set(prev); s.delete(key); return s })
       }
     },
-    []
+    [writeLog]
   )
 
   const unblockSlot = useCallback(
@@ -112,13 +128,14 @@ export function useBlockedSlots(): UseBlockedSlotsReturn {
           setBlockedSlots(prev => new Set(prev).add(key))
         } else {
           logger.log(`✅ 募集再開: ${date} ${storeId} ${timeSlot}`)
+          writeLog(orgId, date, storeId, timeSlot, 'unblocked')
         }
       } catch (error) {
         logger.error('募集再開の保存エラー:', error)
         setBlockedSlots(prev => new Set(prev).add(key))
       }
     },
-    []
+    [writeLog]
   )
 
   const toggleBlockSlot = useCallback(
