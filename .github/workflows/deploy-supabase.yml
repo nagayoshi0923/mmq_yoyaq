@@ -134,6 +134,12 @@ jobs:
         with:
           version: latest
 
+      - name: Run Migrations on Staging (ローカル開発用DBを常に最新に保つ)
+        run: |
+          echo "📦 Running database migrations on staging (for local dev)..."
+          supabase link --project-ref ${{ secrets.SUPABASE_STAGING_PROJECT_ID }}
+          supabase db push
+
       - name: Link to Production Project
         run: |
           supabase link --project-ref ${{ secrets.SUPABASE_PROD_PROJECT_ID }}
