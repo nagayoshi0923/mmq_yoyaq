@@ -203,6 +203,50 @@ export const OpenEventAnalysis: React.FC<OpenEventAnalysisProps> = ({
       : <ChevronDown className="inline h-3 w-3 ml-1 text-primary" />
   }
 
+  // スロット別の文章アドバイス生成
+  const getSlotAdvice = (list: typeof recommendations.weekdayAfternoon, slotLabel: string): string => {
+    if (list.length === 0) {
+      return `${slotLabel}の実績データがまだありません。まずは公演を開催してデータを積み上げましょう。`
+    }
+
+    const top = list[0]
+    const allSmallSample = list.every(r => r.slotTotal <= 2)
+    const topRate = top.slotFullRate
+    const topIsSmall = top.slotTotal <= 2
+
+    // 全件サンプル少
+    if (allSmallSample) {
+      return `${slotLabel}はまだデータが少なく傾向を判断しにくい状況です。各シナリオを複数回開催して実績を積みましょう。`
+    }
+
+    // トップが小サンプル
+    if (topIsSmall) {
+      const reliable = list.find(r => r.slotTotal > 2)
+      if (reliable) {
+        return `「${reliable.scenarioTitle}」は${reliable.slotTotal}公演の実績で満席率${reliable.slotFullRate.toFixed(0)}%と安定しています。サンプルの多いシナリオを優先的に開催し、傾向をつかんでいきましょう。`
+      }
+      return `${slotLabel}はまだ十分なデータが集まっていません。まずはデータを増やすことを優先しましょう。`
+    }
+
+    // 高満席率（80%以上）
+    if (topRate >= 80) {
+      const daysNote = top.avgDaysToFull > 0 ? `平均${top.avgDaysToFull.toFixed(0)}日で満席になる傾向があり、` : ''
+      const multiNote = list.length >= 2 && list[1].slotFullRate >= 60
+        ? `「${list[1].scenarioTitle}」(${list[1].slotFullRate.toFixed(0)}%)も好調です。` : ''
+      return `「${top.scenarioTitle}」が${top.slotTotal}公演で満席率${topRate.toFixed(0)}%と最も安定しています。${daysNote}引き続き優先的に組み込みましょう。${multiNote}`
+    }
+
+    // 中程度（50〜80%）
+    if (topRate >= 50) {
+      const lowNote = list.length >= 2 && list[list.length - 1].slotFullRate < 30
+        ? `一方「${list[list.length - 1].scenarioTitle}」は満席率が低め（${list[list.length - 1].slotFullRate.toFixed(0)}%）で見直しの余地があります。` : ''
+      return `「${top.scenarioTitle}」(満席率${topRate.toFixed(0)}%)が最も成績が良いですが、改善の余地があります。早めの告知や定員設定の調整を検討してみましょう。${lowNote}`
+    }
+
+    // 低満席率（50%未満）
+    return `${slotLabel}は全体的に満席率が低く（最高${topRate.toFixed(0)}%）、課題がある状況です。他の時間帯で実績のあるシナリオを試すか、集客施策の強化を検討しましょう。`
+  }
+
   const hasData = stats.totalEvents > 0
 
   return (
@@ -392,16 +436,21 @@ export const OpenEventAnalysis: React.FC<OpenEventAnalysisProps> = ({
                       color === 'purple' ? 'border-purple-200 bg-purple-50/50' :
                                            'border-blue-200 bg-blue-50/50'
                     }`}>
-                      <div className="flex items-baseline gap-1.5 mb-2.5">
+                      <div className="flex items-baseline gap-1.5 mb-1.5">
                         <span className={`font-semibold text-sm ${
                           color === 'green' ? 'text-green-800' : color === 'purple' ? 'text-purple-800' : 'text-blue-800'
                         }`}>{label}</span>
                         {sub && <span className="text-[11px] text-muted-foreground">{sub}</span>}
                       </div>
 
-                      {list.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">データなし</p>
-                      ) : (
+                      {/* 文章アドバイス */}
+                      <p className={`text-[11px] leading-relaxed mb-3 ${
+                        color === 'green' ? 'text-green-900' : color === 'purple' ? 'text-purple-900' : 'text-blue-900'
+                      }`}>
+                        {getSlotAdvice(list, label)}
+                      </p>
+
+                      {list.length === 0 ? null : (
                         <ol className="space-y-2.5">
                           {list.map((rec, i) => {
                             const isSmallSample = rec.slotTotal <= 2
