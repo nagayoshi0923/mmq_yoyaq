@@ -447,7 +447,7 @@ serve(async (req) => {
     const body = await req.text()
     const payload: PrivateBookingNotification = JSON.parse(body)
     
-    const payloadType = payload.type.toLowerCase()
+    const payloadType = (payload.type || '').toLowerCase()
     if (payloadType !== 'insert' && payloadType !== 'resend') {
       return new Response(
         JSON.stringify({ message: 'Not a new booking' }),

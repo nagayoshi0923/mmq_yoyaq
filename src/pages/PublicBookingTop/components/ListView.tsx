@@ -169,6 +169,13 @@ export const ListView = memo(function ListView({
       if (!canApplyPrivateBooking) {
         return <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">-</div>
       }
+      // GMテスト・MTG等が含まれるスロットは貸切申込を非表示（CalendarViewと同じ判定）
+      const hasNonBookableEvent = allMerged.some((ev: any) =>
+        ev.category === 'gmtest' || ev.category === 'testplay' || ev.category === 'mtg'
+      )
+      if (hasNonBookableEvent) {
+        return <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">-</div>
+      }
       // 前公演の終了時間 + 1時間後が開始時間
       // 前のスロットのイベント + ブロックイベントを考慮
       const allPrecedingEvents = [...precedingEvents]

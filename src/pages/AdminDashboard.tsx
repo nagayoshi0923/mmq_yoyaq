@@ -258,7 +258,7 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
 }
 
 export function AdminDashboard() {
-  const { user, loading, isInitialized } = useAuth()
+  const { user, loading, isInitialized, isAdmin, isStaff, isCustomer } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const { organization } = useOrganization()
@@ -273,7 +273,7 @@ export function AdminDashboard() {
   useEffect(() => {
     if (!isInitialized || loading) return
 
-    const isCustomerOrLoggedOut = !user || user.role === 'customer'
+    const isCustomerOrLoggedOut = isCustomer
     const defaultOrg = organization?.slug || 'queens-waltz'
     
     // ルートパス（/）はプラットフォームトップを表示（リダイレクトしない）
@@ -623,8 +623,8 @@ export function AdminDashboard() {
   }
 
   if (currentPage === 'my-page' || currentPage === 'mypage') {
-    const isCustomerOrLoggedOut = !user || user.role === 'customer'
-    const shouldShowNavigation = !isCustomerOrLoggedOut
+    const isCustomerOrLoggedOut = isCustomer
+    const shouldShowNavigation = isStaff
     
     return (
       <div className="min-h-screen bg-background">
@@ -882,10 +882,10 @@ export function AdminDashboard() {
   }
 
   // ナビゲーション表示判定
-  const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
-  
+  const shouldShowNavigation = isStaff
+
   // スタッフ/管理者でない場合で、認識されないページの場合は404を表示
-  const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin' || user?.role === 'license_admin'
+  const isStaffOrAdmin = isStaff
   const knownPages = ['dashboard', 'report-form', 'rental-report']
   if (!isStaffOrAdmin && !knownPages.includes(currentPage)) {
     return (

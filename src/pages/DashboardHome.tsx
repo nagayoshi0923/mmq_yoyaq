@@ -3,6 +3,7 @@ import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { 
   Store, 
   Calendar as CalendarIcon, 
@@ -42,7 +43,7 @@ interface DashboardHomeProps {
 }
 
 export function DashboardHome({ onPageChange }: DashboardHomeProps) {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { organization } = useOrganization()
   const [mySchedule, setMySchedule] = useState<ScheduleEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -153,7 +154,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   // オンボーディング: 店舗数を取得（管理者のみ）
   useEffect(() => {
     const fetchStoreCount = async () => {
-      if (user?.role !== 'admin' && user?.role !== 'license_admin') return
+      if (!isAdmin) return
       try {
         const stores = await storeApi.getAll()
         setStoreCount(stores.length)
@@ -162,7 +163,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       }
     }
     fetchStoreCount()
-  }, [user?.role])
+  }, [isAdmin])
 
   // 直近の予定（今日以降の直近5件）
   const upcomingEvents = useMemo(() => {
@@ -264,14 +265,14 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       { id: 'settings', label: '設定', icon: Settings, color: 'bg-slate-100 text-slate-800' },
     ]
     
-    if (user?.role === 'admin' || user?.role === 'license_admin') {
+    if (isAdmin) {
       return [...commonTabs, ...adminTabs]
     }
     return commonTabs
-  }, [user?.role, bookingBasePath])
+  }, [isAdmin, bookingBasePath])
 
   // オンボーディングが必要かどうか（管理者で店舗が0件）
-  const needsOnboarding = (user?.role === 'admin' || user?.role === 'license_admin') && storeCount === 0
+  const needsOnboarding = isAdmin && storeCount === 0
 
   return (
     <div className="space-y-6 pb-20">
@@ -338,7 +339,21 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           </div>
           
           {loading && staffName === '' ? (
-            <div className="text-sm text-muted-foreground">読み込み中...</div>
+            <div className="border rounded-lg divide-y divide-border bg-background">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="px-3 py-2 flex items-center gap-3">
+                  <div className="w-12 shrink-0 space-y-1">
+                    <Skeleton className="h-3 w-8 mx-auto" />
+                    <Skeleton className="h-3 w-6 mx-auto" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                  <Skeleton className="h-3 w-10 shrink-0" />
+                </div>
+              ))}
+            </div>
           ) : upcomingEvents.length > 0 ? (
             <div className="border rounded-lg divide-y divide-border bg-background">
               {upcomingEvents.map(event => (
@@ -504,7 +519,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       </section>
 
       {/* 5. 管理者向け統計情報（控えめに表示） */}
-      {(user?.role === 'admin' || user?.role === 'license_admin') && (
+      {isAdmin && (
         <section className="pt-4 border-t border-border">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-bold">管理者用データ</h2>

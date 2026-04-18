@@ -299,6 +299,7 @@ export const CalendarView = memo(function CalendarView({
                       // 最小人数達成判定（開催決定）
                       const minParticipants = scenario?.player_count_min || 1
                       const isConfirmed = currentParticipants >= minParticipants && !isFull
+                      const isNearlyFull = !isFull && available > 0 && available <= 3
                       
                       if (isReserved) {
                         return (
@@ -373,8 +374,13 @@ export const CalendarView = memo(function CalendarView({
                                     開催決定
                                   </span>
                                 )}
+                                {isNearlyFull && (
+                                  <span className="text-[8px] font-bold px-0.5 py-0.5 bg-orange-100 text-orange-600">
+                                    残りわずか
+                                  </span>
+                                )}
                                 <span className={isFull ? 'text-gray-500' : 'text-gray-600'}>
-                                  {isFull ? '満席' : `残${available}`}
+                                  {isFull ? '満席' : null}
                                 </span>
                               </div>
                             </div>
@@ -386,7 +392,7 @@ export const CalendarView = memo(function CalendarView({
                     return (
                     <>
                       {/* 時間帯順にイベントと貸切ボタンを表示 */}
-                      {timeSlots.map(({ slot, label }) => {
+                      {timeSlots.map(({ slot }) => {
                         const slotEvents = eventsBySlot[slot]
                         const hasEvents = slotEvents.length > 0
                         

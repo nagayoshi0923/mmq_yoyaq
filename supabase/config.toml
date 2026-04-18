@@ -53,6 +53,10 @@ otp_expiry = 3600
 [functions.delete-my-account]
 verify_jwt = false
 
+# invite-staff は関数内でJWT検証と管理者ロール確認を行うため、ゲートウェイでの検証をスキップ
+[functions.invite-staff]
+verify_jwt = false
+
 # send-contact-inquiry は公開フォーム用（認証不要）
 [functions.send-contact-inquiry]
 verify_jwt = false
@@ -95,4 +99,8 @@ verify_jwt = false
 # Sentry Alert Webhook -> GitHub Issue 自動作成
 # Sentry は Supabase JWT を持たないため、関数内で x-sentry-webhook-secret を照合する
 [functions.sentry-to-github]
+verify_jwt = false
+
+# Discord 貸切予約通知（DBトリガー / 管理画面からの再送、どちらも関数内でロール確認）
+[functions.notify-private-booking-discord]
 verify_jwt = false

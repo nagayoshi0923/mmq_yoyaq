@@ -53,8 +53,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           )}
           
           {/* メインコンテンツ（スクロール可能） */}
-          <div className="flex-1 min-w-0 overflow-y-auto overflow-x-clip">
-            <div className={containerPadding}>
+          <div data-scroll-container className="flex-1 min-w-0 overflow-y-auto overflow-x-clip">
+            <div data-scroll-content className={containerPadding}>
               {children}
             </div>
           </div>

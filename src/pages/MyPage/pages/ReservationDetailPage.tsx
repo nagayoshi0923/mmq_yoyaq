@@ -918,8 +918,8 @@ export function ReservationDetailPage() {
               </span>
             </div>
 
-            {/* キャンセル */}
-            {reservation.status === 'confirmed' && (
+            {/* キャンセル（貸切公演はグループ管理画面から操作するためここでは非表示） */}
+            {reservation.status === 'confirmed' && !reservation.schedule_events?.is_private_booking && (
               <div className="pt-3 mt-2">
                 <div className="flex items-center justify-between">
                   <div>

@@ -130,15 +130,15 @@ async function fetchScenarioCatalogBundle(): Promise<{
 }
 
 export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
-  const { user } = useAuth()
+  const { isStaff } = useAuth()
   const { organization } = useOrganization()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  
+
   // 予約サイトのベースパス（propsから優先、なければorganizationから）
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : (organization?.slug ? `/${organization.slug}` : '/queens-waltz')
   const catalogQueryScope = organizationSlug ?? organization?.slug ?? 'global'
-  const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
+  const shouldShowNavigation = isStaff
 
   const {
     data: catalogData,

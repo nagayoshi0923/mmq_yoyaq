@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -97,44 +97,66 @@ export function PrivateGroupInvite() {
   const [couponLoading, setCouponLoading] = useState(false)
 
   // PIN認証関連
-  const [showPinAuth, setShowPinAuth] = useState(false)
   const [pinEmail, setPinEmail] = useState('')
   const [pinCode, setPinCode] = useState('')
   const [pinError, setPinError] = useState<string | null>(null)
   const [generatedPin, setGeneratedPin] = useState<string | null>(null)
-  
-  // タブ状態（チャットをデフォルトに）
-  const [activeTab, setActiveTab] = useState('chat')
+
+  // URLパラメータでシート・タブ状態を管理（ブラウザバックで閉じる）
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeSheet = searchParams.get('sheet')
+  const activeTab = searchParams.get('tab') ?? 'chat'
+
+  const showPinAuth = activeSheet === 'pin'
+  const showMobileDates = activeSheet === 'dates'
+  const showSettingsSheet = activeSheet === 'settings'
+  const showInviteSheet = activeSheet === 'invite'
+  const showStoreEditSheet = activeSheet === 'store-edit'
+  const showBookingDialog = activeSheet === 'booking'
+
+  // シートを開く（ブラウザ履歴に追加 → バックで閉じられる）
+  const openSheet = (name: string) => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    next.set('sheet', name)
+    return next
+  })
+
+  // シートを閉じる：ユーザー操作（×・キャンセル）→ navigate(-1) でバック相当
+  const closeSheet = () => navigate(-1)
+
+  // シートを閉じる：処理完了後 → 履歴を置き換えてモーダルに戻れないようにする
+  const closeSheetReplace = () => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    next.delete('sheet')
+    return next
+  }, { replace: true })
+
+  // タブ切り替え（履歴は積まず replace）
+  const setActiveTab = (tab: string) => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    next.set('tab', tab)
+    return next
+  }, { replace: true })
 
   // 主催者向け機能
   const [copied, setCopied] = useState(false)
   const [cancelling, setCancelling] = useState(false)
-  
-  // モバイル候補日シート
-  const [showMobileDates, setShowMobileDates] = useState(false)
-  
-  
-  // グループ設定シート
-  const [showSettingsSheet, setShowSettingsSheet] = useState(false)
+
+  // グループ設定シート内
   const [isDeleting, setIsDeleting] = useState(false)
   const [contactMessage, setContactMessage] = useState('')
   const [showContactForm, setShowContactForm] = useState(false)
   const [isSubmittingContact, setIsSubmittingContact] = useState(false)
-  
-  // メンバー招待シート
-  const [showInviteSheet, setShowInviteSheet] = useState(false)
-  
+
   // 希望店舗関連
   const [preferredStoreNames, setPreferredStoreNames] = useState<Array<{ id: string; name: string }>>([])
-  const [showStoreEditSheet, setShowStoreEditSheet] = useState(false)
   const [allStores, setAllStores] = useState<Array<{ id: string; name: string; short_name: string }>>([])
   const [isFilteredByScenario, setIsFilteredByScenario] = useState(false)
   const [loadingStoresForEdit, setLoadingStoresForEdit] = useState(false)
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [savingStores, setSavingStores] = useState(false)
-  
+
   // 申請ダイアログ（日程選択 + 送信）
-  const [showBookingDialog, setShowBookingDialog] = useState(false)
   const [bookingSelectedDates, setBookingSelectedDates] = useState<Set<string>>(new Set())
   const [bookingPhone, setBookingPhone] = useState('')
   const [bookingNotes, setBookingNotes] = useState('')
@@ -236,7 +258,7 @@ export function PrivateGroupInvite() {
           setResponses(existingResponses)
         }
         
-        setShowPinAuth(false)
+        closeSheetReplace()
         toast.success('認証しました')
       } else {
         setPinError('メールアドレスまたはPINが正しくありません')
@@ -511,7 +533,7 @@ export function PrivateGroupInvite() {
         toast.success('希望店舗を更新しました')
       }
 
-      setShowStoreEditSheet(false)
+      closeSheetReplace()
       refetch()
     } catch (err) {
       logger.error('希望店舗保存エラー:', err)
@@ -528,7 +550,7 @@ export function PrivateGroupInvite() {
       return
     }
     setSelectedStoreIds(group?.preferred_store_ids || [])
-    setShowStoreEditSheet(true)
+    openSheet('store-edit')
     setLoadingStoresForEdit(true)
     void (async () => {
       try {
@@ -790,7 +812,6 @@ export function PrivateGroupInvite() {
       if (groupDeleteError) throw groupDeleteError
       
       toast.success('グループを削除しました')
-      setShowSettingsSheet(false)
       navigate('/mypage')
     } catch (err: any) {
       logger.error('グループ削除エラー:', err)
@@ -1034,7 +1055,7 @@ export function PrivateGroupInvite() {
       phone = customer?.phone || ''
     }
     setBookingPhone(phone)
-    setShowBookingDialog(true)
+    openSheet('booking')
   }
   
   // ダイアログ内での日程選択トグル（最大6件まで）
@@ -1327,7 +1348,7 @@ export function PrivateGroupInvite() {
       }
       
       toast.success('予約リクエストを送信しました')
-      setShowBookingDialog(false)
+      closeSheetReplace()
       setBookingNotes('')
       setBookingSelectedDates(new Set())
       refetch()
@@ -1429,16 +1450,16 @@ export function PrivateGroupInvite() {
                 </div>
               </div>
             {isOrganizer && (
-              <button 
-                onClick={() => setShowInviteSheet(true)}
+              <button
+                onClick={() => openSheet('invite')}
                 className="p-1.5 hover:bg-gray-100 rounded"
               >
                 <UserPlus className="w-5 h-5 text-gray-600" />
               </button>
             )}
               {/* 日程シートを開く */}
-            <button 
-              onClick={() => setShowMobileDates(true)}
+            <button
+              onClick={() => openSheet('dates')}
               className="p-1.5 hover:bg-gray-100 rounded relative"
             >
               <Calendar className="w-5 h-5 text-gray-600" />
@@ -1460,7 +1481,7 @@ export function PrivateGroupInvite() {
 
 【お問い合わせ内容】
 `)
-                setShowSettingsSheet(true)
+                openSheet('settings')
               }}
               className="p-1.5 hover:bg-gray-100 rounded"
             >
@@ -1471,7 +1492,7 @@ export function PrivateGroupInvite() {
 
         {/* モバイル候補日シート */}
         {showMobileDates && (
-          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowMobileDates(false)}>
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => closeSheet()}>
             <div 
               className="absolute bottom-0 left-0 right-0 flex max-h-[85vh] flex-col overflow-hidden rounded-t-2xl bg-white lg:bottom-4 lg:left-auto lg:right-4 lg:w-[520px] lg:rounded-2xl"
               onClick={(e) => e.stopPropagation()}
@@ -1485,7 +1506,7 @@ export function PrivateGroupInvite() {
               <div className="flex shrink-0 items-center justify-between border-b px-3 pb-1.5 pt-0 sm:px-4 sm:pb-2">
                 <h3 className="font-semibold">日程・進捗</h3>
                 <button 
-                  onClick={() => setShowMobileDates(false)}
+                  onClick={() => closeSheet()}
                   className="p-2 hover:bg-gray-100 rounded-full"
                 >
                   <X className="w-5 h-5 text-gray-600" />
@@ -1579,7 +1600,7 @@ export function PrivateGroupInvite() {
                       existingDates={group.candidate_dates || []}
                       onDatesAdded={() => {
                         refetch()
-                        setShowMobileDates(false)
+                        closeSheetReplace()
                       }}
                       organizerMemberId={organizerMember?.id}
                     />
@@ -1713,7 +1734,7 @@ export function PrivateGroupInvite() {
                   <Button 
                     onClick={async () => {
                       await handleSubmit({ skipSuccessPage: true })
-                      setShowMobileDates(false)
+                      closeSheetReplace()
                     }}
                     disabled={actionLoading}
                     className="w-full bg-purple-600 hover:bg-purple-700"
@@ -1731,7 +1752,6 @@ export function PrivateGroupInvite() {
                 {isOrganizer && canMutateScheduleBeforeStoreReply && (group.candidate_dates?.length || 0) > 0 && (
                   <Button
                     onClick={() => {
-                      setShowMobileDates(false)
                       handleOpenBookingDialog()
                     }}
                     className="w-full bg-green-600 hover:bg-green-700"
@@ -1743,7 +1763,7 @@ export function PrivateGroupInvite() {
                 {/* チャットに戻るボタン */}
                 <Button
                   variant="outline"
-                  onClick={() => setShowMobileDates(false)}
+                  onClick={() => closeSheet()}
                   className="w-full"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
@@ -1756,7 +1776,7 @@ export function PrivateGroupInvite() {
 
         {/* メンバー招待シート */}
         {showInviteSheet && isOrganizer && (
-          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowInviteSheet(false)}>
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => closeSheet()}>
             <div 
               className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
@@ -1770,7 +1790,7 @@ export function PrivateGroupInvite() {
               <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
                 <h3 className="font-semibold">メンバー招待・管理</h3>
                 <button 
-                  onClick={() => setShowInviteSheet(false)}
+                  onClick={() => closeSheet()}
                   className="p-2 hover:bg-gray-100 rounded-full"
                 >
                   <X className="w-5 h-5 text-gray-600" />
@@ -1849,7 +1869,7 @@ export function PrivateGroupInvite() {
               <div className="p-4 border-t shrink-0">
                 <Button
                   variant="outline"
-                  onClick={() => setShowInviteSheet(false)}
+                  onClick={() => closeSheet()}
                   className="w-full"
                 >
                   閉じる
@@ -1861,7 +1881,7 @@ export function PrivateGroupInvite() {
 
         {/* グループ設定シート */}
         {showSettingsSheet && (
-          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowSettingsSheet(false)}>
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => closeSheet()}>
             <div 
               className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
@@ -1875,7 +1895,7 @@ export function PrivateGroupInvite() {
               <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
                 <h3 className="font-semibold">グループ設定</h3>
                 <button 
-                  onClick={() => setShowSettingsSheet(false)}
+                  onClick={() => closeSheet()}
                   className="p-2 hover:bg-gray-100 rounded-full"
                 >
                   <X className="w-5 h-5 text-gray-600" />
@@ -1968,7 +1988,7 @@ export function PrivateGroupInvite() {
                             toast.success('グループから退出しました')
                             setExistingMemberId(null)
                             clearGuestSession()
-                            setShowSettingsSheet(false)
+                            closeSheetReplace()
                             refetch()
                           } else if (user && group) {
                             await leaveGroup(group.id)
@@ -2140,7 +2160,7 @@ export function PrivateGroupInvite() {
               <div className="p-4 border-t shrink-0">
                 <Button
                   variant="outline"
-                  onClick={() => setShowSettingsSheet(false)}
+                  onClick={() => closeSheet()}
                   className="w-full"
                 >
                   閉じる
@@ -2152,7 +2172,7 @@ export function PrivateGroupInvite() {
 
         {/* 希望店舗編集シート */}
         {showStoreEditSheet && isOrganizer && (
-          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowStoreEditSheet(false)}>
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => closeSheet()}>
             <div 
               className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
@@ -2166,7 +2186,7 @@ export function PrivateGroupInvite() {
               <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
                 <h3 className="font-semibold">希望店舗を編集</h3>
                 <button 
-                  onClick={() => setShowStoreEditSheet(false)}
+                  onClick={() => closeSheet()}
                   className="p-2 hover:bg-gray-100 rounded-full"
                 >
                   <X className="w-5 h-5 text-gray-600" />
@@ -2247,7 +2267,7 @@ export function PrivateGroupInvite() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setShowStoreEditSheet(false)}
+                  onClick={() => closeSheet()}
                   className="w-full"
                 >
                   キャンセル
@@ -2259,7 +2279,7 @@ export function PrivateGroupInvite() {
 
         {/* 予約申請シート（日程選択 + 送信） */}
         {showBookingDialog && isOrganizer && (
-          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowBookingDialog(false)}>
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => closeSheet()}>
             <div 
               className="absolute bottom-0 left-0 right-0 lg:left-auto lg:right-4 lg:bottom-4 lg:w-[420px] bg-white rounded-t-2xl lg:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
@@ -2273,7 +2293,7 @@ export function PrivateGroupInvite() {
               <div className="flex items-center justify-between px-4 pb-2 border-b shrink-0">
                 <h3 className="font-semibold">予約リクエスト</h3>
                 <button 
-                  onClick={() => setShowBookingDialog(false)}
+                  onClick={() => closeSheet()}
                   className="p-2 hover:bg-gray-100 rounded-full"
                 >
                   <X className="w-5 h-5 text-gray-600" />
@@ -2355,7 +2375,6 @@ export function PrivateGroupInvite() {
                     {canMutateScheduleBeforeStoreReply ? (
                       <button
                         onClick={() => {
-                          setShowBookingDialog(false)
                           openStoreEditSheet()
                         }}
                         className="text-xs text-purple-600 hover:underline"
@@ -2451,7 +2470,7 @@ export function PrivateGroupInvite() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setShowBookingDialog(false)}
+                  onClick={() => closeSheet()}
                   className="w-full"
                   disabled={isSubmittingBooking}
                 >
@@ -2471,7 +2490,7 @@ export function PrivateGroupInvite() {
               currentMemberId={existingMemberId}
               members={group.members || []}
               fullHeight={true}
-              onGoToSchedule={() => setShowMobileDates(true)}
+              onGoToSchedule={() => openSheet('dates')}
               scenarioId={group.scenario_master_id || undefined}
               organizationId={group.organization_id || undefined}
               performanceDate={group.candidate_dates?.[0]?.date}
@@ -2590,7 +2609,7 @@ export function PrivateGroupInvite() {
               {/* メンバー（クリックで管理ダイアログを開く） */}
               <div 
                 className={`bg-white rounded-lg p-3 border ${isOrganizer ? 'cursor-pointer hover:border-purple-300 transition-colors' : ''}`}
-                onClick={() => isOrganizer && setShowInviteSheet(true)}
+                onClick={() => isOrganizer && openSheet('invite')}
               >
                 <h3 className="font-semibold text-sm mb-2 flex items-center justify-between">
                   <span>メンバー ({joinedMembers.length}名)</span>
@@ -3366,7 +3385,7 @@ export function PrivateGroupInvite() {
                   variant="link"
                   size="sm"
                   className="text-gray-600 hover:text-gray-800 p-0 h-auto text-xs"
-                  onClick={() => setShowPinAuth(true)}
+                  onClick={() => openSheet('pin')}
                 >
                   既に参加済みの方はこちら（PIN認証）
                 </Button>
@@ -3385,7 +3404,7 @@ export function PrivateGroupInvite() {
                   variant="link"
                   size="sm"
                   className="text-gray-500 hover:text-gray-700 p-0 h-auto text-xs"
-                  onClick={() => setShowPinAuth(false)}
+                  onClick={() => closeSheet()}
                 >
                   新規参加に戻る
                 </Button>
@@ -3460,7 +3479,6 @@ export function PrivateGroupInvite() {
                 organizationId={group.organization_id}
                 performanceDate={group.candidate_dates?.find(cd => cd.order_num === 1)?.date}
                 characters={(group as any).scenario_characters || []}
-                hideCharacterSelection={method === 'survey'}
               />
             )
           }

@@ -399,8 +399,8 @@ export function SurveyResponsesTab({
     )
   }
 
-  const nonCharQuestionIds = new Set(questions.filter(q => q.question_type !== 'character_selection').map(q => q.id))
-  const respondedCount = responses.filter(r => Object.keys(r.responses).some(key => nonCharQuestionIds.has(key))).length
+  const allQuestionIds = new Set(questions.map(q => q.id))
+  const respondedCount = responses.filter(r => Object.keys(r.responses).some(key => allQuestionIds.has(key))).length
   // 分母はシナリオの参加者上限（なければメンバー数）
   const totalCount = participantLimit || members.length
 
@@ -479,18 +479,14 @@ export function SurveyResponsesTab({
       <div className="space-y-2">
         {members.map(member => {
           const response = getMemberResponse(member.id)
-          const hasResponse = !!response && Object.keys(response.responses).some(key => nonCharQuestionIds.has(key))
+          const hasResponse = !!response && Object.keys(response.responses).some(key => allQuestionIds.has(key))
           const isExpanded = expandedMembers.has(member.id)
           const memberName = getMemberName(member.id)
 
-          // キャラクター配役: 回答データから直接取得
-          const charSelQuestion = questions.find(q => q.question_type === 'character_selection')
-          const assignedCharId = charSelQuestion && response ? response.responses[charSelQuestion.id] as string : null
-          const assignedChar = assignedCharId ? characters.find(c => c.id === assignedCharId) : null
+          // キャラクター配役: CharacterAssignmentFormで確定した配役のみ（アンケート回答とは独立）
+          const confirmedCharId = confirmedAssignments ? confirmedAssignments[member.id] : null
+          const assignedChar = confirmedCharId ? characters.find(c => c.id === confirmedCharId) : null
           const isSelfAssigned = charAssignmentMethod === 'self' && !!assignedChar
-
-          // キャラクター選択以外の質問
-          const nonCharQuestions = questions.filter(q => q.question_type !== 'character_selection')
 
           return (
             <div key={member.id} className="border rounded-lg overflow-hidden">
@@ -539,8 +535,8 @@ export function SurveyResponsesTab({
                     </div>
                   ) : (
                   <div className="p-3 space-y-3">
-                    {hasResponse && nonCharQuestions.length > 0 ? (
-                      nonCharQuestions.map((question, qIndex) => {
+                    {hasResponse && questions.length > 0 ? (
+                      questions.map((question, qIndex) => {
                         const value = getResponseValue(question.id, member.id)
                         if (value === '未回答') return null
                         return (

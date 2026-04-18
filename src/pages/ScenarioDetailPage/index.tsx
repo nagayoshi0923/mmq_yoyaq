@@ -43,9 +43,9 @@ interface ScenarioDetailPageProps {
 type PrivateBookingUrlSlotKey = 'morning' | 'afternoon' | 'evening'
 
 export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: ScenarioDetailPageProps) {
-  const { user } = useAuth()
+  const { user, isStaff } = useAuth()
   const navigate = useNavigate()
-  const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
+  const shouldShowNavigation = isStaff
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
   /** ?tab=private&date&store&slot の枠を getTimeSlotsForDate で解決するまで保持 */
   const [privateBookingUrlPending, setPrivateBookingUrlPending] = useState<{

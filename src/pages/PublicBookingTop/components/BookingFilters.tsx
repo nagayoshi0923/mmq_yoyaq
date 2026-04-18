@@ -63,32 +63,34 @@ export function BookingFilters({
       </div>
 
       {/* 表示切替ボタン */}
-      <div className="flex items-center gap-2 justify-end flex-wrap">
-        {onHideSoldOutChange && (
-          <Button
-            type="button"
-            variant={hideSoldOut ? 'default' : 'outline'}
-            size="sm"
-            className={`h-7 text-xs gap-1 ${hideSoldOut ? 'bg-gray-700 hover:bg-gray-800' : ''}`}
-            onClick={() => onHideSoldOutChange(!hideSoldOut)}
-          >
-            <EyeOff className="w-3 h-3" />
-            満席を非表示
-          </Button>
-        )}
-        {onHidePlayedChange && isLoggedIn && (
-          <Button
-            type="button"
-            variant={hidePlayed ? 'default' : 'outline'}
-            size="sm"
-            className={`h-7 text-xs gap-1 ${hidePlayed ? 'bg-green-700 hover:bg-green-800' : ''}`}
-            onClick={() => onHidePlayedChange(!hidePlayed)}
-          >
-            <EyeOff className="w-3 h-3" />
-            体験済みを非表示
-          </Button>
-        )}
-      </div>
+      {(onHideSoldOutChange || (onHidePlayedChange && isLoggedIn)) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {onHideSoldOutChange && (
+            <Button
+              type="button"
+              variant={hideSoldOut ? 'default' : 'outline'}
+              size="sm"
+              className={`h-8 sm:h-7 text-xs gap-1 flex-1 sm:flex-none ${hideSoldOut ? 'bg-gray-700 hover:bg-gray-800' : ''}`}
+              onClick={() => onHideSoldOutChange(!hideSoldOut)}
+            >
+              <EyeOff className="w-3 h-3 shrink-0" />
+              満席を非表示
+            </Button>
+          )}
+          {onHidePlayedChange && isLoggedIn && (
+            <Button
+              type="button"
+              variant={hidePlayed ? 'default' : 'outline'}
+              size="sm"
+              className={`h-8 sm:h-7 text-xs gap-1 flex-1 sm:flex-none ${hidePlayed ? 'bg-green-700 hover:bg-green-800' : ''}`}
+              onClick={() => onHidePlayedChange(!hidePlayed)}
+            >
+              <EyeOff className="w-3 h-3 shrink-0" />
+              体験済みを非表示
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

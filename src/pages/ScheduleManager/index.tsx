@@ -11,6 +11,7 @@ import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organizatio
 
 // Custom Hooks
 import { useRouteScrollControls } from '@/contexts/RouteScrollRestorationContext'
+import { useLocalState } from '@/hooks/useLocalState'
 import { useScheduleTable } from '@/hooks/useScheduleTable'
 import { useTemporaryVenues } from '@/hooks/useTemporaryVenues'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -21,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext'
 // Custom Hooks (ScheduleManager専用)
 import { useCategoryFilter } from './hooks/useCategoryFilter'
 import { useMonthNavigation } from './hooks/useMonthNavigation'
+import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut'
 import { useGmStats } from './hooks/useGmStats'
 
 // Types
@@ -70,6 +72,20 @@ export function ScheduleManager() {
   const { clearScrollPosition } = useRouteScrollControls()
   const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(clearScrollPosition)
 
+  // キーボードショートカット: ← 前月 / → 次月 / T 今月
+  useKeyboardShortcut('ArrowLeft', useCallback(() => {
+    if (clearScrollPosition) clearScrollPosition()
+    setCurrentDate(prev => { const d = new Date(prev); d.setMonth(d.getMonth() - 1); return d })
+  }, [setCurrentDate, clearScrollPosition]))
+  useKeyboardShortcut('ArrowRight', useCallback(() => {
+    if (clearScrollPosition) clearScrollPosition()
+    setCurrentDate(prev => { const d = new Date(prev); d.setMonth(d.getMonth() + 1); return d })
+  }, [setCurrentDate, clearScrollPosition]))
+  useKeyboardShortcut('t', useCallback(() => {
+    if (clearScrollPosition) clearScrollPosition()
+    setCurrentDate(new Date())
+  }, [setCurrentDate, clearScrollPosition]))
+
   // 臨時会場管理
   const { temporaryVenues, availableVenues, getVenueNameForDate, addTemporaryVenue, updateVenueName, removeTemporaryVenue } = useTemporaryVenues(currentDate)
   
@@ -84,11 +100,11 @@ export function ScheduleManager() {
 
   // GMリスト
   const [gmList, setGmList] = useState<Staff[]>([])
-  const [selectedGMs, setSelectedGMs] = useState<string[]>([])
-  
-  // 店舗フィルター
-  const [selectedStores, setSelectedStores] = useState<string[]>([])
-  
+  const [selectedGMs, setSelectedGMs] = useLocalState<string[]>('scheduleSelectedGMs', [])
+
+  // 店舗フィルター（localStorageで次回以降も同じ店舗を保持）
+  const [selectedStores, setSelectedStores] = useLocalState<string[]>('scheduleSelectedStores', [])
+
   // シフト提出者フィルター（空スロットに表示されるシフト提出者を絞り込む）
   const [selectedShiftStaff, setSelectedShiftStaff] = useState<string[]>([])
 
@@ -448,7 +464,13 @@ export function ScheduleManager() {
         displayInfoSearchText: `${scheduled}/${cancelled}`
       })
     })
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+    // 公演数降順 → 名前昇順
+    return [...map.values()].sort((a, b) => {
+      const aCount = scheduledCount.get(a.id) || 0
+      const bCount = scheduledCount.get(b.id) || 0
+      if (bCount !== aCount) return bCount - aCount
+      return a.name.localeCompare(b.name, 'ja')
+    })
   }, [modals?.performanceModal?.scenarios, scheduleTableProps.events])
 
   const selectedScenarioId = selectedScenarioIds[0] || null
