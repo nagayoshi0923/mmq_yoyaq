@@ -475,7 +475,7 @@ export function useOpenEventAnalysis() {
       result.push({
         type: 'warning',
         title: '全体的に満席率が低い状況です',
-        body: `この期間の満席率は ${stats.fullRate.toFixed(1)}% にとどまりました。定員設定・告知タイミング・シナリオ選定のいずれかに課題がある可能性があります。`,
+        body: `この期間の満席率は ${stats.fullRate.toFixed(1)}% にとどまりました。告知タイミング・告知チャネル・シナリオ選定のいずれかに課題がある可能性があります。`,
         priority: 1,
       })
     }
@@ -491,13 +491,24 @@ export function useOpenEventAnalysis() {
       })
     }
 
-    // ── 開催が多いのに満席率が低いシナリオ ─────────────
-    const overbooked = scenarioBreakdown.filter(s => s.totalEvents >= MIN_EVENTS && s.fullRate < 30)
-    for (const s of overbooked.slice(0, 2)) {
+    // ── 開催を絞るべきシナリオ（頻度過多で需要を消費している） ──
+    // 5公演以上かつ満席率30%未満 → 供給過多の可能性が高い
+    const overScheduled = scenarioBreakdown.filter(s => s.totalEvents >= 5 && s.fullRate < 30)
+    for (const s of overScheduled.slice(0, 2)) {
       result.push({
         type: 'warning',
-        title: `「${s.scenarioTitle}」は集客に課題があります`,
-        body: `${s.totalEvents} 回開催しましたが満席率は ${s.fullRate.toFixed(0)}% にとどまりました。定員を下げるか、告知を強化するか、開催頻度を減らすことを検討しましょう。`,
+        title: `「${s.scenarioTitle}」は開催頻度を下げましょう`,
+        body: `${s.totalEvents} 回開催しましたが満席率は ${s.fullRate.toFixed(0)}% にとどまっています。供給過多になっている可能性が高く、開催を絞ることで希少性が生まれ、1公演あたりの集客が改善しやすくなります。`,
+        priority: 2,
+      })
+    }
+    // 3〜4公演で満席率30%未満 → 告知強化が主な改善策
+    const lowFillSmall = scenarioBreakdown.filter(s => s.totalEvents >= MIN_EVENTS && s.totalEvents < 5 && s.fullRate < 30)
+    for (const s of lowFillSmall.slice(0, 1)) {
+      result.push({
+        type: 'warning',
+        title: `「${s.scenarioTitle}」の集客を見直しましょう`,
+        body: `${s.totalEvents} 回開催しましたが満席率は ${s.fullRate.toFixed(0)}% です。告知タイミングや告知チャネルを改善することで空席を減らせる可能性があります。`,
         priority: 2,
       })
     }
