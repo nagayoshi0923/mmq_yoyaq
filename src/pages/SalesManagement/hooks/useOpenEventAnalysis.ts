@@ -122,7 +122,7 @@ export function useOpenEventAnalysis() {
   const [events, setEvents] = useState<OpenEventItem[]>([])
   const [reservations, setReservations] = useState<ReservationItem[]>([])
   const [loading, setLoading] = useState(false)
-  const [period, setPeriod] = useLocalState('openEventAnalysisPeriod', 'past90days')
+  const [period, setPeriod] = useLocalState('openEventAnalysisPeriod', 'thisMonth')
   const [includeGmTest, setIncludeGmTest] = useLocalState('openEventAnalysisIncludeGmTest', false)
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' })
 
