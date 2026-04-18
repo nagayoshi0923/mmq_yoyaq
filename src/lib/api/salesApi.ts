@@ -464,14 +464,15 @@ export const salesApi = {
   },
 
   // オープン公演分析データを取得
-  async getOpenEventAnalysis(startDate: string, endDate: string, storeIds?: string[]) {
+  async getOpenEventAnalysis(startDate: string, endDate: string, storeIds?: string[], includeGmTest = false) {
     const orgId = await getCurrentOrganizationId()
 
-    // オープン公演を取得
+    // オープン（＋オプションでGMテスト）公演を取得
+    const categories = includeGmTest ? ['open', 'gmtest'] : ['open']
     let eventsQuery = supabase
       .from('schedule_events_staff_view')
-      .select('id, date, start_time, scenario, scenario_master_id, max_participants, current_participants, is_cancelled, created_at, store_id')
-      .eq('category', 'open')
+      .select('id, date, start_time, scenario, scenario_master_id, capacity, max_participants, current_participants, is_cancelled, created_at, store_id, category')
+      .in('category', categories)
       .gte('date', startDate)
       .lte('date', endDate)
 
@@ -490,17 +491,26 @@ export const salesApi = {
 
     // 対象イベントの予約を取得（満席日数計算のため）
     const eventIds = events.map(e => e.id)
-    const { data: reservations, error: reservationsError } = await supabase
-      .from('reservations')
-      .select('id, schedule_event_id, created_at, participant_count, status')
-      .in('schedule_event_id', eventIds)
-      .in('status', ['confirmed', 'completed', 'checked_in', 'no_show'])
+    // キャンセル以外の予約をすべて取得（URLの長さ制限のため100件ずつバッチ処理）
+    const BATCH_SIZE = 100
+    const allReservations: Array<{ id: string; schedule_event_id: string; created_at: string; participant_count: number | null; status: string }> = []
 
-    if (reservationsError) {
-      logger.error('予約データの取得に失敗:', reservationsError)
+    for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+      const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+      const { data: batch, error: batchError } = await supabase
+        .from('reservations')
+        .select('id, schedule_event_id, created_at, participant_count, status')
+        .in('schedule_event_id', batchIds)
+        .neq('status', 'cancelled')
+
+      if (batchError) {
+        logger.error('予約データの取得に失敗:', batchError)
+      } else if (batch) {
+        allReservations.push(...batch)
+      }
     }
 
-    return { events, reservations: reservations || [] }
+    return { events, reservations: allReservations }
   }
 }
 
