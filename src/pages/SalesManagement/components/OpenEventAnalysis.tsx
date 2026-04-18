@@ -406,7 +406,7 @@ export const OpenEventAnalysis: React.FC<OpenEventAnalysisProps> = ({
                           {list.map((rec, i) => {
                             const isSmallSample = rec.slotTotal <= 2
                             return (
-                            <li key={i} className="flex gap-2">
+                            <li key={i} className="flex gap-2 items-start">
                               <span className={`mt-0.5 shrink-0 text-[11px] font-bold w-4 ${
                                 i === 0 ? (color === 'green' ? 'text-green-600' : color === 'purple' ? 'text-purple-600' : 'text-blue-600') : 'text-muted-foreground'
                               }`}>{i + 1}</span>
@@ -458,7 +458,7 @@ export const OpenEventAnalysis: React.FC<OpenEventAnalysisProps> = ({
                               </div>
                             </li>
                             )
-                          ))}
+                          })}
                         </ol>
                       )}
                     </div>
