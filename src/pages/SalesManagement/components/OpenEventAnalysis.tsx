@@ -16,7 +16,8 @@ import {
   Legend,
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
-import { CalendarCheck, TrendingUp, Clock, Users, ChevronUp, ChevronDown, ChevronsUpDown, SlidersHorizontal, X, Info, Lightbulb } from 'lucide-react'
+import { CalendarCheck, TrendingUp, Clock, Users, ChevronUp, ChevronDown, ChevronsUpDown, SlidersHorizontal, X, Info, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide-react'
+import type { InsightType } from '../hooks/useOpenEventAnalysis'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useOpenEventAnalysis } from '../hooks/useOpenEventAnalysis'
@@ -71,7 +72,7 @@ export const OpenEventAnalysis: React.FC<OpenEventAnalysisProps> = ({
     weekdayBreakdown,
     timeSlotBreakdown,
     scenarioBreakdown,
-    recommendations,
+    insights,
     loadOpenEventData
   } = useOpenEventAnalysis()
 
@@ -203,48 +204,10 @@ export const OpenEventAnalysis: React.FC<OpenEventAnalysisProps> = ({
       : <ChevronDown className="inline h-3 w-3 ml-1 text-primary" />
   }
 
-  // スロット別の文章アドバイス生成
-  const getSlotAdvice = (list: typeof recommendations.weekdayAfternoon, slotLabel: string): string => {
-    if (list.length === 0) {
-      return `${slotLabel}の実績データがまだありません。まずは公演を開催してデータを積み上げましょう。`
-    }
-
-    const top = list[0]
-    const allSmallSample = list.every(r => r.slotTotal <= 2)
-    const topRate = top.slotFullRate
-    const topIsSmall = top.slotTotal <= 2
-
-    // 全件サンプル少
-    if (allSmallSample) {
-      return `${slotLabel}はまだデータが少なく傾向を判断しにくい状況です。各シナリオを複数回開催して実績を積みましょう。`
-    }
-
-    // トップが小サンプル
-    if (topIsSmall) {
-      const reliable = list.find(r => r.slotTotal > 2)
-      if (reliable) {
-        return `「${reliable.scenarioTitle}」は${reliable.slotTotal}公演の実績で満席率${reliable.slotFullRate.toFixed(0)}%と安定しています。サンプルの多いシナリオを優先的に開催し、傾向をつかんでいきましょう。`
-      }
-      return `${slotLabel}はまだ十分なデータが集まっていません。まずはデータを増やすことを優先しましょう。`
-    }
-
-    // 高満席率（80%以上）
-    if (topRate >= 80) {
-      const daysNote = top.avgDaysToFull > 0 ? `平均${top.avgDaysToFull.toFixed(0)}日で満席になる傾向があり、` : ''
-      const multiNote = list.length >= 2 && list[1].slotFullRate >= 60
-        ? `「${list[1].scenarioTitle}」(${list[1].slotFullRate.toFixed(0)}%)も好調です。` : ''
-      return `「${top.scenarioTitle}」が${top.slotTotal}公演で満席率${topRate.toFixed(0)}%と最も安定しています。${daysNote}引き続き優先的に組み込みましょう。${multiNote}`
-    }
-
-    // 中程度（50〜80%）
-    if (topRate >= 50) {
-      const lowNote = list.length >= 2 && list[list.length - 1].slotFullRate < 30
-        ? `一方「${list[list.length - 1].scenarioTitle}」は満席率が低め（${list[list.length - 1].slotFullRate.toFixed(0)}%）で見直しの余地があります。` : ''
-      return `「${top.scenarioTitle}」(満席率${topRate.toFixed(0)}%)が最も成績が良いですが、改善の余地があります。早めの告知や定員設定の調整を検討してみましょう。${lowNote}`
-    }
-
-    // 低満席率（50%未満）
-    return `${slotLabel}は全体的に満席率が低く（最高${topRate.toFixed(0)}%）、課題がある状況です。他の時間帯で実績のあるシナリオを試すか、集客施策の強化を検討しましょう。`
+  const insightStyle = (type: InsightType) => {
+    if (type === 'positive')   return { border: 'border-green-200  bg-green-50/60',  icon: <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />,   title: 'text-green-900',  body: 'text-green-800' }
+    if (type === 'warning')    return { border: 'border-amber-200  bg-amber-50/60',  icon: <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />,  title: 'text-amber-900',  body: 'text-amber-800' }
+    return                            { border: 'border-blue-200   bg-blue-50/60',   icon: <Lightbulb     className="h-4 w-4 text-blue-600  shrink-0 mt-0.5" />,  title: 'text-blue-900',   body: 'text-blue-800'  }
   }
 
   const hasData = stats.totalEvents > 0
@@ -412,106 +375,32 @@ export const OpenEventAnalysis: React.FC<OpenEventAnalysisProps> = ({
             </Card>
           </div>
 
-          {/* 公演計画アドバイス */}
-          {(recommendations.weekdayAfternoon.length > 0 || recommendations.weekdayEvening.length > 0 || recommendations.weekend.length > 0) && (
+          {/* 実績の振り返りと改善 */}
+          {insights.length > 0 && (
             <Card className="shadow-none border">
               <CardHeader className="p-3 md:p-4 pb-2">
                 <div className="flex items-center gap-2">
                   <Lightbulb className="h-4 w-4 text-amber-500 shrink-0" />
-                  <CardTitle className="text-sm">公演計画アドバイス</CardTitle>
+                  <CardTitle className="text-sm">実績の振り返りと改善</CardTitle>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  過去データをもとに、各時間帯で成功しやすいシナリオを提案します
+                  この期間の公演データをもとに、課題と改善点を自動分析しています
                 </p>
               </CardHeader>
               <CardContent className="p-3 md:p-4 pt-0">
-                <div className="grid gap-3 md:grid-cols-3">
-                  {([
-                    { key: 'weekdayAfternoon', label: '平日 昼', sub: '(〜17時)', color: 'green',  list: recommendations.weekdayAfternoon },
-                    { key: 'weekdayEvening',   label: '平日 夜', sub: '(17時〜)', color: 'purple', list: recommendations.weekdayEvening },
-                    { key: 'weekend',          label: '土 日',   sub: '',         color: 'blue',   list: recommendations.weekend },
-                  ] as const).map(({ key, label, sub, color, list }) => (
-                    <div key={key} className={`rounded-lg border p-3 ${
-                      color === 'green'  ? 'border-green-200 bg-green-50/50' :
-                      color === 'purple' ? 'border-purple-200 bg-purple-50/50' :
-                                           'border-blue-200 bg-blue-50/50'
-                    }`}>
-                      <div className="flex items-baseline gap-1.5 mb-1.5">
-                        <span className={`font-semibold text-sm ${
-                          color === 'green' ? 'text-green-800' : color === 'purple' ? 'text-purple-800' : 'text-blue-800'
-                        }`}>{label}</span>
-                        {sub && <span className="text-[11px] text-muted-foreground">{sub}</span>}
+                <div className="space-y-2">
+                  {insights.map((insight, i) => {
+                    const s = insightStyle(insight.type)
+                    return (
+                      <div key={i} className={`flex gap-3 rounded-lg border p-3 ${s.border}`}>
+                        {s.icon}
+                        <div>
+                          <p className={`text-xs font-semibold leading-snug ${s.title}`}>{insight.title}</p>
+                          <p className={`text-xs leading-relaxed mt-0.5 ${s.body}`}>{insight.body}</p>
+                        </div>
                       </div>
-
-                      {/* 文章アドバイス */}
-                      <p className={`text-[11px] leading-relaxed mb-3 ${
-                        color === 'green' ? 'text-green-900' : color === 'purple' ? 'text-purple-900' : 'text-blue-900'
-                      }`}>
-                        {getSlotAdvice(list, label)}
-                      </p>
-
-                      {list.length === 0 ? null : (
-                        <ol className="space-y-2.5">
-                          {list.map((rec, i) => {
-                            const isSmallSample = rec.slotTotal <= 2
-                            return (
-                            <li key={i} className="flex gap-2 items-start">
-                              <span className={`mt-0.5 shrink-0 text-[11px] font-bold w-4 ${
-                                i === 0 ? (color === 'green' ? 'text-green-600' : color === 'purple' ? 'text-purple-600' : 'text-blue-600') : 'text-muted-foreground'
-                              }`}>{i + 1}</span>
-                              <div className="min-w-0 w-full">
-                                <p className="text-xs font-medium leading-snug truncate">{rec.scenarioTitle}</p>
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                                  {/* このスロットの満席率 */}
-                                  <span className={`text-[11px] font-semibold ${
-                                    isSmallSample ? 'text-muted-foreground' :
-                                    rec.slotFullRate >= 80 ? 'text-blue-600' :
-                                    rec.slotFullRate >= 50 ? 'text-amber-600' : 'text-muted-foreground'
-                                  }`}>
-                                    この枠 {rec.slotFullRate.toFixed(0)}%
-                                  </span>
-                                  {/* サンプル数 */}
-                                  <span className={`text-[11px] ${isSmallSample ? 'text-amber-500 font-medium' : 'text-muted-foreground'}`}>
-                                    {rec.slotTotal}公演{isSmallSample ? ' ⚠' : ''}
-                                  </span>
-                                  {/* 全体満席率（参考）*/}
-                                  <span className="text-[11px] text-muted-foreground">
-                                    全体 {rec.overallFullRate.toFixed(0)}%
-                                  </span>
-                                </div>
-                                {/* 満席まで平均日数 */}
-                                {rec.avgDaysToFull > 0 && (
-                                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                                    満席まで平均 {rec.avgDaysToFull.toFixed(0)}日
-                                  </p>
-                                )}
-                                {isSmallSample && (
-                                  <p className="text-[10px] text-amber-600 mt-0.5">
-                                    サンプルが少ないため参考値です
-                                  </p>
-                                )}
-                                {rec.badges.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {rec.badges.slice(0, 3).map((b, bi) => (
-                                      <span key={bi} className={`inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium ${
-                                        b.color === 'blue'   ? 'bg-blue-100 text-blue-700' :
-                                        b.color === 'green'  ? 'bg-green-100 text-green-700' :
-                                        b.color === 'amber'  ? 'bg-amber-100 text-amber-700' :
-                                        b.color === 'purple' ? 'bg-purple-100 text-purple-700' :
-                                        b.color === 'rose'   ? 'bg-rose-100 text-rose-700' :
-                                                               'bg-slate-100 text-slate-600'
-                                      }`}>{b.label}</span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </li>
-                            )
-                          })}
-                        </ol>
-                      )}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </CardContent>
             </Card>

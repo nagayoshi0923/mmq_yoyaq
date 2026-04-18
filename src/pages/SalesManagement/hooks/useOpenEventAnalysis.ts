@@ -89,19 +89,13 @@ export interface ScenarioBreakdown {
   weekendTotal: number
 }
 
-export interface SlotRecommendation {
-  scenarioTitle: string
-  slotFullRate: number   // 該当スロットの満席率
-  slotTotal: number      // 該当スロットのイベント数
-  overallFullRate: number
-  avgDaysToFull: number
-  badges: ScenarioBadge[]
-}
+export type InsightType = 'positive' | 'warning' | 'suggestion'
 
-export interface Recommendations {
-  weekdayAfternoon: SlotRecommendation[]  // 平日昼
-  weekdayEvening: SlotRecommendation[]    // 平日夜
-  weekend: SlotRecommendation[]           // 土日
+export interface Insight {
+  type: InsightType
+  title: string
+  body: string
+  priority: number  // 小さいほど上位表示
 }
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
@@ -462,34 +456,109 @@ export function useOpenEventAnalysis() {
       .sort((a, b) => b.totalEvents - a.totalEvents)
   }, [events, daysToFullMap, actualCountByEvent])
 
-  // スロット別おすすめシナリオ（上位3件）
-  const recommendations = useMemo<Recommendations>(() => {
-    const toRec = (s: ScenarioBreakdown, rate: number, total: number): SlotRecommendation => ({
-      scenarioTitle: s.scenarioTitle,
-      slotFullRate: rate,
-      slotTotal: total,
-      overallFullRate: s.fullRate,
-      avgDaysToFull: s.avgDaysToFull,
-      badges: s.badges,
-    })
+  // 実績の振り返りと改善インサイト生成
+  const insights = useMemo<Insight[]>(() => {
+    const result: Insight[] = []
+    const MIN_EVENTS = 3  // 判定に必要な最低公演数
 
-    const topN = (
-      getRate: (s: ScenarioBreakdown) => number,
-      getTotal: (s: ScenarioBreakdown) => number,
-      n = 3
-    ): SlotRecommendation[] =>
-      scenarioBreakdown
-        .filter(s => getTotal(s) > 0 && getRate(s) >= 0)
-        .sort((a, b) => getRate(b) - getRate(a))
-        .slice(0, n)
-        .map(s => toRec(s, getRate(s), getTotal(s)))
+    if (stats.totalEvents < MIN_EVENTS) return result
 
-    return {
-      weekdayAfternoon: topN(s => s.weekdayAfternoonRate, s => s.weekdayAfternoonTotal),
-      weekdayEvening:   topN(s => s.weekdayEveningRate,   s => s.weekdayEveningTotal),
-      weekend:          topN(s => s.weekendRate,           s => s.weekendTotal),
+    // ── 全体満席率 ──────────────────────────────────────
+    if (stats.fullRate >= 70) {
+      result.push({
+        type: 'positive',
+        title: '全体的に高い満席率を維持できています',
+        body: `この期間の満席率は ${stats.fullRate.toFixed(1)}% です。引き続き現在の公演ペースとシナリオ選定を維持しましょう。`,
+        priority: 1,
+      })
+    } else if (stats.fullRate < 30 && stats.totalEvents >= MIN_EVENTS) {
+      result.push({
+        type: 'warning',
+        title: '全体的に満席率が低い状況です',
+        body: `この期間の満席率は ${stats.fullRate.toFixed(1)}% にとどまりました。定員設定・告知タイミング・シナリオ選定のいずれかに課題がある可能性があります。`,
+        priority: 1,
+      })
     }
-  }, [scenarioBreakdown])
+
+    // ── 人気なのに開催が少ないシナリオ（機会損失） ─────────
+    const underbooked = scenarioBreakdown.filter(s => s.fullRate >= 70 && s.totalEvents > 0 && s.totalEvents <= 3)
+    for (const s of underbooked.slice(0, 2)) {
+      result.push({
+        type: 'suggestion',
+        title: `「${s.scenarioTitle}」はもっと開催できます`,
+        body: `満席率 ${s.fullRate.toFixed(0)}% と人気があるのに、この期間の開催は ${s.totalEvents} 回のみです。積極的にスケジュールに組み込んで機会損失を減らしましょう。`,
+        priority: 2,
+      })
+    }
+
+    // ── 開催が多いのに満席率が低いシナリオ ─────────────
+    const overbooked = scenarioBreakdown.filter(s => s.totalEvents >= MIN_EVENTS && s.fullRate < 30)
+    for (const s of overbooked.slice(0, 2)) {
+      result.push({
+        type: 'warning',
+        title: `「${s.scenarioTitle}」は集客に課題があります`,
+        body: `${s.totalEvents} 回開催しましたが満席率は ${s.fullRate.toFixed(0)}% にとどまりました。定員を下げるか、告知を強化するか、開催頻度を減らすことを検討しましょう。`,
+        priority: 2,
+      })
+    }
+
+    // ── 満席まで時間がかかりすぎるシナリオ ──────────────
+    const slowFill = scenarioBreakdown.filter(s => s.avgDaysToFull >= 21 && s.fullEvents >= 2)
+    for (const s of slowFill.slice(0, 2)) {
+      result.push({
+        type: 'suggestion',
+        title: `「${s.scenarioTitle}」の告知開始を早めましょう`,
+        body: `満席になるまで平均 ${s.avgDaysToFull.toFixed(0)} 日かかっています。公演日のより早い段階から予約受付・告知を開始することで、直前の空席リスクを減らせます。`,
+        priority: 3,
+      })
+    }
+
+    // ── 時間帯の偏り ────────────────────────────────────
+    const reliableSlots = timeSlotBreakdown.filter(t => t.totalEvents >= MIN_EVENTS)
+    if (reliableSlots.length >= 2) {
+      const best  = reliableSlots.reduce((a, b) => a.fullRate > b.fullRate ? a : b)
+      const worst = reliableSlots.reduce((a, b) => a.fullRate < b.fullRate ? a : b)
+      if (best.fullRate - worst.fullRate >= 25) {
+        result.push({
+          type: 'suggestion',
+          title: `${worst.slot}の公演は成績が低めです`,
+          body: `${worst.slot}の満席率は ${worst.fullRate.toFixed(0)}% で、${best.slot}（${best.fullRate.toFixed(0)}%）を大きく下回っています。${worst.slot}の枠を${best.slot}へシフトするか、${worst.slot}向けの集客施策を強化しましょう。`,
+          priority: 3,
+        })
+      }
+    }
+
+    // ── 曜日の偏り ──────────────────────────────────────
+    const reliableWeekdays = weekdayBreakdown.filter(w => w.totalEvents >= MIN_EVENTS)
+    const weekendData  = reliableWeekdays.filter(w => w.weekday === '土' || w.weekday === '日')
+    const weekdayData  = reliableWeekdays.filter(w => w.weekday !== '土' && w.weekday !== '日')
+    const avgWE = weekendData.length  > 0 ? weekendData.reduce((a, b)  => a + b.fullRate, 0) / weekendData.length  : -1
+    const avgWD = weekdayData.length  > 0 ? weekdayData.reduce((a, b)  => a + b.fullRate, 0) / weekdayData.length  : -1
+    if (avgWE >= 0 && avgWD >= 0 && Math.abs(avgWE - avgWD) >= 20) {
+      const better = avgWE > avgWD ? '土日' : '平日'
+      const worse  = avgWE > avgWD ? '平日' : '土日'
+      const betterRate = Math.max(avgWE, avgWD)
+      const worseRate  = Math.min(avgWE, avgWD)
+      result.push({
+        type: 'suggestion',
+        title: `${better}の公演が${worse}を大きく上回っています`,
+        body: `${better}の平均満席率 ${betterRate.toFixed(0)}% に対し、${worse}は ${worseRate.toFixed(0)}% です。${worse}の公演数を減らして${better}に集中するか、${worse}の集客改善策を検討しましょう。`,
+        priority: 4,
+      })
+    }
+
+    // ── 平均満席日数が長い（全体） ──────────────────────
+    if (stats.avgDaysToFull >= 30 && stats.fullEvents >= MIN_EVENTS) {
+      result.push({
+        type: 'suggestion',
+        title: '全体的に満席まで時間がかかっています',
+        body: `満席になった公演の平均は公演作成から ${stats.avgDaysToFull.toFixed(0)} 日後です。公演情報を早めに公開し、SNSやメルマガでの早期告知を強化することを検討しましょう。`,
+        priority: 4,
+      })
+    }
+
+    return result.sort((a, b) => a.priority - b.priority)
+  }, [stats, scenarioBreakdown, timeSlotBreakdown, weekdayBreakdown])
 
   return {
     loading,
@@ -501,7 +570,7 @@ export function useOpenEventAnalysis() {
     weekdayBreakdown,
     timeSlotBreakdown,
     scenarioBreakdown,
-    recommendations,
+    insights,
     loadOpenEventData
   }
 }
