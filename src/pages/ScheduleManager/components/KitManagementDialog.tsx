@@ -1072,7 +1072,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const demandSet = new Set<string>()
       const demands: Array<{ date: string; store_id: string; scenario_master_id: string }> = []
       for (const event of scheduleEvents) {
-        if (demandDates.includes(event.date) && event.scenario_master_id) {
+        if (demandDates.includes(event.date) && event.scenario_master_id && !event.is_cancelled) {
           const key = `${event.date}::${event.store_id}::${event.scenario_master_id}`
           if (!demandSet.has(key)) {
             demandSet.add(key)
@@ -1098,6 +1098,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         scheduleEvents: scheduleEvents.length,
         demandDates,
         demands: demands.length,
+        allScenarios: scenarios.length,
         scenariosWithKits: scenariosWithKits.length,
         transferDates,
         transferDaysOfWeek
@@ -1117,10 +1118,12 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       }
 
       // 移動計画を計算
+      // scenariosWithKits（kit_count > 0 かつ検索フィルタ適用）ではなく、
+      // 全シナリオを渡す。kit_count が null でも kitLocations にキットがあれば計算対象にするため。
       const result = calculateKitTransfers(
         kitState,
         demands,
-        scenariosWithKits,
+        scenarios,
         stores,
         transferDaysOfWeek
       )
