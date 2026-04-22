@@ -154,15 +154,7 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       const hasPlayableCharacters = Array.isArray(orgScenarioData.characters) &&
         orgScenarioData.characters.some((c: any) => !c.is_npc)
 
-      // 主催者のメールアドレスを reservations テーブルから取得
-      const { data: reservationData } = await supabase
-        .from('reservations')
-        .select('customer_email, candidate_datetimes')
-        .eq('private_group_id', selectedGroupForSurvey.id)
-        .eq('status', 'confirmed')
-        .eq('reservation_source', 'web_private')
-        .maybeSingle()
-      const customerEmail = reservationData?.customer_email || selectedGroupForSurvey.organizer?.email
+      const customerEmail = selectedGroupForSurvey.confirmed_customer_email
 
       if (hasPlayableCharacters) {
         const { data: globalSettings } = await supabase
@@ -191,13 +183,10 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
         }
       } else {
         let deadlineText = ''
-        if (reservationData?.candidate_datetimes?.candidates && orgScenarioData.survey_deadline_days !== undefined) {
-          const confirmedCandidate = reservationData.candidate_datetimes.candidates.find((c: any) => c.status === 'confirmed')
-          if (confirmedCandidate?.date) {
-            const perfDate = new Date(confirmedCandidate.date + 'T00:00:00+09:00')
-            perfDate.setDate(perfDate.getDate() - orgScenarioData.survey_deadline_days)
-            deadlineText = `\n\n回答期限: ${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`
-          }
+        if (selectedGroupForSurvey.confirmed_date && orgScenarioData.survey_deadline_days !== undefined) {
+          const perfDate = new Date(selectedGroupForSurvey.confirmed_date + 'T00:00:00+09:00')
+          perfDate.setDate(perfDate.getDate() - orgScenarioData.survey_deadline_days)
+          deadlineText = `\n\n回答期限: ${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`
         }
 
         const surveyMessage = `【事前配役アンケートのご協力のお願い】\n\nこちらの公演では事前配役アンケートへのご回答をお願いしております。\n\n上記の「日程を確認・回答する」ボタンからアンケートにお答えください。${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`

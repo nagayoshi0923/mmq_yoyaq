@@ -12,10 +12,11 @@ export interface PrivateGroupListItem {
   created_at: string
   updated_at: string
   survey_enabled?: boolean
-  confirmed_date?: string       // 確定した公演日（YYYY-MM-DD）
-  confirmed_time?: string       // 確定した公演時間（HH:MM〜HH:MM）
-  confirmed_gm_name?: string    // 確定したGM名
-  confirmed_store_name?: string // 確定した店舗名
+  confirmed_date?: string         // 確定した公演日（YYYY-MM-DD）
+  confirmed_time?: string         // 確定した公演時間（HH:MM〜HH:MM）
+  confirmed_gm_name?: string      // 確定したGM名
+  confirmed_store_name?: string   // 確定した店舗名
+  confirmed_customer_email?: string // 確定済み予約の主催者メール
   scenario_masters: {
     id: string
     title: string
@@ -135,7 +136,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         groupIds.length > 0
           ? supabase
               .from('reservations')
-              .select('private_group_id, candidate_datetimes, gm_staff, store_id')
+              .select('private_group_id, candidate_datetimes, gm_staff, store_id, customer_email')
               .in('private_group_id', groupIds)
               .eq('status', 'confirmed')
               .eq('reservation_source', 'web_private')
@@ -157,6 +158,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       const confirmedTimeMap = new Map<string, string>()
       const confirmedGmStaffIdMap = new Map<string, string>()
       const confirmedStoreIdMap = new Map<string, string>()
+      const confirmedCustomerEmailMap = new Map<string, string>()
       ;(bookingResult.data || []).forEach((req: any) => {
         if (!req.private_group_id) return
         if (req.candidate_datetimes?.candidates) {
@@ -170,6 +172,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         }
         if (req.gm_staff) confirmedGmStaffIdMap.set(req.private_group_id, req.gm_staff)
         if (req.store_id) confirmedStoreIdMap.set(req.private_group_id, req.store_id)
+        if (req.customer_email) confirmedCustomerEmailMap.set(req.private_group_id, req.customer_email)
       })
 
       // GMスタッフ名・店舗名を一括取得
@@ -211,6 +214,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           confirmed_time: confirmedTimeMap.get(g.id),
           confirmed_gm_name: gmStaffId ? gmNameMap.get(gmStaffId) : undefined,
           confirmed_store_name: storeId ? storeNameMap.get(storeId) : undefined,
+          confirmed_customer_email: confirmedCustomerEmailMap.get(g.id),
         }
       }) as PrivateGroupListItem[]
 
