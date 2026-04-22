@@ -12,7 +12,9 @@ export interface PrivateGroupListItem {
   created_at: string
   updated_at: string
   survey_enabled?: boolean
-  confirmed_date?: string  // 確定した公演日（YYYY-MM-DD）
+  confirmed_date?: string       // 確定した公演日（YYYY-MM-DD）
+  confirmed_time?: string       // 確定した公演時間（HH:MM〜HH:MM）
+  confirmed_gm_name?: string    // 確定したGM名
   scenario_masters: {
     id: string
     title: string
@@ -128,11 +130,11 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
               .eq('organization_id', orgId)
               .in('scenario_master_id', scenarioMasterIds)
           : Promise.resolve({ data: [] }),
-        // 確定済み予約の公演日（confirmed_date）
+        // 確定済み予約の公演日・GM・時間
         groupIds.length > 0
           ? supabase
               .from('private_booking_requests')
-              .select('private_group_id, candidate_datetimes')
+              .select('private_group_id, candidate_datetimes, gm_staff')
               .in('private_group_id', groupIds)
               .eq('status', 'confirmed')
           : Promise.resolve({ data: [] }),
@@ -148,27 +150,49 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         surveyMap.set(s.scenario_master_id, s.survey_enabled ?? false)
       })
 
-      // グループIDごとの確定公演日マップ
+      // グループIDごとの確定公演日・時間・GMスタッフIDマップ
       const confirmedDateMap = new Map<string, string>()
+      const confirmedTimeMap = new Map<string, string>()
+      const confirmedGmStaffIdMap = new Map<string, string>()
       ;(bookingResult.data || []).forEach((req: any) => {
         if (!req.private_group_id || !req.candidate_datetimes?.candidates) return
         const confirmed = req.candidate_datetimes.candidates.find((c: any) => c.status === 'confirmed')
         if (confirmed?.date) {
           confirmedDateMap.set(req.private_group_id, confirmed.date)
+          const start = confirmed.startTime || confirmed.start_time || ''
+          const end = confirmed.endTime || confirmed.end_time || ''
+          if (start) confirmedTimeMap.set(req.private_group_id, end ? `${start}〜${end}` : start)
         }
+        if (req.gm_staff) confirmedGmStaffIdMap.set(req.private_group_id, req.gm_staff)
       })
+
+      // GMスタッフ名を一括取得
+      const gmStaffIds = [...new Set([...confirmedGmStaffIdMap.values()].filter(Boolean))]
+      const gmNameMap = new Map<string, string>()
+      if (gmStaffIds.length > 0) {
+        const { data: staffRows } = await supabase
+          .from('staff')
+          .select('id, display_name, name')
+          .in('id', gmStaffIds)
+        ;(staffRows || []).forEach((s: any) => {
+          gmNameMap.set(s.id, s.display_name || s.name || '')
+        })
+      }
 
       const groupsWithOrganizer = (data || []).map(g => {
         const scenarioMasters = Array.isArray(g.scenario_masters)
           ? g.scenario_masters[0]
           : g.scenario_masters
 
+        const gmStaffId = confirmedGmStaffIdMap.get(g.id)
         return {
           ...g,
           scenario_masters: scenarioMasters || null,
           organizer: organizerMap.get(g.organizer_id) || { name: '不明' },
           survey_enabled: surveyMap.get(g.scenario_master_id) ?? false,
           confirmed_date: confirmedDateMap.get(g.id),
+          confirmed_time: confirmedTimeMap.get(g.id),
+          confirmed_gm_name: gmStaffId ? gmNameMap.get(gmStaffId) : undefined,
         }
       }) as PrivateGroupListItem[]
 

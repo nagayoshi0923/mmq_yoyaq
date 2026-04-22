@@ -389,14 +389,33 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                           <Users className="w-3.5 h-3.5" />
                           {group.members.length}/{group.scenario_masters?.player_count_max || '?'}名
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          候補: {group.candidate_dates.length}件
-                        </span>
+                        {group.status !== 'confirmed' && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            候補: {group.candidate_dates.length}件
+                          </span>
+                        )}
                         <span className="text-xs">
                           作成: {formatRelativeDate(group.created_at)}
                         </span>
                       </div>
+
+                      {/* 確定公演の日程・時間・GM */}
+                      {group.status === 'confirmed' && group.confirmed_date && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-green-700">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {group.confirmed_date.replace(/-/g, '/')}
+                            {group.confirmed_time && <span className="ml-1">{group.confirmed_time}</span>}
+                          </span>
+                          {group.confirmed_gm_name && (
+                            <span className="flex items-center gap-1 text-muted-foreground font-normal">
+                              <Users className="w-3.5 h-3.5" />
+                              GM: {group.confirmed_gm_name}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* 回答進捗 */}
                       {group.candidate_dates.length > 0 && group.members.length > 0 && (
