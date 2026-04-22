@@ -11,6 +11,8 @@ export interface PrivateGroupListItem {
   scenario_master_id: string
   created_at: string
   updated_at: string
+  survey_enabled?: boolean
+  confirmed_date?: string  // 確定した公演日（YYYY-MM-DD）
   scenario_masters: {
     id: string
     title: string
@@ -103,33 +105,70 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         throw queryError
       }
 
-      // 主催者情報を取得
-      const organizerIds = [...new Set((data || []).map(g => g.organizer_id).filter(Boolean))]
-      const organizerMap: Map<string, { name: string; nickname?: string; email?: string }> = new Map()
+      const groupIds = (data || []).map(g => g.id)
+      const scenarioMasterIds = [...new Set((data || []).map(g => g.scenario_master_id).filter(Boolean))]
 
-      if (organizerIds.length > 0) {
-        const { data: customers } = await supabase
-          .from('customers')
-          .select('user_id, name, nickname')
-          .in('user_id', organizerIds)
+      // 主催者情報・survey_enabled・確定日を並列取得
+      const [
+        customersResult,
+        surveyResult,
+        bookingResult,
+      ] = await Promise.all([
+        // 主催者情報
+        (async () => {
+          const organizerIds = [...new Set((data || []).map(g => g.organizer_id).filter(Boolean))]
+          if (organizerIds.length === 0) return { data: [] }
+          return supabase.from('customers').select('user_id, name, nickname').in('user_id', organizerIds)
+        })(),
+        // シナリオのsurvey_enabled
+        scenarioMasterIds.length > 0
+          ? supabase
+              .from('organization_scenarios_with_master')
+              .select('scenario_master_id, survey_enabled')
+              .eq('organization_id', orgId)
+              .in('scenario_master_id', scenarioMasterIds)
+          : Promise.resolve({ data: [] }),
+        // 確定済み予約の公演日（confirmed_date）
+        groupIds.length > 0
+          ? supabase
+              .from('private_booking_requests')
+              .select('private_group_id, candidate_datetimes')
+              .in('private_group_id', groupIds)
+              .eq('status', 'confirmed')
+          : Promise.resolve({ data: [] }),
+      ])
 
-        if (customers) {
-          customers.forEach(c => {
-            organizerMap.set(c.user_id, { name: c.name, nickname: c.nickname || undefined })
-          })
+      const organizerMap = new Map<string, { name: string; nickname?: string }>()
+      ;(customersResult.data || []).forEach((c: any) => {
+        organizerMap.set(c.user_id, { name: c.name, nickname: c.nickname || undefined })
+      })
+
+      const surveyMap = new Map<string, boolean>()
+      ;(surveyResult.data || []).forEach((s: any) => {
+        surveyMap.set(s.scenario_master_id, s.survey_enabled ?? false)
+      })
+
+      // グループIDごとの確定公演日マップ
+      const confirmedDateMap = new Map<string, string>()
+      ;(bookingResult.data || []).forEach((req: any) => {
+        if (!req.private_group_id || !req.candidate_datetimes?.candidates) return
+        const confirmed = req.candidate_datetimes.candidates.find((c: any) => c.status === 'confirmed')
+        if (confirmed?.date) {
+          confirmedDateMap.set(req.private_group_id, confirmed.date)
         }
-      }
+      })
 
       const groupsWithOrganizer = (data || []).map(g => {
-        // scenario_mastersが配列の場合は最初の要素を取得
-        const scenarioMasters = Array.isArray(g.scenario_masters) 
-          ? g.scenario_masters[0] 
+        const scenarioMasters = Array.isArray(g.scenario_masters)
+          ? g.scenario_masters[0]
           : g.scenario_masters
-        
+
         return {
           ...g,
           scenario_masters: scenarioMasters || null,
-          organizer: organizerMap.get(g.organizer_id) || { name: '不明' }
+          organizer: organizerMap.get(g.organizer_id) || { name: '不明' },
+          survey_enabled: surveyMap.get(g.scenario_master_id) ?? false,
+          confirmed_date: confirmedDateMap.get(g.id),
         }
       }) as PrivateGroupListItem[]
 

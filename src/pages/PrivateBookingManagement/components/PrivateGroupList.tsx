@@ -25,6 +25,7 @@ import { showToast } from '@/utils/toast'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { usePrivateGroupList, type PrivateGroupListItem } from '../hooks/usePrivateGroupList'
 import { PrivateGroupAnnouncementHistoryDialog } from './PrivateGroupAnnouncementHistoryDialog'
+import { useLocalState } from '@/hooks/useLocalState'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   'draft': { label: '下書き', color: 'bg-gray-100 text-gray-700', icon: <Clock className="w-3 h-3" /> },
@@ -79,7 +80,9 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
   const navigate = useNavigate()
   const { groups, loading, error, loadGroups } = usePrivateGroupList()
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useLocalState<string>('privateGroupStatusFilter', 'all')
+  const [hideCompleted, setHideCompleted] = useLocalState<boolean>('privateGroupHideCompleted', false)
+  const [showSurveyOnly, setShowSurveyOnly] = useLocalState<boolean>('privateGroupShowSurveyOnly', false)
   
   // メッセージ送信用
   const [messageDialogOpen, setMessageDialogOpen] = useState(false)
@@ -204,15 +207,30 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
     }
   }
 
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
   const filteredGroups = groups.filter(group => {
-    const matchesSearch = 
+    const matchesSearch =
       group.scenario_masters?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       group.organizer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       group.organizer?.nickname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       group.invite_code.toLowerCase().includes(searchTerm.toLowerCase())
-    
+
     const matchesStatus = statusFilter === 'all' || group.status === statusFilter
-    
+
+    // 完了公演フィルター: キャンセル済み、または確定日が過去のグループを非表示
+    if (hideCompleted) {
+      if (group.status === 'cancelled') return false
+      if (group.status === 'confirmed' && group.confirmed_date) {
+        const perfDate = new Date(group.confirmed_date + 'T00:00:00+09:00')
+        if (perfDate < today) return false
+      }
+    }
+
+    // 事前配役公演フィルター
+    if (showSurveyOnly && !group.survey_enabled) return false
+
     return matchesSearch && matchesStatus
   })
 
@@ -246,44 +264,64 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
   return (
     <div className="space-y-4">
       {/* フィルター */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="シナリオ名、主催者名、招待コードで検索..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="シナリオ名、主催者名、招待コードで検索..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={statusFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('all')}
+            >
+              全て ({groups.length})
+            </Button>
+            <Button
+              variant={statusFilter === 'date_adjusting' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('date_adjusting')}
+            >
+              日程調整中 ({statusCounts['date_adjusting'] || 0})
+            </Button>
+            <Button
+              variant={statusFilter === 'booking_requested' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('booking_requested')}
+            >
+              予約申請中 ({statusCounts['booking_requested'] || 0})
+            </Button>
+            <Button
+              variant={statusFilter === 'confirmed' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter('confirmed')}
+            >
+              確定 ({statusCounts['confirmed'] || 0})
+            </Button>
+          </div>
         </div>
+        {/* 追加フィルター */}
         <div className="flex gap-2 flex-wrap">
           <Button
-            variant={statusFilter === 'all' ? 'default' : 'outline'}
+            variant={hideCompleted ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setStatusFilter('all')}
+            onClick={() => setHideCompleted(!hideCompleted)}
           >
-            全て ({groups.length})
+            完了公演を非表示
           </Button>
           <Button
-            variant={statusFilter === 'date_adjusting' ? 'default' : 'outline'}
+            variant={showSurveyOnly ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setStatusFilter('date_adjusting')}
+            onClick={() => setShowSurveyOnly(!showSurveyOnly)}
           >
-            日程調整中 ({statusCounts['date_adjusting'] || 0})
-          </Button>
-          <Button
-            variant={statusFilter === 'booking_requested' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setStatusFilter('booking_requested')}
-          >
-            予約申請中 ({statusCounts['booking_requested'] || 0})
-          </Button>
-          <Button
-            variant={statusFilter === 'confirmed' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setStatusFilter('confirmed')}
-          >
-            確定 ({statusCounts['confirmed'] || 0})
+            <ClipboardList className="w-3.5 h-3.5 mr-1" />
+            事前配役公演のみ
           </Button>
         </div>
       </div>
