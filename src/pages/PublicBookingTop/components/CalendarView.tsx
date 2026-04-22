@@ -380,7 +380,7 @@ export const CalendarView = memo(function CalendarView({
                                   </span>
                                 )}
                                 <span className={isFull ? 'text-gray-500' : 'text-gray-600'}>
-                                  {isFull ? '満席' : null}
+                                  {isFull ? '満席' : `残り${available}席`}
                                 </span>
                               </div>
                             </div>
