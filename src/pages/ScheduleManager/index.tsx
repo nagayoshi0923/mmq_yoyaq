@@ -104,6 +104,7 @@ export function ScheduleManager() {
 
   // 店舗フィルター（localStorageで次回以降も同じ店舗を保持）
   const [selectedStores, setSelectedStores] = useLocalState<string[]>('scheduleSelectedStores', [])
+  const storesInitializedRef = React.useRef(false)
 
   // シフト提出者フィルター（空スロットに表示されるシフト提出者を絞り込む）
   const [selectedShiftStaff, setSelectedShiftStaff] = useState<string[]>([])
@@ -422,6 +423,17 @@ export function ScheduleManager() {
   // スケジュールテーブルの共通フック
   const scheduleTableProps = useScheduleTable({ currentDate })
   const modals = scheduleTableProps.modals!
+
+  // 店舗一覧が初めて読み込まれたとき、未選択なら全店舗を選択状態にする
+  useEffect(() => {
+    const stores = scheduleTableProps.viewConfig.stores
+    if (!storesInitializedRef.current && stores.length > 0) {
+      storesInitializedRef.current = true
+      if (selectedStores.length === 0) {
+        setSelectedStores(stores.map(s => s.id))
+      }
+    }
+  }, [scheduleTableProps.viewConfig.stores]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // シナリオ候補（MultiSelect用）
   const scenarioOptions = useMemo(() => {
