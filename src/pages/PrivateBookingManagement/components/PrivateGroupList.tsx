@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { 
-  Users, 
-  Calendar, 
+import {
+  Users,
+  Calendar,
   Search,
   CheckCircle2,
   Clock,
@@ -16,10 +16,12 @@ import {
   Loader2,
   Send,
   History,
+  ClipboardList,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { RpcSendStaffGroupMessageParams } from '@/lib/rpcTypes'
 import { showToast } from '@/utils/toast'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { usePrivateGroupList, type PrivateGroupListItem } from '../hooks/usePrivateGroupList'
 import { PrivateGroupAnnouncementHistoryDialog } from './PrivateGroupAnnouncementHistoryDialog'
 
@@ -86,6 +88,11 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
   const [historyGroup, setHistoryGroup] = useState<PrivateGroupListItem | null>(null)
 
+  // アンケート送信用
+  const [surveyDialogOpen, setSurveyDialogOpen] = useState(false)
+  const [selectedGroupForSurvey, setSelectedGroupForSurvey] = useState<PrivateGroupListItem | null>(null)
+  const [sendingSurvey, setSendingSurvey] = useState(false)
+
   const handleSendMessage = async () => {
     if (!selectedGroup || !message.trim()) return
     
@@ -112,6 +119,86 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       showToast.error('メッセージの送信に失敗しました')
     } finally {
       setSending(false)
+    }
+  }
+
+  const handleSendSurveyNotification = async () => {
+    if (!selectedGroupForSurvey) return
+    setSendingSurvey(true)
+    try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('組織情報が取得できません')
+
+      const { data: orgScenarioData } = await supabase
+        .from('organization_scenarios_with_master')
+        .select('survey_enabled, survey_deadline_days, characters')
+        .eq('scenario_master_id', selectedGroupForSurvey.scenario_master_id)
+        .eq('organization_id', orgId)
+        .maybeSingle()
+
+      if (!orgScenarioData?.survey_enabled) {
+        showToast.error('このシナリオにはアンケートが設定されていません')
+        return
+      }
+
+      const organizerMember = selectedGroupForSurvey.members.find(m => m.is_organizer)
+      if (!organizerMember) throw new Error('主催者メンバーが見つかりません')
+
+      const hasPlayableCharacters = Array.isArray(orgScenarioData.characters) &&
+        orgScenarioData.characters.some((c: any) => !c.is_npc)
+
+      if (hasPlayableCharacters) {
+        const { data: globalSettings } = await supabase
+          .from('global_settings')
+          .select('pre_reading_notice_message')
+          .eq('organization_id', orgId)
+          .maybeSingle()
+
+        const preReadingMessage = globalSettings?.pre_reading_notice_message ||
+          '【ご確認ください】\n\nこのシナリオには事前配役アンケートがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
+
+        const { error: msgError } = await supabase.from('private_group_messages').insert({
+          group_id: selectedGroupForSurvey.id,
+          member_id: organizerMember.id,
+          message: JSON.stringify({ type: 'system', action: 'pre_reading_notice', message: preReadingMessage })
+        })
+        if (msgError) throw msgError
+      } else {
+        let deadlineText = ''
+        const { data: bookingRequest } = await supabase
+          .from('private_booking_requests')
+          .select('candidate_datetimes')
+          .eq('private_group_id', selectedGroupForSurvey.id)
+          .eq('status', 'confirmed')
+          .maybeSingle()
+
+        if (bookingRequest?.candidate_datetimes?.candidates && orgScenarioData.survey_deadline_days !== undefined) {
+          const confirmedCandidate = bookingRequest.candidate_datetimes.candidates.find((c: any) => c.status === 'confirmed')
+          if (confirmedCandidate?.date) {
+            const perfDate = new Date(confirmedCandidate.date + 'T00:00:00+09:00')
+            perfDate.setDate(perfDate.getDate() - orgScenarioData.survey_deadline_days)
+            deadlineText = `\n\n回答期限: ${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`
+          }
+        }
+
+        const surveyMessage = `【事前配役アンケートのご協力のお願い】\n\nこちらの公演では事前配役アンケートへのご回答をお願いしております。\n\n上記の「日程を確認・回答する」ボタンからアンケートにお答えください。${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
+
+        const { error: msgError } = await supabase.from('private_group_messages').insert({
+          group_id: selectedGroupForSurvey.id,
+          member_id: organizerMember.id,
+          message: JSON.stringify({ type: 'system', action: 'survey_notice', message: surveyMessage })
+        })
+        if (msgError) throw msgError
+      }
+
+      showToast.success('アンケート通知を送信しました')
+      setSurveyDialogOpen(false)
+      setSelectedGroupForSurvey(null)
+    } catch (err: any) {
+      console.error('アンケート通知送信エラー:', err)
+      showToast.error(err.message || 'アンケート通知の送信に失敗しました')
+    } finally {
+      setSendingSurvey(false)
     }
   }
 
@@ -245,6 +332,9 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                           {status.icon}
                           {status.label}
                         </Badge>
+                        <span className="text-xs font-mono text-muted-foreground flex-shrink-0">
+                          #{group.invite_code}
+                        </span>
                       </div>
                       
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
@@ -300,6 +390,18 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
+                          setSelectedGroupForSurvey(group)
+                          setSurveyDialogOpen(true)
+                        }}
+                      >
+                        <ClipboardList className="w-4 h-4 mr-1" />
+                        アンケート送信
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
                           setSelectedGroup(group)
                           setMessageDialogOpen(true)
                         }}
@@ -315,6 +417,60 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
           })}
         </div>
       )}
+
+      {/* アンケート送信確認ダイアログ */}
+      <Dialog open={surveyDialogOpen} onOpenChange={(open) => {
+        setSurveyDialogOpen(open)
+        if (!open) setSelectedGroupForSurvey(null)
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="w-5 h-5" />
+              アンケート通知を送信
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedGroupForSurvey && (
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  {selectedGroupForSurvey.scenario_masters?.title || '(シナリオ未設定)'}
+                </span>
+                <span className="mx-2">・</span>
+                <span>{selectedGroupForSurvey.members.length}名のグループ</span>
+              </div>
+              <p className="text-sm">
+                このグループに事前配役アンケートの通知を送信します。シナリオ設定に応じて、キャラクターあり→招待促進メッセージ、キャラクターなし→アンケート回答依頼（締め切り日付き）が送信されます。
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSurveyDialogOpen(false)
+                setSelectedGroupForSurvey(null)
+              }}
+              disabled={sendingSurvey}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleSendSurveyNotification}
+              disabled={sendingSurvey}
+            >
+              {sendingSurvey ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 mr-1" />
+              )}
+              送信
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* メッセージ送信ダイアログ */}
       <PrivateGroupAnnouncementHistoryDialog
