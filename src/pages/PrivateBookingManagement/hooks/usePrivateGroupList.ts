@@ -15,6 +15,7 @@ export interface PrivateGroupListItem {
   confirmed_date?: string       // 確定した公演日（YYYY-MM-DD）
   confirmed_time?: string       // 確定した公演時間（HH:MM〜HH:MM）
   confirmed_gm_name?: string    // 確定したGM名
+  confirmed_store_name?: string // 確定した店舗名
   scenario_masters: {
     id: string
     title: string
@@ -130,13 +131,14 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
               .eq('organization_id', orgId)
               .in('scenario_master_id', scenarioMasterIds)
           : Promise.resolve({ data: [] }),
-        // 確定済み予約の公演日・GM・時間
+        // 確定済み予約の公演日・GM・時間・店舗（reservationsテーブルから取得）
         groupIds.length > 0
           ? supabase
-              .from('private_booking_requests')
-              .select('private_group_id, candidate_datetimes, gm_staff')
+              .from('reservations')
+              .select('private_group_id, candidate_datetimes, gm_staff, store_id')
               .in('private_group_id', groupIds)
               .eq('status', 'confirmed')
+              .eq('reservation_source', 'web_private')
           : Promise.resolve({ data: [] }),
       ])
 
@@ -150,34 +152,48 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         surveyMap.set(s.scenario_master_id, s.survey_enabled ?? false)
       })
 
-      // グループIDごとの確定公演日・時間・GMスタッフIDマップ
+      // グループIDごとの確定公演日・時間・GMスタッフID・店舗IDマップ
       const confirmedDateMap = new Map<string, string>()
       const confirmedTimeMap = new Map<string, string>()
       const confirmedGmStaffIdMap = new Map<string, string>()
+      const confirmedStoreIdMap = new Map<string, string>()
       ;(bookingResult.data || []).forEach((req: any) => {
-        if (!req.private_group_id || !req.candidate_datetimes?.candidates) return
-        const confirmed = req.candidate_datetimes.candidates.find((c: any) => c.status === 'confirmed')
-        if (confirmed?.date) {
-          confirmedDateMap.set(req.private_group_id, confirmed.date)
-          const start = confirmed.startTime || confirmed.start_time || ''
-          const end = confirmed.endTime || confirmed.end_time || ''
-          if (start) confirmedTimeMap.set(req.private_group_id, end ? `${start}〜${end}` : start)
+        if (!req.private_group_id) return
+        if (req.candidate_datetimes?.candidates) {
+          const confirmed = req.candidate_datetimes.candidates.find((c: any) => c.status === 'confirmed')
+          if (confirmed?.date) {
+            confirmedDateMap.set(req.private_group_id, confirmed.date)
+            const start = confirmed.startTime || confirmed.start_time || ''
+            const end = confirmed.endTime || confirmed.end_time || ''
+            if (start) confirmedTimeMap.set(req.private_group_id, end ? `${start}〜${end}` : start)
+          }
         }
         if (req.gm_staff) confirmedGmStaffIdMap.set(req.private_group_id, req.gm_staff)
+        if (req.store_id) confirmedStoreIdMap.set(req.private_group_id, req.store_id)
       })
 
-      // GMスタッフ名を一括取得
+      // GMスタッフ名・店舗名を一括取得
       const gmStaffIds = [...new Set([...confirmedGmStaffIdMap.values()].filter(Boolean))]
+      const storeIds = [...new Set([...confirmedStoreIdMap.values()].filter(Boolean))]
       const gmNameMap = new Map<string, string>()
-      if (gmStaffIds.length > 0) {
-        const { data: staffRows } = await supabase
-          .from('staff')
-          .select('id, display_name, name')
-          .in('id', gmStaffIds)
-        ;(staffRows || []).forEach((s: any) => {
-          gmNameMap.set(s.id, s.display_name || s.name || '')
-        })
-      }
+      const storeNameMap = new Map<string, string>()
+
+      await Promise.all([
+        gmStaffIds.length > 0
+          ? supabase.from('staff').select('id, display_name, name').in('id', gmStaffIds).then(({ data: staffRows }) => {
+              ;(staffRows || []).forEach((s: any) => {
+                gmNameMap.set(s.id, s.display_name || s.name || '')
+              })
+            })
+          : Promise.resolve(),
+        storeIds.length > 0
+          ? supabase.from('stores').select('id, name, short_name').in('id', storeIds).then(({ data: storeRows }) => {
+              ;(storeRows || []).forEach((s: any) => {
+                storeNameMap.set(s.id, s.short_name || s.name || '')
+              })
+            })
+          : Promise.resolve(),
+      ])
 
       const groupsWithOrganizer = (data || []).map(g => {
         const scenarioMasters = Array.isArray(g.scenario_masters)
@@ -185,6 +201,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           : g.scenario_masters
 
         const gmStaffId = confirmedGmStaffIdMap.get(g.id)
+        const storeId = confirmedStoreIdMap.get(g.id)
         return {
           ...g,
           scenario_masters: scenarioMasters || null,
@@ -193,6 +210,7 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
           confirmed_date: confirmedDateMap.get(g.id),
           confirmed_time: confirmedTimeMap.get(g.id),
           confirmed_gm_name: gmStaffId ? gmNameMap.get(gmStaffId) : undefined,
+          confirmed_store_name: storeId ? storeNameMap.get(storeId) : undefined,
         }
       }) as PrivateGroupListItem[]
 
