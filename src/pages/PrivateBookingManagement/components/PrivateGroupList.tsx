@@ -27,6 +27,7 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { usePrivateGroupList, type PrivateGroupListItem } from '../hooks/usePrivateGroupList'
 import { PrivateGroupAnnouncementHistoryDialog } from './PrivateGroupAnnouncementHistoryDialog'
 import { useLocalState } from '@/hooks/useLocalState'
+import { sendEmail } from '@/lib/emailApi'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   'draft': { label: '下書き', color: 'bg-gray-100 text-gray-700', icon: <Clock className="w-3 h-3" /> },
@@ -153,6 +154,16 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
       const hasPlayableCharacters = Array.isArray(orgScenarioData.characters) &&
         orgScenarioData.characters.some((c: any) => !c.is_npc)
 
+      // 主催者のメールアドレスを reservations テーブルから取得
+      const { data: reservationData } = await supabase
+        .from('reservations')
+        .select('customer_email, candidate_datetimes')
+        .eq('private_group_id', selectedGroupForSurvey.id)
+        .eq('status', 'confirmed')
+        .eq('reservation_source', 'web_private')
+        .maybeSingle()
+      const customerEmail = reservationData?.customer_email || selectedGroupForSurvey.organizer?.email
+
       if (hasPlayableCharacters) {
         const { data: globalSettings } = await supabase
           .from('global_settings')
@@ -169,17 +180,19 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
           message: JSON.stringify({ type: 'system', action: 'pre_reading_notice', message: preReadingMessage })
         })
         if (msgError) throw msgError
+
+        // カスタマーへメール通知
+        if (customerEmail) {
+          await sendEmail({
+            to: customerEmail,
+            subject: '【事前配役アンケートのご案内】',
+            body: preReadingMessage,
+          })
+        }
       } else {
         let deadlineText = ''
-        const { data: bookingRequest } = await supabase
-          .from('private_booking_requests')
-          .select('candidate_datetimes')
-          .eq('private_group_id', selectedGroupForSurvey.id)
-          .eq('status', 'confirmed')
-          .maybeSingle()
-
-        if (bookingRequest?.candidate_datetimes?.candidates && orgScenarioData.survey_deadline_days !== undefined) {
-          const confirmedCandidate = bookingRequest.candidate_datetimes.candidates.find((c: any) => c.status === 'confirmed')
+        if (reservationData?.candidate_datetimes?.candidates && orgScenarioData.survey_deadline_days !== undefined) {
+          const confirmedCandidate = reservationData.candidate_datetimes.candidates.find((c: any) => c.status === 'confirmed')
           if (confirmedCandidate?.date) {
             const perfDate = new Date(confirmedCandidate.date + 'T00:00:00+09:00')
             perfDate.setDate(perfDate.getDate() - orgScenarioData.survey_deadline_days)
@@ -195,6 +208,15 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
           message: JSON.stringify({ type: 'system', action: 'survey_notice', message: surveyMessage })
         })
         if (msgError) throw msgError
+
+        // カスタマーへメール通知
+        if (customerEmail) {
+          await sendEmail({
+            to: customerEmail,
+            subject: '【事前配役アンケートのご案内】',
+            body: surveyMessage,
+          })
+        }
       }
 
       showToast.success('アンケート通知を送信しました')

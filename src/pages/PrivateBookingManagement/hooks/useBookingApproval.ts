@@ -14,6 +14,7 @@ import {
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
 import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
+import { sendEmail } from '@/lib/emailApi'
 
 interface UseBookingApprovalProps {
   onSuccess: () => void
@@ -437,6 +438,17 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                     message: JSON.stringify({ type: 'system', action: 'pre_reading_notice', message: preReadingMessage })
                   })
                   logger.log('📋 事前配役シナリオ: pre_reading_notice送信成功')
+
+                  // カスタマーへメール通知
+                  const surveyCustomerEmail = selectedRequest?.customer_email
+                  if (surveyCustomerEmail) {
+                    await sendEmail({
+                      to: surveyCustomerEmail,
+                      subject: '【事前配役アンケートのご案内】',
+                      body: preReadingMessage,
+                    })
+                    logger.log('📋 事前配役通知メール送信成功:', surveyCustomerEmail)
+                  }
                 } else {
                   // キャラクターなし: 即座にアンケート通知を送信
                   const confirmedCandidate = selectedRequest.candidate_datetimes?.candidates?.find(
@@ -461,6 +473,17 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                     logger.error('📋 アンケート通知送信エラー:', surveyMsgError)
                   } else {
                     logger.log('📋 アンケート通知送信成功')
+
+                    // カスタマーへメール通知
+                    const surveyCustomerEmail = selectedRequest?.customer_email
+                    if (surveyCustomerEmail) {
+                      await sendEmail({
+                        to: surveyCustomerEmail,
+                        subject: '【事前配役アンケートのご案内】',
+                        body: surveyMessage,
+                      })
+                      logger.log('📋 アンケート通知メール送信成功:', surveyCustomerEmail)
+                    }
                   }
                 }
               } else {
