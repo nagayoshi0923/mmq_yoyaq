@@ -260,7 +260,8 @@ export function useStoreAndGMManagement() {
         available_candidates: response.available_candidates || [],
         selected_candidate_index: response.selected_candidate_index,
         notes: response.notes || '',
-        avatar_color: response.staff?.avatar_color || null
+        avatar_color: response.staff?.avatar_color || null,
+        responded_at: response.responded_at || null,
       }))
 
       logger.log('📋 GM回答情報:', gmList.length, '件', gmList.map(g => `${g.gm_name}(${g.response_status}): 候補${(g.available_candidates || []).map((i: number) => i+1).join(',')}`))

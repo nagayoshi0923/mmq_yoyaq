@@ -25,6 +25,7 @@ interface GMResponse {
   response_status: 'available' | 'unavailable' | string
   available_candidates: number[] // 0始まりのインデックス
   avatar_color?: string | null
+  responded_at?: string | null
 }
 
 interface Store {
