@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -75,6 +76,7 @@ interface PrivateGroupListProps {
 }
 
 export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
+  const navigate = useNavigate()
   const { groups, loading, error, loadGroups } = usePrivateGroupList()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -300,10 +302,13 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
             const progress = getResponseProgress(group)
             
             return (
-              <Card 
-                key={group.id} 
+              <Card
+                key={group.id}
                 className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => onGroupClick?.(group)}
+                onClick={() => {
+                  onGroupClick?.(group)
+                  navigate(`/group/manage/${group.id}`)
+                }}
               >
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
