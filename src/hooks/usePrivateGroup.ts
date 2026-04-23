@@ -163,7 +163,8 @@ async function enrichMembersWithNames(
           (customers as Array<{ user_id: string; nickname: string | null }>).map(c => [c.user_id, c.nickname])
         )
         for (const m of data.members || []) {
-          if (m.user_id) {
+          if (m.user_id && nicknameMap.has(m.user_id)) {
+            // 取得できたレコードのみ上書き（RLS でブロックされた他ユーザーは既存 guest_name を維持）
             const nickname = nicknameMap.get(m.user_id)
             m.guest_name = nickname || 'ニックネーム未設定'
           }

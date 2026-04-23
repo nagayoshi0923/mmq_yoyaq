@@ -168,13 +168,16 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
       }
 
       // ニックネームを優先してguest_nameを設定
-      // ログインユーザーでニックネーム未設定の場合は「ニックネーム未設定」を表示（本名は表示しない）
-      const membersWithNicknames = data.map(m => ({
-        ...m,
-        guest_name: m.user_id
-          ? (customerNicknames[m.user_id] || 'ニックネーム未設定')
-          : (m.guest_name || m.guest_email?.split('@')[0] || '参加者')
-      }))
+      // customers レコードを取得できたユーザーのみ上書き（RLS で取得できなかった場合は既存値を使用）
+      // ニックネーム未設定のログインユーザーは「ニックネーム未設定」を表示（本名は表示しない）
+      const membersWithNicknames = data.map(m => {
+        if (m.user_id && m.user_id in customerNicknames) {
+          // 自分のレコードが取得できた → ニックネームか「ニックネーム未設定」
+          return { ...m, guest_name: customerNicknames[m.user_id] || 'ニックネーム未設定' }
+        }
+        // RLS でブロックされた他ユーザー or ゲストユーザー → 既存の guest_name を使用
+        return { ...m, guest_name: m.guest_name || m.guest_email?.split('@')[0] || '参加者' }
+      })
 
       setMembers(membersWithNicknames as PrivateGroupMember[])
     } catch (err) {
