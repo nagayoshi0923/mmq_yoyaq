@@ -161,17 +161,19 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
 
         if (customers) {
           customers.forEach((c: { user_id: string; nickname: string | null; name: string | null }) => {
-            customerNicknames[c.user_id] = c.nickname || c.name || ''
+            // ニックネームのみ使用（本名は使用しない）
+            customerNicknames[c.user_id] = c.nickname || ''
           })
         }
       }
 
       // ニックネームを優先してguest_nameを設定
+      // ログインユーザーでニックネーム未設定の場合は「ニックネーム未設定」を表示（本名は表示しない）
       const membersWithNicknames = data.map(m => ({
         ...m,
-        guest_name: (m.user_id && customerNicknames[m.user_id]) 
-          ? customerNicknames[m.user_id] 
-          : m.guest_name || m.guest_email?.split('@')[0] || '参加者'
+        guest_name: m.user_id
+          ? (customerNicknames[m.user_id] || 'ニックネーム未設定')
+          : (m.guest_name || m.guest_email?.split('@')[0] || '参加者')
       }))
 
       setMembers(membersWithNicknames as PrivateGroupMember[])
@@ -801,11 +803,16 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
 
                   // システムメッセージ（メンバー参加）
                   if (systemMsg && systemMsg.action === 'member_joined') {
+                    // memberId が保存されていれば動的に名前を解決（ニックネーム更新・退出に追従）
+                    // 退出済みメンバーは「退出したメンバー」と表示される
+                    const displayName = systemMsg.memberId
+                      ? getMemberName(systemMsg.memberId)
+                      : (systemMsg.memberName || '退出したメンバー')
                     return (
                       <div key={msg.id} className="flex justify-center my-2">
                         <div className="bg-gray-100 rounded-full px-4 py-1.5">
                           <p className="text-xs text-gray-600">
-                            <span className="font-medium">{systemMsg.memberName}</span> が参加しました
+                            <span className="font-medium">{displayName}</span> が参加しました
                           </p>
                         </div>
                       </div>

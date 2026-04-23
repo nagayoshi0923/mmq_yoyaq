@@ -116,9 +116,11 @@ async function sendSystemMessage(
  * RPC 経由でメンバー名を取得し、グループデータにマージする。
  * anon のカラム制限で guest_name が直接取得できないため、
  * SECURITY DEFINER RPC を使って招待コード検証付きで名前を取得する。
+ * その後、ログインユーザーのニックネームを customers テーブルから取得してオーバーライドする。
+ * ニックネーム未設定のログインユーザーは「ニックネーム未設定」を表示する。
  */
 async function enrichMembersWithNames(
-  data: { members?: any[]; invite_code?: string },
+  data: { members?: any[]; invite_code?: string; organization_id?: string | null },
   inviteCode?: string
 ) {
   const code = inviteCode || data.invite_code
@@ -141,6 +143,35 @@ async function enrichMembersWithNames(
     }
   } catch {
     // RPC 失敗時は名前なしで続行
+  }
+
+  // ログインユーザーのニックネームを取得してオーバーライド
+  // ニックネーム未設定の場合は「ニックネーム未設定」を表示（本名は表示しない）
+  const userIds = data.members?.filter(m => m.user_id).map(m => m.user_id) || []
+  if (userIds.length > 0) {
+    try {
+      let query = supabase
+        .from('customers')
+        .select('user_id, nickname')
+        .in('user_id', userIds)
+      if (data.organization_id) {
+        query = (query as any).eq('organization_id', data.organization_id)
+      }
+      const { data: customers } = await query
+      if (customers?.length) {
+        const nicknameMap = new Map(
+          (customers as Array<{ user_id: string; nickname: string | null }>).map(c => [c.user_id, c.nickname])
+        )
+        for (const m of data.members || []) {
+          if (m.user_id) {
+            const nickname = nicknameMap.get(m.user_id)
+            m.guest_name = nickname || 'ニックネーム未設定'
+          }
+        }
+      }
+    } catch {
+      // RLS 制約でアクセスできない場合はスキップ（既存の guest_name をそのまま使用）
+    }
   }
 }
 
