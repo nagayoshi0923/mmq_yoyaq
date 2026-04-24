@@ -45,9 +45,10 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
       const validStores = stores.filter(s =>
         s.ownership_type !== 'office' &&
         s.status === 'active' &&
+        !s.is_temporary &&
         (hasScenarioStoreLimit
           ? scenarioAvailableStores.includes(s.id)
-          : !s.is_temporary)
+          : true)
       )
 
       const allValidIds = validStores.map(s => s.id)
@@ -132,9 +133,10 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     return stores.filter(s =>
       s.ownership_type !== 'office' &&
       s.status === 'active' &&
+      !s.is_temporary &&
       (hasScenarioStoreLimit
         ? scenarioAvailableStores.includes(s.id)
-        : !s.is_temporary)
+        : true)
     )
   }, [scenario, stores])
 

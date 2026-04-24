@@ -71,7 +71,7 @@ export const storeApi = {
   async getAllPublic(organizationId: string): Promise<Store[]> {
     const { data, error } = await supabase
       .from('stores_public')
-      .select('id, organization_id, name, short_name, address, access_info, opening_date, status, capacity, rooms, color, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, kit_group_id, created_at, updated_at')
+      .select('id, organization_id, name, short_name, address, access_info, opening_date, status, ownership_type, capacity, rooms, color, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, kit_group_id, created_at, updated_at')
       .eq('organization_id', organizationId)
       .order('display_order', { ascending: true, nullsFirst: false })
     
