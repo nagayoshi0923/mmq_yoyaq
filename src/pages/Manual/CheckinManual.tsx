@@ -4,8 +4,46 @@
  */
 import {
   CheckCircle, AlertTriangle, HelpCircle,
-  ChevronDown, ChevronUp, Users, Clock, LayoutDashboard, CalendarDays
+  ChevronDown, Users, Clock, LayoutDashboard, CalendarDays
 } from 'lucide-react'
+import type { HardcodedPageContent } from '@/types/hardcodedContent'
+
+export const CHECKIN_DEFAULT: HardcodedPageContent = {
+  description: "お客さまが来店されたら、予約を確認して「チェックイン」ボタンを押します。\nチェックインで来店記録が残り、参加者数の管理に使われます。",
+  sections: [
+    {
+      heading: "ダッシュボードからの手順",
+      items: [
+        {
+          title: "ホーム画面の「直近の出勤予定」を確認する",
+          body: "ログイン後のホーム画面（ダッシュボード）に、今日以降の出勤予定が最大5件表示されます。\n今日の公演の行をタップしてください。"
+        },
+        {
+          title: "公演ダイアログが開いたら「予約者」タブを選ぶ",
+          body: "タップすると公演の詳細ダイアログが開きます。\n上部タブの「予約者」を選ぶと予約一覧が表示されます。"
+        },
+        {
+          title: "お客さまの名前・人数を確認する",
+          body: "予約者の名前・人数が一覧で表示されます。来店されたお客さまの行を確認してください。"
+        },
+        {
+          title: "「チェックイン」ボタンを押す",
+          body: "確認が完了したら、右側の「チェックイン」ボタンを押します。\n押すと「✓ 来店済」に変わり、受付完了です。"
+        },
+      ]
+    },
+    {
+      heading: "よくあるトラブルと対応",
+      items: [
+        { title: "ダッシュボードに今日の公演が表示されない", body: "スタッフ情報にGMとして登録されていない可能性があります。スケジュール管理でGM欄を確認してください。また、ログイン直後はデータ読み込みに数秒かかる場合があります。" },
+        { title: "予約一覧にお客さまの名前がない", body: "お客様のマイページ予約詳細・予約確認メールで予約内容を確認してください。内容に問題があれば運営に即電話で連絡してください。" },
+        { title: "人数が来店者数と違う", body: "お客様のマイページ予約詳細・予約確認メールで申込人数を確認してください。内容に問題があれば運営に即電話で連絡してください。" },
+        { title: "ステータスが「保留中」になっている", body: "「確定」に変更してからチェックインしてください。ステータス表示部分がドロップダウンになっています。" },
+        { title: "「チェックイン」ボタンが表示されない", body: "すでにチェックイン済（「✓ 来店済」表示）か、キャンセル済の予約です。" },
+      ]
+    }
+  ]
+}
 
 /* ------------------------------------------------------------------ */
 /* 共通コンポーネント                                                    */
@@ -258,16 +296,23 @@ function ReservationRowMock({
 /* メインコンポーネント                                                   */
 /* ------------------------------------------------------------------ */
 
-export function CheckinManual() {
+export function CheckinManual({ content }: { content?: HardcodedPageContent }) {
+  const c = content ?? CHECKIN_DEFAULT
+
+  const stepSection = c.sections[0]
+  const troubleSection = c.sections[1]
+
+  const steps = stepSection?.items ?? []
+  const troubles = troubleSection?.items ?? []
+
   return (
     <div className="space-y-10 max-w-3xl mx-auto pb-12">
 
       {/* タイトル */}
       <div className="space-y-2">
         <h2 className="text-2xl font-bold tracking-tight">受付・チェックイン</h2>
-        <p className="text-muted-foreground leading-relaxed">
-          お客さまが来店されたら、予約を確認して「チェックイン」ボタンを押します。
-          チェックインで来店記録が残り、参加者数の管理に使われます。
+        <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+          {c.description}
         </p>
       </div>
 
@@ -302,23 +347,21 @@ export function CheckinManual() {
           <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
             <LayoutDashboard className="h-4 w-4 text-blue-600" />
           </div>
-          <h3 className="text-lg font-semibold">ダッシュボードからの手順</h3>
+          <h3 className="text-lg font-semibold">{stepSection?.heading ?? ''}</h3>
         </div>
 
-        <Step num={1} color="#3b82f6" title="ホーム画面の「直近の出勤予定」を確認する">
-          <p>
-            ログイン後のホーム画面（ダッシュボード）に、今日以降の出勤予定が最大5件表示されます。
-            今日の公演の行をタップしてください。
+        <Step num={1} color="#3b82f6" title={steps[0]?.title ?? ''}>
+          <p className="whitespace-pre-line">
+            {steps[0]?.body ?? ''}
           </p>
           <div className="mt-3">
             <DashboardUpcomingMock />
           </div>
         </Step>
 
-        <Step num={2} color="#3b82f6" title="公演ダイアログが開いたら「予約者」タブを選ぶ">
-          <p>
-            タップすると公演の詳細ダイアログが開きます。
-            上部タブの <strong>「予約者」</strong> を選ぶと予約一覧が表示されます。
+        <Step num={2} color="#3b82f6" title={steps[1]?.title ?? ''}>
+          <p className="whitespace-pre-line">
+            {steps[1]?.body ?? ''}
           </p>
           <div className="mt-3">
             <ModalTabsMock active="edit" />
@@ -331,9 +374,9 @@ export function CheckinManual() {
           </div>
         </Step>
 
-        <Step num={3} color="#3b82f6" title="お客さまの名前・人数を確認する">
+        <Step num={3} color="#3b82f6" title={steps[2]?.title ?? ''}>
           <p>
-            予約者の名前・人数が一覧で表示されます。来店されたお客さまの行を確認してください。
+            {steps[2]?.body ?? ''}
           </p>
           <div className="space-y-2 mt-2">
             <ReservationRowMock name="山田 太郎" count={2} date="4/5 14:00" />
@@ -347,10 +390,9 @@ export function CheckinManual() {
           </div>
         </Step>
 
-        <Step num={4} color="#22a861" title="「チェックイン」ボタンを押す" last>
-          <p>
-            確認が完了したら、右側の <strong>「チェックイン」</strong> ボタンを押します。
-            押すと「✓ 来店済」に変わり、受付完了です。
+        <Step num={4} color="#22a861" title={steps[3]?.title ?? ''} last>
+          <p className="whitespace-pre-line">
+            {steps[3]?.body ?? ''}
           </p>
           <div className="space-y-2 mt-2">
             <p className="text-xs text-gray-400">チェックイン前：</p>
@@ -373,29 +415,12 @@ export function CheckinManual() {
           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             <HelpCircle className="h-4 w-4 text-primary" />
           </div>
-          <h3 className="text-lg font-semibold">よくあるトラブルと対応</h3>
+          <h3 className="text-lg font-semibold">{troubleSection?.heading ?? ''}</h3>
         </div>
 
-        <TroubleRow
-          q="ダッシュボードに今日の公演が表示されない"
-          a="スタッフ情報にGMとして登録されていない可能性があります。スケジュール管理でGM欄を確認してください。また、ログイン直後はデータ読み込みに数秒かかる場合があります。"
-        />
-        <TroubleRow
-          q="予約一覧にお客さまの名前がない"
-          a="お客様のマイページ予約詳細・予約確認メールで予約内容を確認してください。内容に問題があれば運営に即電話で連絡してください。"
-        />
-        <TroubleRow
-          q="人数が来店者数と違う"
-          a="お客様のマイページ予約詳細・予約確認メールで申込人数を確認してください。内容に問題があれば運営に即電話で連絡してください。"
-        />
-        <TroubleRow
-          q="ステータスが「保留中」になっている"
-          a="「確定」に変更してからチェックインしてください。ステータス表示部分がドロップダウンになっています。"
-        />
-        <TroubleRow
-          q="「チェックイン」ボタンが表示されない"
-          a="すでにチェックイン済（「✓ 来店済」表示）か、キャンセル済の予約です。"
-        />
+        {troubles.map((item, i) => (
+          <TroubleRow key={i} q={item.title} a={item.body ?? ''} />
+        ))}
       </section>
 
     </div>

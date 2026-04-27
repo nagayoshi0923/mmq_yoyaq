@@ -7,6 +7,49 @@ import {
   ChevronDown, Users, ClipboardList, Send,
   MessageSquare, Link, FileText, User, Clock,
 } from 'lucide-react'
+import type { HardcodedPageContent } from '@/types/hardcodedContent'
+
+export const PRE_READING_SURVEY_DEFAULT: HardcodedPageContent = {
+  description: "貸切公演のお客様にアンケートを送り、回答を確認してキャラクターを配役するまでの手順です。\nお客様のチャット画面に表示されるUIを交えて説明します。",
+  sections: [
+    {
+      heading: "お客様に見える画面（グループ招待ページ）",
+      items: [
+        { title: "日程確定 → ステップ表示が更新される", body: "店舗が日程を承認すると、お客様の画面に進行ステップが表示されます。\nSTEP 6「事前アンケート」とSTEP 7「配役確定」が追加されます." },
+        { title: "主催者がチャットで配役方法を選択", body: "日程確定後、主催者のチャット画面にのみ配役方法の選択カードが表示されます。\n主催者以外のメンバーには表示されません。" },
+        { title: "お客様がアンケートに回答する", body: "「アンケートで希望を伝える」が選択されると、各メンバーの画面に公演前アンケートフォームが表示されます。\nお客様はこのフォームから回答を送信します。" },
+        { title: "事前読み込み通知がチャットに届く", body: "シナリオに「事前読み込みあり」が設定されている場合、日程確定時にチャットへ事前読み込みについての通知が自動投稿されます。" },
+        { title: "スタッフからの個別お知らせが届く", body: "スタッフが配役を決定し個別お知らせを送ると、対象者本人だけにチャット内でメッセージが表示されます。\n他のメンバーには見えません。" },
+      ]
+    },
+    {
+      heading: "スタッフの操作手順（アンケート確認 → 配役）",
+      items: [
+        { title: "スケジュール管理から公演を開く", body: "ナビゲーションの「スケジュール」から対象日の公演をタップして、公演編集ダイアログを開きます。" },
+        { title: "「アンケート」タブでアンケート回答を確認する", body: "公演ダイアログ上部の「アンケート」タブを選択します。\n回答状況（○/○名回答）と各メンバーの回答内容を確認できます。" },
+        { title: "回答を確認し、配役を決定する", body: "各メンバーの回答（希望や要望など）を確認して、キャラクターの配役を決定します。\n配役はシステム上で決定ボタンを押す操作はなく、次のステップでお知らせを送信することで配役を伝えます。" },
+        { title: "各メンバーに個別お知らせを送信する", body: "メンバーを展開すると下部に「○○さんへ個別にお知らせ」セクションがあります。\n以下の画面から個別にお知らせを送信します。" },
+      ]
+    },
+    {
+      heading: "別の確認方法：貸切管理画面",
+      items: [
+        { title: "貸切管理画面からの確認", body: "スケジュール管理以外にも、ナビゲーションの「貸切管理」からアンケート回答を確認できます。\n貸切リクエストの詳細画面を開くと、「アンケート回答」セクションが表示されます。\nこちらからも各メンバーの回答確認が可能です。" },
+      ]
+    },
+    {
+      heading: "よくあるトラブルと対応",
+      items: [
+        { title: "アンケートタブに「アンケート回答・配役データがありません」と表示される", body: "シナリオ編集でアンケートが有効になっていないか、質問が設定されていません。シナリオ編集 → アンケート設定でONにし、質問を追加してください。" },
+        { title: "お客様が「アンケートフォームが表示されない」と言っている", body: "日程が確定済みかつ配役方法が選択済みであることを確認してください。主催者がチャットで配役方法を選んでいない場合、アンケートフォームは表示されません。" },
+        { title: "回答期限を過ぎた後でもお客様は回答できるか", body: "はい。期限は目安として表示されるだけで、公演日までは回答・更新が可能です。" },
+        { title: "個別お知らせを送り間違えた", body: "お知らせは削除できません。再度正しい内容でお知らせを送信してください。お客様のチャットには送信順に表示されます。" },
+        { title: "配役方法を変更したい（アンケート → 自分たちで、またはその逆）", body: "主催者がチャット画面から「方法変更」をタップすると変更できます。ただし、既に送信されたアンケート回答はリセットされます。" },
+        { title: "事前読み込み通知がチャットに表示されない", body: "シナリオマスターで「事前読み込みあり」が有効になっているか確認してください。また、日程確定時に自動投稿されるため、確定前は表示されません。" },
+      ]
+    }
+  ]
+}
 
 /* ------------------------------------------------------------------ */
 /* 共通コンポーネント                                                    */
@@ -529,16 +572,26 @@ function MemberRowMock({ name, status }: { name: string; status: 'responded' | '
 /* メインコンポーネント                                                   */
 /* ------------------------------------------------------------------ */
 
-export function PreReadingSurveyManual() {
+export function PreReadingSurveyManual({ content }: { content?: HardcodedPageContent }) {
+  const c = content ?? PRE_READING_SURVEY_DEFAULT
+
+  const customerSection = c.sections[0]
+  const staffSection = c.sections[1]
+  const altSection = c.sections[2]
+  const troubleSection = c.sections[3]
+
+  const customerSteps = customerSection?.items ?? []
+  const staffSteps = staffSection?.items ?? []
+  const troubles = troubleSection?.items ?? []
+
   return (
     <div className="space-y-10 max-w-3xl mx-auto pb-12">
 
       {/* タイトル */}
       <div className="space-y-2">
         <h2 className="text-2xl font-bold tracking-tight">事前アンケート・配役</h2>
-        <p className="text-muted-foreground leading-relaxed">
-          貸切公演のお客様にアンケートを送り、回答を確認してキャラクターを配役するまでの手順です。
-          お客様のチャット画面に表示されるUIを交えて説明します。
+        <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+          {c.description}
         </p>
       </div>
 
@@ -569,7 +622,7 @@ export function PreReadingSurveyManual() {
           <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
             <Users className="h-4 w-4 text-purple-600" />
           </div>
-          <h3 className="text-lg font-semibold">お客様に見える画面（グループ招待ページ）</h3>
+          <h3 className="text-lg font-semibold">{customerSection?.heading ?? ''}</h3>
         </div>
 
         <div className="bg-gray-50 border rounded-lg p-4 mb-4">
@@ -579,10 +632,9 @@ export function PreReadingSurveyManual() {
           </p>
         </div>
 
-        <Step num={1} color="#9333ea" title="日程確定 → ステップ表示が更新される">
-          <p>
-            店舗が日程を承認すると、お客様の画面に進行ステップが表示されます。
-            <strong>STEP 6「事前アンケート」</strong>と<strong>STEP 7「配役確定」</strong>が追加されます。
+        <Step num={1} color="#9333ea" title={customerSteps[0]?.title ?? ''}>
+          <p className="whitespace-pre-line">
+            {customerSteps[0]?.body ?? ''}
           </p>
           <div className="mt-3">
             <CustomerStepsMock />
@@ -592,10 +644,9 @@ export function PreReadingSurveyManual() {
           </div>
         </Step>
 
-        <Step num={2} color="#9333ea" title="主催者がチャットで配役方法を選択">
-          <p>
-            日程確定後、<strong>主催者のチャット画面にのみ</strong>配役方法の選択カードが表示されます。
-            主催者以外のメンバーには表示されません。
+        <Step num={2} color="#9333ea" title={customerSteps[1]?.title ?? ''}>
+          <p className="whitespace-pre-line">
+            {customerSteps[1]?.body ?? ''}
           </p>
           <div className="mt-3">
             <CharAssignmentMethodMock />
@@ -606,10 +657,9 @@ export function PreReadingSurveyManual() {
           </div>
         </Step>
 
-        <Step num={3} color="#9333ea" title="お客様がアンケートに回答する">
-          <p>
-            「アンケートで希望を伝える」が選択されると、各メンバーの画面に<strong>公演前アンケートフォーム</strong>が表示されます。
-            お客様はこのフォームから回答を送信します。
+        <Step num={3} color="#9333ea" title={customerSteps[2]?.title ?? ''}>
+          <p className="whitespace-pre-line">
+            {customerSteps[2]?.body ?? ''}
           </p>
           <div className="mt-3">
             <SurveyFormMock />
@@ -621,9 +671,9 @@ export function PreReadingSurveyManual() {
           </div>
         </Step>
 
-        <Step num={4} color="#9333ea" title="事前読み込み通知がチャットに届く">
-          <p>
-            シナリオに「事前読み込みあり」が設定されている場合、日程確定時にチャットへ<strong>事前読み込みについての通知</strong>が自動投稿されます。
+        <Step num={4} color="#9333ea" title={customerSteps[3]?.title ?? ''}>
+          <p className="whitespace-pre-line">
+            {customerSteps[3]?.body ?? ''}
           </p>
           <div className="mt-3">
             <PreReadingNoticeMock />
@@ -633,11 +683,9 @@ export function PreReadingSurveyManual() {
           </div>
         </Step>
 
-        <Step num={5} color="#9333ea" title="スタッフからの個別お知らせが届く" last>
-          <p>
-            スタッフが配役を決定し個別お知らせを送ると、
-            <strong>対象者本人だけに</strong>チャット内でメッセージが表示されます。
-            他のメンバーには見えません。
+        <Step num={5} color="#9333ea" title={customerSteps[4]?.title ?? ''} last>
+          <p className="whitespace-pre-line">
+            {customerSteps[4]?.body ?? ''}
           </p>
           <div className="mt-3">
             <IndividualNoticeMock />
@@ -654,19 +702,18 @@ export function PreReadingSurveyManual() {
           <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
             <ClipboardList className="h-4 w-4 text-blue-600" />
           </div>
-          <h3 className="text-lg font-semibold">スタッフの操作手順（アンケート確認 → 配役）</h3>
+          <h3 className="text-lg font-semibold">{staffSection?.heading ?? ''}</h3>
         </div>
 
-        <Step num={1} color="#3b82f6" title="スケジュール管理から公演を開く">
-          <p>
-            ナビゲーションの<strong>「スケジュール」</strong>から対象日の公演をタップして、公演編集ダイアログを開きます。
+        <Step num={1} color="#3b82f6" title={staffSteps[0]?.title ?? ''}>
+          <p className="whitespace-pre-line">
+            {staffSteps[0]?.body ?? ''}
           </p>
         </Step>
 
-        <Step num={2} color="#3b82f6" title="「アンケート」タブでアンケート回答を確認する">
-          <p>
-            公演ダイアログ上部の<strong>「アンケート」タブ</strong>を選択します。
-            回答状況（○/○名回答）と各メンバーの回答内容を確認できます。
+        <Step num={2} color="#3b82f6" title={staffSteps[1]?.title ?? ''}>
+          <p className="whitespace-pre-line">
+            {staffSteps[1]?.body ?? ''}
           </p>
           <div className="mt-3">
             <SurveyTabMock />
@@ -677,11 +724,9 @@ export function PreReadingSurveyManual() {
           </div>
         </Step>
 
-        <Step num={3} color="#3b82f6" title="回答を確認し、配役を決定する">
-          <p>
-            各メンバーの回答（希望や要望など）を確認して、キャラクターの配役を決定します。
-            配役はシステム上で決定ボタンを押す操作はなく、
-            <strong>次のステップでお知らせを送信することで配役を伝えます</strong>。
+        <Step num={3} color="#3b82f6" title={staffSteps[2]?.title ?? ''}>
+          <p className="whitespace-pre-line">
+            {staffSteps[2]?.body ?? ''}
           </p>
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mt-3 text-xs text-blue-700 space-y-1">
             <p><strong>配役のコツ：</strong></p>
@@ -690,10 +735,9 @@ export function PreReadingSurveyManual() {
           </div>
         </Step>
 
-        <Step num={4} color="#3b82f6" title="各メンバーに個別お知らせを送信する" last>
-          <p>
-            メンバーを展開すると下部に<strong>「○○さんへ個別にお知らせ」</strong>セクションがあります。
-            以下の画面から個別にお知らせを送信します。
+        <Step num={4} color="#3b82f6" title={staffSteps[3]?.title ?? ''} last>
+          <p className="whitespace-pre-line">
+            {staffSteps[3]?.body ?? ''}
           </p>
 
           <div className="mt-3">
@@ -715,17 +759,15 @@ export function PreReadingSurveyManual() {
           <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
             <FileText className="h-4 w-4 text-green-600" />
           </div>
-          <h3 className="text-lg font-semibold">別の確認方法：貸切管理画面</h3>
+          <h3 className="text-lg font-semibold">{altSection?.heading ?? ''}</h3>
         </div>
-        <div className="border rounded-lg p-4 bg-gray-50 space-y-2">
-          <p className="text-sm text-gray-700">
-            スケジュール管理以外にも、ナビゲーションの<strong>「貸切管理」</strong>からアンケート回答を確認できます。
-          </p>
-          <p className="text-sm text-gray-700">
-            貸切リクエストの詳細画面を開くと、「アンケート回答」セクションが表示されます。
-            こちらからも各メンバーの回答確認が可能です。
-          </p>
-        </div>
+        {altSection?.items[0] && (
+          <div className="border rounded-lg p-4 bg-gray-50 space-y-2">
+            <p className="text-sm text-gray-700 whitespace-pre-line">
+              {altSection.items[0].body}
+            </p>
+          </div>
+        )}
       </section>
 
       {/* ═══════════════ よくあるトラブル ═══════════════ */}
@@ -734,33 +776,12 @@ export function PreReadingSurveyManual() {
           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             <HelpCircle className="h-4 w-4 text-primary" />
           </div>
-          <h3 className="text-lg font-semibold">よくあるトラブルと対応</h3>
+          <h3 className="text-lg font-semibold">{troubleSection?.heading ?? ''}</h3>
         </div>
 
-        <TroubleRow
-          q="アンケートタブに「アンケート回答・配役データがありません」と表示される"
-          a="シナリオ編集でアンケートが有効になっていないか、質問が設定されていません。シナリオ編集 → アンケート設定でONにし、質問を追加してください。"
-        />
-        <TroubleRow
-          q="お客様が「アンケートフォームが表示されない」と言っている"
-          a="日程が確定済みかつ配役方法が選択済みであることを確認してください。主催者がチャットで配役方法を選んでいない場合、アンケートフォームは表示されません。"
-        />
-        <TroubleRow
-          q="回答期限を過ぎた後でもお客様は回答できるか"
-          a="はい。期限は目安として表示されるだけで、公演日までは回答・更新が可能です。"
-        />
-        <TroubleRow
-          q="個別お知らせを送り間違えた"
-          a="お知らせは削除できません。再度正しい内容でお知らせを送信してください。お客様のチャットには送信順に表示されます。"
-        />
-        <TroubleRow
-          q="配役方法を変更したい（アンケート → 自分たちで、またはその逆）"
-          a="主催者がチャット画面から「方法変更」をタップすると変更できます。ただし、既に送信されたアンケート回答はリセットされます。"
-        />
-        <TroubleRow
-          q="事前読み込み通知がチャットに表示されない"
-          a="シナリオマスターで「事前読み込みあり」が有効になっているか確認してください。また、日程確定時に自動投稿されるため、確定前は表示されません。"
-        />
+        {troubles.map((item, i) => (
+          <TroubleRow key={i} q={item.title} a={item.body ?? ''} />
+        ))}
       </section>
 
     </div>

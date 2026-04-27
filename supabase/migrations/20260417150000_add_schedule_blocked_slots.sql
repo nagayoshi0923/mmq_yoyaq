@@ -14,7 +14,16 @@ CREATE TABLE IF NOT EXISTS public.schedule_blocked_slots (
 ALTER TABLE public.schedule_blocked_slots ENABLE ROW LEVEL SECURITY;
 
 -- 認証済みユーザー（スタッフ・管理者）は全操作可能
-CREATE POLICY "authenticated full access" ON public.schedule_blocked_slots
-  FOR ALL TO authenticated
-  USING (true)
-  WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename  = 'schedule_blocked_slots'
+      AND policyname = 'authenticated full access'
+  ) THEN
+    CREATE POLICY "authenticated full access" ON public.schedule_blocked_slots
+      FOR ALL TO authenticated
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END $$;

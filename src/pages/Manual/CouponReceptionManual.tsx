@@ -4,6 +4,34 @@
  */
 import { CheckCircle, AlertTriangle, Smartphone, Scissors, Clock, HelpCircle, Ticket } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import type { HardcodedPageContent } from '@/types/hardcodedContent'
+
+export const COUPON_RECEPTION_DEFAULT: HardcodedPageContent = {
+  description: "クーポンはお客さまがご自身のスマホで操作します。\nスタッフは声がけ・案内・確認をするだけでOKです。",
+  sections: [
+    {
+      heading: "受付の手順",
+      items: [
+        { title: "クーポンを持っていることを確認する", body: "お客さまに「クーポンはお持ちですか？」と確認します。", scene: "声がけ例: 「本日クーポンはご利用になりますか？」" },
+        { title: "マイページ →「クーポン」タブを開いてもらう", body: "お客さまのスマホで予約サイトのマイページを開いてもらいます。", scene: "声がけ例: 「マイページの『クーポン』タブを開いていただけますか？」" },
+        { title: "クーポンカードをタップしてもらう", body: "「利用可能なクーポン」に以下のようなカードが表示されます。\n右上の「タップして使う」ラベルが目印です。カード全体をタップしてもらいます。", scene: "声がけ例: 「カードをタップしてください」" },
+        { title: "公演を選んで「もぎる」を押してもらう", body: "タップすると下のようなダイアログが開きます。\n本日参加する公演が表示されるので選択して、「もぎる」ボタンを押してもらいます。", scene: "声がけ例: 「参加される公演を選んで『もぎる』を押してください」" },
+        { title: "「使用済み」になったことを確認する", body: "「もぎる」後、クーポンカードが以下のようなグレーの「使用済み」表示に変わります。\nこれを目視で確認したら受付完了です。" },
+      ]
+    },
+    {
+      heading: "よくあるトラブルと対応",
+      items: [
+        { title: "「現在進行中の予約がありません」と表示される", body: "公演開始の3時間前〜公演終了の1時間後の間だけ使用できます。時間外の場合は公演当日の時間帯に再度案内してください。予約がない・確定していない可能性もあります。" },
+        { title: "クーポンが表示されない（クーポン欄が空）", body: "クーポンが付与されていないか、すでに使用済みの可能性があります。クーポン管理ページでお客さまのクーポン状況を確認してください。" },
+        { title: "「もぎる」ボタンが押せない（グレーのまま）", body: "公演が選択されていません。ダイアログ内の公演カードをタップして選択してから再度お試しください。" },
+        { title: "「このタイトルには既にクーポンをご利用済みです」と表示される", body: "同じシナリオに対してはクーポンを2回以上使用できません。別のシナリオの公演であれば使用可能です。" },
+        { title: "貸切グループに参加し忘れた状態で来店された（貸切参加のお客さま）", body: "公演終了の1時間後までにグループへの参加手続きを完了すれば使用可能です。MMQ未登録の場合はまず登録が必要です。①MMQに登録 → ②グループの招待リンクからグループに参加（「参加する」を押す）→ ③マイページのクーポンで使用、の順で案内してください。公演終了から1時間以内であれば動作しますが、それ以降はシステム上の判定ができなくなるため、なるべく公演開始前か休憩時間内に案内してください。" },
+        { title: "ログインできていない", body: "予約サイトにログインしていないとマイページが開けません。登録済みのメールアドレスとパスワードでログインしてもらってください。" },
+      ]
+    }
+  ]
+}
 
 function Step({ num, color, title, children, last }: {
   num: number
@@ -158,16 +186,30 @@ function UsedCardMock() {
   )
 }
 
-export function CouponReceptionManual() {
+export function CouponReceptionManual({ content }: { content?: HardcodedPageContent }) {
+  const c = content ?? COUPON_RECEPTION_DEFAULT
+
+  const stepSection = c.sections[0]
+  const troubleSection = c.sections[1]
+
+  const steps = stepSection?.items ?? []
+  const troubles = troubleSection?.items ?? []
+
+  // Extract script from scene field (format: "声がけ例: ...")
+  const getScript = (scene?: string) => {
+    if (!scene) return null
+    const match = scene.match(/^声がけ例: (.+)$/)
+    return match ? match[1] : scene
+  }
+
   return (
     <div className="space-y-10 max-w-3xl mx-auto pb-12">
 
       {/* タイトル */}
       <div className="space-y-2">
         <h2 className="text-2xl font-bold tracking-tight">クーポン受付対応</h2>
-        <p className="text-muted-foreground leading-relaxed">
-          クーポンは<strong>お客さまがご自身のスマホで操作</strong>します。
-          スタッフは声がけ・案内・確認をするだけでOKです。
+        <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+          {c.description}
         </p>
       </div>
 
@@ -201,44 +243,42 @@ export function CouponReceptionManual() {
           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             <Smartphone className="h-4 w-4 text-primary" />
           </div>
-          <h3 className="text-lg font-semibold">受付の手順</h3>
+          <h3 className="text-lg font-semibold">{stepSection?.heading ?? ''}</h3>
         </div>
 
-        <Step num={1} color="#4f86c6" title="クーポンを持っていることを確認する">
-          <p>お客さまに「クーポンはお持ちですか？」と確認します。</p>
-          <ScriptBox>
-            「本日クーポンはご利用になりますか？」
-          </ScriptBox>
+        <Step num={1} color="#4f86c6" title={steps[0]?.title ?? ''}>
+          <p>{steps[0]?.body?.split('\n')[0] ?? ''}</p>
+          {getScript(steps[0]?.scene) && (
+            <ScriptBox>{getScript(steps[0]?.scene)}</ScriptBox>
+          )}
         </Step>
 
-        <Step num={2} color="#4f86c6" title="マイページ →「クーポン」タブを開いてもらう">
-          <p>お客さまのスマホで予約サイトのマイページを開いてもらいます。</p>
-          <ScriptBox>
-            「マイページの『クーポン』タブを開いていただけますか？」
-          </ScriptBox>
+        <Step num={2} color="#4f86c6" title={steps[1]?.title ?? ''}>
+          <p>{steps[1]?.body}</p>
+          {getScript(steps[1]?.scene) && (
+            <ScriptBox>{getScript(steps[1]?.scene)}</ScriptBox>
+          )}
           <div className="mt-3 bg-gray-50 border border-gray-200 rounded-md p-3 text-xs text-gray-600 space-y-1">
             <p className="font-medium">お客さまの操作：</p>
             <p>① サイトにログイン → ② メニューから「マイページ」→ ③「クーポン」タブをタップ</p>
           </div>
         </Step>
 
-        <Step num={3} color="#4f86c6" title="クーポンカードをタップしてもらう">
-          <p>
-            「利用可能なクーポン」に以下のようなカードが表示されます。
-            右上の<strong>「タップして使う」</strong>ラベルが目印です。カード全体をタップしてもらいます。
+        <Step num={3} color="#4f86c6" title={steps[2]?.title ?? ''}>
+          <p className="whitespace-pre-line">
+            {steps[2]?.body}
           </p>
           <div className="mt-4 mb-2">
             <CouponCardMock />
           </div>
-          <ScriptBox>
-            「カードをタップしてください」
-          </ScriptBox>
+          {getScript(steps[2]?.scene) && (
+            <ScriptBox>{getScript(steps[2]?.scene)}</ScriptBox>
+          )}
         </Step>
 
-        <Step num={4} color="#4f86c6" title="公演を選んで「もぎる」を押してもらう">
-          <p>
-            タップすると下のようなダイアログが開きます。
-            本日参加する公演が表示されるので選択して、<strong>「もぎる」</strong>ボタンを押してもらいます。
+        <Step num={4} color="#4f86c6" title={steps[3]?.title ?? ''}>
+          <p className="whitespace-pre-line">
+            {steps[3]?.body}
           </p>
           <div className="mt-4 mb-2">
             <MogiruDialogMock />
@@ -247,15 +287,14 @@ export function CouponReceptionManual() {
             <p>・公演が表示されない → 下のトラブル対応を参照</p>
             <p>・「もぎる」がグレーのまま → 公演を選択するとボタンが有効になる</p>
           </div>
-          <ScriptBox>
-            「参加される公演を選んで『もぎる』を押してください」
-          </ScriptBox>
+          {getScript(steps[3]?.scene) && (
+            <ScriptBox>{getScript(steps[3]?.scene)}</ScriptBox>
+          )}
         </Step>
 
-        <Step num={5} color="#22a861" title="「使用済み」になったことを確認する" last>
-          <p>
-            「もぎる」後、クーポンカードが以下のようなグレーの「使用済み」表示に変わります。
-            これを目視で確認したら受付完了です。
+        <Step num={5} color="#22a861" title={steps[4]?.title ?? ''} last>
+          <p className="whitespace-pre-line">
+            {steps[4]?.body}
           </p>
           <div className="mt-4 mb-2">
             <UsedCardMock />
@@ -275,33 +314,12 @@ export function CouponReceptionManual() {
           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             <HelpCircle className="h-4 w-4 text-primary" />
           </div>
-          <h3 className="text-lg font-semibold">よくあるトラブルと対応</h3>
+          <h3 className="text-lg font-semibold">{troubleSection?.heading ?? ''}</h3>
         </div>
 
-        <TroubleRow
-          q="「現在進行中の予約がありません」と表示される"
-          a="公演開始の3時間前〜公演終了の1時間後の間だけ使用できます。時間外の場合は公演当日の時間帯に再度案内してください。予約がない・確定していない可能性もあります。"
-        />
-        <TroubleRow
-          q="クーポンが表示されない（クーポン欄が空）"
-          a="クーポンが付与されていないか、すでに使用済みの可能性があります。クーポン管理ページでお客さまのクーポン状況を確認してください。"
-        />
-        <TroubleRow
-          q="「もぎる」ボタンが押せない（グレーのまま）"
-          a="公演が選択されていません。ダイアログ内の公演カードをタップして選択してから再度お試しください。"
-        />
-        <TroubleRow
-          q="「このタイトルには既にクーポンをご利用済みです」と表示される"
-          a="同じシナリオに対してはクーポンを2回以上使用できません。別のシナリオの公演であれば使用可能です。"
-        />
-        <TroubleRow
-          q="貸切グループに参加し忘れた状態で来店された（貸切参加のお客さま）"
-          a="公演終了の1時間後までにグループへの参加手続きを完了すれば使用可能です。MMQ未登録の場合はまず登録が必要です。①MMQに登録 → ②グループの招待リンクからグループに参加（「参加する」を押す）→ ③マイページのクーポンで使用、の順で案内してください。公演終了から1時間以内であれば動作しますが、それ以降はシステム上の判定ができなくなるため、なるべく公演開始前か休憩時間内に案内してください。"
-        />
-        <TroubleRow
-          q="ログインできていない"
-          a="予約サイトにログインしていないとマイページが開けません。登録済みのメールアドレスとパスワードでログインしてもらってください。"
-        />
+        {troubles.map((item, i) => (
+          <TroubleRow key={i} q={item.title} a={item.body ?? ''} />
+        ))}
       </section>
 
     </div>

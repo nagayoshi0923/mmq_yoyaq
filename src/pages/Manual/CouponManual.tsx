@@ -4,6 +4,76 @@ import {
   Search, CheckCircle, AlertCircle, Info,
   ToggleLeft, ToggleRight, Users, Calendar, Tag
 } from 'lucide-react'
+import type { HardcodedPageContent } from '@/types/hardcodedContent'
+
+export const COUPON_DEFAULT: HardcodedPageContent = {
+  description: "クーポン機能を使うと、お客さまに割引クーポンを配布・管理できます。\n新規登録時の自動付与や手動での個別付与に対応しており、使用状況の統計確認も可能です。",
+  sections: [
+    {
+      heading: "クーポンの仕組み",
+      intro: "クーポンは「キャンペーン」と「顧客クーポン」の2層構造で管理されています。",
+      items: [
+        { title: "キャンペーン", body: "「割引額」「有効期間」「付与条件」などのルールを定義したテンプレートです。\nまずキャンペーンを作成し、そこからお客さまへ付与します。" },
+        { title: "顧客クーポン", body: "キャンペーンをもとに各お客さまへ付与された実際のクーポンです。\nお客さまのマイページから確認・使用できます。" },
+      ]
+    },
+    {
+      heading: "キャンペーンを作成する",
+      intro: "クーポンを配布するには、まずキャンペーンを作成します。",
+      items: [
+        { title: "「新規キャンペーン」ボタンをクリック", body: "クーポン管理ページ右上のボタンから作成ダイアログを開きます。" },
+        { title: "キャンペーン情報を入力", body: "各項目を入力して「作成」ボタンを押します。" },
+      ]
+    },
+    {
+      heading: "お客さまにクーポンを手動付与する",
+      intro: "「手動付与」タイプのキャンペーン、または新規登録キャンペーンを既存のお客さまにも配布したい場合に使います。",
+      items: [
+        { title: "キャンペーン一覧でメニューを開く", body: "付与したいキャンペーンのカード右端にある「︙」（縦三点）アイコンをクリックします。" },
+        { title: "「クーポン付与」を選択", body: "ドロップダウンメニューから「クーポン付与」をクリックすると、検索ダイアログが開きます。" },
+        { title: "お客さまを検索して付与", body: "名前・メールアドレス・電話番号で検索し、対象のお客さまを選んで「付与する」を押します。" },
+      ]
+    },
+    {
+      heading: "キャンペーンの有効・無効を切り替える",
+      intro: "キャンペーンを一時停止したい場合は、スイッチ操作で有効/無効を切り替えられます。",
+      items: [
+        { title: "有効（オン）", body: "新規登録キャンペーンは新しいお客さまへ自動付与されます。\n既に付与済みのクーポンもお客さまが使用できます。" },
+        { title: "無効（オフ）", body: "新規登録時の自動付与が停止します。\nただし既に付与済みのクーポンは引き続きお客さまが使用できます。" },
+      ]
+    },
+    {
+      heading: "使用状況（統計）を確認する",
+      intro: "各キャンペーンの付与数・使用数・割引総額を確認できます。",
+      items: [
+        { title: "「統計を見る」を選択", body: "キャンペーンカードの「︙」メニューから「統計を見る」をクリックします。" },
+      ]
+    },
+    {
+      heading: "お客さまがクーポンを使う流れ",
+      intro: "お客さまがクーポンを受け取ってから使うまでの流れです。スタッフが把握しておくと、お客さまからの問い合わせに対応しやすくなります。",
+      items: [
+        { title: "クーポンを受け取る", body: "新規登録時に自動付与されるか、スタッフが手動付与します。マイページの「クーポン」タブに表示されます。" },
+        { title: "予約時にクーポンを選択", body: "予約確認画面でクーポンを選択すると、割引が適用された料金が表示されます。\nクーポンは予約確認画面（お支払い情報を入力するステップ）でのみ選択できます。" },
+        { title: "使用完了", body: "予約が確定するとクーポンが消費されます。使用回数が0になると「使用済み」になります。" },
+      ]
+    },
+    {
+      heading: "よくある質問・注意事項",
+      items: [
+        { title: "Q. キャンペーンを削除できますか？", body: "現在、キャンペーンの削除機能はありません。不要なキャンペーンは「無効」にして非表示状態にしてください。" },
+        { title: "Q. 付与済みのクーポンを取り消せますか？", body: "管理画面からのクーポン取り消しには現在対応していません。誤って付与した場合はお問い合わせください。" },
+        { title: "Q. 新規登録キャンペーンは複数設定できますか？", body: "はい。有効な新規登録キャンペーンが複数ある場合、登録時に全てのキャンペーンのクーポンが付与されます。" },
+        { title: "Q. お客さまがクーポンを持っているか確認できますか？", body: "「顧客管理」ページでお客さまを検索し、詳細を開くと保有クーポンを確認できます。" },
+        { title: "Q. クーポンの有効期限はどう決まりますか？", body: "キャンペーンに設定した「有効日数」（付与日から）と「キャンペーン終了日」のいずれか早い方が有効期限になります。\nどちらも未設定の場合は無期限です。" },
+      ]
+    },
+    {
+      heading: "キャンペーン一覧の見方",
+      items: []
+    },
+  ]
+}
 
 function Section({ icon: Icon, title, children }: {
   icon: React.ElementType
@@ -77,44 +147,55 @@ function FieldRow({ label, content }: { label: string; content: React.ReactNode 
   )
 }
 
-export function CouponManual() {
+export function CouponManual({ content }: { content?: HardcodedPageContent }) {
+  const c = content ?? COUPON_DEFAULT
+
+  const mechanismSection = c.sections[0]
+  const createSection = c.sections[1]
+  const manualSection = c.sections[2]
+  const toggleSection = c.sections[3]
+  const statsSection = c.sections[4]
+  const customerSection = c.sections[5]
+  const faqSection = c.sections[6]
+
   return (
     <div className="space-y-10 max-w-4xl mx-auto pb-12">
       {/* 概要 */}
       <div className="space-y-3">
         <h2 className="text-2xl font-bold tracking-tight">クーポン管理</h2>
-        <p className="text-muted-foreground leading-relaxed">
-          クーポン機能を使うと、お客さまに割引クーポンを配布・管理できます。
-          新規登録時の自動付与や手動での個別付与に対応しており、使用状況の統計確認も可能です。
+        <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+          {c.description}
         </p>
       </div>
 
       {/* クーポンの全体像 */}
-      <Section icon={Ticket} title="クーポンの仕組み">
+      <Section icon={Ticket} title={mechanismSection?.heading ?? 'クーポンの仕組み'}>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          クーポンは「キャンペーン」と「顧客クーポン」の2層構造で管理されています。
+          {mechanismSection?.intro}
         </p>
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="border rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2 font-semibold">
-              <Tag className="h-4 w-4 text-primary" />
-              キャンペーン
+          {mechanismSection?.items[0] && (
+            <div className="border rounded-lg p-4 space-y-2">
+              <div className="flex items-center gap-2 font-semibold">
+                <Tag className="h-4 w-4 text-primary" />
+                {mechanismSection.items[0].title}
+              </div>
+              <p className="text-sm text-muted-foreground whitespace-pre-line">
+                {mechanismSection.items[0].body}
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              「割引額」「有効期間」「付与条件」などのルールを定義したテンプレートです。
-              まずキャンペーンを作成し、そこからお客さまへ付与します。
-            </p>
-          </div>
-          <div className="border rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2 font-semibold">
-              <Users className="h-4 w-4 text-primary" />
-              顧客クーポン
+          )}
+          {mechanismSection?.items[1] && (
+            <div className="border rounded-lg p-4 space-y-2">
+              <div className="flex items-center gap-2 font-semibold">
+                <Users className="h-4 w-4 text-primary" />
+                {mechanismSection.items[1].title}
+              </div>
+              <p className="text-sm text-muted-foreground whitespace-pre-line">
+                {mechanismSection.items[1].body}
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              キャンペーンをもとに各お客さまへ付与された実際のクーポンです。
-              お客さまのマイページから確認・使用できます。
-            </p>
-          </div>
+          )}
         </div>
 
         <InfoBox type="info">
@@ -124,83 +205,87 @@ export function CouponManual() {
       </Section>
 
       {/* キャンペーンの作成 */}
-      <Section icon={Plus} title="キャンペーンを作成する">
+      <Section icon={Plus} title={createSection?.heading ?? 'キャンペーンを作成する'}>
         <p className="text-sm text-muted-foreground">
-          クーポンを配布するには、まずキャンペーンを作成します。
+          {createSection?.intro}
         </p>
 
         <div className="space-y-3">
-          <StepCard
-            step={1}
-            title="「新規キャンペーン」ボタンをクリック"
-            description="クーポン管理ページ右上のボタンから作成ダイアログを開きます。"
-          />
-          <StepCard
-            step={2}
-            title="キャンペーン情報を入力"
-            description="各項目を入力して「作成」ボタンを押します。"
-          >
-            <div className="space-y-0.5">
-              <FieldRow
-                label="キャンペーン名"
-                content="管理用の名前。例：「新規登録クーポン500円OFF」"
-              />
-              <FieldRow
-                label="説明"
-                content="お客さまのマイページに表示される説明文"
-              />
-              <FieldRow
-                label="割引タイプ"
-                content={
-                  <div className="flex gap-2 flex-wrap">
-                    <Badge variant="outline">固定額</Badge>
-                    <span className="text-muted-foreground text-xs">例：500円OFF</span>
-                    <span className="mx-1">／</span>
-                    <Badge variant="outline">割引率</Badge>
-                    <span className="text-muted-foreground text-xs">例：10%OFF</span>
-                  </div>
-                }
-              />
-              <FieldRow
-                label="割引額・割引率"
-                content="固定額なら「500」（円）、割引率なら「10」（%）のように入力"
-              />
-              <FieldRow
-                label="使用回数上限"
-                content="1人のお客さまが何回使えるか。通常は「1」"
-              />
-              <FieldRow
-                label="有効日数"
-                content="付与してから何日間有効か。空欄にすると無制限"
-              />
-              <FieldRow
-                label="付与方法"
-                content={
-                  <div className="space-y-1">
-                    <div><Badge className="bg-blue-100 text-blue-700 mr-1">新規登録時</Badge>新規会員登録したお客さまへ自動付与</div>
-                    <div><Badge variant="outline" className="mr-1">手動付与</Badge>スタッフが個別に付与する場合</div>
-                  </div>
-                }
-              />
-              <FieldRow
-                label="対象範囲"
-                content={
-                  <div className="space-y-1">
-                    <div><Badge variant="outline" className="mr-1">全予約</Badge>どのシナリオの予約でも使用可能</div>
-                    <div><Badge variant="outline" className="mr-1">特定シナリオのみ</Badge>指定したシナリオの予約にのみ使用可能</div>
-                  </div>
-                }
-              />
-              <FieldRow
-                label="キャンペーン期間"
-                content="開始日・終了日を設定。空欄にすると期限なし"
-              />
-              <FieldRow
-                label="有効"
-                content="スイッチをオンにするとキャンペーンが有効になる"
-              />
-            </div>
-          </StepCard>
+          {createSection?.items[0] && (
+            <StepCard
+              step={1}
+              title={createSection.items[0].title}
+              description={createSection.items[0].body ?? ''}
+            />
+          )}
+          {createSection?.items[1] && (
+            <StepCard
+              step={2}
+              title={createSection.items[1].title}
+              description={createSection.items[1].body ?? ''}
+            >
+              <div className="space-y-0.5">
+                <FieldRow
+                  label="キャンペーン名"
+                  content="管理用の名前。例：「新規登録クーポン500円OFF」"
+                />
+                <FieldRow
+                  label="説明"
+                  content="お客さまのマイページに表示される説明文"
+                />
+                <FieldRow
+                  label="割引タイプ"
+                  content={
+                    <div className="flex gap-2 flex-wrap">
+                      <Badge variant="outline">固定額</Badge>
+                      <span className="text-muted-foreground text-xs">例：500円OFF</span>
+                      <span className="mx-1">／</span>
+                      <Badge variant="outline">割引率</Badge>
+                      <span className="text-muted-foreground text-xs">例：10%OFF</span>
+                    </div>
+                  }
+                />
+                <FieldRow
+                  label="割引額・割引率"
+                  content="固定額なら「500」（円）、割引率なら「10」（%）のように入力"
+                />
+                <FieldRow
+                  label="使用回数上限"
+                  content="1人のお客さまが何回使えるか。通常は「1」"
+                />
+                <FieldRow
+                  label="有効日数"
+                  content="付与してから何日間有効か。空欄にすると無制限"
+                />
+                <FieldRow
+                  label="付与方法"
+                  content={
+                    <div className="space-y-1">
+                      <div><Badge className="bg-blue-100 text-blue-700 mr-1">新規登録時</Badge>新規会員登録したお客さまへ自動付与</div>
+                      <div><Badge variant="outline" className="mr-1">手動付与</Badge>スタッフが個別に付与する場合</div>
+                    </div>
+                  }
+                />
+                <FieldRow
+                  label="対象範囲"
+                  content={
+                    <div className="space-y-1">
+                      <div><Badge variant="outline" className="mr-1">全予約</Badge>どのシナリオの予約でも使用可能</div>
+                      <div><Badge variant="outline" className="mr-1">特定シナリオのみ</Badge>指定したシナリオの予約にのみ使用可能</div>
+                    </div>
+                  }
+                />
+                <FieldRow
+                  label="キャンペーン期間"
+                  content="開始日・終了日を設定。空欄にすると期限なし"
+                />
+                <FieldRow
+                  label="有効"
+                  content="スイッチをオンにするとキャンペーンが有効になる"
+                />
+              </div>
+            </StepCard>
+          )}
         </div>
 
         <InfoBox type="success">
@@ -210,32 +295,27 @@ export function CouponManual() {
       </Section>
 
       {/* 手動付与 */}
-      <Section icon={Gift} title="お客さまにクーポンを手動付与する">
+      <Section icon={Gift} title={manualSection?.heading ?? 'お客さまにクーポンを手動付与する'}>
         <p className="text-sm text-muted-foreground">
-          「手動付与」タイプのキャンペーン、または新規登録キャンペーンを既存のお客さまにも配布したい場合に使います。
+          {manualSection?.intro}
         </p>
 
         <div className="space-y-3">
-          <StepCard
-            step={1}
-            title="キャンペーン一覧でメニューを開く"
-            description="付与したいキャンペーンのカード右端にある「︙」（縦三点）アイコンをクリックします。"
-          />
-          <StepCard
-            step={2}
-            title="「クーポン付与」を選択"
-            description="ドロップダウンメニューから「クーポン付与」をクリックすると、検索ダイアログが開きます。"
-          />
-          <StepCard
-            step={3}
-            title="お客さまを検索して付与"
-            description="名前・メールアドレス・電話番号で検索し、対象のお客さまを選んで「付与する」を押します。"
-          >
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Search className="h-3.5 w-3.5" />
-              <span>2文字以上入力すると検索結果が表示されます</span>
-            </div>
-          </StepCard>
+          {manualSection?.items.map((item, i) => (
+            <StepCard
+              key={i}
+              step={i + 1}
+              title={item.title}
+              description={item.body ?? ''}
+            >
+              {i === 2 && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Search className="h-3.5 w-3.5" />
+                  <span>2文字以上入力すると検索結果が表示されます</span>
+                </div>
+              )}
+            </StepCard>
+          ))}
         </div>
 
         <InfoBox type="warning">
@@ -245,32 +325,34 @@ export function CouponManual() {
       </Section>
 
       {/* 有効/無効の切り替え */}
-      <Section icon={Power} title="キャンペーンの有効・無効を切り替える">
+      <Section icon={Power} title={toggleSection?.heading ?? 'キャンペーンの有効・無効を切り替える'}>
         <p className="text-sm text-muted-foreground">
-          キャンペーンを一時停止したい場合は、スイッチ操作で有効/無効を切り替えられます。
+          {toggleSection?.intro}
         </p>
 
         <div className="bg-muted/30 rounded-lg p-5 space-y-4">
-          <div className="flex items-start gap-3">
-            <ToggleRight className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium">有効（オン）</p>
-              <p className="text-sm text-muted-foreground">
-                新規登録キャンペーンは新しいお客さまへ自動付与されます。
-                既に付与済みのクーポンもお客さまが使用できます。
-              </p>
+          {toggleSection?.items[0] && (
+            <div className="flex items-start gap-3">
+              <ToggleRight className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">{toggleSection.items[0].title}</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-line">
+                  {toggleSection.items[0].body}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <ToggleLeft className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium">無効（オフ）</p>
-              <p className="text-sm text-muted-foreground">
-                新規登録時の自動付与が停止します。
-                ただし既に付与済みのクーポンは引き続きお客さまが使用できます。
-              </p>
+          )}
+          {toggleSection?.items[1] && (
+            <div className="flex items-start gap-3">
+              <ToggleLeft className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">{toggleSection.items[1].title}</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-line">
+                  {toggleSection.items[1].body}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <p className="text-sm text-muted-foreground">
@@ -279,17 +361,20 @@ export function CouponManual() {
       </Section>
 
       {/* 統計確認 */}
-      <Section icon={BarChart3} title="使用状況（統計）を確認する">
+      <Section icon={BarChart3} title={statsSection?.heading ?? '使用状況（統計）を確認する'}>
         <p className="text-sm text-muted-foreground">
-          各キャンペーンの付与数・使用数・割引総額を確認できます。
+          {statsSection?.intro}
         </p>
 
         <div className="space-y-3">
-          <StepCard
-            step={1}
-            title="「統計を見る」を選択"
-            description="キャンペーンカードの「︙」メニューから「統計を見る」をクリックします。"
-          />
+          {statsSection?.items.map((item, i) => (
+            <StepCard
+              key={i}
+              step={i + 1}
+              title={item.title}
+              description={item.body ?? ''}
+            />
+          ))}
         </div>
 
         <div className="border rounded-lg overflow-hidden">
@@ -316,29 +401,24 @@ export function CouponManual() {
       </Section>
 
       {/* お客さまの使い方 */}
-      <Section icon={Users} title="お客さまがクーポンを使う流れ">
+      <Section icon={Users} title={customerSection?.heading ?? 'お客さまがクーポンを使う流れ'}>
         <p className="text-sm text-muted-foreground">
-          お客さまがクーポンを受け取ってから使うまでの流れです。スタッフが把握しておくと、お客さまからの問い合わせに対応しやすくなります。
+          {customerSection?.intro}
         </p>
 
         <div className="space-y-3">
-          <StepCard
-            step={1}
-            title="クーポンを受け取る"
-            description="新規登録時に自動付与されるか、スタッフが手動付与します。マイページの「クーポン」タブに表示されます。"
-          />
-          <StepCard
-            step={2}
-            title="予約時にクーポンを選択"
-            description="予約確認画面でクーポンを選択すると、割引が適用された料金が表示されます。"
-          >
-            <p>クーポンは予約確認画面（お支払い情報を入力するステップ）でのみ選択できます。</p>
-          </StepCard>
-          <StepCard
-            step={3}
-            title="使用完了"
-            description="予約が確定するとクーポンが消費されます。使用回数が0になると「使用済み」になります。"
-          />
+          {customerSection?.items.map((item, i) => (
+            <StepCard
+              key={i}
+              step={i + 1}
+              title={item.title}
+              description={item.body?.split('\n')[0] ?? ''}
+            >
+              {i === 1 && item.body?.includes('\n') && (
+                <p>{item.body.split('\n')[1]}</p>
+              )}
+            </StepCard>
+          ))}
         </div>
 
         <InfoBox type="info">
@@ -349,39 +429,14 @@ export function CouponManual() {
       </Section>
 
       {/* よくある質問・注意事項 */}
-      <Section icon={AlertCircle} title="よくある質問・注意事項">
+      <Section icon={AlertCircle} title={faqSection?.heading ?? 'よくある質問・注意事項'}>
         <div className="space-y-4">
-          <div className="border rounded-lg p-4 space-y-2">
-            <p className="font-medium text-sm">Q. キャンペーンを削除できますか？</p>
-            <p className="text-sm text-muted-foreground">
-              現在、キャンペーンの削除機能はありません。不要なキャンペーンは「無効」にして非表示状態にしてください。
-            </p>
-          </div>
-          <div className="border rounded-lg p-4 space-y-2">
-            <p className="font-medium text-sm">Q. 付与済みのクーポンを取り消せますか？</p>
-            <p className="text-sm text-muted-foreground">
-              管理画面からのクーポン取り消しには現在対応していません。誤って付与した場合はお問い合わせください。
-            </p>
-          </div>
-          <div className="border rounded-lg p-4 space-y-2">
-            <p className="font-medium text-sm">Q. 新規登録キャンペーンは複数設定できますか？</p>
-            <p className="text-sm text-muted-foreground">
-              はい。有効な新規登録キャンペーンが複数ある場合、登録時に全てのキャンペーンのクーポンが付与されます。
-            </p>
-          </div>
-          <div className="border rounded-lg p-4 space-y-2">
-            <p className="font-medium text-sm">Q. お客さまがクーポンを持っているか確認できますか？</p>
-            <p className="text-sm text-muted-foreground">
-              「顧客管理」ページでお客さまを検索し、詳細を開くと保有クーポンを確認できます。
-            </p>
-          </div>
-          <div className="border rounded-lg p-4 space-y-2">
-            <p className="font-medium text-sm">Q. クーポンの有効期限はどう決まりますか？</p>
-            <p className="text-sm text-muted-foreground">
-              キャンペーンに設定した「有効日数」（付与日から）と「キャンペーン終了日」のいずれか早い方が有効期限になります。
-              どちらも未設定の場合は無期限です。
-            </p>
-          </div>
+          {faqSection?.items.map((item, i) => (
+            <div key={i} className="border rounded-lg p-4 space-y-2">
+              <p className="font-medium text-sm">{item.title}</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-line">{item.body}</p>
+            </div>
+          ))}
         </div>
       </Section>
 
