@@ -325,8 +325,11 @@ export function getPerStoreSlotsForDate(
     ) {
       const original = openingHours[DAY_NAMES[dayOfWeek]]
       if (original?.is_open) {
-        rawDayBlock = original
-        dayKeyForMerge = DAY_NAMES[dayOfWeek]
+        // 祝日に平日設定をフォールバックで使う場合、slot_start_times は引き継がない。
+        // 平日の slot_start_times（例: afternoon=15:00）がそのまま残ると祝日でも
+        // 平日の開始時刻が適用されてしまうため、祝日デフォルト（weekend基準）を使う。
+        rawDayBlock = { ...original, slot_start_times: undefined }
+        dayKeyForMerge = 'sunday'
       }
     }
   }
