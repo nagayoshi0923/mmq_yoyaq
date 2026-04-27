@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { showToast } from '@/utils/toast'
 import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
 import { usePrivateBookingSlotData } from '@/hooks/usePrivateBookingSlotData'
@@ -25,10 +25,17 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
   const MAX_SELECTIONS = 6
   const MAX_FUTURE_DAYS = 180
 
+  // 店舗選択変更時に選択済みスロットの再検証が必要かどうかのフラグ
+  const needsSlotRevalidationRef = useRef(false)
+
   const setSelectedStoreIds = useCallback((storeIds: string[] | ((prev: string[]) => string[])) => {
     setSelectedStoreIdsInternal(prev => {
       const newIds = typeof storeIds === 'function' ? storeIds(prev) : storeIds
       setSavedStoreIds(newIds)
+      // 店舗リストが実際に変わった場合のみ再検証フラグを立てる
+      const changed =
+        newIds.length !== prev.length || newIds.some(id => !prev.includes(id))
+      if (changed) needsSlotRevalidationRef.current = true
       return newIds
     })
   }, [setSavedStoreIds])
@@ -73,6 +80,30 @@ export function usePrivateBooking({ stores, scenarioId, scenario, organizationId
     const slots = result[date] || []
     return slots.map(s => ({ label: s.label, startTime: s.startTime, endTime: s.endTime }))
   }, [computeSlotsByDate])
+
+  // 店舗変更後にローディングが完了したら、選択済みスロットを再検証する。
+  // 店舗が変わると利用可能な時刻や枠自体が変わるため、古い時刻のまま送信されるのを防ぐ。
+  useEffect(() => {
+    if (isLoadingEvents) return
+    if (!needsSlotRevalidationRef.current) return
+    needsSlotRevalidationRef.current = false
+
+    setSelectedTimeSlots(prev => {
+      if (prev.length === 0) return prev
+      const updated = prev.map(ts => {
+        const slots = computeSlotsByDate([ts.date])[ts.date] || []
+        const match = slots.find(s => s.label === ts.slot.label)
+        if (!match) return null
+        return { ...ts, slot: { label: match.label, startTime: match.startTime, endTime: match.endTime } }
+      })
+      const filtered = updated.filter((ts): ts is NonNullable<typeof ts> => ts !== null)
+      const removedCount = prev.length - filtered.length
+      if (removedCount > 0) {
+        showToast.warning(`店舗変更により候補日時 ${removedCount}件 が選択不可になったため削除しました`)
+      }
+      return filtered
+    })
+  }, [isLoadingEvents, computeSlotsByDate])
 
   const checkTimeSlotAvailability = useCallback(async (date: string, slot: TimeSlot, _storeIds?: string[]): Promise<boolean> => {
     if (isLoadingEvents) return false
