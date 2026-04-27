@@ -34,6 +34,7 @@ export interface GMDetail {
   gmRole: string
   pay: number
   isGMTest?: boolean
+  isCancelled?: boolean
 }
 
 export interface MonthlySalaryData {

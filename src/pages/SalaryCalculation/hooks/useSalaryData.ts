@@ -73,6 +73,7 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
           gms,
           gm_roles,
           category,
+          is_cancelled,
           stores:store_id (name),
           scenario_masters:scenario_master_id (
             title,
@@ -81,7 +82,6 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
         `)
         .gte('date', startStr)
         .lte('date', endStr)
-        .eq('is_cancelled', false)
 
       if (storeIds.length > 0) {
         gmQuery = gmQuery.in('store_id', storeIds)
@@ -103,13 +103,13 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
       gmData?.forEach(event => {
         if (!event.gms || !Array.isArray(event.gms) || event.gms.length === 0) return
 
-        const scenarioMasters = event.scenario_masters as unknown as Array<{ title: string; official_duration: number }> | null
-        const scenario = scenarioMasters?.[0]
+        const scenario = event.scenario_masters as unknown as { title: string; official_duration: number } | null
         if (!scenario) return
 
         // シナリオのgm_assignmentsから報酬情報を取得（organization_scenariosから取得する必要がある場合は別途対応）
         const gmAssignments: any[] = []
         const isGMTest = event.category === 'gmtest'
+        const isCancelled = event.is_cancelled === true
 
         // GMごとに報酬を計算
         event.gms.forEach((gmName: string, index: number) => {
@@ -117,7 +117,7 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
           if (!staffInfo) return
 
           let staff = staffMap.get(staffInfo.id)
-          
+
           // 初期化（存在しない場合）
           if (!staff) {
             const roleArray = Array.isArray(staffInfo.role) ? staffInfo.role : []
@@ -140,44 +140,55 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
             staffMap.set(staffInfo.id, staff)
           }
 
-          // 報酬を計算（gm_assignmentsから取得、なければ時給計算）
+          // 役割を特定（中止でも表示用に算出）
           let pay = 0
           let gmRole = 'GM'
-          
+
           // gm_rolesからロールを取得、なければインデックスで判定
           const gmRoles = event.gm_roles || {}
           const roleType = gmRoles[gmName] || (index === 0 ? 'main' : 'sub')
-          
-          // 受付の場合は設定から固定給与を取得
+
+          if (roleType === 'reception') {
+            gmRole = '受付'
+          } else if (roleType === 'staff' || roleType === 'observer') {
+            gmRole = roleType === 'staff' ? 'スタッフ参加' : 'スタッフ見学'
+          } else {
+            gmRole = roleType === 'main' ? 'メインGM' : 'サブGM'
+          }
+
+          // 中止公演は給与0で記録のみ（合計に加算しない）
+          if (isCancelled) {
+            staff.gmAssignments.push({
+              date: event.date,
+              scenarioTitle: scenario.title || '不明',
+              storeName: (event.stores as unknown as { name: string } | null)?.name || '不明',
+              gmRole,
+              pay: 0,
+              isGMTest,
+              isCancelled: true
+            })
+            return
+          }
+
+          // 報酬を計算（gm_assignmentsから取得、なければ時給計算）
           if (roleType === 'reception') {
             pay = salarySettings.reception_fixed_pay
-            gmRole = '受付'
-          }
-          // スタッフ参加・見学の場合は給与なし
-          else if (roleType === 'staff' || roleType === 'observer') {
+          } else if (roleType === 'staff' || roleType === 'observer') {
             pay = 0
-            gmRole = roleType === 'staff' ? 'スタッフ参加' : 'スタッフ見学'
-          }
-          // gm_assignmentsから該当する役割の報酬を検索
-          else {
+          } else {
             const assignment = gmAssignments.find((a: any) => a.role === roleType)
-            
             if (assignment && assignment.reward) {
               pay = assignment.reward
-              gmRole = roleType === 'main' ? 'メインGM' : 'サブGM'
             } else {
-              // 報酬が見つからない場合は新しい計算式を使用
-              // 計算式: 基本給 + 時給 × 公演時間（時間単位）
               const duration = scenario.official_duration || 180
               pay = calculateGmWage(duration, isGMTest, salarySettings)
               gmRole = isGMTest ? 'GM（GMテスト）' : 'GM（時給計算）'
             }
           }
-          
+
           staff.totalGMCount += 1
           staff.totalGMPay += pay
-          
-          // GMテストと通常公演で分けて集計
+
           if (isGMTest) {
             staff.totalGMTestCount += 1
             staff.totalGMTestPay += pay
@@ -192,7 +203,8 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
             storeName: (event.stores as unknown as { name: string } | null)?.name || '不明',
             gmRole,
             pay,
-            isGMTest
+            isGMTest,
+            isCancelled: false
           })
         })
       })
@@ -202,9 +214,9 @@ export function useSalaryData(year: number, month: number, storeIds: string[]) {
         staff.totalSalary = staff.totalShiftPay + staff.totalGMPay
       })
 
-      // データを配列に変換してソート
+      // データを配列に変換してソート（中止のみのスタッフも表示）
       const staffList = Array.from(staffMap.values())
-        .filter(staff => staff.totalSalary > 0) // 給与が発生しているスタッフのみ
+        .filter(staff => staff.gmAssignments.length > 0)
         .sort((a, b) => b.totalSalary - a.totalSalary)
 
       const totalAmount = staffList.reduce((sum, staff) => sum + staff.totalSalary, 0)

@@ -271,19 +271,24 @@ export default function SalaryCalculation() {
                                           </TableHeader>
                                           <TableBody>
                                             {staff.gmAssignments.map((gm, idx) => (
-                                              <TableRow key={idx}>
+                                              <TableRow key={idx} className={gm.isCancelled ? 'opacity-50' : ''}>
                                                 <TableCell className="text-xs">{gm.date}</TableCell>
                                                 <TableCell className="text-xs">
                                                   <div className="flex items-center gap-2">
                                                     <span>{gm.scenarioTitle}</span>
-                                                    {gm.isGMTest && (
+                                                    {gm.isCancelled && (
+                                                      <Badge className="text-[10px] px-1.5 py-0 bg-gray-100 text-gray-600 hover:bg-gray-100">中止</Badge>
+                                                    )}
+                                                    {!gm.isCancelled && gm.isGMTest && (
                                                       <Badge className="text-[10px] px-1.5 py-0 bg-orange-100 text-orange-800 hover:bg-orange-100">GMテスト</Badge>
                                                     )}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-xs">{gm.storeName}</TableCell>
                                                 <TableCell className="text-xs">{gm.gmRole}</TableCell>
-                                                <TableCell className="text-right text-xs">¥{gm.pay.toLocaleString()}</TableCell>
+                                                <TableCell className="text-right text-xs">
+                                                  {gm.isCancelled ? '-' : `¥${gm.pay.toLocaleString()}`}
+                                                </TableCell>
                                               </TableRow>
                                             ))}
                                           </TableBody>
