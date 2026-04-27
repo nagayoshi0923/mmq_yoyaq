@@ -2,7 +2,7 @@ name: 公演中止判定（前日チェック）
 
 on:
   schedule:
-    - cron: '59 14 * * *'  # 23:59 JST = 14:59 UTC
+    - cron: '30 14 * * *'  # 23:30 JST (14:59 UTCまで29分の余裕を確保)
   workflow_dispatch:        # GitHub UI からの手動実行（失敗時の再実行用）
 
 jobs:
@@ -12,11 +12,27 @@ jobs:
     environment: production
 
     steps:
+      - name: 23:59 JST (14:59 UTC) まで待機
+        # GitHub Actions の cron は高負荷時に数分〜数時間遅延することがある。
+        # 30分早くキューに積んでおき、目標時刻になるまで sleep で待機することで
+        # 実行時刻を 23:59 JST に固定する。
+        run: |
+          TARGET_UTC="14:59:00"
+          echo "⏳ 目標時刻 (UTC): ${TARGET_UTC}"
+          while true; do
+            CURRENT=$(date -u +%H:%M:%S)
+            if [[ "$CURRENT" > "$TARGET_UTC" ]] || [[ "$CURRENT" == "$TARGET_UTC" ]]; then
+              echo "✅ 目標時刻に到達: ${CURRENT} UTC (= JST 23:59)"
+              break
+            fi
+            echo "⏳ 待機中... 現在 ${CURRENT} UTC"
+            sleep 10
+          done
+
       - name: target_date を計算（翌日 JST）
         id: date
-        # cron は 14:59 UTC に起動する。このとき UTC 日付はまだ当日（UTCの日付変更は 00:00 UTC = 09:00 JST）。
+        # 14:59 UTC 時点では UTC 日付はまだ当日（UTCの日付変更は 00:00 UTC = 09:00 JST）。
         # よって UTC +1 day = 公演対象日（翌日 JST）が正確に求まる。
-        # GitHub Actions が数分遅延しても UTC 日付はまだ当日のため安全。
         run: echo "target_date=$(date -u -d '+1 day' '+%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       - name: 公演中止判定 Edge Function を呼び出し
