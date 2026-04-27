@@ -198,13 +198,15 @@ export function ScheduleManager() {
       const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
       
       // まず対象のイベントを取得（シナリオの定員情報も含む、現在の組織のみ）
+      // testplay / venue_rental / venue_rental_free / mtg は対象外
       const { data: events, error: fetchError } = await supabase
         .from('schedule_events_staff_view')
-        .select('id, scenario, max_participants, capacity, current_participants, date, start_time, scenario_id, scenario_master_id, store_id, gms, scenario_masters:scenario_master_id(player_count_max)')
+        .select('id, scenario, category, max_participants, capacity, current_participants, date, start_time, scenario_id, scenario_master_id, store_id, gms, scenario_masters:scenario_master_id(player_count_max)')
         .eq('organization_id', orgId)
         .gte('date', startDate)
         .lte('date', endDate)
         .eq('is_cancelled', false)
+        .in('category', ['open', 'private', 'gmtest', 'trip', 'package'])
       
       if (fetchError) {
         showToast.error(getSafeErrorMessage(fetchError, 'データの取得に失敗しました'))
@@ -220,19 +222,20 @@ export function ScheduleManager() {
           .filter(Boolean)
       )]
       
-      const scenarioInfoMap = new Map<string, { duration: number; participation_fee: number }>()
+      const scenarioInfoMap = new Map<string, { duration: number; participation_fee: number; gm_test_participation_fee: number | null }>()
       if (scenarioMasterIds.length > 0) {
         const { data: scenarioInfos } = await supabase
           .from('organization_scenarios_with_master')
-          .select('scenario_master_id, duration, participation_fee')
+          .select('scenario_master_id, duration, participation_fee, gm_test_participation_fee')
           .eq('organization_id', orgId)
           .in('scenario_master_id', scenarioMasterIds)
-        
+
         scenarioInfos?.forEach(s => {
           if (s.scenario_master_id) {
             scenarioInfoMap.set(s.scenario_master_id, {
               duration: s.duration || 120,
-              participation_fee: s.participation_fee || 0
+              participation_fee: s.participation_fee || 0,
+              gm_test_participation_fee: s.gm_test_participation_fee ?? null
             })
           }
         })
@@ -321,7 +324,10 @@ export function ScheduleManager() {
           // シナリオ情報を取得（一括取得済み）
           const scenarioMasterId = event.scenario_master_id || event.scenario_id
           const scenarioInfo = scenarioMasterId ? scenarioInfoMap.get(scenarioMasterId) : null
-          const participationFee = scenarioInfo?.participation_fee || 0
+          const isGmTest = (event as { category?: string }).category === 'gmtest'
+          const participationFee = isGmTest
+            ? (scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0)
+            : (scenarioInfo?.participation_fee ?? 0)
           const duration = scenarioInfo?.duration || 120
           
           // 予約番号を生成（ユニークにするためインデックスを含める）
