@@ -163,7 +163,11 @@ export function calculateKitTransfers(
       for (const [scenarioId, needCount] of scenarioNeeds) {
         const scenario = scenarioMap.get(scenarioId)
         const store = storeMap.get(storeId)
-        if (!scenario || !store) continue
+        if (!scenario || !store) {
+          if (!scenario) console.warn('⚠️ シナリオがscenarioMapにない:', { scenarioId, date, storeId })
+          if (!store) console.warn('⚠️ 店舗がstoreMapにない:', { storeId, scenarioId, date })
+          continue
+        }
         
         const kitCount = scenario.kit_count || 1
         const scenarioState = state[scenarioId] || {}
@@ -275,6 +279,20 @@ export function calculateKitTransfers(
             return 0
           })
           
+          // 不足あり・移動候補なしの場合はログ出力
+          if (shortage > 0 && otherKits.length === 0) {
+            console.warn('⚠️ 移動候補なし（キット不足解消不可）:', {
+              scenario: scenario.title,
+              scenarioId,
+              date,
+              store: store.short_name || store.name,
+              storeId,
+              shortage,
+              scenarioState,
+              kitCount: scenario.kit_count
+            })
+          }
+
           // 必要数だけ移動を計画
           for (let i = 0; i < shortage && i < otherKits.length; i++) {
             const { kitNumber, fromStoreId, transferDate } = otherKits[i]

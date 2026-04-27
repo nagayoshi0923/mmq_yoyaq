@@ -1108,6 +1108,32 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
         console.warn('⚠️ 週間需要が0件です。スケジュールにシナリオが設定されていない可能性があります。')
       }
 
+      // 探偵撲滅デバッグ: '撲滅' を含む全シナリオを出力
+      const baba = stores.find(s => s.name?.includes('馬場') || s.short_name?.includes('馬場'))
+      const okubo = stores.find(s => s.name?.includes('大久保') || s.short_name?.includes('大久保'))
+      const bokumetsusScenarios = scenarios.filter(s => s.title?.includes('撲滅'))
+      console.log('🔍 撲滅シナリオ一覧:', bokumetsusScenarios.map(s => ({
+        title: s.title,
+        id: s.id,
+        kit_count: s.kit_count,
+        demands: demands.filter(d => d.scenario_master_id === s.id),
+        kitState: kitState[s.id],
+      })))
+      // 馬場の全需要を確認
+      if (baba) {
+        console.log('🔍 馬場の需要一覧:', demands
+          .filter(d => d.store_id === baba.id)
+          .map(d => ({ date: d.date, scenario: scenarios.find(s => s.id === d.scenario_master_id)?.title || d.scenario_master_id }))
+        )
+      }
+      console.log('🔍 大久保のkitState:', okubo ? Object.entries(kitState)
+        .filter(([, kits]) => Object.values(kits).includes(okubo.id))
+        .map(([scenarioId, kits]) => ({
+          scenario: scenarios.find(s => s.id === scenarioId)?.title || scenarioId,
+          kits
+        })) : 'store not found'
+      )
+
       // scenario_master_id → org_scenario_id のマッピングを作成
       // kitLocations から、scenario.id（= scenario_master_id）と org_scenario_id の対応を取得
       const scenarioIdToOrgScenarioId = new Map<string, string>()
