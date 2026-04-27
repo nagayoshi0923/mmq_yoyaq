@@ -54,11 +54,12 @@ const HistoryModal = lazy(() => import('@/components/schedule/modal/HistoryModal
 const KitManagementDialog = lazy(() => import('./components/KitManagementDialog').then(m => ({ default: m.KitManagementDialog })))
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
 import { RESERVATION_SOURCE } from '@/lib/constants'
+import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -117,6 +118,7 @@ export function ScheduleManager() {
   const [isKitManagementOpen, setIsKitManagementOpen] = useState(false)
   const [isFillingSeats, setIsFillingSeats] = useState(false)
   const [isFixingData, setIsFixingData] = useState(false)
+  const [isCleaningDemo, setIsCleaningDemo] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
   
   // 履歴モーダル（セルベース）
@@ -423,6 +425,105 @@ export function ScheduleManager() {
       showToast.error(getSafeErrorMessage(err, 'エラーが発生しました'))
     } finally {
       setIsFixingData(false)
+    }
+  }
+
+  // テストプレイの誤デモ予約削除 & GMテスト参加費の修正
+  const handleCleanupBadDemoReservations = async () => {
+    if (!confirm(
+      '過去の誤ったデモ予約を修正しますか？\n' +
+      '・テストプレイ公演のデモ予約を削除\n' +
+      '・GMテスト公演のデモ予約の参加費をGMテスト料金に修正'
+    )) return
+
+    setIsCleaningDemo(true)
+    let deletedCount = 0
+    let fixedCount = 0
+
+    try {
+      const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+
+      // ─── ① テストプレイのデモ予約を削除 ───
+      const { data: testplayEvents } = await supabase
+        .from('schedule_events')
+        .select('id')
+        .eq('organization_id', orgId)
+        .eq('category', 'testplay')
+
+      if (testplayEvents && testplayEvents.length > 0) {
+        const testplayIds = testplayEvents.map(e => e.id)
+        const { data: demoReservations } = await supabase
+          .from('reservations')
+          .select('id, schedule_event_id')
+          .eq('organization_id', orgId)
+          .in('schedule_event_id', testplayIds)
+          .in('reservation_source', [RESERVATION_SOURCE.DEMO, RESERVATION_SOURCE.DEMO_AUTO])
+
+        if (demoReservations && demoReservations.length > 0) {
+          const ids = demoReservations.map(r => r.id)
+          await supabase.from('reservations').delete().in('id', ids)
+          deletedCount = ids.length
+
+          const affectedIds = [...new Set(demoReservations.map(r => r.schedule_event_id))]
+          await Promise.all(affectedIds.map(id => recalculateCurrentParticipants(id)))
+        }
+      }
+
+      // ─── ② GMテストのデモ予約の参加費を修正 ───
+      const { data: gmtestEvents } = await supabase
+        .from('schedule_events')
+        .select('id, scenario_master_id')
+        .eq('organization_id', orgId)
+        .eq('category', 'gmtest')
+
+      if (gmtestEvents && gmtestEvents.length > 0) {
+        const gmtestIds = gmtestEvents.map(e => e.id)
+        const eventScenarioMap = new Map(gmtestEvents.map(e => [e.id, e.scenario_master_id]))
+
+        const { data: demoReservations } = await supabase
+          .from('reservations')
+          .select('id, schedule_event_id, participant_count')
+          .eq('organization_id', orgId)
+          .in('schedule_event_id', gmtestIds)
+          .in('reservation_source', [RESERVATION_SOURCE.DEMO, RESERVATION_SOURCE.DEMO_AUTO])
+
+        if (demoReservations && demoReservations.length > 0) {
+          const scenarioMasterIds = [...new Set(gmtestEvents.map(e => e.scenario_master_id).filter(Boolean))]
+          const { data: orgScenarios } = await supabase
+            .from('organization_scenarios_with_master')
+            .select('scenario_master_id, participation_fee, gm_test_participation_fee')
+            .eq('organization_id', orgId)
+            .in('scenario_master_id', scenarioMasterIds)
+
+          const feeMap = new Map(orgScenarios?.map(s => [s.scenario_master_id, s]) || [])
+
+          await Promise.all(
+            demoReservations.map(async (r) => {
+              const scenarioMasterId = eventScenarioMap.get(r.schedule_event_id)
+              const scenarioInfo = scenarioMasterId ? feeMap.get(scenarioMasterId) : null
+              const correctFee = scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0
+              const totalPrice = correctFee * (r.participant_count || 1)
+
+              await supabase
+                .from('reservations')
+                .update({ base_price: totalPrice, total_price: totalPrice, final_price: totalPrice })
+                .eq('id', r.id)
+              fixedCount++
+            })
+          )
+        }
+      }
+
+      const messages: string[] = []
+      if (deletedCount > 0) messages.push(`テストプレイの誤デモ予約 ${deletedCount}件を削除`)
+      if (fixedCount > 0) messages.push(`GMテストの参加費 ${fixedCount}件を修正`)
+      if (messages.length === 0) messages.push('修正対象はありませんでした')
+      showToast.success(messages.join('、'))
+      scheduleTableProps.fetchSchedule?.()
+    } catch (err) {
+      showToast.error(getSafeErrorMessage(err, 'エラーが発生しました'))
+    } finally {
+      setIsCleaningDemo(false)
     }
   }
 
@@ -961,18 +1062,32 @@ export function ScheduleManager() {
           {/* アクションボタン - スマホ用 */}
           <div className="sm:hidden flex items-center gap-1 ml-auto">
             {isAdminOrLicenseAdmin && (
-              <button
-                onClick={handleFillAllSeats}
-                disabled={isFillingSeats}
-                title="中止以外を満席にする"
-                className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
-              >
-                {isFillingSeats ? (
-                  <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                ) : (
-                  <Users className="h-4 w-4" />
-                )}
-              </button>
+              <>
+                <button
+                  onClick={handleCleanupBadDemoReservations}
+                  disabled={isCleaningDemo}
+                  title="誤デモ予約の修正（テストプレイ削除・GMテスト参加費修正）"
+                  className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
+                >
+                  {isCleaningDemo ? (
+                    <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                  ) : (
+                    <Wrench className="h-4 w-4" />
+                  )}
+                </button>
+                <button
+                  onClick={handleFillAllSeats}
+                  disabled={isFillingSeats}
+                  title="中止以外を満席にする"
+                  className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
+                >
+                  {isFillingSeats ? (
+                    <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                  ) : (
+                    <Users className="h-4 w-4" />
+                  )}
+                </button>
+              </>
             )}
             <button
               onClick={() => setIsKitManagementOpen(true)}
@@ -1000,18 +1115,32 @@ export function ScheduleManager() {
               <Upload className="h-4 w-4" />
             </button>
             {isAdminOrLicenseAdmin && (
-              <button
-                onClick={handleFillAllSeats}
-                disabled={isFillingSeats}
-                title="中止以外を満席にする（デモ参加者を追加）"
-                className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-50"
-              >
-                {isFillingSeats ? (
-                  <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                ) : (
-                  <Users className="h-4 w-4" />
-                )}
-              </button>
+              <>
+                <button
+                  onClick={handleCleanupBadDemoReservations}
+                  disabled={isCleaningDemo}
+                  title="誤デモ予約の修正（テストプレイ削除・GMテスト参加費修正）"
+                  className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-r border-input disabled:opacity-50"
+                >
+                  {isCleaningDemo ? (
+                    <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                  ) : (
+                    <Wrench className="h-4 w-4" />
+                  )}
+                </button>
+                <button
+                  onClick={handleFillAllSeats}
+                  disabled={isFillingSeats}
+                  title="中止以外を満席にする（デモ参加者を追加）"
+                  className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  {isFillingSeats ? (
+                    <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                  ) : (
+                    <Users className="h-4 w-4" />
+                  )}
+                </button>
+              </>
             )}
           </div>
         </div>
