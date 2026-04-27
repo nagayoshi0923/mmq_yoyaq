@@ -214,20 +214,6 @@ export function CouponTypeManual({ content }: { content?: CouponTypePageContent 
         </p>
       </div>
 
-      {/* 一覧 */}
-      <div className="space-y-6">
-        {c.coupons.map((coupon, idx) => (
-          <CouponCard
-            key={idx}
-            number={idx + 1}
-            title={coupon.title}
-            scopeItems={coupon.scopes}
-            steps={coupon.steps}
-            notes={coupon.notes.map(n => ({ type: n.type, text: n.text }))}
-          />
-        ))}
-      </div>
-
       {/* まとめ表 */}
       <section className="space-y-3">
         <SectionHeader title="種類ごとの対応まとめ" />
@@ -303,6 +289,20 @@ export function CouponTypeManual({ content }: { content?: CouponTypePageContent 
           </table>
         </div>
       </section>
+
+      {/* 一覧 */}
+      <div className="space-y-6">
+        {c.coupons.map((coupon, idx) => (
+          <CouponCard
+            key={idx}
+            number={idx + 1}
+            title={coupon.title}
+            scopeItems={coupon.scopes}
+            steps={coupon.steps}
+            notes={coupon.notes.map(n => ({ type: n.type, text: n.text }))}
+          />
+        ))}
+      </div>
 
     </div>
   )
