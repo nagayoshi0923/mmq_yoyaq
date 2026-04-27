@@ -184,14 +184,14 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
       await Promise.all([
         gmStaffIds.length > 0
           ? supabase.from('staff').select('id, display_name, name').in('id', gmStaffIds).then(({ data: staffRows }) => {
-              ;(staffRows || []).forEach((s: any) => {
+              (staffRows || []).forEach((s: any) => {
                 gmNameMap.set(s.id, s.display_name || s.name || '')
               })
             })
           : Promise.resolve(),
         storeIds.length > 0
           ? supabase.from('stores').select('id, name, short_name').in('id', storeIds).then(({ data: storeRows }) => {
-              ;(storeRows || []).forEach((s: any) => {
+              (storeRows || []).forEach((s: any) => {
                 storeNameMap.set(s.id, s.short_name || s.name || '')
               })
             })
