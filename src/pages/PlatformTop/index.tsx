@@ -728,7 +728,7 @@ export function PlatformTop() {
                 >
                   <Gift className="w-5 h-5 text-white" />
                   <span className="text-white font-bold text-sm">
-                    4月24日まで｜新規登録で2,000円分クーポン
+                    5月6日まで｜新規登録で2,000円分クーポン
                   </span>
                   <ChevronRight className="w-4 h-4 text-white group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -1118,7 +1118,7 @@ export function PlatformTop() {
                 <X className="w-5 h-5" />
               </button>
               <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold text-white mb-3">
-                🎉 4月24日までに登録の方限定
+                🎉 5月6日までに登録の方限定
               </div>
               <h3 className="text-white font-bold text-xl mb-1">
                 新規登録キャンペーン
