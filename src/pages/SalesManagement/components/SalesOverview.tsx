@@ -276,27 +276,6 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
 
   // eventsリストをメモ化
   const modalEvents = useMemo(() => (salesData?.eventList || []) as any, [salesData?.eventList])
-  if (loading) {
-    return (
-      <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</span>
-            </div>
-          }
-        description="期間別の売上・予約実績と分析"
-      />
-        <Card className="shadow-none border">
-          <CardContent className="p-4 sm:p-6 md:p-8">
-            <div className="text-center text-muted-foreground text-xs sm:text-sm">読み込み中...</div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
     <div id="sales-report-container" className="space-y-3 sm:space-y-4 md:space-y-6">
       {/* ヘッダー：タイトルとエクスポートボタン */}
@@ -405,8 +384,17 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       )}
 
 
+      {/* ローディング中オーバーレイ（モーダルを閉じないためにコンテンツ上に表示） */}
+      {loading && (
+        <Card className="shadow-none border">
+          <CardContent className="p-4 sm:p-6 md:p-8">
+            <div className="text-center text-muted-foreground text-xs sm:text-sm">読み込み中...</div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* サマリーカード */}
-      {salesData ? (
+      {!loading && salesData ? (
         <>
           <div className="mb-4 sm:mb-6">
         <SummaryCards
@@ -470,7 +458,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
             }}
           />
         </>
-      ) : (
+      ) : (!loading && (
         <Card className="shadow-none border">
           <CardContent className="p-4 sm:p-6 md:p-8">
             <div className="text-center text-muted-foreground text-xs sm:text-sm">
@@ -478,7 +466,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
             </div>
           </CardContent>
         </Card>
-      )}
+      ))}
 
       {/* 編集モーダル */}
       {modalData && (

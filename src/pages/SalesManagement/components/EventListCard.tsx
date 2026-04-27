@@ -7,6 +7,7 @@ interface EventItem {
   id: string
   date: string
   store_id?: string
+  organization_id?: string
   store_name: string
   scenario_master_id?: string
   scenario_title: string

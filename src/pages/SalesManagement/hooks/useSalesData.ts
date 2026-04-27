@@ -993,6 +993,7 @@ function calculateSalesData(
       id: event.id || `${event.date}-${event.store_id}-${event.scenario}`,
       date: event.date,
       store_id: event.store_id,
+      organization_id: (event as any).organization_id,
       store_name: eventStore?.name || '不明',
       scenario_master_id: event.scenario_master_id,
       scenario_title: event.scenario || '不明',

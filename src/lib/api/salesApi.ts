@@ -172,7 +172,7 @@ export const salesApi = {
         .from('reservations')
         .select('participant_count, participant_names, payment_method, final_price')
         .eq('schedule_event_id', event.id)
-        .in('status', ['confirmed', 'pending'])
+        .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
       
       if (orgId) {
         resQuery = resQuery.eq('organization_id', orgId)
