@@ -3,18 +3,17 @@ import { getCategoryCounts } from '@/utils/scheduleUtils'
 import type { ScheduleEvent } from '@/types/schedule'
 
 /**
- * カテゴリーフィルター管理フック
+ * カテゴリーフィルター管理フック（複数選択対応）
  */
 export function useCategoryFilter(events: ScheduleEvent[]) {
-  const [selectedCategory, setSelectedCategory] = useState('all')
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
 
   // カテゴリごとの公演数を計算
   const categoryCounts = useMemo(() => getCategoryCounts(events), [events])
 
   return {
-    selectedCategory,
-    setSelectedCategory,
+    selectedCategories,
+    setSelectedCategories,
     categoryCounts
   }
 }
-

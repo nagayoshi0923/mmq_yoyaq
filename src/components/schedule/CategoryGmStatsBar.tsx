@@ -7,9 +7,9 @@ import type { GmStatsData, GmStatsItem } from '@/pages/ScheduleManager/hooks/use
 
 interface CategoryGmStatsBarProps {
   // カテゴリフィルター
-  selectedCategory: string
+  selectedCategories: string[]
   categoryCounts: Record<string, number>
-  onCategoryChange: (category: string) => void
+  onCategoryChange: (categories: string[]) => void
   // GM統計
   gmStats: GmStatsData
   selectedStaffIds?: string[]
@@ -42,7 +42,7 @@ const roleStats = [
 ] as const
 
 export const CategoryGmStatsBar = memo(function CategoryGmStatsBar({
-  selectedCategory,
+  selectedCategories,
   categoryCounts,
   onCategoryChange,
   gmStats,
@@ -50,34 +50,50 @@ export const CategoryGmStatsBar = memo(function CategoryGmStatsBar({
   onStaffClick
 }: CategoryGmStatsBarProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-  
+
   if (gmStats.byGm.length === 0 && Object.values(categoryCounts).every(v => v === 0)) {
     return null
   }
-  
+
+  const handleCategoryClick = (catId: string) => {
+    if (catId === 'all') {
+      onCategoryChange([])
+      return
+    }
+    if (selectedCategories.includes(catId)) {
+      onCategoryChange(selectedCategories.filter(c => c !== catId))
+    } else {
+      onCategoryChange([...selectedCategories, catId])
+    }
+  }
+
   return (
     <div className="space-y-0.5">
       {/* メイン行：カテゴリ + GM統計 */}
       <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-        {/* カテゴリバッジ（クリックでフィルター） */}
+        {/* カテゴリバッジ（クリックでフィルター、複数選択可） */}
         <div className="flex gap-0.5 shrink-0">
           {categories.map(cat => {
             const eventCount = categoryCounts[cat.id] || 0
             const gmStatKey = categoryToGmStatKey[cat.id]
             const gmCount = gmStatKey ? gmStats.totals[gmStatKey] : undefined
-            
+
             // 全てカテゴリ以外で公演数0ならスキップ
             if (cat.id !== 'all' && eventCount === 0) return null
-            
+
+            const isSelected = cat.id === 'all'
+              ? selectedCategories.length === 0
+              : selectedCategories.includes(cat.id)
+
             return (
               <button
                 key={cat.id}
-                onClick={() => onCategoryChange(cat.id)}
+                onClick={() => handleCategoryClick(cat.id)}
                 className={cn(
                   "inline-flex items-center gap-0.5 px-1 py-0 rounded text-[10px] font-medium transition-all whitespace-nowrap",
                   cat.bgColor, cat.color,
-                  selectedCategory === cat.id 
-                    ? "ring-1 ring-primary ring-offset-0" 
+                  isSelected
+                    ? "ring-1 ring-primary ring-offset-0"
                     : "opacity-70 hover:opacity-100"
                 )}
               >

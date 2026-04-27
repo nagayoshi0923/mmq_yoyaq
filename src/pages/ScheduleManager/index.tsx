@@ -616,10 +616,10 @@ export function ScheduleManager() {
 
   // カテゴリーフィルター（ScheduleManager独自機能）
   const timeSlots = ['morning', 'afternoon', 'evening'] as const
-  const allEventsForMonth = useMemo(() => 
-    scheduleTableProps.viewConfig.stores.flatMap(store => 
-      timeSlots.flatMap(timeSlot => 
-        monthDays.flatMap(day => 
+  const allEventsForMonth = useMemo(() =>
+    scheduleTableProps.viewConfig.stores.flatMap(store =>
+      timeSlots.flatMap(timeSlot =>
+        monthDays.flatMap(day =>
           scheduleTableProps.dataProvider.getEventsForSlot(day.date, store.id, timeSlot)
         )
       )
@@ -627,7 +627,7 @@ export function ScheduleManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 必要な依存のみ
     [scheduleTableProps.viewConfig.stores, scheduleTableProps.dataProvider.getEventsForSlot, monthDays]
   )
-  const { selectedCategory, setSelectedCategory, categoryCounts } = useCategoryFilter(allEventsForMonth)
+  const { selectedCategories, setSelectedCategories, categoryCounts } = useCategoryFilter(allEventsForMonth)
   
   // GM出勤統計（ScheduleManager独自機能）
   const gmStats = useGmStats(allEventsForMonth, gmList)
@@ -650,10 +650,10 @@ export function ScheduleManager() {
   const filteredGetEventsForSlot = useMemo(() => {
     return (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
       let events = scheduleTableProps.dataProvider.getEventsForSlot(date, venue, timeSlot)
-      
-      // カテゴリーフィルター
-      if (selectedCategory !== 'all') {
-        events = events.filter(event => event.category === selectedCategory)
+
+      // カテゴリーフィルター（複数選択対応）
+      if (selectedCategories.length > 0) {
+        events = events.filter(event => selectedCategories.includes(event.category))
       }
 
       // シナリオフィルター（単一）
@@ -685,7 +685,7 @@ export function ScheduleManager() {
       return events
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategory, selectedScenarioId, scenarioMatchesEvent, selectedGMs, gmList])
+  }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategories, selectedScenarioId, scenarioMatchesEvent, selectedGMs, gmList])
 
   // 店舗フィルター適用版の店舗リスト
   const filteredStores = useMemo(() => {
@@ -704,7 +704,7 @@ export function ScheduleManager() {
     const dates = new Set<string>()
     for (const event of (scheduleTableProps.events || [])) {
       // カテゴリ
-      if (selectedCategory !== 'all' && event.category !== selectedCategory) continue
+      if (selectedCategories.length > 0 && !selectedCategories.includes(event.category)) continue
       // シナリオ
       if (!scenarioMatchesEvent(event)) continue
       // GM
@@ -731,7 +731,7 @@ export function ScheduleManager() {
   }, [
     selectedScenarioId,
     scheduleTableProps.events,
-    selectedCategory,
+    selectedCategories,
     scenarioMatchesEvent,
     selectedGMs,
     gmList,
@@ -996,7 +996,7 @@ export function ScheduleManager() {
             )}
             
             {shiftStaffOptions.length > 0 && (
-              <div className="flex-1">
+              <div className="flex-1 border-r border-input">
                 <MultiSelect
                   options={shiftStaffOptions}
                   selectedValues={selectedShiftStaff}
@@ -1008,14 +1008,35 @@ export function ScheduleManager() {
                 />
               </div>
             )}
-            
-            {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedScenarioIds.length > 0 || selectedShiftStaff.length > 0) && (
+
+            {/* カテゴリフィルター */}
+            <div className="flex-1">
+              <MultiSelect
+                options={[
+                  { id: 'open', name: 'オープン' },
+                  { id: 'private', name: '貸切' },
+                  { id: 'gmtest', name: 'GMテスト' },
+                  { id: 'testplay', name: 'テスト' },
+                  { id: 'trip', name: '出張' },
+                  { id: 'mtg', name: 'MTG' },
+                ]}
+                selectedValues={selectedCategories}
+                onSelectionChange={setSelectedCategories}
+                placeholder="カテゴリ"
+                closeOnSelect={false}
+                useIdAsValue={true}
+                className="h-9 w-full border-0 rounded-none shadow-none"
+              />
+            </div>
+
+            {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedScenarioIds.length > 0 || selectedShiftStaff.length > 0 || selectedCategories.length > 0) && (
               <button
                 onClick={() => {
                   setSelectedGMs([])
                   setSelectedStores([])
                   setSelectedScenarioIds([])
                   setSelectedShiftStaff([])
+                  setSelectedCategories([])
                 }}
                 className="h-9 px-3 text-sm text-muted-foreground hover:bg-accent transition-colors border-l border-input whitespace-nowrap"
               >
@@ -1148,13 +1169,13 @@ export function ScheduleManager() {
         {/* カテゴリ + GM統計（統合バー） */}
         <div className="py-0.5 border-t border-muted/50">
           <CategoryGmStatsBar
-            selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
+            selectedCategories={selectedCategories}
+            onCategoryChange={setSelectedCategories}
             categoryCounts={categoryCounts}
             gmStats={gmStats}
             selectedStaffIds={selectedGMs}
             onStaffClick={(staffId) => {
-              setSelectedGMs(prev => 
+              setSelectedGMs(prev =>
                 prev.includes(staffId)
                   ? prev.filter(id => id !== staffId)
                   : [...prev, staffId]

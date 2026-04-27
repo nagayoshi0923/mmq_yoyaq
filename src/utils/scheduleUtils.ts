@@ -47,6 +47,7 @@ export function getCategoryCounts(events: ScheduleEvent[]) {
     gmtest: 0,
     testplay: 0,
     trip: 0,
+    mtg: 0,
     venue_rental: 0,
     venue_rental_free: 0,
     package: 0,
