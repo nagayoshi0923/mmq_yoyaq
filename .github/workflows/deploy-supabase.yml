@@ -39,7 +39,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.48.3
 
       - name: Link to Staging Project
         run: |
@@ -132,7 +132,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.48.3
 
       - name: Link to Production Project
         run: |
@@ -223,7 +223,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.48.3
 
       - name: Start Supabase Local
         run: |
