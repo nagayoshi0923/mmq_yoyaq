@@ -292,7 +292,7 @@ export function CancelPolicyPage() {
                     <div>
                       <h3 className="font-bold text-gray-900 mb-2">オープン公演</h3>
                       <p className="text-sm text-gray-700 mb-2">
-                        1日前よりお支払い対象額（参加料金）の50%、当日は100%です。
+                        公演開始2日前まで無料、前日より参加料金の50%、当日より100%です。
                       </p>
                       <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
                         <table className="w-full text-sm">

@@ -9,22 +9,22 @@ export type CancellationFeeRow = {
   description: string
 }
 
-/** オープン公演: 1日前より50%、当日100%（24時間前より前は無料とみなす） */
+/** オープン公演: 2日前まで無料、前日より50%、当日より100% */
 export const DEFAULT_OPEN_CANCELLATION_FEES: CancellationFeeRow[] = [
   {
-    hours_before: 24,
-    fee_percentage: 0,
-    description: '公演開始24時間前まで無料（1日より前）',
+    hours_before: 48,
+    fee_percentage: 50,
+    description: '前日より50%',
   },
   {
-    hours_before: 0,
-    fee_percentage: 50,
-    description: '1日前より50%',
+    hours_before: 24,
+    fee_percentage: 100,
+    description: '当日より100%',
   },
   {
     hours_before: -1,
     fee_percentage: 100,
-    description: '当日・公演開始後・無断100%',
+    description: '公演開始後・無断100%',
   },
 ]
 
