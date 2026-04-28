@@ -628,7 +628,44 @@ export function ScheduleManager() {
     [scheduleTableProps.viewConfig.stores, scheduleTableProps.dataProvider.getEventsForSlot, monthDays]
   )
   const { selectedCategories, setSelectedCategories, categoryCounts } = useCategoryFilter(allEventsForMonth)
-  
+
+  // カテゴリオプション（開催予定数・中止数付き）
+  const categoryOptions = useMemo(() => {
+    const defs = [
+      { id: 'open', name: 'オープン' },
+      { id: 'private', name: '貸切' },
+      { id: 'gmtest', name: 'GMテスト' },
+      { id: 'testplay', name: 'テスト' },
+      { id: 'trip', name: '出張' },
+      { id: 'mtg', name: 'MTG' },
+    ]
+    const cancelledCount: Record<string, number> = {}
+    const activeCount: Record<string, number> = {}
+    allEventsForMonth.forEach(event => {
+      if (event.is_cancelled) {
+        cancelledCount[event.category] = (cancelledCount[event.category] || 0) + 1
+      } else {
+        activeCount[event.category] = (activeCount[event.category] || 0) + 1
+      }
+    })
+    return defs.map(def => {
+      const active = activeCount[def.id] || 0
+      const cancelled = cancelledCount[def.id] || 0
+      return {
+        id: def.id,
+        name: def.name,
+        displayInfo: (
+          <span className="flex items-center gap-0.5 text-xs">
+            <span className="text-foreground font-medium">{active}</span>
+            <span className="text-muted-foreground">/</span>
+            <span className={cancelled > 0 ? 'text-orange-500 font-medium' : 'text-muted-foreground'}>{cancelled}</span>
+          </span>
+        ),
+        displayInfoSearchText: `${active}/${cancelled}`
+      }
+    })
+  }, [allEventsForMonth])
+
   // GM出勤統計（ScheduleManager独自機能）
   const gmStats = useGmStats(allEventsForMonth, gmList)
 
@@ -1012,14 +1049,7 @@ export function ScheduleManager() {
             {/* カテゴリフィルター */}
             <div className="flex-1">
               <MultiSelect
-                options={[
-                  { id: 'open', name: 'オープン' },
-                  { id: 'private', name: '貸切' },
-                  { id: 'gmtest', name: 'GMテスト' },
-                  { id: 'testplay', name: 'テスト' },
-                  { id: 'trip', name: '出張' },
-                  { id: 'mtg', name: 'MTG' },
-                ]}
+                options={categoryOptions}
                 selectedValues={selectedCategories}
                 onSelectionChange={setSelectedCategories}
                 placeholder="カテゴリ"
