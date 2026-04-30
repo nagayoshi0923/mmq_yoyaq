@@ -250,7 +250,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
   // シナリオIDからシナリオ情報を取得
   const scenarioMap = useMemo(() => {
-    return new Map(scenarios.map(s => [s.scenario_master_id || s.id, s]))
+    return new Map(scenarios.map(s => [s.id, s]))
   }, [scenarios])
 
   // 店舗IDから店舗情報を取得
