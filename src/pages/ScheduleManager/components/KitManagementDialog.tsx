@@ -1993,9 +1993,9 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                 {pickedUpCount}件移動中
                               </Badge>
                             )}
-                            {(deliveredCount > 0 || pickedUpCount > 0) && remainingCount > 0 && (
+                            {remainingCount > 0 && (
                               <Badge variant="destructive" className="text-xs">
-                                残り{remainingCount}件
+                                未完了{remainingCount}件
                               </Badge>
                             )}
                           </>
