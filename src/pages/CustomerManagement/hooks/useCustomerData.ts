@@ -20,39 +20,56 @@ export function useCustomerData() {
     setLoading(true)
     try {
       logger.log('顧客データ取得開始')
-      
+
       // 組織フィルタリング
       const orgId = await getCurrentOrganizationId()
-      let query = supabase
-        .from('customers')
-        .select('id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at')
-      
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
-      
-      const { data, error } = await query.order('created_at', { ascending: false })
 
-      if (error) throw error
+      // Supabase のデフォルト上限（1000件）を超える場合にすべて取得するためページネーション
+      const PAGE_SIZE = 1000
+      let allCustomers: any[] = []
+      let from = 0
+      while (true) {
+        let query = supabase
+          .from('customers')
+          .select('id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at')
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1)
+        if (orgId) {
+          query = query.eq('organization_id', orgId)
+        }
+        const { data: pageData, error } = await query
+        if (error) throw error
+        allCustomers = allCustomers.concat(pageData || [])
+        if ((pageData || []).length < PAGE_SIZE) break
+        from += PAGE_SIZE
+      }
+      const data = allCustomers
 
       // 予約データから累計支払額と予約数を集計
-      const customerIds = (data || []).map(c => c.id)
+      const customerIds = data.map(c => c.id)
       const reservationStats: Record<string, { total_paid: number; reservation_count: number }> = {}
       const couponStatsMap: Record<string, CustomerCouponStats> = {}
-      
+
       if (customerIds.length > 0) {
-        let resQuery = supabase
-          .from('reservations')
-          .select('customer_id, total_price, status')
-          .in('customer_id', customerIds)
-          .in('status', ['confirmed', 'gm_confirmed', 'completed'])
-        
-        if (orgId) {
-          resQuery = resQuery.eq('organization_id', orgId)
+        let allReservations: any[] = []
+        let resFrom = 0
+        while (true) {
+          let resQuery = supabase
+            .from('reservations')
+            .select('customer_id, total_price, status')
+            .in('customer_id', customerIds)
+            .in('status', ['confirmed', 'gm_confirmed', 'completed'])
+            .range(resFrom, resFrom + PAGE_SIZE - 1)
+          if (orgId) {
+            resQuery = resQuery.eq('organization_id', orgId)
+          }
+          const { data: resPage } = await resQuery
+          allReservations = allReservations.concat(resPage || [])
+          if ((resPage || []).length < PAGE_SIZE) break
+          resFrom += PAGE_SIZE
         }
-        
-        const { data: reservations } = await resQuery
-        
+        const reservations = allReservations
+
         if (reservations) {
           reservations.forEach(res => {
             if (res.customer_id) {
