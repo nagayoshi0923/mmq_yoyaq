@@ -2379,8 +2379,22 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                 
                                 const outgoingRoutes = sortRoutesByGroup(groupOutgoing)
                                 const incomingRoutes = sortIncomingByGroup(groupIncoming)
-                                const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.length, 0)
-                                const incomingCount = incomingRoutes.reduce((sum, r) => sum + r.items.length, 0)
+
+                                // 予約0件（移動必要なし）のアイテムは出/入のカウントから除外
+                                const hasBookings = (suggestion: KitTransferSuggestion) => {
+                                  const toGroupId = getStoreGroupId(suggestion.to_store_id)
+                                  const total = scheduleEvents
+                                    .filter(e =>
+                                      e.scenario_master_id === suggestion.scenario_master_id &&
+                                      getStoreGroupId(e.store_id) === toGroupId &&
+                                      demandDates.includes(e.date) &&
+                                      !e.is_cancelled
+                                    )
+                                    .reduce((s, e) => s + (e.current_participants || 0), 0)
+                                  return total > 0
+                                }
+                                const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
+                                const incomingCount = incomingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
                                 
                                 // グループ名（複数店舗ならスラッシュで繋ぐ）
                                 const groupStoreName = storeIdsInGroup.map(id => {
