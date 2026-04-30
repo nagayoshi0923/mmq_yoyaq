@@ -1980,7 +1980,19 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       {(() => {
                         const deliveredCount = completions.filter(c => c.delivered_at).length
                         const pickedUpCount = completions.filter(c => c.picked_up_at && !c.delivered_at).length
-                        const remainingCount = mergedSuggestions.length - deliveredCount - pickedUpCount
+                        // 移動必要なし（予約0件）は未完了カウントから除外
+                        const needsMovementCount = mergedSuggestions.filter(s => {
+                          const toGroupId = getStoreGroupId(s.to_store_id)
+                          return scheduleEvents
+                            .filter(e =>
+                              e.scenario_master_id === s.scenario_master_id &&
+                              getStoreGroupId(e.store_id) === toGroupId &&
+                              demandDates.includes(e.date) &&
+                              !e.is_cancelled
+                            )
+                            .reduce((sum, e) => sum + (e.current_participants || 0), 0) > 0
+                        }).length
+                        const remainingCount = needsMovementCount - deliveredCount - pickedUpCount
                         return (
                           <>
                             {deliveredCount > 0 && (
