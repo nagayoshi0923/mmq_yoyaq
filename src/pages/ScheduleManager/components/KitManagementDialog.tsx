@@ -2489,11 +2489,19 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
-                                                      {/* 空席数表示 */}
+                                                      {/* 予約状況表示 */}
                                                       {totalCapacity > 0 && !isTransferCancelled && !isCancelled && (
-                                                        <span className={`text-[10px] font-medium ${remainingSeats <= 0 ? 'text-green-600' : remainingSeats <= 2 ? 'text-orange-500' : 'text-muted-foreground'}`}>
-                                                          {remainingSeats <= 0 ? '満席' : `残${remainingSeats}`}
-                                                        </span>
+                                                        <>
+                                                          <span className="text-[10px] font-medium text-muted-foreground">
+                                                            {totalParticipants}/{totalCapacity}
+                                                          </span>
+                                                          <Badge
+                                                            variant={totalParticipants === 0 ? 'secondary' : 'destructive'}
+                                                            className="text-[9px] px-1 py-0"
+                                                          >
+                                                            {totalParticipants === 0 ? '移動必要なし' : '移動必要'}
+                                                          </Badge>
+                                                        </>
                                                       )}
                                                       {isTransferCancelled && (
                                                         <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
@@ -2599,11 +2607,19 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
-                                                      {/* 空席数表示 */}
+                                                      {/* 予約状況表示 */}
                                                       {totalCapacity > 0 && !isTransferCancelled && !isCancelled && (
-                                                        <span className={`text-[10px] font-medium ${remainingSeats <= 0 ? 'text-green-600' : remainingSeats <= 2 ? 'text-orange-500' : 'text-muted-foreground'}`}>
-                                                          {remainingSeats <= 0 ? '満席' : `残${remainingSeats}`}
-                                                        </span>
+                                                        <>
+                                                          <span className="text-[10px] font-medium text-muted-foreground">
+                                                            {totalParticipants}/{totalCapacity}
+                                                          </span>
+                                                          <Badge
+                                                            variant={totalParticipants === 0 ? 'secondary' : 'destructive'}
+                                                            className="text-[9px] px-1 py-0"
+                                                          >
+                                                            {totalParticipants === 0 ? '移動必要なし' : '移動必要'}
+                                                          </Badge>
+                                                        </>
                                                       )}
                                                       {isTransferCancelled && (
                                                         <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
