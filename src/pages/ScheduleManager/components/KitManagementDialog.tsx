@@ -2521,8 +2521,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
-                                                      {/* 予約状況表示 */}
-                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && (
+                                                      {/* 予約状況表示（未完了のみ） */}
+                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && !delivered && (
                                                         <>
                                                           <span className="text-[10px] font-medium text-muted-foreground">
                                                             {totalParticipants}/{totalCapacity}
@@ -2639,8 +2639,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
-                                                      {/* 予約状況表示 */}
-                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && (
+                                                      {/* 予約状況表示（未回収のみ） */}
+                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && !pickedUp && (
                                                         <>
                                                           <span className="text-[10px] font-medium text-muted-foreground">
                                                             {totalParticipants}/{totalCapacity}
