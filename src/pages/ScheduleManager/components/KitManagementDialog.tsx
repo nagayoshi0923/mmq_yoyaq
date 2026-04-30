@@ -1980,19 +1980,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                       {(() => {
                         const deliveredCount = completions.filter(c => c.delivered_at).length
                         const pickedUpCount = completions.filter(c => c.picked_up_at && !c.delivered_at).length
-                        // 移動必要なし（予約0件）は未完了カウントから除外
-                        const needsMovementCount = mergedSuggestions.filter(s => {
-                          const toGroupId = getStoreGroupId(s.to_store_id)
-                          return scheduleEvents
-                            .filter(e =>
-                              e.scenario_master_id === s.scenario_master_id &&
-                              getStoreGroupId(e.store_id) === toGroupId &&
-                              demandDates.includes(e.date) &&
-                              !e.is_cancelled
-                            )
-                            .reduce((sum, e) => sum + (e.current_participants || 0), 0) > 0
-                        }).length
-                        const remainingCount = needsMovementCount - deliveredCount - pickedUpCount
+                        const remainingCount = mergedSuggestions.length - deliveredCount - pickedUpCount
                         return (
                           <>
                             {deliveredCount > 0 && (
@@ -2006,8 +1994,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                               </Badge>
                             )}
                             {remainingCount > 0 && (
-                              <Badge variant="destructive" className="text-xs">
-                                未完了{remainingCount}件
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                残り{remainingCount}件
                               </Badge>
                             )}
                           </>
@@ -2407,6 +2395,19 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                 }
                                 const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
                                 const incomingCount = incomingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
+
+                                // 未完了カウント（予約ありかつ未完了のアイテム）
+                                const incompleteCount =
+                                  outgoingRoutes.reduce((sum, r) => sum + r.items.filter(s => {
+                                    if (!hasBookings(s)) return false
+                                    const id = s.org_scenario_id || s.scenario_master_id
+                                    return !isPickedUp(id, s.kit_number, s.performance_date, s.to_store_id)
+                                  }).length, 0) +
+                                  incomingRoutes.reduce((sum, r) => sum + r.items.filter(s => {
+                                    if (!hasBookings(s)) return false
+                                    const id = s.org_scenario_id || s.scenario_master_id
+                                    return !isDelivered(id, s.kit_number, s.performance_date, s.to_store_id)
+                                  }).length, 0)
                                 
                                 // グループ名（複数店舗ならスラッシュで繋ぐ）
                                 const groupStoreName = storeIdsInGroup.map(id => {
@@ -2432,6 +2433,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                         {incomingCount > 0 && (
                                           <Badge variant="outline" className="bg-blue-50 text-blue-700">
                                             入{incomingCount}
+                                          </Badge>
+                                        )}
+                                        {incompleteCount > 0 && (
+                                          <Badge variant="destructive" className="text-xs">
+                                            未完了{incompleteCount}
                                           </Badge>
                                         )}
                                       </div>
