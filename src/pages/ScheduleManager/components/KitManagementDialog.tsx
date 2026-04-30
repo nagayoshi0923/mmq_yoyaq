@@ -250,7 +250,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
   // シナリオIDからシナリオ情報を取得
   const scenarioMap = useMemo(() => {
-    return new Map(scenarios.map(s => [s.id, s]))
+    return new Map(scenarios.map(s => [s.scenario_master_id || s.id, s]))
   }, [scenarios])
 
   // 店舗IDから店舗情報を取得
@@ -362,21 +362,21 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
       const dayEvents = scheduleEvents.filter(e => e.date === date)
       
       // 店舗×シナリオで集計（同じ日・店舗・シナリオは1キットで済む）
-      const needs = new Set<string>() // `${store_id}-${scenario_master_id}`
+      // UUID にはハイフンが含まれるため :: をセパレータとして使用
+      const needs = new Map<string, { storeId: string; scenarioId: string }>()
       for (const event of dayEvents) {
         if (event.scenario_master_id) {
-          const key = `${event.store_id}-${event.scenario_master_id}`
-          needs.add(key)
+          const key = `${event.store_id}::${event.scenario_master_id}`
+          needs.set(key, { storeId: event.store_id, scenarioId: event.scenario_master_id })
         }
       }
-      
+
       // 各需要に対して在庫をチェック（needed は常に1）
-      for (const key of needs) {
+      for (const { storeId, scenarioId } of needs.values()) {
         const needed = 1 // 同日なら1キットで足りる
-        const [storeId, scenarioId] = key.split('-')
         const scenario = scenarioMap.get(scenarioId)
         if (!scenario) continue
-        
+
         // その店舗（または同じグループの店舗）にあるキット数をカウント
         const kitCount = scenario.kit_count || 1
         let available = 0
