@@ -466,15 +466,7 @@ export default function MyPage() {
         .map(r => (r.private_groups as any)?.id)
         .filter(Boolean)
 
-      const privateGroupReservationIds = [
-        ...new Set(
-          memberRecords
-            .map((r) => (r.private_groups as { reservation_id?: string | null })?.reservation_id)
-            .filter((id): id is string => !!id)
-        )
-      ]
-
-      const [eventsResult, orgsResult, scenariosResult, privateGroupReservationsResult, membersDetailResult, candidateDatesResult] =
+      const [eventsResult, orgsResult, scenariosResult, privateGroupSchedulesResult, membersDetailResult, candidateDatesResult] =
         await Promise.all([
           eventIds.length > 0
             ? supabase
@@ -491,11 +483,9 @@ export default function MyPage() {
                 .select('id, title, key_visual_url, player_count_min, player_count_max')
                 .in('id', scenarioMasterIds)
             : Promise.resolve({ data: [] }),
-          privateGroupReservationIds.length > 0
-            ? supabase
-                .from('reservations')
-                .select('id, title, requested_datetime, store_id')
-                .in('id', privateGroupReservationIds)
+          // 参加者も含めてグループの確定スケジュールを取得（SECURITY DEFINER RPCでRLS回避）
+          groupIds.length > 0
+            ? supabase.rpc('get_private_group_schedules', { p_group_ids: groupIds })
             : Promise.resolve({ data: [] }),
           groupIds.length > 0
             ? supabase
@@ -510,21 +500,21 @@ export default function MyPage() {
             : Promise.resolve({ data: [] as { group_id: string }[] })
         ])
 
-      const privateGroupReservations = (privateGroupReservationsResult.data || []) as Array<{
-        id: string
-        title: string | null
+      const groupSchedules = (privateGroupSchedulesResult.data || []) as Array<{
+        group_id: string
         requested_datetime: string
         store_id: string | null
+        store_name: string | null
       }>
-      const privateResById: Record<string, (typeof privateGroupReservations)[0]> = {}
-      privateGroupReservations.forEach((r) => {
-        privateResById[r.id] = r
+      const groupScheduleByGroupId: Record<string, (typeof groupSchedules)[0]> = {}
+      groupSchedules.forEach((s) => {
+        groupScheduleByGroupId[s.group_id] = s
       })
 
       const allStoreIds = [
         ...new Set([
           ...storeIdsFromReservations,
-          ...privateGroupReservations.map((r) => r.store_id).filter((id): id is string => !!id)
+          ...groupSchedules.map((s) => s.store_id).filter((id): id is string => !!id)
         ])
       ]
 
@@ -641,12 +631,12 @@ export default function MyPage() {
 
       const formatConfirmedScheduleLine = (
         groupStatus: string,
-        resId: string | null | undefined
+        groupId: string
       ): string | null => {
-        if (!resId || !['confirmed', 'booking_requested'].includes(groupStatus)) return null
-        const r = privateResById[resId]
-        if (!r?.requested_datetime) return null
-        const raw = r.requested_datetime
+        if (!['confirmed', 'booking_requested'].includes(groupStatus)) return null
+        const s = groupScheduleByGroupId[groupId]
+        if (!s?.requested_datetime) return null
+        const raw = s.requested_datetime
         const iso =
           raw.includes('+') || raw.endsWith('Z')
             ? raw
@@ -661,7 +651,7 @@ export default function MyPage() {
         })
         const hm = raw.match(/T(\d{2}:\d{2})/)
         const timeStr = hm ? `${hm[1]}〜` : ''
-        const store = r.store_id ? storeNameById[r.store_id] : ''
+        const store = s.store_name || (s.store_id ? storeNameById[s.store_id] : '')
         const line = [dateStr, timeStr, store].filter(Boolean).join(' ')
         if (groupStatus === 'booking_requested') {
           return line ? `申込内容: ${line}` : null
@@ -783,7 +773,7 @@ export default function MyPage() {
             is_organizer: record.is_organizer,
             created_at: group.created_at,
             reservation_id: resId ?? null,
-            confirmed_schedule_line: formatConfirmedScheduleLine(group.status, resId),
+            confirmed_schedule_line: formatConfirmedScheduleLine(group.status, group.id),
             member_displays: buildMemberDisplays(group.id),
             candidate_dates_count: candidateCountByGroup[group.id] || 0
           })
