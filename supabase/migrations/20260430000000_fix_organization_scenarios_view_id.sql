@@ -1,6 +1,8 @@
 -- organization_scenarios_with_master ビューのid定義を修正
 -- id = scenario_master_id に統一（org_scenario_id との混在を解消）
-CREATE OR REPLACE VIEW public.organization_scenarios_with_master AS
+-- CREATE OR REPLACE VIEW ではカラム削除不可のため DROP → CREATE で再作成
+DROP VIEW IF EXISTS public.organization_scenarios_with_master;
+CREATE VIEW public.organization_scenarios_with_master AS
  SELECT os.scenario_master_id AS id,
     os.id AS org_scenario_id,
     os.organization_id,
