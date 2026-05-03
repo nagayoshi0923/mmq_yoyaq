@@ -62,7 +62,7 @@ export function AboutPage() {
                   サービス開始
                 </th>
                 <td className="px-6 py-4 text-sm text-gray-700">
-                  2024年
+                  2026年3月
                 </td>
               </tr>
               <tr>
