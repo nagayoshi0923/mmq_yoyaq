@@ -20,6 +20,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_tools: "Edit,MultiEdit,Glob,Grep,LS,Read,Write,Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git rm:*),Bash(gh pr create:*),Bash(npm run typecheck:*),Bash(npm run build:fast:*)"
           direct_prompt: |
             GitHub Issue #${{ github.event.issue.number }} が作成されました。
 
