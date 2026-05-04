@@ -309,9 +309,23 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           logger.error('GM通知用スタッフ取得エラー:', notifyStaffError)
         } else {
           const storeName = stores.find(s => s.id === selectedStoreId)?.name || ''
+          logger.log('GM確定通知開始:', { 
+            gmCount: notifyStaffRows?.length || 0, 
+            gmNames: notifyStaffRows?.map(r => r.name) || [] 
+          })
+          
           for (const row of notifyStaffRows || []) {
             if (!row?.id) continue
-            const { error: notifyFnError } = await supabase.functions.invoke(
+            
+            logger.log('GM個別通知開始:', {
+              gmId: row.id,
+              gmName: row.name,
+              hasEmail: !!row.email,
+              hasDiscordChannel: !!row.discord_channel_id,
+              hasDiscordUserId: !!row.discord_user_id
+            })
+            
+            const { data: notifyResult, error: notifyFnError } = await supabase.functions.invoke(
               'notify-gm-private-booking-confirmed',
               {
                 body: {
@@ -332,16 +346,36 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 },
               }
             )
+            
             if (notifyFnError) {
-              logger.error('GM確定通知Edge Functionエラー:', notifyFnError)
+              logger.error('GM確定通知Edge Functionエラー:', {
+                gmName: row.name,
+                error: notifyFnError,
+                errorDetails: JSON.stringify(notifyFnError, null, 2)
+              })
             } else {
-              logger.log('GM確定通知リクエスト完了:', row.name)
+              logger.log('GM確定通知リクエスト完了:', {
+                gmName: row.name,
+                results: notifyResult?.results || 'no_details'
+              })
             }
           }
+          
+          logger.log('GM確定通知処理完了:', {
+            totalGMs: gmIdsToNotify.length,
+            processedGMs: notifyStaffRows?.length || 0
+          })
         }
       } catch (gmNotifyError) {
-        logger.error('GM通知送信エラー:', gmNotifyError)
-        // GM通知失敗しても承認処理は続行
+        logger.error('GM通知送信処理エラー:', {
+          error: gmNotifyError,
+          requestId,
+          scenarioTitle: selectedRequest?.scenario_title,
+          selectedGMId,
+          selectedSubGmId: requiredGm >= 2 ? selectedSubGmId : null
+        })
+        // GM通知失敗しても承認処理は続行（ユーザーには成功として返す）
+        // ただし、この時点でログには詳細なエラー情報が記録される
       }
 
       // グループチャットに日程確定のシステムメッセージを送信
