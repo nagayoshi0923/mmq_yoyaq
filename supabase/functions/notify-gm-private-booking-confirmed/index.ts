@@ -184,44 +184,92 @@ serve(async (req) => {
         }
 
         let discordSent = false
+        const discordAttempts: { method: string, success: boolean, details?: string }[] = []
 
+        // 個人チャンネル試行
         if (personalCh) {
+          console.log('🔄 Discord通知試行1: 個人チャンネル', { personalCh, gmName: data.gmName })
           discordSent = await postDiscordChannelMessage(botToken, personalCh, { embeds: [embed] })
+          discordAttempts.push({ method: 'personal_channel', success: discordSent, details: personalCh })
           if (discordSent) {
             console.log('✅ Discord通知送信成功（個人チャンネル）:', personalCh)
+          } else {
+            console.warn('❌ Discord通知失敗（個人チャンネル）:', personalCh)
           }
+        } else {
+          console.log('⏭️ Discord通知スキップ: 個人チャンネル未設定')
+          discordAttempts.push({ method: 'personal_channel', success: false, details: 'not_configured' })
         }
 
+        // DM試行
         if (!discordSent && discordUserId) {
+          console.log('🔄 Discord通知試行2: DM', { discordUserId, gmName: data.gmName })
           const dmId = await createDiscordDmChannel(botToken, discordUserId)
           if (dmId) {
             discordSent = await postDiscordChannelMessage(botToken, dmId, { embeds: [embed] })
+            discordAttempts.push({ method: 'dm', success: discordSent, details: `dm_channel:${dmId}` })
             if (discordSent) {
               console.log('✅ Discord通知送信成功（DM）:', data.gmName)
+            } else {
+              console.warn('❌ Discord通知失敗（DM）:', { gmName: data.gmName, dmId })
             }
+          } else {
+            console.warn('❌ DMチャンネル作成失敗:', { discordUserId, gmName: data.gmName })
+            discordAttempts.push({ method: 'dm', success: false, details: 'dm_channel_creation_failed' })
           }
+        } else if (!discordSent) {
+          console.log('⏭️ Discord通知スキップ: DiscordユーザーID未設定')
+          discordAttempts.push({ method: 'dm', success: false, details: 'not_configured' })
         }
 
+        // 貸切用チャンネル試行
         if (!discordSent && fallbackPrivateBookingCh) {
+          console.log('🔄 Discord通知試行3: 貸切用チャンネル', { fallbackPrivateBookingCh, gmName: data.gmName })
           const content = discordUserId ? `<@${discordUserId}>` : undefined
           const payload: Record<string, unknown> = { embeds: [embed] }
           if (content) payload.content = content
           discordSent = await postDiscordChannelMessage(botToken, fallbackPrivateBookingCh, payload)
+          discordAttempts.push({ 
+            method: 'fallback_channel', 
+            success: discordSent, 
+            details: `${fallbackPrivateBookingCh}${discordUserId ? '_with_mention' : '_no_mention'}` 
+          })
           if (discordSent) {
             console.log(
               '✅ Discord通知送信成功（貸切用チャンネル）:',
               fallbackPrivateBookingCh,
               discordUserId ? 'with mention' : 'no user id'
             )
+          } else {
+            console.warn('❌ Discord通知失敗（貸切用チャンネル）:', fallbackPrivateBookingCh)
           }
+        } else if (!discordSent) {
+          console.log('⏭️ Discord通知スキップ: 貸切用チャンネル未設定')
+          discordAttempts.push({ method: 'fallback_channel', success: false, details: 'not_configured' })
         }
 
+        // 詳細な結果ログ
+        console.log('📊 Discord通知結果サマリー:', {
+          gmName: data.gmName,
+          finalSuccess: discordSent,
+          attempts: discordAttempts,
+          availableChannels: {
+            personalCh: !!personalCh,
+            discordUserId: !!discordUserId,
+            fallbackPrivateBookingCh: !!fallbackPrivateBookingCh
+          }
+        })
+
         if (!discordSent && (personalCh || discordUserId || fallbackPrivateBookingCh)) {
-          console.warn('⚠️ Discord通知を送信できませんでした（トークン・権限・チャンネルIDを確認）', {
+          console.error('🚨 Discord通知完全失敗 - すべての方法で送信に失敗しました', {
             gmName: data.gmName,
-            hadPersonalCh: !!personalCh,
-            hadUserId: !!discordUserId,
-            hadFallbackCh: !!fallbackPrivateBookingCh,
+            scenarioTitle: data.scenarioTitle,
+            attempts: discordAttempts,
+            troubleshootingHints: [
+              personalCh ? 'Personal channel configured but failed - check bot permissions' : 'Personal channel not configured',
+              discordUserId ? 'User ID configured but DM failed - user might not share server with bot' : 'User ID not configured',
+              fallbackPrivateBookingCh ? 'Fallback channel configured but failed - check bot permissions' : 'Fallback channel not configured'
+            ]
           })
         } else if (!discordSent) {
           console.log('ℹ️ Discord通知スキップ（個人チャンネル・ユーザーID・貸切用チャンネルいずれも未設定）', {
@@ -344,8 +392,23 @@ ${data.gmName} さん
       }
     }
 
+    // 通知結果の詳細をレスポンスに含める
+    const notificationResults = {
+      discord: discordSent ? 'sent' : 'failed',
+      email: data.gmEmail ? 'attempted' : 'skipped_no_email'
+    }
+
+    console.log('📋 GM通知処理完了:', {
+      gmName: data.gmName,
+      results: notificationResults
+    })
+
     return new Response(
-      JSON.stringify({ success: true, message: 'GM通知を送信しました' }),
+      JSON.stringify({ 
+        success: true, 
+        message: 'GM通知処理を完了しました',
+        results: notificationResults
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
