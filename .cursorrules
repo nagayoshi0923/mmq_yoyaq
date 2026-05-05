@@ -492,6 +492,30 @@ const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padSta
 
 ---
 
+## RLS ポリシー追加時のセキュリティルール（必須）🚨
+
+### RLS はカラム単位の制御ができない
+
+RLS の SELECT ポリシーは「行の可視性」を制御するが、**カラムの可視性は制御できない**。
+ポリシーを通過した行の全カラムが読める。
+
+`reservations` テーブルには以下の機密カラムがある:
+- `staff_notes` — スタッフの内部メモ
+- `customer_email`, `customer_phone`, `customer_name` — 幹事の個人情報
+- `total_price`, `final_price`, `discount_amount` — 料金・割引情報
+- `payment_method`, `payment_status` — 支払い情報
+
+**新しい SELECT ポリシーを追加する前に必ず問う:**
+- そのポリシーで読める対象者（第三者・参加者等）が全カラムを見ても問題ないか？
+- 問題がある場合は RLS ではなく **SECURITY DEFINER RPC で必要最小限のカラムのみ返す**。
+
+```
+□ 新しい SELECT ポリシーの対象者が、全カラムを見ても情報漏洩にならないか確認したか？
+□ 第三者（参加者・招待者等）へのアクセス拡大は SECURITY DEFINER RPC で代替できないか検討したか？
+```
+
+---
+
 ## マイグレーション作成時のチェックリスト（必須）🚨
 
 ```
@@ -503,6 +527,7 @@ const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padSta
 □ RPC 変更は supabase/rpcs/*.sql を正とし、マイグレはそのコピーまたは最小差分のみ
 □ storage.objects に COMMENT ON POLICY を書いていないか？
 □ テーブルにカラムを追加/変更する場合、supabase/schemas/テーブル名.sql も更新したか？
+□ 新しい SELECT ポリシーで機密カラムが第三者に漏洩しないか確認したか？（RLS セキュリティルール参照）
 ```
 
 その他の注意事項:

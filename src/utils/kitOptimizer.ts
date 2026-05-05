@@ -100,9 +100,8 @@ export function calculateKitTransfers(
 ): KitTransferSuggestion[] {
   const suggestions: KitTransferSuggestion[] = []
   
-  // シナリオとストアのマップ
-  // scenario_master_id を優先キーにする（demands/kitState が scenario_master_id を使うため）
-  const scenarioMap = new Map(scenarios.map(s => [s.scenario_master_id || s.id, s]))
+  // シナリオとストアのマップ（s.id = scenario_master_id）
+  const scenarioMap = new Map(scenarios.map(s => [s.id, s]))
   const storeMap = new Map(stores.map(s => [s.id, s]))
   
   // キットグループのマッピング（store_id -> グループ代表ID）

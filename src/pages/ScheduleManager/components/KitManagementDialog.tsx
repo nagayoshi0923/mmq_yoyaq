@@ -250,7 +250,7 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
 
   // シナリオIDからシナリオ情報を取得
   const scenarioMap = useMemo(() => {
-    return new Map(scenarios.map(s => [s.scenario_master_id || s.id, s]))
+    return new Map(scenarios.map(s => [s.id, s]))
   }, [scenarios])
 
   // 店舗IDから店舗情報を取得
@@ -1993,8 +1993,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                 {pickedUpCount}件移動中
                               </Badge>
                             )}
-                            {(deliveredCount > 0 || pickedUpCount > 0) && remainingCount > 0 && (
-                              <Badge variant="destructive" className="text-xs">
+                            {remainingCount > 0 && (
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
                                 残り{remainingCount}件
                               </Badge>
                             )}
@@ -2379,8 +2379,35 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                 
                                 const outgoingRoutes = sortRoutesByGroup(groupOutgoing)
                                 const incomingRoutes = sortIncomingByGroup(groupIncoming)
-                                const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.length, 0)
-                                const incomingCount = incomingRoutes.reduce((sum, r) => sum + r.items.length, 0)
+
+                                // 予約0件（移動必要なし）のアイテムは出/入のカウントから除外
+                                const hasBookings = (suggestion: KitTransferSuggestion) => {
+                                  const toGroupId = getStoreGroupId(suggestion.to_store_id)
+                                  const total = scheduleEvents
+                                    .filter(e =>
+                                      e.scenario_master_id === suggestion.scenario_master_id &&
+                                      getStoreGroupId(e.store_id) === toGroupId &&
+                                      demandDates.includes(e.date) &&
+                                      !e.is_cancelled
+                                    )
+                                    .reduce((s, e) => s + (e.current_participants || 0), 0)
+                                  return total > 0
+                                }
+                                const outgoingCount = outgoingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
+                                const incomingCount = incomingRoutes.reduce((sum, r) => sum + r.items.filter(hasBookings).length, 0)
+
+                                // 未完了カウント（予約ありかつ未完了のアイテム）
+                                const incompleteCount =
+                                  outgoingRoutes.reduce((sum, r) => sum + r.items.filter(s => {
+                                    if (!hasBookings(s)) return false
+                                    const id = s.org_scenario_id || s.scenario_master_id
+                                    return !isPickedUp(id, s.kit_number, s.performance_date, s.to_store_id)
+                                  }).length, 0) +
+                                  incomingRoutes.reduce((sum, r) => sum + r.items.filter(s => {
+                                    if (!hasBookings(s)) return false
+                                    const id = s.org_scenario_id || s.scenario_master_id
+                                    return !isDelivered(id, s.kit_number, s.performance_date, s.to_store_id)
+                                  }).length, 0)
                                 
                                 // グループ名（複数店舗ならスラッシュで繋ぐ）
                                 const groupStoreName = storeIdsInGroup.map(id => {
@@ -2406,6 +2433,11 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                         {incomingCount > 0 && (
                                           <Badge variant="outline" className="bg-blue-50 text-blue-700">
                                             入{incomingCount}
+                                          </Badge>
+                                        )}
+                                        {incompleteCount > 0 && (
+                                          <Badge variant="destructive" className="text-xs">
+                                            未完了{incompleteCount}
                                           </Badge>
                                         )}
                                       </div>
@@ -2489,8 +2521,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
-                                                      {/* 予約状況表示 */}
-                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && (
+                                                      {/* 予約状況表示（未完了のみ） */}
+                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && !delivered && (
                                                         <>
                                                           <span className="text-[10px] font-medium text-muted-foreground">
                                                             {totalParticipants}/{totalCapacity}
@@ -2607,8 +2639,8 @@ export function KitManagementDialog({ isOpen, onClose }: KitManagementDialogProp
                                                       </Badge>
                                                       <span className={`text-xs truncate ${delivered || isTransferCancelled ? 'line-through' : ''} ${isTransferCancelled ? 'text-gray-400' : ''}`}>{suggestion.scenario_title}</span>
                                                       <span className="text-muted-foreground text-[10px]">#{suggestion.kit_number}</span>
-                                                      {/* 予約状況表示 */}
-                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && (
+                                                      {/* 予約状況表示（未回収のみ） */}
+                                                      {totalCapacity > 0 && !isTransferCancelled && !isCancelled && !pickedUp && (
                                                         <>
                                                           <span className="text-[10px] font-medium text-muted-foreground">
                                                             {totalParticipants}/{totalCapacity}

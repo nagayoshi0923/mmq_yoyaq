@@ -593,23 +593,10 @@ export async function getCurrentReservations(): Promise<Array<{
   }
 
   // 2. 貸切公演の参加メンバーとしての予約を取得
-  const { data: privateGroupMembers } = await supabase
-    .from('private_group_members')
-    .select(`
-      id,
-      status,
-      private_groups (
-        id,
-        status,
-        reservations (
-          id,
-          status,
-          schedule_event_id
-        )
-      )
-    `)
-    .eq('user_id', user.id)
-    .eq('status', 'joined')
+  // SECURITY DEFINER RPC 経由で必要最小限の情報（id, schedule_event_id, status）のみ取得。
+  // reservations テーブルを直接 SELECT すると staff_notes・料金・個人情報等が漏洩するため RPC を使用。
+  const { data: privateGroupReservations } = await supabase
+    .rpc('get_private_group_reservation_info')
 
   // 3. スタッフ予約を取得（payment_method='staff' または reservation_source='staff_entry'/'staff_participation'）
   const { data: staffReservations, error: staffError } = await supabase
@@ -628,12 +615,9 @@ export async function getCurrentReservations(): Promise<Array<{
   if (directReservations) {
     directReservations.forEach((r: any) => { if (r.schedule_event_id) eventIds.add(r.schedule_event_id) })
   }
-  if (privateGroupMembers) {
-    privateGroupMembers.forEach((m: any) => {
-      const group = m.private_groups as any
-      if (!group) return
-      const res = group.reservations as any
-      if (res?.schedule_event_id) eventIds.add(res.schedule_event_id)
+  if (privateGroupReservations) {
+    privateGroupReservations.forEach((r: any) => {
+      if (r.schedule_event_id) eventIds.add(r.schedule_event_id)
     })
   }
   if (staffReservations) {
@@ -668,15 +652,13 @@ export async function getCurrentReservations(): Promise<Array<{
   }
 
   // 貸切公演（参加メンバー）
-  if (privateGroupMembers) {
-    for (const member of privateGroupMembers) {
-      const group = member.private_groups as any
-      if (!group || group.status !== 'confirmed') continue
-      const reservation = group.reservations as any
-      if (!reservation || reservation.status !== 'confirmed') continue
-      const event = eventsMap[reservation.schedule_event_id]
-      if (event && !allReservations.some(r => r.id === reservation.id)) {
-        allReservations.push({ id: reservation.id, event })
+  if (privateGroupReservations) {
+    for (const r of privateGroupReservations) {
+      if (r.group_status !== 'confirmed') continue
+      if (r.reservation_status !== 'confirmed') continue
+      const event = eventsMap[r.schedule_event_id]
+      if (event && !allReservations.some(existing => existing.id === r.reservation_id)) {
+        allReservations.push({ id: r.reservation_id, event })
       }
     }
   }

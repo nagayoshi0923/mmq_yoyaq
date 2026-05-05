@@ -5,7 +5,8 @@
 -- 既存のビューを更新
 CREATE OR REPLACE VIEW public.organization_scenarios_with_master AS
 SELECT
-  os.id,
+  os.scenario_master_id AS id,
+  os.id AS org_scenario_id,
   os.organization_id,
   os.scenario_master_id,
   os.slug,

@@ -1,0 +1,46 @@
+name: Close Issue → Update Sheet
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  update-sheet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install gspread google-auth
+
+      - name: Update spreadsheet status
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          ISSUE_SHEET_ID: ${{ secrets.ISSUE_SHEET_ID }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          python - <<'EOF'
+          import os, json
+          import gspread
+          from google.oauth2.service_account import Credentials
+
+          SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+          info = json.loads(os.environ["GOOGLE_CREDENTIALS"])
+          creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+          gc = gspread.authorize(creds)
+
+          sheet = gc.open_by_key(os.environ["ISSUE_SHEET_ID"]).sheet1
+          issue_number = str(os.environ["ISSUE_NUMBER"])
+
+          col_issue_num = sheet.col_values(6)   # GitHub Issue # 列
+          for i, val in enumerate(col_issue_num):
+              if str(val) == issue_number:
+                  sheet.update_cell(i + 1, 8, "対応済み")
+                  print(f"Row {i+1} を対応済みに更新しました (Issue #{issue_number})")
+                  break
+          else:
+              print(f"Issue #{issue_number} に対応する行が見つかりませんでした")
+          EOF

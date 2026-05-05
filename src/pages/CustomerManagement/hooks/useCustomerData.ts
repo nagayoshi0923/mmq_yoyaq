@@ -47,7 +47,7 @@ export function useCustomerData() {
 
       // 予約データから累計支払額と予約数を集計
       const customerIds = data.map(c => c.id)
-      const reservationStats: Record<string, { total_paid: number; reservation_count: number }> = {}
+      const reservationStats: Record<string, { total_paid: number; reservation_count: number; last_visit: string | null; visit_count: number }> = {}
       const couponStatsMap: Record<string, CustomerCouponStats> = {}
 
       if (customerIds.length > 0) {
@@ -56,7 +56,7 @@ export function useCustomerData() {
         while (true) {
           let resQuery = supabase
             .from('reservations')
-            .select('customer_id, total_price, status')
+            .select('customer_id, total_price, status, requested_datetime')
             .in('customer_id', customerIds)
             .in('status', ['confirmed', 'gm_confirmed', 'completed'])
             .range(resFrom, resFrom + PAGE_SIZE - 1)
@@ -74,10 +74,19 @@ export function useCustomerData() {
           reservations.forEach(res => {
             if (res.customer_id) {
               if (!reservationStats[res.customer_id]) {
-                reservationStats[res.customer_id] = { total_paid: 0, reservation_count: 0 }
+                reservationStats[res.customer_id] = { total_paid: 0, reservation_count: 0, last_visit: null, visit_count: 0 }
               }
               reservationStats[res.customer_id].total_paid += res.total_price || 0
               reservationStats[res.customer_id].reservation_count += 1
+              if (res.requested_datetime) {
+                const prev = reservationStats[res.customer_id].last_visit
+                if (!prev || res.requested_datetime > prev) {
+                  reservationStats[res.customer_id].last_visit = res.requested_datetime
+                }
+              }
+              if (res.status === 'completed') {
+                reservationStats[res.customer_id].visit_count += 1
+              }
             }
           })
         }
@@ -121,7 +130,9 @@ export function useCustomerData() {
       const customersWithStats = (data || []).map(customer => ({
         ...customer,
         total_spent: reservationStats[customer.id]?.total_paid || customer.total_spent || 0,
-        reservation_count: reservationStats[customer.id]?.reservation_count || 0
+        reservation_count: reservationStats[customer.id]?.reservation_count || 0,
+        last_visit: reservationStats[customer.id]?.last_visit ?? customer.last_visit ?? null,
+        visit_count: reservationStats[customer.id]?.visit_count ?? customer.visit_count ?? 0,
       }))
 
       logger.log('顧客データ取得完了:', customersWithStats.length)
