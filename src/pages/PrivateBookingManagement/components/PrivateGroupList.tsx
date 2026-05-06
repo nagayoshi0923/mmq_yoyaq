@@ -16,7 +16,7 @@ import {
   MessageCircle,
   Loader2,
   Send,
-  History,
+  MessageSquare,
   ClipboardList,
   MapPin,
 } from 'lucide-react'
@@ -481,8 +481,8 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                           setHistoryDialogOpen(true)
                         }}
                       >
-                        <History className="w-4 h-4 mr-1" />
-                        履歴
+                        <MessageSquare className="w-4 h-4 mr-1" />
+                        ログ
                       </Button>
                       <Button
                         variant="outline"
