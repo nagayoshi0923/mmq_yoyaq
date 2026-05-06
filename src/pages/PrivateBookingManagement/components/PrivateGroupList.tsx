@@ -435,6 +435,25 @@ export function PrivateGroupList({ onGroupClick }: PrivateGroupListProps) {
                         </div>
                       )}
 
+                      {/* メンバー一覧 */}
+                      {group.members.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {group.members.map(member => (
+                            <span
+                              key={member.id}
+                              className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full ${
+                                member.is_organizer
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {member.is_organizer && <span className="mr-0.5 font-bold">主</span>}
+                              {member.member_name || '(名前なし)'}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
                       {/* 回答進捗 */}
                       {group.candidate_dates.length > 0 && group.members.length > 0 && (
                         <div className="mt-2">

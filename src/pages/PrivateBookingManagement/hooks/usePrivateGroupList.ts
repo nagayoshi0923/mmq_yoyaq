@@ -28,6 +28,7 @@ export interface PrivateGroupListItem {
     user_id: string | null
     guest_name: string | null
     is_organizer: boolean
+    member_name?: string | null
   }>
   candidate_dates: Array<{
     id: string
@@ -118,11 +119,14 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         surveyResult,
         bookingResult,
       ] = await Promise.all([
-        // 主催者情報
+        // 主催者・全メンバーのユーザー情報
         (async () => {
-          const organizerIds = [...new Set((data || []).map(g => g.organizer_id).filter(Boolean))]
-          if (organizerIds.length === 0) return { data: [] }
-          return supabase.from('customers').select('user_id, name, nickname').in('user_id', organizerIds)
+          const allUserIds = [...new Set([
+            ...(data || []).map(g => g.organizer_id).filter(Boolean),
+            ...(data || []).flatMap(g => (g.members as any[]).map((m: any) => m.user_id).filter(Boolean)),
+          ])]
+          if (allUserIds.length === 0) return { data: [] }
+          return supabase.from('customers').select('user_id, name, nickname').in('user_id', allUserIds)
         })(),
         // シナリオのsurvey_enabled
         scenarioMasterIds.length > 0
@@ -208,6 +212,13 @@ export function usePrivateGroupList(): UsePrivateGroupListReturn {
         return {
           ...g,
           scenario_masters: scenarioMasters || null,
+          members: (g.members as any[]).map((m: any) => ({
+            ...m,
+            member_name: m.guest_name ||
+              organizerMap.get(m.user_id)?.nickname ||
+              organizerMap.get(m.user_id)?.name ||
+              null,
+          })),
           organizer: organizerMap.get(g.organizer_id) || { name: '不明' },
           survey_enabled: surveyMap.get(g.scenario_master_id) ?? false,
           confirmed_date: confirmedDateMap.get(g.id),
