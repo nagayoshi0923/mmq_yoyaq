@@ -16,6 +16,12 @@ import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
 import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import { sendEmail } from '@/lib/emailApi'
 
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map(Number)
+  const total = h * 60 + m + minutes
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
 interface UseBookingApprovalProps {
   onSuccess: () => void
 }
@@ -124,12 +130,20 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           const eventStart = event.start_time?.substring(0, 5) || ''
           const eventEnd = event.end_time?.substring(0, 5) || ''
 
-          // 時間帯が重複しているかチェック
+          // 直接重複チェック
           if (candidateStart < eventEnd && candidateEnd > eventStart) {
             setSubmitting(false)
-            return { 
-              success: false, 
-              error: `${selectedDateYmd} ${candidateStart}〜${candidateEnd} の時間帯には既に「${event.scenario}」(${eventStart}〜${eventEnd})が入っています。` 
+            return {
+              success: false,
+              error: `${selectedDateYmd} ${candidateStart}〜${candidateEnd} の時間帯には既に「${event.scenario}」(${eventStart}〜${eventEnd})が入っています。`,
+            }
+          }
+          // 60分インターバルチェック（設営・撤収時間）
+          if (candidateStart < addMinutesToTime(eventEnd, 60) && addMinutesToTime(candidateEnd, 60) > eventStart) {
+            setSubmitting(false)
+            return {
+              success: false,
+              error: `${selectedDateYmd} ${candidateStart}〜${candidateEnd} は「${event.scenario}」(${eventStart}〜${eventEnd})との間隔が60分未満です。設営・撤収時間を確保するため60分以上の間隔が必要です。`,
             }
           }
         }
@@ -203,6 +217,13 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           return {
             success: false,
             error: 'メインGMとサブGMに同じ人は指定できません。別々のスタッフを選んでください。',
+          }
+        }
+        if (approveError.code === 'P0027') {
+          setSubmitting(false)
+          return {
+            success: false,
+            error: 'この時間帯は前後の公演と間隔が60分未満です。設営・撤収時間を確保するため60分以上の間隔が必要です。別の候補日時を選んでください。',
           }
         }
         if (approveError.code === 'P0018') {
