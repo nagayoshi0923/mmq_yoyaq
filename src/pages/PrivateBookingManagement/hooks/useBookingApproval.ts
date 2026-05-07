@@ -15,6 +15,7 @@ import type { PrivateBookingRequest } from './usePrivateBookingData'
 import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
 import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import { sendEmail } from '@/lib/emailApi'
+import { createEventHistory } from '@/lib/api/eventHistoryApi'
 
 function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -241,6 +242,34 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
 
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
+
+      // 承認で作成されたスケジュールイベントを履歴に記録
+      if (scheduleEventId && organizationId) {
+        const gmIds = requiredGm >= 2 && selectedSubGmId
+          ? [selectedGMId, selectedSubGmId]
+          : [selectedGMId]
+        await createEventHistory(
+          scheduleEventId as string,
+          organizationId,
+          'create',
+          null,
+          {
+            scenario: cleanScenarioTitle,
+            date: selectedDateYmd,
+            store_id: selectedStoreId,
+            start_time: selectedCandidate.startTime,
+            end_time: selectedEndTime,
+            gms: gmIds,
+            reservation_name: selectedRequest?.customer_name || '',
+          },
+          {
+            date: selectedDateYmd,
+            storeId: selectedStoreId,
+            timeSlot: selectedCandidate.timeSlot || null,
+          },
+          { notes: '貸切予約承認により作成' }
+        )
+      }
 
       // 通知・メールは DB に実際に作成された公演日（schedule_events.date）を優先（クライアント保持の候補とズレないようにする）
       let notifyEventDate = selectedDateYmd
