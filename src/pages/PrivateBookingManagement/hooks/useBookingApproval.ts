@@ -16,6 +16,7 @@ import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
 import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import { sendEmail } from '@/lib/emailApi'
 import { createEventHistory } from '@/lib/api/eventHistoryApi'
+import { showToast } from '@/utils/toast'
 
 function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number)
@@ -403,11 +404,16 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 error: notifyFnError,
                 errorDetails: JSON.stringify(notifyFnError, null, 2)
               })
+              showToast.warning(`${row.name} への確定通知の送信に失敗しました。手動でご連絡ください。`)
             } else {
               logger.log('GM確定通知リクエスト完了:', {
                 gmName: row.name,
                 results: notifyResult?.results || 'no_details'
               })
+              // Discord が全方法で失敗していた場合も警告
+              if (notifyResult?.results?.discord === 'failed') {
+                showToast.warning(`${row.name} へのDiscord通知が失敗しました。メール通知または手動連絡をご確認ください。`)
+              }
             }
           }
           
