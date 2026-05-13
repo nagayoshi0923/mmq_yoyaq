@@ -680,8 +680,10 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             })
 
           // 却下メール（貸切専用）を送信
-          const rejectMailCustomer = joinedCustomerFromReservation(reservation?.customers)
-          if (reservation && rejectMailCustomer) {
+          const rejectMailCustomerJoined = joinedCustomerFromReservation(reservation?.customers)
+          const rejectCustomerEmail = rejectMailCustomerJoined?.email || reservation?.customer_email
+          const rejectCustomerName = rejectMailCustomerJoined?.name || reservation?.customer_name
+          if (reservation && rejectCustomerEmail && rejectCustomerName) {
             try {
               // 候補日時を取得
               const candidateDates = reservation.candidate_datetimes?.candidates?.map((c: any) => ({
@@ -694,8 +696,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 body: {
                   organizationId,
                   reservationId: reservation.id,
-                  customerEmail: rejectMailCustomer.email,
-                  customerName: rejectMailCustomer.name,
+                  customerEmail: rejectCustomerEmail,
+                  customerName: rejectCustomerName,
                   scenarioTitle: reservation.title || '',
                   rejectionReason: rejectionReason,
                   candidateDates: candidateDates.length > 0 ? candidateDates : undefined
