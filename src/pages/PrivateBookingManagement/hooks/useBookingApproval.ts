@@ -665,11 +665,11 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           const body = settings?.system_msg_booking_rejected_body || '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'
           
           // グループチャットにシステムメッセージを送信
-          await supabase
+          const { error: msgInsertError } = await supabase
             .from('private_group_messages')
             .insert({
               group_id: reservation.private_group_id,
-              sender_type: 'system',
+              member_id: null,
               message: JSON.stringify({
                 type: 'system',
                 action: 'booking_rejected',
@@ -678,11 +678,14 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 rejectionReason: rejectionReason
               })
             })
+          if (msgInsertError) {
+            logger.error('却下メッセージ送信エラー:', msgInsertError)
+          }
 
           // 却下メール（貸切専用）を送信
           const rejectMailCustomerJoined = joinedCustomerFromReservation(reservation?.customers)
-          const rejectCustomerEmail = rejectMailCustomerJoined?.email || reservation?.customer_email
-          const rejectCustomerName = rejectMailCustomerJoined?.name || reservation?.customer_name
+          const rejectCustomerEmail = rejectMailCustomerJoined?.email || reservation?.customer_email || selectedRequest?.customer_email
+          const rejectCustomerName = rejectMailCustomerJoined?.name || reservation?.customer_name || selectedRequest?.customer_name
           if (reservation && rejectCustomerEmail && rejectCustomerName) {
             try {
               // 候補日時を取得
@@ -692,7 +695,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 endTime: c.endTime
               })) || []
 
-              await supabase.functions.invoke('send-private-booking-rejection', {
+              const { error: rejectMailError } = await supabase.functions.invoke('send-private-booking-rejection', {
                 body: {
                   organizationId,
                   reservationId: reservation.id,
@@ -703,10 +706,16 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                   candidateDates: candidateDates.length > 0 ? candidateDates : undefined
                 }
               })
-              logger.log('貸切リクエスト却下メール送信成功')
+              if (rejectMailError) {
+                logger.error('却下メール送信エラー:', rejectMailError)
+              } else {
+                logger.log('貸切リクエスト却下メール送信成功')
+              }
             } catch (emailError) {
               logger.error('却下メール送信エラー:', emailError)
             }
+          } else {
+            logger.warn('却下メール送信スキップ: メールアドレスまたは顧客名が取得できませんでした', { rejectCustomerEmail, rejectCustomerName })
           }
         }
       }
