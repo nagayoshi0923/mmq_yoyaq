@@ -6,8 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
-import { Loader2, MessageSquare } from 'lucide-react'
+import { Loader2, MessageSquare, CheckCircle2, X, Calendar, Users, ClipboardList, AlertCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 
@@ -16,33 +15,6 @@ export type GroupMessageRow = {
   message: string
   created_at: string
   member_id: string | null
-}
-
-const ACTION_LABELS: Record<string, string> = {
-  staff_message: '店舗からのお知らせ',
-  group_created: 'グループ作成',
-  booking_requested: '予約申請',
-  schedule_confirmed: '日程確定',
-  booking_rejected: '申請却下',
-  booking_cancelled: 'キャンセル',
-  candidate_dates_added: '候補日程追加',
-  pre_reading_notice: '事前読込',
-  survey_notice: 'アンケート',
-  individual_notice: '個別お知らせ',
-  performance_cancelled: '公演キャンセル',
-  member_joined: 'メンバー参加',
-  character_assignment: '配役確定',
-  character_method_selected: '配役方法選択',
-}
-
-function parseSystemPayload(raw: string): Record<string, unknown> | null {
-  try {
-    const o = JSON.parse(raw) as Record<string, unknown>
-    if (o.type === 'system') return o
-  } catch {
-    /* plain text */
-  }
-  return null
 }
 
 function formatDateTimeJa(iso: string) {
@@ -74,40 +46,316 @@ function toDateKey(iso: string) {
   return iso.slice(0, 10)
 }
 
-function buildSystemSummary(raw: string): { kind: string; text: string } | null {
-  const p = parseSystemPayload(raw)
-  if (!p) return null
+function parsePayload(raw: string): Record<string, unknown> | null {
+  try {
+    const o = JSON.parse(raw) as Record<string, unknown>
+    if (o.type === 'system') return o
+  } catch {
+    /* plain text */
+  }
+  return null
+}
 
-  const action = typeof p.action === 'string' ? p.action : ''
-  const kind = ACTION_LABELS[action] || (action ? `システム（${action}）` : 'システム通知')
+interface SystemMsgProps {
+  payload: Record<string, unknown>
+  createdAt: string
+  senderName: string
+}
 
-  const title = typeof p.title === 'string' ? p.title : ''
-  const body = typeof p.body === 'string' ? p.body : ''
-  const message = typeof p.message === 'string' ? p.message : ''
+function SystemMessageCard({ payload, createdAt, senderName }: SystemMsgProps) {
+  const action = typeof payload.action === 'string' ? payload.action : ''
+  const title = typeof payload.title === 'string' ? payload.title : ''
+  const body = typeof payload.body === 'string' ? payload.body : ''
+  const message = typeof payload.message === 'string' ? payload.message : ''
+  const ts = formatDateTimeJa(createdAt)
 
-  let text = title || body || message || kind
-
-  if (action === 'candidate_dates_added') {
-    const count = typeof p.count === 'number' ? p.count : 0
-    text = `候補日程 ${count} 件追加`
-  } else if (action === 'schedule_confirmed') {
-    const d = typeof p.confirmedDate === 'string' ? p.confirmedDate : ''
-    const slot = typeof p.confirmedTimeSlot === 'string' ? p.confirmedTimeSlot : ''
-    const store = typeof p.storeName === 'string' ? p.storeName : ''
-    text = [d && `${d} ${slot}`.trim(), store].filter(Boolean).join(' / ') || title || '日程確定'
-  } else if (action === 'individual_notice') {
-    const name = typeof p.target_member_name === 'string' ? p.target_member_name : '参加者'
-    text = `${name}さんへ: ${message || body}`
-  } else if (action === 'member_joined') {
-    const name = typeof p.memberName === 'string' ? p.memberName : 'メンバー'
-    text = `${name} が参加`
-  } else if (action === 'character_assignment') {
-    text = Array.isArray(p.body) ? (p.body as string[]).join(' / ') : (title || '配役確定')
-  } else if (action === 'staff_message') {
-    text = body || message
+  // メンバー参加
+  if (action === 'member_joined') {
+    const name = typeof payload.memberName === 'string' ? payload.memberName : senderName
+    return (
+      <div className="flex justify-center my-2">
+        <div className="bg-gray-100 rounded-full px-4 py-1.5">
+          <p className="text-xs text-gray-600">
+            <span className="font-medium">{name}</span> が参加しました
+            <span className="ml-2 text-[10px] text-gray-400">{ts}</span>
+          </p>
+        </div>
+      </div>
+    )
   }
 
-  return { kind, text: text.trim() }
+  // グループ作成
+  if (action === 'group_created') {
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 w-full max-w-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-3 h-3 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-purple-800">{title || 'グループ作成'}</p>
+              <p className="text-[10px] text-muted-foreground">{ts}</p>
+            </div>
+          </div>
+          {body && <p className="text-xs text-gray-600 mt-2">{body}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  // 予約申込
+  if (action === 'booking_requested') {
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 w-full max-w-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-3 h-3 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-blue-800">{title || '予約申請'}</p>
+              <p className="text-[10px] text-muted-foreground">{ts}</p>
+            </div>
+          </div>
+          {body && <p className="text-xs text-gray-600 mt-2">{body}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  // 日程確定
+  if (action === 'schedule_confirmed') {
+    const confirmedDate = typeof payload.confirmedDate === 'string' ? payload.confirmedDate : ''
+    const confirmedTimeSlot = typeof payload.confirmedTimeSlot === 'string' ? payload.confirmedTimeSlot : ''
+    const storeName = typeof payload.storeName === 'string' ? payload.storeName : ''
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 w-full max-w-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-3 h-3 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-green-800">{title || '日程確定'}</p>
+              <p className="text-[10px] text-muted-foreground">{ts}</p>
+            </div>
+          </div>
+          {confirmedDate && (
+            <div className="bg-white rounded-lg p-2 border border-green-100 space-y-0.5">
+              <p className="text-xs text-gray-900">
+                <span className="text-gray-500">日時：</span>
+                {confirmedDate.replace(/-/g, '/')} {confirmedTimeSlot}
+              </p>
+              {storeName && (
+                <p className="text-xs text-gray-900">
+                  <span className="text-gray-500">店舗：</span>
+                  {storeName}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 却下
+  if (action === 'booking_rejected') {
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 w-full max-w-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center shrink-0">
+              <X className="w-3 h-3 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-red-800">{title || '申請却下'}</p>
+              <p className="text-[10px] text-muted-foreground">{ts}</p>
+            </div>
+          </div>
+          {body && <p className="text-xs text-gray-600 mt-2">{body}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  // キャンセル・公演キャンセル
+  if (action === 'booking_cancelled' || action === 'performance_cancelled') {
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-gray-100 border border-gray-300 rounded-lg p-3 w-full max-w-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 bg-gray-600 rounded-full flex items-center justify-center shrink-0">
+              <X className="w-3 h-3 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-gray-800">{title || 'キャンセル'}</p>
+              <p className="text-[10px] text-muted-foreground">{ts}</p>
+            </div>
+          </div>
+          {body && <p className="text-xs text-gray-600 mt-2">{body}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  // 店舗からのお知らせ
+  if (action === 'staff_message') {
+    const text = body || message
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 w-full max-w-sm">
+          <div className="flex items-center gap-1.5 mb-2">
+            <div className="w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center shrink-0">
+              <span className="text-white text-[9px] leading-none">📢</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-amber-800">{title || '店舗からのお知らせ'}</p>
+              <p className="text-[10px] text-muted-foreground">{ts}</p>
+            </div>
+          </div>
+          {text && (
+            <div className="bg-white rounded-lg p-2 border border-amber-100">
+              <p className="text-xs text-gray-900 whitespace-pre-wrap break-words">{text}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 事前読込通知
+  if (action === 'pre_reading_notice') {
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 w-full max-w-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-5 h-5 bg-amber-600 rounded-full flex items-center justify-center shrink-0">
+              <span className="text-white text-[10px] font-bold">!</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-amber-800">事前読み込みについて</p>
+              <p className="text-[10px] text-muted-foreground">{ts}</p>
+            </div>
+          </div>
+          {message && (
+            <div className="bg-white rounded-lg p-2 border border-amber-100">
+              <p className="text-xs text-gray-700 whitespace-pre-wrap break-words">{message}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // アンケート通知
+  if (action === 'survey_notice') {
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 w-full max-w-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center shrink-0">
+              <ClipboardList className="w-3 h-3 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-blue-800">アンケートのご協力のお願い</p>
+              <p className="text-[10px] text-muted-foreground">{ts}</p>
+            </div>
+          </div>
+          {message && (
+            <div className="bg-white rounded-lg p-2 border border-blue-100">
+              <p className="text-xs text-gray-700 whitespace-pre-wrap break-words">{message}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 個別お知らせ
+  if (action === 'individual_notice') {
+    const targetName = typeof payload.target_member_name === 'string' ? payload.target_member_name : '参加者'
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 w-full max-w-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center shrink-0">
+              <span className="text-white text-[10px] font-bold">!</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-indigo-800">{targetName}さんへの個別お知らせ</p>
+              <p className="text-[10px] text-muted-foreground">{ts}</p>
+            </div>
+          </div>
+          {message && (
+            <div className="bg-white rounded-lg p-2 border border-indigo-100">
+              <p className="text-xs text-gray-700 whitespace-pre-wrap break-words">{message}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 候補日程追加
+  if (action === 'candidate_dates_added') {
+    const count = typeof payload.count === 'number' ? payload.count : 0
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 w-full max-w-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center shrink-0">
+              <Calendar className="w-3 h-3 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-purple-800">候補日程 {count} 件追加</p>
+              <p className="text-[10px] text-muted-foreground">{ts} · {senderName}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 配役関連
+  if (action === 'character_assignment' || action === 'character_method_selected') {
+    const bodyText = Array.isArray(payload.body) ? (payload.body as string[]).join('\n') : body
+    return (
+      <div className="flex justify-center my-3">
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 w-full max-w-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center shrink-0">
+              <Users className="w-3 h-3 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-purple-800">
+                {title || (action === 'character_assignment' ? 'キャラクター配役確定' : '配役方法選択')}
+              </p>
+              <p className="text-[10px] text-muted-foreground">{ts}</p>
+            </div>
+          </div>
+          {bodyText && (
+            <div className="bg-white rounded-lg p-2 border border-purple-100">
+              <p className="text-xs text-gray-700 whitespace-pre-wrap">{bodyText}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // その他のシステムメッセージ（フォールバック）
+  const fallbackText = title || body || message || action
+  return (
+    <div className="flex justify-center my-2">
+      <div className="flex items-center gap-2 bg-muted/50 rounded-full px-3 py-1.5 max-w-[90%]">
+        <AlertCircle className="w-3 h-3 text-muted-foreground shrink-0" />
+        <span className="text-xs text-muted-foreground">{fallbackText}</span>
+        <span className="text-[10px] text-muted-foreground/60 shrink-0 tabular-nums">{ts}</span>
+      </div>
+    </div>
+  )
 }
 
 interface PrivateGroupAnnouncementHistoryDialogProps {
@@ -221,7 +469,7 @@ export function PrivateGroupAnnouncementHistoryDialog({
             グループログ
           </DialogTitle>
           <DialogDescription className="text-left">
-            {scenarioTitle} — グループ内の全メッセージを時系列で表示します。
+            {scenarioTitle} — 読み取り専用
           </DialogDescription>
         </DialogHeader>
 
@@ -237,7 +485,7 @@ export function PrivateGroupAnnouncementHistoryDialog({
             </p>
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
-              <div className="space-y-4 pb-1">
+              <div className="space-y-1 pb-1">
                 {grouped.map(group => (
                   <div key={group.dateKey}>
                     {/* 日付セパレーター */}
@@ -247,34 +495,27 @@ export function PrivateGroupAnnouncementHistoryDialog({
                       <div className="flex-1 h-px bg-border" />
                     </div>
 
-                    <ul className="space-y-2">
+                    <div className="space-y-1">
                       {group.messages.map(row => {
-                        const sys = buildSystemSummary(row.message)
-
-                        if (sys) {
-                          // システムメッセージ
-                          return (
-                            <li key={row.id} className="flex justify-center">
-                              <div className="flex items-center gap-2 bg-muted/50 rounded-full px-3 py-1.5 max-w-[90%]">
-                                <Badge variant="secondary" className="text-[10px] font-normal shrink-0">
-                                  {sys.kind}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground truncate">{sys.text}</span>
-                                <span className="text-[10px] text-muted-foreground/60 shrink-0 tabular-nums">
-                                  {formatDateTimeJa(row.created_at)}
-                                </span>
-                              </div>
-                            </li>
-                          )
-                        }
-
-                        // テキストメッセージ
+                        const payload = parsePayload(row.message)
                         const senderName = row.member_id
                           ? (memberNames.get(row.member_id) || '退出したメンバー')
                           : 'スタッフ'
 
+                        if (payload) {
+                          return (
+                            <SystemMessageCard
+                              key={row.id}
+                              payload={payload}
+                              createdAt={row.created_at}
+                              senderName={senderName}
+                            />
+                          )
+                        }
+
+                        // テキストメッセージ
                         return (
-                          <li key={row.id} className="flex gap-2 items-start">
+                          <div key={row.id} className="flex gap-2 items-start">
                             <div className="flex-1 rounded-lg border bg-white px-3 py-2 text-sm">
                               <div className="flex items-center gap-2 mb-0.5">
                                 <span className="font-medium text-xs text-foreground">{senderName}</span>
@@ -286,10 +527,10 @@ export function PrivateGroupAnnouncementHistoryDialog({
                                 {row.message}
                               </p>
                             </div>
-                          </li>
+                          </div>
                         )
                       })}
-                    </ul>
+                    </div>
                   </div>
                 ))}
                 <div ref={bottomRef} />
