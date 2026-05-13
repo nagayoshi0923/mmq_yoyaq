@@ -40,7 +40,6 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
-  const [sendRescheduleNotification, setSendRescheduleNotification] = useState(true)
 
   // 承認処理
   const handleApprove = useCallback(async (
@@ -652,8 +651,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         }
         logger.log('グループを date_adjusting・候補日を rejected に同期:', reservation.private_group_id)
         
-        // 日程再調整の通知を送信する場合
-        if (sendRescheduleNotification) {
+        // 却下通知を送信
+        {
           // システムメッセージ設定を取得
           const { data: settings } = await supabase
             .from('global_settings')
@@ -721,7 +720,6 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
 
       setRejectionReason('')
-      setSendRescheduleNotification(true)
       setShowRejectDialog(false)
       setRejectRequestId(null)
       onSuccess()
@@ -730,14 +728,13 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     } finally {
       setSubmitting(false)
     }
-  }, [rejectRequestId, rejectionReason, sendRescheduleNotification, onSuccess, organizationId])
+  }, [rejectRequestId, rejectionReason, onSuccess, organizationId])
 
   // 却下キャンセル
   const handleRejectCancel = useCallback(() => {
     setShowRejectDialog(false)
     setRejectRequestId(null)
     setRejectionReason('')
-    setSendRescheduleNotification(true)
   }, [])
 
   // 完全削除
@@ -836,8 +833,6 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     showRejectDialog,
     rejectionReason,
     setRejectionReason,
-    sendRescheduleNotification,
-    setSendRescheduleNotification,
     handleApprove,
     handleRejectClick,
     handleRejectConfirm,
