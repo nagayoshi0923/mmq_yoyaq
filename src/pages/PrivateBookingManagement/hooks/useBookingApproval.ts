@@ -40,7 +40,6 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
-  const [sendRescheduleNotification, setSendRescheduleNotification] = useState(true)
 
   // 承認処理
   const handleApprove = useCallback(async (
@@ -652,8 +651,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         }
         logger.log('グループを date_adjusting・候補日を rejected に同期:', reservation.private_group_id)
         
-        // 日程再調整の通知を送信する場合
-        if (sendRescheduleNotification) {
+        // 却下通知を送信
+        {
           // システムメッセージ設定を取得
           const { data: settings } = await supabase
             .from('global_settings')
@@ -665,11 +664,11 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           const body = settings?.system_msg_booking_rejected_body || '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'
           
           // グループチャットにシステムメッセージを送信
-          await supabase
+          const { error: msgInsertError } = await supabase
             .from('private_group_messages')
             .insert({
               group_id: reservation.private_group_id,
-              sender_type: 'system',
+              member_id: null,
               message: JSON.stringify({
                 type: 'system',
                 action: 'booking_rejected',
@@ -678,10 +677,15 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 rejectionReason: rejectionReason
               })
             })
+          if (msgInsertError) {
+            logger.error('却下メッセージ送信エラー:', msgInsertError)
+          }
 
           // 却下メール（貸切専用）を送信
-          const rejectMailCustomer = joinedCustomerFromReservation(reservation?.customers)
-          if (reservation && rejectMailCustomer) {
+          const rejectMailCustomerJoined = joinedCustomerFromReservation(reservation?.customers)
+          const rejectCustomerEmail = rejectMailCustomerJoined?.email || reservation?.customer_email || selectedRequest?.customer_email
+          const rejectCustomerName = rejectMailCustomerJoined?.name || reservation?.customer_name || selectedRequest?.customer_name
+          if (reservation && rejectCustomerEmail && rejectCustomerName) {
             try {
               // 候補日時を取得
               const candidateDates = reservation.candidate_datetimes?.candidates?.map((c: any) => ({
@@ -690,27 +694,32 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 endTime: c.endTime
               })) || []
 
-              await supabase.functions.invoke('send-private-booking-rejection', {
+              const { error: rejectMailError } = await supabase.functions.invoke('send-private-booking-rejection', {
                 body: {
                   organizationId,
                   reservationId: reservation.id,
-                  customerEmail: rejectMailCustomer.email,
-                  customerName: rejectMailCustomer.name,
+                  customerEmail: rejectCustomerEmail,
+                  customerName: rejectCustomerName,
                   scenarioTitle: reservation.title || '',
                   rejectionReason: rejectionReason,
                   candidateDates: candidateDates.length > 0 ? candidateDates : undefined
                 }
               })
-              logger.log('貸切リクエスト却下メール送信成功')
+              if (rejectMailError) {
+                logger.error('却下メール送信エラー:', rejectMailError)
+              } else {
+                logger.log('貸切リクエスト却下メール送信成功')
+              }
             } catch (emailError) {
               logger.error('却下メール送信エラー:', emailError)
             }
+          } else {
+            logger.warn('却下メール送信スキップ: メールアドレスまたは顧客名が取得できませんでした', { rejectCustomerEmail, rejectCustomerName })
           }
         }
       }
 
       setRejectionReason('')
-      setSendRescheduleNotification(true)
       setShowRejectDialog(false)
       setRejectRequestId(null)
       onSuccess()
@@ -719,14 +728,13 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     } finally {
       setSubmitting(false)
     }
-  }, [rejectRequestId, rejectionReason, sendRescheduleNotification, onSuccess, organizationId])
+  }, [rejectRequestId, rejectionReason, onSuccess, organizationId])
 
   // 却下キャンセル
   const handleRejectCancel = useCallback(() => {
     setShowRejectDialog(false)
     setRejectRequestId(null)
     setRejectionReason('')
-    setSendRescheduleNotification(true)
   }, [])
 
   // 完全削除
@@ -825,8 +833,6 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     showRejectDialog,
     rejectionReason,
     setRejectionReason,
-    sendRescheduleNotification,
-    setSendRescheduleNotification,
     handleApprove,
     handleRejectClick,
     handleRejectConfirm,
