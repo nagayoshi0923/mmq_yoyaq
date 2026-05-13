@@ -160,6 +160,8 @@ serve(async (req) => {
     const formattedTime = `${formatScheduleClockJst(data.startTime)}〜${formatScheduleClockJst(data.endTime)}`
 
     // Discord通知（個人チャンネル → DM → 組織の貸切用チャンネル＋メンション の順）
+    // discordSent は try ブロック外で宣言し、結果集計時に参照できるようにする
+    let discordSent = false
     try {
       const discordSettings = await getDiscordSettings(supabase, data.organizationId)
       const botToken = discordSettings?.botToken || Deno.env.get('DISCORD_BOT_TOKEN')
@@ -183,7 +185,6 @@ serve(async (req) => {
           timestamp: new Date().toISOString(),
         }
 
-        let discordSent = false
         const discordAttempts: { method: string, success: boolean, details?: string }[] = []
 
         // 個人チャンネル試行

@@ -15,6 +15,14 @@ import type { PrivateBookingRequest } from './usePrivateBookingData'
 import type { RpcApprovePrivateBookingParams } from '@/lib/rpcTypes'
 import { updatePrivateGroupStatus } from '@/lib/privateGroupStatus'
 import { sendEmail } from '@/lib/emailApi'
+import { createEventHistory } from '@/lib/api/eventHistoryApi'
+import { showToast } from '@/utils/toast'
+
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map(Number)
+  const total = h * 60 + m + minutes
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
 
 interface UseBookingApprovalProps {
   onSuccess: () => void
@@ -124,12 +132,20 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           const eventStart = event.start_time?.substring(0, 5) || ''
           const eventEnd = event.end_time?.substring(0, 5) || ''
 
-          // 時間帯が重複しているかチェック
+          // 直接重複チェック
           if (candidateStart < eventEnd && candidateEnd > eventStart) {
             setSubmitting(false)
-            return { 
-              success: false, 
-              error: `${selectedDateYmd} ${candidateStart}〜${candidateEnd} の時間帯には既に「${event.scenario}」(${eventStart}〜${eventEnd})が入っています。` 
+            return {
+              success: false,
+              error: `${selectedDateYmd} ${candidateStart}〜${candidateEnd} の時間帯には既に「${event.scenario}」(${eventStart}〜${eventEnd})が入っています。`,
+            }
+          }
+          // 60分インターバルチェック（設営・撤収時間）
+          if (candidateStart < addMinutesToTime(eventEnd, 60) && addMinutesToTime(candidateEnd, 60) > eventStart) {
+            setSubmitting(false)
+            return {
+              success: false,
+              error: `${selectedDateYmd} ${candidateStart}〜${candidateEnd} は「${event.scenario}」(${eventStart}〜${eventEnd})との間隔が60分未満です。設営・撤収時間を確保するため60分以上の間隔が必要です。`,
             }
           }
         }
@@ -205,6 +221,13 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             error: 'メインGMとサブGMに同じ人は指定できません。別々のスタッフを選んでください。',
           }
         }
+        if (approveError.code === 'P0027') {
+          setSubmitting(false)
+          return {
+            success: false,
+            error: 'この時間帯は前後の公演と間隔が60分未満です。設営・撤収時間を確保するため60分以上の間隔が必要です。別の候補日時を選んでください。',
+          }
+        }
         if (approveError.code === 'P0018') {
           setSubmitting(false)
           return {
@@ -220,6 +243,34 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
 
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
+
+      // 承認で作成されたスケジュールイベントを履歴に記録
+      if (scheduleEventId && organizationId) {
+        const gmIds = requiredGm >= 2 && selectedSubGmId
+          ? [selectedGMId, selectedSubGmId]
+          : [selectedGMId]
+        await createEventHistory(
+          scheduleEventId as string,
+          organizationId,
+          'create',
+          null,
+          {
+            scenario: cleanScenarioTitle,
+            date: selectedDateYmd,
+            store_id: selectedStoreId,
+            start_time: selectedCandidate.startTime,
+            end_time: selectedEndTime,
+            gms: gmIds,
+            reservation_name: selectedRequest?.customer_name || '',
+          },
+          {
+            date: selectedDateYmd,
+            storeId: selectedStoreId,
+            timeSlot: selectedCandidate.timeSlot || null,
+          },
+          { notes: '貸切予約承認により作成' }
+        )
+      }
 
       // 通知・メールは DB に実際に作成された公演日（schedule_events.date）を優先（クライアント保持の候補とズレないようにする）
       let notifyEventDate = selectedDateYmd
@@ -353,11 +404,16 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
                 error: notifyFnError,
                 errorDetails: JSON.stringify(notifyFnError, null, 2)
               })
+              showToast.warning(`${row.name} への確定通知の送信に失敗しました。手動でご連絡ください。`)
             } else {
               logger.log('GM確定通知リクエスト完了:', {
                 gmName: row.name,
                 results: notifyResult?.results || 'no_details'
               })
+              // Discord が全方法で失敗していた場合も警告
+              if (notifyResult?.results?.discord === 'failed') {
+                showToast.warning(`${row.name} へのDiscord通知が失敗しました。メール通知または手動連絡をご確認ください。`)
+              }
             }
           }
           

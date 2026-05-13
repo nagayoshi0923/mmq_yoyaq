@@ -14,6 +14,15 @@ const normalizeTimeSlot = (timeSlot: string): string => {
   return timeSlot
 }
 
+// "HH:MM" 形式の時刻に指定分を加算して "HH:MM" を返す
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map(Number)
+  const total = h * 60 + m + minutes
+  const hh = Math.floor(total / 60)
+  const mm = total % 60
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+}
+
 /**
  * 既存イベント情報
  */
@@ -184,10 +193,11 @@ export const useConflictCheck = () => {
         // 全店舗について競合をチェック（希望店舗だけでなく全店舗）
         for (const storeId of allStoreIdsWithEvents) {
           // 既存イベント（schedule_events + 確定済みreservations）から競合をチェック
-          const conflictEvents = existingEventsList.filter(event => 
-            event.storeId === storeId && 
+          // 60分インターバルを考慮した競合チェック（設営・撤収時間の確保）
+          const conflictEvents = existingEventsList.filter(event =>
+            event.storeId === storeId &&
             event.date === date &&
-            startTime < event.endTime && endTime > event.startTime
+            startTime < addMinutesToTime(event.endTime, 60) && addMinutesToTime(endTime, 60) > event.startTime
           )
 
           if (conflictEvents.length > 0) {
