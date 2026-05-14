@@ -1,8 +1,9 @@
 name: 公演中止判定（前日チェック）
 
 on:
-  schedule:
-    - cron: '30 14 * * *'  # 23:30 JST (14:59 UTCまで29分の余裕を確保)
+  # スケジュール実行は cron-job.org に移行したため無効化
+  # schedule:
+  #   - cron: '30 14 * * *'
   workflow_dispatch:        # GitHub UI からの手動実行（失敗時の再実行用）
 
 jobs:
