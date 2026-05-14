@@ -28,6 +28,9 @@ type ExportRow = {
   onsite_amount: number
   online_amount: number
   total_revenue: number
+  license_amount: number
+  gm_cost: number
+  net_profit: number
 }
 
 export function exportScheduleToCSV(rows: ExportRow[], yearMonth: string) {
@@ -46,6 +49,9 @@ export function exportScheduleToCSV(rows: ExportRow[], yearMonth: string) {
     '予想現地決済額',
     'オンライン決済済み額',
     '売上合計',
+    'ライセンス金額',
+    'GM代金合計',
+    '純利益',
   ]
 
   const dataRows = rows.map(r => [
@@ -63,6 +69,9 @@ export function exportScheduleToCSV(rows: ExportRow[], yearMonth: string) {
     r.onsite_amount,
     r.online_amount,
     r.total_revenue,
+    r.license_amount,
+    r.gm_cost,
+    r.net_profit,
   ])
 
   const csvContent = [headers, ...dataRows]
