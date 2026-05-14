@@ -856,7 +856,10 @@ ${content.organizationName || '店舗'}
       const isStaff = matchedStaff !== null
       const paymentMethod = isStaff ? 'staff' : newParticipant.payment_method
       
-      const participationFee = scenarioObj?.participation_fee || 0
+      const isGmTest = currentEventData.category === 'gmtest'
+      const participationFee = isGmTest
+        ? (scenarioObj?.gm_test_participation_fee || scenarioObj?.participation_fee || 0)
+        : (scenarioObj?.participation_fee || 0)
       const unitPrice = paymentMethod === 'staff' ? 0 : participationFee
       const basePrice = unitPrice * newParticipant.participant_count
       const totalPrice = basePrice
@@ -1101,7 +1104,10 @@ ${content.organizationName || '店舗'}
                       // シナリオ情報を取得
                       const scenarioObj = scenarios.find(s => s.title === currentEventData.scenario)
                       const storeObj = stores.find(s => s.id === currentEventData.venue)
-                      const participationFee = scenarioObj?.participation_fee || 0
+                      const isGmTest = currentEventData.category === 'gmtest'
+                      const participationFee = isGmTest
+                        ? (scenarioObj?.gm_test_participation_fee || scenarioObj?.participation_fee || 0)
+                        : (scenarioObj?.participation_fee || 0)
                       
                       // 直接INSERTでデモ参加者を追加（キャンセル済み公演でも追加可能）
                       const duration = scenarioObj?.duration || 120

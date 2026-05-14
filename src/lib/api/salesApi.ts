@@ -519,7 +519,7 @@ export const salesApi = {
 
     let eventsQuery = supabase
       .from('schedule_events_staff_view')
-      .select('id, date, start_time, end_time, store_id, venue, scenario, category, gms, capacity, max_participants, venue_rental_fee, is_cancelled, organization_id')
+      .select('id, date, start_time, end_time, store_id, venue, scenario, scenario_master_id, organization_scenario_id, category, gms, capacity, max_participants, venue_rental_fee, is_cancelled, organization_id')
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('is_cancelled', false)
@@ -545,6 +545,31 @@ export const salesApi = {
       .from('stores')
       .select('id, name, short_name')
     const storeMap = new Map(stores?.map(s => [s.id, s]) || [])
+
+    // シナリオ情報を取得（ライセンス・GM代金計算用）
+    type ScenarioInfo = {
+      id: string
+      gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
+      license_amount: number | null
+      gm_test_license_amount: number | null
+    }
+    let scenarioQuery = supabase
+      .from('organization_scenarios_with_master')
+      .select('id, gm_costs, license_amount, gm_test_license_amount')
+    if (orgId) scenarioQuery = scenarioQuery.eq('organization_id', orgId)
+    const { data: scenariosData } = await scenarioQuery
+    // id = scenario_master_id でマップ
+    const scenarioByMasterId = new Map<string, ScenarioInfo>(
+      scenariosData?.map(s => [s.id, s as ScenarioInfo]) || []
+    )
+
+    // organization_scenarios の個別オーバーライドを取得（organization_scenario_id キー）
+    let orgScenarioQuery = supabase
+      .from('organization_scenarios')
+      .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount')
+    if (orgId) orgScenarioQuery = orgScenarioQuery.eq('organization_id', orgId)
+    const { data: orgScenariosData } = await orgScenarioQuery
+    const orgScenarioById = new Map(orgScenariosData?.map(s => [s.id, s]) || [])
 
     // 全予約を一括取得（バッチ処理）
     const eventIds = events.map(e => e.id)
@@ -582,14 +607,46 @@ export const salesApi = {
     return events.map(event => {
       const reservations = reservationsByEvent.get(event.id) || []
       const isVenueRental = event.category === 'venue_rental' || event.category === 'venue_rental_free'
+      const isGmTest = event.category === 'gmtest'
       const store = storeMap.get(event.store_id ?? '')
+
+      // シナリオ情報をマージ（organization_scenario_id があれば上書き）
+      let scenarioInfo: ScenarioInfo | null = scenarioByMasterId.get(event.scenario_master_id ?? '') ?? null
+      if (event.organization_scenario_id) {
+        const override = orgScenarioById.get(event.organization_scenario_id)
+        if (override) {
+          scenarioInfo = {
+            ...scenarioInfo,
+            id: scenarioInfo?.id ?? '',
+            gm_costs: (override.gm_costs?.length > 0 ? override.gm_costs : scenarioInfo?.gm_costs) ?? null,
+            license_amount: override.license_amount ?? scenarioInfo?.license_amount ?? null,
+            gm_test_license_amount: override.gm_test_license_amount ?? scenarioInfo?.gm_test_license_amount ?? null,
+          }
+        }
+      }
+
+      // ライセンス金額
+      const licenseAmount = isGmTest
+        ? (scenarioInfo?.gm_test_license_amount || scenarioInfo?.license_amount || 0)
+        : (scenarioInfo?.license_amount || 0)
+
+      // GM代金: 実際のGM数に応じて先頭N件を合計（main→sub→...の順）
+      const actualGmCount = Array.isArray(event.gms) ? (event.gms as string[]).length : 0
+      let gmCost = 0
+      if (scenarioInfo?.gm_costs && scenarioInfo.gm_costs.length > 0) {
+        const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+        const applicable = scenarioInfo.gm_costs
+          .filter(g => (g.category || 'normal') === (isGmTest ? 'gmtest' : 'normal'))
+          .sort((a, b) => (roleOrder[a.role.toLowerCase()] ?? 999) - (roleOrder[b.role.toLowerCase()] ?? 999))
+        const sliced = actualGmCount > 0 ? applicable.slice(0, actualGmCount) : applicable
+        gmCost = sliced.reduce((sum, g) => sum + (g.reward || 0), 0)
+      }
 
       let totalParticipants = 0
       let staffParticipants = 0
       let regularParticipants = 0
       let onsiteAmount = 0
       let onlineAmount = 0
-      let staffAmount = 0
 
       if (isVenueRental) {
         onsiteAmount = event.category === 'venue_rental_free' ? 0 : (event.venue_rental_fee || 12000)
@@ -599,21 +656,23 @@ export const salesApi = {
           totalParticipants += count
 
           const names = r.participant_names || []
+          // payment_method='staff' か、参加者名がスタッフリストに一致する場合はスタッフ参加
           const isStaff = r.payment_method === 'staff' || names.some((n: string) => staffNames.has(n))
 
           if (isStaff) {
+            // スタッフ参加は売上に含めない
             staffParticipants += count
           } else {
             regularParticipants += count
             const price = r.final_price || 0
             if (r.payment_method === 'onsite') onsiteAmount += price
             else if (r.payment_method === 'online') onlineAmount += price
-            else staffAmount += price
           }
         })
       }
 
       const totalRevenue = onsiteAmount + onlineAmount
+      const netProfit = totalRevenue - licenseAmount - gmCost
 
       return {
         date: event.date,
@@ -630,6 +689,9 @@ export const salesApi = {
         onsite_amount: onsiteAmount,
         online_amount: onlineAmount,
         total_revenue: totalRevenue,
+        license_amount: licenseAmount,
+        gm_cost: gmCost,
+        net_profit: netProfit,
       }
     })
   },
