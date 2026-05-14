@@ -5,7 +5,7 @@ import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 
 // API
-import { staffApi, scheduleApi } from '@/lib/api'
+import { staffApi, scheduleApi, salesApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 
@@ -54,12 +54,13 @@ const HistoryModal = lazy(() => import('@/components/schedule/modal/HistoryModal
 const KitManagementDialog = lazy(() => import('./components/KitManagementDialog').then(m => ({ default: m.KitManagementDialog })))
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Clock, Package, Calendar, Users, Wrench, Download } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
+import { exportScheduleToCSV } from './utils/exportSchedule'
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -116,6 +117,7 @@ export function ScheduleManager() {
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isKitManagementOpen, setIsKitManagementOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [isFillingSeats, setIsFillingSeats] = useState(false)
   const [isFixingData, setIsFixingData] = useState(false)
   const [isCleaningDemo, setIsCleaningDemo] = useState(false)
@@ -181,6 +183,26 @@ export function ScheduleManager() {
   }, [currentVisibleDate, monthDays])
   
   const currentHoliday = currentVisibleDate ? getJapaneseHoliday(currentVisibleDate) : null
+
+  // スケジュールCSVエクスポート
+  const handleExportCSV = async () => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth() + 1
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+    const lastDay = new Date(year, month, 0).getDate()
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    const yearMonth = `${year}${String(month).padStart(2, '0')}`
+
+    setIsExporting(true)
+    try {
+      const rows = await salesApi.getScheduleExportData(startDate, endDate)
+      exportScheduleToCSV(rows, yearMonth)
+    } catch (e) {
+      showToast.error('CSVエクスポートに失敗しました')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   // 中止以外を満席にする処理（参加者数を定員に合わせる）
   const handleFillAllSeats = async () => {
@@ -1159,6 +1181,18 @@ export function ScheduleManager() {
               className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-r border-input"
             >
               <Package className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleExportCSV}
+              disabled={isExporting}
+              title={`${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月のスケジュールをCSVエクスポート`}
+              className="h-9 w-9 flex items-center justify-center hover:bg-accent transition-colors border-r border-input disabled:opacity-50"
+            >
+              {isExporting ? (
+                <span className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
             </button>
             <button
               onClick={() => setIsImportModalOpen(true)}
