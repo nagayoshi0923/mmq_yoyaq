@@ -511,6 +511,127 @@ export const salesApi = {
     }
 
     return { events, reservations: allReservations }
-  }
+  },
+
+  // スケジュールCSVエクスポート用データを取得
+  async getScheduleExportData(startDate: string, endDate: string) {
+    const orgId = await getCurrentOrganizationId()
+
+    let eventsQuery = supabase
+      .from('schedule_events_staff_view')
+      .select('id, date, start_time, end_time, store_id, venue, scenario, category, gms, capacity, max_participants, venue_rental_fee, is_cancelled, organization_id')
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('is_cancelled', false)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+
+    if (orgId) {
+      eventsQuery = eventsQuery.eq('organization_id', orgId)
+    }
+
+    const { data: events, error } = await eventsQuery
+    if (error) throw error
+    if (!events || events.length === 0) return []
+
+    // スタッフ名セットを取得（スタッフ参加判定用）
+    let staffQuery = supabase.from('staff').select('name')
+    if (orgId) staffQuery = staffQuery.eq('organization_id', orgId)
+    const { data: staffData } = await staffQuery
+    const staffNames = new Set(staffData?.map(s => s.name) || [])
+
+    // 店舗一覧を取得
+    const { data: stores } = await supabase
+      .from('stores')
+      .select('id, name, short_name')
+    const storeMap = new Map(stores?.map(s => [s.id, s]) || [])
+
+    // 全予約を一括取得（バッチ処理）
+    const eventIds = events.map(e => e.id)
+    const BATCH_SIZE = 100
+    const allReservations: Array<{
+      schedule_event_id: string
+      participant_count: number | null
+      participant_names: string[] | null
+      payment_method: string | null
+      final_price: number | null
+    }> = []
+
+    for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+      const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+      let resQuery = supabase
+        .from('reservations')
+        .select('schedule_event_id, participant_count, participant_names, payment_method, final_price')
+        .in('schedule_event_id', batchIds)
+        .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
+
+      if (orgId) resQuery = resQuery.eq('organization_id', orgId)
+
+      const { data: batch } = await resQuery
+      if (batch) allReservations.push(...batch)
+    }
+
+    // イベントIDごとに予約をグループ化
+    const reservationsByEvent = new Map<string, typeof allReservations>()
+    allReservations.forEach(r => {
+      const existing = reservationsByEvent.get(r.schedule_event_id) || []
+      existing.push(r)
+      reservationsByEvent.set(r.schedule_event_id, existing)
+    })
+
+    return events.map(event => {
+      const reservations = reservationsByEvent.get(event.id) || []
+      const isVenueRental = event.category === 'venue_rental' || event.category === 'venue_rental_free'
+      const store = storeMap.get(event.store_id ?? '')
+
+      let totalParticipants = 0
+      let staffParticipants = 0
+      let regularParticipants = 0
+      let onsiteAmount = 0
+      let onlineAmount = 0
+      let staffAmount = 0
+
+      if (isVenueRental) {
+        onsiteAmount = event.category === 'venue_rental_free' ? 0 : (event.venue_rental_fee || 12000)
+      } else {
+        reservations.forEach(r => {
+          const count = r.participant_count || 0
+          totalParticipants += count
+
+          const names = r.participant_names || []
+          const isStaff = r.payment_method === 'staff' || names.some((n: string) => staffNames.has(n))
+
+          if (isStaff) {
+            staffParticipants += count
+          } else {
+            regularParticipants += count
+            const price = r.final_price || 0
+            if (r.payment_method === 'onsite') onsiteAmount += price
+            else if (r.payment_method === 'online') onlineAmount += price
+            else staffAmount += price
+          }
+        })
+      }
+
+      const totalRevenue = onsiteAmount + onlineAmount
+
+      return {
+        date: event.date,
+        start_time: event.start_time,
+        end_time: event.end_time,
+        store_name: store?.short_name || store?.name || event.venue || '',
+        scenario: event.scenario || '',
+        category: event.category,
+        gms: Array.isArray(event.gms) ? (event.gms as string[]).join('・') : String(event.gms || ''),
+        capacity: event.max_participants || event.capacity || 0,
+        total_participants: totalParticipants,
+        regular_participants: regularParticipants,
+        staff_participants: staffParticipants,
+        onsite_amount: onsiteAmount,
+        online_amount: onlineAmount,
+        total_revenue: totalRevenue,
+      }
+    })
+  },
 }
 
