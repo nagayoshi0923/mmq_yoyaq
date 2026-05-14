@@ -461,6 +461,7 @@ export function ScheduleManager() {
 
         if (demoReservations && demoReservations.length > 0) {
           const ids = demoReservations.map(r => r.id)
+          // eslint-disable-next-line no-restricted-syntax
           await supabase.from('reservations').delete().in('id', ids)
           deletedCount = ids.length
 
@@ -504,6 +505,7 @@ export function ScheduleManager() {
               const correctFee = scenarioInfo?.gm_test_participation_fee ?? scenarioInfo?.participation_fee ?? 0
               const totalPrice = correctFee * (r.participant_count || 1)
 
+              // eslint-disable-next-line no-restricted-syntax
               await supabase
                 .from('reservations')
                 .update({ base_price: totalPrice, total_price: totalPrice, final_price: totalPrice })

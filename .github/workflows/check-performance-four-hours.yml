@@ -1,8 +1,9 @@
 name: 公演中止判定（4時間前チェック）
 
 on:
-  schedule:
-    - cron: '0,15,30,45 * * * *'   # 15分ごと UTC（GitHub Actions遅延対策）
+  # スケジュール実行は cron-job.org に移行したため無効化
+  # schedule:
+  #   - cron: '0,15,30,45 * * * *'
   workflow_dispatch:       # GitHub UI からの手動実行（失敗時の再実行用）
 
 jobs:

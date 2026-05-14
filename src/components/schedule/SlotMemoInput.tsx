@@ -149,7 +149,6 @@ export function SlotMemoInput({ date, storeId, timeSlot }: SlotMemoInputProps) {
     if (organizationId) {
       void migrateLocalStorageSlotMemos(organizationId)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId])
 
   // マウント時に DB からメモを取得

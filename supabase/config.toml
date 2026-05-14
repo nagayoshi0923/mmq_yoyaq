@@ -104,3 +104,7 @@ verify_jwt = false
 # Discord 貸切予約通知（DBトリガー / 管理画面からの再送、どちらも関数内でロール確認）
 [functions.notify-private-booking-discord]
 verify_jwt = false
+
+# 公演中止判定（cron-job.org / GitHub Actions から x-cron-secret で認証）
+[functions.check-performance-cancellation]
+verify_jwt = false

@@ -162,6 +162,7 @@ function SystemMessageCard({ payload, createdAt, senderName }: SystemMsgProps) {
 
   // 却下
   if (action === 'booking_rejected') {
+    const rejectionReason = typeof payload.rejectionReason === 'string' ? payload.rejectionReason : ''
     return (
       <div className="flex justify-center my-3">
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 w-full max-w-sm">
@@ -175,6 +176,11 @@ function SystemMessageCard({ payload, createdAt, senderName }: SystemMsgProps) {
             </div>
           </div>
           {body && <p className="text-xs text-gray-600 mt-2">{body}</p>}
+          {rejectionReason && (
+            <div className="mt-2 bg-white rounded border border-red-100 px-2 py-1.5">
+              <p className="text-xs text-gray-700 whitespace-pre-wrap">{rejectionReason}</p>
+            </div>
+          )}
         </div>
       </div>
     )
