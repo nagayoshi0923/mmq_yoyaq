@@ -5,6 +5,7 @@ import { logger } from '@/utils/logger'
 export interface InviteStaffRequest {
   email: string
   name: string
+  organization_id?: string
   phone?: string
   line_name?: string
   x_account?: string
