@@ -308,12 +308,13 @@ export function useScheduleData(currentDate: Date) {
   const { data: events = [], isLoading, isFetching, error: queryError } = useScheduleEventsQuery(currentDate)
   const error = queryError ? String(queryError) : null
 
-  // スケジュール閲覧中、ブラウザがアイドルになったら前後3ヶ月を先読み
-  // requestIdleCallback で UI への影響ゼロ
+  // スケジュール閲覧中、アイドル時に2段階でプリフェッチ
+  // 第1波（±3）: 通常の操作で使う範囲
+  // 第2波（±4〜6）: 余裕があれば拡張（初回ロードを重くしない）
   useEffect(() => {
-    const run = () => {
-      for (let i = -6; i <= 6; i++) {
-        if (i === 0) continue // 当月は useScheduleEventsQuery が担当
+    const prefetchRange = (from: number, to: number) => {
+      for (let i = from; i <= to; i++) {
+        if (i === 0) continue
         const d = new Date(year, month - 1 + i, 1)
         const y = d.getFullYear()
         const m = d.getMonth() + 1
@@ -324,12 +325,20 @@ export function useScheduleData(currentDate: Date) {
         })
       }
     }
+
+    const ids: number[] = []
+    const timeouts: ReturnType<typeof setTimeout>[] = []
+
     if (typeof requestIdleCallback !== 'undefined') {
-      const id = requestIdleCallback(run, { timeout: 5000 })
-      return () => cancelIdleCallback(id)
+      // timeout なし = 本当に暇なときだけ実行（強制実行しない）
+      ids.push(requestIdleCallback(() => prefetchRange(-3, 3)))
+      ids.push(requestIdleCallback(() => prefetchRange(-6, 6)))
+      return () => ids.forEach(id => cancelIdleCallback(id))
     }
-    const id = setTimeout(run, 2000)
-    return () => clearTimeout(id)
+    // Safari フォールバック（requestIdleCallback 非対応）
+    timeouts.push(setTimeout(() => prefetchRange(-3, 3), 3000))
+    timeouts.push(setTimeout(() => prefetchRange(-6, 6), 8000))
+    return () => timeouts.forEach(id => clearTimeout(id))
   }, [year, month, queryClient])
 
   // 店舗・シナリオ・スタッフのデータ（キャッシュから初期化して即座に表示）
