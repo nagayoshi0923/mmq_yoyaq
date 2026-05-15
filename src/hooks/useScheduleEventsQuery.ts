@@ -310,12 +310,15 @@ export function useScheduleEventsQuery(currentDate: Date) {
   return useQuery({
     queryKey: scheduleEventKeys.month(year, month),
     queryFn: () => fetchScheduleEventsForMonth(year, month),
-    // Realtime が更新を担当するため自動再フェッチしない
+    // Realtime が変更をプッシュするため自動タイマー再フェッチは不要
     staleTime: Infinity,
-    // 1時間はメモリに保持 → 画面切り替えで即表示
-    gcTime: 60 * 60 * 1000,
-    // ローディング中は前の月のデータをそのまま表示（月切り替え時のちらつき防止）
-    placeholderData: undefined,
+    // メモリ上は無期限保持（IndexedDB が14日間を担保）
+    gcTime: Infinity,
+    // ウィンドウフォーカス時に必ずバックグラウンド再取得
+    // → スリープ復帰・長時間離席後に古いデータが残らない
+    refetchOnWindowFocus: 'always',
+    // ネットワーク復帰時も必ず再取得（Realtime 切断中の変更を補完）
+    refetchOnReconnect: 'always',
   })
 }
 
