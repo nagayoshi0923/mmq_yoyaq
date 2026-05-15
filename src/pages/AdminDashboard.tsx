@@ -8,6 +8,7 @@ import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
+import { usePrefetch } from '@/hooks/usePrefetch'
 import { 
   Store, 
   Calendar, 
@@ -262,12 +263,21 @@ export function AdminDashboard() {
   const location = useLocation()
   const navigate = useNavigate()
   const { organization } = useOrganization()
-  
+  const { prefetchSchedule } = usePrefetch()
+
   // パスを解析（毎回解析することでURLと表示を同期）
   const { page: currentPage, scenarioId: currentScenarioId, organizationSlug: pathOrganizationSlug } = parsePath(location.pathname)
-  
+
   // 組織slugを決定（パスにあればそれ、なければ組織設定から取得）
   const organizationSlug = pathOrganizationSlug || organization?.slug || 'queens-waltz'
+
+  // スタッフ確定後、スケジュール画面以外にいるときに当月データを先読み
+  // → スケジュール画面を開いた瞬間に即表示できる
+  useEffect(() => {
+    if (!isStaff || currentPage === 'schedule') return
+    prefetchSchedule()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStaff])
 
   // ユーザーロールが確定したときに初回リダイレクト
   useEffect(() => {
