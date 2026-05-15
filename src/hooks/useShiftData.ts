@@ -24,11 +24,12 @@ export function useShiftData(
   const storageKey = `shifts_${year}_${month}`
   const storageTs = `${storageKey}_ts`
 
-  // 過去の月はシフトデータ不要（誰が出勤可能だったかは今更不要）
+  // 直近3ヶ月の過去 + 今月 + 未来月のみシフトデータを取得
+  // 3ヶ月以上前はシフト参照の必要性が低くスキップ
   const today = new Date()
-  const isCurrentOrFuture =
-    year > today.getFullYear() ||
-    (year === today.getFullYear() && month >= today.getMonth() + 1)
+  const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1)
+  const displayedMonth = new Date(year, month - 1, 1)
+  const isCurrentOrFuture = displayedMonth >= threeMonthsAgo
 
   // 生シフトデータを React Query で取得・キャッシュ
   // staff の準備を待たずに並列でフェッチ開始
