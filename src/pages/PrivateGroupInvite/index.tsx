@@ -3445,8 +3445,6 @@ export function PrivateGroupInvite() {
               <SurveyResponseForm
                 groupId={group.id}
                 memberId={existingMemberId}
-                scenarioId={group.scenario_master_id}
-                organizationId={group.organization_id}
                 performanceDate={group.candidate_dates?.find(cd => cd.order_num === 1)?.date}
                 characters={(group as any).scenario_characters || []}
               />
