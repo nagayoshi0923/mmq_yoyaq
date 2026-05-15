@@ -24,15 +24,23 @@ export function useShiftData(
   const storageKey = `shifts_${year}_${month}`
   const storageTs = `${storageKey}_ts`
 
+  // 過去の月はシフトデータ不要（誰が出勤可能だったかは今更不要）
+  const today = new Date()
+  const isCurrentOrFuture =
+    year > today.getFullYear() ||
+    (year === today.getFullYear() && month >= today.getMonth() + 1)
+
   // 生シフトデータを React Query で取得・キャッシュ
   // staff の準備を待たずに並列でフェッチ開始
   const { data: rawShifts = [] } = useQuery({
     queryKey: shiftKeys.month(year, month),
     queryFn: () => shiftApi.getAllStaffShifts(year, month),
+    enabled: isCurrentOrFuture, // 過去月はフェッチしない
     staleTime: 5 * 60 * 1000,  // 5分間は再フェッチしない
     gcTime: 60 * 60 * 1000,
     // sessionStorage から初期値を復元 → 即表示
     initialData: () => {
+      if (!isCurrentOrFuture) return {}
       try {
         const cached = sessionStorage.getItem(storageKey)
         return cached ? JSON.parse(cached) : undefined
