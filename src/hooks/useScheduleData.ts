@@ -312,7 +312,7 @@ export function useScheduleData(currentDate: Date) {
   // requestIdleCallback で UI への影響ゼロ
   useEffect(() => {
     const run = () => {
-      for (let i = -3; i <= 3; i++) {
+      for (let i = -6; i <= 6; i++) {
         if (i === 0) continue // 当月は useScheduleEventsQuery が担当
         const d = new Date(year, month - 1 + i, 1)
         const y = d.getFullYear()
