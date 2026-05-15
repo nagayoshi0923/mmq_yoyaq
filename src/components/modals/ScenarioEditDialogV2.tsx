@@ -190,7 +190,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       }
       // ローカル等: users.organization が取れない・一覧の organization_id が遅延する場合のフォールバック
       if (!slugForPublic.trim()) {
-        slugForPublic = getOrganizationSlugFromPath()
+        slugForPublic = getOrganizationSlugFromPath() ?? ''
       }
       if (!cancelled) {
         setPublicBookingOrgSlug(slugForPublic.trim())

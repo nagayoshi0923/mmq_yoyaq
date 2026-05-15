@@ -1,9 +1,9 @@
 /**
  * 予約サイトの公開URL用 organization slug を、現在のパスから推測する。
- * 管理画面（/scenarios 等）では第1セグメントが組織slugでないため、デフォルトを返す。
+ * 管理画面（/scenarios 等）や SSR 環境では null を返す。
  */
-export function getOrganizationSlugFromPath(): string {
-  if (typeof window === 'undefined') return 'queens-waltz'
+export function getOrganizationSlugFromPath(): string | null {
+  if (typeof window === 'undefined') return null
   const pathname = window.location.pathname
   const match = pathname.match(/^\/([^/]+)/)
   if (match) {
@@ -50,5 +50,5 @@ export function getOrganizationSlugFromPath(): string {
       return match[1]
     }
   }
-  return 'queens-waltz'
+  return null
 }

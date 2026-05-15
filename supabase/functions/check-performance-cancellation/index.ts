@@ -98,8 +98,9 @@ serve(async (req) => {
 
     // RPC関数を実行（RETURNS TABLEは配列を返すため[0]で取得）
     if (check_type === 'day_before') {
+      // p_target_date は DATE 型なので文字列のまま渡す（PostgreSQL が自動キャスト）
       const rpcParams = target_date ? { p_target_date: target_date } : {}
-      const { data, error } = await serviceClient.rpc('check_performances_day_before', rpcParams)
+      const { data, error } = await serviceClient.rpc('check_performances_day_before', rpcParams as Record<string, unknown>)
       if (error) throw error
       const row = Array.isArray(data) ? data[0] : data
       result = {
