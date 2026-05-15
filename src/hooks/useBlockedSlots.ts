@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
 // ブロックされたスロットのキー形式: "YYYY-MM-DD:storeId:timeSlot"
@@ -33,7 +33,8 @@ export function useBlockedSlots(): UseBlockedSlotsReturn {
   useEffect(() => {
     const load = async () => {
       try {
-        const orgId = (await getCurrentOrganizationId()) || QUEENS_WALTZ_ORG_ID
+        const orgId = await getCurrentOrganizationId()
+        if (!orgId) return
         const { data, error } = await supabase
           .from('schedule_blocked_slots')
           .select('date, store_id, time_slot')
@@ -87,7 +88,8 @@ export function useBlockedSlots(): UseBlockedSlotsReturn {
       setBlockedSlots(prev => new Set(prev).add(key))
 
       try {
-        const orgId = (await getCurrentOrganizationId()) || QUEENS_WALTZ_ORG_ID
+        const orgId = await getCurrentOrganizationId()
+        if (!orgId) { setBlockedSlots(prev => { const s = new Set(prev); s.delete(key); return s }); return }
         const { error } = await supabase
           .from('schedule_blocked_slots')
           .insert({ organization_id: orgId, date, store_id: storeId, time_slot: timeSlot })
@@ -114,7 +116,8 @@ export function useBlockedSlots(): UseBlockedSlotsReturn {
       setBlockedSlots(prev => { const s = new Set(prev); s.delete(key); return s })
 
       try {
-        const orgId = (await getCurrentOrganizationId()) || QUEENS_WALTZ_ORG_ID
+        const orgId = await getCurrentOrganizationId()
+        if (!orgId) { setBlockedSlots(prev => new Set(prev).add(key)); return }
         const { error } = await supabase
           .from('schedule_blocked_slots')
           .delete()

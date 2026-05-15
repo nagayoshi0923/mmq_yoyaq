@@ -56,9 +56,13 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
     return { organization: null, staff: null }
   }
 
+  if (!staffData.organization_id) {
+    logger.warn('useOrganization: staff.organization_id が未設定です', { userId: user.id })
+    return { organization: null, staff: staffData as Staff }
+  }
+
   // 組織情報を取得（DBのマイグレーションが古くてもコア列までフォールバック）
-  const orgId = staffData?.organization_id || QUEENS_WALTZ_ORG_ID
-  const orgData = await fetchOrganizationForStaffSession(orgId)
+  const orgData = await fetchOrganizationForStaffSession(staffData.organization_id)
 
   return {
     organization: orgData,

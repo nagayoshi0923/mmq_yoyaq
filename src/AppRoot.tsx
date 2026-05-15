@@ -481,7 +481,7 @@ function AppRoutes() {
       ]
       if (adminPaths.some((path) => location.pathname.startsWith(path))) {
         const slug = getOrganizationSlugFromPath()
-        navigate(`/${slug}`, { replace: true })
+        navigate(slug ? `/${slug}` : '/', { replace: true })
         return (
           <Suspense fallback={adminDashboardSuspenseFallback}>
             <AdminDashboard />

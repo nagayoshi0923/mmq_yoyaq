@@ -20,7 +20,8 @@ import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
-import { QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
+import { getOrganizationBySlug } from '@/lib/organization'
+import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { RESERVATION_STATUSES_BLOCKING_WITHDRAWAL } from '@/lib/reservationWithdrawalGuard'
 import {
@@ -234,7 +235,14 @@ export function SettingsPage() {
         if (error) throw error
         showToast.success('プロフィールを更新しました')
       } else if (user?.id) {
-        const orgId = organizationId || QUEENS_WALTZ_ORG_ID
+        let orgId = organizationId
+        if (!orgId) {
+          const slug = getOrganizationSlugFromPath()
+          if (slug) {
+            const org = await getOrganizationBySlug(slug)
+            orgId = org?.id ?? null
+          }
+        }
         
         // user_id で自分のレコードを検索（RLSで確実に読み書き可能）
         const { data: existingCust } = await supabase

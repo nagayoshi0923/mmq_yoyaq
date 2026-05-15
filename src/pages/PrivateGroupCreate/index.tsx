@@ -15,7 +15,6 @@ import { usePrivateGroup } from '@/hooks/usePrivateGroup'
 import { supabase } from '@/lib/supabase'
 import {
   getCurrentOrganizationId,
-  QUEENS_WALTZ_ORG_ID,
   resolveOrganizationFromPathSegment,
 } from '@/lib/organization'
 import { scenarioApi } from '@/lib/api'
@@ -62,8 +61,9 @@ export function PrivateGroupCreate() {
           organizationId = orgData?.id || null
         }
         if (!organizationId) {
-          organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+          organizationId = await getCurrentOrganizationId()
         }
+        if (!organizationId) throw new Error('組織情報が取得できません')
 
         // scenarioId が UUID でない場合（slug）は、先に scenario_master_id を解決する
         const isUuidLike = /^[0-9a-f]{8}-/.test(scenarioId)
