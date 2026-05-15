@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { scenarioApi } from '@/lib/api'
 import { staffApi } from '@/lib/api'
+import { scheduleEventKeys, fetchScheduleEventsForMonth } from './useScheduleEventsQuery'
 
 export function usePrefetch() {
   const queryClient = useQueryClient()
@@ -10,11 +11,10 @@ export function usePrefetch() {
    * 詳細ページの初期表示に必要な最小限のデータを先読み
    */
   const prefetchScenario = (scenarioId: string, organizationSlug?: string) => {
-    // シナリオ基本情報をプリフェッチ
     queryClient.prefetchQuery({
       queryKey: ['scenario', scenarioId],
       queryFn: () => scenarioApi.getById?.(scenarioId),
-      staleTime: 30 * 60 * 1000, // 30分間キャッシュ
+      staleTime: 30 * 60 * 1000,
     })
   }
 
@@ -22,10 +22,27 @@ export function usePrefetch() {
     queryClient.prefetchQuery({
       queryKey: ['staff', staffId],
       queryFn: () => staffApi.getById?.(staffId),
-      staleTime: 10 * 60 * 1000, // 10分間キャッシュ
+      staleTime: 10 * 60 * 1000,
     })
   }
 
-  return { prefetchScenario, prefetchStaff }
+  /**
+   * スケジュール画面のデータをプリフェッチ。
+   * ダッシュボード表示中にバックグラウンドで先読みしておくことで
+   * スケジュール画面を開いたときに即表示できる。
+   * キャッシュ済みなら何もしない（prefetchQuery は重複実行しない）。
+   */
+  const prefetchSchedule = (date?: Date) => {
+    const target = date ?? new Date()
+    const year = target.getFullYear()
+    const month = target.getMonth() + 1
+    queryClient.prefetchQuery({
+      queryKey: scheduleEventKeys.month(year, month),
+      queryFn: () => fetchScheduleEventsForMonth(year, month),
+      staleTime: Infinity,
+    })
+  }
+
+  return { prefetchScenario, prefetchStaff, prefetchSchedule }
 }
 
