@@ -1,5 +1,5 @@
 // React
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -140,6 +140,62 @@ export function ScheduleManager() {
   // 現在表示中の日付（スクロール追跡用）
   const [currentVisibleDate, setCurrentVisibleDate] = useState<string | null>(null)
   const [showDateBar, setShowDateBar] = useState(false)
+
+  // テーブル列ヘッダーの同期用 ref
+  const colHeaderScrollRef = useRef<HTMLDivElement>(null)
+  const colHeaderInnerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const tableScroll = document.querySelector('[data-schedule-scroll]') as HTMLElement | null
+    const header = colHeaderScrollRef.current
+    if (!tableScroll || !header) return
+
+    // 横スクロールを同期
+    const onScroll = () => { header.scrollLeft = tableScroll.scrollLeft }
+    tableScroll.addEventListener('scroll', onScroll, { passive: true })
+
+    // テーブルの実際の列幅をヘッダーに反映（ResizeObserver で追跡）
+    const syncColWidths = () => {
+      const table = tableScroll.querySelector('table')
+      const inner = colHeaderInnerRef.current
+      if (!table || !inner) return
+
+      // colgroup の col 要素から幅を取得
+      const cols = table.querySelectorAll('col')
+      if (!cols.length) return
+
+      // table の実際の BoundingRect で絶対幅を計算
+      const tableRect = table.getBoundingClientRect()
+      const totalWidth = tableRect.width
+      const headerRect = header.getBoundingClientRect()
+
+      inner.style.width = `${totalWidth}px`
+      inner.style.marginLeft = `${tableRect.left - headerRect.left}px`
+
+      // 各列の幅をヘッダー列に適用
+      const headerCols = inner.querySelectorAll<HTMLElement>('[data-col]')
+      const tableCells = table.querySelector('tbody tr')?.querySelectorAll('td') ??
+                         table.querySelector('thead tr')?.querySelectorAll('th')
+      if (!tableCells) return
+
+      headerCols.forEach((col, i) => {
+        const cell = tableCells[i]
+        if (cell) col.style.width = `${cell.getBoundingClientRect().width}px`
+      })
+    }
+
+    const ro = new ResizeObserver(syncColWidths)
+    ro.observe(tableScroll)
+
+    // テーブルの行が描画されるまで少し待つ
+    const timer = setTimeout(syncColWidths, 100)
+
+    return () => {
+      tableScroll.removeEventListener('scroll', onScroll)
+      ro.disconnect()
+      clearTimeout(timer)
+    }
+  }, [])
   
   // スクロール時に現在表示されている日付を追跡
   const handleScroll = useCallback(() => {
@@ -1143,12 +1199,24 @@ export function ScheduleManager() {
           
           {/* アクションボタン - スマホ用 */}
           <div className="sm:hidden flex items-center gap-1 ml-auto">
+            {/* フィルタートグルボタン */}
+            <button
+              onClick={() => setShowMobileFilters(v => !v)}
+              title="フィルター"
+              className={`h-9 w-9 flex items-center justify-center border rounded-lg transition-colors shrink-0 ${
+                showMobileFilters
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-input bg-background hover:bg-accent'
+              }`}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+            </button>
             {isAdminOrLicenseAdmin && (
               <>
                 <button
                   onClick={handleCleanupBadDemoReservations}
                   disabled={isCleaningDemo}
-                  title="誤デモ予約の修正（テストプレイ削除・GMテスト参加費修正）"
+                  title="誤デモ予約の修正"
                   className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
                 >
                   {isCleaningDemo ? (
@@ -1239,6 +1307,88 @@ export function ScheduleManager() {
           </div>
         </div>
 
+        {/* モバイル用フィルターパネル */}
+        {showMobileFilters && (
+          <div className="sm:hidden border-t border-input divide-y divide-input">
+            {gmList.length > 0 && (
+              <MultiSelect
+                options={(() => {
+                  const shiftData = scheduleTableProps.dataProvider.shiftData || {}
+                  const staffWithShift = new Set<string>()
+                  Object.values(shiftData).forEach((staffList: Staff[]) => {
+                    staffList.forEach(s => staffWithShift.add(s.id))
+                  })
+                  return [...gmList]
+                    .sort((a, b) => {
+                      const aHas = staffWithShift.has(a.id)
+                      const bHas = staffWithShift.has(b.id)
+                      if (aHas && !bHas) return -1
+                      if (!aHas && bHas) return 1
+                      return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
+                    })
+                    .map(staff => ({
+                      id: staff.id,
+                      name: staff.display_name || staff.name,
+                      displayInfo: staffWithShift.has(staff.id) ? (
+                        <span className="text-[9px] text-green-600">●</span>
+                      ) : undefined,
+                    }))
+                })()}
+                selectedValues={selectedGMs}
+                onSelectionChange={setSelectedGMs}
+                placeholder="スタッフで絞り込み"
+                closeOnSelect={false}
+                useIdAsValue={true}
+                className="h-10 w-full border-0 rounded-none shadow-none"
+              />
+            )}
+            {scheduleTableProps.viewConfig.stores.length > 0 && (
+              <StoreMultiSelect
+                stores={scheduleTableProps.viewConfig.stores}
+                selectedStoreIds={selectedStores}
+                onStoreIdsChange={setSelectedStores}
+                hideLabel={true}
+                placeholder="店舗で絞り込み"
+                className="h-10 w-full border-0 rounded-none shadow-none"
+              />
+            )}
+            {scenarioOptions.length > 0 && (
+              <MultiSelect
+                options={scenarioOptions}
+                selectedValues={selectedScenarioIds}
+                onSelectionChange={(values) => setSelectedScenarioIds(values.slice(-1))}
+                placeholder="シナリオで絞り込み"
+                searchPlaceholder="シナリオ検索..."
+                closeOnSelect={true}
+                useIdAsValue={true}
+                className="h-10 w-full border-0 rounded-none shadow-none"
+              />
+            )}
+            <MultiSelect
+              options={categoryOptions}
+              selectedValues={selectedCategories}
+              onSelectionChange={setSelectedCategories}
+              placeholder="カテゴリで絞り込み"
+              closeOnSelect={false}
+              useIdAsValue={true}
+              className="h-10 w-full border-0 rounded-none shadow-none"
+            />
+            {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedScenarioIds.length > 0 || selectedCategories.length > 0) && (
+              <button
+                onClick={() => {
+                  setSelectedGMs([])
+                  setSelectedStores([])
+                  setSelectedScenarioIds([])
+                  setSelectedCategories([])
+                }}
+                className="w-full h-9 text-sm text-muted-foreground hover:bg-accent transition-colors"
+              >
+                フィルターをクリア
+              </button>
+            )}
+          </div>
+        )}
+
         {/* カテゴリ + GM統計（統合バー） */}
         <div className="py-0.5 border-t border-muted/50">
           <CategoryGmStatsBar
@@ -1258,19 +1408,22 @@ export function ScheduleManager() {
         </div>
         
         {/* テーブルヘッダー行（操作行に統合してstickyに） */}
-        <div className="flex bg-muted border-t -mx-[10px] px-[10px]">
-          <div className="w-[32px] sm:w-[40px] md:w-[48px] shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
-            <span className="hidden sm:inline">日付</span>
-            <span className="sm:hidden">日</span>
+        {/* JS でテーブル実測値を適用 → 列幅が常にピクセル単位で一致 */}
+        <div className="overflow-x-hidden border-t -mx-[10px]" ref={colHeaderScrollRef}>
+          <div className="flex bg-muted" ref={colHeaderInnerRef}>
+            <div data-col className="shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
+              <span className="hidden sm:inline">日付</span>
+              <span className="sm:hidden">日</span>
+            </div>
+            <div data-col className="shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
+              <span className="hidden sm:inline">会場</span>
+              <span className="sm:hidden">店</span>
+            </div>
+            <div data-col className="border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午前</div>
+            <div data-col className="border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午後</div>
+            <div data-col className="border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">夜</div>
+            <div data-col className="shrink-0 text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">メモ</div>
           </div>
-          <div className="w-[24px] sm:w-[28px] md:w-[32px] shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
-            <span className="hidden sm:inline">会場</span>
-            <span className="sm:hidden">店</span>
-          </div>
-          <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午前</div>
-          <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午後</div>
-          <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">夜</div>
-          <div className="w-[160px] shrink-0 text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">メモ</div>
         </div>
         
         {/* スティッキー日付バー（スクロール時に現在の日付を表示） */}
