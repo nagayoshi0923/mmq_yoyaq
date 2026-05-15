@@ -8,6 +8,7 @@ import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { lazyWithRetry } from '@/utils/lazyWithRetry'
+import { usePrefetch } from '@/hooks/usePrefetch'
 import { 
   Store, 
   Calendar, 
@@ -262,12 +263,32 @@ export function AdminDashboard() {
   const location = useLocation()
   const navigate = useNavigate()
   const { organization } = useOrganization()
-  
+  const { prefetchSchedule } = usePrefetch()
+
   // パスを解析（毎回解析することでURLと表示を同期）
   const { page: currentPage, scenarioId: currentScenarioId, organizationSlug: pathOrganizationSlug } = parsePath(location.pathname)
-  
+
   // 組織slugを決定（パスにあればそれ、なければ組織設定から取得）
   const organizationSlug = pathOrganizationSlug || organization?.slug || 'queens-waltz'
+
+  // スタッフ確定後、ブラウザがアイドル状態になってから前月・当月・次月を先読み
+  // requestIdleCallback でダッシュボード自身の描画・データ取得を優先させる
+  useEffect(() => {
+    if (!isStaff || currentPage === 'schedule') return
+    const run = () => {
+      const now = new Date()
+      prefetchSchedule(now)
+      prefetchSchedule(new Date(now.getFullYear(), now.getMonth() - 1, 1))
+      prefetchSchedule(new Date(now.getFullYear(), now.getMonth() + 1, 1))
+    }
+    if (typeof requestIdleCallback !== 'undefined') {
+      const id = requestIdleCallback(run, { timeout: 5000 })
+      return () => cancelIdleCallback(id)
+    }
+    const id = setTimeout(run, 2000)
+    return () => clearTimeout(id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStaff])
 
   // ユーザーロールが確定したときに初回リダイレクト
   useEffect(() => {
