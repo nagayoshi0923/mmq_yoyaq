@@ -12,7 +12,7 @@ import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff } from '@/types'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { RESERVATION_SOURCE } from '@/lib/constants'
-import { useScheduleEventsQuery, invalidateScheduleMonth, setScheduleMonthData, updateScenarioModuleCache } from './useScheduleEventsQuery'
+import { useScheduleEventsQuery, invalidateScheduleMonth, setScheduleMonthData, updateScenarioModuleCache, scheduleEventKeys, fetchScheduleEventsForMonth } from './useScheduleEventsQuery'
 
 // 過去の定員未満の公演にデモ参加者を追加する関数
 export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ success: number; failed: number; skipped: number }> {
@@ -468,6 +468,23 @@ export function useScheduleData(currentDate: Date) {
   const month = currentDate.getMonth() + 1
   const { data: events = [], isLoading, isFetching, error: queryError } = useScheduleEventsQuery(currentDate)
   const error = queryError ? String(queryError) : null
+
+  // 現在の月が表示されたら前月・次月を先読み（月切り替え時の即表示）
+  useEffect(() => {
+    const prevDate = new Date(year, month - 2, 1) // month は 1始まりなので -2 で前月
+    const nextDate = new Date(year, month, 1)     // month は 1始まりなので +0 で次月
+    const pairs = [
+      [prevDate.getFullYear(), prevDate.getMonth() + 1],
+      [nextDate.getFullYear(), nextDate.getMonth() + 1],
+    ] as const
+    for (const [y, m] of pairs) {
+      queryClient.prefetchQuery({
+        queryKey: scheduleEventKeys.month(y, m),
+        queryFn: () => fetchScheduleEventsForMonth(y, m),
+        staleTime: Infinity,
+      })
+    }
+  }, [year, month, queryClient])
 
   // 店舗・シナリオ・スタッフのデータ（キャッシュから初期化して即座に表示）
   const [stores, setStores] = useState<Store[]>(() => {
