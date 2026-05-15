@@ -1,5 +1,5 @@
 // React
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
@@ -140,6 +140,18 @@ export function ScheduleManager() {
   // 現在表示中の日付（スクロール追跡用）
   const [currentVisibleDate, setCurrentVisibleDate] = useState<string | null>(null)
   const [showDateBar, setShowDateBar] = useState(false)
+
+  // テーブル横スクロールとヘッダーを同期させるための ref
+  const colHeaderScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const tableScroll = document.querySelector('[data-schedule-scroll]')
+    const header = colHeaderScrollRef.current
+    if (!tableScroll || !header) return
+    const onScroll = () => { header.scrollLeft = tableScroll.scrollLeft }
+    tableScroll.addEventListener('scroll', onScroll, { passive: true })
+    return () => tableScroll.removeEventListener('scroll', onScroll)
+  }, [])
   
   // スクロール時に現在表示されている日付を追跡
   const handleScroll = useCallback(() => {
@@ -1352,19 +1364,22 @@ export function ScheduleManager() {
         </div>
         
         {/* テーブルヘッダー行（操作行に統合してstickyに） */}
-        <div className="flex bg-muted border-t -mx-[10px] px-[10px]">
-          <div className="w-[32px] sm:w-[40px] md:w-[48px] shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
-            <span className="hidden sm:inline">日付</span>
-            <span className="sm:hidden">日</span>
+        {/* overflow-x-hidden + JS で横スクロールをテーブルに同期 → 列幅のズレを解消 */}
+        <div className="overflow-x-hidden border-t -mx-[10px]" ref={colHeaderScrollRef}>
+          <div className="flex bg-muted min-w-[534px] sm:min-w-[700px] md:min-w-[800px] px-[10px]">
+            <div className="w-[32px] sm:w-[40px] md:w-[48px] shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
+              <span className="hidden sm:inline">日付</span>
+              <span className="sm:hidden">日</span>
+            </div>
+            <div className="w-[24px] sm:w-[28px] md:w-[32px] shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
+              <span className="hidden sm:inline">会場</span>
+              <span className="sm:hidden">店</span>
+            </div>
+            <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午前</div>
+            <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午後</div>
+            <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">夜</div>
+            <div className="w-[160px] shrink-0 text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">メモ</div>
           </div>
-          <div className="w-[24px] sm:w-[28px] md:w-[32px] shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
-            <span className="hidden sm:inline">会場</span>
-            <span className="sm:hidden">店</span>
-          </div>
-          <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午前</div>
-          <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午後</div>
-          <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">夜</div>
-          <div className="w-[160px] shrink-0 text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">メモ</div>
         </div>
         
         {/* スティッキー日付バー（スクロール時に現在の日付を表示） */}
