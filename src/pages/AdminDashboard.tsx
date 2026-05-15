@@ -271,14 +271,22 @@ export function AdminDashboard() {
   // 組織slugを決定（パスにあればそれ、なければ組織設定から取得）
   const organizationSlug = pathOrganizationSlug || organization?.slug || 'queens-waltz'
 
-  // スタッフ確定後、スケジュール画面以外にいるときに前月・当月・次月を先読み
-  // → スケジュール画面を開いた瞬間、かつ前後移動も即表示できる
+  // スタッフ確定後、ブラウザがアイドル状態になってから前月・当月・次月を先読み
+  // requestIdleCallback でダッシュボード自身の描画・データ取得を優先させる
   useEffect(() => {
     if (!isStaff || currentPage === 'schedule') return
-    const now = new Date()
-    prefetchSchedule(now)
-    prefetchSchedule(new Date(now.getFullYear(), now.getMonth() - 1, 1))
-    prefetchSchedule(new Date(now.getFullYear(), now.getMonth() + 1, 1))
+    const run = () => {
+      const now = new Date()
+      prefetchSchedule(now)
+      prefetchSchedule(new Date(now.getFullYear(), now.getMonth() - 1, 1))
+      prefetchSchedule(new Date(now.getFullYear(), now.getMonth() + 1, 1))
+    }
+    if (typeof requestIdleCallback !== 'undefined') {
+      const id = requestIdleCallback(run, { timeout: 5000 })
+      return () => cancelIdleCallback(id)
+    }
+    const id = setTimeout(run, 2000)
+    return () => clearTimeout(id)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStaff])
 
