@@ -1143,12 +1143,24 @@ export function ScheduleManager() {
           
           {/* アクションボタン - スマホ用 */}
           <div className="sm:hidden flex items-center gap-1 ml-auto">
+            {/* フィルタートグルボタン */}
+            <button
+              onClick={() => setShowMobileFilters(v => !v)}
+              title="フィルター"
+              className={`h-9 w-9 flex items-center justify-center border rounded-lg transition-colors shrink-0 ${
+                showMobileFilters
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-input bg-background hover:bg-accent'
+              }`}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+            </button>
             {isAdminOrLicenseAdmin && (
               <>
                 <button
                   onClick={handleCleanupBadDemoReservations}
                   disabled={isCleaningDemo}
-                  title="誤デモ予約の修正（テストプレイ削除・GMテスト参加費修正）"
+                  title="誤デモ予約の修正"
                   className="h-9 w-9 flex items-center justify-center border border-input rounded-lg bg-background hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
                 >
                   {isCleaningDemo ? (
@@ -1238,6 +1250,88 @@ export function ScheduleManager() {
             )}
           </div>
         </div>
+
+        {/* モバイル用フィルターパネル */}
+        {showMobileFilters && (
+          <div className="sm:hidden border-t border-input divide-y divide-input">
+            {gmList.length > 0 && (
+              <MultiSelect
+                options={(() => {
+                  const shiftData = scheduleTableProps.dataProvider.shiftData || {}
+                  const staffWithShift = new Set<string>()
+                  Object.values(shiftData).forEach((staffList: Staff[]) => {
+                    staffList.forEach(s => staffWithShift.add(s.id))
+                  })
+                  return [...gmList]
+                    .sort((a, b) => {
+                      const aHas = staffWithShift.has(a.id)
+                      const bHas = staffWithShift.has(b.id)
+                      if (aHas && !bHas) return -1
+                      if (!aHas && bHas) return 1
+                      return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
+                    })
+                    .map(staff => ({
+                      id: staff.id,
+                      name: staff.display_name || staff.name,
+                      displayInfo: staffWithShift.has(staff.id) ? (
+                        <span className="text-[9px] text-green-600">●</span>
+                      ) : undefined,
+                    }))
+                })()}
+                selectedValues={selectedGMs}
+                onSelectionChange={setSelectedGMs}
+                placeholder="スタッフで絞り込み"
+                closeOnSelect={false}
+                useIdAsValue={true}
+                className="h-10 w-full border-0 rounded-none shadow-none"
+              />
+            )}
+            {scheduleTableProps.viewConfig.stores.length > 0 && (
+              <StoreMultiSelect
+                stores={scheduleTableProps.viewConfig.stores}
+                selectedStoreIds={selectedStores}
+                onStoreIdsChange={setSelectedStores}
+                hideLabel={true}
+                placeholder="店舗で絞り込み"
+                className="h-10 w-full border-0 rounded-none shadow-none"
+              />
+            )}
+            {scenarioOptions.length > 0 && (
+              <MultiSelect
+                options={scenarioOptions}
+                selectedValues={selectedScenarioIds}
+                onSelectionChange={(values) => setSelectedScenarioIds(values.slice(-1))}
+                placeholder="シナリオで絞り込み"
+                searchPlaceholder="シナリオ検索..."
+                closeOnSelect={true}
+                useIdAsValue={true}
+                className="h-10 w-full border-0 rounded-none shadow-none"
+              />
+            )}
+            <MultiSelect
+              options={categoryOptions}
+              selectedValues={selectedCategories}
+              onSelectionChange={setSelectedCategories}
+              placeholder="カテゴリで絞り込み"
+              closeOnSelect={false}
+              useIdAsValue={true}
+              className="h-10 w-full border-0 rounded-none shadow-none"
+            />
+            {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedScenarioIds.length > 0 || selectedCategories.length > 0) && (
+              <button
+                onClick={() => {
+                  setSelectedGMs([])
+                  setSelectedStores([])
+                  setSelectedScenarioIds([])
+                  setSelectedCategories([])
+                }}
+                className="w-full h-9 text-sm text-muted-foreground hover:bg-accent transition-colors"
+              >
+                フィルターをクリア
+              </button>
+            )}
+          </div>
+        )}
 
         {/* カテゴリ + GM統計（統合バー） */}
         <div className="py-0.5 border-t border-muted/50">
