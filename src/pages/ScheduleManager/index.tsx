@@ -100,8 +100,15 @@ export function ScheduleManager() {
   // カスタム休日管理
   const { isCustomHoliday, toggleHoliday } = useCustomHolidays()
 
-  // GMリスト
-  const [gmList, setGmList] = useState<Staff[]>([])
+  // GMリスト（scheduleStaff キャッシュから初期化して即座に表示 → selectedGMs フィルターが空白にならない）
+  const [gmList, setGmList] = useState<Staff[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleStaff')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
   const [selectedGMs, setSelectedGMs] = useLocalState<string[]>('scheduleSelectedGMs', [])
 
   // 店舗フィルター（localStorageで次回以降も同じ店舗を保持）

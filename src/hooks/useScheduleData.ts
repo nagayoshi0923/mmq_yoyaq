@@ -1,18 +1,18 @@
 // スケジュールデータの読み込みと管理
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
-import { handleSupabaseError, getUserFriendlyMessage, logApiError } from '@/lib/apiErrorHandler'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff } from '@/types'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
-import { RESERVATION_SOURCE, DEMO_RESERVATION_SOURCES } from '@/lib/constants'
-import { getScenarioAliases } from '@/lib/api/scenarioAliasApi'
+import { RESERVATION_SOURCE } from '@/lib/constants'
+import { useScheduleEventsQuery, invalidateScheduleMonth, setScheduleMonthData, updateScenarioModuleCache } from './useScheduleEventsQuery'
 
 // 過去の定員未満の公演にデモ参加者を追加する関数
 export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ success: number; failed: number; skipped: number }> {
@@ -452,9 +452,6 @@ function readInitialScheduleScenariosFromSession(): Scenario[] {
 }
 
 export function useScheduleData(currentDate: Date) {
-  // 初回読み込み完了フラグ（useRefで管理してレンダリングをトリガーしない）
-  const initialLoadComplete = useRef(false)
-  
   // 一度でもロードしたかをsessionStorageで確認（より確実）
   const hasEverLoadedStores = useRef(
     (() => {
@@ -466,25 +463,11 @@ export function useScheduleData(currentDate: Date) {
     })()
   )
 
-  const [events, setEvents] = useState<ScheduleEvent[]>(() => {
-    try {
-      const cached = sessionStorage.getItem('scheduleEvents')
-      return cached ? JSON.parse(cached) : []
-    } catch {
-      return []
-    }
-  })
-
-  const [isLoading, setIsLoading] = useState(() => {
-    try {
-      const cached = sessionStorage.getItem('scheduleEvents')
-      return !cached
-    } catch {
-      return true
-    }
-  })
-
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const year = currentDate.getFullYear()
+  const month = currentDate.getMonth() + 1
+  const { data: events = [], isLoading, isFetching, error: queryError } = useScheduleEventsQuery(currentDate)
+  const error = queryError ? String(queryError) : null
 
   // 店舗・シナリオ・スタッフのデータ（キャッシュから初期化して即座に表示）
   const [stores, setStores] = useState<Store[]>(() => {
@@ -511,6 +494,8 @@ export function useScheduleData(currentDate: Date) {
       return []
     }
   })
+  // loadEvents 内で staff を参照するための ref（依存配列に入れると二重実行になるため）
+  const staffRef = useRef<Staff[]>(staff)
   const [staffLoading, setStaffLoading] = useState(() => {
     try {
       const cached = sessionStorage.getItem('scheduleStaff')
@@ -560,6 +545,7 @@ export function useScheduleData(currentDate: Date) {
       scenariosStringRef.current = newString
       mergedScenariosForScheduleRef.current = mergedScenarios
       setScenarios(mergedScenarios)
+      updateScenarioModuleCache(mergedScenarios)
       // sessionStorageへの書き込みは初回のみ、または大幅に変更があった場合のみ（パフォーマンス改善）
       if (mergedScenarios.length > 0 && (prevLength === 0 || Math.abs(mergedScenarios.length - prevLength) > 5)) {
         sessionStorage.setItem('scheduleScenarios', newString)
@@ -600,37 +586,6 @@ export function useScheduleData(currentDate: Date) {
     loadOrgScenarioOverrides()
   }, [])
 
-  // イベントデータをキャッシュに保存（アイドル時にまとめて書き、メインスレッドのピークを避ける）
-  const eventsStringRef = useRef<string>('')
-  useEffect(() => {
-    if (events.length === 0) return
-    let cancelled = false
-    const flush = () => {
-      if (cancelled) return
-      const eventsString = JSON.stringify(events)
-      if (eventsStringRef.current !== eventsString) {
-        eventsStringRef.current = eventsString
-        try {
-          sessionStorage.setItem('scheduleEvents', eventsString)
-        } catch {
-          /* 容量超過など */
-        }
-      }
-    }
-    let cancelScheduled: (() => void) | undefined
-    if (typeof requestIdleCallback !== 'undefined') {
-      const id = requestIdleCallback(flush, { timeout: 2000 })
-      cancelScheduled = () => cancelIdleCallback(id)
-    } else {
-      const id = window.setTimeout(flush, 0)
-      cancelScheduled = () => clearTimeout(id)
-    }
-    return () => {
-      cancelled = true
-      cancelScheduled?.()
-    }
-  }, [events])
-
   // 初期データを並列で読み込む（高速化）
   // キャッシュがある場合はバックグラウンドで更新、ない場合のみローディング表示
   useEffect(() => {
@@ -670,7 +625,11 @@ export function useScheduleData(currentDate: Date) {
           sessionStorage.setItem('scheduleHasLoaded', 'true')
         }
         setStoresLoading(false)
-        
+
+        // スタッフ基本情報を先に反映（貸切予約のGM名参照用）
+        staffRef.current = staffData
+        setStaff(staffData)
+
         // スタッフの担当シナリオをチャンク並列で取得（数十人同時だと接続・CPUが重くなるのを緩和）
         const staffWithScenarios = await mapInChunks(
           staffData,
@@ -691,7 +650,8 @@ export function useScheduleData(currentDate: Date) {
             }
           }
         )
-        
+
+        staffRef.current = staffWithScenarios
         setStaff(staffWithScenarios)
         sessionStorage.setItem('scheduleStaff', JSON.stringify(staffWithScenarios))
         setStaffLoading(false)
@@ -707,342 +667,10 @@ export function useScheduleData(currentDate: Date) {
   }, [])
   
 
-  // Supabaseからイベントデータを読み込む
-  useEffect(() => {
-    // 店舗データが読み込まれるまで待つ（店舗データが必要）
-    if (storesLoading) return
-    
-    const loadEvents = async () => {
-      try {
-        // キャッシュがない場合のみローディング状態にする
-        // キャッシュがある場合はバックグラウンドで静かに更新
-        if (events.length === 0) {
-          setIsLoading(true)
-        }
-        setError(null)
-        
-        const year = currentDate.getFullYear()
-        const month = currentDate.getMonth() + 1
-        
-        const data = (await scheduleApi.getByMonth(year, month)) as RawEventData[]
-        let scenarioList = mergedScenariosForScheduleRef.current
-        if (!scenarioList.length) {
-          scenarioList = await scenarioApi.getAll()
-          mergedScenariosForScheduleRef.current = scenarioList
-        }
-        const scenarioByTitle = new Map<string, any>()
-        scenarioList.forEach((s: any) => {
-          scenarioByTitle.set(s.title, s)
-        })
-        
-        // シナリオ略称マッピング（DBから取得）
-        const SCENARIO_ALIAS = await getScenarioAliases()
-        
-        const normalize = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
-        
-        // シナリオ名からシナリオ情報を検索
-        const findScenario = (eventScenario: string) => {
-          const mapped = SCENARIO_ALIAS[eventScenario] || eventScenario
-          const norm = normalize(mapped)
-          
-          // 1. 完全一致
-          if (scenarioByTitle.has(mapped)) return scenarioByTitle.get(mapped)
-          if (scenarioByTitle.has(eventScenario)) return scenarioByTitle.get(eventScenario)
-          
-          // 2. 正規化後の完全一致
-          for (const [t, s] of scenarioByTitle.entries()) {
-            if (normalize(t) === norm) return s
-          }
-          
-          // 3. 部分一致
-          for (const [t, s] of scenarioByTitle.entries()) {
-            if (t.includes(mapped) || mapped.includes(t)) return s
-          }
-          
-          // 4. 正規化後の部分一致
-          for (const [t, s] of scenarioByTitle.entries()) {
-            const nt = normalize(t)
-            if (nt.includes(norm) || norm.includes(nt)) return s
-          }
-          
-          // 5. キーワードマッチ
-          const kws = eventScenario.split(/[\s\-・／/]/).filter(k => k.length > 0)
-          for (const [t, s] of scenarioByTitle.entries()) {
-            const nt = normalize(t)
-            if (kws.every(kw => nt.includes(normalize(kw))) && kws.length >= 1) return s
-          }
-          
-          return null
-        }
-        
-      // Supabaseのデータを内部形式に変換
-      // 拡張プロパティ（scenarios, gm_roles, timeSlot等）を含むため型アサーションを使用
-      const formattedEvents = data.map((event: RawEventData) => {
-        // scenario_masters（新）または scenarios（旧）からシナリオ情報を取得
-        const rawScenarioData = event.scenario_masters || event.scenarios
-        const scenarioData = Array.isArray(rawScenarioData) ? rawScenarioData[0] : rawScenarioData
-        const scenarioTitle = scenarioData?.title || event.scenario || ''
-        // シナリオデータが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
-        const isValidScenario = scenarioData && scenarioData.id
-        // シナリオデータが無効な場合はシナリオリストからタイトルで検索（略称マッピング対応）
-        const scenarioInfo = isValidScenario 
-          ? scenarioData 
-          : (scenarioTitle ? findScenario(scenarioTitle) : null)
-        // 組織のオーバーライド値を反映するため、org viewのデータを優先取得
-        const orgScenarioInfo = scenarioTitle ? findScenario(scenarioTitle) : null
-        const effectivePlayerMax = orgScenarioInfo?.player_count_max || scenarioInfo?.player_count_max
-        
-        return {
-        id: event.id,
-        date: event.date,
-        venue: event.store_id, // store_idを直接使用
-          scenario: scenarioTitle, // JOINされたタイトルを優先
-          scenarios: scenarioInfo ? {
-            id: scenarioInfo.id,
-            title: scenarioInfo.title,
-            player_count_max: effectivePlayerMax || scenarioInfo.player_count_max
-          } : undefined,
-          gms: event.gms || [],
-          gm_roles: event.gm_roles || {},
-          start_time: event.start_time,
-          end_time: event.end_time,
-          category: event.category,
-          is_cancelled: event.is_cancelled || false,
-          is_tentative: event.is_tentative || false,
-          current_participants: event.current_participants || 0, // DBカラム名に統一
-          max_participants: effectivePlayerMax || event.capacity || 8,
-          notes: event.notes || '',
-          is_reservation_enabled: event.is_reservation_enabled || false,
-          time_slot: event.time_slot,
-          reservation_name: event.reservation_name || '', // 貸切予約の予約者名
-          is_reservation_name_overwritten: event.is_reservation_name_overwritten || false, // DBから取得
-          reservation_id: event.reservation_id // 貸切リクエストID（重複防止用）
-          }
-        })
-        
-        // schedule_events の予約者名をニックネームで上書き（手動上書きされていないもののみ）
-        const reservationIdsForNickname = formattedEvents
-          .filter(e => e.reservation_id && !e.is_reservation_name_overwritten)
-          .map(e => e.reservation_id!)
-        
-        if (reservationIdsForNickname.length > 0) {
-          const { data: nicknameData } = await supabase
-            .from('reservations')
-            .select('id, customer_name, display_customer_name, customers:customer_id(nickname)')
-            .in('id', reservationIdsForNickname)
-          
-          if (nicknameData) {
-            const nicknameMap = new Map<string, string>()
-            nicknameData.forEach((r: any) => {
-              const nickname = r.display_customer_name || r.customers?.nickname
-              if (nickname) {
-                nicknameMap.set(r.id, nickname)
-              }
-            })
-            
-            formattedEvents.forEach(e => {
-              if (e.reservation_id && nicknameMap.has(e.reservation_id)) {
-                e.reservation_name = nicknameMap.get(e.reservation_id)!
-              }
-            })
-          }
-        }
-        
-        // 貸切リクエストを取得して追加（確定済みのみ）
-        // organization_idを取得（マルチテナント対応）
-        const orgIdForPrivate = await getCurrentOrganizationId()
-        
-        let privateQuery = supabase
-          .from('reservations')
-          .select(`
-            id,
-            title,
-            customer_name,
-            display_customer_name,
-            status,
-            store_id,
-            gm_staff,
-            candidate_datetimes,
-            participant_count,
-            schedule_event_id,
-            scenario_masters:scenario_master_id (
-              title,
-              player_count_max
-            ),
-            customers:customer_id (
-              nickname
-            )
-          `)
-          .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-          .eq('status', 'confirmed') // 確定のみ表示
-          .is('schedule_event_id', null) // schedule_eventsに未登録のもののみ
-        
-        if (orgIdForPrivate) {
-          privateQuery = privateQuery.eq('organization_id', orgIdForPrivate)
-        }
-        
-        const { data: privateRequests, error: privateError } = await privateQuery
-        
-        if (privateError) {
-          logger.error('貸切リクエスト取得エラー:', privateError)
-        }
-        
-        // 貸切リクエストをスケジュールイベントに変換
-        const privateEvents: ScheduleEvent[] = []
-        if (privateRequests) {
-          (privateRequests as unknown as PrivateRequestData[]).forEach((request: PrivateRequestData) => {
-            if (request.candidate_datetimes?.candidates) {
-              // GMの名前を取得
-              let gmNames: string[] = []
-              
-              // 確定したGMがいる場合は、staff配列から名前を検索
-              if (request.gm_staff && staff && staff.length > 0) {
-                const assignedGM = staff.find((s: Staff) => s.id === request.gm_staff)
-                if (assignedGM) {
-                  gmNames = [assignedGM.name]
-                }
-              }
-              
-              // それでも見つからない場合
-              if (gmNames.length === 0) {
-                gmNames = ['未定']
-              }
-              
-              // 表示する候補を決定
-              let candidatesToShow = request.candidate_datetimes.candidates
-              
-              // status='confirmed'の場合は、candidate.status='confirmed'の候補のみ表示
-              if (request.status === 'confirmed') {
-                const confirmedCandidates = candidatesToShow.filter((c: CandidateDateTime) => c.status === 'confirmed')
-                if (confirmedCandidates.length > 0) {
-                  candidatesToShow = confirmedCandidates.slice(0, 1) // 最初の1つだけ
-                } else {
-                  // フォールバック: candidate.status='confirmed'がない場合は最初の候補のみ
-                  candidatesToShow = candidatesToShow.slice(0, 1)
-                }
-              }
-              
-              candidatesToShow.forEach((candidate: CandidateDateTime) => {
-                const candidateDate = new Date(candidate.date)
-                const candidateMonth = candidateDate.getMonth() + 1
-                const candidateYear = candidateDate.getFullYear()
-                
-                // 表示対象の月のみ追加
-                if (candidateYear === year && candidateMonth === month) {
-                  // 確定済み/GM確認済みの場合は、確定店舗を使用
-                  // confirmedStoreがnullの場合はstore_idを使用（古いデータ対応）
-                  const confirmedStoreId = request.candidate_datetimes?.confirmedStore?.storeId || request.store_id
-                  const venueId = (request.status === 'confirmed' || request.status === 'gm_confirmed') && confirmedStoreId 
-                    ? confirmedStoreId 
-                    : '' // 店舗未定
-                  
-                  const privateScenarioTitle = request.scenario_masters?.title || request.title
-                  const orgPrivateScenarioInfo = findScenario(privateScenarioTitle)
-                  const privateMaxParticipants = orgPrivateScenarioInfo?.player_count_max || request.scenario_masters?.player_count_max || 8
-                  
-                  const privateEvent: ScheduleEvent = {
-                    id: `${request.id}-${candidate.order}`,
-                    date: candidate.date,
-                    venue: venueId,
-                    scenario: privateScenarioTitle,
-                    gms: gmNames,
-                    start_time: candidate.startTime || '',
-                    end_time: candidate.endTime || '',
-                    category: 'private', // 貸切
-                    is_cancelled: false,
-                    current_participants: request.participant_count || 0, // Reservationのparticipant_countをScheduleEventのcurrent_participantsに変換
-                    max_participants: privateMaxParticipants,
-                    notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】`,
-                    is_reservation_enabled: true, // 貸切公演は常に公開中
-                    is_private_request: true, // 貸切リクエストフラグ
-                    reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
-                    reservation_id: request.id, // 元のreservation IDを保持
-                    reservation_name: request.display_customer_name || (request as any).customers?.nickname || request.customer_name || '', // ニックネーム優先
-                    original_customer_name: request.customer_name || '', // MMQからの元の予約者名
-                    is_reservation_name_overwritten: !!request.display_customer_name // 手動上書きフラグ
-                  }
-                  
-                  privateEvents.push(privateEvent)
-                }
-              })
-            }
-          })
-        }
-        
-        // 満席の公演にデモ参加者を追加（パフォーマンス改善のため無効化）
-        // const eventsWithDemoParticipants = await addDemoParticipantsToFullEvents([...formattedEvents, ...privateEvents])
-        
-        // schedule_events に既に保存されている reservation_id を収集（重複防止）
-        const existingReservationIds = new Set(
-          formattedEvents
-            .filter(e => e.reservation_id)
-            .map(e => e.reservation_id)
-        )
-        
-        logger.log('🔍 重複チェック詳細:', {
-          formattedEventsCount: formattedEvents.length,
-          privateEventsCount: privateEvents.length,
-          existingReservationIds: Array.from(existingReservationIds),
-          privateEventIds: privateEvents.map(pe => pe.reservation_id),
-          // 各privateEventがフィルタされるかどうか
-          filterResults: privateEvents.map(pe => ({
-            id: pe.reservation_id,
-            willBeFiltered: existingReservationIds.has(pe.reservation_id),
-            existsInSet: Array.from(existingReservationIds).includes(pe.reservation_id)
-          }))
-        })
-        
-        // reservations から生成されたイベントのうち、既に schedule_events に存在するものを除外
-        const filteredPrivateEvents = privateEvents.filter(
-          pe => !existingReservationIds.has(pe.reservation_id)
-        )
-        
-        logger.log(`✅ 初期ロード: ${formattedEvents.length + filteredPrivateEvents.length}件のイベント（${privateEvents.length - filteredPrivateEvents.length}件重複除外）`)
-        
-        setEvents([...formattedEvents, ...filteredPrivateEvents] as ScheduleEvent[])
-      } catch (err) {
-        const apiError = handleSupabaseError(err, 'スケジュールデータの取得に失敗しました')
-        logApiError(apiError, { scope: 'useScheduleData.loadEvents' })
-        setError(getUserFriendlyMessage(apiError))
-        
-        // エラー時はモックデータを使用
-        const mockEvents: ScheduleEvent[] = [
-          {
-            id: '1',
-            date: '2025-09-01',
-            venue: 'takadanobaba',
-            scenario: '人狼村の悲劇',
-            gms: ['田中太郎'],
-            start_time: '14:00',
-            end_time: '18:00',
-            category: 'private',
-            is_cancelled: false,
-            current_participants: 6,
-            max_participants: 8
-          },
-          {
-            id: '2',
-            date: '2025-09-01',
-            venue: 'bekkan1',
-            scenario: '密室の謎',
-            gms: ['山田花子'],
-            start_time: '19:00',
-            end_time: '22:00',
-            category: 'open',
-            is_cancelled: false,
-            current_participants: 8,
-            max_participants: 8
-          }
-        ]
-        setEvents(mockEvents)
-      } finally {
-        setIsLoading(false)
-        initialLoadComplete.current = true // 初回読み込み完了をマーク
-      }
-    }
-
-    loadEvents()
-  }, [currentDate, storesLoading, staff]) // staffも依存配列に追加（貸切リクエストのGM名取得で必要）
+  // setEvents: 楽観的更新のためのラッパー（React Queryキャッシュを更新）
+  const setEvents = useCallback((updater: ScheduleEvent[] | ((prev: ScheduleEvent[]) => ScheduleEvent[])) => {
+    setScheduleMonthData(queryClient, year, month, updater)
+  }, [queryClient, year, month])
 
   // シナリオリストを再読み込み
   const refetchScenarios = async () => {
@@ -1067,273 +695,10 @@ export function useScheduleData(currentDate: Date) {
     }
   }
 
-  // スケジュールデータを再取得する関数
+  // スケジュールデータを再取得する関数（React Queryキャッシュを無効化して再フェッチ）
   const fetchSchedule = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth() + 1
-      
-      logger.log(`🔄 fetchSchedule: ${year}年${month}月のデータを取得`)
-      
-      const data = (await scheduleApi.getByMonth(year, month)) as RawEventData[]
-      let scenarioList = mergedScenariosForScheduleRef.current
-      if (!scenarioList.length) {
-        scenarioList = await scenarioApi.getAll()
-        mergedScenariosForScheduleRef.current = scenarioList
-      }
-      const scenarioByTitle2 = new Map<string, any>()
-      scenarioList.forEach((s: any) => {
-        scenarioByTitle2.set(s.title, s)
-      })
-      
-      // シナリオ略称マッピング（DBから取得、fetchSchedule用）
-      const SCENARIO_ALIAS2 = await getScenarioAliases()
-      
-      const normalize2 = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
-      
-      const findScenario2 = (eventScenario: string) => {
-        const mapped = SCENARIO_ALIAS2[eventScenario] || eventScenario
-        const norm = normalize2(mapped)
-        
-        if (scenarioByTitle2.has(mapped)) return scenarioByTitle2.get(mapped)
-        if (scenarioByTitle2.has(eventScenario)) return scenarioByTitle2.get(eventScenario)
-        
-        for (const [t, s] of scenarioByTitle2.entries()) {
-          if (normalize2(t) === norm) return s
-        }
-        for (const [t, s] of scenarioByTitle2.entries()) {
-          if (t.includes(mapped) || mapped.includes(t)) return s
-        }
-        for (const [t, s] of scenarioByTitle2.entries()) {
-          const nt = normalize2(t)
-          if (nt.includes(norm) || norm.includes(nt)) return s
-        }
-        const kws = eventScenario.split(/[\s\-・／/]/).filter(k => k.length > 0)
-        for (const [t, s] of scenarioByTitle2.entries()) {
-          const nt = normalize2(t)
-          if (kws.every(kw => nt.includes(normalize2(kw))) && kws.length >= 1) return s
-        }
-        return null
-      }
-      
-      // Supabaseのデータを内部形式に変換
-      // 拡張プロパティ（scenarios, gm_roles, timeSlot等）を含むため型アサーションを使用
-      const formattedEvents = data.map((event: RawEventData) => {
-        // scenario_masters（新）または scenarios（旧）からシナリオ情報を取得
-        const rawScenarioData2 = event.scenario_masters || event.scenarios
-        const scenarioData = Array.isArray(rawScenarioData2) ? rawScenarioData2[0] : rawScenarioData2
-        const scenarioTitle = scenarioData?.title || event.scenario || ''
-        // シナリオデータが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
-        const isValidScenario = scenarioData && scenarioData.id
-        // シナリオデータが無効な場合はシナリオリストからタイトルで検索（略称マッピング対応）
-        const scenarioInfo = isValidScenario 
-          ? scenarioData 
-          : (scenarioTitle ? findScenario2(scenarioTitle) : null)
-        const orgScenarioInfo2 = scenarioTitle ? findScenario2(scenarioTitle) : null
-        const effectivePlayerMax2 = orgScenarioInfo2?.player_count_max || scenarioInfo?.player_count_max
-        
-        return {
-        id: event.id,
-        date: event.date,
-        venue: event.store_id,
-          scenario: scenarioTitle,
-          scenarios: scenarioInfo ? {
-            id: scenarioInfo.id,
-            title: scenarioInfo.title,
-            player_count_max: effectivePlayerMax2 || scenarioInfo.player_count_max
-          } : undefined,
-        gms: event.gms || [],
-        gm_roles: event.gm_roles || {},
-        start_time: event.start_time,
-        end_time: event.end_time,
-        category: event.category,
-        is_cancelled: event.is_cancelled || false,
-        is_tentative: event.is_tentative || false,
-        current_participants: event.current_participants || 0, // DBカラム名に統一
-        max_participants: effectivePlayerMax2 || event.capacity || 8,
-        notes: event.notes || '',
-        is_reservation_enabled: event.is_reservation_enabled || false,
-        time_slot: event.time_slot,
-        reservation_name: event.reservation_name || '', // 貸切予約の予約者名
-        is_reservation_name_overwritten: event.is_reservation_name_overwritten || false, // DBから取得
-        reservation_id: event.reservation_id // 貸切リクエストID（重複防止用）
-        }
-      })
-      
-      // schedule_events の予約者名をニックネームで上書き（手動上書きされていないもののみ）
-      const reservationIdsForNickname2 = formattedEvents
-        .filter(e => e.reservation_id && !e.is_reservation_name_overwritten)
-        .map(e => e.reservation_id!)
-      
-      if (reservationIdsForNickname2.length > 0) {
-        const { data: nicknameData2 } = await supabase
-          .from('reservations')
-          .select('id, customer_name, display_customer_name, customers:customer_id(nickname)')
-          .in('id', reservationIdsForNickname2)
-        
-        if (nicknameData2) {
-          const nicknameMap2 = new Map<string, string>()
-          nicknameData2.forEach((r: any) => {
-            const nickname = r.display_customer_name || r.customers?.nickname
-            if (nickname) {
-              nicknameMap2.set(r.id, nickname)
-            }
-          })
-          
-          formattedEvents.forEach(e => {
-            if (e.reservation_id && nicknameMap2.has(e.reservation_id)) {
-              e.reservation_name = nicknameMap2.get(e.reservation_id)!
-            }
-          })
-        }
-      }
-      
-      // 貸切リクエストを取得して追加
-      // organization_idを取得（マルチテナント対応）
-      const orgIdForPrivate2 = await getCurrentOrganizationId()
-      
-      let privateQuery2 = supabase
-        .from('reservations')
-        .select(`
-          id,
-          title,
-          customer_name,
-          display_customer_name,
-          status,
-          store_id,
-          gm_staff,
-          candidate_datetimes,
-          participant_count,
-          schedule_event_id,
-          scenario_masters:scenario_master_id (
-            title,
-            player_count_max
-          ),
-          customers:customer_id (
-            nickname
-          )
-        `)
-        .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-        .eq('status', 'confirmed')
-        .is('schedule_event_id', null) // schedule_eventsに未登録のもののみ
-      
-      if (orgIdForPrivate2) {
-        privateQuery2 = privateQuery2.eq('organization_id', orgIdForPrivate2)
-      }
-      
-      const { data: privateRequests, error: privateError } = await privateQuery2
-      
-      if (privateError) {
-        logger.error('貸切リクエスト取得エラー:', privateError)
-      }
-      
-      // 貸切リクエストをスケジュールイベントに変換
-      const privateEvents: ScheduleEvent[] = []
-      if (privateRequests) {
-        (privateRequests as unknown as PrivateRequestData[]).forEach((request: PrivateRequestData) => {
-          if (request.candidate_datetimes?.candidates) {
-            let gmNames: string[] = []
-            
-            if (request.gm_staff && staff && staff.length > 0) {
-              const assignedGM = staff.find((s: Staff) => s.id === request.gm_staff)
-              if (assignedGM) {
-                gmNames = [assignedGM.name]
-              }
-            }
-            
-            if (gmNames.length === 0) {
-              gmNames = ['未定']
-            }
-            
-            let candidatesToShow = request.candidate_datetimes.candidates
-            
-            if (request.status === 'confirmed') {
-              const confirmedCandidates = candidatesToShow.filter((c: CandidateDateTime) => c.status === 'confirmed')
-              if (confirmedCandidates.length > 0) {
-                candidatesToShow = confirmedCandidates.slice(0, 1)
-              } else {
-                candidatesToShow = candidatesToShow.slice(0, 1)
-              }
-            }
-            
-            candidatesToShow.forEach((candidate: CandidateDateTime) => {
-              const candidateDate = new Date(candidate.date)
-              const candidateMonth = candidateDate.getMonth() + 1
-              const candidateYear = candidateDate.getFullYear()
-              
-              if (candidateYear === year && candidateMonth === month) {
-                const confirmedStoreId = request.candidate_datetimes?.confirmedStore?.storeId || request.store_id
-                const venueId = (request.status === 'confirmed' || request.status === 'gm_confirmed') && confirmedStoreId 
-                  ? confirmedStoreId 
-                  : ''
-                
-                const privateScenarioTitle2 = request.scenario_masters?.title || request.title
-                const orgPrivateScenarioInfo2 = findScenario2(privateScenarioTitle2)
-                const privateMaxParticipants2 = orgPrivateScenarioInfo2?.player_count_max || request.scenario_masters?.player_count_max || 8
-                
-                const privateEvent: ScheduleEvent = {
-                  id: `${request.id}-${candidate.order}`,
-                  date: candidate.date,
-                  venue: venueId,
-                  scenario: privateScenarioTitle2,
-                  gms: gmNames,
-                  start_time: candidate.startTime || '',
-                  end_time: candidate.endTime || '',
-                  category: 'private',
-                  is_cancelled: false,
-                  current_participants: request.participant_count || 0,
-                  max_participants: privateMaxParticipants2,
-                  notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】`,
-                  is_reservation_enabled: true,
-                  is_private_request: true,
-                  reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
-                  reservation_id: request.id,
-                  reservation_name: request.display_customer_name || (request as any).customers?.nickname || request.customer_name || '', // ニックネーム優先
-                  original_customer_name: request.customer_name || '', // MMQからの元の予約者名
-                  is_reservation_name_overwritten: !!request.display_customer_name // 手動上書きフラグ
-                }
-                
-                privateEvents.push(privateEvent)
-              }
-            })
-          }
-        })
-      }
-      
-      // 満席の公演にデモ参加者を追加（パフォーマンス改善のため無効化）
-      // const eventsWithDemoParticipants = await addDemoParticipantsToFullEvents([...formattedEvents, ...privateEvents])
-      
-      // schedule_events に既に保存されている reservation_id を収集（重複防止）
-      const existingReservationIds = new Set(
-        formattedEvents
-          .filter(e => e.reservation_id)
-          .map(e => e.reservation_id)
-      )
-      
-      logger.log('🔍 重複チェック (fetchSchedule):', {
-        formattedEventsCount: formattedEvents.length,
-        privateEventsCount: privateEvents.length,
-        existingReservationIds: Array.from(existingReservationIds),
-        privateEventIds: privateEvents.map(pe => pe.reservation_id)
-      })
-      
-      // reservations から生成されたイベントのうち、既に schedule_events に存在するものを除外
-      const filteredPrivateEvents = privateEvents.filter(
-        pe => !existingReservationIds.has(pe.reservation_id)
-      )
-      
-      setEvents([...formattedEvents, ...filteredPrivateEvents] as ScheduleEvent[])
-      logger.log(`✅ fetchSchedule: ${formattedEvents.length + filteredPrivateEvents.length}件のイベントを取得（${privateEvents.length - filteredPrivateEvents.length}件重複除外）`)
-    } catch (err) {
-      logger.error('スケジュールデータの再取得エラー:', err)
-      setError('スケジュールデータの再取得に失敗しました')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [currentDate, staff])
+    invalidateScheduleMonth(queryClient, year, month)
+  }, [queryClient, year, month])
 
   // リアルタイム購読（複数ユーザー対応）
   // デバウンス用のタイマーref（バッチ更新時の大量通知を防ぐ）
@@ -1341,22 +706,22 @@ export function useScheduleData(currentDate: Date) {
   const pendingFetchRef = useRef(false)
   
   useEffect(() => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth() + 1
-    const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
-    const monthEnd = `${year}-${String(month).padStart(2, '0')}-31`
-    
+    const yearLocal = currentDate.getFullYear()
+    const monthLocal = currentDate.getMonth() + 1
+    const monthStart = `${yearLocal}-${String(monthLocal).padStart(2, '0')}-01`
+    const monthEnd = `${yearLocal}-${String(monthLocal).padStart(2, '0')}-31`
+
     // デバウンス付きfetchSchedule（500ms以内の連続イベントをまとめる）
     const debouncedFetchSchedule = () => {
       pendingFetchRef.current = true
       if (realtimeDebounceRef.current) {
         clearTimeout(realtimeDebounceRef.current)
       }
-      realtimeDebounceRef.current = setTimeout(async () => {
+      realtimeDebounceRef.current = setTimeout(() => {
         if (pendingFetchRef.current) {
           logger.log('🔄 Realtime: デバウンス後にデータ再取得')
           pendingFetchRef.current = false
-          await fetchSchedule()
+          invalidateScheduleMonth(queryClient, yearLocal, monthLocal)
         }
       }, 500)
     }
@@ -1433,7 +798,7 @@ export function useScheduleData(currentDate: Date) {
       supabase.removeChannel(reservationsChannel)
       logger.log('🔌 Realtime: 購読解除')
     }
-  }, [currentDate, fetchSchedule]) // currentDate が変わったら再購読（scenariosは参照で取得）
+  }, [currentDate, queryClient]) // currentDate が変わったら再購読（scenariosは参照で取得）
 
   return {
     events,
@@ -1442,6 +807,7 @@ export function useScheduleData(currentDate: Date) {
     scenarios,
     staff,
     isLoading,
+    isFetching,
     error,
     storesLoading,
     scenariosLoading,
