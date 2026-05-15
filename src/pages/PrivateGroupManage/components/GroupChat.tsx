@@ -1454,17 +1454,10 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                   <p className="text-sm">メンバー情報を読み込み中...</p>
                 </div>
-              ) : !scenarioId || !organizationId ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <AlertCircle className="w-6 h-6 mx-auto mb-2 text-amber-500" />
-                  <p className="text-sm">アンケート情報を取得できませんでした</p>
-                </div>
               ) : (
                 <SurveyResponseForm
                   groupId={groupId}
                   memberId={currentMemberId}
-                  scenarioId={scenarioId}
-                  organizationId={organizationId}
                   performanceDate={performanceDate}
                 />
               )}

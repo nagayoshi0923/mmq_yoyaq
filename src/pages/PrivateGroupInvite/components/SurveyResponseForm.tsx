@@ -16,8 +16,6 @@ import type { SurveyQuestion } from '@/types'
 interface SurveyResponseFormProps {
   groupId: string
   memberId: string
-  scenarioId: string
-  organizationId: string
   performanceDate?: string
   characters?: Array<{ id: string; name: string; gender?: string }>
   hideCharacterSelection?: boolean
@@ -30,8 +28,6 @@ interface FormResponse {
 export function SurveyResponseForm({
   groupId,
   memberId,
-  scenarioId,
-  organizationId,
   performanceDate,
   characters = [],
   hideCharacterSelection = false,
@@ -48,116 +44,67 @@ export function SurveyResponseForm({
 
   useEffect(() => {
     const loadSurveyData = async () => {
-      logger.log('📋 SurveyForm: loading', { groupId, memberId, scenarioId, organizationId })
-      
-      if (!scenarioId || !organizationId) {
-        logger.log('📋 SurveyForm: missing scenarioId or organizationId', { 
-          scenarioId, 
-          organizationId,
-          groupId,
-          memberId 
-        })
-        setSurveyStatus('not_found')
-        setLoading(false)
-        return
-      }
+      logger.log('📋 SurveyForm: loading', { groupId, memberId })
 
       try {
-        // organization_scenariosからorg_scenario_idとdeadline_days、キャラクター情報を取得
-        // まずscenario_master_idで検索
-        let { data: orgScenario } = await supabase
-          .from('organization_scenarios')
-          .select('id, survey_enabled, survey_deadline_days, characters')
-          .eq('scenario_master_id', scenarioId)
-          .eq('organization_id', organizationId)
-          .maybeSingle()
+        const { data, error } = await supabase.rpc('get_survey_data_for_member', {
+          p_group_id: groupId,
+          p_member_id: memberId,
+        })
 
-        logger.log('📋 SurveyForm: first query result', { orgScenario, scenarioId, organizationId })
+        logger.log('📋 SurveyForm: rpc result', { data, error })
 
-        // 見つからなければidで検索（scenarioIdがorganization_scenario.idの場合）
-        if (!orgScenario) {
-          const { data: orgScenarioById, error: byIdError } = await supabase
-            .from('organization_scenarios')
-            .select('id, survey_enabled, survey_deadline_days, characters')
-            .eq('id', scenarioId)
-            .maybeSingle()
-          orgScenario = orgScenarioById
-          logger.log('📋 SurveyForm: second query result (by id)', { orgScenarioById, byIdError })
-        }
-        
-        logger.log('📋 SurveyForm: final orgScenario', { orgScenario, scenarioId })
-
-        if (!orgScenario) {
-          logger.log('📋 SurveyForm: orgScenario not found', { scenarioId, organizationId })
+        if (error) {
+          logger.error('📋 SurveyForm: rpc error', error)
           setSurveyStatus('not_found')
           setLoading(false)
           return
         }
-        
-        if (!orgScenario.survey_enabled) {
-          logger.log('📋 SurveyForm: survey not enabled', { orgScenarioId: orgScenario.id, survey_enabled: orgScenario.survey_enabled })
+
+        if (!data || data.error) {
+          logger.log('📋 SurveyForm: not found', { data })
+          setSurveyStatus('not_found')
+          setLoading(false)
+          return
+        }
+
+        if (!data.survey_enabled) {
+          logger.log('📋 SurveyForm: survey disabled')
           setSurveyStatus('disabled')
           setLoading(false)
           return
         }
 
         // 期限を計算
-        if (performanceDate && orgScenario.survey_deadline_days !== undefined) {
+        if (performanceDate && data.survey_deadline_days != null) {
           const perfDate = new Date(performanceDate + 'T00:00:00+09:00')
-          perfDate.setDate(perfDate.getDate() - orgScenario.survey_deadline_days)
+          perfDate.setDate(perfDate.getDate() - data.survey_deadline_days)
           perfDate.setHours(23, 59, 59, 999)
           setDeadlineDate(perfDate)
         } else {
           setDeadlineDate(null)
         }
 
-        // キャラクター情報を設定（propsより優先）
-        // NPCは希望キャラクター選択から除外
-        if (orgScenario.characters && Array.isArray(orgScenario.characters)) {
-          const charData = orgScenario.characters
-            .filter((c: any) => !c.is_npc)  // NPCを除外
-            .map((c: any) => ({
-              id: c.id,
-              name: c.name,
-              gender: c.gender,
-            }))
-          // 外部から渡されたcharactersが空の場合のみ上書き
-          if (characters.length === 0) {
-            setLocalCharacters(charData)
-          }
+        // キャラクター情報を設定（NPCを除外、propsが空の場合のみ上書き）
+        if (Array.isArray(data.characters) && characters.length === 0) {
+          const charData = data.characters
+            .filter((c: any) => !c.is_npc)
+            .map((c: any) => ({ id: c.id, name: c.name, gender: c.gender }))
+          setLocalCharacters(charData)
         }
 
-        // 質問を取得
-        const { data: questionsData, error: questionsError } = await supabase
-          .from('org_scenario_survey_questions')
-          .select(
-            'id, org_scenario_id, question_text, question_type, options, is_required, order_num, created_at, updated_at'
-          )
-          .eq('org_scenario_id', orgScenario.id)
-          .order('order_num', { ascending: true })
-
-        logger.log('📋 SurveyForm: questions', { questionsData, questionsError, orgScenarioId: orgScenario.id })
-
-        if (questionsData && questionsData.length > 0) {
+        const questionsData: SurveyQuestion[] = Array.isArray(data.questions) ? data.questions : []
+        if (questionsData.length > 0) {
           setQuestions(questionsData)
           setSurveyStatus('ready')
         } else {
           setSurveyStatus('no_questions')
         }
 
-        // 既存の回答を取得
-        const { data: existingResponse, error: existingError } = await supabase
-          .from('private_group_survey_responses')
-          .select('id, responses')
-          .eq('group_id', groupId)
-          .eq('member_id', memberId)
-          .maybeSingle()
-
-        logger.log('📋 SurveyForm: existing response', { existingResponse, existingError, groupId, memberId })
-
-        if (existingResponse) {
-          setExistingResponseId(existingResponse.id)
-          setResponses(existingResponse.responses || {})
+        // 既存の回答を設定
+        if (data.existing_response_id) {
+          setExistingResponseId(data.existing_response_id)
+          setResponses(data.existing_responses || {})
           setSubmitted(true)
         }
       } catch (err) {
@@ -169,7 +116,7 @@ export function SurveyResponseForm({
     }
 
     loadSurveyData()
-  }, [groupId, memberId, scenarioId, organizationId, performanceDate])
+  }, [groupId, memberId, performanceDate])
 
   const handleTextChange = useCallback((questionId: string, value: string) => {
     setResponses(prev => ({ ...prev, [questionId]: value }))
@@ -202,38 +149,20 @@ export function SurveyResponseForm({
 
     setSubmitting(true)
     try {
-      const responsesToSave = responses
+      const { data: responseId, error } = await supabase.rpc('upsert_survey_response_for_member', {
+        p_group_id: groupId,
+        p_member_id: memberId,
+        p_responses: responses,
+      })
 
-      if (existingResponseId) {
-        // 更新
-        const { error } = await supabase
-          .from('private_group_survey_responses')
-          .update({ responses: responsesToSave, updated_at: new Date().toISOString() })
-          .eq('id', existingResponseId)
-
-        if (error) throw error
-        toast.success('回答を更新しました')
-      } else {
-        // 新規作成
-        logger.log('📋 SurveyForm: saving new response', { groupId, memberId, responses })
-        const { data, error } = await supabase
-          .from('private_group_survey_responses')
-          .insert({
-            group_id: groupId,
-            member_id: memberId,
-            responses: responsesToSave,
-          })
-          .select('id')
-          .single()
-
-        if (error) {
-          logger.error('📋 SurveyForm: insert error', error)
-          throw error
-        }
-        logger.log('📋 SurveyForm: saved with id', data.id)
-        setExistingResponseId(data.id)
-        toast.success('回答を送信しました')
+      if (error) {
+        logger.error('📋 SurveyForm: upsert error', error)
+        throw error
       }
+
+      logger.log('📋 SurveyForm: saved with id', responseId)
+      setExistingResponseId(responseId)
+      toast.success(existingResponseId ? '回答を更新しました' : '回答を送信しました')
       setSubmitted(true)
     } catch (err) {
       logger.error('アンケート送信エラー:', err)
