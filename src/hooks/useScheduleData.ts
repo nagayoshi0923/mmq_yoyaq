@@ -253,106 +253,6 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
   }
 }
 
-// 満席の公演にデモ参加者を追加する関数（既存）
-async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise<ScheduleEvent[]> {
-  const eventsWithDemoParticipants = [...events]
-  
-  // 組織IDを取得（マルチテナント対応）
-  const orgId = await getCurrentOrganizationId()
-  
-  for (const event of events) {
-    // 満席判定（参加者数が最大参加者数以上）
-    if ((event.current_participants || 0) >= (event.max_participants || 0)) {
-      try {
-        // このイベントの予約データを取得（組織でフィルタ）
-        let reservationQuery = supabase
-          .from('reservations')
-          .select('participant_names')
-          .eq('schedule_event_id', event.id)
-          .in('status', ['confirmed', 'pending'])
-        
-        if (orgId) {
-          reservationQuery = reservationQuery.eq('organization_id', orgId)
-        }
-        
-        const { data: reservations, error: reservationError } = await reservationQuery
-        
-        if (reservationError) {
-          logger.error('予約データの取得に失敗:', reservationError)
-          continue
-        }
-        
-        // デモ参加者が既に存在するかチェック
-        const hasDemoParticipant = reservations?.some(r => 
-          r.participant_names?.includes('デモ参加者') || 
-          r.participant_names?.some((name: string) => name.includes('デモ'))
-        )
-        
-        if (!hasDemoParticipant) {
-          // シナリオ情報を取得（組織固有設定: organization_scenarios_with_master）
-          let scenarioQuery = supabase
-            .from('organization_scenarios_with_master')
-            .select('id, title, duration, participation_fee, gm_test_participation_fee')
-            .eq('title', event.scenario)
-          
-          if (orgId) {
-            scenarioQuery = scenarioQuery.eq('organization_id', orgId)
-          }
-          
-          const { data: scenario, error: scenarioError } = await scenarioQuery.single()
-          
-          if (scenarioError) {
-            logger.error('シナリオ情報の取得に失敗:', scenarioError)
-            continue
-          }
-          
-          // デモ参加者の参加費を計算
-          const isGmTest = event.category === 'gmtest'
-          const participationFee = isGmTest 
-            ? (scenario?.gm_test_participation_fee || scenario?.participation_fee || 0)
-            : (scenario?.participation_fee || 0)
-          
-          // デモ参加者の予約を作成
-          const demoReservation = {
-            schedule_event_id: event.id,
-            title: event.scenario || '',
-            scenario_master_id: scenario?.id || null,
-            store_id: event.venue || null,
-            customer_id: null,
-            customer_notes: 'デモ参加者',
-            requested_datetime: `${event.date}T${event.start_time}+09:00`,
-            duration: scenario?.duration || 120,
-            participant_count: 1,
-            participant_names: ['デモ参加者'],
-            assigned_staff: event.gms || [],
-            base_price: participationFee,
-            options_price: 0,
-            total_price: participationFee,
-            discount_amount: 0,
-            final_price: participationFee,
-            payment_method: 'onsite',
-            payment_status: 'paid',
-            status: 'confirmed',
-            reservation_source: RESERVATION_SOURCE.DEMO,
-            organization_id: event.organization_id // マルチテナント対応
-          }
-          
-          // デモ参加者の予約を作成
-          await supabase
-            .from('reservations')
-            .insert(demoReservation)
-          
-          logger.log('デモ参加者の予約を作成しました:', event.id)
-        }
-      } catch (error) {
-        logger.error('デモ参加者の追加に失敗:', error)
-      }
-    }
-  }
-  
-  return eventsWithDemoParticipants
-}
-
 /** スタッフ×担当シナリオ取得の同時リクエスト数（大量並列でブラウザ／DBが詰まるのを防ぐ） */
 const STAFF_ASSIGNMENT_CHUNK = 8
 
@@ -379,67 +279,6 @@ interface Scenario {
   id: string
   title: string
   player_count_max?: number
-}
-
-// Supabaseから取得したイベントデータの型
-interface RawEventData {
-  id: string
-  date: string
-  store_id: string
-  scenario?: string
-  scenarios?: { id: string; title: string; player_count_max?: number } | { id: string; title: string; player_count_max?: number }[] | null
-  scenario_masters?: { id: string; title: string; player_count_max?: number } | { id: string; title: string; player_count_max?: number }[] | null
-  gms: string[]
-  gm_roles?: Record<string, string> // 追加
-  start_time: string
-  end_time: string
-  category: string
-  is_cancelled: boolean
-  is_tentative?: boolean // 仮状態（非公開）
-  current_participants?: number
-  capacity: number
-  notes?: string
-  is_reservation_enabled: boolean
-  time_slot?: string // 時間帯（朝/昼/夜）
-  reservation_name?: string // 貸切予約の予約者名
-  reservation_id?: string // 貸切リクエストのID（重複防止用）
-  is_reservation_name_overwritten?: boolean // 予約者名が手動上書きされたか
-}
-
-// 貸切リクエストの候補
-interface CandidateDateTime {
-  date: string
-  startTime?: string
-  endTime?: string
-  order: number
-  status?: 'confirmed' | 'pending'
-  confirmedStore?: string
-}
-
-// GM応答データ
-interface GMAvailabilityResponse {
-  response_status: 'available' | 'unavailable'
-  staff?: { name: string }
-}
-
-// 貸切リクエストデータ
-interface PrivateRequestData {
-  id: string
-  title: string
-  status: string
-  store_id: string
-  gm_staff?: string
-  participant_count: number
-  customer_name?: string
-  display_customer_name?: string // 編集された予約者名
-  candidate_datetimes?: {
-    candidates: CandidateDateTime[]
-    confirmedStore?: {
-      storeId: string
-      storeName?: string
-    }
-  }
-  scenario_masters?: { title: string; player_count_max: number }
 }
 
 function readInitialScheduleScenariosFromSession(): Scenario[] {
@@ -469,21 +308,28 @@ export function useScheduleData(currentDate: Date) {
   const { data: events = [], isLoading, isFetching, error: queryError } = useScheduleEventsQuery(currentDate)
   const error = queryError ? String(queryError) : null
 
-  // 現在の月が表示されたら前月・次月を先読み（月切り替え時の即表示）
+  // スケジュール閲覧中、ブラウザがアイドルになったら前後3ヶ月を先読み
+  // requestIdleCallback で UI への影響ゼロ
   useEffect(() => {
-    const prevDate = new Date(year, month - 2, 1) // month は 1始まりなので -2 で前月
-    const nextDate = new Date(year, month, 1)     // month は 1始まりなので +0 で次月
-    const pairs = [
-      [prevDate.getFullYear(), prevDate.getMonth() + 1],
-      [nextDate.getFullYear(), nextDate.getMonth() + 1],
-    ] as const
-    for (const [y, m] of pairs) {
-      queryClient.prefetchQuery({
-        queryKey: scheduleEventKeys.month(y, m),
-        queryFn: () => fetchScheduleEventsForMonth(y, m),
-        staleTime: Infinity,
-      })
+    const run = () => {
+      for (let i = -3; i <= 3; i++) {
+        if (i === 0) continue // 当月は useScheduleEventsQuery が担当
+        const d = new Date(year, month - 1 + i, 1)
+        const y = d.getFullYear()
+        const m = d.getMonth() + 1
+        queryClient.prefetchQuery({
+          queryKey: scheduleEventKeys.month(y, m),
+          queryFn: () => fetchScheduleEventsForMonth(y, m),
+          staleTime: Infinity,
+        })
+      }
     }
+    if (typeof requestIdleCallback !== 'undefined') {
+      const id = requestIdleCallback(run, { timeout: 5000 })
+      return () => cancelIdleCallback(id)
+    }
+    const id = setTimeout(run, 2000)
+    return () => clearTimeout(id)
   }, [year, month, queryClient])
 
   // 店舗・シナリオ・スタッフのデータ（キャッシュから初期化して即座に表示）
