@@ -199,7 +199,7 @@ export function createStaffColumns(
         const mainLineIds = sortByPlayerCount(allScenarios.filter((id) => modes?.[id] !== 'sub_only'))
 
         const badgeRow = (scenarioIds: string[]) => (
-          <div className="flex flex-wrap gap-0.5">
+          <div className="flex flex-wrap gap-0.5 min-w-0 overflow-hidden">
             {scenarioIds.map((scenarioId) => {
               const mode = modes?.[scenarioId]
               const count = playerCountLabel(scenarioId)
@@ -230,7 +230,7 @@ export function createStaffColumns(
         return (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="cursor-default max-h-[4.5rem] overflow-hidden flex flex-col gap-1 min-w-0">
+              <div className="cursor-default max-h-[4.5rem] overflow-hidden flex flex-col gap-1 min-w-0 w-full">
                 {mainLineIds.length > 0 ? badgeRow(mainLineIds) : null}
                 {subOnlyIds.length > 0 ? (
                   <div
