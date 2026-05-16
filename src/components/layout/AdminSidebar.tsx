@@ -5,7 +5,7 @@
  * - モバイルはハンバーガー → ドロワー
  * - ロールベースでメニューをフィルタリング
  */
-import { useState, useMemo, useCallback, useEffect, memo } from 'react'
+import { useState, useLayoutEffect, useRef, useMemo, useCallback, useEffect, memo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
@@ -362,7 +362,14 @@ function GroupPanel({
   userRole: string
   isLicAdmin: boolean
 }) {
-  const [animate, setAnimate] = useState(!!group.label)
+  const [animate, setAnimate] = useState(false)
+  const prevIsOpenRef = useRef(false)
+
+  // isOpen が false→true になった瞬間だけ animate=true にする
+  useLayoutEffect(() => {
+    if (isOpen && !prevIsOpenRef.current && group.label) setAnimate(true)
+    prevIsOpenRef.current = isOpen
+  })
 
   if (!isOpen) return null
 
