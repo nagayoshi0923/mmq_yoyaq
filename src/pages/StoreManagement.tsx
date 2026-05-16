@@ -22,6 +22,7 @@ import {
   DoorOpen
 } from 'lucide-react'
 import { devDb } from '@/components/ui/DevField'
+import { useOrganization } from '@/hooks/useOrganization'
 
 
 export function StoreManagement() {
@@ -33,6 +34,7 @@ export function StoreManagement() {
 
   // スクロール位置の保存と復元（汎用フックを使用）
   useReportRouteScrollRestoration('store-management', { isLoading: loading })
+  const { organization } = useOrganization()
 
   useEffect(() => {
     loadStores()
@@ -160,7 +162,9 @@ export function StoreManagement() {
             title={
               <div className="flex items-center gap-2">
                 <StoreIcon className="h-5 w-5 text-primary" />
-                <span className="text-lg font-bold">店舗管理</span>
+                <span className="text-lg font-bold">
+                  {organization?.name ? `${organization.name}の店舗管理` : '店舗管理'}
+                </span>
               </div>
             }
             description={`Queens Waltz 全${stores.length}店舗の管理`}
