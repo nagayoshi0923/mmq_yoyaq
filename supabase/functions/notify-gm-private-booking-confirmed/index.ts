@@ -3,7 +3,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getDiscordSettings, getEmailSettings } from '../_shared/organization-settings.ts'
-import { errorResponse, getCorsHeaders, getServiceRoleKey, verifyAuth } from '../_shared/security.ts'
+import { errorResponse, getCorsHeaders, getServiceRoleKey, verifyAuth, sanitizeErrorMessage } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
@@ -366,6 +367,16 @@ ${data.gmName} さん
 このメールは貸切予約確定時にGMへ自動送信されています
           `
 
+          const gmEmailSubject = `【GM担当確定】${data.scenarioTitle} - ${formattedDate}`
+          const gmEmailLogId = await insertEmailLog(supabase, {
+            organization_id: data.organizationId ?? null,
+            email_type:      'gm_notification',
+            to_email:        data.gmEmail,
+            to_name:         data.gmName ?? null,
+            subject:         gmEmailSubject,
+            status:          'queued',
+          })
+
           const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -375,17 +386,27 @@ ${data.gmName} さん
             body: JSON.stringify({
               from: `${senderName} <${senderEmail}>`,
               to: [data.gmEmail],
-              subject: `【GM担当確定】${data.scenarioTitle} - ${formattedDate}`,
+              subject: gmEmailSubject,
               html: emailHtml,
               text: emailText,
             }),
           })
 
           if (response.ok) {
+            const gmEmailResult = await response.json()
             console.log('✅ メール通知送信成功:', data.gmEmail)
+            await updateEmailLog(supabase, gmEmailLogId, {
+              status: 'sent',
+              provider_message_id: gmEmailResult?.id ?? null,
+              sent_at: new Date().toISOString(),
+            })
           } else {
             const errorText = await response.text()
             console.error('❌ メール通知送信失敗:', errorText)
+            await updateEmailLog(supabase, gmEmailLogId, {
+              status: 'failed',
+              error_message: sanitizeErrorMessage(errorText),
+            })
           }
         }
       } catch (emailError) {

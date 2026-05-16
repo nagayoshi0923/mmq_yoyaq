@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
 import { getCorsHeaders, verifyAuth, errorResponse, maskEmail, sanitizeErrorMessage, getServiceRoleKey } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface EmailRequest {
   organizationId?: string  // マルチテナント対応
@@ -104,6 +105,15 @@ serve(async (req) => {
       requestedBy: maskEmail(authResult.user?.email || ''),
     })
 
+    // email_logs に送信前エントリを作成（失敗してもメール送信は続行）
+    const emailLogId = await insertEmailLog(serviceClient, {
+      organization_id: organizationId ?? null,
+      email_type: 'other',
+      to_email: recipients[0],
+      subject,
+      status: 'queued',
+    })
+
     // Resend APIを使ってメール送信
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -122,6 +132,10 @@ serve(async (req) => {
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
       console.error('Resend API error:', errorData)
+      await updateEmailLog(serviceClient, emailLogId, {
+        status: 'failed',
+        error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+      })
       throw new Error(`メール送信に失敗しました: ${JSON.stringify(errorData)}`)
     }
 
@@ -129,6 +143,11 @@ serve(async (req) => {
     console.log('✅ Email sent successfully via Resend:', {
       messageId: result.id,
       recipients: recipients.length,
+    })
+    await updateEmailLog(serviceClient, emailLogId, {
+      status: 'sent',
+      provider_message_id: result.id,
+      sent_at: new Date().toISOString(),
     })
 
     return new Response(

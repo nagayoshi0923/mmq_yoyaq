@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
 import { getServiceRoleKey, getCorsHeaders, maskEmail, sanitizeErrorMessage, verifyAuth, errorResponse } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface AuthorReportRequest {
   organizationId?: string  // マルチテナント対応
@@ -152,6 +153,17 @@ MMQ
 このメールは自動送信されています
 ご不明な点がございましたら、お気軽にお問い合わせください`
 
+    const emailSubject = `【${year}年${month}月】ライセンス料レポート - ${authorName}`
+
+    const emailLogId = await insertEmailLog(supabaseAdmin, {
+      organization_id: organizationId ?? null,
+      email_type:      'license_report',
+      to_email:        to,
+      to_name:         authorName ?? null,
+      subject:         emailSubject,
+      status:          'queued',
+    })
+
     // Resend APIを使ってプレーンテキストメール送信
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -165,7 +177,7 @@ MMQ
         to: [to],
         // 自社メールアドレスに送信確認コピーを送る
         ...(replyToEmail ? { bcc: [replyToEmail] } : {}),
-        subject: `【${year}年${month}月】ライセンス料レポート - ${authorName}`,
+        subject: emailSubject,
         text: customTextBody || emailText,
       }),
     })
@@ -173,10 +185,19 @@ MMQ
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
       console.error('Resend API error:', errorData)
+      await updateEmailLog(supabaseAdmin, emailLogId, {
+        status: 'failed',
+        error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+      })
       throw new Error(`メール送信に失敗しました: ${JSON.stringify(errorData)}`)
     }
 
     const result = await resendResponse.json()
+    await updateEmailLog(supabaseAdmin, emailLogId, {
+      status: 'sent',
+      provider_message_id: result.id,
+      sent_at: new Date().toISOString(),
+    })
     console.log('Author report email sent successfully:', {
       messageId: result.id,
       to: to,

@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface BookingConfirmationRequest {
   reservationId: string
@@ -379,11 +380,24 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       finalText = emailText
     }
 
+    const emailSubject = `【予約完了】${bookingData.scenarioTitle} - ${formatDate(bookingData.eventDate)}${companyName ? ` | ${companyName}` : ''}`
+
+    // email_logs に送信前エントリを作成
+    const emailLogId = await insertEmailLog(serviceClient, {
+      organization_id: resolvedOrganizationId ?? null,
+      reservation_id:  bookingData.reservationId,
+      email_type:      'reservation_confirmed',
+      to_email:        bookingData.customerEmail,
+      to_name:         bookingData.customerName ?? null,
+      subject:         emailSubject,
+      status:          'queued',
+    })
+
     // Resend APIを使ってメール送信
     const emailPayload: Record<string, unknown> = {
       from: `${companyName} <${senderEmail}>`,
       to: [bookingData.customerEmail],
-      subject: `【予約完了】${bookingData.scenarioTitle} - ${formatDate(bookingData.eventDate)}${companyName ? ` | ${companyName}` : ''}`,
+      subject: emailSubject,
       html: finalHtml,
       text: finalText,
     }
@@ -404,6 +418,10 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
       console.error('Resend API error:', errorData)
+      await updateEmailLog(serviceClient, emailLogId, {
+        status: 'failed',
+        error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+      })
       // キューがあれば pending に戻してリトライできるようにする
       if (resolvedOrganizationId) {
         try {
@@ -425,6 +443,11 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
 
     const result = await resendResponse.json()
     console.log('✅ Email sent successfully to:', maskEmail(bookingData.customerEmail))
+    await updateEmailLog(serviceClient, emailLogId, {
+      status: 'sent',
+      provider_message_id: result.id,
+      sent_at: new Date().toISOString(),
+    })
 
     // キューを completed に更新（以後の二重送信を防ぐ）
     if (resolvedOrganizationId) {

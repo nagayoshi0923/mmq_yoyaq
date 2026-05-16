@@ -42,6 +42,7 @@ import { StaffSettings } from './pages/StaffSettings'
 import { SystemSettings } from './pages/SystemSettings'
 import { EmailSettings } from './pages/EmailSettings'
 import { EmailDeliveryHistorySettings } from './pages/EmailDeliveryHistorySettings'
+import { EmailLogsSettings } from './pages/EmailLogsSettings'
 import { CustomerSettings } from './pages/CustomerSettings'
 import { DataManagementSettings } from './pages/DataManagementSettings'
 import { BookingNoticeSettings } from './pages/BookingNoticeSettings'
@@ -75,6 +76,7 @@ const BASE_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'staff', label: 'スタッフ設定', icon: UserCog, description: 'スタッフ管理' },
   { id: 'email', label: 'メール設定', icon: Mail, description: 'メールテンプレート' },
   { id: 'email-history', label: 'メール配信履歴', icon: Mail, description: '配信先・ステータスの確認' },
+  { id: 'email-logs', label: 'メール送信ログ', icon: Mail, description: 'アプリ長期保存ログ' },
   { id: 'notifications', label: '通知設定', icon: Bell, description: '通知の設定' },
   { id: 'booking-notice', label: '注意事項設定', icon: AlertCircle, description: '予約時の注意事項' },
   { id: 'categories', label: 'カテゴリ・作者管理', icon: Tags, description: 'カテゴリ・作者の管理' },
@@ -109,7 +111,7 @@ export function Settings() {
   }, [isLicenseManager])
 
   // 店舗セレクターを表示しないページ
-  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'tenant-management', 'general', 'salary', 'booking-notice', 'categories', 'email-history']
+  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'tenant-management', 'general', 'salary', 'booking-notice', 'categories', 'email-history', 'email-logs']
   const showStoreSelector = !noStoreSelectorPages.includes(activeTab)
 
   const renderContent = () => {
@@ -155,6 +157,8 @@ export function Settings() {
         return <EmailSettings storeId={storeId} />
       case 'email-history':
         return <EmailDeliveryHistorySettings />
+      case 'email-logs':
+        return <EmailLogsSettings />
       case 'customer':
         return <CustomerSettings storeId={storeId} />
       case 'data':

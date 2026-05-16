@@ -8,6 +8,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getEmailTemplates, getStoreEmailSettings } from '../_shared/organization-settings.ts'
 import { getCorsHeaders, errorResponse, sanitizeErrorMessage, getServiceRoleKey } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface WaitlistRegistrationRequest {
   organizationId: string
@@ -272,6 +273,17 @@ ${emailTemplates.footer}
       finalText = emailText
     }
 
+    const emailSubject = `【キャンセル待ち登録完了】${data.scenarioTitle} - ${formatDate(data.eventDate)}`
+
+    const emailLogId = await insertEmailLog(serviceClient, {
+      organization_id: data.organizationId ?? null,
+      email_type:      'waitlist_confirmed',
+      to_email:        data.customerEmail,
+      to_name:         data.customerName ?? null,
+      subject:         emailSubject,
+      status:          'queued',
+    })
+
     // Resend APIでメール送信
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -282,7 +294,7 @@ ${emailTemplates.footer}
       body: JSON.stringify({
         from: `${companyName} <${senderEmail}>`,
         to: [data.customerEmail],
-        subject: `【キャンセル待ち登録完了】${data.scenarioTitle} - ${formatDate(data.eventDate)}`,
+        subject: emailSubject,
         html: finalHtml,
         text: finalText,
         reply_to: companyEmail || replyToEmail || undefined,
@@ -292,11 +304,20 @@ ${emailTemplates.footer}
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
       console.error('Resend API error:', errorData)
+      await updateEmailLog(serviceClient, emailLogId, {
+        status: 'failed',
+        error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+      })
       throw new Error(`メール送信に失敗しました: ${JSON.stringify(errorData)}`)
     }
 
     const result = await resendResponse.json()
     console.log('✅ Waitlist registration email sent:', result.id)
+    await updateEmailLog(serviceClient, emailLogId, {
+      status: 'sent',
+      provider_message_id: result.id,
+      sent_at: new Date().toISOString(),
+    })
 
     return new Response(
       JSON.stringify({ 

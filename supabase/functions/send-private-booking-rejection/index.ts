@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface PrivateBookingRejectionRequest {
   organizationId?: string  // マルチテナント対応
@@ -253,6 +254,18 @@ MMQ
       console.log('📧 Using custom private_rejection_template')
     }
 
+    const emailSubject = `【貸切リクエスト】${rejectionData.scenarioTitle}のお申し込みについて`
+
+    const emailLogId = await insertEmailLog(serviceClient, {
+      organization_id: rejectionData.organizationId ?? null,
+      reservation_id:  rejectionData.reservationId ?? null,
+      email_type:      'reservation_cancelled',
+      to_email:        rejectionData.customerEmail,
+      to_name:         rejectionData.customerName ?? null,
+      subject:         emailSubject,
+      status:          'queued',
+    })
+
     // Resend APIを使ってメール送信
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -263,7 +276,7 @@ MMQ
       body: JSON.stringify({
         from: `${senderName} <${senderEmail}>`,
         to: [rejectionData.customerEmail],
-        subject: `【貸切リクエスト】${rejectionData.scenarioTitle}のお申し込みについて`,
+        subject: emailSubject,
         html: finalHtml,
         text: finalText,
       }),
@@ -272,17 +285,26 @@ MMQ
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
       console.error('Resend API error:', errorData)
+      await updateEmailLog(serviceClient, emailLogId, {
+        status: 'failed',
+        error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+      })
       throw new Error(`メール送信に失敗しました: ${JSON.stringify(errorData)}`)
     }
 
     const result = await resendResponse.json()
     console.log('Email sent successfully:', result)
+    await updateEmailLog(serviceClient, emailLogId, {
+      status: 'sent',
+      provider_message_id: result.id,
+      sent_at: new Date().toISOString(),
+    })
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: '貸切リクエスト却下メールを送信しました',
-        emailId: result.id 
+        emailId: result.id
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

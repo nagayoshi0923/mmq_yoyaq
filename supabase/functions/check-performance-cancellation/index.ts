@@ -10,6 +10,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall, maskEmail } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 import { getEmailSettings, getDiscordSettings, sendDiscordNotificationWithRetry, getStoreEmailSettings, replaceTemplateVariables } from '../_shared/organization-settings.ts'
 
 interface CheckRequest {
@@ -470,6 +471,15 @@ ${emailSettings.senderName}
     `
   }
 
+  const emailSubject = `【公演中止のお知らせ】${event.scenario} - ${event.date}`
+  const emailLogId = await insertEmailLog(supabase, {
+    organization_id: event.organization_id ?? null,
+    email_type:      'performance_cancellation',
+    to_email:        customerEmail,
+    subject:         emailSubject,
+    status:          'queued',
+  })
+
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -479,7 +489,7 @@ ${emailSettings.senderName}
     body: JSON.stringify({
       from: `${emailSettings.senderName} <${emailSettings.senderEmail}>`,
       to: [customerEmail],
-      subject: `【公演中止のお知らせ】${event.scenario} - ${event.date}`,
+      subject: emailSubject,
       html: finalHtml,
       text: finalText,
     }),
@@ -487,8 +497,19 @@ ${emailSettings.senderName}
 
   if (!response.ok) {
     const errorData = await response.json()
+    await updateEmailLog(supabase, emailLogId, {
+      status: 'failed',
+      error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+    })
     throw new Error(`Resend API error: ${JSON.stringify(errorData)}`)
   }
+
+  const resendResult = await response.json()
+  await updateEmailLog(supabase, emailLogId, {
+    status: 'sent',
+    provider_message_id: resendResult?.id ?? null,
+    sent_at: new Date().toISOString(),
+  })
 }
 
 /**
