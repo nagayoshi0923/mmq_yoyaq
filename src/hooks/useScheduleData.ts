@@ -308,13 +308,28 @@ export function useScheduleData(currentDate: Date) {
   const { data: events = [], isLoading, isFetching, error: queryError } = useScheduleEventsQuery(currentDate)
   const error = queryError ? String(queryError) : null
 
-  // スケジュール閲覧中、アイドル時に2段階でプリフェッチ
-  // 第1波（±3）: 通常の操作で使う範囲
-  // 第2波（±4〜6）: 余裕があれば拡張（初回ロードを重くしない）
+  // 月変化時に即座に ±3 をプリフェッチ
+  // キャッシュ済みの月は prefetchQuery が自動スキップするので実際にフェッチするのは未取得月のみ
+  // → 月移動を連続で行ってもidle待ちなしに隣接月が確保される
   useEffect(() => {
-    const prefetchRange = (from: number, to: number) => {
-      for (let i = from; i <= to; i++) {
-        if (i === 0) continue
+    for (let i = -3; i <= 3; i++) {
+      if (i === 0) continue
+      const d = new Date(year, month - 1 + i, 1)
+      const y = d.getFullYear()
+      const m = d.getMonth() + 1
+      queryClient.prefetchQuery({
+        queryKey: scheduleEventKeys.month(y, m),
+        queryFn: () => fetchScheduleEventsForMonth(y, m),
+        staleTime: Infinity,
+      })
+    }
+  }, [year, month, queryClient])
+
+  // idle 時に ±4〜6 まで拡張（余裕があれば先読み、なければスキップ）
+  useEffect(() => {
+    const prefetchFar = () => {
+      for (let i = -6; i <= 6; i++) {
+        if (Math.abs(i) <= 3 || i === 0) continue
         const d = new Date(year, month - 1 + i, 1)
         const y = d.getFullYear()
         const m = d.getMonth() + 1
@@ -326,19 +341,12 @@ export function useScheduleData(currentDate: Date) {
       }
     }
 
-    const ids: number[] = []
-    const timeouts: ReturnType<typeof setTimeout>[] = []
-
     if (typeof requestIdleCallback !== 'undefined') {
-      // timeout なし = 本当に暇なときだけ実行（強制実行しない）
-      ids.push(requestIdleCallback(() => prefetchRange(-3, 3)))
-      ids.push(requestIdleCallback(() => prefetchRange(-6, 6)))
-      return () => ids.forEach(id => cancelIdleCallback(id))
+      const id = requestIdleCallback(prefetchFar)
+      return () => cancelIdleCallback(id)
     }
-    // Safari フォールバック（requestIdleCallback 非対応）
-    timeouts.push(setTimeout(() => prefetchRange(-3, 3), 3000))
-    timeouts.push(setTimeout(() => prefetchRange(-6, 6), 8000))
-    return () => timeouts.forEach(id => clearTimeout(id))
+    const id = setTimeout(prefetchFar, 5000)
+    return () => clearTimeout(id)
   }, [year, month, queryClient])
 
   // 店舗・シナリオ・スタッフのデータ（キャッシュから初期化して即座に表示）
