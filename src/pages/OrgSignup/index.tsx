@@ -83,24 +83,9 @@ export default function OrgSignup() {
   })
 
   const [agreedToTerms, setAgreedToTerms] = useState(false)
-  // ユーザーが識別子を手動編集したかどうか（true なら組織名からの自動生成を止める）
-  const [slugEdited, setSlugEdited] = useState(false)
-
-  const generateSlug = (name: string) =>
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9぀-ゟ゠-ヿ一-龯]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 30)
 
   const handleOrgNameChange = (name: string) => {
-    setOrgData(prev => ({
-      ...prev,
-      name,
-      // 手動編集済みなら slug を維持、未編集なら組織名から随時生成
-      slug: slugEdited ? prev.slug : generateSlug(name),
-    }))
+    setOrgData(prev => ({ ...prev, name }))
   }
 
   const validateOrganization = (): boolean => {
@@ -369,10 +354,7 @@ export default function OrgSignup() {
                   id="org-slug"
                   name="org-identifier-field"
                   value={orgData.slug}
-                  onChange={e => {
-                    setSlugEdited(true)
-                    setOrgData(prev => ({ ...prev, slug: e.target.value.toLowerCase() }))
-                  }}
+                  onChange={e => setOrgData(prev => ({ ...prev, slug: e.target.value.toLowerCase() }))}
                   placeholder="例: sample-escape"
                   autoComplete="off"
                 />
