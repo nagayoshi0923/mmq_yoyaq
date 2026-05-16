@@ -59,7 +59,7 @@ type NavGroup = {
 // 管理サイトのパス判定用
 const ADMIN_PATH_SEGMENTS = [
   'dashboard', 'stores', 'staff', 'scenarios', 'schedule',
-  'shift-submission', 'gm-availability', 'private-booking-management',
+  'shift-submission', 'gm-availability', 'private-booking-management', 'private-booking-groups',
   'reservations', 'accounts', 'sales', 'settings', 'manual',
   'staff-profile', 'license-management', 'coupons', 'blog',
   'organizations', 'external-reports', 'scenario-masters',
@@ -126,14 +126,8 @@ export const AdminSidebar = memo(function AdminSidebar() {
         {
           id: 'private-booking-management', label: '貸切管理', icon: ClipboardCheck,
           path: `/${slug}/private-booking-management`, roles: ['admin', 'license_admin'],
-          subItems: [
-            { id: 'store_pending', label: '店舗承認待ち', path: `/${slug}/private-booking-management?tab=store_pending` },
-            { id: 'gm_pending',    label: 'GM確認中',     path: `/${slug}/private-booking-management?tab=gm_pending` },
-            { id: 'all',           label: 'すべて',       path: `/${slug}/private-booking-management?tab=all` },
-            { id: 'rejected',      label: '却下済み',     path: `/${slug}/private-booking-management?tab=rejected` },
-            { id: 'groups',        label: 'グループ一覧', path: `/${slug}/private-booking-management?tab=groups` },
-          ],
         },
+        { id: 'private-booking-groups', label: 'グループ一覧', icon: Users, path: `/${slug}/private-booking-groups`, roles: ['admin', 'license_admin'] },
         {
           id: 'accounts', label: 'アカウント', icon: UserCog,
           path: `/${slug}/accounts`, roles: ['admin', 'license_admin'],

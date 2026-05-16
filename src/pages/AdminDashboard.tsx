@@ -36,6 +36,7 @@ const GMAvailabilityCheck = lazyWithRetry(() => import('./GMAvailabilityCheck').
 const PrivateBookingScenarioSelect = lazyWithRetry(() => import('./PrivateBookingScenarioSelect').then(m => ({ default: m.PrivateBookingScenarioSelect })))
 const PrivateBookingRequestPage = lazyWithRetry(() => import('./PrivateBookingRequestPage').then(m => ({ default: m.PrivateBookingRequestPage })))
 const PrivateBookingManagement = lazyWithRetry(() => import('./PrivateBookingManagement').then(m => ({ default: m.PrivateBookingManagement })))
+const PrivateGroupListPage = lazyWithRetry(() => import('./PrivateBookingManagement/PrivateGroupListPage'))
 const AccountManagement = lazyWithRetry(() => import('./AccountManagement').then(m => ({ default: m.AccountManagement })))
 const CustomerManagement = lazyWithRetry(() => import('./CustomerManagement'))
 const UserManagement = lazyWithRetry(() => import('./UserManagement').then(m => ({ default: m.UserManagement })))
@@ -105,7 +106,7 @@ const GettingStartedPage = lazyWithRetry(() => import('./static').then(m => ({ d
 // 管理ページのパス一覧
 const ADMIN_PATHS = [
   'dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit',
-  'schedule', 'shift-submission', 'gm-availability', 'private-booking-management',
+  'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'private-booking-groups',
   'reservations', 'accounts', 'sales', 'settings', 'manual', 'add-demo-participants',
   'scenario-matcher', 'organizations', 'external-reports', 'license-reports', 'license-management',
   'customer-management', 'user-management', 'coupons', 'blog'
@@ -539,6 +540,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="貸切予約管理を読み込み中..." />}>
         <PrivateBookingManagement />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'private-booking-groups') {
+    return (
+      <Suspense fallback={<LoadingScreen message="グループ一覧を読み込み中..." />}>
+        <PrivateGroupListPage />
       </Suspense>
     )
   }

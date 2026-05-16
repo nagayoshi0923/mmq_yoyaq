@@ -27,7 +27,7 @@ import { CustomerInfo } from './components/CustomerInfo'
 import { CandidateDateSelector } from './components/CandidateDateSelector'
 import { ActionButtons } from './components/ActionButtons'
 import { SurveyResponsesView } from './components/SurveyResponsesView'
-import { PrivateGroupList } from './components/PrivateGroupList'
+
 
 // 分離されたフック
 import type { PrivateBookingRequest } from './hooks/usePrivateBookingData'
@@ -49,8 +49,8 @@ const normalizeTimeSlot = (timeSlot: string): string => {
   return timeSlot
 }
 
-type TabValue = 'gm_pending' | 'store_pending' | 'rejected' | 'all' | 'groups'
-const VALID_TABS: TabValue[] = ['gm_pending', 'store_pending', 'rejected', 'all', 'groups']
+type TabValue = 'gm_pending' | 'store_pending' | 'rejected' | 'all'
+const VALID_TABS: TabValue[] = ['gm_pending', 'store_pending', 'rejected', 'all']
 
 export function PrivateBookingManagement() {
   const { user } = useAuth()
@@ -501,18 +501,16 @@ export function PrivateBookingManagement() {
           description="貸切予約リクエストの承認・却下・店舗調整を行います"
         />
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'gm_pending' | 'store_pending' | 'rejected' | 'all' | 'groups')}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabValue)}>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
             <TabsList className="w-full sm:w-auto flex-wrap">
               <TabsTrigger value="gm_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">GM確認中 ({gmPendingRequests.length})</TabsTrigger>
               <TabsTrigger value="store_pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">店舗承認待ち ({storePendingRequests.length})</TabsTrigger>
               <TabsTrigger value="rejected" className="flex-1 sm:flex-initial text-xs sm:text-sm">却下済み ({rejectedRequests.length})</TabsTrigger>
               <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
-              <TabsTrigger value="groups" className="flex-1 sm:flex-initial text-xs sm:text-sm">グループ一覧</TabsTrigger>
             </TabsList>
-            
-            {activeTab !== 'groups' && (
-              <div className="w-full sm:w-auto flex justify-center sm:justify-end gap-2">
+
+            <div className="w-full sm:w-auto flex justify-center sm:justify-end gap-2">
                 <DateRangePopover
                   startDate={dateRangeStart}
                   endDate={dateRangeEnd}
@@ -534,18 +532,9 @@ export function PrivateBookingManagement() {
                   </SelectContent>
                 </Select>
               </div>
-            )}
           </div>
 
-          {/* グループ一覧タブ */}
-          {activeTab === 'groups' && (
-            <div className="mt-0">
-              <PrivateGroupList />
-            </div>
-          )}
-
           {/* 予約リクエストタブ */}
-          {activeTab !== 'groups' && (
           <div className="mt-0">
 
             {filteredRequests.length === 0 ? (
@@ -568,7 +557,6 @@ export function PrivateBookingManagement() {
               </div>
             )}
           </div>
-          )}
         </Tabs>
 
         {/* 選択されたリクエストの詳細モーダル */}
