@@ -395,16 +395,8 @@ function SidebarContent({
             </button>
           )}
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateRows: isGroupOpen(group) ? '1fr' : '0fr',
-              transition: 'grid-template-rows 300ms ease-out',
-            }}
-          >
-            {/* min-height:0 が必須 — これがないと 0fr まで縮まらない */}
-            <div style={{ minHeight: 0, overflow: 'hidden' }}>
-              <div className="space-y-0.5 px-2 pb-1">
+          {isGroupOpen(group) && (
+            <div className="sidebar-items-enter space-y-0.5 px-2 pb-1">
                 {group.items.map(item => {
                   const active = isActive(item)
                   const showSubs = active && item.subItems && item.subItems.length > 0
@@ -459,9 +451,8 @@ function SidebarContent({
                     </div>
                   )
                 })}
-              </div>
             </div>
-          </div>
+          )}
         </div>
       ))}
     </div>
