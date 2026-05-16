@@ -563,32 +563,34 @@ export function PrivateBookingManagement() {
                       }
                     }}
                     inlineApprovalContent={selectedRequest?.id === req.id ? (
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {/* アンケート */}
                         <SurveyResponsesView
                           reservationId={req.id}
                           scenarioId={req.scenario_master_id || ''}
                         />
 
-                        {/* 候補日選択 */}
+                        {/* 候補日選択 + 店舗・GMプルダウン（inline） */}
                         <CandidateDateSelector
                           candidates={req.candidate_datetimes?.candidates || []}
                           selectedCandidateOrder={selectedCandidateOrder}
-                          onSelectCandidate={setSelectedCandidateOrder}
+                          onSelectCandidate={order => {
+                            setSelectedCandidateOrder(order)
+                            setSelectedStoreId('')
+                            setSelectedGMId('')
+                            setSelectedSubGmId('')
+                          }}
                           selectedStoreId={selectedStoreId}
                           selectedGMId={selectedGMId}
+                          selectedSubGmId={selectedSubGmId}
+                          onSelectStore={setSelectedStoreId}
+                          onSelectGM={v => { setSelectedGMId(v); setSelectedSubGmId(p => p === v ? '' : p) }}
+                          onSelectSubGM={setSelectedSubGmId}
+                          gmSelectOptions={gmSelectOptions}
                           conflictInfo={conflictInfo}
-                          gmSelectedCandidates={(() => {
-                            if (!availableGMs.length) return undefined
-                            const r = selectedGMId
-                              ? availableGMs.find(r => String(r.gm_id) === String(selectedGMId))
-                              : availableGMs.find(r => isGmMarkedAvailable(r))
-                            const ac = r?.available_candidates
-                            return ac?.length ? ac.map((i: number) => i + 1) : undefined
-                          })()}
                           gmResponses={availableGMs}
-                          isReadOnly={false}
                           isConfirmed={req.status === 'confirmed'}
+                          requiredGmCount={req.required_gm_count ?? 1}
                           stores={(() => {
                             const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
                             return ids.length > 0
@@ -596,124 +598,6 @@ export function PrivateBookingManagement() {
                               : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
                           })()}
                         />
-
-                        {/* 店舗選択 */}
-                        <div>
-                          <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-purple-800">
-                            <MapPin className="w-4 h-4" />開催店舗の選択
-                          </h3>
-                          <div className="flex gap-2 mb-2 flex-wrap">
-                            <button type="button" onClick={() => setSelectedRegionFilter('all')}
-                              className={`px-2 py-1 text-xs rounded border transition-colors ${selectedRegionFilter === 'all' ? 'bg-purple-600 text-white border-purple-600' : 'bg-background border-gray-300 hover:border-purple-400'}`}>
-                              全て
-                            </button>
-                            {storesByRegion.sortedRegions.map(region => (
-                              <button key={region} type="button" onClick={() => setSelectedRegionFilter(region)}
-                                className={`px-2 py-1 text-xs rounded border transition-colors ${selectedRegionFilter === region ? 'bg-purple-600 text-white border-purple-600' : 'bg-background border-gray-300 hover:border-purple-400'}`}>
-                                {region} ({storesByRegion.grouped[region]?.length || 0})
-                              </button>
-                            ))}
-                          </div>
-                          <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                            <SelectTrigger className="w-full text-sm">
-                              <SelectValue placeholder="店舗を選択してください" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {regionFilteredStores.map(store => {
-                                const requestedStores = req.candidate_datetimes?.requestedStores || []
-                                const isRequested = requestedStores.length === 0 || requestedStores.some(rs => rs.storeId === store.id)
-                                let existingEventLabel = ''
-                                let isStoreDisabled = false
-                                if (selectedCandidateOrder && req.candidate_datetimes?.candidates) {
-                                  const sc = req.candidate_datetimes.candidates.find(c => c.order === selectedCandidateOrder)
-                                  if (sc) {
-                                    const key = `${store.id}-${sc.date}-${sc.timeSlot}`
-                                    isStoreDisabled = conflictInfo.storeDateConflicts.has(key)
-                                    const ev = (conflictInfo.existingEvents || []).find(e =>
-                                      e.storeId === store.id && e.date === sc.date &&
-                                      (sc.startTime || '') < e.endTime && (sc.endTime || '') > e.startTime
-                                    )
-                                    if (ev) existingEventLabel = ` ⚠️ ${ev.scenario} (${ev.startTime}〜${ev.endTime})`
-                                  }
-                                }
-                                return (
-                                  <SelectItem key={store.id} value={store.id} disabled={isStoreDisabled} className="whitespace-normal">
-                                    <span className="block">
-                                      {store.name}{isRequested && ' (お客様希望)'}
-                                      {selectedRegionFilter === 'all' && store.region && (
-                                        <span className="text-xs text-muted-foreground ml-1">({store.region})</span>
-                                      )}
-                                    </span>
-                                    {existingEventLabel && (
-                                      <span className="block text-xs text-orange-600 font-medium">{existingEventLabel}</span>
-                                    )}
-                                  </SelectItem>
-                                )
-                              })}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* メモ */}
-                        {req.notes && (
-                          <div>
-                            <h3 className="mb-1 text-sm font-medium text-purple-800">お客様からのメモ</h3>
-                            <div className="p-3 bg-background rounded border text-sm whitespace-pre-wrap">{req.notes}</div>
-                          </div>
-                        )}
-
-                        {/* 複数GM注意 */}
-                        {(req.required_gm_count ?? 1) >= 2 && (
-                          <Alert className="border-amber-200 bg-amber-50/80 text-amber-950">
-                            <AlertCircle className="h-4 w-4 text-amber-700" />
-                            <AlertTitle className="text-sm font-semibold text-amber-900">
-                              必要GM数が{req.required_gm_count}人のシナリオです
-                            </AlertTitle>
-                            <AlertDescription className="text-xs text-amber-900/90 mt-1">
-                              メインGMとサブGMを2名選んで確定してください。
-                            </AlertDescription>
-                          </Alert>
-                        )}
-
-                        {/* GM選択 */}
-                        <div>
-                          <h3 className="mb-2 text-sm font-medium text-purple-800">
-                            {(req.required_gm_count ?? 1) >= 2 ? 'メインGM・サブGMをそれぞれ選択' : '担当GMを選択'}
-                          </h3>
-                          <select
-                            className="flex h-9 w-full rounded-md border border-input bg-[#F6F9FB] px-2 py-1 text-sm"
-                            value={selectedGMId}
-                            onChange={e => { const v = e.target.value; setSelectedGMId(v); setSelectedSubGmId(p => p === v ? '' : p) }}
-                          >
-                            <option value="">{(req.required_gm_count ?? 1) >= 2 ? 'メインGMを選択' : 'GMを選択してください'}</option>
-                            {gmSelectOptions.map(({ gm, isGMDisabled, label }) => (
-                              <option key={gm.id} value={gm.id}
-                                disabled={isGMDisabled || ((req.required_gm_count ?? 1) >= 2 && gm.id === selectedSubGmId)}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
-                          {(req.required_gm_count ?? 1) >= 2 && (
-                            <div className="mt-3">
-                              <select
-                                className="flex h-9 w-full rounded-md border border-input bg-[#F6F9FB] px-2 py-1 text-sm"
-                                value={selectedSubGmId}
-                                onChange={e => setSelectedSubGmId(e.target.value)}
-                              >
-                                <option value="">サブGMを選択</option>
-                                {gmSelectOptions.map(({ gm, isGMDisabled, label }) => (
-                                  <option key={gm.id} value={gm.id} disabled={isGMDisabled || gm.id === selectedGMId}>{label}</option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
-                          {(assignedGMIds.length > 0 || availableGMs.length > 0) && (
-                            <div className="mt-2 text-xs text-muted-foreground">
-                              ℹ️ <span className="inline-flex items-center px-1 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">担当</span> このシナリオの担当GM /{' '}
-                              <span className="inline-flex items-center px-1 py-0.5 text-xs bg-green-100 text-green-700 rounded">対応可能</span> 今回対応可能と回答したGM
-                            </div>
-                          )}
-                        </div>
 
                         {/* アクションボタン */}
                         <ActionButtons
