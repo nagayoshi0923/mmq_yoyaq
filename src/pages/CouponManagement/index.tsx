@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { Header } from '@/components/layout/Header'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { Button } from '@/components/ui/button'
@@ -6,18 +6,18 @@ import { Plus, RefreshCw, Ticket } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '@/hooks/useOrganization'
-import { 
-  getCampaigns, 
-  createCampaign, 
-  updateCampaign, 
+import {
+  createCampaign,
+  updateCampaign,
   toggleCampaignActive,
-  type CampaignFormData 
+  type CampaignFormData
 } from '@/lib/api/couponApi'
 import type { CouponCampaign } from '@/types'
 import { CampaignList } from './components/CampaignList'
 import { CampaignDialog } from './components/CampaignDialog'
 import { GrantCouponDialog } from './components/GrantCouponDialog'
 import { CampaignStats } from './components/CampaignStats'
+import { useCouponCampaigns } from './hooks/useCouponCampaigns'
 import { toast } from 'sonner'
 
 export function CouponManagement() {
@@ -25,8 +25,7 @@ export function CouponManagement() {
   const navigate = useNavigate()
   const { organization } = useOrganization()
 
-  const [campaigns, setCampaigns] = useState<CouponCampaign[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { campaigns, isLoading, refetch: loadCampaigns } = useCouponCampaigns()
   const [toggleLoading, setToggleLoading] = useState<string | null>(null)
 
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -37,23 +36,6 @@ export function CouponManagement() {
 
   const [statsDialogOpen, setStatsDialogOpen] = useState(false)
   const [statsCampaign, setStatsCampaign] = useState<CouponCampaign | null>(null)
-
-  const loadCampaigns = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const data = await getCampaigns()
-      setCampaigns(data)
-    } catch (error) {
-      console.error('キャンペーン取得エラー:', error)
-      toast.error('キャンペーンの取得に失敗しました')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadCampaigns()
-  }, [loadCampaigns])
 
   const handlePageChange = useCallback((pageId: string) => {
     const slug = organization?.slug || ''
@@ -101,9 +83,7 @@ export function CouponManagement() {
     try {
       const result = await toggleCampaignActive(campaign.id)
       if (result.success) {
-        setCampaigns(prev => prev.map(c => 
-          c.id === campaign.id ? { ...c, is_active: result.isActive! } : c
-        ))
+        loadCampaigns()
         toast.success(result.isActive ? 'キャンペーンを有効にしました' : 'キャンペーンを無効にしました')
       } else {
         toast.error(result.error || '状態の変更に失敗しました')

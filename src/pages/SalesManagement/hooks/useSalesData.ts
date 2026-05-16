@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { salesApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { SalesData } from '@/types'
@@ -58,255 +59,190 @@ const STORAGE_KEY_START_DATE = 'sales-custom-start-date'
 const STORAGE_KEY_END_DATE = 'sales-custom-end-date'
 const STORAGE_KEY_PERIOD = 'sales-selected-period'
 
+export const salesDataKeys = {
+  stores: ['sales-stores'] as const,
+  data: (startDate: string, endDate: string, storeIds: string, ownershipFilter: string) =>
+    ['sales-data', startDate, endDate, storeIds, ownershipFilter] as const,
+}
+
+/** 純粋なデータ取得関数（React Query の queryFn） */
+async function fetchSalesDataForPeriod(
+  startDateStr: string,
+  endDateStr: string,
+  storeIds: string[],
+  ownershipFilter: 'corporate' | 'franchise' | undefined,
+  allStores: Store[]
+): Promise<SalesData> {
+  const salarySettings = await fetchSalarySettings()
+
+  const startDate = new Date(startDateStr + 'T00:00:00+09:00')
+  const endDate = new Date(endDateStr + 'T23:59:59+09:00')
+  const daysDiff = getDaysDiff(startDate, endDate)
+
+  let chartStartDate: Date
+  let chartEndDate: Date
+
+  if (daysDiff <= 31) {
+    chartStartDate = new Date(startDate)
+    chartEndDate = new Date(endDate)
+  } else {
+    chartStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+    chartEndDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), 0)
+  }
+
+  const [eventsData, miscResult, staffResult] = await Promise.all([
+    salesApi.getSalesByPeriod(formatDateJST(chartStartDate), formatDateJST(chartEndDate)),
+    supabase
+      .from('miscellaneous_transactions')
+      .select('id, date, type, category, amount, scenario_id, store_id')
+      .gte('date', formatDateJST(chartStartDate))
+      .lte('date', formatDateJST(chartEndDate))
+      .eq('type', 'expense'),
+    supabase.from('staff').select('id, name, stores'),
+  ])
+
+  let events = eventsData
+  const miscTransactions = miscResult.data || []
+  const staffList = staffResult.data || []
+  const staffByName = new Map<string, string[]>()
+  staffList.forEach(s => staffByName.set(s.name, s.stores || []))
+
+  // 店舗フィルタリング
+  let filteredStores = allStores
+  if (ownershipFilter) {
+    filteredStores = ownershipFilter === 'corporate'
+      ? filteredStores.filter(s => s.ownership_type === 'corporate' || s.ownership_type === 'office')
+      : filteredStores.filter(s => s.ownership_type === ownershipFilter)
+  }
+  const filteredStoreIds = ownershipFilter ? filteredStores.map(s => s.id) : []
+
+  if (ownershipFilter && filteredStoreIds.length > 0) {
+    if (storeIds.length > 0) {
+      const validStoreIds = storeIds.filter(id => filteredStoreIds.includes(id))
+      events = events.filter(e => (validStoreIds.length > 0 ? validStoreIds : filteredStoreIds).includes(e.store_id))
+    } else {
+      events = events.filter(e => filteredStoreIds.includes(e.store_id))
+    }
+  } else if (storeIds.length > 0) {
+    events = events.filter(e => storeIds.includes(e.store_id))
+  }
+
+  if (ownershipFilter && filteredStoreIds.length > 0 && storeIds.length > 0) {
+    const validStoreIds = storeIds.filter(id => filteredStoreIds.includes(id))
+    if (validStoreIds.length > 0) filteredStores = filteredStores.filter(s => validStoreIds.includes(s.id))
+  } else if (storeIds.length > 0) {
+    filteredStores = filteredStores.filter(s => storeIds.includes(s.id))
+  }
+
+  return calculateSalesData(events, filteredStores, startDate, endDate, miscTransactions, salarySettings, staffByName)
+}
+
+interface ActiveSalesParams {
+  startDate: string
+  endDate: string
+  storeIds: string[]
+  ownershipFilter?: 'corporate' | 'franchise'
+}
+
+function periodToDateRange(period: string, customStart: string, customEnd: string): { startDate: string; endDate: string } | null {
+  if (period === 'custom') {
+    if (!customStart || !customEnd) return null
+    return { startDate: customStart, endDate: customEnd }
+  }
+  let result
+  switch (period) {
+    case 'thisMonth': result = getThisMonthRangeJST(); break
+    case 'lastMonth': result = getLastMonthRangeJST(); break
+    case 'thisWeek': result = getThisWeekRangeJST(); break
+    case 'lastWeek': result = getLastWeekRangeJST(); break
+    case 'last7days': result = getPastDaysRangeJST(7); break
+    case 'last30days': result = getPastDaysRangeJST(30); break
+    case 'thisYear': result = getThisYearRangeJST(); break
+    case 'lastYear': result = getLastYearRangeJST(); break
+    default: result = getThisMonthRangeJST()
+  }
+  return { startDate: result.startDateStr, endDate: result.endDateStr }
+}
+
 export function useSalesData() {
-  const [salesData, setSalesData] = useState<SalesData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [stores, setStores] = useState<Store[]>([])
-  
   // localStorage から初期値を復元
-  const [selectedPeriod, setSelectedPeriod] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(STORAGE_KEY_PERIOD) || 'thisMonth'
-    }
-    return 'thisMonth'
-  })
+  const [selectedPeriod, setSelectedPeriod] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_PERIOD) || 'thisMonth' : 'thisMonth'
+  )
+  const [customStartDate, setCustomStartDate] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_START_DATE) || '' : ''
+  )
+  const [customEndDate, setCustomEndDate] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_END_DATE) || '' : ''
+  )
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' })
-  const [customStartDate, setCustomStartDate] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(STORAGE_KEY_START_DATE) || ''
-    }
-    return ''
-  })
-  const [customEndDate, setCustomEndDate] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(STORAGE_KEY_END_DATE) || ''
-    }
-    return ''
-  })
 
-  // localStorage に期間設定を保存
+  // アクティブなクエリパラメータ（これが変わると React Query が再フェッチ）
+  const [activeParams, setActiveParams] = useState<ActiveSalesParams | null>(null)
+
+  const queryClient = useQueryClient()
+
+  // localStorage 同期
   useEffect(() => {
-    if (typeof window !== 'undefined' && selectedPeriod) {
-      localStorage.setItem(STORAGE_KEY_PERIOD, selectedPeriod)
-    }
+    if (typeof window !== 'undefined' && selectedPeriod) localStorage.setItem(STORAGE_KEY_PERIOD, selectedPeriod)
   }, [selectedPeriod])
-
   useEffect(() => {
-    if (typeof window !== 'undefined' && customStartDate) {
-      localStorage.setItem(STORAGE_KEY_START_DATE, customStartDate)
-    }
+    if (typeof window !== 'undefined' && customStartDate) localStorage.setItem(STORAGE_KEY_START_DATE, customStartDate)
   }, [customStartDate])
-
   useEffect(() => {
-    if (typeof window !== 'undefined' && customEndDate) {
-      localStorage.setItem(STORAGE_KEY_END_DATE, customEndDate)
-    }
+    if (typeof window !== 'undefined' && customEndDate) localStorage.setItem(STORAGE_KEY_END_DATE, customEndDate)
   }, [customEndDate])
 
-  // 店舗一覧を取得
-  useEffect(() => {
-    const fetchStores = async () => {
-      try {
-        logger.log('🏪 店舗データ取得開始')
-        const storeData = await salesApi.getStores()
-        logger.log('🏪 店舗データ取得完了:', { storesCount: storeData.length })
-        setStores(storeData)
-      } catch (error) {
-        logger.error('❌ 店舗データの取得に失敗しました:', error)
-      }
-    }
-    fetchStores()
-  }, [])
+  // 店舗一覧（React Query）
+  const { data: stores = [] } = useQuery<Store[]>({
+    queryKey: salesDataKeys.stores,
+    queryFn: () => salesApi.getStores(),
+    staleTime: 30 * 60 * 1000,
+  })
 
-  // 売上データを取得（期間とストアを引数で受け取る）
+  // 売上データ（React Query）
+  const queryKey = activeParams
+    ? salesDataKeys.data(
+        activeParams.startDate,
+        activeParams.endDate,
+        activeParams.storeIds.slice().sort().join(','),
+        activeParams.ownershipFilter ?? 'all'
+      )
+    : null
+
+  const { data: salesData = null, isLoading: loading } = useQuery<SalesData | null>({
+    queryKey: queryKey ?? ['sales-data-disabled'],
+    queryFn: () => fetchSalesDataForPeriod(
+      activeParams!.startDate,
+      activeParams!.endDate,
+      activeParams!.storeIds,
+      activeParams!.ownershipFilter,
+      stores
+    ),
+    enabled: queryKey !== null && stores.length > 0,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // loadSalesData: 期間・フィルターを受け取り activeParams を更新 → React Query が再フェッチ
   const loadSalesData = useCallback(async (period: string, storeIds: string[], ownershipFilter?: 'corporate' | 'franchise') => {
-    logger.log('📊 売上データ取得開始:', { period, storeIds, ownershipFilter, storesCount: stores.length })
-    setLoading(true)
+    logger.log('📊 売上データ取得開始:', { period, storeIds, ownershipFilter })
     setSelectedPeriod(period)
 
-    // 日付範囲を計算
-    let rangeResult
-    let range
-    
-    if (period === 'custom') {
-      // カスタム期間の場合は、customStartDateとcustomEndDateを使用
-      if (!customStartDate || !customEndDate) {
-        logger.warn('⚠️ カスタム期間が未設定です')
-        setLoading(false)
-        return
-      }
-      range = {
-        startDate: customStartDate,
-        endDate: customEndDate
-      }
-    } else {
-      // プリセット期間の場合
-      switch (period) {
-        case 'thisMonth':
-          rangeResult = getThisMonthRangeJST()
-          break
-        case 'lastMonth':
-          rangeResult = getLastMonthRangeJST()
-          break
-        case 'thisWeek':
-          rangeResult = getThisWeekRangeJST()
-          break
-        case 'lastWeek':
-          rangeResult = getLastWeekRangeJST()
-          break
-        case 'last7days':
-          rangeResult = getPastDaysRangeJST(7)
-          break
-        case 'last30days':
-          rangeResult = getPastDaysRangeJST(30)
-          break
-        case 'thisYear':
-          rangeResult = getThisYearRangeJST()
-          break
-        case 'lastYear':
-          rangeResult = getLastYearRangeJST()
-          break
-        default:
-          rangeResult = getThisMonthRangeJST()
-      }
-      
-      range = {
-        startDate: rangeResult.startDateStr,
-        endDate: rangeResult.endDateStr
-      }
-      
-      // プリセット期間の場合もcustomStartDateとcustomEndDateを更新
-      // これにより、SalesOverviewのcurrentMonthが正しく同期される
+    const range = periodToDateRange(period, customStartDate, customEndDate)
+    if (!range) {
+      logger.warn('⚠️ カスタム期間が未設定です')
+      return
+    }
+
+    // プリセット期間の場合は customStartDate/EndDate も更新
+    if (period !== 'custom') {
       setCustomStartDate(range.startDate)
       setCustomEndDate(range.endDate)
     }
 
     setDateRange(range)
-    logger.log('📊 計算された日付範囲:', { range })
-
-    if (!range.startDate || !range.endDate) {
-      logger.error('❌ 日付範囲が不正です:', { range })
-      setLoading(false)
-      return
-    }
-
-    try {
-      // 給与設定を取得
-      const salarySettings = await fetchSalarySettings()
-      
-      // 期間に応じてグラフ用のデータ取得期間を決定
-      logger.log('📊 日付変換:', { rangeStart: range.startDate, rangeEnd: range.endDate })
-      const startDate = new Date(range.startDate + 'T00:00:00+09:00')
-      const endDate = new Date(range.endDate + 'T23:59:59+09:00')
-      logger.log('📊 日付オブジェクト作成:', { startDate, endDate })
-      const daysDiff = getDaysDiff(startDate, endDate)
-      logger.log('📊 日数差:', { daysDiff })
-      
-      let chartStartDate: Date
-      let chartEndDate: Date
-      
-      if (daysDiff <= 31) {
-        // 31日以内の場合は日別グラフ（選択期間のデータ）
-        chartStartDate = new Date(startDate)
-        chartEndDate = new Date(endDate)
-      } else {
-        // 32日以上の場合は月別グラフ（1年分）
-        chartStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
-        chartEndDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), 0)
-      }
-      
-      logger.log('📊 API呼び出し:', { 
-        start: formatDateJST(chartStartDate), 
-        end: formatDateJST(chartEndDate) 
-      })
-      
-      // イベントデータ、雑収支データ、スタッフデータを並列取得
-      const [eventsData, miscResult, staffResult] = await Promise.all([
-        salesApi.getSalesByPeriod(
-        formatDateJST(chartStartDate),
-        formatDateJST(chartEndDate)
-        ),
-        supabase
-          .from('miscellaneous_transactions')
-          .select('id, date, type, category, amount, scenario_id, store_id')
-          .gte('date', formatDateJST(chartStartDate))
-          .lte('date', formatDateJST(chartEndDate))
-          .eq('type', 'expense'),
-        supabase
-          .from('staff')
-          .select('id, name, stores')
-      ])
-      
-      let events = eventsData
-      const miscTransactions = miscResult.data || []
-      const staffList = staffResult.data || []
-      // スタッフ名→担当店舗のマップを作成
-      const staffByName = new Map<string, string[]>()
-      staffList.forEach(s => {
-        staffByName.set(s.name, s.stores || [])
-      })
-      logger.log('📊 データ取得完了:', { 
-        events: events.length, 
-        miscTransactions: miscTransactions.length,
-        staffCount: staffList.length
-      })
-      
-      // 店舗フィルタリング（ownership_type による絞り込み）
-      let filteredStores = stores
-      if (ownershipFilter) {
-        if (ownershipFilter === 'corporate') {
-          // 直営店の場合、オフィスも含める
-          filteredStores = filteredStores.filter(s => 
-            s.ownership_type === 'corporate' || s.ownership_type === 'office'
-          )
-        } else {
-          // フランチャイズの場合、フランチャイズのみ
-          filteredStores = filteredStores.filter(s => s.ownership_type === ownershipFilter)
-        }
-        logger.log('📊 店舗タイプでフィルター:', { ownershipFilter, filteredCount: filteredStores.length })
-      }
-      
-      // フィルタリング対象店舗のIDリストを取得
-      const filteredStoreIds = ownershipFilter ? filteredStores.map(s => s.id) : []
-
-      // イベントフィルタリング
-      // ownershipFilter が設定されている場合は常に店舗タイプで先に絞り込み、
-      // その中から storeIds でさらに絞り込む（storeIds が別タブの店舗IDを含む場合に誤表示しないため）
-      if (ownershipFilter && filteredStoreIds.length > 0) {
-        if (storeIds.length > 0) {
-          // ownershipFilter × storeIds の積集合
-          const validStoreIds = storeIds.filter(id => filteredStoreIds.includes(id))
-          events = events.filter(e => (validStoreIds.length > 0 ? validStoreIds : filteredStoreIds).includes(e.store_id))
-          logger.log('📊 店舗タイプ＋選択店舗でイベントに絞り込み:', { eventsCount: events.length, validStoreIds })
-        } else {
-          events = events.filter(e => filteredStoreIds.includes(e.store_id))
-          logger.log('📊 店舗タイプでイベントに絞り込み:', { eventsCount: events.length, filteredStoreIds })
-        }
-      } else if (storeIds.length > 0) {
-        events = events.filter(e => storeIds.includes(e.store_id))
-      }
-
-      // 店舗フィルタリング（固定費計算用）
-      if (ownershipFilter && filteredStoreIds.length > 0 && storeIds.length > 0) {
-        const validStoreIds = storeIds.filter(id => filteredStoreIds.includes(id))
-        if (validStoreIds.length > 0) {
-          filteredStores = filteredStores.filter(s => validStoreIds.includes(s.id))
-        }
-      } else if (storeIds.length > 0) {
-        filteredStores = filteredStores.filter(s => storeIds.includes(s.id))
-      }
-      
-      // 売上データを計算
-      logger.log('📊 イベントデータ取得完了:', { eventsCount: events.length, filteredStoresCount: filteredStores.length })
-      const data = calculateSalesData(events, filteredStores, startDate, endDate, miscTransactions || [], salarySettings, staffByName)
-      logger.log('📊 売上データ計算完了:', { totalRevenue: data.totalRevenue })
-      setSalesData(data)
-    } catch (error) {
-      logger.error('❌ 売上データの取得に失敗しました:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [stores, customStartDate, customEndDate])
+    setActiveParams({ startDate: range.startDate, endDate: range.endDate, storeIds, ownershipFilter })
+  }, [customStartDate, customEndDate])
 
   return {
     salesData,

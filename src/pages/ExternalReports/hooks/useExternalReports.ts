@@ -1,39 +1,28 @@
 /**
  * 外部公演報告を取得するフック
  */
-import { logger } from '@/utils/logger'
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getMyExternalReports } from '@/lib/api/externalReportsApi'
 import type { ExternalPerformanceReport } from '@/types'
 
+export const externalReportKeys = {
+  all: ['external-reports'] as const,
+}
+
 export function useExternalReports() {
-  const [reports, setReports] = useState<ExternalPerformanceReport[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+  const queryClient = useQueryClient()
 
-  const fetchReports = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const data = await getMyExternalReports()
-      setReports(data)
-    } catch (err) {
-      logger.error('Failed to fetch external reports:', err)
-      setError(err instanceof Error ? err : new Error('Unknown error'))
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  const { data: reports = [], isLoading, error } = useQuery<ExternalPerformanceReport[], Error>({
+    queryKey: externalReportKeys.all,
+    queryFn: getMyExternalReports,
+  })
 
-  useEffect(() => {
-    fetchReports()
-  }, [fetchReports])
+  const refetch = () => queryClient.invalidateQueries({ queryKey: externalReportKeys.all })
 
   return {
     reports,
     isLoading,
-    error,
-    refetch: fetchReports,
+    error: error ?? null,
+    refetch,
   }
 }
-

@@ -50,7 +50,7 @@ export function StaffManagement() {
 
   // React Query でCRUD操作
   const queryClient = useQueryClient()
-  const { data: staff = [], isLoading: loading, error: queryError } = useStaffQuery()
+  const { data: staff = [], isLoading: staffLoading, error: queryError } = useStaffQuery()
   const staffMutation = useStaffMutation()
   const error = queryError ? (queryError as Error).message : ''
 
@@ -63,6 +63,9 @@ export function StaffManagement() {
     getScenario,
     getScenarioName
   } = useStoresAndScenarios()
+
+  // 店舗・シナリオが揃うまでローディング扱い（UUID/「不明なシナリオ」の一瞬表示を防ぐ）
+  const loading = staffLoading || stores.length === 0 || scenarios.length === 0
 
   // スタッフの認証状態を取得
   const staffUserIds = useMemo(() => staff.map(s => s.user_id ?? null), [staff])
@@ -165,12 +168,6 @@ export function StaffManagement() {
     }
   })
 
-  // 初期データ読み込み
-  useEffect(() => {
-    loadStores()
-    loadScenarios()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // 検索・フィルタの状態を自動保存
   useEffect(() => {
