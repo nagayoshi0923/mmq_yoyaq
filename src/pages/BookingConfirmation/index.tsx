@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,7 +19,6 @@ import { useBookingForm } from './hooks/useBookingForm'
 import { useBookingSubmit, checkDuplicateReservation } from './hooks/useBookingSubmit'
 import { formatDate, formatTime, formatPrice } from './utils/bookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
-import { getAvailableCoupons } from '@/lib/api/couponApi'
 import type { CustomerCoupon } from '@/types'
 import {
   AlertDialog,
@@ -75,40 +75,25 @@ export function BookingConfirmation({
     }
   }, [duplicateWarning.show])
 
-  // クーポン関連のstate
-  const [availableCoupons, setAvailableCoupons] = useState<CustomerCoupon[]>([])
+  // クーポン関連のstate（未実装: 将来のための placeholder）
+  const availableCoupons: CustomerCoupon[] = []
   const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null)
-  const [couponsLoading, setCouponsLoading] = useState(false)
 
-  // 支払い方法の設定
-  const [paymentMethodLabel, setPaymentMethodLabel] = useState('現地決済')
-  const [paymentMethodDescription, setPaymentMethodDescription] = useState('ご来店時にお支払いください')
-
-  // 支払い方法設定を取得（クーポン機能は一時無効）
-  useEffect(() => {
-    const fetchSettings = async () => {
-      if (!storeId) return
-      try {
-        const { data: settingsData } = await supabase
-          .from('reservation_settings')
-          .select('payment_method_label, payment_method_description')
-          .eq('store_id', storeId)
-          .maybeSingle()
-
-        if (settingsData) {
-          if (settingsData.payment_method_label) {
-            setPaymentMethodLabel(settingsData.payment_method_label)
-          }
-          if (settingsData.payment_method_description) {
-            setPaymentMethodDescription(settingsData.payment_method_description)
-          }
-        }
-      } catch (err) {
-        logger.error('設定取得エラー:', err)
-      }
-    }
-    fetchSettings()
-  }, [storeId])
+  // 支払い方法設定
+  const { data: paymentSettings } = useQuery({
+    queryKey: ['booking-payment-settings', storeId],
+    enabled: !!storeId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('reservation_settings')
+        .select('payment_method_label, payment_method_description')
+        .eq('store_id', storeId!)
+        .maybeSingle()
+      return data
+    },
+  })
+  const paymentMethodLabel = paymentSettings?.payment_method_label || '現地決済'
+  const paymentMethodDescription = paymentSettings?.payment_method_description || 'ご来店時にお支払いください'
 
   // キャンセル待ち用のstate
   const [waitlistMode, setWaitlistMode] = useState(false)
