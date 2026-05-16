@@ -551,6 +551,16 @@ export function PrivateBookingManagement() {
                     request={req}
                     onResendDiscordNotification={handleResendDiscordNotification}
                     selectedCandidateOrder={selectedRequest?.id === req.id ? selectedCandidateOrder : null}
+                    storesPerCandidate={selectedRequest?.id === req.id ? (() => {
+                      const baseStores = (() => {
+                        const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
+                        return ids.length > 0 ? stores.filter(s => ids.includes(s.id)) : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
+                      })()
+                      return (req.candidate_datetimes?.candidates || []).reduce((acc, cand) => {
+                        acc[cand.order] = baseStores.filter(s => !conflictInfo.storeDateConflicts.has(`${s.id}-${cand.date}-${cand.timeSlot}`))
+                        return acc
+                      }, {} as Record<number, typeof baseStores>)
+                    })() : undefined}
                     onSelectCandidate={(clickedReq, order) => {
                       // 同じ候補を再クリック → 選択解除
                       if (selectedRequest?.id === clickedReq.id && selectedCandidateOrder === order) {
@@ -623,27 +633,42 @@ export function PrivateBookingManagement() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-purple-700 font-medium w-16 shrink-0">{(req.required_gm_count ?? 1) >= 2 ? 'メインGM' : 'GM'}</span>
-                                <select className="flex-1 h-8 rounded border border-input bg-background px-2 text-sm"
-                                  value={selectedGMId}
-                                  onChange={e => { setSelectedGMId(e.target.value); setSelectedSubGmId(p => p === e.target.value ? '' : p) }}>
-                                  <option value="">選択してください</option>
-                                  {gmSelectOptions.map(({ gm, isGMDisabled, label }) => (
-                                    <option key={gm.id} value={gm.id} disabled={isGMDisabled || ((req.required_gm_count ?? 1) >= 2 && gm.id === selectedSubGmId)}>{label}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              {(req.required_gm_count ?? 1) >= 2 && (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-purple-700 font-medium w-16 shrink-0">サブGM</span>
-                                  <select className="flex-1 h-8 rounded border border-input bg-background px-2 text-sm"
-                                    value={selectedSubGmId} onChange={e => setSelectedSubGmId(e.target.value)}>
-                                    <option value="">選択してください</option>
+                              {/* メインGM */}
+                              <div className="flex items-start gap-2">
+                                <span className="text-xs text-purple-700 font-medium w-16 shrink-0 pt-2">
+                                  {(req.required_gm_count ?? 1) >= 2 ? 'メインGM' : 'GM'}
+                                </span>
+                                <Select value={selectedGMId} onValueChange={v => { setSelectedGMId(v); setSelectedSubGmId(p => p === v ? '' : p) }}>
+                                  <SelectTrigger className="flex-1 text-sm h-8">
+                                    <SelectValue placeholder="選択してください" />
+                                  </SelectTrigger>
+                                  <SelectContent>
                                     {gmSelectOptions.map(({ gm, isGMDisabled, label }) => (
-                                      <option key={gm.id} value={gm.id} disabled={isGMDisabled || gm.id === selectedGMId}>{label}</option>
+                                      <SelectItem key={gm.id} value={gm.id}
+                                        disabled={isGMDisabled || ((req.required_gm_count ?? 1) >= 2 && gm.id === selectedSubGmId)}>
+                                        {label}
+                                      </SelectItem>
                                     ))}
-                                  </select>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              {/* サブGM */}
+                              {(req.required_gm_count ?? 1) >= 2 && (
+                                <div className="flex items-start gap-2">
+                                  <span className="text-xs text-purple-700 font-medium w-16 shrink-0 pt-2">サブGM</span>
+                                  <Select value={selectedSubGmId} onValueChange={setSelectedSubGmId}>
+                                    <SelectTrigger className="flex-1 text-sm h-8">
+                                      <SelectValue placeholder="選択してください" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {gmSelectOptions.map(({ gm, isGMDisabled, label }) => (
+                                        <SelectItem key={gm.id} value={gm.id}
+                                          disabled={isGMDisabled || gm.id === selectedGMId}>
+                                          {label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                               )}
                             </div>

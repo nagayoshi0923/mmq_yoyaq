@@ -72,7 +72,9 @@ interface BookingRequestCardProps {
   // 候補日クリックで承認モードへ
   selectedCandidateOrder?: number | null
   onSelectCandidate?: (req: BookingRequest, order: number) => void
-  inlineApprovalContent?: React.ReactNode  // 選択中候補行の直下に挿入
+  inlineApprovalContent?: React.ReactNode
+  // 候補ごとの空き店舗（承認モード時のみ渡す）
+  storesPerCandidate?: Record<number, Array<{ id: string; name: string; short_name?: string }>>
 }
 
 export const BookingRequestCard = ({
@@ -81,6 +83,7 @@ export const BookingRequestCard = ({
   selectedCandidateOrder,
   onSelectCandidate,
   inlineApprovalContent,
+  storesPerCandidate,
 }: BookingRequestCardProps) => {
   const [resending, setResending] = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
@@ -220,13 +223,15 @@ export const BookingRequestCard = ({
                 const isThisSelected = selectedCandidateOrder === candidate.order
                 const clickable = !!onSelectCandidate
 
+                const availableStores = storesPerCandidate?.[candidate.order]
+
                 return (
                   <div key={candidate.order}>
                     {/* 候補行 */}
                     <div
                       onClick={() => clickable && onSelectCandidate(request, candidate.order)}
                       className={cn(
-                        'flex items-center gap-2 px-3 py-2 rounded text-sm border transition-colors',
+                        'px-3 py-2 rounded text-sm border transition-colors',
                         clickable ? 'cursor-pointer' : '',
                         isThisSelected
                           ? 'border-purple-400 bg-purple-50 rounded-b-none'
@@ -237,23 +242,41 @@ export const BookingRequestCard = ({
                           : 'border-gray-200 bg-gray-50'
                       )}
                     >
-                      {isConfirmed && isGMAvailable
-                        ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                        : isThisSelected
-                        ? <CheckCircle2 className="w-4 h-4 text-purple-500 shrink-0" />
-                        : <CircleDashed className="w-4 h-4 text-gray-400 shrink-0" />}
+                      {/* 1行目：アイコン + 日付 + 時間 */}
+                      <div className="flex items-center gap-2">
+                        {isConfirmed && isGMAvailable
+                          ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                          : isThisSelected
+                          ? <CheckCircle2 className="w-4 h-4 text-purple-500 shrink-0" />
+                          : <CircleDashed className="w-4 h-4 text-gray-400 shrink-0" />}
+                        <span className="font-medium">{formatDate(candidate.date)}</span>
+                        <span className="text-muted-foreground text-xs">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
+                      </div>
 
-                      <span className="font-medium">{formatDate(candidate.date)}</span>
-                      <span className="text-muted-foreground text-xs">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
-
-                      {/* 対応可能GMバッジ */}
-                      {availableGMs.length > 0 && (
-                        <div className="flex items-center gap-1 ml-auto flex-wrap">
+                      {/* 2行目：GMバッジ + 店舗バッジ（データがある時のみ） */}
+                      {(availableGMs.length > 0 || availableStores) && (
+                        <div className="flex flex-wrap items-center gap-1 mt-1.5 pl-6">
                           {availableGMs.map((gm, i) => (
                             <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">
-                              {gm.gm_name?.slice(0, 3) ?? 'GM'}
+                              {gm.gm_name?.slice(0, 4) ?? 'GM'}
                             </span>
                           ))}
+                          {availableStores && availableStores.length > 0 && (
+                            <>
+                              {availableGMs.length > 0 && <span className="text-gray-300 text-xs">|</span>}
+                              {availableStores.slice(0, 4).map(s => (
+                                <span key={s.id} className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">
+                                  {s.short_name || s.name}
+                                </span>
+                              ))}
+                              {availableStores.length > 4 && (
+                                <span className="text-xs text-gray-400">+{availableStores.length - 4}</span>
+                              )}
+                            </>
+                          )}
+                          {availableStores && availableStores.length === 0 && (
+                            <span className="text-xs text-red-500">空き店舗なし</span>
+                          )}
                         </div>
                       )}
                     </div>
