@@ -189,14 +189,12 @@ export function PrivateBookingManagement() {
           const conflictKey = `${gm.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
           isGMDisabled = conflictInfo.gmDateConflicts.has(conflictKey)
         }
-        const gmNotes = (availableGM?.notes || '').trim()
         const tagParts: string[] = []
         if (isAssigned) tagParts.push('担当')
         if (isAvailable) tagParts.push('対応可能')
         if (isGMDisabled) tagParts.push('予約済み')
         let label = gm.name
         if (tagParts.length) label += ` [${tagParts.join('・')}]`
-        if (gmNotes) label += ` — ${gmNotes}`
         const score = (isAssigned ? 2 : 0) + (isAvailable ? 1 : 0)
         return { gm, isGMDisabled, label, score }
       })
@@ -674,23 +672,23 @@ export function PrivateBookingManagement() {
                           )
                         })()}
 
-                        {/* アクションボタン */}
-                        <ActionButtons
-                          onApprove={async () => {
-                            if (req.status === 'confirmed') {
-                              const ok = window.confirm('この予約は既に承認済みです。内容を変更しますか？\n\n変更すると、お客様に再度確定メールが送信されます。')
-                              if (!ok) return
-                            }
-                            const needTwo = (req.required_gm_count ?? 1) >= 2
-                            const result = await handleApprove(req.id, req, selectedGMId, needTwo ? selectedSubGmId : null, selectedStoreId, selectedCandidateOrder, stores)
-                            if (result && !result.success && result.error) showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
-                          }}
-                          onReject={() => handleRejectClick(req.id)}
-                          onCancel={() => { setSelectedRequest(null); setSelectedGMId(''); setSelectedSubGmId(''); setSelectedStoreId(''); setSelectedCandidateOrder(null) }}
-                          disabled={submitting || !selectedGMId || !selectedStoreId || !selectedCandidateOrder || ((req.required_gm_count ?? 1) >= 2 && !selectedSubGmId)}
-                          submitting={submitting}
-                        />
                       </div>
+                    ) : undefined}
+                    cardActionsContent={selectedRequest?.id === req.id && selectedCandidateOrder ? (
+                      <ActionButtons
+                        onApprove={async () => {
+                          if (req.status === 'confirmed') {
+                            const ok = window.confirm('この予約は既に承認済みです。内容を変更しますか？\n\n変更すると、お客様に再度確定メールが送信されます。')
+                            if (!ok) return
+                          }
+                          const needTwo = (req.required_gm_count ?? 1) >= 2
+                          const result = await handleApprove(req.id, req, selectedGMId, needTwo ? selectedSubGmId : null, selectedStoreId, selectedCandidateOrder, stores)
+                          if (result && !result.success && result.error) showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
+                        }}
+                        onReject={() => handleRejectClick(req.id)}
+                        disabled={submitting || !selectedGMId || !selectedStoreId || !selectedCandidateOrder || ((req.required_gm_count ?? 1) >= 2 && !selectedSubGmId)}
+                        submitting={submitting}
+                      />
                     ) : undefined}
                   />
                 ))}

@@ -243,354 +243,160 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
       logger.log('貸切承認RPC成功:', { requestId, scheduleEventId })
 
-      // 承認で作成されたスケジュールイベントを履歴に記録
-      if (scheduleEventId && organizationId) {
-        const gmIds = requiredGm >= 2 && selectedSubGmId
-          ? [selectedGMId, selectedSubGmId]
-          : [selectedGMId]
-        await createEventHistory(
-          scheduleEventId as string,
-          organizationId,
-          'create',
-          null,
-          {
-            scenario: cleanScenarioTitle,
-            date: selectedDateYmd,
-            store_id: selectedStoreId,
-            start_time: selectedCandidate.startTime,
-            end_time: selectedEndTime,
-            gms: gmIds,
-            reservation_name: selectedRequest?.customer_name || '',
-          },
-          {
-            date: selectedDateYmd,
-            storeId: selectedStoreId,
-            timeSlot: selectedCandidate.timeSlot || null,
-          },
-          { notes: '貸切予約承認により作成' }
-        )
-      }
+      // ✅ RPC成功後すぐに画面を更新（通知・メール・ログはバックグラウンドで実行）
+      onSuccess()
 
-      // 通知・メールは DB に実際に作成された公演日（schedule_events.date）を優先（クライアント保持の候補とズレないようにする）
-      let notifyEventDate = selectedDateYmd
-      let notifyStartTime = selectedCandidate.startTime
-      let notifyEndTime = selectedEndTime
-      if (scheduleEventId) {
-        const { data: seRow, error: seErr } = await supabase
-          .from('schedule_events')
-          .select('date, start_time, end_time')
-          .eq('id', scheduleEventId as string)
-          .single()
-        if (seErr) {
-          logger.error('承認後スケジュール取得エラー（通知は候補日時を使用）:', seErr)
-        } else if (seRow?.date != null && seRow.date !== '') {
-          const fromRow = normalizeToJapanCalendarYmd(String(seRow.date))
+      // バックグラウンド処理（awaitしない）
+      ;(async () => {
+        // schedule_events の確定日時と予約料金情報を並列取得
+        const [seResult, reservationResult] = await Promise.all([
+          scheduleEventId
+            ? supabase.from('schedule_events').select('date, start_time, end_time').eq('id', scheduleEventId as string).single()
+            : Promise.resolve({ data: null, error: null }),
+          supabase.from('reservations').select('total_price, final_price, customer_email, customer_name, reservation_number, customer_notes, private_group_id').eq('id', requestId).single()
+        ])
+
+        let notifyEventDate = selectedDateYmd
+        let notifyStartTime = selectedCandidate.startTime
+        let notifyEndTime = selectedEndTime
+        if (seResult.data?.date != null && seResult.data.date !== '') {
+          const fromRow = normalizeToJapanCalendarYmd(String(seResult.data.date))
           if (fromRow) notifyEventDate = fromRow
-          if (seRow.start_time) {
-            notifyStartTime = String(seRow.start_time).slice(0, 5)
-          }
-          if (seRow.end_time) {
-            notifyEndTime = String(seRow.end_time).slice(0, 5)
-          }
-        }
-      }
-
-      // 貸切予約確定メールを送信
-      try {
-        // 承認後の予約データを取得（total_priceを含む）
-        const { data: updatedReservation, error: reservationError } = await supabase
-          .from('reservations')
-          .select('total_price, final_price, customer_email, customer_name, reservation_number, customer_notes')
-          .eq('id', requestId)
-          .single()
-
-        if (reservationError) {
-          logger.error('予約データ取得エラー:', reservationError)
+          if (seResult.data.start_time) notifyStartTime = String(seResult.data.start_time).slice(0, 5)
+          if (seResult.data.end_time) notifyEndTime = String(seResult.data.end_time).slice(0, 5)
         }
 
-        const customerEmail = selectedRequest?.customer_email || updatedReservation?.customer_email
-        const customerName = selectedRequest?.customer_name
-        if (customerEmail && customerName) {
-          const selectedStore = stores.find(s => s.id === selectedStoreId)
-          const storeAddress = selectedStore?.address || undefined
-          const priceToUse = updatedReservation?.final_price || updatedReservation?.total_price || 0
+        const updatedReservation = reservationResult.data
+        const storeName = stores.find(s => s.id === selectedStoreId)?.name || ''
+        const gmIds = requiredGm >= 2 && selectedSubGmId ? [selectedGMId, selectedSubGmId] : [selectedGMId]
 
-          const { error: emailInvokeError } = await supabase.functions.invoke('send-private-booking-confirmation', {
-            body: {
-              organizationId,
-              storeId: selectedStoreId,
-              reservationId: requestId,
-              customerEmail,
-              customerName,
-              scenarioTitle: selectedRequest?.scenario_title || '',
-              eventDate: notifyEventDate,
-              startTime: notifyStartTime,
-              endTime: notifyEndTime,
-              storeName: stores.find(s => s.id === selectedStoreId)?.name || '',
-              storeAddress,
-              participantCount: selectedRequest?.participant_count || 0,
-              totalPrice: priceToUse,
-              reservationNumber: selectedRequest?.reservation_number || updatedReservation?.reservation_number || '',
-              notes: selectedRequest?.notes || updatedReservation?.customer_notes || undefined
-            }
-          })
-          if (emailInvokeError) {
-            logger.error('貸切予約確定メール送信エラー:', emailInvokeError)
-          } else {
-            logger.log('貸切予約確定メール送信成功:', customerEmail)
-          }
-        }
-      } catch (emailError) {
-        logger.error('メール送信エラー:', emailError)
-        // メール送信失敗しても承認処理は続行
-      }
+        // イベント履歴・確定メール・GM通知・グループ処理を並列実行
+        await Promise.all([
+          // イベント履歴
+          scheduleEventId && organizationId
+            ? createEventHistory(scheduleEventId as string, organizationId, 'create', null, {
+                scenario: cleanScenarioTitle, date: selectedDateYmd, store_id: selectedStoreId,
+                start_time: selectedCandidate.startTime, end_time: selectedEndTime, gms: gmIds,
+                reservation_name: selectedRequest?.customer_name || '',
+              }, { date: selectedDateYmd, storeId: selectedStoreId, timeSlot: selectedCandidate.timeSlot || null },
+              { notes: '貸切予約承認により作成' }).catch(e => logger.error('createEventHistory error:', e))
+            : Promise.resolve(),
 
-      // GMへの確定通知を送信（Discord / メール）— 2名必要ならメイン・サブ両方へ
-      try {
-        const gmIdsToNotify: string[] =
-          requiredGm >= 2 && selectedSubGmId ? [selectedGMId, selectedSubGmId] : [selectedGMId]
-
-        const { data: notifyStaffRows, error: notifyStaffError } = await supabase
-          .from('staff')
-          .select('id, name, email, discord_channel_id, discord_user_id')
-          .in('id', gmIdsToNotify)
-
-        if (notifyStaffError) {
-          logger.error('GM通知用スタッフ取得エラー:', notifyStaffError)
-        } else {
-          const storeName = stores.find(s => s.id === selectedStoreId)?.name || ''
-          logger.log('GM確定通知開始:', { 
-            gmCount: notifyStaffRows?.length || 0, 
-            gmNames: notifyStaffRows?.map(r => r.name) || [] 
-          })
-          
-          for (const row of notifyStaffRows || []) {
-            if (!row?.id) continue
-            
-            logger.log('GM個別通知開始:', {
-              gmId: row.id,
-              gmName: row.name,
-              hasEmail: !!row.email,
-              hasDiscordChannel: !!row.discord_channel_id,
-              hasDiscordUserId: !!row.discord_user_id
+          // カスタマー確定メール
+          (async () => {
+            const customerEmail = selectedRequest?.customer_email || updatedReservation?.customer_email
+            const customerName = selectedRequest?.customer_name
+            if (!customerEmail || !customerName) return
+            const selectedStore = stores.find(s => s.id === selectedStoreId)
+            const priceToUse = updatedReservation?.final_price || updatedReservation?.total_price || 0
+            const { error: emailErr } = await supabase.functions.invoke('send-private-booking-confirmation', {
+              body: {
+                organizationId, storeId: selectedStoreId, reservationId: requestId,
+                customerEmail, customerName, scenarioTitle: selectedRequest?.scenario_title || '',
+                eventDate: notifyEventDate, startTime: notifyStartTime, endTime: notifyEndTime,
+                storeName, storeAddress: selectedStore?.address || undefined,
+                participantCount: selectedRequest?.participant_count || 0, totalPrice: priceToUse,
+                reservationNumber: selectedRequest?.reservation_number || updatedReservation?.reservation_number || '',
+                notes: selectedRequest?.notes || updatedReservation?.customer_notes || undefined
+              }
             })
-            
-            const { data: notifyResult, error: notifyFnError } = await supabase.functions.invoke(
-              'notify-gm-private-booking-confirmed',
-              {
-                body: {
-                  organizationId,
-                  gmId: row.id,
-                  gmName: row.name,
-                  gmEmail: row.email,
+            if (emailErr) logger.error('貸切予約確定メール送信エラー:', emailErr)
+            else logger.log('貸切予約確定メール送信成功:', customerEmail)
+          })(),
+
+          // GM確定通知（複数GMも並列）
+          (async () => {
+            const { data: notifyStaffRows, error: staffErr } = await supabase
+              .from('staff').select('id, name, email, discord_channel_id, discord_user_id').in('id', gmIds)
+            if (staffErr) { logger.error('GM通知用スタッフ取得エラー:', staffErr); return }
+            await Promise.all((notifyStaffRows || []).map(async row => {
+              if (!row?.id) return
+              const { data: notifyResult, error: notifyFnError } = await supabase.functions.invoke(
+                'notify-gm-private-booking-confirmed',
+                { body: {
+                  organizationId, gmId: row.id, gmName: row.name, gmEmail: row.email,
                   gmDiscordChannelId: row.discord_channel_id ?? undefined,
                   gmDiscordUserId: row.discord_user_id ?? undefined,
                   scenarioTitle: selectedRequest?.scenario_title || '',
-                  eventDate: notifyEventDate,
-                  startTime: notifyStartTime,
-                  endTime: notifyEndTime,
-                  storeName,
-                  customerName: selectedRequest?.customer_name || '',
-                  participantCount: selectedRequest?.participant_count || 0,
-                  reservationId: requestId,
-                },
-              }
-            )
-            
-            if (notifyFnError) {
-              logger.error('GM確定通知Edge Functionエラー:', {
-                gmName: row.name,
-                error: notifyFnError,
-                errorDetails: JSON.stringify(notifyFnError, null, 2)
-              })
-              showToast.warning(`${row.name} への確定通知の送信に失敗しました。手動でご連絡ください。`)
-            } else {
-              logger.log('GM確定通知リクエスト完了:', {
-                gmName: row.name,
-                results: notifyResult?.results || 'no_details'
-              })
-              // Discord が全方法で失敗していた場合も警告
-              if (notifyResult?.results?.discord === 'failed') {
+                  eventDate: notifyEventDate, startTime: notifyStartTime, endTime: notifyEndTime,
+                  storeName, customerName: selectedRequest?.customer_name || '',
+                  participantCount: selectedRequest?.participant_count || 0, reservationId: requestId,
+                }}
+              )
+              if (notifyFnError) {
+                logger.error('GM確定通知エラー:', { gmName: row.name, error: notifyFnError })
+                showToast.warning(`${row.name} への確定通知の送信に失敗しました。手動でご連絡ください。`)
+              } else if (notifyResult?.results?.discord === 'failed') {
                 showToast.warning(`${row.name} へのDiscord通知が失敗しました。メール通知または手動連絡をご確認ください。`)
               }
-            }
-          }
-          
-          logger.log('GM確定通知処理完了:', {
-            totalGMs: gmIdsToNotify.length,
-            processedGMs: notifyStaffRows?.length || 0
-          })
-        }
-      } catch (gmNotifyError) {
-        logger.error('GM通知送信処理エラー:', {
-          error: gmNotifyError,
-          requestId,
-          scenarioTitle: selectedRequest?.scenario_title,
-          selectedGMId,
-          selectedSubGmId: requiredGm >= 2 ? selectedSubGmId : null
-        })
-        // GM通知失敗しても承認処理は続行（ユーザーには成功として返す）
-        // ただし、この時点でログには詳細なエラー情報が記録される
-      }
+            }))
+          })(),
 
-      // グループチャットに日程確定のシステムメッセージを送信
-      try {
-        // 予約に紐づくグループIDを取得
-        const { data: reservation, error: reservationQueryError } = await supabase
-          .from('reservations')
-          .select('private_group_id')
-          .eq('id', requestId)
-          .single()
-        
-        logger.log('予約のグループID取得結果:', { requestId, private_group_id: reservation?.private_group_id, error: reservationQueryError })
+          // グループステータス更新・確定メッセージ・アンケート通知
+          (async () => {
+            const groupId = updatedReservation?.private_group_id
+            if (!groupId) return
+            logger.log('予約のグループID:', { requestId, groupId })
 
-        if (reservation?.private_group_id) {
-          // グループのステータスを confirmed に更新
-          try {
-            await updatePrivateGroupStatus(reservation.private_group_id, 'confirmed')
-            logger.log('グループステータスをconfirmedに更新:', reservation.private_group_id)
-          } catch (groupUpdateError) {
-            logger.error('グループステータス更新エラー:', groupUpdateError)
-          }
+            await updatePrivateGroupStatus(groupId, 'confirmed').catch(e => logger.error('グループステータス更新エラー:', e))
 
-          // 主催者のメンバーIDを取得
-          const { data: organizerMember } = await supabase
-            .from('private_group_members')
-            .select('id')
-            .eq('group_id', reservation.private_group_id)
-            .eq('is_organizer', true)
-            .single()
+            const [organizerResult, msgSettingsResult] = await Promise.all([
+              supabase.from('private_group_members').select('id').eq('group_id', groupId).eq('is_organizer', true).single(),
+              supabase.from('global_settings').select(GLOBAL_SETTINGS_MSG_SELECT.SCHEDULE_CONFIRMED).eq('organization_id', organizationId).maybeSingle()
+            ])
+            const organizerMember = organizerResult.data
+            if (!organizerMember) return
 
-          if (organizerMember) {
-            // 設定からメッセージ文言を取得
-            const { data: msgSettings } = await supabase
-              .from('global_settings')
-              .select(GLOBAL_SETTINGS_MSG_SELECT.SCHEDULE_CONFIRMED)
-              .eq('organization_id', organizationId)
-              .maybeSingle()
-            
-            // 日程確定のシステムメッセージ
-            const confirmedMessage = JSON.stringify({
-              type: 'system',
-              action: 'schedule_confirmed',
-              confirmedDate: notifyEventDate,
-              confirmedTimeSlot: selectedCandidate.timeSlot || `${notifyStartTime}〜${notifyEndTime}`,
-              storeName: stores.find(s => s.id === selectedStoreId)?.name || '',
-              // 設定されたメッセージ文言を含める
-              title: msgSettings?.system_msg_schedule_confirmed_title || '日程が確定いたしました',
-              body: msgSettings?.system_msg_schedule_confirmed_body || 'ご予約ありがとうございます。当日のご来店をお待ちしております。'
-            })
-
+            const msgSettings = msgSettingsResult.data
             await supabase.from('private_group_messages').insert({
-              group_id: reservation.private_group_id,
+              group_id: groupId,
               member_id: organizerMember.id,
-              message: confirmedMessage
+              message: JSON.stringify({
+                type: 'system', action: 'schedule_confirmed',
+                confirmedDate: notifyEventDate,
+                confirmedTimeSlot: selectedCandidate.timeSlot || `${notifyStartTime}〜${notifyEndTime}`,
+                storeName,
+                title: msgSettings?.system_msg_schedule_confirmed_title || '日程が確定いたしました',
+                body: msgSettings?.system_msg_schedule_confirmed_body || 'ご予約ありがとうございます。当日のご来店をお待ちしております。'
+              })
             })
-
-            // 事前配役アンケートが有効な場合の通知
-            // survey_enabled=true かつキャラクターあり → 事前配役シナリオ（pre-reading通知のみ、配役方法選択は客側で行う）
-            // survey_enabled=true かつキャラクターなし → 即座にアンケート通知を送信
-            const scenarioMasterId = selectedRequest?.scenario_master_id
-            logger.log('📋 事前配役アンケート通知チェック:', {
-              scenarioMasterId,
-              organizationId,
-              hasScenarioMasterId: !!selectedRequest?.scenario_master_id,
-            })
-
-            if (scenarioMasterId) {
-              const { data: orgScenarioData, error: orgScenarioError } = await supabase
-                .from('organization_scenarios_with_master')
-                .select('survey_enabled, survey_deadline_days, characters')
-                .eq('scenario_master_id', scenarioMasterId)
-                .eq('organization_id', organizationId)
-                .maybeSingle()
-
-              logger.log('📋 organization_scenarios取得結果:', { orgScenarioData, orgScenarioError })
-
-              const hasPlayableCharacters = Array.isArray(orgScenarioData?.characters) && orgScenarioData.characters.some((c: any) => !c.is_npc)
-
-              if (orgScenarioData?.survey_enabled) {
-                if (hasPlayableCharacters) {
-                  // 事前配役シナリオ: グループ全員の参加を促す通知を送信
-                  const { data: globalSettings } = await supabase
-                    .from('global_settings')
-                    .select('pre_reading_notice_message')
-                    .eq('organization_id', organizationId)
-                    .maybeSingle()
-
-                  const preReadingMessage = globalSettings?.pre_reading_notice_message ||
-                    '【ご確認ください】\n\nこのシナリオには事前配役アンケートがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
-
-                  await supabase.from('private_group_messages').insert({
-                    group_id: reservation.private_group_id,
-                    member_id: organizerMember.id,
-                    message: JSON.stringify({ type: 'system', action: 'pre_reading_notice', message: preReadingMessage })
-                  })
-                  logger.log('📋 事前配役シナリオ: pre_reading_notice送信成功')
-
-                  // カスタマーへメール通知
-                  const surveyCustomerEmail = selectedRequest?.customer_email
-                  if (surveyCustomerEmail) {
-                    await sendEmail({
-                      to: surveyCustomerEmail,
-                      subject: '【事前配役アンケートのご案内】',
-                      body: preReadingMessage,
-                    })
-                    logger.log('📋 事前配役通知メール送信成功:', surveyCustomerEmail)
-                  }
-                } else {
-                  // キャラクターなし: 即座にアンケート通知を送信
-                  const confirmedCandidate = selectedRequest.candidate_datetimes?.candidates?.find(
-                    (c: any) => c.order === selectedCandidateOrder
-                  )
-                  let deadlineText = ''
-                  if (confirmedCandidate?.date && orgScenarioData.survey_deadline_days !== undefined) {
-                    const perfDate = new Date(confirmedCandidate.date + 'T00:00:00+09:00')
-                    perfDate.setDate(perfDate.getDate() - orgScenarioData.survey_deadline_days)
-                    deadlineText = `\n\n回答期限: ${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`
-                  }
-
-                  const surveyMessage = `【事前配役アンケートのご協力のお願い】\n\nこちらの公演では事前配役アンケートへのご回答をお願いしております。\n\n上記の「日程を確認・回答する」ボタンからアンケートにお答えください。${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
-
-                  const { error: surveyMsgError } = await supabase.from('private_group_messages').insert({
-                    group_id: reservation.private_group_id,
-                    member_id: organizerMember.id,
-                    message: JSON.stringify({ type: 'system', action: 'survey_notice', message: surveyMessage })
-                  })
-
-                  if (surveyMsgError) {
-                    logger.error('📋 アンケート通知送信エラー:', surveyMsgError)
-                  } else {
-                    logger.log('📋 アンケート通知送信成功')
-
-                    // カスタマーへメール通知
-                    const surveyCustomerEmail = selectedRequest?.customer_email
-                    if (surveyCustomerEmail) {
-                      await sendEmail({
-                        to: surveyCustomerEmail,
-                        subject: '【事前配役アンケートのご案内】',
-                        body: surveyMessage,
-                      })
-                      logger.log('📋 アンケート通知メール送信成功:', surveyCustomerEmail)
-                    }
-                  }
-                }
-              } else {
-                logger.log('📋 事前配役アンケートが無効のためスキップ:', { survey_enabled: orgScenarioData?.survey_enabled })
-              }
-            } else {
-              logger.log('📋 scenario_master_idがないためアンケート通知スキップ')
-            }
-
             logger.log('グループチャットに日程確定メッセージ送信成功')
-          }
-        }
-      } catch (msgError) {
-        logger.error('グループメッセージ送信エラー:', msgError)
-        // メッセージ送信失敗しても承認処理は続行
-      }
 
-      onSuccess()
+            // アンケート通知
+            const scenarioMasterId = selectedRequest?.scenario_master_id
+            if (!scenarioMasterId) return
+            const { data: orgScenarioData } = await supabase
+              .from('organization_scenarios_with_master')
+              .select('survey_enabled, survey_deadline_days, characters')
+              .eq('scenario_master_id', scenarioMasterId).eq('organization_id', organizationId).maybeSingle()
+            if (!orgScenarioData?.survey_enabled) return
+
+            const hasPlayableCharacters = Array.isArray(orgScenarioData.characters) && orgScenarioData.characters.some((c: any) => !c.is_npc)
+            if (hasPlayableCharacters) {
+              const { data: globalSettings } = await supabase.from('global_settings').select('pre_reading_notice_message').eq('organization_id', organizationId).maybeSingle()
+              const preReadingMessage = globalSettings?.pre_reading_notice_message || '【ご確認ください】\n\nこのシナリオには事前配役アンケートがございます。\n\n公演日までに参加者全員がこのグループに参加している必要があります。まだ参加されていない方がいらっしゃいましたら、招待リンクを共有してグループへの参加をお願いいたします。\n\nご不明点がございましたら、店舗までお問い合わせください。'
+              await Promise.all([
+                supabase.from('private_group_messages').insert({ group_id: groupId, member_id: organizerMember.id, message: JSON.stringify({ type: 'system', action: 'pre_reading_notice', message: preReadingMessage }) }),
+                selectedRequest?.customer_email ? sendEmail({ to: selectedRequest.customer_email, subject: '【事前配役アンケートのご案内】', body: preReadingMessage }) : Promise.resolve()
+              ])
+            } else {
+              const confirmedCandidate = selectedRequest?.candidate_datetimes?.candidates?.find((c: any) => c.order === selectedCandidateOrder)
+              let deadlineText = ''
+              if (confirmedCandidate?.date && orgScenarioData.survey_deadline_days !== undefined) {
+                const perfDate = new Date(confirmedCandidate.date + 'T00:00:00+09:00')
+                perfDate.setDate(perfDate.getDate() - orgScenarioData.survey_deadline_days)
+                deadlineText = `\n\n回答期限: ${perfDate.getMonth() + 1}月${perfDate.getDate()}日まで`
+              }
+              const surveyMessage = `【事前配役アンケートのご協力のお願い】\n\nこちらの公演では事前配役アンケートへのご回答をお願いしております。\n\n上記の「日程を確認・回答する」ボタンからアンケートにお答えください。${deadlineText}\n\nご不明点がございましたら、お気軽にお問い合わせください。`
+              await Promise.all([
+                supabase.from('private_group_messages').insert({ group_id: groupId, member_id: organizerMember.id, message: JSON.stringify({ type: 'system', action: 'survey_notice', message: surveyMessage }) }),
+                selectedRequest?.customer_email ? sendEmail({ to: selectedRequest.customer_email, subject: '【事前配役アンケートのご案内】', body: surveyMessage }) : Promise.resolve()
+              ])
+            }
+          })()
+        ])
+      })().catch(err => logger.error('バックグラウンド承認処理エラー:', err))
+
       return { success: true }
     } catch (error) {
       logger.error('承認エラー:', error)

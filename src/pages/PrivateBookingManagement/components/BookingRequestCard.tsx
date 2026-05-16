@@ -73,6 +73,7 @@ interface BookingRequestCardProps {
   selectedCandidateOrder?: number | null
   onSelectCandidate?: (req: BookingRequest, order: number) => void
   inlineApprovalContent?: React.ReactNode
+  cardActionsContent?: React.ReactNode
   // 候補ごとの空き店舗（承認モード時のみ渡す）
   storesPerCandidate?: Record<number, Array<{ id: string; name: string; short_name?: string }>>
 }
@@ -83,6 +84,7 @@ export const BookingRequestCard = ({
   selectedCandidateOrder,
   onSelectCandidate,
   inlineApprovalContent,
+  cardActionsContent,
   storesPerCandidate,
 }: BookingRequestCardProps) => {
   const [resending, setResending] = useState(false)
@@ -110,7 +112,7 @@ export const BookingRequestCard = ({
 
   return (
     <Card className={cn(getCardClassName(request.status), 'shadow-none')}>
-      <CardHeader className="pb-2">
+      <CardHeader className="pt-3 pb-2 space-y-0">
         {/* ── タイトル + ステータス ── */}
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base leading-snug">{request.scenario_title}</CardTitle>
@@ -151,16 +153,25 @@ export const BookingRequestCard = ({
         </div>
 
         {/* ── 希望店舗 ── */}
-        {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            <span className="text-xs text-muted-foreground mr-0.5 self-center">希望店舗:</span>
-            {request.candidate_datetimes.requestedStores.map((store, i) => (
-              <Badge key={i} variant="secondary" className="bg-gray-100 text-gray-700 border-0 rounded font-normal text-xs py-0">
-                {store.storeName}
-              </Badge>
-            ))}
-          </div>
-        )}
+        {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (() => {
+          // storesPerCandidate から storeId → short_name のルックアップを構築
+          const shortNameById: Record<string, string> = {}
+          if (storesPerCandidate) {
+            Object.values(storesPerCandidate).forEach(list =>
+              list.forEach(s => { if (!shortNameById[s.id]) shortNameById[s.id] = s.short_name || s.name })
+            )
+          }
+          return (
+            <div className="flex flex-wrap items-center gap-1 mt-1">
+              <span className="text-xs text-muted-foreground shrink-0">希望店舗:</span>
+              {request.candidate_datetimes!.requestedStores!.map((store, i) => (
+                <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200 whitespace-nowrap">
+                  {shortNameById[store.storeId] || store.storeName}
+                </span>
+              ))}
+            </div>
+          )
+        })()}
 
         {/* ── 人数警告 ── */}
         {request.scenario_player_count_range &&
@@ -174,7 +185,7 @@ export const BookingRequestCard = ({
         )}
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="md:pt-0">
         <div className="space-y-3">
           {/* ── GM回答状況 ── */}
           {request.gm_responses && request.gm_responses.length > 0 && (
@@ -309,6 +320,13 @@ export const BookingRequestCard = ({
           )}
 
         </div>
+
+        {/* ── カード下部アクション（承認・却下） ── */}
+        {cardActionsContent && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            {cardActionsContent}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

@@ -117,16 +117,12 @@ export const AdminSidebar = memo(function AdminSidebar() {
       items: [
         {
           id: 'private-booking-management', label: '貸切管理', icon: ClipboardCheck,
-          path: `/${slug}/private-booking-management`, roles: ['admin', 'license_admin'],
+          path: `/${slug}/private-booking-management`, roles: ['admin', 'license_admin'], badge: pendingCount,
         },
         { id: 'private-booking-groups', label: 'グループ一覧', icon: Users, path: `/${slug}/private-booking-groups`, roles: ['admin', 'license_admin'] },
         {
           id: 'reservations', label: '予約管理', icon: Ticket,
-          path: `/${slug}/reservations`, roles: ['admin', 'license_admin'], badge: pendingCount,
-          subItems: [
-            { id: 'booking-list', label: '予約一覧', path: `/${slug}/reservations?tab=booking-list` },
-            { id: 'pending',      label: '承認待ち', path: `/${slug}/reservations?tab=pending` },
-          ],
+          path: `/${slug}/reservations`, roles: ['admin', 'license_admin'],
         },
       ],
     },
@@ -399,8 +395,17 @@ function SidebarContent({
             </button>
           )}
 
-          {isGroupOpen(group) && (
-            <div className={`space-y-0.5 px-2 pb-1 ${group.label ? 'sidebar-items-enter' : ''}`}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateRows: isGroupOpen(group) ? '1fr' : '0fr',
+              opacity: isGroupOpen(group) ? 1 : 0,
+              transition: 'grid-template-rows 200ms ease-out, opacity 200ms ease-out',
+              pointerEvents: isGroupOpen(group) ? undefined : 'none',
+            }}
+          >
+            <div style={{ overflow: 'hidden', minHeight: 0 }}>
+            <div className="space-y-0.5 px-2 pb-1">
                 {group.items.map(item => {
                   const active = isActive(item)
                   const showSubs = active && item.subItems && item.subItems.length > 0
@@ -456,7 +461,8 @@ function SidebarContent({
                   )
                 })}
             </div>
-          )}
+            </div>
+          </div>
         </div>
       ))}
     </div>
