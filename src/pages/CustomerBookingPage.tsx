@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,60 +38,6 @@ const formatReservationDeadlineLabel = (reservationDeadlineHours: number): strin
   return `${reservationDeadlineHours}時間前まで予約可`
 }
 
-// 参加費を計算する関数
-const calculateParticipationFee = async (
-  scenarioId: string,
-  startTime: string,
-  date: string,
-  organizationId?: string
-): Promise<number> => {
-  try {
-    // シナリオの料金設定を取得（organization_scenarios_with_master: 組織固有の participation_fee）
-    let query = supabase
-      .from('organization_scenarios_with_master')
-      .select('participation_fee, participation_costs')
-      .eq('id', scenarioId)
-
-    if (organizationId) {
-      query = query.eq('organization_id', organizationId)
-    }
-
-    const { data: scenario, error } = await query.maybeSingle()
-
-    if (error) {
-      logger.error('シナリオ料金設定取得エラー:', error)
-      return 3000 // デフォルト料金
-    }
-
-    if (!scenario) return 3000
-
-    // 基本料金
-    let baseFee = scenario.participation_fee || 3000
-
-    // 時間帯別料金設定をチェック
-    if (scenario.participation_costs && scenario.participation_costs.length > 0) {
-      const timeSlot = getTimeSlot(startTime)
-      const timeSlotCost = scenario.participation_costs.find((cost: { time_slot: string; status: string; type: string; amount: number }) => 
-        cost.time_slot === timeSlot && cost.status === 'active'
-      )
-
-      if (timeSlotCost) {
-        if (timeSlotCost.type === 'percentage') {
-          baseFee = Math.round(baseFee * (1 + timeSlotCost.amount / 100))
-        } else {
-          baseFee = timeSlotCost.amount
-        }
-      }
-    }
-
-    return baseFee
-  } catch (error) {
-    logger.error('料金計算エラー:', error)
-    return 3000 // デフォルト料金
-  }
-}
-
-// 時間帯を判定する関数
 const getTimeSlot = (startTime: string): string => {
   const hour = parseInt(startTime.slice(0, 2))
   if (hour < 12) return 'morning'
@@ -98,99 +45,169 @@ const getTimeSlot = (startTime: string): string => {
   return 'evening'
 }
 
-// 営業時間内かどうかをチェックする関数
+const calculateParticipationFee = async (
+  scenarioId: string,
+  startTime: string,
+  date: string,
+  organizationId?: string
+): Promise<number> => {
+  try {
+    let query = supabase
+      .from('organization_scenarios_with_master')
+      .select('participation_fee, participation_costs')
+      .eq('id', scenarioId)
+    if (organizationId) query = query.eq('organization_id', organizationId)
+    const { data: scenario, error } = await query.maybeSingle()
+    if (error) { logger.error('シナリオ料金設定取得エラー:', error); return 3000 }
+    if (!scenario) return 3000
+    let baseFee = scenario.participation_fee || 3000
+    if (scenario.participation_costs && scenario.participation_costs.length > 0) {
+      const timeSlot = getTimeSlot(startTime)
+      const timeSlotCost = scenario.participation_costs.find((cost: { time_slot: string; status: string; type: string; amount: number }) =>
+        cost.time_slot === timeSlot && cost.status === 'active'
+      )
+      if (timeSlotCost) {
+        baseFee = timeSlotCost.type === 'percentage'
+          ? Math.round(baseFee * (1 + timeSlotCost.amount / 100))
+          : timeSlotCost.amount
+      }
+    }
+    return baseFee
+  } catch (error) {
+    logger.error('料金計算エラー:', error)
+    return 3000
+  }
+}
+
 const isWithinBusinessHours = async (date: string, startTime: string, storeId: string): Promise<boolean> => {
   try {
-    // 営業時間設定を取得
     const { data, error } = await supabase
       .from('business_hours_settings')
       .select('opening_hours, holidays, time_restrictions')
       .eq('store_id', storeId)
       .maybeSingle()
-
-    if (error && error.code !== 'PGRST116') {
-      logger.error('営業時間設定取得エラー:', error)
-      // 安全側: 営業時間を検証できない場合は表示しない（fail-closed）
-      return false
-    }
-
-    // 設定がない場合は「制限なし」とみなす（運用ポリシーが未設定）
+    if (error && error.code !== 'PGRST116') { logger.error('営業時間設定取得エラー:', error); return false }
     if (!data) return true
-
-    // 休日チェック
-    if (data.holidays && data.holidays.includes(date)) {
-      return false
-    }
-
-    // 営業時間チェック
+    if (data.holidays && data.holidays.includes(date)) return false
     if (data.opening_hours) {
-      const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
+      const dayOfWeek = new Date(date).getDay()
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-      const dayName = dayNames[dayOfWeek]
-      
-      const dayHours = data.opening_hours[dayName]
-      if (!dayHours || !dayHours.is_open) {
-        return false
-      }
-
-      const eventTime = startTime.slice(0, 5) // HH:MM形式
-      if (eventTime < dayHours.open_time || eventTime > dayHours.close_time) {
-        return false
-      }
+      const dayHours = data.opening_hours[dayNames[dayOfWeek]]
+      if (!dayHours || !dayHours.is_open) return false
+      const eventTime = startTime.slice(0, 5)
+      if (eventTime < dayHours.open_time || eventTime > dayHours.close_time) return false
     }
-
     return true
   } catch (error) {
     logger.error('営業時間チェックエラー:', error)
-    // 安全側: チェック自体が失敗した場合は表示しない（fail-closed）
     return false
   }
 }
 
+const calculateDuration = (startTime: string, endTime: string): number => {
+  const [startHour, startMin] = startTime.split(':').map(Number)
+  const [endHour, endMin] = endTime.split(':').map(Number)
+  return (endHour * 60 + endMin) - (startHour * 60 + startMin)
+}
+
+const formatDate = (dateStr: string): string => {
+  const date = new Date(dateStr)
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+  return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
+}
+
+const formatTime = (timeStr: string): string => timeStr.slice(0, 5)
+
 export function CustomerBookingPage() {
   const { organization } = useOrganization()
-  const [events, setEvents] = useState<PublicEvent[]>([])
-  const [filteredEvents, setFilteredEvents] = useState<PublicEvent[]>([])
-  const [stores, setStores] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  
-  // 予約サイトのベースパス
   const bookingBasePath = organization?.slug ? `/${organization.slug}` : ''
-  
-  // フィルター状態
+
   const [searchTerm, setSearchTerm] = useState('')
   const [storeFilter, setStoreFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('all')
 
-  // 地域から抽出するヘルパー関数
+  const { data: stores = [] } = useQuery({
+    queryKey: ['customer-booking', 'stores'],
+    queryFn: () => storeApi.getAll(),
+  })
+
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ['customer-booking', 'events', organization?.id],
+    queryFn: async (): Promise<PublicEvent[]> => {
+      const currentDate = new Date()
+      const allEvents: PublicEvent[] = []
+
+      for (let i = 0; i < 6; i++) {
+        const targetDate = new Date(currentDate)
+        targetDate.setMonth(currentDate.getMonth() + i)
+        const data = await scheduleApi.getByMonth(targetDate.getFullYear(), targetDate.getMonth() + 1)
+
+        const filteredData = data.filter((event: any) => {
+          return !event.is_cancelled &&
+            event.is_reservation_enabled !== false &&
+            (event.category === 'open' || event.category === 'offsite')
+        })
+
+        for (const event of filteredData) {
+          const isWithinHours = await isWithinBusinessHours(event.date, event.start_time, event.store_id)
+          if (isWithinHours) {
+            const e = event as any
+            allEvents.push({
+              id: e.id,
+              date: e.date,
+              start_time: e.start_time,
+              end_time: e.end_time,
+              scenario_title: e.scenario || e.scenario_masters?.title || '未定',
+              scenario_description: undefined,
+              store_name: e.stores?.name || '',
+              store_short_name: e.stores?.short_name || '',
+              store_color: e.stores?.color,
+              duration: calculateDuration(e.start_time, e.end_time),
+              max_participants: e.max_participants || e.capacity || 8,
+              current_participants: e.current_participants || 0,
+              available_seats: (e.max_participants || e.capacity || 8) - (e.current_participants || 0),
+              participation_fee: await calculateParticipationFee(e.scenario_master_id, e.start_time, e.date, organization?.id),
+              is_reservation_enabled: e.is_reservation_enabled,
+              reservation_deadline_hours: e.reservation_deadline_hours ?? 0,
+            })
+          }
+        }
+      }
+
+      allEvents.sort((a, b) => {
+        const dateCompare = a.date.localeCompare(b.date)
+        return dateCompare !== 0 ? dateCompare : a.start_time.localeCompare(b.start_time)
+      })
+      return allEvents
+    },
+    onError: (error) => {
+      logger.error('公演データの読み込みエラー:', error)
+      showToast.error('公演データの読み込みに失敗しました')
+    },
+  } as any)
+
   const extractRegionFromAddress = (address?: string): string => {
     if (!address) return 'その他'
     const match = address.match(/^(東京都|大阪府|京都府|北海道|.{2,3}県)/)
     return match ? match[1] : 'その他'
   }
 
-  // オフィスと臨時会場を除外した店舗一覧
   const filteredStores = useMemo(() => {
     return stores.filter((s: any) => {
       const name = s.short_name || s.name || ''
-      const isOffice = s.ownership_type === 'office' || name.includes('オフィス')
-      const isTemporary = s.ownership_type === 'temporary' || name.includes('臨時')
-      return !isOffice && !isTemporary
+      return !(s.ownership_type === 'office' || name.includes('オフィス')) &&
+             !(s.ownership_type === 'temporary' || name.includes('臨時'))
     })
   }, [stores])
 
-  // 地域ごとにグループ化した店舗（display_orderでソート）
   const storesByRegion = useMemo(() => {
     const groups = new Map<string, any[]>()
-    // display_orderでソート
-    const sortedStores = [...filteredStores].sort((a: any, b: any) => 
+    const sortedStores = [...filteredStores].sort((a: any, b: any) =>
       (a.display_order || 999) - (b.display_order || 999)
     )
     sortedStores.forEach((store: any) => {
       const region = store.region || extractRegionFromAddress(store.address) || 'その他'
-      if (!groups.has(region)) {
-        groups.set(region, [])
-      }
+      if (!groups.has(region)) groups.set(region, [])
       groups.get(region)!.push(store)
     })
     return Array.from(groups.entries()).sort(([a], [b]) => {
@@ -200,168 +217,37 @@ export function CustomerBookingPage() {
     })
   }, [filteredStores])
 
-  const loadStores = useCallback(async () => {
-    try {
-      const data = await storeApi.getAll()
-      setStores(data)
-    } catch (error) {
-      logger.error('店舗データの読み込みエラー:', error)
-    }
-  }, [])
+  const filteredEvents = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
-  const loadPublicEvents = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      
-      // 現在の月から6ヶ月先までの公演を取得
-      const currentDate = new Date()
-      const events: PublicEvent[] = []
-      
-      for (let i = 0; i < 6; i++) {
-        const targetDate = new Date(currentDate)
-        targetDate.setMonth(currentDate.getMonth() + i)
-        
-        const year = targetDate.getFullYear()
-        const month = targetDate.getMonth() + 1
-        
-        const data = await scheduleApi.getByMonth(year, month)
-        
-        // 予約可能な公演のみをフィルタリング
-        const filteredData = data.filter((event: any) => {
-          const isNotCancelled = !event.is_cancelled
-          const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open' || event.category === 'offsite')
-          return isNotCancelled && isOpenAndEnabled
-        })
+    let result = events.filter(event => new Date(event.date) >= today)
 
-        // 営業時間制限を適用
-        const publicEvents = []
-        for (const event of filteredData) {
-          const isWithinHours = await isWithinBusinessHours(event.date, event.start_time, event.store_id)
-          if (isWithinHours) {
-            const e = event as any
-            publicEvents.push({
-            id: e.id,
-            date: e.date,
-            start_time: e.start_time,
-            end_time: e.end_time,
-            scenario_title: e.scenario || e.scenario_masters?.title || '未定',
-            scenario_description: undefined,
-            store_name: e.stores?.name || '',
-            store_short_name: e.stores?.short_name || '',
-            store_color: e.stores?.color,
-            duration: calculateDuration(e.start_time, e.end_time),
-            max_participants: e.max_participants || e.capacity || 8,
-            current_participants: e.current_participants || 0,
-            available_seats: (e.max_participants || e.capacity || 8) - (e.current_participants || 0),
-            participation_fee: await calculateParticipationFee(
-              e.scenario_master_id,
-              e.start_time,
-              e.date,
-              organization?.id
-            ), // 料金設定から計算
-            is_reservation_enabled: e.is_reservation_enabled,
-            reservation_deadline_hours: e.reservation_deadline_hours ?? 0
-            })
-          }
-        }
-        
-        events.push(...publicEvents)
-      }
-      
-      // 日付順にソート
-      events.sort((a, b) => {
-        const dateCompare = a.date.localeCompare(b.date)
-        if (dateCompare !== 0) return dateCompare
-        return a.start_time.localeCompare(b.start_time)
-      })
-      
-      setEvents(events)
-    } catch (error) {
-      logger.error('公演データの読み込みエラー:', error)
-      showToast.error('公演データの読み込みに失敗しました')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [organization?.id])
-
-  const calculateDuration = (startTime: string, endTime: string): number => {
-    const [startHour, startMin] = startTime.split(':').map(Number)
-    const [endHour, endMin] = endTime.split(':').map(Number)
-    return (endHour * 60 + endMin) - (startHour * 60 + startMin)
-  }
-
-  const applyFilters = useCallback(() => {
-    let filtered = [...events]
-
-    // 検索フィルター
     if (searchTerm) {
-      filtered = filtered.filter(event =>
+      result = result.filter(event =>
         event.scenario_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.store_name.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
-
-    // 店舗フィルター
     if (storeFilter !== 'all') {
-      filtered = filtered.filter(event => event.store_short_name === storeFilter)
+      result = result.filter(event => event.store_short_name === storeFilter)
     }
-
-    // 日付フィルター
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    // まず過去の日付を除外（全フィルターで適用）
-    filtered = filtered.filter(event => {
-      const eventDate = new Date(event.date)
-      return eventDate >= today
-    })
-    
     if (dateFilter === 'today') {
       const todayStr = today.toISOString().split('T')[0]
-      filtered = filtered.filter(event => event.date === todayStr)
+      result = result.filter(event => event.date === todayStr)
     } else if (dateFilter === 'week') {
       const weekLater = new Date(today)
       weekLater.setDate(today.getDate() + 7)
-      filtered = filtered.filter(event => {
-        const eventDate = new Date(event.date)
-        return eventDate <= weekLater
-      })
+      result = result.filter(event => new Date(event.date) <= weekLater)
     } else if (dateFilter === 'month') {
       const monthLater = new Date(today)
       monthLater.setMonth(today.getMonth() + 1)
-      filtered = filtered.filter(event => {
-        const eventDate = new Date(event.date)
-        return eventDate <= monthLater
-      })
+      result = result.filter(event => new Date(event.date) <= monthLater)
     }
-    // dateFilter === 'all' の場合は過去除外のみ（上で適用済み）
-
-    setFilteredEvents(filtered)
+    return result
   }, [events, searchTerm, storeFilter, dateFilter])
 
-  // 初期データロード
-  useEffect(() => {
-    loadPublicEvents()
-    loadStores()
-  }, [loadPublicEvents, loadStores])
-
-  // フィルター適用
-  useEffect(() => {
-    applyFilters()
-  }, [applyFilters])
-
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr)
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
-  }
-
-  const formatTime = (timeStr: string): string => {
-    return timeStr.slice(0, 5)
-  }
-
   const handleBooking = (event: PublicEvent) => {
-    // TODO: 予約フォームへ遷移
     logger.log('予約:', event)
     showToast.info(`「${event.scenario_title}」の予約機能は実装中です`)
   }
@@ -373,7 +259,6 @@ export function CustomerBookingPage() {
 
       <div className="container mx-auto max-w-7xl px-[10px] py-6">
         <div className="space-y-6">
-          {/* ヘッダー */}
           <div>
             <h1 className="text-lg tracking-tight">公演予約</h1>
             <p className="text-muted-foreground mt-1">
@@ -381,14 +266,12 @@ export function CustomerBookingPage() {
             </p>
           </div>
 
-          {/* 検索・フィルターセクション */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">公演を探す</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* 検索 */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <Input
@@ -399,7 +282,6 @@ export function CustomerBookingPage() {
                   />
                 </div>
 
-                {/* 店舗フィルター */}
                 <Select value={storeFilter} onValueChange={setStoreFilter}>
                   <SelectTrigger>
                     <SelectValue placeholder="すべての店舗" />
@@ -419,7 +301,6 @@ export function CustomerBookingPage() {
                   </SelectContent>
                 </Select>
 
-                {/* 日付フィルター */}
                 <Select value={dateFilter} onValueChange={setDateFilter}>
                   <SelectTrigger>
                     <SelectValue placeholder="すべての日程" />
@@ -435,7 +316,6 @@ export function CustomerBookingPage() {
             </CardContent>
           </Card>
 
-          {/* 公演一覧 */}
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <p className="text-muted-foreground">公演情報を読み込み中...</p>
@@ -451,12 +331,11 @@ export function CustomerBookingPage() {
               <p className="text-xs text-muted-foreground">
                 {filteredEvents.length}件の公演が見つかりました
               </p>
-              
+
               {filteredEvents.map((event) => (
                 <Card key={event.id} className="hover:bg-accent/50 transition-colors">
                   <CardContent className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                      {/* 日付・時間 */}
                       <div className="md:col-span-3 flex flex-col items-start justify-center border-l-4 pl-4" style={{ borderColor: event.store_color || '#3B82F6' }}>
                         <div className="flex items-center gap-2 mb-2">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -464,63 +343,42 @@ export function CustomerBookingPage() {
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Clock className="w-4 h-4" />
-                          <span className="">
-                            {formatTime(event.start_time)} - {formatTime(event.end_time)}
-                          </span>
+                          <span className="">{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          ({event.duration}分)
-                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">({event.duration}分)</div>
                       </div>
 
-                      {/* 公演情報 */}
                       <div className="md:col-span-6 space-y-2">
                         <div>
-                          <h3 className="text-base mb-1">
-                            {event.scenario_title}
-                          </h3>
+                          <h3 className="text-base mb-1">{event.scenario_title}</h3>
                           {event.scenario_description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {event.scenario_description}
-                            </p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{event.scenario_description}</p>
                           )}
                         </div>
-                        
                         <div className="flex flex-wrap gap-2 items-center">
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <MapPin className="w-4 h-4" />
                             <span>{event.store_name}</span>
                           </div>
-                          
                           <Badge variant="outline" className="bg-green-100 text-green-800 border-green-500">
                             <Users className="w-3 h-3 mr-1" />
                             残り{event.available_seats}席
                           </Badge>
-                          
                           {event.available_seats <= 3 && event.available_seats > 0 && (
-                            <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-500">
-                              残りわずか
-                            </Badge>
+                            <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-500">残りわずか</Badge>
                           )}
-                          
                           {event.available_seats === 0 && (
-                            <Badge variant="outline" className="bg-red-100 text-red-800 border-red-500">
-                              満席
-                            </Badge>
+                            <Badge variant="outline" className="bg-red-100 text-red-800 border-red-500">満席</Badge>
                           )}
                         </div>
                       </div>
 
-                      {/* 料金・予約ボタン */}
                       <div className="md:col-span-3 flex flex-col items-end justify-center gap-3">
                         <div className="text-right">
                           <p className="text-xs text-muted-foreground">参加費</p>
-                          <p className="text-lg text-primary">
-                            ¥{event.participation_fee.toLocaleString()}
-                          </p>
+                          <p className="text-lg text-primary">¥{event.participation_fee.toLocaleString()}</p>
                           <p className="text-xs text-muted-foreground">/ 1名</p>
                         </div>
-                        
                         <Button
                           onClick={() => handleBooking(event)}
                           disabled={event.available_seats === 0}
@@ -529,7 +387,6 @@ export function CustomerBookingPage() {
                         >
                           {event.available_seats === 0 ? '満席' : '予約する'}
                         </Button>
-                        
                         <p className="text-xs text-muted-foreground text-right">
                           {formatReservationDeadlineLabel(event.reservation_deadline_hours)}
                         </p>
@@ -545,4 +402,3 @@ export function CustomerBookingPage() {
     </div>
   )
 }
-
