@@ -6,7 +6,7 @@
  * - ロールベースでメニューをフィルタリング
  */
 import { useState, useMemo, useCallback, useEffect, memo } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
 import { useStoreConfirmationPendingCount } from '@/hooks/useStoreConfirmationPendingCount'
@@ -64,8 +64,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
   const slug = organization?.slug || 'queens-waltz'
 
   const [mobileOpen, setMobileOpen] = useState(false)
-  // ホバー中のカテゴリID
-  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   // パス変更でモバイルドロワーを閉じる
   useEffect(() => {
@@ -265,37 +264,41 @@ export const AdminSidebar = memo(function AdminSidebar() {
 
   if (!user || user.role === 'customer' || !isAdminPage) return null
 
-  // カテゴリが開いているか（アクティブページが含まれる or ホバー中）
+  // カテゴリが開いているか（アクティブページが含まれる時だけ）
   const isGroupOpen = useCallback((group: typeof visibleGroups[0]) => {
     if (!group.label) return true  // ラベルなし（トップ）は常に表示
-    const hasActive = group.items.some(item => isActive(item))
-    return hasActive || hoveredGroup === group.id
-  }, [isActive, hoveredGroup, visibleGroups])
+    return group.items.some(item => isActive(item))
+  }, [isActive])
+
+  // カテゴリヘッダーをクリック → そのカテゴリの最初のアイテムに遷移
+  const handleGroupClick = useCallback((group: typeof visibleGroups[0]) => {
+    const firstItem = group.items[0]
+    if (firstItem) navigate(firstItem.path)
+  }, [navigate])
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full py-3">
       {visibleGroups.map((group, gi) => (
-        <div
-          key={group.id}
-          onMouseEnter={() => group.label && setHoveredGroup(group.id)}
-          onMouseLeave={() => setHoveredGroup(null)}
-        >
+        <div key={group.id}>
           {/* グループセパレーター */}
           {gi > 0 && group.label && (
             <div className="mx-3 my-1 border-t border-border/40" />
           )}
 
-          {/* カテゴリ見出し（クリック不可、ホバーで展開） */}
+          {/* カテゴリ見出し（クリックで最初のアイテムへ遷移） */}
           {group.label && (
-            <div className="flex items-center justify-between px-3 pt-2 pb-1">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            <button
+              onClick={() => handleGroupClick(group)}
+              className="w-full flex items-center justify-between px-3 pt-2 pb-1 hover:text-slate-600 transition-colors group"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-slate-600">
                 {group.label}
               </span>
               {isGroupOpen(group)
-                ? <ChevronDown className="w-3 h-3 text-slate-300" />
-                : <ChevronRight className="w-3 h-3 text-slate-300" />
+                ? <ChevronDown className="w-3 h-3 text-slate-300 group-hover:text-slate-500" />
+                : <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-slate-500" />
               }
-            </div>
+            </button>
           )}
 
           {/* グループアイテム */}
