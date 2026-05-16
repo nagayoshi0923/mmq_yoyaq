@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -8,64 +8,33 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { Images, Calendar, MapPin, Star, EyeOff, Users, Clock, User, Plus, Trash2, Pencil, X } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
-import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { OptimizedImage } from '@/components/ui/optimized-image'
-import { MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER } from '@/constants/album'
-import { countManualPlayHistoryForCustomer, isManualPlayHistoryAtCap } from '@/lib/manualPlayHistoryLimit'
+import {
+  useAlbumQuery, useAlbumOptionsQuery, useScenarioCharactersQuery,
+  useAddManualHistoryMutation, useSaveCharacterMutation, useDeleteManualHistoryMutation,
+  useToggleLikeMutation, useRemoveLikeMutation,
+  type PlayedScenario,
+} from '../hooks/useAlbumQuery'
 
-interface ScenarioOption {
-  id: string
-  title: string
+const formatDate = (date: string) => {
+  const d = new Date(date)
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
 
-interface CharacterOption {
-  id: string
-  name: string
-}
+const cleanTitle = (title: string) =>
+  title.replace(/\s*-\s*\d{4}年\d{1,2}月\d{1,2}日\([月火水木金土日]\)/g, '').trim()
 
-interface StoreOption {
-  id: string
-  name: string
-}
-
-interface PlayedScenario {
-  scenario: string
-  date: string
-  venue: string
-  gms: string[]
-  scenario_id?: string
-  key_visual_url?: string
-  author?: string
-  is_manual?: boolean  // 手動登録かどうか
-  manual_id?: string   // manual_play_historyのID
-  reservation_id?: string  // 予約ID
-  character_name?: string  // 担当した役名
-  played_character_id?: string  // scenario_characters.id
-  character_record_id?: string  // album_character_recordsのID
-}
-
-interface LikedScenario {
-  id: string
-  scenario_id: string
-  created_at: string
-  scenario: {
-    id: string
-    slug?: string
-    title: string
-    description: string
-    author: string
-    duration: number
-    player_count_min: number
-    player_count_max: number
-    difficulty: number
-    genre: string[]
-    rating: number
-    play_count: number
-    key_visual_url?: string
+const getDifficultyLabel = (difficulty: number) => {
+  switch (difficulty) {
+    case 1: return '初級'
+    case 2: return '中級'
+    case 3: return '上級'
+    case 4: return '最上級'
+    case 5: return '超上級'
+    default: return '不明'
   }
 }
 
@@ -73,666 +42,70 @@ export function AlbumPage() {
   const { user } = useAuth()
   const { organizationId } = useOrganization()
   const navigate = useNavigate()
-  const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
-  const [likedScenariosList, setLikedScenariosList] = useState<LikedScenario[]>([])
   const [hiddenScenarios, setHiddenScenarios] = useState<Set<string>>(new Set())
-  const [likedScenarios, setLikedScenarios] = useState<Set<string>>(new Set())
-  const [customerId, setCustomerId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  
+
   // 手動登録用ステート
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [newScenarioId, setNewScenarioId] = useState('')
   const [newPlayedAt, setNewPlayedAt] = useState('')
   const [newStoreId, setNewStoreId] = useState('')
   const [newRating, setNewRating] = useState(0)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  
-  // 選択肢用データ
-  const [scenarioOptions, setScenarioOptions] = useState<ScenarioOption[]>([])
-  const [storeOptions, setStoreOptions] = useState<StoreOption[]>([])
-  const [optionsLoading, setOptionsLoading] = useState(true)
+  const [newCharacterId, setNewCharacterId] = useState('')
 
   // 配役記録用ステート
   const [editCharacterPlay, setEditCharacterPlay] = useState<PlayedScenario | null>(null)
-  const [characterOptions, setCharacterOptions] = useState<CharacterOption[]>([])
   const [editCharacterId, setEditCharacterId] = useState('')
-  const [isSavingCharacter, setIsSavingCharacter] = useState(false)
-  const [newCharacterId, setNewCharacterId] = useState('')
-  const [newCharacterOptions, setNewCharacterOptions] = useState<CharacterOption[]>([])
 
-  useEffect(() => {
-    if (user?.email) {
-      fetchPlayedScenarios()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
-  }, [user])
+  // Queries
+  const { data: albumData, isLoading } = useAlbumQuery(user?.email)
+  const { data: optionsData, isLoading: optionsLoading } = useAlbumOptionsQuery()
+  const { data: newCharacterOptions = [] } = useScenarioCharactersQuery(newScenarioId || undefined)
+  const { data: editCharacterOptions = [] } = useScenarioCharactersQuery(editCharacterPlay?.scenario_id || undefined)
 
-  // シナリオと店舗の選択肢を取得
-  // 顧客は全組織のシナリオ/店舗を利用可能
-  // シナリオはorganization_scenarios_with_masterビューから取得（公開中のみ）
-  useEffect(() => {
-    const fetchOptions = async () => {
-      setOptionsLoading(true)
-      try {
-        // 公開中のシナリオを取得（organization_scenarios_with_masterビューから）
-        // org_status='available' のシナリオのみ取得し、重複を排除
-        const { data: scenarios, error: scenarioError } = await supabase
-          .from('organization_scenarios_with_master')
-          .select('scenario_master_id, title')
-          .eq('org_status', 'available')
-          .order('title')
+  const playedScenarios = albumData?.playedScenarios ?? []
+  const likedScenariosList = albumData?.likedScenariosList ?? []
+  const likedScenarios = albumData?.likedScenarios ?? new Set<string>()
+  const customerId = albumData?.customerId ?? null
+  const scenarioOptions = optionsData?.scenarioOptions ?? []
+  const storeOptions = optionsData?.storeOptions ?? []
 
-        if (scenarioError) throw scenarioError
+  // Mutations
+  const addManualHistory = useAddManualHistoryMutation(customerId, scenarioOptions, storeOptions, organizationId, user?.email)
+  const saveCharacter = useSaveCharacterMutation(customerId, user?.email)
+  const deleteManualHistory = useDeleteManualHistoryMutation(customerId, user?.email)
+  const toggleLike = useToggleLikeMutation(customerId, organizationId, user?.email)
+  const removeLike = useRemoveLikeMutation(user?.email)
 
-        // 重複を排除（同じシナリオが複数組織で公開されている場合）
-        const uniqueScenarios = scenarios?.reduce((acc, s) => {
-          if (!acc.find(item => item.id === s.scenario_master_id)) {
-            acc.push({ id: s.scenario_master_id, title: s.title })
-          }
-          return acc
-        }, [] as ScenarioOption[]) || []
-
-        setScenarioOptions(uniqueScenarios)
-
-        // 店舗を取得（RLSで許可された店舗）
-        // 臨時店舗は1つだけ表示（臨時会場1のみ）
-        const { data: stores, error: storeError } = await supabase
-          .from('stores')
-          .select('id, name, short_name, is_temporary')
-          .order('name')
-
-        if (storeError) throw storeError
-
-        // 臨時店舗は「臨時1」（臨時会場1）のみ残し、他は除外
-        const filteredStores = (stores || []).filter(store => {
-          if (!store.is_temporary) return true
-          return store.short_name === '臨時1' || store.name === '臨時会場1'
-        })
-
-        setStoreOptions(filteredStores.map(s => ({ id: s.id, name: s.name })))
-      } catch (error) {
-        logger.error('オプション取得エラー:', error)
-      } finally {
-        setOptionsLoading(false)
-      }
-    }
-
-    fetchOptions()
-  }, [])
-
-  // 手動登録ダイアログでシナリオが選択されたときキャラクター選択肢を取得
-  useEffect(() => {
-    if (!newScenarioId) {
-      setNewCharacterOptions([])
-      setNewCharacterId('')
-      return
-    }
-    const fetchCharacters = async () => {
-      const { data } = await supabase
-        .from('scenario_characters')
-        .select('id, name')
-        .eq('scenario_master_id', newScenarioId)
-        .eq('is_visible', true)
-        .order('sort_order')
-      setNewCharacterOptions(data?.map(c => ({ id: c.id, name: c.name })) || [])
-      setNewCharacterId('')
-    }
-    void fetchCharacters()
-  }, [newScenarioId])
-
-  // 配役編集ダイアログが開いたときキャラクター選択肢を取得
-  useEffect(() => {
-    if (!editCharacterPlay?.scenario_id) {
-      setCharacterOptions([])
-      return
-    }
-    const fetchCharacters = async () => {
-      const { data } = await supabase
-        .from('scenario_characters')
-        .select('id, name')
-        .eq('scenario_master_id', editCharacterPlay.scenario_id!)
-        .eq('is_visible', true)
-        .order('sort_order')
-      setCharacterOptions(data?.map(c => ({ id: c.id, name: c.name })) || [])
-      setEditCharacterId(editCharacterPlay.played_character_id || '')
-    }
-    void fetchCharacters()
-  }, [editCharacterPlay])
-
-  const fetchPlayedScenarios = async () => {
-    if (!user?.email) return
-
-    setLoading(true)
-    try {
-      // 顧客情報を取得
-      const { data: customer, error: customerError } = await supabase
-        .from('customers')
-        .select('id, name')
-        .eq('email', user.email)
-        .maybeSingle()
-
-      if (customerError) throw customerError
-      if (!customer) {
-        logger.log('顧客情報が見つかりません:', user.email)
-        setPlayedScenarios([])
-        setLoading(false)
-        return
-      }
-
-      logger.log('取得した顧客情報:', customer)
-      setCustomerId(customer.id)
-
-      // いいね済みシナリオを取得
-      const { data: likes } = await supabase
-        .from('scenario_likes')
-        .select('scenario_id')
-        .eq('customer_id', customer.id)
-
-      if (likes) {
-        setLikedScenarios(new Set(likes.map(l => l.scenario_id)))
-      }
-
-      // いいねしたシナリオの詳細情報を取得（scenario_master_id を使用）
-      const { data: likesData, error: likesError } = await supabase
-        .from('scenario_likes')
-        .select('id, scenario_id, scenario_master_id, created_at')
-        .eq('customer_id', customer.id)
-        .order('created_at', { ascending: false })
-
-      if (!likesError && likesData && likesData.length > 0) {
-        const scenarioMasterIds = likesData.map(like => (like as { scenario_master_id?: string }).scenario_master_id ?? like.scenario_id).filter(Boolean)
-        const { data: scenariosData, error: scenariosError } = await supabase
-          .from('scenario_masters')
-          .select('id, title, description, author, official_duration, player_count_min, player_count_max, difficulty, genre, key_visual_url')
-          .in('id', scenarioMasterIds)
-
-        if (!scenariosError && scenariosData) {
-          const combined = likesData.map(like => {
-            const masterId = (like as { scenario_master_id?: string }).scenario_master_id ?? like.scenario_id
-            const scenario = scenariosData.find(s => s.id === masterId)
-            return {
-              id: like.id,
-              scenario_id: like.scenario_id,
-              created_at: like.created_at,
-              scenario: scenario ? {
-                ...scenario,
-                duration: (scenario as { official_duration?: number }).official_duration ?? 0,
-                rating: 0,
-                play_count: 0,
-              } : {
-                id: masterId ?? like.scenario_id,
-                title: '不明',
-                description: '',
-                author: '',
-                duration: 0,
-                player_count_min: 0,
-                player_count_max: 0,
-                difficulty: 0,
-                genre: [],
-                rating: 0,
-                play_count: 0,
-              }
-            }
-          })
-          setLikedScenariosList(combined)
-        }
-      } else {
-        setLikedScenariosList([])
-      }
-
-      // 予約を取得（確定済み・GM確認済みの全カテゴリの公演）
-      const { data: reservations, error: reservationsError } = await supabase
-        .from('reservations')
-        .select('id, requested_datetime, title, scenario_id, scenario_master_id, duration')
-        .eq('customer_id', customer.id)
-        .in('status', ['confirmed', 'gm_confirmed'])
-        .lte('requested_datetime', new Date().toISOString())
-        .order('requested_datetime', { ascending: false })
-
-      if (reservationsError) throw reservationsError
-      
-      logger.log('取得した予約データ:', reservations)
-
-      // 予約から日時とタイトルを取得し、スケジュールイベントと照合
-      const scenarios: PlayedScenario[] = []
-      
-      if (reservations) {
-        // タイトルでの一括検索用マップを作成
-        const titles = reservations.map(r => r.title).filter((t): t is string => !!t)
-        const titleToScenarioMap: Record<string, { key_visual_url?: string; author?: string; id: string }> = {}
-        
-        if (titles.length > 0) {
-          const { data: scenariosByTitle } = await supabase
-            .from('scenario_masters')
-            .select('id, title, key_visual_url, author')
-            .in('title', titles)
-          
-          if (scenariosByTitle) {
-            scenariosByTitle.forEach(s => {
-              titleToScenarioMap[s.title] = { key_visual_url: s.key_visual_url, author: s.author, id: s.id }
-            })
-          }
-        }
-        
-        for (const reservation of reservations) {
-          const reservationDate = new Date(reservation.requested_datetime)
-          const dateStr = reservationDate.toISOString().split('T')[0]
-          
-          // スケジュールイベントを検索（公開用ビュー - GM情報を除外）
-          const { data: event, error: eventError } = await supabase
-            .from('schedule_events_public')
-            .select('scenario, date, venue')
-            .eq('date', dateStr)
-            .eq('scenario', reservation.title)
-            .maybeSingle()
-
-          // シナリオの画像と作者を取得（scenario_master_id を優先、scenario_masters から）
-          let keyVisualUrl: string | null = null
-          let author: string | null = null
-          let finalScenarioId: string | null = null
-          const scenarioMasterId = reservation.scenario_master_id
-          
-          if (scenarioMasterId) {
-            const { data: scenarioData } = await supabase
-              .from('scenario_masters')
-              .select('key_visual_url, author')
-              .eq('id', scenarioMasterId)
-              .maybeSingle()
-            keyVisualUrl = scenarioData?.key_visual_url || null
-            author = scenarioData?.author || null
-            finalScenarioId = scenarioMasterId
-          }
-          
-          // IDで見つからない場合はタイトルでフォールバック
-          if (!keyVisualUrl && reservation.title && titleToScenarioMap[reservation.title]) {
-            const fallback = titleToScenarioMap[reservation.title]
-            keyVisualUrl = fallback.key_visual_url || null
-            author = fallback.author || null
-            finalScenarioId = finalScenarioId || fallback.id
-          }
-
-          const reservationId = (reservation as { id?: string }).id
-
-          if (!eventError && event) {
-            scenarios.push({
-              scenario: event.scenario,
-              date: event.date,
-              venue: event.venue,
-              gms: [], // GM情報は非公開
-              scenario_id: finalScenarioId || undefined,
-              key_visual_url: keyVisualUrl || undefined,
-              author: author || undefined,
-              reservation_id: reservationId || undefined,
-            })
-          } else {
-            // イベントが見つからない場合でも予約情報から追加
-            scenarios.push({
-              scenario: reservation.title,
-              date: dateStr,
-              venue: '店舗不明',
-              gms: [],
-              scenario_id: finalScenarioId || undefined,
-              key_visual_url: keyVisualUrl || undefined,
-              author: author || undefined,
-              reservation_id: reservationId || undefined,
-            })
-          }
-        }
-      }
-
-      // 手動登録履歴を取得（scenario_master_id で scenario_masters を JOIN）
-      const { data: manualHistory } = await supabase
-        .from('manual_play_history')
-        .select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id, scenario_masters:scenario_master_id(key_visual_url, author)')
-        .eq('customer_id', customer.id)
-        .order('played_at', { ascending: false })
-        .limit(MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER)
-      
-      if (manualHistory) {
-        manualHistory.forEach((item: any) => {
-          const master = item.scenario_masters as { key_visual_url?: string; author?: string } | null
-          scenarios.push({
-            scenario: item.scenario_title,
-            date: item.played_at,
-            venue: item.venue || '',
-            gms: [],
-            scenario_id: (item.scenario_master_id ?? item.scenario_id) || undefined,
-            key_visual_url: master?.key_visual_url || undefined,
-            author: master?.author || undefined,
-            is_manual: true,
-            manual_id: item.id,
-          })
-        })
-      }
-      
-      // 配役記録を取得してマージ
-      const { data: charRecords } = await supabase
-        .from('album_character_records')
-        .select('id, reservation_id, manual_play_history_id, character_id, character_name')
-        .eq('customer_id', customer.id)
-
-      if (charRecords && charRecords.length > 0) {
-        const byReservation = new Map(
-          charRecords.filter(r => r.reservation_id).map(r => [r.reservation_id!, r])
-        )
-        const byManual = new Map(
-          charRecords.filter(r => r.manual_play_history_id).map(r => [r.manual_play_history_id!, r])
-        )
-        scenarios.forEach(s => {
-          const rec = s.reservation_id
-            ? byReservation.get(s.reservation_id)
-            : s.manual_id
-              ? byManual.get(s.manual_id)
-              : undefined
-          if (rec) {
-            s.character_name = rec.character_name
-            s.played_character_id = rec.character_id || undefined
-            s.character_record_id = rec.id
-          }
-        })
-      }
-
-      // 日付でソート（新しい順）
-      scenarios.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-      setPlayedScenarios(scenarios)
-    } catch (error) {
-      logger.error('体験済みシナリオ取得エラー:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 手動登録を追加
   const handleAddManualHistory = async () => {
-    if (!customerId || !newScenarioId) {
-      showToast.error('シナリオは必須です')
-      return
-    }
-
-    setIsSubmitting(true)
-    try {
-      const manualCount = await countManualPlayHistoryForCustomer(customerId)
-      if (isManualPlayHistoryAtCap(manualCount)) {
-        showToast.error(
-          `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
-        )
-        return
-      }
-
-      // 選択されたシナリオのタイトルを取得
-      const selectedScenario = scenarioOptions.find(s => s.id === newScenarioId)
-      const scenarioTitle = selectedScenario?.title || ''
-      
-      // 選択された店舗の名前を取得
-      const selectedStore = storeOptions.find(s => s.id === newStoreId)
-      const storeName = selectedStore?.name || null
-
-      // scenario_master_id を設定して画像を取得できるようにする
-      const { data: insertedHistory, error } = await supabase
-        .from('manual_play_history')
-        .insert({
-          customer_id: customerId,
-          scenario_title: scenarioTitle,
-          scenario_id: null,
-          scenario_master_id: newScenarioId,
-          played_at: newPlayedAt || null,
-          venue: storeName,
-        })
-        .select('id')
-        .single()
-
-      if (error) throw error
-
-      // 配役が選択されていれば記録
-      if (insertedHistory && newCharacterId) {
-        const selectedChar = newCharacterOptions.find(c => c.id === newCharacterId)
-        await supabase
-          .from('album_character_records')
-          .insert({
-            customer_id: customerId,
-            manual_play_history_id: insertedHistory.id,
-            character_id: newCharacterId,
-            character_name: selectedChar?.name || '',
-          })
-      }
-
-      // おすすめ度が設定されている場合は scenario_ratings に保存
-      if (newRating > 0) {
-        await supabase
-          .from('scenario_ratings')
-          .upsert({
-            customer_id: customerId,
-            scenario_master_id: newScenarioId,
-            rating: newRating,
-          }, { onConflict: 'customer_id,scenario_master_id' })
-      }
-
-      showToast.success('プレイ履歴を追加しました')
-      setIsAddDialogOpen(false)
-      setNewScenarioId('')
-      setNewPlayedAt('')
-      setNewStoreId('')
-      setNewRating(0)
-      setNewCharacterId('')
-      setNewCharacterOptions([])
-      fetchPlayedScenarios()
-    } catch (error) {
-      logger.error('手動履歴追加エラー:', error)
-      showToast.error('追加に失敗しました')
-    } finally {
-      setIsSubmitting(false)
-    }
+    if (!newScenarioId) { showToast.error('シナリオは必須です'); return }
+    await addManualHistory.mutateAsync({ scenarioId: newScenarioId, playedAt: newPlayedAt, storeId: newStoreId, rating: newRating, characterId: newCharacterId, characterOptions: newCharacterOptions })
+    setIsAddDialogOpen(false)
+    setNewScenarioId(''); setNewPlayedAt(''); setNewStoreId(''); setNewRating(0); setNewCharacterId('')
   }
 
-  // 配役記録を保存・更新
   const handleSaveCharacter = async () => {
-    if (!editCharacterPlay || !customerId) return
-
-    setIsSavingCharacter(true)
-    try {
-      const selectedChar = characterOptions.find(c => c.id === editCharacterId)
-      const characterName = selectedChar?.name || ''
-
-      if (editCharacterPlay.character_record_id) {
-        // 既存レコードを更新
-        if (!editCharacterId) {
-          // 空にする場合は削除
-          const { error } = await supabase
-            .from('album_character_records')
-            .delete()
-            .eq('id', editCharacterPlay.character_record_id)
-          if (error) throw error
-        } else {
-          const { error } = await supabase
-            .from('album_character_records')
-            .update({ character_id: editCharacterId, character_name: characterName, updated_at: new Date().toISOString() })
-            .eq('id', editCharacterPlay.character_record_id)
-          if (error) throw error
-        }
-      } else if (editCharacterId) {
-        // 新規挿入
-        const insertData: Record<string, string> = {
-          customer_id: customerId,
-          character_id: editCharacterId,
-          character_name: characterName,
-        }
-        if (editCharacterPlay.reservation_id) {
-          insertData.reservation_id = editCharacterPlay.reservation_id
-        } else if (editCharacterPlay.manual_id) {
-          insertData.manual_play_history_id = editCharacterPlay.manual_id
-        }
-        const { error } = await supabase
-          .from('album_character_records')
-          .insert(insertData)
-        if (error) throw error
-      }
-
-      showToast.success('配役を保存しました')
-      setEditCharacterPlay(null)
-      fetchPlayedScenarios()
-    } catch (error) {
-      logger.error('配役保存エラー:', error)
-      showToast.error('保存に失敗しました')
-    } finally {
-      setIsSavingCharacter(false)
-    }
-  }
-
-  // 手動登録を削除
-  const handleDeleteManualHistory = async (manualId: string) => {
-    if (!confirm('この履歴を削除しますか？')) return
-    if (!customerId) {
-      showToast.error('顧客情報が取得できません。再ログインしてお試しください。')
-      return
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('manual_play_history')
-        .delete()
-        .eq('id', manualId)
-        .eq('customer_id', customerId)
-        .select('id')
-
-      if (error) throw error
-      if (!data?.length) {
-        logger.error('手動履歴削除: 0件（RLSまたはID不一致）', { manualId, customerId })
-        showToast.error('削除できませんでした。ページを再読み込みしてから再度お試しください。')
-        await fetchPlayedScenarios()
-        return
-      }
-
-      showToast.success('削除しました')
-      fetchPlayedScenarios()
-    } catch (error) {
-      logger.error('手動履歴削除エラー:', error)
-      showToast.error('削除に失敗しました')
-    }
-  }
-
-  const formatDate = (date: string) => {
-    const d = new Date(date)
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
-  }
-
-  const cleanTitle = (title: string) => {
-    // タイトルから日付部分を削除
-    // 「 - 2025年11月6日(木)」のような形式を削除
-    return title.replace(/\s*-\s*\d{4}年\d{1,2}月\d{1,2}日\([月火水木金土日]\)/g, '').trim()
-  }
-
-  const getDifficultyLabel = (difficulty: number) => {
-    switch (difficulty) {
-      case 1:
-        return '初級'
-      case 2:
-        return '中級'
-      case 3:
-        return '上級'
-      case 4:
-        return '最上級'
-      case 5:
-        return '超上級'
-      default:
-        return '不明'
-    }
-  }
-
-  const handleRemoveLike = async (likeId: string) => {
-    if (!customerId) return
-
-    try {
-      const { error } = await supabase
-        .from('scenario_likes')
-        .delete()
-        .eq('id', likeId)
-
-      if (error) throw error
-
-      // ローカルステートを更新
-      setLikedScenariosList((prev) => prev.filter((item) => item.id !== likeId))
-      const removed = likedScenariosList.find(item => item.id === likeId)
-      if (removed) {
-        setLikedScenarios(prev => {
-          const newSet = new Set(prev)
-          newSet.delete(removed.scenario_id)
-          return newSet
-        })
-      }
-    } catch (error) {
-      logger.error('削除エラー:', error)
-      showToast.error('削除に失敗しました')
-    }
-  }
-
-  const handleToggleLike = async (scenarioId: string | undefined) => {
-    if (!scenarioId || !customerId) return
-
-    try {
-      if (likedScenarios.has(scenarioId)) {
-        // いいね解除
-        const { error } = await supabase
-          .from('scenario_likes')
-          .delete()
-          .eq('customer_id', customerId)
-          .eq('scenario_id', scenarioId)
-
-        if (error) throw error
-        setLikedScenarios(prev => {
-          const newSet = new Set(prev)
-          newSet.delete(scenarioId)
-          return newSet
-        })
-      } else {
-        // いいね追加
-        const { error } = await supabase
-          .from('scenario_likes')
-          .insert({
-            customer_id: customerId,
-            scenario_id: scenarioId,
-            organization_id: organizationId,
-          })
-
-        if (error) throw error
-        setLikedScenarios(prev => new Set(prev).add(scenarioId))
-      }
-    } catch (error) {
-      logger.error('いいね切り替えエラー:', error)
-      showToast.error('操作に失敗しました')
-    }
+    if (!editCharacterPlay) return
+    await saveCharacter.mutateAsync({ play: editCharacterPlay, characterId: editCharacterId, characterOptions: editCharacterOptions })
+    setEditCharacterPlay(null)
   }
 
   const handleToggleHide = (scenarioName: string) => {
     setHiddenScenarios(prev => {
       const newSet = new Set(prev)
-      if (newSet.has(scenarioName)) {
-        newSet.delete(scenarioName)
-      } else {
-        newSet.add(scenarioName)
-      }
+      if (newSet.has(scenarioName)) newSet.delete(scenarioName)
+      else newSet.add(scenarioName)
       return newSet
     })
   }
 
-  // シナリオごとにグループ化
   const scenarioGroups = playedScenarios.reduce((acc, item) => {
     const existing = acc.find((g) => g.scenario === item.scenario)
-    if (existing) {
-      existing.plays.push(item)
-      existing.count++
-    } else {
-      acc.push({
-        scenario: item.scenario,
-        count: 1,
-        plays: [item],
-      })
-    }
+    if (existing) { existing.plays.push(item); existing.count++ }
+    else acc.push({ scenario: item.scenario, count: 1, plays: [item] })
     return acc
   }, [] as Array<{ scenario: string; count: number; plays: PlayedScenario[] }>)
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card className="shadow-none border">
         <CardContent className="py-8">
@@ -746,32 +119,16 @@ export function AlbumPage() {
     <div className="space-y-4 sm:space-y-6">
       {/* 統計 */}
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <Card className="shadow-none border">
-          <CardContent className="pt-4 sm:pt-6 text-center">
-            <div className="text-lg text-primary">{playedScenarios.length}</div>
-            <div className="text-xs text-muted-foreground mt-1">総プレイ回数</div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-none border">
-          <CardContent className="pt-4 sm:pt-6 text-center">
-            <div className="text-lg text-primary">{scenarioGroups.length}</div>
-            <div className="text-xs text-muted-foreground mt-1">プレイしたシナリオ</div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-none border">
-          <CardContent className="pt-4 sm:pt-6 text-center">
-            <div className="text-lg text-primary">{likedScenariosList.length}</div>
-            <div className="text-xs text-muted-foreground mt-1">いいねしたシナリオ</div>
-          </CardContent>
-        </Card>
+        <Card className="shadow-none border"><CardContent className="pt-4 sm:pt-6 text-center"><div className="text-lg text-primary">{playedScenarios.length}</div><div className="text-xs text-muted-foreground mt-1">総プレイ回数</div></CardContent></Card>
+        <Card className="shadow-none border"><CardContent className="pt-4 sm:pt-6 text-center"><div className="text-lg text-primary">{scenarioGroups.length}</div><div className="text-xs text-muted-foreground mt-1">プレイしたシナリオ</div></CardContent></Card>
+        <Card className="shadow-none border"><CardContent className="pt-4 sm:pt-6 text-center"><div className="text-lg text-primary">{likedScenariosList.length}</div><div className="text-xs text-muted-foreground mt-1">いいねしたシナリオ</div></CardContent></Card>
       </div>
 
       {/* シナリオリスト */}
       <Card className="shadow-none border">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Images className="h-4 w-4 sm:h-5 sm:w-5" />
-            アルバム
+            <Images className="h-4 w-4 sm:h-5 sm:w-5" />アルバム
           </CardTitle>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -782,98 +139,55 @@ export function AlbumPage() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader>
-                <DialogTitle>過去の体験を追加</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>過去の体験を追加</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-4">
                 <div className="space-y-2">
                   <Label>シナリオ *</Label>
                   <SearchableSelect
-                    options={scenarioOptions.map((s): SearchableSelectOption => ({
-                      value: s.id,
-                      label: s.title
-                    }))}
-                    value={newScenarioId}
-                    onValueChange={setNewScenarioId}
+                    options={scenarioOptions.map((s): SearchableSelectOption => ({ value: s.id, label: s.title }))}
+                    value={newScenarioId} onValueChange={setNewScenarioId}
                     placeholder={optionsLoading ? '読み込み中...' : scenarioOptions.length === 0 ? 'シナリオがありません' : 'シナリオを選択'}
-                    searchPlaceholder="シナリオを検索..."
-                    emptyText="シナリオが見つかりません"
+                    searchPlaceholder="シナリオを検索..." emptyText="シナリオが見つかりません"
                     disabled={optionsLoading || scenarioOptions.length === 0}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>プレイした日付（任意）</Label>
-                  <SingleDatePopover
-                    date={newPlayedAt}
-                    onDateChange={(date) => setNewPlayedAt(date || '')}
-                    placeholder="日付を選択"
-                  />
+                  <SingleDatePopover date={newPlayedAt} onDateChange={(date) => setNewPlayedAt(date || '')} placeholder="日付を選択" />
                 </div>
                 <div className="space-y-2">
                   <Label>店舗（任意）</Label>
                   <SearchableSelect
-                    options={storeOptions.map((s): SearchableSelectOption => ({
-                      value: s.id,
-                      label: s.name
-                    }))}
-                    value={newStoreId}
-                    onValueChange={setNewStoreId}
+                    options={storeOptions.map((s): SearchableSelectOption => ({ value: s.id, label: s.name }))}
+                    value={newStoreId} onValueChange={setNewStoreId}
                     placeholder={optionsLoading ? '読み込み中...' : storeOptions.length === 0 ? '店舗がありません' : '店舗を選択'}
-                    searchPlaceholder="店舗を検索..."
-                    emptyText="店舗が見つかりません"
-                    disabled={optionsLoading || storeOptions.length === 0}
-                    allowClear={true}
+                    searchPlaceholder="店舗を検索..." emptyText="店舗が見つかりません"
+                    disabled={optionsLoading || storeOptions.length === 0} allowClear={true}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>おすすめ度（任意）</Label>
                   <div className="flex items-center gap-1">
                     {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setNewRating(newRating === star ? 0 : star)}
-                        className="p-0.5 focus:outline-none"
-                      >
-                        <Star
-                          className={`h-7 w-7 transition-colors ${
-                            star <= newRating
-                              ? 'fill-yellow-400 text-yellow-400'
-                              : 'text-gray-300 hover:text-yellow-300'
-                          }`}
-                        />
+                      <button key={star} type="button" onClick={() => setNewRating(newRating === star ? 0 : star)} className="p-0.5 focus:outline-none">
+                        <Star className={`h-7 w-7 transition-colors ${star <= newRating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 hover:text-yellow-300'}`} />
                       </button>
                     ))}
-                    {newRating > 0 && (
-                      <span className="text-xs text-muted-foreground ml-1">
-                        {newRating === 1 ? 'いまいち' : newRating === 2 ? 'まあまあ' : newRating === 3 ? '良かった' : newRating === 4 ? 'とても良かった' : '最高！'}
-                      </span>
-                    )}
+                    {newRating > 0 && <span className="text-xs text-muted-foreground ml-1">{newRating === 1 ? 'いまいち' : newRating === 2 ? 'まあまあ' : newRating === 3 ? '良かった' : newRating === 4 ? 'とても良かった' : '最高！'}</span>}
                   </div>
                 </div>
                 {newCharacterOptions.length > 0 && (
                   <div className="space-y-2">
                     <Label>自分の役（任意）</Label>
                     <SearchableSelect
-                      options={newCharacterOptions.map((c): SearchableSelectOption => ({
-                        value: c.id,
-                        label: c.name
-                      }))}
-                      value={newCharacterId}
-                      onValueChange={setNewCharacterId}
-                      placeholder="役を選択"
-                      searchPlaceholder="役を検索..."
-                      emptyText="役が見つかりません"
-                      allowClear={true}
+                      options={newCharacterOptions.map((c): SearchableSelectOption => ({ value: c.id, label: c.name }))}
+                      value={newCharacterId} onValueChange={setNewCharacterId}
+                      placeholder="役を選択" searchPlaceholder="役を検索..." emptyText="役が見つかりません" allowClear={true}
                     />
                   </div>
                 )}
-                <Button
-                  onClick={handleAddManualHistory}
-                  disabled={isSubmitting || !newScenarioId}
-                  className="w-full"
-                >
-                  {isSubmitting ? '追加中...' : '追加'}
+                <Button onClick={handleAddManualHistory} disabled={addManualHistory.isPending || !newScenarioId} className="w-full">
+                  {addManualHistory.isPending ? '追加中...' : '追加'}
                 </Button>
               </div>
             </DialogContent>
@@ -887,165 +201,66 @@ export function AlbumPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {scenarioGroups
-                .filter(group => !hiddenScenarios.has(group.scenario))
-                .map((group, idx) => {
-                  const scenarioId = group.plays[0]?.scenario_id
-                  const isLiked = scenarioId ? likedScenarios.has(scenarioId) : false
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors ${scenarioId ? 'cursor-pointer' : ''}`}
-                      onClick={() => scenarioId && navigate(`/scenario/${scenarioId}`)}
-                    >
-                      <div className="flex items-start gap-3 sm:gap-4">
-                        {/* シナリオ画像 */}
-                        <div className="flex-shrink-0 w-12 sm:w-16 h-16 sm:h-20 bg-gray-200 rounded overflow-hidden">
-                          {group.plays[0]?.key_visual_url ? (
-                            <OptimizedImage
-                              src={group.plays[0].key_visual_url}
-                              alt={group.scenario}
-                              className="w-full h-full object-cover"
-                              responsive={true}
-                              srcSetSizes={[48, 64, 128]}
-                              breakpoints={{ mobile: 48, tablet: 64, desktop: 128 }}
-                              useWebP={true}
-                              quality={85}
-                              fallback={
-                                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                                  No Image
-                                </div>
-                              }
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                              No Image
-                            </div>
-                          )}
+              {scenarioGroups.filter(group => !hiddenScenarios.has(group.scenario)).map((group, idx) => {
+                const scenarioId = group.plays[0]?.scenario_id
+                const isLiked = scenarioId ? likedScenarios.has(scenarioId) : false
+                return (
+                  <div key={idx} className={`border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors ${scenarioId ? 'cursor-pointer' : ''}`}
+                    onClick={() => scenarioId && navigate(`/scenario/${scenarioId}`)}>
+                    <div className="flex items-start gap-3 sm:gap-4">
+                      <div className="flex-shrink-0 w-12 sm:w-16 h-16 sm:h-20 bg-gray-200 rounded overflow-hidden">
+                        {group.plays[0]?.key_visual_url ? (
+                          <OptimizedImage src={group.plays[0].key_visual_url} alt={group.scenario} className="w-full h-full object-cover" responsive={true} srcSetSizes={[48, 64, 128]} breakpoints={{ mobile: 48, tablet: 64, desktop: 128 }} useWebP={true} quality={85} fallback={<div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Image</div>} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Image</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <div className="flex-1 min-w-0 pr-2"><h3 className="text-base break-words">{cleanTitle(group.scenario)}</h3></div>
+                          <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" onClick={() => scenarioId && toggleLike.mutate({ scenarioId, isLiked })} className="hover:bg-yellow-50 h-8 w-8 sm:h-9 sm:w-9" title={isLiked ? '遊びたいリストから削除' : '遊びたいリストに追加'}>
+                              <Star className={`h-4 w-4 sm:h-5 sm:w-5 ${isLiked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleToggleHide(group.scenario)} className="hover:bg-gray-50 h-8 w-8 sm:h-9 sm:w-9" title="非表示にする">
+                              <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
+                            </Button>
+                          </div>
                         </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          {/* タイトルとアクション */}
-                          <div className="flex items-center justify-between gap-2 mb-3">
-                            <div className="flex-1 min-w-0 pr-2">
-                              <h3 className="text-base break-words">{cleanTitle(group.scenario)}</h3>
-                            </div>
-                            <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleToggleLike(scenarioId)}
-                                className="hover:bg-yellow-50 h-8 w-8 sm:h-9 sm:w-9"
-                                title={isLiked ? '遊びたいリストから削除' : '遊びたいリストに追加'}
-                              >
-                                <Star className={`h-4 w-4 sm:h-5 sm:w-5 ${isLiked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleToggleHide(group.scenario)}
-                                className="hover:bg-gray-50 h-8 w-8 sm:h-9 sm:w-9"
-                                title="非表示にする"
-                              >
-                                <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          {/* プレイ履歴 */}
-                          <div className="space-y-1">
-                            {group.plays.map((play, playIdx) => (
-                              <div
-                                key={playIdx}
-                                className="bg-muted/30 px-2.5 py-1.5 rounded flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs"
-                              >
-                                {/* 日付 */}
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <Calendar className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-foreground whitespace-nowrap">{formatDate(play.date)}</span>
-                                </div>
-                                
-                                {/* 店舗 */}
-                                {play.venue && (
-                                  <div className="flex items-center gap-1 min-w-0">
-                                    <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                    <span className="text-foreground truncate">{play.venue}</span>
-                                  </div>
+                        <div className="space-y-1">
+                          {group.plays.map((play, playIdx) => (
+                            <div key={playIdx} className="bg-muted/30 px-2.5 py-1.5 rounded flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs">
+                              <div className="flex items-center gap-1 flex-shrink-0"><Calendar className="h-3 w-3 text-muted-foreground" /><span className="text-foreground whitespace-nowrap">{formatDate(play.date)}</span></div>
+                              {play.venue && <div className="flex items-center gap-1 min-w-0"><MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" /><span className="text-foreground truncate">{play.venue}</span></div>}
+                              {play.author && <div className="flex items-center gap-1 flex-shrink-0 text-muted-foreground"><User className="h-3 w-3" /><span className="whitespace-nowrap">{play.author}</span></div>}
+                              {play.gms.length > 0 && <div className="flex items-center gap-1 flex-shrink-0 text-muted-foreground"><span className="whitespace-nowrap">GM:</span>{play.gms.map((gm, gmIdx) => <Badge key={gmIdx} variant="outline" className="text-xs whitespace-nowrap px-1 py-0">{gm}</Badge>)}</div>}
+                              {play.character_name && <div className="flex items-center gap-1 flex-shrink-0"><span className="text-muted-foreground">役:</span><span className="text-foreground whitespace-nowrap">{play.character_name}</span></div>}
+                              <div className="flex items-center gap-1 ml-auto" onClick={e => e.stopPropagation()}>
+                                {play.scenario_id && (
+                                  <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-blue-50" onClick={() => { setEditCharacterPlay(play); setEditCharacterId(play.played_character_id || '') }} title="役を記録">
+                                    <Pencil className="h-3 w-3 text-blue-400" />
+                                  </Button>
                                 )}
-                                
-                                {/* 作者 */}
-                                {play.author && (
-                                  <div className="flex items-center gap-1 flex-shrink-0 text-muted-foreground">
-                                    <User className="h-3 w-3" />
-                                    <span className="whitespace-nowrap">{play.author}</span>
-                                  </div>
-                                )}
-                                
-                                {/* GM */}
-                                {play.gms.length > 0 && (
-                                  <div className="flex items-center gap-1 flex-shrink-0 text-muted-foreground">
-                                    <span className="whitespace-nowrap">GM:</span>
-                                    {play.gms.map((gm, gmIdx) => (
-                                      <Badge key={gmIdx} variant="outline" className="text-xs whitespace-nowrap px-1 py-0">
-                                        {gm}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                )}
-                                
-                                {/* 役名 */}
-                                {play.character_name && (
-                                  <div className="flex items-center gap-1 flex-shrink-0">
-                                    <span className="text-muted-foreground">役:</span>
-                                    <span className="text-foreground whitespace-nowrap">{play.character_name}</span>
-                                  </div>
-                                )}
-
-                                {/* 配役編集・手動登録バッジ・削除ボタン */}
-                                <div className="flex items-center gap-1 ml-auto" onClick={e => e.stopPropagation()}>
-                                  {play.scenario_id && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-5 w-5 hover:bg-blue-50"
-                                      onClick={() => setEditCharacterPlay(play)}
-                                      title="役を記録"
-                                    >
-                                      <Pencil className="h-3 w-3 text-blue-400" />
+                                {play.is_manual && (
+                                  <>
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 text-muted-foreground">手動登録</Badge>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-red-50" onClick={() => {
+                                      if (!play.manual_id) { showToast.error('この履歴は削除用のIDが付いていません。マイページを再読み込みしてください。'); return }
+                                      if (confirm('この履歴を削除しますか？')) deleteManualHistory.mutate(play.manual_id)
+                                    }} title="削除">
+                                      <Trash2 className="h-3 w-3 text-red-400" />
                                     </Button>
-                                  )}
-                                  {play.is_manual && (
-                                    <>
-                                      <Badge variant="outline" className="text-[10px] px-1 py-0 text-muted-foreground">
-                                        手動登録
-                                      </Badge>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-5 w-5 hover:bg-red-50"
-                                        onClick={() => {
-                                          if (!play.manual_id) {
-                                            showToast.error('この履歴は削除用のIDが付いていません。マイページを再読み込みしてください。')
-                                            return
-                                          }
-                                          void handleDeleteManualHistory(play.manual_id)
-                                        }}
-                                        title="削除"
-                                      >
-                                        <Trash2 className="h-3 w-3 text-red-400" />
-                                      </Button>
-                                    </>
-                                  )}
-                                </div>
+                                  </>
+                                )}
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
-                  )
-                })}
+                  </div>
+                )
+              })}
             </div>
           )}
         </CardContent>
@@ -1061,102 +276,38 @@ export function AlbumPage() {
         </CardHeader>
         <CardContent>
           {likedScenariosList.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              いいねしたシナリオがありません
-            </div>
+            <div className="text-center py-8 text-muted-foreground text-sm">いいねしたシナリオがありません</div>
           ) : (
             <div className="space-y-4">
               {likedScenariosList.map((item) => (
-                <div
-                  key={item.id}
-                  className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/scenario/${item.scenario.slug || item.scenario.id}`)}
-                >
+                <div key={item.id} className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/scenario/${item.scenario.slug || item.scenario.id}`)}>
                   <div className="flex items-start gap-3 sm:gap-4 mb-3">
-                    {/* シナリオ画像 */}
                     <div className="flex-shrink-0 w-12 sm:w-16 h-16 sm:h-20 bg-gray-200 rounded overflow-hidden">
                       {item.scenario.key_visual_url ? (
-                        <OptimizedImage
-                          src={item.scenario.key_visual_url}
-                          alt={item.scenario.title}
-                          className="w-full h-full object-cover"
-                          responsive={true}
-                          srcSetSizes={[48, 64, 128]}
-                          breakpoints={{ mobile: 48, tablet: 64, desktop: 128 }}
-                          useWebP={true}
-                          quality={85}
-                          fallback={
-                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                              No Image
-                            </div>
-                          }
-                        />
+                        <OptimizedImage src={item.scenario.key_visual_url} alt={item.scenario.title} className="w-full h-full object-cover" responsive={true} srcSetSizes={[48, 64, 128]} breakpoints={{ mobile: 48, tablet: 64, desktop: 128 }} useWebP={true} quality={85} fallback={<div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Image</div>} />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                          No Image
-                        </div>
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Image</div>
                       )}
                     </div>
-                    
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-2 gap-2">
                         <div className="flex-1 min-w-0">
                           <h3 className="text-base mb-1 truncate">{item.scenario.title}</h3>
-                          <p className="text-xs text-muted-foreground mb-2">
-                            作者: {item.scenario.author}
-                          </p>
-                          {item.scenario.description && (
-                            <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-                              {item.scenario.description}
-                            </p>
-                          )}
+                          <p className="text-xs text-muted-foreground mb-2">作者: {item.scenario.author}</p>
+                          {item.scenario.description && <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{item.scenario.description}</p>}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => { e.stopPropagation(); handleRemoveLike(item.id) }}
-                          className="hover:bg-red-50 h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0"
-                          title="リストから削除"
-                        >
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); removeLike.mutate(item.id) }} className="hover:bg-red-50 h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0" title="リストから削除">
                           <Star className="h-4 w-4 sm:h-5 sm:w-5 fill-yellow-400 text-yellow-400" />
                         </Button>
                       </div>
-
                       <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm mb-3">
-                        <div className="flex items-center gap-1">
-                          <Users className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-                          <span>
-                            {item.scenario.player_count_min === item.scenario.player_count_max
-                              ? `${item.scenario.player_count_max}人`
-                              : `${item.scenario.player_count_min}〜${item.scenario.player_count_max}人`}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-                          <span>{item.scenario.duration}分</span>
-                        </div>
-                        {item.scenario.rating > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Star className="h-3 w-3 sm:h-4 sm:w-4 fill-yellow-400 text-yellow-400" />
-                            <span>{item.scenario.rating.toFixed(1)}</span>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1"><Users className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" /><span>{item.scenario.player_count_min === item.scenario.player_count_max ? `${item.scenario.player_count_max}人` : `${item.scenario.player_count_min}〜${item.scenario.player_count_max}人`}</span></div>
+                        <div className="flex items-center gap-1"><Clock className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" /><span>{item.scenario.duration}分</span></div>
+                        {item.scenario.rating > 0 && <div className="flex items-center gap-1"><Star className="h-3 w-3 sm:h-4 sm:w-4 fill-yellow-400 text-yellow-400" /><span>{item.scenario.rating.toFixed(1)}</span></div>}
                         <Badge variant="secondary" className="text-xs">{getDifficultyLabel(item.scenario.difficulty)}</Badge>
                       </div>
-
-                      {item.scenario.genre && item.scenario.genre.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {item.scenario.genre.map((g, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {g}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="text-xs text-muted-foreground">
-                        追加日: {formatDate(item.created_at)}
-                      </div>
+                      {item.scenario.genre?.length > 0 && <div className="flex flex-wrap gap-2 mb-3">{item.scenario.genre.map((g, idx) => <Badge key={idx} variant="outline" className="text-xs">{g}</Badge>)}</div>}
+                      <div className="text-xs text-muted-foreground">追加日: {formatDate(item.created_at)}</div>
                     </div>
                   </div>
                 </div>
@@ -1166,7 +317,7 @@ export function AlbumPage() {
         </CardContent>
       </Card>
 
-      {/* 非表示にしたシナリオ */}
+      {/* 非表示のシナリオ */}
       {hiddenScenarios.size > 0 && (
         <Card className="shadow-none border">
           <CardHeader>
@@ -1177,42 +328,24 @@ export function AlbumPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {scenarioGroups
-                .filter(group => hiddenScenarios.has(group.scenario))
-                .map((group, idx) => {
-                  const scenarioId = group.plays[0]?.scenario_id
-                  const isLiked = scenarioId ? likedScenarios.has(scenarioId) : false
-
-                  return (
-                    <div key={idx} className="flex items-center justify-between p-3 border rounded-lg opacity-60">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className="text-sm truncate">{group.scenario}</span>
-                        <Badge variant="secondary" className="text-xs flex-shrink-0">
-                          {group.count}回プレイ
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleToggleLike(scenarioId)}
-                          className="hover:bg-yellow-50 h-8 w-8 sm:h-9 sm:w-9"
-                          title={isLiked ? '遊びたいリストから削除' : '遊びたいリストに追加'}
-                        >
-                          <Star className={`h-4 w-4 sm:h-5 sm:w-5 ${isLiked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleHide(group.scenario)}
-                          className="text-xs sm:text-sm flex-shrink-0"
-                        >
-                          表示する
-                        </Button>
-                      </div>
+              {scenarioGroups.filter(group => hiddenScenarios.has(group.scenario)).map((group, idx) => {
+                const scenarioId = group.plays[0]?.scenario_id
+                const isLiked = scenarioId ? likedScenarios.has(scenarioId) : false
+                return (
+                  <div key={idx} className="flex items-center justify-between p-3 border rounded-lg opacity-60">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-sm truncate">{group.scenario}</span>
+                      <Badge variant="secondary" className="text-xs flex-shrink-0">{group.count}回プレイ</Badge>
                     </div>
-                  )
-                })}
+                    <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+                      <Button variant="ghost" size="icon" onClick={() => scenarioId && toggleLike.mutate({ scenarioId, isLiked })} className="hover:bg-yellow-50 h-8 w-8 sm:h-9 sm:w-9" title={isLiked ? '遊びたいリストから削除' : '遊びたいリストに追加'}>
+                        <Star className={`h-4 w-4 sm:h-5 sm:w-5 ${isLiked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleToggleHide(group.scenario)} className="text-xs sm:text-sm flex-shrink-0">表示する</Button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </CardContent>
         </Card>
@@ -1221,46 +354,28 @@ export function AlbumPage() {
       {/* 配役編集ダイアログ */}
       <Dialog open={!!editCharacterPlay} onOpenChange={(open) => { if (!open) setEditCharacterPlay(null) }}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>自分の役を記録</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>自分の役を記録</DialogTitle></DialogHeader>
           {editCharacterPlay && (
             <div className="space-y-4 pt-2">
               <p className="text-sm text-muted-foreground">{cleanTitle(editCharacterPlay.scenario)}</p>
               <div className="space-y-2">
                 <Label>担当した役（任意）</Label>
-                {characterOptions.length > 0 ? (
+                {editCharacterOptions.length > 0 ? (
                   <SearchableSelect
-                    options={characterOptions.map((c): SearchableSelectOption => ({
-                      value: c.id,
-                      label: c.name
-                    }))}
-                    value={editCharacterId}
-                    onValueChange={setEditCharacterId}
-                    placeholder="役を選択"
-                    searchPlaceholder="役を検索..."
-                    emptyText="役が見つかりません"
-                    allowClear={true}
+                    options={editCharacterOptions.map((c): SearchableSelectOption => ({ value: c.id, label: c.name }))}
+                    value={editCharacterId} onValueChange={setEditCharacterId}
+                    placeholder="役を選択" searchPlaceholder="役を検索..." emptyText="役が見つかりません" allowClear={true}
                   />
                 ) : (
                   <p className="text-xs text-muted-foreground">このシナリオには役名リストが登録されていません</p>
                 )}
               </div>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setEditCharacterPlay(null)}
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  キャンセル
+                <Button variant="outline" className="flex-1" onClick={() => setEditCharacterPlay(null)}>
+                  <X className="h-4 w-4 mr-1" />キャンセル
                 </Button>
-                <Button
-                  className="flex-1"
-                  onClick={() => void handleSaveCharacter()}
-                  disabled={isSavingCharacter}
-                >
-                  {isSavingCharacter ? '保存中...' : '保存'}
+                <Button className="flex-1" onClick={() => void handleSaveCharacter()} disabled={saveCharacter.isPending}>
+                  {saveCharacter.isPending ? '保存中...' : '保存'}
                 </Button>
               </div>
             </div>
