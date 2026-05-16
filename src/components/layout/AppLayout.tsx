@@ -24,37 +24,29 @@ interface AppLayoutProps {
  *   {メインコンテンツ}
  * </AppLayout>
  */
-export const AppLayout: React.FC<AppLayoutProps> = ({ 
+export const AppLayout: React.FC<AppLayoutProps> = ({
   currentPage,
-  sidebar, 
-  children, 
-  maxWidth = 'max-w-[1440px]',
+  sidebar,
+  children,
+  maxWidth,          // 非推奨・後方互換用。基本は使わない
   containerPadding = 'px-[10px] py-3 sm:py-4 md:py-6',
   stickyLayout = false,
   className = ''
 }) => {
   if (stickyLayout) {
-    // 固定レイアウト: ヘッダー・サイドバーを固定、コンテンツのみスクロール
     return (
       <div className="h-screen flex flex-col bg-background overflow-hidden">
-        {/* ヘッダー（固定） */}
         <Header />
-
-        {/* ボディ: サイドバー + コンテンツ */}
         <div className="flex flex-1 min-h-0 w-full">
           <AdminSidebar />
-
-          {/* メインエリア */}
           <div className={`flex-1 flex min-h-0 ${className}`}>
-            {/* ページ内サイドバー（シナリオ等） */}
             {sidebar && (
               <div className="border-r border-slate-200 shrink-0">
                 {sidebar}
               </div>
             )}
-            {/* スクロール可能コンテンツ */}
             <div data-scroll-container className="flex-1 min-w-0 overflow-y-auto overflow-x-clip">
-              <div data-scroll-content className={`${containerPadding} ${maxWidth} mx-auto`}>
+              <div data-scroll-content className={`${containerPadding} w-full`}>
                 {children}
               </div>
             </div>
@@ -64,25 +56,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     )
   }
 
-  // 通常レイアウト: ページ全体がスクロール
   return (
     <div className="min-h-screen bg-background">
       <Header />
-
       <div className="flex w-full">
         <AdminSidebar />
-
-        {/* メインエリア */}
         <div className={`flex flex-1 min-w-0 ${className}`}>
-          {/* ページ内サイドバー（シナリオ等） */}
           {sidebar && (
             <div className="border-r border-slate-200 shrink-0">
               {sidebar}
             </div>
           )}
-          {/* メインコンテンツ */}
           <div className="flex-1 min-w-0">
-            <div className={`${containerPadding} ${maxWidth} mx-auto`}>
+            <div className={`${containerPadding} w-full`}>
               {children}
             </div>
           </div>
