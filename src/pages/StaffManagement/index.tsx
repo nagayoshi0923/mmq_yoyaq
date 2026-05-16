@@ -425,6 +425,7 @@ export function StaffManagement() {
                     : 'スタッフが登録されていません'
                 }
                 loading={loading}
+                autoRowHeight
               />
             </div>
 
