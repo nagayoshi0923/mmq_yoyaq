@@ -18,11 +18,11 @@ const STORE_COLORS: Record<string, { dot: string; badge: string }> = {
   '埼玉大宮': { dot: 'bg-amber-500', badge: 'bg-amber-100 text-amber-800' },
 }
 
-function getStoreColors(shortName: string) {
+export function getStoreColors(shortName: string) {
   return STORE_COLORS[shortName] ?? { dot: 'bg-gray-500', badge: 'bg-gray-100 text-gray-800' }
 }
 
-function getStatusBadge(status: string) {
+export function getStatusBadge(status: string) {
   switch (status) {
     // @ts-ignore
     case 'active': return <Badge variant="success">営業中</Badge>
@@ -42,6 +42,7 @@ export function createStoreColumns(actions: StoreTableActions): Column<Store>[] 
       key: 'name',
       header: '店舗名',
       sortable: true,
+      required: true,
       width: 'w-52',
       render: (store) => {
         const colors = getStoreColors(store.short_name)
@@ -52,7 +53,7 @@ export function createStoreColumns(actions: StoreTableActions): Column<Store>[] 
           >
             <div className={`w-3 h-3 rounded-full flex-shrink-0 ${colors.dot}`} />
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm truncate" {...devDb('stores.name')}>{store.name}</div>
+              <div className="text-sm truncate hover:text-blue-600" {...devDb('stores.name')}>{store.name}</div>
               <div className="text-xs text-muted-foreground" {...devDb('stores.short_name')}>{store.short_name}</div>
             </div>
           </button>
