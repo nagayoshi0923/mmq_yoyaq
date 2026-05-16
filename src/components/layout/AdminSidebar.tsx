@@ -395,23 +395,16 @@ function SidebarContent({
             </button>
           )}
 
-          {/* grid-rows アニメーション（外部コンポーネントなので transition が正常に動く） */}
           <div
             style={{
               display: 'grid',
               gridTemplateRows: isGroupOpen(group) ? '1fr' : '0fr',
-              opacity: isGroupOpen(group) ? 1 : 0,
-              transition: 'grid-template-rows 280ms ease-out, opacity 220ms ease-out',
+              transition: 'grid-template-rows 300ms ease-out',
             }}
           >
-            <div className="overflow-hidden">
-              <div
-                style={{
-                  transform: isGroupOpen(group) ? 'translateY(0)' : 'translateY(-6px)',
-                  transition: 'transform 280ms ease-out',
-                }}
-                className="space-y-0.5 px-2 pb-1"
-              >
+            {/* min-height:0 が必須 — これがないと 0fr まで縮まらない */}
+            <div style={{ minHeight: 0, overflow: 'hidden' }}>
+              <div className="space-y-0.5 px-2 pb-1">
                 {group.items.map(item => {
                   const active = isActive(item)
                   const showSubs = active && item.subItems && item.subItems.length > 0
