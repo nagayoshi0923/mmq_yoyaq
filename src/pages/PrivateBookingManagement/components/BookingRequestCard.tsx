@@ -4,8 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
-  Calendar, Clock, CheckCircle2, XCircle, CircleDashed,
-  RefreshCw, ChevronDown, ChevronUp, Copy, Check, Mail, Phone
+  CheckCircle2, CircleDashed,
+  RefreshCw, Copy, Check, Mail, Phone
 } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import {
@@ -69,17 +69,17 @@ interface BookingRequest {
 interface BookingRequestCardProps {
   request: BookingRequest
   onResendDiscordNotification?: (request: { id: string; scenario_title: string }) => Promise<void>
-  // インライン承認
-  isApprovalOpen?: boolean
-  onToggleApproval?: () => void
-  inlineApprovalContent?: React.ReactNode
+  // 候補日クリックで承認モードへ
+  selectedCandidateOrder?: number | null
+  onSelectCandidate?: (req: BookingRequest, order: number) => void
+  inlineApprovalContent?: React.ReactNode  // 選択中候補行の直下に挿入
 }
 
 export const BookingRequestCard = ({
   request,
   onResendDiscordNotification,
-  isApprovalOpen = false,
-  onToggleApproval,
+  selectedCandidateOrder,
+  onSelectCandidate,
   inlineApprovalContent,
 }: BookingRequestCardProps) => {
   const [resending, setResending] = useState(false)
@@ -207,28 +207,63 @@ export const BookingRequestCard = ({
             </div>
           )}
 
-          {/* ── 候補日時 ── */}
+          {/* ── 候補日時（クリックで選択 → 直下にプルダウン展開） ── */}
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">候補日時</p>
-            <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+              候補日時{onSelectCandidate ? <span className="ml-1 font-normal normal-case text-purple-600">（タップして承認処理）</span> : ''}
+            </p>
+            <div className="space-y-1">
               {request.candidate_datetimes?.candidates?.map((candidate) => {
-                const isGMSelected = request.gm_responses?.some(r => isGmAvailableForCandidate(r, candidate.order - 1))
-                const isWaitingForGM = ['pending', 'pending_gm'].includes(request.status)
-                const isGMResponded = ['gm_confirmed', 'pending_store'].includes(request.status)
+                const isGMAvailable = request.gm_responses?.some(r => isGmAvailableForCandidate(r, candidate.order - 1))
+                const availableGMs = request.gm_responses?.filter(r => isGmAvailableForCandidate(r, candidate.order - 1)) ?? []
                 const isConfirmed = request.status === 'confirmed'
+                const isThisSelected = selectedCandidateOrder === candidate.order
+                const clickable = !!onSelectCandidate
+
                 return (
-                  <div key={candidate.order} className={`flex items-center gap-2 px-3 py-2 rounded text-sm ${
-                    isConfirmed && isGMSelected ? 'bg-green-50 border border-green-200' :
-                    isGMResponded && isGMSelected ? 'bg-purple-50 border border-purple-200' :
-                    isWaitingForGM ? 'bg-gray-50 border border-gray-200' :
-                    'bg-gray-50 border border-gray-200 opacity-60'
-                  }`}>
-                    {isConfirmed && isGMSelected ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                      : isGMResponded && isGMSelected ? <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
-                      : isWaitingForGM ? <CircleDashed className="w-4 h-4 text-gray-400 shrink-0" />
-                      : <XCircle className="w-4 h-4 text-red-400 shrink-0" />}
-                    <span className="font-medium">{formatDate(candidate.date)}</span>
-                    <span className="text-muted-foreground text-xs">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
+                  <div key={candidate.order}>
+                    {/* 候補行 */}
+                    <div
+                      onClick={() => clickable && onSelectCandidate(request, candidate.order)}
+                      className={cn(
+                        'flex items-center gap-2 px-3 py-2 rounded text-sm border transition-colors',
+                        clickable ? 'cursor-pointer' : '',
+                        isThisSelected
+                          ? 'border-purple-400 bg-purple-50 rounded-b-none'
+                          : isConfirmed && isGMAvailable
+                          ? 'border-green-200 bg-green-50'
+                          : clickable
+                          ? 'border-gray-200 bg-gray-50 hover:border-purple-300 hover:bg-purple-50/40'
+                          : 'border-gray-200 bg-gray-50'
+                      )}
+                    >
+                      {isConfirmed && isGMAvailable
+                        ? <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                        : isThisSelected
+                        ? <CheckCircle2 className="w-4 h-4 text-purple-500 shrink-0" />
+                        : <CircleDashed className="w-4 h-4 text-gray-400 shrink-0" />}
+
+                      <span className="font-medium">{formatDate(candidate.date)}</span>
+                      <span className="text-muted-foreground text-xs">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
+
+                      {/* 対応可能GMバッジ */}
+                      {availableGMs.length > 0 && (
+                        <div className="flex items-center gap-1 ml-auto flex-wrap">
+                          {availableGMs.map((gm, i) => (
+                            <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">
+                              {gm.gm_name?.slice(0, 3) ?? 'GM'}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 選択時：店舗・GMプルダウンを直下展開 */}
+                    {isThisSelected && inlineApprovalContent && (
+                      <div className="border border-t-0 border-purple-300 rounded-b-md bg-purple-50/50 px-3 py-3">
+                        {inlineApprovalContent}
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -251,30 +286,6 @@ export const BookingRequestCard = ({
             </div>
           )}
 
-          {/* ── 承認・処理トグル ── */}
-          {onToggleApproval && (
-            <div className="pt-2 border-t">
-              <button
-                onClick={onToggleApproval}
-                className={cn(
-                  'w-full flex items-center justify-between px-4 py-2.5 rounded-md text-sm font-medium transition-colors',
-                  isApprovalOpen
-                    ? 'bg-purple-100 text-purple-900 hover:bg-purple-200'
-                    : 'bg-gray-900 text-white hover:bg-gray-800'
-                )}
-              >
-                <span>{isApprovalOpen ? '承認フォームを閉じる' : '承認・処理を行う'}</span>
-                {isApprovalOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-
-              {/* ── インライン承認フォーム ── */}
-              {isApprovalOpen && inlineApprovalContent && (
-                <div className="mt-3 rounded-lg border border-purple-200 bg-purple-50/40 p-4 space-y-4">
-                  {inlineApprovalContent}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
