@@ -589,28 +589,39 @@ export function PrivateBookingManagement() {
                           })()
                           return (
                             <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-purple-700 font-medium w-16 shrink-0">店舗</span>
-                                <select className="flex-1 h-8 rounded border border-input bg-background px-2 text-sm"
-                                  value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}>
-                                  <option value="">選択してください</option>
-                                  {candidateStores.map(s => {
-                                    const ev = selectedCand
-                                      ? (conflictInfo.existingEvents || []).find(e =>
-                                          e.storeId === s.id && e.date === selectedCand.date &&
-                                          (selectedCand.startTime || '') < e.endTime &&
-                                          (selectedCand.endTime || '') > e.startTime
-                                        )
-                                      : undefined
-                                    const region = (s as any).region ? ` (${(s as any).region})` : ''
-                                    const isRequested = req.candidate_datetimes?.requestedStores?.some((rs: any) => rs.storeId === s.id)
-                                    return (
-                                      <option key={s.id} value={s.id}>
-                                        {s.name}{isRequested ? ' ★' : ''}{region}{ev ? ` ⚠️ ${ev.scenario} (${ev.startTime}〜${ev.endTime})` : ''}
-                                      </option>
-                                    )
-                                  })}
-                                </select>
+                              <div className="flex items-start gap-2">
+                                <span className="text-xs text-purple-700 font-medium w-16 shrink-0 pt-2">店舗</span>
+                                <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                                  <SelectTrigger className="flex-1 text-sm h-8">
+                                    <SelectValue placeholder="選択してください" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {candidateStores.map(s => {
+                                      const ev = selectedCand
+                                        ? (conflictInfo.existingEvents || []).find(e =>
+                                            e.storeId === s.id && e.date === selectedCand.date &&
+                                            (selectedCand.startTime || '') < e.endTime &&
+                                            (selectedCand.endTime || '') > e.startTime
+                                          )
+                                        : undefined
+                                      const isRequested = req.candidate_datetimes?.requestedStores?.some((rs: any) => rs.storeId === s.id)
+                                      return (
+                                        <SelectItem key={s.id} value={s.id} className="whitespace-normal">
+                                          <span className="block">
+                                            {s.name}
+                                            {isRequested && <span className="ml-1 text-purple-600 text-xs">（お客様希望）</span>}
+                                            {(s as any).region && <span className="ml-1 text-xs text-muted-foreground">({(s as any).region})</span>}
+                                          </span>
+                                          {ev && (
+                                            <span className="block text-xs text-orange-600 font-medium mt-0.5">
+                                              ⚠️ {ev.scenario} ({ev.startTime}〜{ev.endTime})
+                                            </span>
+                                          )}
+                                        </SelectItem>
+                                      )
+                                    })}
+                                  </SelectContent>
+                                </Select>
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-purple-700 font-medium w-16 shrink-0">{(req.required_gm_count ?? 1) >= 2 ? 'メインGM' : 'GM'}</span>
