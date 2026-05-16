@@ -306,10 +306,12 @@ export const AdminSidebar = memo(function AdminSidebar() {
           )}
 
           {/* グループアイテム */}
-          <div className={`overflow-hidden transition-all duration-200 ease-out ${
-            isGroupOpen(group) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          <div className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
+            isGroupOpen(group) ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
           }`}>
-            <div className="space-y-0.5 px-2 pb-1">
+            <div className={`space-y-0.5 px-2 pb-1 transition-transform duration-300 ease-out ${
+              isGroupOpen(group) ? 'translate-y-0' : '-translate-y-2'
+            }`}>
               {group.items.map(item => {
                 const active = isActive(item)
                 const showSubs = active && item.subItems && item.subItems.length > 0
