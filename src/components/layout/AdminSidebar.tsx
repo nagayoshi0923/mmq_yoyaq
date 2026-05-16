@@ -104,6 +104,16 @@ export const AdminSidebar = memo(function AdminSidebar() {
       ],
     },
     {
+      id: 'basic-data',
+      label: '基本データ',
+      icon: Store,
+      items: [
+        { id: 'stores',    label: '店舗',     icon: Store,    path: `/${slug}/stores`,    roles: ['admin', 'license_admin'] },
+        { id: 'staff',     label: 'スタッフ', icon: Users,    path: `/${slug}/staff`,     roles: ['admin', 'license_admin'] },
+        { id: 'scenarios', label: 'シナリオ', icon: BookOpen, path: `/${slug}/scenarios`, roles: ['admin', 'staff', 'license_admin'] },
+      ],
+    },
+    {
       id: 'reservations',
       label: '貸切・予約',
       icon: ClipboardCheck,
@@ -133,8 +143,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: 'コンテンツ',
       icon: BookOpen,
       items: [
-        { id: 'scenarios', label: 'シナリオ', icon: BookOpen, path: `/${slug}/scenarios`, roles: ['admin', 'staff', 'license_admin'] },
-        { id: 'blog',      label: 'ブログ',   icon: FileText, path: `/${slug}/blog`,      roles: ['admin', 'license_admin'] },
+        { id: 'blog', label: 'ブログ', icon: FileText, path: `/${slug}/blog`, roles: ['admin', 'license_admin'] },
       ],
     },
     {
@@ -201,8 +210,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: '設定',
       icon: Settings,
       items: [
-        { id: 'stores', label: '店舗',   icon: Store, path: `/${slug}/stores`, roles: ['admin', 'license_admin'] },
-        { id: 'staff',  label: 'スタッフ', icon: Users, path: `/${slug}/staff`,  roles: ['admin', 'license_admin'] },
         {
           id: 'settings', label: '設定', icon: Settings,
           path: `/${slug}/settings`, roles: ['admin', 'license_admin'],
