@@ -301,7 +301,7 @@ export default function OrgSignup() {
           <span className="font-bold text-gray-900">MMQ</span>
         </div>
 
-        <div className="max-w-sm w-full mx-auto">
+        <form autoComplete="off" onSubmit={e => e.preventDefault()} className="max-w-sm w-full mx-auto">
           <h2 className="text-xl font-bold text-gray-900 mb-1">組織を登録する</h2>
           <p className="text-sm text-gray-500 mb-6">
             管理機能は無料でご利用いただけます
@@ -364,6 +364,7 @@ export default function OrgSignup() {
                 </Label>
                 <Input
                   id="org-slug"
+                  name="org-identifier-field"
                   value={orgData.slug}
                   onChange={e => setOrgData(prev => ({ ...prev, slug: e.target.value.toLowerCase() }))}
                   placeholder="例: sample-escape"
@@ -550,7 +551,7 @@ export default function OrgSignup() {
             既にアカウントをお持ちの方は{' '}
             <Link to="/login" className="text-gray-600 hover:underline">ログイン</Link>
           </p>
-        </div>
+        </form>
       </div>
     </div>
   )
