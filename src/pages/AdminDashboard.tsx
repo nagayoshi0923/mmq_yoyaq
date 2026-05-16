@@ -850,10 +850,28 @@ export function AdminDashboard() {
     )
   }
 
-  // 組織管理ページ → 設定ページにリダイレクト
   if (currentPage === 'organizations' || currentPage === 'organization-settings') {
-    navigate('/settings', { replace: true })
-    return null
+    return (
+      <Suspense fallback={<LoadingScreen message="テナント管理を読み込み中..." />}>
+        <OrganizationManagement />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'external-reports') {
+    return (
+      <Suspense fallback={<LoadingScreen message="外部レポートを読み込み中..." />}>
+        <ExternalReports />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'license-reports') {
+    return (
+      <Suspense fallback={<LoadingScreen message="ライセンス報告を読み込み中..." />}>
+        <LicenseReportManagement />
+      </Suspense>
+    )
   }
 
   if (currentPage === 'license-management') {
