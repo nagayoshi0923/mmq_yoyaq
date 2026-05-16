@@ -305,10 +305,11 @@ export const AdminSidebar = memo(function AdminSidebar() {
             </button>
           )}
 
-          {/* グループアイテム */}
-          <div className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
-            isGroupOpen(group) ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+          {/* グループアイテム — grid-rows で height:auto アニメーション */}
+          <div className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+            isGroupOpen(group) ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
           }`}>
+            <div className="overflow-hidden">
             <div className={`space-y-0.5 px-2 pb-1 transition-transform duration-300 ease-out ${
               isGroupOpen(group) ? 'translate-y-0' : '-translate-y-2'
             }`}>
@@ -368,6 +369,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
                   </div>
                 )
               })}
+            </div>
             </div>
           </div>
         </div>
