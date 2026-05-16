@@ -175,40 +175,32 @@ export const BookingRequestCard = ({
         <div className="space-y-3">
           {/* ── GM回答状況 ── */}
           {request.gm_responses && request.gm_responses.length > 0 && (
-            <div className="bg-purple-50 p-3 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-medium text-purple-900">GM回答状況</h4>
+            <div className="bg-purple-50 px-3 py-2 rounded-lg">
+              <div className="flex items-center justify-between mb-1.5">
+                <h4 className="text-xs font-semibold text-purple-800 uppercase tracking-wide">GM回答状況</h4>
                 {onResendDiscordNotification && hasUnrespondedGMs && isWaitingStatus && (
                   <Button variant="ghost" size="sm"
-                    className="h-7 px-2 text-xs text-purple-700 hover:text-purple-900 hover:bg-purple-100"
+                    className="h-6 px-2 text-xs text-purple-700 hover:text-purple-900 hover:bg-purple-100"
                     onClick={handleResend} disabled={resending}
                   >
-                    <RefreshCw className={cn('w-3.5 h-3.5 mr-1', resending && 'animate-spin')} />
+                    <RefreshCw className={cn('w-3 h-3 mr-1', resending && 'animate-spin')} />
                     {resending ? '送信中...' : 'Discord再通知'}
                   </Button>
                 )}
               </div>
-              <div className="space-y-1">
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
                 {request.gm_responses.map((response, index) => {
                   const responded = hasGmResponded(response)
-                  const replyIso = responded ? pickGmReplyIsoString(response) : null
-                  const replyLabel = formatGmReplyReceivedAt(replyIso)
+                  const available = isGmMarkedAvailable(response)
+                  const candidates = response.available_candidates
                   return (
-                    <div key={index} className="text-sm text-purple-800">
-                      {response.gm_name || 'GM名不明'}:{' '}
-                      {!responded
-                        ? <span className="text-gray-500">⏳ 未回答</span>
-                        : isGmMarkedAvailable(response) ? '✅ 出勤可能' : '❌ 出勤不可'
-                      }
-                      {responded && (response.available_candidates?.length ?? 0) > 0 && (
-                        <span className="ml-2 text-purple-600">
-                          (候補{response.available_candidates!.map(i => i + 1).join(', ')})
-                        </span>
+                    <span key={index} className={`text-xs ${!responded ? 'text-gray-400' : available ? 'text-purple-800' : 'text-gray-400 line-through'}`}>
+                      {!responded ? '⏳' : available ? '✅' : '❌'}
+                      {' '}{response.gm_name || 'GM名不明'}
+                      {responded && available && (candidates?.length ?? 0) > 0 && (
+                        <span className="text-purple-500 ml-0.5">({candidates!.map(i => i + 1).join(',')})</span>
                       )}
-                      {replyLabel && (
-                        <span className="ml-2 text-xs text-purple-600">・回答 {replyLabel}</span>
-                      )}
-                    </div>
+                    </span>
                   )
                 })}
               </div>
@@ -235,9 +227,8 @@ export const BookingRequestCard = ({
                       : isGMResponded && isGMSelected ? <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
                       : isWaitingForGM ? <CircleDashed className="w-4 h-4 text-gray-400 shrink-0" />
                       : <XCircle className="w-4 h-4 text-red-400 shrink-0" />}
-                    <span className="text-xs text-muted-foreground shrink-0">候補{candidate.order}</span>
                     <span className="font-medium">{formatDate(candidate.date)}</span>
-                    <span className="text-muted-foreground">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
+                    <span className="text-muted-foreground text-xs">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
                   </div>
                 )
               })}

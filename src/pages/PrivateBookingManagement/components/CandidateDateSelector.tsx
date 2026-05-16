@@ -138,140 +138,98 @@ export const CandidateDateSelector = ({
         <Calendar className="w-4 h-4" />
         開催日時を選択
       </h3>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {candidates.map((candidate) => {
           const isSelected = selectedCandidateOrder === candidate.order
-          // GMが選択した候補かどうか
           const isGMSelected = gmSelectedCandidates && gmSelectedCandidates.includes(candidate.order)
-
-          // この日時に競合があるかチェック
-          // 空き店舗があるかどうかで判定（選択店舗ではなく全体の空き状況）
           const availableStoresForCandidate = getAvailableStores(candidate)
           const hasNoAvailableStore = stores.length > 0 && availableStoresForCandidate.length === 0
-          
-          // 選択されたGMの競合チェック
           const gmConflictKey = selectedGMId ? `${selectedGMId}-${candidate.date}-${candidate.timeSlot}` : null
           const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)
-          
-          // 空き店舗がない場合のみ競合とみなす
           const hasConflict = hasNoAvailableStore
-
-          // 閲覧専用モード（確定済み）で未選択の候補はdisabled表示
           const isDisabledInReadOnlyMode = isReadOnly && !isSelected
-          // 確定済みかつ選択された候補は緑色で表示
           const isConfirmedAndSelected = isConfirmed && isSelected
+          const availableGMs = gmResponses.filter(gm => isGmAvailableForCandidate(gm, candidate.order - 1))
 
           return (
             <div
               key={candidate.order}
               onClick={() => !hasConflict && !isReadOnly && onSelectCandidate(candidate.order)}
-              className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded border transition-all text-sm ${
                 hasConflict
                   ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
                   : isDisabledInReadOnlyMode
-                  ? 'bg-gray-50 border-gray-200 cursor-default opacity-60'
+                  ? 'bg-gray-50 border-gray-200 cursor-default opacity-50'
                   : isConfirmedAndSelected
-                  ? 'border-green-500 bg-green-50 cursor-default'
+                  ? 'border-green-400 bg-green-50 cursor-default'
                   : isSelected
-                  ? 'border-purple-500 bg-purple-50 cursor-pointer'
+                  ? 'border-purple-400 bg-purple-50 cursor-pointer'
                   : 'border-gray-200 bg-background hover:border-purple-300 cursor-pointer'
               }`}
             >
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                hasConflict
-                  ? 'border-red-500 bg-red-500'
-                  : isConfirmedAndSelected
-                  ? 'border-green-500 bg-green-500'
-                  : isSelected
-                  ? 'border-purple-500 bg-purple-500'
-                  : 'border-gray-300'
+              {/* ラジオアイコン */}
+              <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                hasConflict ? 'border-red-400 bg-red-400'
+                : isConfirmedAndSelected ? 'border-green-500 bg-green-500'
+                : isSelected ? 'border-purple-500 bg-purple-500'
+                : 'border-gray-300'
               }`}>
-                {hasConflict ? (
-                  <XCircle className="w-4 h-4 text-white" />
-                ) : isSelected ? (
-                  <CheckCircle2 className="w-4 h-4 text-white" />
-                ) : null}
+                {hasConflict ? <XCircle className="w-3 h-3 text-white" />
+                  : isSelected ? <CheckCircle2 className="w-3 h-3 text-white" />
+                  : null}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium">候補{candidate.order}</span>
-                  {/* この候補に対応可能なGMのバッジを表示 */}
-                  {gmResponses.length > 0 && (
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {gmResponses
-                        .filter((gm) => isGmAvailableForCandidate(gm, candidate.order - 1))
-                        .map((gm) => {
-                          const colors = getGMBadgeStyle(gm.avatar_color, gm.gm_name)
-                          return (
-                            <span
-                              key={gm.gm_id}
-                              className="text-xs px-1.5 py-0.5 rounded border font-medium"
-                              style={{ 
-                                backgroundColor: colors.bgColor, 
-                                color: colors.textColor,
-                                borderColor: colors.textColor + '40' // 25% opacity
-                              }}
-                              title={`GM: ${gm.gm_name}`}
-                            >
-                              {getShortName(gm.gm_name)}
-                            </span>
-                          )
-                        })
-                      }
-                      {gmResponses.filter((gm) => isGmAvailableForCandidate(gm, candidate.order - 1))
-                        .length === 0 && (
-                        <span className="text-xs text-gray-400">GM回答なし</span>
-                      )}
-                    </div>
-                  )}
+
+              {/* 日付・時間 */}
+              <span className="font-medium whitespace-nowrap">{formatCandidateDate(candidate.date)}</span>
+              <span className="text-muted-foreground whitespace-nowrap text-xs">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
+
+              {/* GMバッジ */}
+              {gmResponses.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {availableGMs.length === 0
+                    ? <span className="text-xs text-gray-400">GM回答なし</span>
+                    : availableGMs.map(gm => {
+                        const c = getGMBadgeStyle(gm.avatar_color, gm.gm_name)
+                        return (
+                          <span key={gm.gm_id}
+                            className="text-xs px-1.5 py-0.5 rounded border font-medium"
+                            style={{ backgroundColor: c.bgColor, color: c.textColor, borderColor: c.textColor + '40' }}
+                            title={gm.gm_name}
+                          >
+                            {getShortName(gm.gm_name)}
+                          </span>
+                        )
+                      })
+                  }
                 </div>
-                {/* 空き店舗の表示 */}
-                {stores.length > 0 && (
-                  <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    <MapPin className="w-3 h-3 text-gray-400" />
-                    {availableStoresForCandidate.length === 0 ? (
-                      <span className="text-xs text-red-500">空き店舗なし</span>
-                    ) : availableStoresForCandidate.length === stores.length ? (
-                      <span className="text-xs text-green-600">全店舗空き</span>
-                    ) : (
-                      availableStoresForCandidate.map(store => (
-                        <span
-                          key={store.id}
-                          className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200"
-                          title={store.name}
-                        >
-                          {store.short_name || store.name}
+              )}
+
+              {/* 空き店舗 */}
+              {stores.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap ml-auto">
+                  <MapPin className="w-3 h-3 text-gray-400 shrink-0" />
+                  {availableStoresForCandidate.length === 0
+                    ? <span className="text-xs text-red-500">空き店舗なし</span>
+                    : availableStoresForCandidate.length === stores.length
+                    ? <span className="text-xs text-green-600">全店舗空き</span>
+                    : availableStoresForCandidate.slice(0, 3).map(s => (
+                        <span key={s.id} className="text-xs px-1 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200 whitespace-nowrap" title={s.name}>
+                          {s.short_name || s.name}
                         </span>
                       ))
-                    )}
-                  </div>
-                )}
-                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    <span>{formatCandidateDate(candidate.date)}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>{candidate.timeSlot} {candidate.startTime} - {candidate.endTime}</span>
-                  </div>
+                  }
+                  {availableStoresForCandidate.length > 3 && (
+                    <span className="text-xs text-gray-500">+{availableStoresForCandidate.length - 3}</span>
+                  )}
                 </div>
-                {hasConflict && (
-                  <div className="text-xs text-red-600 mt-1">
-                    空き店舗なし
-                  </div>
-                )}
-                {!hasConflict && hasGMConflict && (
-                  <div className="text-xs text-orange-600 mt-1">
-                    選択中のGMに予定あり（他のGMを選択可能）
-                  </div>
-                )}
-                {isSelected && !isGMSelected && gmSelectedCandidates && gmSelectedCandidates.length > 0 && (
-                  <div className="text-xs text-orange-600 mt-1">
-                    ⚠️ GMが未回答の候補です
-                  </div>
-                )}
-              </div>
+              )}
+
+              {/* 警告テキスト */}
+              {(hasGMConflict || (isSelected && !isGMSelected && gmSelectedCandidates?.length)) && (
+                <span className="text-xs text-orange-600 whitespace-nowrap ml-1">
+                  {hasGMConflict ? '⚠️ GMに予定あり' : '⚠️ GM未回答'}
+                </span>
+              )}
             </div>
           )
         })}
