@@ -87,6 +87,13 @@ export const AdminSidebar = memo(function AdminSidebar() {
         { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, path: `/${slug}/dashboard`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'booking', label: '予約サイト', icon: Globe, path: `/${slug}`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'schedule', label: 'スケジュール', icon: CalendarDays, path: `/${slug}/schedule`, roles: ['admin', 'staff', 'license_admin'] },
+      ],
+    },
+    {
+      id: 'schedule-sub',
+      label: 'シフト・GM',
+      icon: CalendarClock,
+      items: [
         { id: 'shift-submission', label: 'シフト提出', icon: CalendarClock, path: `/${slug}/shift-submission`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'gm-availability', label: 'GM確認', icon: UserCheck, path: `/${slug}/gm-availability`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'staff-profile', label: '担当作品', icon: UserCircle, path: `/${slug}/staff-profile`, roles: ['admin', 'staff', 'license_admin'] },
