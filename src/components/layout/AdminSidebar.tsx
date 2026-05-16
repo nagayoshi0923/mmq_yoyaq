@@ -77,7 +77,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: null,
       items: [
         { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, path: `/${slug}/dashboard`, roles: ['admin', 'staff', 'license_admin'] },
-        { id: 'booking', label: '予約サイト', icon: Globe, path: `/${slug}`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'schedule', label: 'スケジュール', icon: CalendarDays, path: `/${slug}/schedule`, roles: ['admin', 'staff', 'license_admin'] },
       ],
     },
@@ -276,8 +275,27 @@ export const AdminSidebar = memo(function AdminSidebar() {
     if (firstItem) navigate(firstItem.path)
   }, [navigate])
 
+  const bookingActive = isActive({ id: 'booking', label: '予約サイト', icon: Globe, path: `/${slug}`, roles: [] })
+
   const SidebarContent = () => (
-    <div className="flex flex-col h-full py-3">
+    <div className="flex flex-col h-full py-2">
+      {/* 予約サイト（最上部・専用スタイル） */}
+      <div className="px-2 pb-2 mb-1">
+        <Link
+          to={`/${slug}`}
+          className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-md border transition-all duration-150 ${
+            bookingActive
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+          }`}
+        >
+          <Globe className="w-4 h-4 flex-shrink-0" />
+          <span>予約サイト</span>
+        </Link>
+      </div>
+
+      <div className="mx-3 border-t border-border/40 mb-1" />
+
       {visibleGroups.map((group, gi) => (
         <div key={group.id}>
           {/* グループセパレーター */}
