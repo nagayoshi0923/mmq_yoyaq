@@ -56,7 +56,9 @@ const ScenarioMasterAdmin = lazyWithRetry(() => import('./ScenarioMasterAdmin').
 const ScenarioMasterEdit = lazyWithRetry(() => import('./ScenarioMasterAdmin/ScenarioMasterEdit').then(m => ({ default: m.ScenarioMasterEdit })))
 const OrganizationSettings = lazyWithRetry(() => import('./OrganizationSettings'))
 const OrganizationRegister = lazyWithRetry(() => import('./OrganizationRegister'))
+const OrgSignup = lazyWithRetry(() => import('./OrgSignup'))
 const LandingPage = lazyWithRetry(() => import('./LandingPage'))
+const ForBusinessPage = lazyWithRetry(() => import('./ForBusiness').then(m => ({ default: m.ForBusinessPage })))
 const AuthorDashboard = lazyWithRetry(() => import('./AuthorDashboard'))
 const AuthorLogin = lazyWithRetry(() => import('./AuthorLogin'))
 const ExternalReportForm = lazyWithRetry(() => import('./ExternalReportForm'))
@@ -157,7 +159,7 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   }
   
   // 特殊ページのチェック（組織スラッグなし）
-  const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'complete-profile', 'coupon-present', 'register', 'about', 
+  const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'complete-profile', 'coupon-present', 'register', 'start', 'about',
     'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page', 'scenario',
     // 静的ページ
     'terms', 'privacy', 'security', 'legal', 'contact', 'faq', 'guide', 'cancel-policy', 'stores', 'company',
@@ -809,7 +811,7 @@ export function AdminDashboard() {
   if (currentPage === 'for-business') {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
-        <LandingPage />
+        <ForBusinessPage />
       </Suspense>
     )
   }
@@ -874,6 +876,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <OrganizationRegister />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'start') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <OrgSignup />
       </Suspense>
     )
   }
