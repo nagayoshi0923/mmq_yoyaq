@@ -413,18 +413,19 @@ export function StaffManagement() {
               onSearchChange={setSearchTerm}
               onStatusFilterChange={setStatusFilter}
               onInviteClick={openInviteModal}
-            />
-
-            {/* スタッフ一覧テーブル (PC表示) */}
-            <div className="hidden md:block">
-              <div className="flex justify-end mb-1.5">
+              resultCount={sortedStaff.length}
+              columnSettingsPanel={
                 <ColumnSettingsPanel
                   columns={tableColumns}
                   preferences={staffColumnPrefs}
                   onPreferencesChange={setStaffColumnPrefs}
                   defaultColumnKeys={defaultStaffColumnKeys}
                 />
-              </div>
+              }
+            />
+
+            {/* スタッフ一覧テーブル (PC表示) */}
+            <div className="hidden md:block">
               <div className="bg-white border rounded-lg overflow-hidden">
                 <TanStackDataTable
                   data={sortedStaff}
