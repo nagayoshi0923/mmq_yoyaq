@@ -595,48 +595,6 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
     }
   }
 
-  // 統計（旧UIと同じ項目）
-  const stats = useMemo(() => {
-    const totalScenarios = scenarios.length
-    const availableScenarios = scenarios.filter(s => s.org_status === 'available').length
-    
-    // 平均公演回数と中央値を計算
-    const playCounts = scenarios.map(s => s.play_count || 0)
-    const totalPlayCount = playCounts.reduce((sum, count) => sum + count, 0)
-    const avgPlayCount = totalScenarios > 0 
-      ? Math.round((totalPlayCount / totalScenarios) * 10) / 10 // 小数点第1位まで
-      : 0
-    
-    // 中央値を計算
-    const sortedCounts = [...playCounts].sort((a, b) => a - b)
-    let medianPlayCount = 0
-    if (sortedCounts.length > 0) {
-      const mid = Math.floor(sortedCounts.length / 2)
-      if (sortedCounts.length % 2 === 0) {
-        // 偶数の場合: 中央2つの平均
-        medianPlayCount = Math.round(((sortedCounts[mid - 1] + sortedCounts[mid]) / 2) * 10) / 10
-      } else {
-        // 奇数の場合: 中央の値
-        medianPlayCount = sortedCounts[mid]
-      }
-    }
-    
-    // 平均プレイヤー数を計算
-    const totalPlayers = scenarios.reduce((sum, s) => {
-      const maxPlayers = s.player_count_max || s.player_count_min
-      return sum + maxPlayers
-    }, 0)
-    const avgPlayers = totalScenarios > 0 ? Math.round(totalPlayers / totalScenarios) : 0
-    
-    return {
-      totalScenarios,
-      availableScenarios,
-      avgPlayCount,
-      medianPlayCount,
-      avgPlayers
-    }
-  }, [scenarios])
-
   // テーブル列定義（旧UIと同じスタイル + 組織設定項目のヘッダー色変更）
   const tableColumns: Column<OrganizationScenarioWithMaster>[] = useMemo(() => [
     // ========== マスタ由来の項目（通常ヘッダー）==========
@@ -1148,48 +1106,6 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
           </CardContent>
         </Card>
       )}
-
-      {/* 統計カード（旧UIと同じ項目） */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-        <Card className="bg-white border shadow-none">
-          <CardContent className="p-3 sm:p-4">
-            <div className="text-xs text-muted-foreground">総シナリオ数</div>
-            <div className="text-xl sm:text-2xl font-bold">
-              {stats.totalScenarios}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border shadow-none">
-          <CardContent className="p-3 sm:p-4">
-            <div className="text-xs text-muted-foreground">利用可能</div>
-            <div className="text-xl sm:text-2xl font-bold text-green-700">
-              {stats.availableScenarios}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border shadow-none">
-          <CardContent className="p-3 sm:p-4">
-            <div className="text-xs text-muted-foreground">平均公演回数</div>
-            <div className="text-xl sm:text-2xl font-bold">
-              {stats.avgPlayCount.toFixed(1)}回
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              中央値: {stats.medianPlayCount.toFixed(1)}回
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border shadow-none">
-          <CardContent className="p-3 sm:p-4">
-            <div className="text-xs text-muted-foreground">平均プレイヤー数</div>
-            <div className="text-xl sm:text-2xl font-bold">
-              {stats.avgPlayers}名
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* 検索・フィルター・アクション */}
       <div className="space-y-3">
