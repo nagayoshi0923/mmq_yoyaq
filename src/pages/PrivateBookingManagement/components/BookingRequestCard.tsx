@@ -202,14 +202,14 @@ export const BookingRequestCard = ({
                   </Button>
                 )}
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+              <ul className="space-y-1">
                 {request.gm_responses.map((response, index) => {
                   const responded = hasGmResponded(response)
                   const available = isGmMarkedAvailable(response)
                   const candidates = response.available_candidates
                   return (
-                    <div key={index} className="flex flex-col gap-0.5">
-                      <span className={`text-xs flex items-center gap-0.5 ${!responded ? 'text-gray-400' : available ? 'text-purple-800' : 'text-gray-400 line-through'}`}>
+                    <li key={index} className="flex flex-col gap-0.5">
+                      <span className={`text-xs flex items-center gap-1 ${!responded ? 'text-gray-400' : available ? 'text-purple-800' : 'text-gray-400 line-through'}`}>
                         {!responded
                           ? <Clock className="w-3 h-3 shrink-0" />
                           : available
@@ -218,18 +218,18 @@ export const BookingRequestCard = ({
                         }
                         {response.gm_name || 'GM名不明'}
                         {responded && available && (candidates?.length ?? 0) > 0 && (
-                          <span className="text-purple-500 ml-0.5">({candidates!.map(i => i + 1).join(',')})</span>
+                          <span className="text-purple-500">({candidates!.map(i => i + 1).join(',')})</span>
                         )}
                       </span>
                       {responded && response.notes && (
-                        <span className="text-xs text-purple-600 pl-4 whitespace-pre-wrap flex items-start gap-0.5">
+                        <span className="text-xs text-purple-600 pl-4 whitespace-pre-wrap flex items-start gap-1">
                           <MessageCircle className="w-3 h-3 shrink-0 mt-0.5" />{response.notes}
                         </span>
                       )}
-                    </div>
+                    </li>
                   )
                 })}
-              </div>
+              </ul>
             </div>
           )}
 
