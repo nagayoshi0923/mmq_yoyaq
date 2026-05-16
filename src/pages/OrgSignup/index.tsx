@@ -353,6 +353,7 @@ export default function OrgSignup() {
                     onChange={e => handleOrgNameChange(e.target.value)}
                     placeholder="例: 株式会社サンプル脱出ゲーム"
                     className="pl-9"
+                    autoComplete="organization"
                   />
                 </div>
               </div>
@@ -366,6 +367,7 @@ export default function OrgSignup() {
                   value={orgData.slug}
                   onChange={e => setOrgData(prev => ({ ...prev, slug: e.target.value.toLowerCase() }))}
                   placeholder="例: sample-escape"
+                  autoComplete="off"
                 />
                 <p className="text-xs text-gray-400">
                   半角英数字・ハイフンのみ。<br />
@@ -384,6 +386,7 @@ export default function OrgSignup() {
                     onChange={e => setOrgData(prev => ({ ...prev, contact_email: e.target.value }))}
                     placeholder="例: contact@example.com"
                     className="pl-9"
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -408,6 +411,7 @@ export default function OrgSignup() {
                     onChange={e => setAdminData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="例: 山田太郎"
                     className="pl-9"
+                    autoComplete="name"
                   />
                 </div>
               </div>
@@ -423,6 +427,7 @@ export default function OrgSignup() {
                     onChange={e => setAdminData(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="例: admin@example.com"
                     className="pl-9"
+                    autoComplete="email"
                   />
                 </div>
               </div>
@@ -438,6 +443,7 @@ export default function OrgSignup() {
                     onChange={e => setAdminData(prev => ({ ...prev, password: e.target.value }))}
                     placeholder="8文字以上"
                     className="pl-9"
+                    autoComplete="new-password"
                   />
                 </div>
               </div>
@@ -453,6 +459,7 @@ export default function OrgSignup() {
                     onChange={e => setAdminData(prev => ({ ...prev, confirmPassword: e.target.value }))}
                     placeholder="もう一度入力"
                     className="pl-9"
+                    autoComplete="new-password"
                   />
                 </div>
               </div>
