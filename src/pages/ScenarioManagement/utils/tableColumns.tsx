@@ -177,6 +177,7 @@ export function createScenarioColumns(
       helpText: 'シナリオのタイトル。クリックで詳細編集画面を開く',
       width: 'w-40',
       sortable: true,
+      required: true,
       render: (scenario) => (
         <button
           onClick={() => actions.onEdit(scenario)}

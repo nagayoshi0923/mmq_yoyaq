@@ -29,8 +29,9 @@ import {
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { AddFromMasterDialog } from '@/components/modals/AddFromMasterDialog'
 import { ConfirmModal } from '@/components/patterns/modal'
-import { TanStackDataTable } from '@/components/patterns/table'
+import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/table'
 import type { Column } from '@/components/patterns/table'
+import { useTablePreferences } from '@/hooks/useTablePreferences'
 import {
   buildGmListBadgeMap,
   gmScenarioBadgeClassNames,
@@ -670,6 +671,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
       helpText: 'シナリオのタイトル。クリックで詳細編集（マスタで設定）',
       width: 'w-40',
       sortable: true,
+      required: true,
       headerClassName: MASTER_HEADER_CLASS,
       render: (scenario) => (
         canEdit ? (
@@ -1078,6 +1080,9 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
     }
   ], [canEdit, onEdit, handleStatusChange, storeMap])
 
+  const defaultOrgColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
+  const [orgColumnPrefs, setOrgColumnPrefs] = useTablePreferences('org-scenario-list', defaultOrgColumnKeys)
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -1116,7 +1121,6 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
       {/* 組織名表示 */}
       {organizationName && (
         <div className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-          <span>📍</span>
           <span>{organizationName} のシナリオ</span>
         </div>
       )}
@@ -1310,6 +1314,16 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
               リセット
             </Button>
           )}
+
+          {/* カラム設定（PCのみ） */}
+          <div className="hidden md:block ml-auto">
+            <ColumnSettingsPanel
+              columns={tableColumns}
+              preferences={orgColumnPrefs}
+              onPreferencesChange={setOrgColumnPrefs}
+              defaultColumnKeys={defaultOrgColumnKeys}
+            />
+          </div>
         </div>
       </div>
 
@@ -1331,22 +1345,23 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
       ) : (
         <>
           {/* PC用: テーブル形式 */}
-          <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
-            <TanStackDataTable
-              data={filteredScenarios}
-              columns={tableColumns}
-              getRowKey={(scenario) => scenario.id}
-              sortState={sortState}
-              onSort={setSortState}
-              enableColumnReorder={true}
-              columnOrderKey="org-scenario-list"
-              emptyMessage={
-                searchTerm || statusFilter !== 'all' || gmFilter !== 'all' || experiencedFilter !== 'all' || playerCountFilter !== 'all' || durationFilter !== 'all'
-                  ? '検索条件に一致するシナリオが見つかりません' 
-                  : 'シナリオが登録されていません'
-              }
-              loading={loading}
-            />
+          <div className="hidden md:block">
+            <div className="bg-white border rounded-lg overflow-hidden">
+              <TanStackDataTable
+                data={filteredScenarios}
+                columns={tableColumns}
+                getRowKey={(scenario) => scenario.id}
+                sortState={sortState}
+                onSort={setSortState}
+                columnPreferences={orgColumnPrefs}
+                emptyMessage={
+                  searchTerm || statusFilter !== 'all' || gmFilter !== 'all' || experiencedFilter !== 'all' || playerCountFilter !== 'all' || durationFilter !== 'all'
+                    ? '検索条件に一致するシナリオが見つかりません'
+                    : 'シナリオが登録されていません'
+                }
+                loading={loading}
+              />
+            </div>
           </div>
 
           {/* モバイル用: リスト形式 */}

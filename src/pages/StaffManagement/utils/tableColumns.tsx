@@ -352,6 +352,7 @@ export function createStaffColumns(
       key: 'actions',
       header: 'アクション',
       sortable: false,
+      required: true,
       width: 'w-40',
       align: 'center',
       render: (staff) => {
