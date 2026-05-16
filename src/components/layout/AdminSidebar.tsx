@@ -399,7 +399,7 @@ function SidebarContent({
           )}
 
           {isGroupOpen(group) && (
-            <div className="sidebar-items-enter space-y-0.5 px-2 pb-1">
+            <div className={`space-y-0.5 px-2 pb-1 ${group.label ? 'sidebar-items-enter' : ''}`}>
                 {group.items.map(item => {
                   const active = isActive(item)
                   const showSubs = active && item.subItems && item.subItems.length > 0
