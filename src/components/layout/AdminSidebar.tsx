@@ -5,7 +5,7 @@
  * - モバイルはハンバーガー → ドロワー
  * - ロールベースでメニューをフィルタリング
  */
-import { useState, useMemo, useCallback, useEffect, memo } from 'react'
+import { useState, useLayoutEffect, useRef, useMemo, useCallback, useEffect, memo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
@@ -63,7 +63,7 @@ const ADMIN_PATH_SEGMENTS = [
   'reservations', 'accounts', 'sales', 'settings', 'manual',
   'staff-profile', 'license-management', 'coupons', 'blog',
   'organizations', 'external-reports', 'scenario-masters',
-  'license-reports', 'customer-management', 'user-management',
+  'license-reports', 'customer-management', 'user-management', 'scenario-matcher',
 ]
 
 export const AdminSidebar = memo(function AdminSidebar() {
@@ -123,15 +123,8 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: 'アカウント・顧客',
       icon: UserCog,
       items: [
-        {
-          id: 'accounts', label: 'アカウント', icon: UserCog,
-          path: `/${slug}/accounts`, roles: ['admin', 'license_admin'],
-          subItems: [
-            { id: 'users',     label: 'ユーザー', path: `/${slug}/accounts?tab=users` },
-            { id: 'customers', label: '顧客',     path: `/${slug}/accounts?tab=customers` },
-          ],
-        },
-        { id: 'coupons', label: 'クーポン', icon: Gift, path: `/${slug}/coupons`, roles: ['admin', 'license_admin'] },
+        { id: 'customers', label: '顧客', icon: UserCog, path: `/${slug}/accounts?tab=customers`, roles: ['admin', 'license_admin'] },
+        { id: 'coupons',   label: 'クーポン', icon: Gift, path: `/${slug}/coupons`, roles: ['admin', 'license_admin'] },
       ],
     },
     {
@@ -217,6 +210,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: 'MMQ運営',
       icon: Shield,
       items: [
+        { id: 'accounts', label: 'ユーザー管理', icon: UserCog, path: `/${slug}/accounts?tab=users`, roles: ['admin', 'license_admin'] },
         { id: 'organizations',     label: 'テナント管理',       icon: Building2, path: `/${slug}/organizations`,     roles: ['license_admin'] },
         { id: 'scenario-masters',  label: 'マスタ管理',         icon: Shield,    path: '/admin/scenario-masters',     roles: ['license_admin'] },
         { id: 'external-reports',  label: '外部公演報告',       icon: FileCheck, path: `/${slug}/external-reports`,  roles: ['license_admin'] },
@@ -241,14 +235,19 @@ export const AdminSidebar = memo(function AdminSidebar() {
 
   // アクティブ判定（ページレベル）
   const isActive = useCallback((item: NavItem) => {
-    const { pathname } = location
+    const { pathname, search } = location
     if (item.id === 'booking') {
       return pathname === `/${slug}` || (
         pathname.startsWith(`/${slug}/`) &&
         !ADMIN_PATH_SEGMENTS.some(seg => pathname.includes(`/${seg}`))
       )
     }
-    const basePath = item.path.split('?')[0]
+    const [basePath, query] = item.path.split('?')
+    if (query) {
+      const tabParam = new URLSearchParams(query).get('tab')
+      const currentTab = new URLSearchParams(search).get('tab')
+      return pathname === basePath && currentTab === tabParam
+    }
     return pathname === basePath || pathname.startsWith(basePath + '/')
   }, [location, slug])
 
@@ -354,11 +353,26 @@ function GroupPanel({
   userRole: string
   isLicAdmin: boolean
 }) {
-  // display:none→blockでCSSアニメーションが自動リスタートする仕様を利用
-  // 同グループ内ナビでは display が変わらないのでアニメーション再発なし
+  const divRef = useRef<HTMLDivElement>(null)
+  const prevIsOpenRef = useRef(isOpen) // マウント時の値で初期化
+
+  // isOpen が false→true になった瞬間だけ DOM 直接操作でアニメーションをリスタート
+  // React の style/class 再適用に依存しないため確実に動作する
+  useLayoutEffect(() => {
+    const wasOpen = prevIsOpenRef.current
+    prevIsOpenRef.current = isOpen
+    if (!group.label || !divRef.current) return
+    if (!wasOpen && isOpen) {
+      const el = divRef.current
+      el.style.animationName = 'none'
+      void el.getBoundingClientRect() // reflow を強制してアニメーションをリセット
+      el.style.animationName = ''
+    }
+  })
 
   return (
     <div
+      ref={divRef}
       className={group.label ? 'sidebar-items-enter' : ''}
       style={group.label ? { display: isOpen ? 'block' : 'none' } : undefined}
     >
