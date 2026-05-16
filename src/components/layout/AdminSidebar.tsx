@@ -5,7 +5,7 @@
  * - モバイルはハンバーガー → ドロワー
  * - ロールベースでメニューをフィルタリング
  */
-import { useState, useLayoutEffect, useRef, useMemo, useCallback, useEffect, memo } from 'react'
+import { useState, useMemo, useCallback, useEffect, memo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
@@ -98,15 +98,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
       icon: CalendarClock,
       items: [
         { id: 'shift-submission', label: 'シフト提出', icon: CalendarClock, path: `/${slug}/shift-submission`, roles: ['admin', 'staff', 'license_admin'] },
-        {
-          id: 'gm-availability', label: 'GM確認', icon: UserCheck,
-          path: `/${slug}/gm-availability`, roles: ['admin', 'staff', 'license_admin'],
-          subItems: [
-            { id: 'gm-list', label: 'GM確認一覧', path: `/${slug}/gm-availability?tab=gm-list` },
-            { id: 'pending', label: '承認待ち',    path: `/${slug}/gm-availability?tab=pending` },
-            { id: 'schedule', label: 'スケジュール', path: `/${slug}/gm-availability?tab=schedule` },
-          ],
-        },
+        { id: 'gm-availability', label: 'GM確認', icon: UserCheck, path: `/${slug}/gm-availability`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'staff-profile', label: '担当作品', icon: UserCircle, path: `/${slug}/staff-profile`, roles: ['admin', 'staff', 'license_admin'] },
       ],
     },
@@ -362,21 +354,13 @@ function GroupPanel({
   userRole: string
   isLicAdmin: boolean
 }) {
-  const [animate, setAnimate] = useState(false)
-  const prevIsOpenRef = useRef(false)
-
-  // isOpen が false→true になった瞬間だけ animate=true にする
-  useLayoutEffect(() => {
-    if (isOpen && !prevIsOpenRef.current && group.label) setAnimate(true)
-    prevIsOpenRef.current = isOpen
-  })
-
-  if (!isOpen) return null
+  // display:none→blockでCSSアニメーションが自動リスタートする仕様を利用
+  // 同グループ内ナビでは display が変わらないのでアニメーション再発なし
 
   return (
     <div
-      className={animate ? 'sidebar-items-enter' : ''}
-      onAnimationEnd={() => setAnimate(false)}
+      className={group.label ? 'sidebar-items-enter' : ''}
+      style={group.label ? { display: isOpen ? 'block' : 'none' } : undefined}
     >
       <div className="space-y-0.5 px-2 pb-1">
         {group.items.map(item => {
