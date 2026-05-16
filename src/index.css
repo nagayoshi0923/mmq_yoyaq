@@ -277,15 +277,13 @@ html, body {
 @keyframes sidebar-items-in {
   from {
     opacity: 0;
-    transform: scaleY(0.6) translateY(-4px);
-    transform-origin: top;
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
-    transform: scaleY(1) translateY(0);
-    transform-origin: top;
+    transform: translateY(0);
   }
 }
 .sidebar-items-enter {
-  animation: sidebar-items-in 220ms ease-out both;
+  animation: sidebar-items-in 180ms ease-out both;
 }

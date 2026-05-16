@@ -395,16 +395,8 @@ function SidebarContent({
             </button>
           )}
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateRows: isGroupOpen(group) ? '1fr' : '0fr',
-              opacity: isGroupOpen(group) ? 1 : 0,
-              transition: 'grid-template-rows 200ms ease-out, opacity 200ms ease-out',
-              pointerEvents: isGroupOpen(group) ? undefined : 'none',
-            }}
-          >
-            <div style={{ overflow: 'hidden', minHeight: 0 }}>
+          {isGroupOpen(group) && (
+            <div className={group.label ? 'sidebar-items-enter' : ''}>
             <div className="space-y-0.5 px-2 pb-1">
                 {group.items.map(item => {
                   const active = isActive(item)
@@ -462,7 +454,7 @@ function SidebarContent({
                 })}
             </div>
             </div>
-          </div>
+          )}
         </div>
       ))}
     </div>
