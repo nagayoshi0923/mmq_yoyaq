@@ -244,7 +244,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   // タブ変更時にURL更新（メモ化）
   const handleTabChange = useCallback((value: string) => {
     setActiveTab(value)
-    const basePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
+    const basePath = organizationSlug ? `/${organizationSlug}` : ''
     if (value === 'calendar') {
       navigate(`${basePath}/calendar`)
     } else if (value === 'list') {

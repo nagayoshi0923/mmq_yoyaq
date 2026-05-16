@@ -155,7 +155,7 @@ export function CustomerBookingPage() {
   const [isLoading, setIsLoading] = useState(true)
   
   // 予約サイトのベースパス
-  const bookingBasePath = organization?.slug ? `/${organization.slug}` : '/queens-waltz'
+  const bookingBasePath = organization?.slug ? `/${organization.slug}` : ''
   
   // フィルター状態
   const [searchTerm, setSearchTerm] = useState('')

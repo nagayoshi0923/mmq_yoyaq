@@ -37,8 +37,9 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
   const { count: storeConfirmationPendingCount } = useStoreConfirmationPendingCount()
   const { organization } = useOrganization()
   
-  // 組織のslugを取得（デフォルトはqueens-waltz）
-  const bookingSlug = organization?.slug || 'queens-waltz'
+  // 組織のslugを取得（ロード中はURLの第1セグメントを使用）
+  const pathSlug = location.pathname.split('/')[1] || ''
+  const bookingSlug = organization?.slug || pathSlug || ''
   
   // 管理サイトのパス一覧
   const adminPaths = [

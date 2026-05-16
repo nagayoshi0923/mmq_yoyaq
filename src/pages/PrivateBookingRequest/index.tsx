@@ -255,7 +255,7 @@ export function PrivateBookingRequest({
   }
   
   // 予約サイトのベースパス
-  const bookingBasePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
+  const bookingBasePath = organizationSlug ? `/${organizationSlug}` : ''
 
   // フック
   const {

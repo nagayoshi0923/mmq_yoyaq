@@ -39,7 +39,7 @@ export function WantToPlayPage() {
   const [loading, setLoading] = useState(true)
   
   // 予約サイトのベースパス
-  const bookingBasePath = organization?.slug ? `/${organization.slug}` : '/queens-waltz'
+  const bookingBasePath = organization?.slug ? `/${organization.slug}` : ''
 
   useEffect(() => {
     if (user?.id) {
