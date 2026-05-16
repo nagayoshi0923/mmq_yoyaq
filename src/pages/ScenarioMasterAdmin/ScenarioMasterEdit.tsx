@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -428,11 +428,11 @@ export function ScenarioMasterEdit() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
-      <NavigationBar />
-
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="flex flex-1">
+        <AdminSidebar />
+        <div className="flex-1 max-w-5xl mx-auto px-4 py-8">
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
@@ -792,6 +792,7 @@ export function ScenarioMasterEdit() {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

@@ -233,7 +233,7 @@ export function UserManagementContent() {
           title={
             <div className="flex items-center gap-2">
               <UserCog className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">ユーザー</span>
+              <span className="text-lg font-bold">ユーザー管理</span>
             </div>
           }
           description="スタッフ・管理者のアカウントとロールを管理"

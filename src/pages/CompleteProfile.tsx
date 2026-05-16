@@ -201,6 +201,33 @@ export function CompleteProfile() {
 
     ;(async () => {
       try {
+        // admin/staff ユーザーは顧客プロフィールフォームをスキップしてダッシュボードへ
+        const { data: userRecord } = await supabase
+          .from('users')
+          .select('role, organization_id')
+          .eq('id', userId)
+          .maybeSingle()
+
+        if (cancelled) return
+
+        const isStaffOrAdmin =
+          userRecord?.role === 'admin' ||
+          userRecord?.role === 'staff' ||
+          userRecord?.role === 'license_admin'
+
+        if (isStaffOrAdmin) {
+          logger.log('✅ admin/staff ユーザーのためダッシュボードへリダイレクト')
+          setProfileGate('leaving')
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('slug')
+            .eq('id', userRecord?.organization_id)
+            .maybeSingle()
+          const dest = org?.slug ? `/${org.slug}/dashboard` : '/dashboard'
+          navigate(dest, { replace: true })
+          return
+        }
+
         const { data: rows, error } = await supabase
           .from('customers')
           .select('id, name, phone, email')

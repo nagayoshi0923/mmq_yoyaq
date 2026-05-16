@@ -1,22 +1,7 @@
 import React, { useEffect, lazy, Suspense } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useLocalState } from '@/hooks/useLocalState'
-import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { TrendingUp, BarChart, BarChart3, FileText, Store, ShoppingBag, Users, CalendarCheck } from 'lucide-react'
-
-// サイドバーのメニュー項目定義
-const SALES_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'sales-overview', label: '売上概要', icon: TrendingUp, description: '売上サマリーを表示' },
-  { id: 'annual-analysis', label: '年間分析', icon: BarChart3, description: '年間推移・成長率' },
-  { id: 'scenario-performance', label: 'シナリオ別', icon: BarChart, description: 'シナリオ別売上' },
-  { id: 'open-event-analysis', label: '公演分析', icon: CalendarCheck, description: 'オープン公演の満席率・満席日数' },
-  { id: 'external-sales', label: '外部売上', icon: ShoppingBag, description: 'BOOTH・他店公演' },
-  { id: 'misc-transactions', label: '雑収支管理', icon: FileText, description: '公演外の収支を管理' },
-  { id: 'franchise-sales', label: 'フランチャイズ', icon: Store, description: 'FC店舗の売上' },
-  { id: 'staff-salary-report', label: 'スタッフ報酬', icon: Users, description: 'スタッフ別報酬レポート' },
-  { id: 'salary-calculation', label: '給与計算', icon: FileText, description: 'スタッフ給与計算' }
-]
-// 作者レポートはライセンス管理に移動
 import { useSalesData } from './hooks/useSalesData'
 
 // chart.jsを使うコンポーネントは遅延ロード（初期バンドルサイズ削減）
@@ -33,8 +18,8 @@ const OpenEventAnalysis = lazy(() => import('./components/OpenEventAnalysis').th
  * 売上管理メインページ
  */
 const SalesManagement: React.FC = () => {
-  // タブ・店舗選択をlocalStorageで永続化（ブラウザを閉じても維持）
-  const [activeTab, setActiveTab] = useLocalState('salesActiveTab', 'overview')
+  const [searchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') || 'overview'
   const [selectedStoreIds, setSelectedStoreIds] = useLocalState<string[]>('salesSelectedStoreIds', [])
   
   // データ取得フック
@@ -192,15 +177,6 @@ const SalesManagement: React.FC = () => {
   return (
     <AppLayout
       currentPage="sales"
-      sidebar={
-        <UnifiedSidebar
-          title="売上管理"
-          mode="list"
-          menuItems={SALES_MENU_ITEMS}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-      }
       maxWidth="max-w-[1440px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}

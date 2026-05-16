@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -36,6 +36,7 @@ const GMAvailabilityCheck = lazyWithRetry(() => import('./GMAvailabilityCheck').
 const PrivateBookingScenarioSelect = lazyWithRetry(() => import('./PrivateBookingScenarioSelect').then(m => ({ default: m.PrivateBookingScenarioSelect })))
 const PrivateBookingRequestPage = lazyWithRetry(() => import('./PrivateBookingRequestPage').then(m => ({ default: m.PrivateBookingRequestPage })))
 const PrivateBookingManagement = lazyWithRetry(() => import('./PrivateBookingManagement').then(m => ({ default: m.PrivateBookingManagement })))
+const PrivateGroupListPage = lazyWithRetry(() => import('./PrivateBookingManagement/PrivateGroupListPage'))
 const AccountManagement = lazyWithRetry(() => import('./AccountManagement').then(m => ({ default: m.AccountManagement })))
 const CustomerManagement = lazyWithRetry(() => import('./CustomerManagement'))
 const UserManagement = lazyWithRetry(() => import('./UserManagement').then(m => ({ default: m.UserManagement })))
@@ -56,7 +57,9 @@ const ScenarioMasterAdmin = lazyWithRetry(() => import('./ScenarioMasterAdmin').
 const ScenarioMasterEdit = lazyWithRetry(() => import('./ScenarioMasterAdmin/ScenarioMasterEdit').then(m => ({ default: m.ScenarioMasterEdit })))
 const OrganizationSettings = lazyWithRetry(() => import('./OrganizationSettings'))
 const OrganizationRegister = lazyWithRetry(() => import('./OrganizationRegister'))
+const OrgSignup = lazyWithRetry(() => import('./OrgSignup'))
 const LandingPage = lazyWithRetry(() => import('./LandingPage'))
+const ForBusinessPage = lazyWithRetry(() => import('./ForBusiness').then(m => ({ default: m.ForBusinessPage })))
 const AuthorDashboard = lazyWithRetry(() => import('./AuthorDashboard'))
 const AuthorLogin = lazyWithRetry(() => import('./AuthorLogin'))
 const ExternalReportForm = lazyWithRetry(() => import('./ExternalReportForm'))
@@ -103,7 +106,7 @@ const GettingStartedPage = lazyWithRetry(() => import('./static').then(m => ({ d
 // 管理ページのパス一覧
 const ADMIN_PATHS = [
   'dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit',
-  'schedule', 'shift-submission', 'gm-availability', 'private-booking-management',
+  'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'private-booking-groups',
   'reservations', 'accounts', 'sales', 'settings', 'manual', 'add-demo-participants',
   'scenario-matcher', 'organizations', 'external-reports', 'license-reports', 'license-management',
   'customer-management', 'user-management', 'coupons', 'blog'
@@ -157,7 +160,7 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   }
   
   // 特殊ページのチェック（組織スラッグなし）
-  const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'complete-profile', 'coupon-present', 'register', 'about', 
+  const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'complete-profile', 'coupon-present', 'register', 'start', 'about',
     'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page', 'scenario',
     // 静的ページ
     'terms', 'privacy', 'security', 'legal', 'contact', 'faq', 'guide', 'cancel-policy', 'stores', 'company',
@@ -538,6 +541,14 @@ export function AdminDashboard() {
       </Suspense>
     )
   }
+
+  if (currentPage === 'private-booking-groups') {
+    return (
+      <Suspense fallback={<LoadingScreen message="グループ一覧を読み込み中..." />}>
+        <PrivateGroupListPage />
+      </Suspense>
+    )
+  }
   
   if (currentPage === 'accounts') {
     return (
@@ -646,14 +657,16 @@ export function AdminDashboard() {
     const shouldShowNavigation = isStaff
     
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         <Header onPageChange={handlePageChange} />
-        {shouldShowNavigation && (
-          <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
-        )}
-        <Suspense fallback={<LoadingScreen message="マイページを読み込み中..." />}>
-          <MyPage />
-        </Suspense>
+        <div className="flex flex-1">
+          {shouldShowNavigation && <AdminSidebar />}
+          <div className="flex-1">
+            <Suspense fallback={<LoadingScreen message="マイページを読み込み中..." />}>
+              <MyPage />
+            </Suspense>
+          </div>
+        </div>
       </div>
     )
   }
@@ -807,7 +820,7 @@ export function AdminDashboard() {
   if (currentPage === 'for-business') {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
-        <LandingPage />
+        <ForBusinessPage />
       </Suspense>
     )
   }
@@ -844,10 +857,28 @@ export function AdminDashboard() {
     )
   }
 
-  // 組織管理ページ → 設定ページにリダイレクト
   if (currentPage === 'organizations' || currentPage === 'organization-settings') {
-    navigate('/settings', { replace: true })
-    return null
+    return (
+      <Suspense fallback={<LoadingScreen message="テナント管理を読み込み中..." />}>
+        <OrganizationManagement />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'external-reports') {
+    return (
+      <Suspense fallback={<LoadingScreen message="外部レポートを読み込み中..." />}>
+        <ExternalReports />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'license-reports') {
+    return (
+      <Suspense fallback={<LoadingScreen message="ライセンス報告を読み込み中..." />}>
+        <LicenseReportManagement />
+      </Suspense>
+    )
   }
 
   if (currentPage === 'license-management') {
@@ -872,6 +903,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <OrganizationRegister />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'start') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <OrgSignup />
       </Suspense>
     )
   }
@@ -915,23 +954,22 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header onPageChange={handlePageChange} />
-      {shouldShowNavigation && (
-        <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
-      )}
-
-      <main className="container mx-auto max-w-[1440px] px-[10px] py-3 sm:py-4 md:py-6">
-        <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
-          {currentPage === 'dashboard' ? (
-            <DashboardHome onPageChange={handlePageChange} />
-          ) : currentPage === 'report-form' ? (
-            <ExternalReportForm />
-          ) : (
-            <DashboardHome onPageChange={handlePageChange} />
-          )}
-        </Suspense>
-      </main>
+      <div className="flex flex-1">
+        {shouldShowNavigation && <AdminSidebar />}
+        <main className="flex-1 max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
+          <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
+            {currentPage === 'dashboard' ? (
+              <DashboardHome onPageChange={handlePageChange} />
+            ) : currentPage === 'report-form' ? (
+              <ExternalReportForm />
+            ) : (
+              <DashboardHome onPageChange={handlePageChange} />
+            )}
+          </Suspense>
+        </main>
+      </div>
     </div>
   )
 }

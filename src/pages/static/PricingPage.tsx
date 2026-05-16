@@ -163,7 +163,7 @@ export function PricingPage() {
                   className="w-full"
                   variant={plan.buttonVariant}
                   style={plan.popular ? { backgroundColor: THEME.primary, borderRadius: 0 } : { borderRadius: 0 }}
-                  onClick={() => window.location.href = '/register'}
+                  onClick={() => window.location.href = '/start'}
                 >
                   {plan.buttonText}
                 </Button>
@@ -301,7 +301,7 @@ export function PricingPage() {
                 size="lg"
                 className="bg-white hover:bg-gray-100 px-8"
                 style={{ color: THEME.primary, borderRadius: 0 }}
-                onClick={() => window.location.href = '/register'}
+                onClick={() => window.location.href = '/start'}
               >
                 無料で始める
                 <ArrowRight className="w-5 h-5 ml-2" />

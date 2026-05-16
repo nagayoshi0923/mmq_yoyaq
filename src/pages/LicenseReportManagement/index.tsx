@@ -36,6 +36,7 @@ import { LicenseSummaryCard } from './components/LicenseSummaryCard'
 import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import type { ExternalPerformanceReport } from '@/types'
+import { AppLayout } from '@/components/layout/AppLayout'
 
 export default function LicenseReportManagement() {
   const { organization, staff, isLicenseManager, isLoading: orgLoading } = useOrganization()
@@ -90,7 +91,13 @@ export default function LicenseReportManagement() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <AppLayout
+      currentPage="license-reports"
+      maxWidth="max-w-[1440px]"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+      stickyLayout={true}
+    >
+    <div className="space-y-6">
       {/* ヘッダー */}
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -287,6 +294,7 @@ export default function LicenseReportManagement() {
         />
       )}
     </div>
+    </AppLayout>
   )
 }
 

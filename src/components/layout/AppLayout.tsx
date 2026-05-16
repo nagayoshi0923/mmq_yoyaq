@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react'
 import { Header } from './Header'
-import { NavigationBar } from './NavigationBar'
+import { AdminSidebar } from './AdminSidebar'
 
 interface AppLayoutProps {
   currentPage: string
@@ -24,38 +24,32 @@ interface AppLayoutProps {
  *   {メインコンテンツ}
  * </AppLayout>
  */
-export const AppLayout: React.FC<AppLayoutProps> = ({ 
+export const AppLayout: React.FC<AppLayoutProps> = ({
   currentPage,
-  sidebar, 
-  children, 
-  maxWidth = 'max-w-[1440px]',
+  sidebar,
+  children,
+  maxWidth,          // 非推奨・後方互換用。基本は使わない
   containerPadding = 'px-[10px] py-3 sm:py-4 md:py-6',
   stickyLayout = false,
   className = ''
 }) => {
   if (stickyLayout) {
-    // 固定レイアウト: ヘッダー・ナビ・サイドバーを固定、コンテンツのみスクロール
     return (
-      <div className="h-screen flex flex-col bg-background overflow-hidden">
-        {/* ヘッダー（固定） */}
+      // w-screen + overflow-hidden でページ横スクロールを完全に封じる
+      <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
         <Header />
-        
-        {/* ナビゲーションバー（固定） */}
-        <NavigationBar currentPage={currentPage} />
-        
-        {/* メインエリア（サイドバー含めてmax-width適用） */}
-        <div className={`flex-1 flex min-h-0 ${maxWidth} ${className} mx-auto w-full`}>
-          {/* サイドバー */}
-          {sidebar && (
-            <div className="border-r border-slate-200 shrink-0">
-              {sidebar}
-            </div>
-          )}
-          
-          {/* メインコンテンツ（スクロール可能） */}
-          <div data-scroll-container className="flex-1 min-w-0 overflow-y-auto overflow-x-clip">
-            <div data-scroll-content className={containerPadding}>
-              {children}
+        <div className="flex flex-1 min-h-0 min-w-0">
+          <AdminSidebar />
+          <div className={`flex-1 flex min-h-0 min-w-0 ${className}`}>
+            {sidebar && (
+              <div className="border-r border-slate-200 shrink-0">
+                {sidebar}
+              </div>
+            )}
+            <div data-scroll-container className="flex-1 min-w-0 overflow-y-auto overflow-x-auto">
+              <div data-scroll-content className={`${containerPadding} min-w-0`}>
+                {children}
+              </div>
             </div>
           </div>
         </div>
@@ -63,25 +57,22 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     )
   }
 
-  // 通常レイアウト: ページ全体がスクロール
   return (
-    <div className="min-h-screen bg-background">
+    // max-w-full で body の横はみ出しを防ぐ
+    <div className="min-h-screen max-w-full bg-background overflow-x-hidden">
       <Header />
-      <NavigationBar currentPage={currentPage} />
-      
-      {/* サイドバー含めてmax-width適用 */}
-      <div className={`flex ${maxWidth} ${className} mx-auto w-full`}>
-        {/* サイドバー */}
-        {sidebar && (
-          <div className="border-r border-slate-200 shrink-0">
-            {sidebar}
-          </div>
-        )}
-        
-        {/* メインコンテンツ */}
-        <div className="flex-1 min-w-0">
-          <div className={containerPadding}>
-            {children}
+      <div className="flex min-w-0">
+        <AdminSidebar />
+        <div className={`flex flex-1 min-w-0 ${className}`}>
+          {sidebar && (
+            <div className="border-r border-slate-200 shrink-0">
+              {sidebar}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className={`${containerPadding} min-w-0`}>
+              {children}
+            </div>
           </div>
         </div>
       </div>

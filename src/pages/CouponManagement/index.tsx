@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { Button } from '@/components/ui/button'
 import { Plus, RefreshCw, Ticket } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -130,13 +130,11 @@ export function CouponManagement() {
   const shouldShowNavigation = isStaff
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header onPageChange={handlePageChange} />
-      {shouldShowNavigation && (
-        <NavigationBar currentPage="coupons" onPageChange={handlePageChange} />
-      )}
-
-      <main className="container mx-auto max-w-[1440px] px-[10px] py-3 sm:py-4 md:py-6">
+      <div className="flex flex-1">
+        {shouldShowNavigation && <AdminSidebar />}
+        <main className="flex-1 max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Ticket className="h-6 w-6" />
@@ -167,7 +165,8 @@ export function CouponManagement() {
           onViewStats={handleViewStats}
           toggleLoading={toggleLoading}
         />
-      </main>
+        </main>
+      </div>
 
       <CampaignDialog
         open={editDialogOpen}

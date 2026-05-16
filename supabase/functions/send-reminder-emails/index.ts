@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage, isCronOrServiceRoleCall } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface ReminderEmailRequest {
   organizationId?: string  // マルチテナント対応
@@ -194,11 +195,23 @@ serve(async (req) => {
     const emailHtml = templateToHtml(appliedTemplate)
     const emailText = appliedTemplate
 
+    const emailSubject = `【リマインド】${reminderData.scenarioTitle} - ${formatDate(reminderData.eventDate)}${companyName ? ` | ${companyName}` : ''}`
+
+    const emailLogId = await insertEmailLog(serviceClient, {
+      organization_id: resolvedOrganizationId ?? null,
+      reservation_id:  reminderData.reservationId,
+      email_type:      'reminder',
+      to_email:        reminderData.customerEmail,
+      to_name:         reminderData.customerName ?? null,
+      subject:         emailSubject,
+      status:          'queued',
+    })
+
     // Resend APIを使ってメール送信
     const emailPayload: Record<string, unknown> = {
       from: `${companyName} <${senderEmail}>`,
       to: [reminderData.customerEmail],
-      subject: `【リマインド】${reminderData.scenarioTitle} - ${formatDate(reminderData.eventDate)}${companyName ? ` | ${companyName}` : ''}`,
+      subject: emailSubject,
       html: emailHtml,
       text: emailText,
     }
@@ -220,11 +233,20 @@ serve(async (req) => {
     if (!resendResponse.ok) {
       const errorText = await resendResponse.text()
       console.error('Resend API error:', errorText)
+      await updateEmailLog(serviceClient, emailLogId, {
+        status: 'failed',
+        error_message: sanitizeErrorMessage(errorText),
+      })
       throw new Error(`メール送信に失敗しました: ${errorText}`)
     }
 
     const result = await resendResponse.json()
     console.log('リマインドメール送信成功:', result)
+    await updateEmailLog(serviceClient, emailLogId, {
+      status: 'sent',
+      provider_message_id: result.id,
+      sent_at: new Date().toISOString(),
+    })
 
     return new Response(
       JSON.stringify({ 

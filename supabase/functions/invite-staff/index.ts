@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
 import { getCorsHeaders, maskEmail, maskName, sanitizeErrorMessage, getAnonKey, getServiceRoleKey } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = getServiceRoleKey()
@@ -449,6 +450,15 @@ serve(async (req) => {
         </p>
       `
 
+      const emailLogId = await insertEmailLog(supabase, {
+        organization_id: organizationId ?? null,
+        email_type:      'staff_invitation',
+        to_email:        email,
+        to_name:         name ?? null,
+        subject:         emailSubject,
+        status:          'queued',
+      })
+
       try {
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -468,13 +478,27 @@ serve(async (req) => {
           emailError = `Resend API error (${emailResponse.status})`
           const errorBody = await emailResponse.text()
           console.error('❌ Resend error:', emailError, errorBody)
+          await updateEmailLog(supabase, emailLogId, {
+            status: 'failed',
+            error_message: sanitizeErrorMessage(emailError),
+          })
         } else {
+          const emailResult = await emailResponse.json()
           emailSent = true
           console.log('✅ Invitation email sent to:', maskEmail(email))
+          await updateEmailLog(supabase, emailLogId, {
+            status: 'sent',
+            provider_message_id: emailResult?.id ?? null,
+            sent_at: new Date().toISOString(),
+          })
         }
       } catch (err: any) {
         emailError = err?.message || 'メール送信中に予期しないエラーが発生しました'
         console.error('❌ Failed to send email:', emailError)
+        await updateEmailLog(supabase, emailLogId, {
+          status: 'failed',
+          error_message: sanitizeErrorMessage(emailError),
+        })
       }
     }
 
