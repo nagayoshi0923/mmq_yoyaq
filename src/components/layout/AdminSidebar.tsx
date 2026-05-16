@@ -64,24 +64,8 @@ export const AdminSidebar = memo(function AdminSidebar() {
   const slug = organization?.slug || 'queens-waltz'
 
   const [mobileOpen, setMobileOpen] = useState(false)
-  // 展開状態: localStorage に永続化
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
-    try {
-      const stored = localStorage.getItem('admin-sidebar-open-groups')
-      return stored ? JSON.parse(stored) : { schedule: true }
-    } catch {
-      return { schedule: true }
-    }
-  })
-
-  const persistOpenGroups = useCallback((next: Record<string, boolean>) => {
-    setOpenGroups(next)
-    localStorage.setItem('admin-sidebar-open-groups', JSON.stringify(next))
-  }, [])
-
-  const toggleGroup = useCallback((groupId: string) => {
-    persistOpenGroups({ ...openGroups, [groupId]: !openGroups[groupId] })
-  }, [openGroups, persistOpenGroups])
+  // ホバー中のカテゴリID
+  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null)
 
   // パス変更でモバイルドロワーを閉じる
   useEffect(() => {
@@ -281,31 +265,41 @@ export const AdminSidebar = memo(function AdminSidebar() {
 
   if (!user || user.role === 'customer' || !isAdminPage) return null
 
+  // カテゴリが開いているか（アクティブページが含まれる or ホバー中）
+  const isGroupOpen = useCallback((group: typeof visibleGroups[0]) => {
+    if (!group.label) return true  // ラベルなし（トップ）は常に表示
+    const hasActive = group.items.some(item => isActive(item))
+    return hasActive || hoveredGroup === group.id
+  }, [isActive, hoveredGroup, visibleGroups])
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full py-3">
       {visibleGroups.map((group, gi) => (
-        <div key={group.id}>
+        <div
+          key={group.id}
+          onMouseEnter={() => group.label && setHoveredGroup(group.id)}
+          onMouseLeave={() => setHoveredGroup(null)}
+        >
           {/* グループセパレーター */}
           {gi > 0 && group.label && (
-            <div className="mx-3 my-1 border-t border-border/50" />
+            <div className="mx-3 my-1 border-t border-border/40" />
           )}
 
-          {/* グループヘッダー（折り畳みボタン） */}
+          {/* カテゴリ見出し（クリック不可、ホバーで展開） */}
           {group.label && (
-            <button
-              onClick={() => toggleGroup(group.id)}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-slate-700 transition-colors"
-            >
-              <span>{group.label}</span>
-              {openGroups[group.id]
-                ? <ChevronDown className="w-3 h-3" />
-                : <ChevronRight className="w-3 h-3" />
+            <div className="flex items-center justify-between px-3 pt-2 pb-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                {group.label}
+              </span>
+              {isGroupOpen(group)
+                ? <ChevronDown className="w-3 h-3 text-slate-300" />
+                : <ChevronRight className="w-3 h-3 text-slate-300" />
               }
-            </button>
+            </div>
           )}
 
           {/* グループアイテム */}
-          {(group.label === null || openGroups[group.id]) && (
+          {isGroupOpen(group) && (
             <div className="space-y-0.5 px-2">
               {group.items.map(item => {
                 const active = isActive(item)
