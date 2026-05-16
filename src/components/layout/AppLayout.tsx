@@ -45,8 +45,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 {sidebar}
               </div>
             )}
-            <div data-scroll-container className="flex-1 min-w-0 overflow-y-auto overflow-x-clip">
-              <div data-scroll-content className={containerPadding}>
+            <div data-scroll-container className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+              <div data-scroll-content className={`${containerPadding} w-full min-w-0`}>
                 {children}
               </div>
             </div>
@@ -67,8 +67,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               {sidebar}
             </div>
           )}
-          <div className="flex-1 min-w-0">
-            <div className={containerPadding}>
+          <div className="flex-1 min-w-0 overflow-x-hidden">
+            <div className={`${containerPadding} w-full min-w-0`}>
               {children}
             </div>
           </div>

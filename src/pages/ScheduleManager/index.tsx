@@ -184,11 +184,11 @@ export function ScheduleManager() {
       })
     }
 
-    // ウィンドウリサイズ時に連続発火しないよう debounce
-    let rafId: number
+    // リサイズ時の連続発火を 50ms debounce で抑制
+    let debounceTimer: ReturnType<typeof setTimeout>
     const debouncedSync = () => {
-      cancelAnimationFrame(rafId)
-      rafId = requestAnimationFrame(syncColWidths)
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(syncColWidths, 50)
     }
 
     const ro = new ResizeObserver(debouncedSync)
@@ -200,7 +200,7 @@ export function ScheduleManager() {
     return () => {
       tableScroll.removeEventListener('scroll', onScroll)
       ro.disconnect()
-      cancelAnimationFrame(rafId)
+      clearTimeout(debounceTimer)
       clearTimeout(timer)
     }
   }, [])
