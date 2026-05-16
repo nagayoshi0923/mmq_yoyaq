@@ -7,8 +7,8 @@
  * @organization なし（新規組織作成）
  */
 import { logger } from '@/utils/logger'
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,6 +32,13 @@ import { toast } from 'sonner'
 type Step = 'organization' | 'admin' | 'confirm' | 'complete'
 
 export default function OrganizationRegister() {
+  const navigate = useNavigate()
+
+  // /register は /start にリダイレクト
+  useEffect(() => {
+    navigate('/start', { replace: true })
+  }, [navigate])
+
   const [currentStep, setCurrentStep] = useState<Step>('organization')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
