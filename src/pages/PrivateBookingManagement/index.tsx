@@ -265,29 +265,15 @@ export function PrivateBookingManagement() {
 
   // 選択されたリクエストの初期化
   useEffect(() => {
-    let timer: NodeJS.Timeout | undefined
-    const initializeRequest = async () => {
-      if (selectedRequest) {
-        loadAllGMs()
-        loadAvailableGMs(selectedRequest.id)
-        await loadConflictInfo(selectedRequest.id)
-        
-        // 確定店舗があればそれを選択、なければ最初の希望店舗を選択
-        if (selectedRequest.candidate_datetimes?.confirmedStore) {
-          setSelectedStoreId(selectedRequest.candidate_datetimes.confirmedStore.storeId)
-        } else if (selectedRequest.candidate_datetimes?.requestedStores && selectedRequest.candidate_datetimes.requestedStores.length > 0) {
-          setSelectedStoreId(selectedRequest.candidate_datetimes.requestedStores[0].storeId)
-        }
-        
-        // 選択可能な最初の候補を自動選択
-        timer = setTimeout(() => {
-          selectFirstAvailableCandidate()
-        }, 150)
-      }
+    if (!selectedRequest) return
+    loadAllGMs()
+    loadAvailableGMs(selectedRequest.id)
+    loadConflictInfo(selectedRequest.id)
+    // 確定店舗があればそれを選択
+    if (selectedRequest.candidate_datetimes?.confirmedStore) {
+      setSelectedStoreId(selectedRequest.candidate_datetimes.confirmedStore.storeId)
     }
-    
-    initializeRequest()
-    return () => { if (timer) clearTimeout(timer) }
+    // 候補の自動選択はしない（ユーザーが候補行を直接クリックして選択する）
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRequest])
 
@@ -393,40 +379,6 @@ export function PrivateBookingManagement() {
     return filteredStores.filter(store => (store.region || '未分類') === selectedRegionFilter)
   }, [filteredStores, selectedRegionFilter])
 
-  // 店舗またはGMが変更されたときの競合情報更新
-  useEffect(() => {
-    let timer: NodeJS.Timeout | undefined
-    const updateConflicts = async () => {
-      if (selectedRequest) {
-        await loadConflictInfo(selectedRequest.id)
-        
-        // 選択中の候補が競合している場合は再選択
-        if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
-          const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
-            c => c.order === selectedCandidateOrder
-          )
-          if (selectedCandidate) {
-            const normalizedSlot = normalizeTimeSlot(selectedCandidate.timeSlot)
-            const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${selectedCandidate.date}-${normalizedSlot}` : null
-            const gmConflictKey = selectedGMId ? `${selectedGMId}-${selectedCandidate.date}-${normalizedSlot}` : null
-            
-            timer = setTimeout(() => {
-              const hasStoreConflict = storeConflictKey && conflictInfo.storeDateConflicts.has(storeConflictKey)
-              const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)
-              
-              if (hasStoreConflict || hasGMConflict) {
-                selectFirstAvailableCandidate()
-              }
-            }, 100)
-          }
-        }
-      }
-    }
-    
-    updateConflicts()
-    return () => { if (timer) clearTimeout(timer) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStoreId, selectedGMId])
 
   // 選択可能な最初の候補日時を自動選択
   const selectFirstAvailableCandidate = () => {
@@ -597,12 +549,8 @@ export function PrivateBookingManagement() {
                     onResendDiscordNotification={handleResendDiscordNotification}
                     selectedCandidateOrder={selectedRequest?.id === req.id ? selectedCandidateOrder : null}
                     storesPerCandidate={(() => {
-                      // 選択中リクエストは精密な conflictInfo（60分インターバル含む）を使用
-                      // 未選択は globalStoreDateConflicts（一括クエリ結果）を使用
-                      const useDetailedConflict = selectedRequest?.id === req.id
-                      const conflictSet = useDetailedConflict
-                        ? conflictInfo.storeDateConflicts
-                        : globalStoreDateConflicts
+                      // カードのバッジ表示は常に globalStoreDateConflicts を使用（切り替えによるちらつきを防ぐ）
+                      const conflictSet = globalStoreDateConflicts
                       const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
                       const baseStores = ids.length > 0
                         ? stores.filter(s => ids.includes(s.id))
