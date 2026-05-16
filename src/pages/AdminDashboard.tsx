@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -650,14 +650,16 @@ export function AdminDashboard() {
     const shouldShowNavigation = isStaff
     
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         <Header onPageChange={handlePageChange} />
-        {shouldShowNavigation && (
-          <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
-        )}
-        <Suspense fallback={<LoadingScreen message="マイページを読み込み中..." />}>
-          <MyPage />
-        </Suspense>
+        <div className="flex flex-1">
+          {shouldShowNavigation && <AdminSidebar />}
+          <div className="flex-1">
+            <Suspense fallback={<LoadingScreen message="マイページを読み込み中..." />}>
+              <MyPage />
+            </Suspense>
+          </div>
+        </div>
       </div>
     )
   }
@@ -927,23 +929,22 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header onPageChange={handlePageChange} />
-      {shouldShowNavigation && (
-        <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
-      )}
-
-      <main className="container mx-auto max-w-[1440px] px-[10px] py-3 sm:py-4 md:py-6">
-        <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
-          {currentPage === 'dashboard' ? (
-            <DashboardHome onPageChange={handlePageChange} />
-          ) : currentPage === 'report-form' ? (
-            <ExternalReportForm />
-          ) : (
-            <DashboardHome onPageChange={handlePageChange} />
-          )}
-        </Suspense>
-      </main>
+      <div className="flex flex-1">
+        {shouldShowNavigation && <AdminSidebar />}
+        <main className="flex-1 max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
+          <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
+            {currentPage === 'dashboard' ? (
+              <DashboardHome onPageChange={handlePageChange} />
+            ) : currentPage === 'report-form' ? (
+              <ExternalReportForm />
+            ) : (
+              <DashboardHome onPageChange={handlePageChange} />
+            )}
+          </Suspense>
+        </main>
+      </div>
     </div>
   )
 }
