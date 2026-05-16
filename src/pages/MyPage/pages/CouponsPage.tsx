@@ -3,12 +3,12 @@
  * 保有クーポンと使用履歴を表示
  * クーポンをタップしてもぎる機能付き
  */
-import { useState, useEffect } from 'react'
-import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors, Info } from 'lucide-react'
-import { getAllCoupons, useCoupon, getCurrentReservations } from '@/lib/api/couponApi'
+import { useState } from 'react'
+import { Ticket, Clock, CheckCircle2, XCircle, AlertCircle, Scissors } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Button } from '@/components/ui/button'
 import type { CustomerCoupon, CustomerCouponUsageWithReservation } from '@/types'
+import { useCouponsQuery, useCurrentReservationsQuery, useUseCouponMutation } from '../hooks/useCouponsQuery'
 
 function cleanScenarioTitleForCoupon(title?: string | null): string {
   if (!title) return '（タイトル不明）'
@@ -19,7 +19,6 @@ function cleanScenarioTitleForCoupon(title?: string | null): string {
   return t || '（タイトル不明）'
 }
 
-/** 使用履歴1件分の公演表示用テキスト */
 function formatCouponUsagePerformance(usage: CustomerCouponUsageWithReservation): string {
   const res = usage.reservations
   if (!res) {
@@ -49,91 +48,61 @@ interface CurrentReservation {
 }
 
 export function CouponsPage() {
-  const [coupons, setCoupons] = useState<CustomerCoupon[]>([])
-  const [loading, setLoading] = useState(true)
-  const [currentReservations, setCurrentReservations] = useState<CurrentReservation[]>([])
   const [selectedCoupon, setSelectedCoupon] = useState<{ coupon: CustomerCoupon; index: number } | null>(null)
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [using, setUsing] = useState(false)
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      try {
-        const [couponData, reservationData] = await Promise.all([
-          getAllCoupons(),
-          getCurrentReservations()
-        ])
-        setCoupons(couponData)
-        setCurrentReservations(reservationData)
-      } catch {
-        // エラーはcouponApi内でログ出力済み
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [])
+  const { data: coupons = [], isLoading: couponsLoading } = useCouponsQuery()
+  const { data: currentReservations = [], isLoading: reservationsLoading } = useCurrentReservationsQuery()
+  const useCouponMutation = useUseCouponMutation()
+
+  const loading = couponsLoading || reservationsLoading
 
   const handleCouponTap = (coupon: CustomerCoupon, index: number) => {
     if (coupon.status !== 'active') return
     setSelectedCoupon({ coupon, index })
-    // 予約が1つなら自動選択、複数なら未選択状態
-    setSelectedReservationId(currentReservations.length === 1 ? currentReservations[0].id : null)
+    setSelectedReservationId((currentReservations as CurrentReservation[]).length === 1 ? (currentReservations as CurrentReservation[])[0].id : null)
     setShowConfirmDialog(true)
   }
 
   const handleUseCoupon = async () => {
     if (!selectedCoupon || !selectedReservationId) return
-    setUsing(true)
-    try {
-      const result = await useCoupon(selectedCoupon.coupon.id, selectedReservationId)
-      if (result.success) {
-        // クーポン一覧を再取得
-        const data = await getAllCoupons()
-        setCoupons(data)
-        setShowConfirmDialog(false)
-        setSelectedCoupon(null)
-        setSelectedReservationId(null)
-      } else {
-        alert(result.error || 'クーポンの使用に失敗しました')
-      }
-    } finally {
-      setUsing(false)
+    const result = await useCouponMutation.mutateAsync({
+      couponId: selectedCoupon.coupon.id,
+      reservationId: selectedReservationId,
+    })
+    if (result.success) {
+      setShowConfirmDialog(false)
+      setSelectedCoupon(null)
+      setSelectedReservationId(null)
+    } else {
+      alert(result.error || 'クーポンの使用に失敗しました')
     }
   }
 
-  // クーポンをステータスでソート（active → fully_used → expired → revoked）
   const statusOrder: Record<string, number> = { active: 0, fully_used: 1, expired: 2, revoked: 3 }
   const sortedCoupons = [...coupons].sort(
     (a, b) => (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99)
   )
 
   const activeCoupons = sortedCoupons.filter(c => c.status === 'active')
-  // 使用済み: fully_used は updated_at が1ヶ月以内 OR created_at が1ヶ月以内（登録直後に使用した場合）
-  // 期限切れ・無効: updated_at が1ヶ月以内のものだけ表示
   const oneMonthAgo = new Date()
   oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
   const usedCoupons = sortedCoupons.filter(c => {
     if (c.status === 'active') return false
     if (c.status === 'fully_used') {
-      // updated_at か created_at のいずれかが1ヶ月以内なら表示
       const updatedAt = c.updated_at ? new Date(c.updated_at) : null
       const createdAt = c.created_at ? new Date(c.created_at) : null
       if (updatedAt && updatedAt >= oneMonthAgo) return true
       if (createdAt && createdAt >= oneMonthAgo) return true
       return false
     }
-    // expired / revoked は updated_at が1ヶ月以内
     if (!c.updated_at) return true
     return new Date(c.updated_at) >= oneMonthAgo
   })
 
-  // 利用可能枚数 = 全activeクーポンのuses_remainingの合計
   const totalAvailableCount = activeCoupons.reduce((sum, c) => sum + c.uses_remaining, 0)
 
-  // activeクーポンをuses_remaining分だけ展開して1枚ずつ表示する
   const expandedActiveCoupons = activeCoupons.flatMap(coupon => {
     const cards: { coupon: CustomerCoupon; index: number; total: number }[] = []
     for (let i = 0; i < coupon.uses_remaining; i++) {
@@ -172,7 +141,6 @@ export function CouponsPage() {
 
   return (
     <div className="space-y-6">
-      {/* ヘッダー */}
       <div className="bg-white shadow-sm p-6 border border-gray-200" style={{ borderRadius: 0 }}>
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-bold text-gray-900 flex items-center gap-2">
@@ -188,7 +156,6 @@ export function CouponsPage() {
         </p>
       </div>
 
-      {/* 利用可能クーポン */}
       {expandedActiveCoupons.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
@@ -199,9 +166,6 @@ export function CouponsPage() {
             {expandedActiveCoupons.map(({ coupon, index }) => {
               const campaign = coupon.coupon_campaigns
               if (!campaign) return null
-              const status = getStatusBadge(coupon)
-              const StatusIcon = status.icon
-
               const discountLabel = campaign.discount_type === 'fixed'
                 ? `¥${campaign.discount_amount.toLocaleString()} OFF`
                 : `${campaign.discount_amount}% OFF`
@@ -213,7 +177,6 @@ export function CouponsPage() {
                   style={{ borderRadius: 0 }}
                   onClick={() => handleCouponTap(coupon, index)}
                 >
-                  {/* クーポン上部 - 割引額 */}
                   <div
                     className="px-4 py-3 flex items-center justify-between"
                     style={{ backgroundColor: THEME.primaryLight }}
@@ -232,7 +195,6 @@ export function CouponsPage() {
                     </div>
                   </div>
 
-                  {/* クーポン詳細 */}
                   <div className="px-4 py-3">
                     <h4 className="font-medium text-gray-900 text-sm">{campaign.name}</h4>
                     {campaign.description && (
@@ -272,7 +234,6 @@ export function CouponsPage() {
         </div>
       )}
 
-      {/* 使用済み・期限切れクーポン */}
       {usedCoupons.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-gray-500 mb-3 flex items-center gap-2">
@@ -342,7 +303,6 @@ export function CouponsPage() {
         </div>
       )}
 
-      {/* クーポンが一つもない場合 */}
       {coupons.length === 0 && (
         <div className="bg-white shadow-sm p-8 text-center border border-gray-200" style={{ borderRadius: 0 }}>
           <div
@@ -358,12 +318,10 @@ export function CouponsPage() {
         </div>
       )}
 
-      {/* クーポン使用確認ダイアログ */}
       {showConfirmDialog && selectedCoupon && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
-            {/* ヘッダー */}
-            <div 
+            <div
               className="px-5 py-4 text-center"
               style={{ backgroundColor: THEME.primaryLight }}
             >
@@ -373,9 +331,7 @@ export function CouponsPage() {
               </h3>
             </div>
 
-            {/* コンテンツ */}
             <div className="px-5 py-4">
-              {/* クーポン情報 */}
               <div className="bg-gray-50 rounded-lg p-4 mb-4">
                 <p className="text-center">
                   <span className="text-2xl font-bold" style={{ color: THEME.primary }}>
@@ -389,14 +345,13 @@ export function CouponsPage() {
                 </p>
               </div>
 
-              {/* 紐付け予約 */}
-              {currentReservations.length > 0 ? (
+              {(currentReservations as CurrentReservation[]).length > 0 ? (
                 <div className="mb-4">
                   <p className="text-xs text-gray-600 font-bold mb-2">
-                    {currentReservations.length > 1 ? '紐付ける公演を選択' : '紐付ける公演'}
+                    {(currentReservations as CurrentReservation[]).length > 1 ? '紐付ける公演を選択' : '紐付ける公演'}
                   </p>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {currentReservations.map((reservation) => (
+                    {(currentReservations as CurrentReservation[]).map((reservation) => (
                       <div
                         key={reservation.id}
                         className={`border rounded-lg p-3 cursor-pointer transition-all ${
@@ -407,7 +362,7 @@ export function CouponsPage() {
                         onClick={() => setSelectedReservationId(reservation.id)}
                       >
                         <div className="flex items-center gap-3">
-                          <div 
+                          <div
                             className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                               selectedReservationId === reservation.id
                                 ? 'border-green-500 bg-green-500'
@@ -442,7 +397,6 @@ export function CouponsPage() {
                 使用後は元に戻せません
               </p>
 
-              {/* ボタン */}
               <div className="flex gap-3">
                 <Button
                   variant="outline"
@@ -452,7 +406,7 @@ export function CouponsPage() {
                     setSelectedCoupon(null)
                     setSelectedReservationId(null)
                   }}
-                  disabled={using}
+                  disabled={useCouponMutation.isPending}
                 >
                   キャンセル
                 </Button>
@@ -460,9 +414,9 @@ export function CouponsPage() {
                   className="flex-1"
                   style={{ backgroundColor: selectedReservationId ? THEME.primary : '#9ca3af' }}
                   onClick={handleUseCoupon}
-                  disabled={using || !selectedReservationId}
+                  disabled={useCouponMutation.isPending || !selectedReservationId}
                 >
-                  {using ? '処理中...' : 'もぎる'}
+                  {useCouponMutation.isPending ? '処理中...' : 'もぎる'}
                 </Button>
               </div>
             </div>

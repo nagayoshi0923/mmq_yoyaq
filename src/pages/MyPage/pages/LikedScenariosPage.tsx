@@ -1,14 +1,11 @@
-import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Heart, Users, Clock, Sparkles, ChevronRight } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
-import { logger } from '@/utils/logger'
-import { showToast } from '@/utils/toast'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { useLikedScenariosQuery, useRemoveLikeMutation } from '../hooks/useLikedScenariosQuery'
 
 interface WantToPlayScenario {
   id: string
@@ -16,7 +13,7 @@ interface WantToPlayScenario {
   created_at: string
   scenario: {
     id: string
-    slug?: string  // URL用のslug（あればこちらを使用）
+    slug?: string
     title: string
     description: string
     author: string
@@ -31,158 +28,45 @@ interface WantToPlayScenario {
   }
 }
 
+const formatDate = (date: string) => {
+  const d = new Date(date)
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+}
+
+const getDifficultyLabel = (difficulty: number) => {
+  switch (difficulty) {
+    case 1: return '初級'
+    case 2: return '中級'
+    case 3: return '上級'
+    case 4: return '最上級'
+    case 5: return '超上級'
+    default: return '不明'
+  }
+}
+
 export function WantToPlayPage() {
   const { user } = useAuth()
   const { organization } = useOrganization()
   const navigate = useNavigate()
-  const [wantToPlayScenarios, setWantToPlayScenarios] = useState<WantToPlayScenario[]>([])
-  const [loading, setLoading] = useState(true)
-  
-  // 予約サイトのベースパス
   const bookingBasePath = organization?.slug ? `/${organization.slug}` : ''
 
-  useEffect(() => {
-    if (user?.id) {
-      fetchWantToPlayScenarios()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
-  }, [user])
+  const { data: wantToPlayScenarios = [], isLoading } = useLikedScenariosQuery(user?.id)
+  const removeLike = useRemoveLikeMutation(user?.id)
 
-  const fetchWantToPlayScenarios = async () => {
-    if (!user?.id) return
-
-    setLoading(true)
-    try {
-      // 顧客情報を取得（user_idで検索）
-      logger.log('[WantToPlayPage] Looking for customer with user_id:', user.id)
-      const { data: customer, error: customerError } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle()
-      
-      logger.log('[WantToPlayPage] Customer search result:', customer, 'error:', customerError)
-
-      if (customerError) throw customerError
-      if (!customer) {
-        setWantToPlayScenarios([])
-        setLoading(false)
-        return
-      }
-
-      // 遊びたいシナリオを取得
-      logger.log('[WantToPlayPage] Fetching scenario_likes for customer_id:', customer.id)
-      const { data: likesData, error: likesError } = await supabase
-        .from('scenario_likes')
-        .select('id, scenario_id, scenario_master_id, created_at')
-        .eq('customer_id', customer.id)
-        .order('created_at', { ascending: false })
-
-      logger.log('[WantToPlayPage] Likes data:', likesData, 'error:', likesError)
-      if (likesError) throw likesError
-      if (!likesData || likesData.length === 0) {
-        logger.log('[WantToPlayPage] No likes found')
-        setWantToPlayScenarios([])
-        return
-      }
-
-      // シナリオ情報を取得（scenario_master_id を優先、scenario_masters から）
-      const scenarioMasterIds = likesData.map(like => (like as { scenario_master_id?: string }).scenario_master_id ?? like.scenario_id).filter(Boolean)
-      const { data: scenariosData, error: scenariosError } = await supabase
-        .from('scenario_masters')
-        .select('id, title, description, author, official_duration, player_count_min, player_count_max, difficulty, genre, key_visual_url')
-        .in('id', scenarioMasterIds)
-
-      if (scenariosError) throw scenariosError
-
-      // データを結合
-      const combined = likesData.map(like => {
-        const masterId = (like as { scenario_master_id?: string }).scenario_master_id ?? like.scenario_id
-        const scenario = scenariosData?.find(s => s.id === masterId)
-        return {
-          id: like.id,
-          scenario_id: like.scenario_id,
-          created_at: like.created_at,
-          scenario: scenario ? {
-            ...scenario,
-            duration: (scenario as { official_duration?: number }).official_duration ?? 0,
-            slug: scenario.id,
-            rating: 0,
-            play_count: 0,
-          } : {
-            id: masterId ?? like.scenario_id,
-            slug: masterId ?? like.scenario_id,
-            title: '不明',
-            description: '',
-            author: '',
-            duration: 0,
-            player_count_min: 0,
-            player_count_max: 0,
-            difficulty: 0,
-            genre: [],
-            rating: 0,
-            play_count: 0,
-          }
-        }
-      })
-
-      setWantToPlayScenarios(combined)
-    } catch (error) {
-      logger.error('遊びたいシナリオ取得エラー:', error)
-    } finally {
-      setLoading(false)
-    }
+  const handleRemove = (likeId: string) => {
+    removeLike.mutate(likeId)
   }
 
-  const handleRemove = async (likeId: string) => {
-    try {
-      const { error } = await supabase
-        .from('scenario_likes')
-        .delete()
-        .eq('id', likeId)
-
-      if (error) throw error
-
-      // ローカルステートを更新
-      setWantToPlayScenarios((prev) => prev.filter((item) => item.id !== likeId))
-    } catch (error) {
-      logger.error('削除エラー:', error)
-      showToast.error('削除に失敗しました')
-    }
-  }
-
-  const formatDate = (date: string) => {
-    const d = new Date(date)
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
-  }
-
-  const getDifficultyLabel = (difficulty: number) => {
-    switch (difficulty) {
-      case 1:
-        return '初級'
-      case 2:
-        return '中級'
-      case 3:
-        return '上級'
-      case 4:
-        return '最上級'
-      case 5:
-        return '超上級'
-      default:
-        return '不明'
-    }
-  }
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="text-center py-12 text-gray-500">読み込み中...</div>
     )
   }
 
-  if (wantToPlayScenarios.length === 0) {
+  if ((wantToPlayScenarios as WantToPlayScenario[]).length === 0) {
     return (
       <div className="bg-white shadow-sm p-8 text-center border border-gray-200" style={{ borderRadius: 0 }}>
-        <div 
+        <div
           className="w-16 h-16 flex items-center justify-center mx-auto mb-4"
           style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
         >
@@ -193,7 +77,7 @@ export function WantToPlayPage() {
           気になるシナリオをお気に入りに追加して<br />
           公演情報をチェックしましょう
         </p>
-        <Button 
+        <Button
           className="text-white px-8"
           style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
           onClick={() => navigate('/')}
@@ -207,14 +91,12 @@ export function WantToPlayPage() {
 
   return (
     <div className="space-y-4">
-      {/* ヘッダー */}
       <div className="flex items-center gap-2 mb-4">
         <Heart className="w-5 h-5" style={{ color: THEME.primary }} />
-        <h2 className="font-bold text-gray-900">遊びたいシナリオ ({wantToPlayScenarios.length})</h2>
+        <h2 className="font-bold text-gray-900">遊びたいシナリオ ({(wantToPlayScenarios as WantToPlayScenario[]).length})</h2>
       </div>
 
-      {/* シナリオリスト */}
-      {wantToPlayScenarios.map((item) => (
+      {(wantToPlayScenarios as WantToPlayScenario[]).map((item) => (
         <div
           key={item.id}
           className="bg-white shadow-sm p-4 hover:shadow-md transition-all duration-300 cursor-pointer border border-gray-200 hover:border-gray-300"
@@ -224,12 +106,10 @@ export function WantToPlayPage() {
           }}
         >
           <div className="flex gap-4">
-            {/* シナリオ画像 - blur背景で画像が途切れないように */}
             <div className="flex-shrink-0 w-20 h-28 bg-gray-900 overflow-hidden relative" style={{ borderRadius: 0 }}>
               {item.scenario.key_visual_url ? (
                 <>
-                  {/* 背景：ぼかした画像で余白を埋める */}
-                  <div 
+                  <div
                     className="absolute inset-0 scale-110"
                     style={{
                       backgroundImage: `url(${item.scenario.key_visual_url})`,
@@ -238,7 +118,6 @@ export function WantToPlayPage() {
                       filter: 'blur(10px) brightness(0.7)',
                     }}
                   />
-                  {/* メイン画像：全体を表示 */}
                   <img
                     src={item.scenario.key_visual_url}
                     alt={item.scenario.title}
@@ -251,7 +130,6 @@ export function WantToPlayPage() {
               )}
             </div>
 
-            {/* コンテンツ */}
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -272,7 +150,6 @@ export function WantToPlayPage() {
                 </Button>
               </div>
 
-              {/* タグ情報 */}
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 <Badge variant="secondary" className="text-xs">
                   <Users className="w-3 h-3 mr-1" />
@@ -291,11 +168,9 @@ export function WantToPlayPage() {
                 )}
               </div>
 
-              {/* 追加日 */}
               <p className="text-xs text-gray-400 mt-2">追加日: {formatDate(item.created_at)}</p>
             </div>
 
-            {/* 右矢印 */}
             <div className="flex items-center">
               <ChevronRight className="w-5 h-5 text-gray-400" />
             </div>
@@ -305,4 +180,3 @@ export function WantToPlayPage() {
     </div>
   )
 }
-

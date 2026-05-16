@@ -1,216 +1,56 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { BookOpen, Calendar, MapPin, Star, EyeOff } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
-import { logger } from '@/utils/logger'
-import { showToast } from '@/utils/toast'
 import { OptimizedImage } from '@/components/ui/optimized-image'
+import { usePlayedScenariosQuery, useLikedScenarioIdsQuery, useToggleLikeMutation } from '../hooks/usePlayedScenariosQuery'
 
-interface PlayedScenario {
-  scenario: string
-  date: string
-  venue: string
-  gms: string[]
-  scenario_id?: string
-  key_visual_url?: string
+const formatDate = (date: string) => {
+  const d = new Date(date)
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
 
 export function PlayedScenariosPage() {
   const { user } = useAuth()
   const { organizationId } = useOrganization()
-  const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
   const [hiddenScenarios, setHiddenScenarios] = useState<Set<string>>(new Set())
-  const [likedScenarios, setLikedScenarios] = useState<Set<string>>(new Set())
-  const [customerId, setCustomerId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (user?.email) {
-      fetchPlayedScenarios()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
-  }, [user])
+  const { data: playedData, isLoading } = usePlayedScenariosQuery(user?.email)
+  const playedScenarios = playedData?.scenarios ?? []
+  const customerId = playedData?.customerId ?? null
 
-  const fetchPlayedScenarios = async () => {
-    if (!user?.email) return
+  const { data: likedScenarios = new Set<string>() } = useLikedScenarioIdsQuery(customerId)
+  const toggleLike = useToggleLikeMutation(customerId, organizationId)
 
-    setLoading(true)
-    try {
-      // 顧客情報を取得
-      const { data: customer, error: customerError } = await supabase
-        .from('customers')
-        .select('id, name')
-        .eq('email', user.email)
-        .maybeSingle()
-
-      if (customerError) throw customerError
-      if (!customer) {
-        logger.log('顧客情報が見つかりません:', user.email)
-        setPlayedScenarios([])
-        setLoading(false)
-        return
-      }
-
-      logger.log('取得した顧客情報:', customer)
-      setCustomerId(customer.id)
-
-      // いいね済みシナリオを取得
-      const { data: likes } = await supabase
-        .from('scenario_likes')
-        .select('scenario_id')
-        .eq('customer_id', customer.id)
-
-      if (likes) {
-        setLikedScenarios(new Set(likes.map(l => l.scenario_id)))
-      }
-
-      // 予約を取得
-      const { data: reservations, error: reservationsError } = await supabase
-        .from('reservations')
-        .select('requested_datetime, title, scenario_id, scenario_master_id')
-        .eq('customer_id', customer.id)
-        .eq('status', 'confirmed')
-        .lte('requested_datetime', new Date().toISOString())
-        .order('requested_datetime', { ascending: false })
-
-      if (reservationsError) throw reservationsError
-      
-      logger.log('取得した予約データ:', reservations)
-
-      // 予約から日時とタイトルを取得し、スケジュールイベントと照合
-      const scenarios: PlayedScenario[] = []
-      
-      if (reservations) {
-        for (const reservation of reservations) {
-          const reservationDate = new Date(reservation.requested_datetime)
-          const dateStr = reservationDate.toISOString().split('T')[0]
-          
-          // スケジュールイベントを検索（公開用ビュー - GM情報を除外）
-          const { data: event, error: eventError } = await supabase
-            .from('schedule_events_public')
-            .select('scenario, date, venue')
-            .eq('date', dateStr)
-            .eq('scenario', reservation.title)
-            .maybeSingle()
-
-          // シナリオの画像を取得（scenario_master_id を優先、scenario_masters から）
-          let keyVisualUrl = null
-          const scenarioMasterId = reservation.scenario_master_id
-          if (scenarioMasterId) {
-            const { data: scenarioData } = await supabase
-              .from('scenario_masters')
-              .select('key_visual_url')
-              .eq('id', scenarioMasterId)
-              .maybeSingle()
-            keyVisualUrl = scenarioData?.key_visual_url
-          }
-
-          if (!eventError && event) {
-            scenarios.push({
-              scenario: event.scenario,
-              date: event.date,
-              venue: event.venue,
-              gms: [], // GM情報は非公開
-              scenario_id: reservation.scenario_master_id || undefined,
-              key_visual_url: keyVisualUrl,
-            })
-          } else {
-            // イベントが見つからない場合でも予約情報から追加
-            scenarios.push({
-              scenario: reservation.title,
-              date: dateStr,
-              venue: '店舗不明',
-              gms: [],
-              scenario_id: reservation.scenario_master_id || undefined,
-              key_visual_url: keyVisualUrl,
-            })
-          }
-        }
-      }
-
-      setPlayedScenarios(scenarios)
-    } catch (error) {
-      logger.error('体験済みシナリオ取得エラー:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const formatDate = (date: string) => {
-    const d = new Date(date)
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
-  }
-
-  const handleToggleLike = async (scenarioId: string | undefined) => {
+  const handleToggleLike = (scenarioId: string | undefined) => {
     if (!scenarioId || !customerId) return
-
-    try {
-      if (likedScenarios.has(scenarioId)) {
-        // いいね解除
-        const { error } = await supabase
-          .from('scenario_likes')
-          .delete()
-          .eq('customer_id', customerId)
-          .eq('scenario_id', scenarioId)
-
-        if (error) throw error
-        setLikedScenarios(prev => {
-          const newSet = new Set(prev)
-          newSet.delete(scenarioId)
-          return newSet
-        })
-      } else {
-        // いいね追加
-        const { error } = await supabase
-          .from('scenario_likes')
-          .insert({
-            customer_id: customerId,
-            scenario_id: scenarioId,
-            organization_id: organizationId,
-          })
-
-        if (error) throw error
-        setLikedScenarios(prev => new Set(prev).add(scenarioId))
-      }
-    } catch (error) {
-      logger.error('いいね切り替えエラー:', error)
-      showToast.error('操作に失敗しました')
-    }
+    toggleLike.mutate({ scenarioId, isLiked: likedScenarios.has(scenarioId) })
   }
 
   const handleToggleHide = (scenarioName: string) => {
     setHiddenScenarios(prev => {
       const newSet = new Set(prev)
-      if (newSet.has(scenarioName)) {
-        newSet.delete(scenarioName)
-      } else {
-        newSet.add(scenarioName)
-      }
+      if (newSet.has(scenarioName)) newSet.delete(scenarioName)
+      else newSet.add(scenarioName)
       return newSet
     })
   }
 
-  // シナリオごとにグループ化
   const scenarioGroups = playedScenarios.reduce((acc, item) => {
     const existing = acc.find((g) => g.scenario === item.scenario)
     if (existing) {
       existing.plays.push(item)
       existing.count++
     } else {
-      acc.push({
-        scenario: item.scenario,
-        count: 1,
-        plays: [item],
-      })
+      acc.push({ scenario: item.scenario, count: 1, plays: [item] })
     }
     return acc
-  }, [] as Array<{ scenario: string; count: number; plays: PlayedScenario[] }>)
+  }, [] as Array<{ scenario: string; count: number; plays: typeof playedScenarios }>)
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card>
         <CardContent className="py-8">
@@ -222,7 +62,6 @@ export function PlayedScenariosPage() {
 
   return (
     <div className="space-y-6">
-      {/* 統計 */}
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6 text-center">
@@ -246,7 +85,6 @@ export function PlayedScenariosPage() {
         </Card>
       </div>
 
-      {/* シナリオリスト */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -270,7 +108,6 @@ export function PlayedScenariosPage() {
                   return (
                     <div key={idx} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                       <div className="flex items-start gap-4 mb-3">
-                        {/* シナリオ画像 */}
                         <div className="flex-shrink-0 w-16 h-20 bg-gray-200 rounded overflow-hidden">
                           {group.plays[0]?.key_visual_url ? (
                             <OptimizedImage
@@ -294,7 +131,7 @@ export function PlayedScenariosPage() {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-3">
@@ -325,44 +162,44 @@ export function PlayedScenariosPage() {
                             </div>
                           </div>
                           <div className="space-y-2">
-                    {group.plays.map((play, playIdx) => (
-                      <div
-                        key={playIdx}
-                        className="flex items-center gap-4 text-xs text-muted-foreground bg-muted/30 p-2 rounded"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          <span>{formatDate(play.date)}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          <span>{play.venue}</span>
-                        </div>
-                        {play.gms.length > 0 && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs">GM:</span>
-                            <div className="flex gap-1">
-                              {play.gms.map((gm, gmIdx) => (
-                                <Badge key={gmIdx} variant="outline" className="text-xs">
-                                  {gm}
-                                </Badge>
-                              ))}
-                            </div>
+                            {group.plays.map((play, playIdx) => (
+                              <div
+                                key={playIdx}
+                                className="flex items-center gap-4 text-xs text-muted-foreground bg-muted/30 p-2 rounded"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4" />
+                                  <span>{formatDate(play.date)}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-4 w-4" />
+                                  <span>{play.venue}</span>
+                                </div>
+                                {play.gms.length > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs">GM:</span>
+                                    <div className="flex gap-1">
+                                      {play.gms.map((gm, gmIdx) => (
+                                        <Badge key={gmIdx} variant="outline" className="text-xs">
+                                          {gm}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        )}
-                      </div>
-                    ))}
-                          </div>
                         </div>
                       </div>
-                </div>
-              )})}
+                    </div>
+                  )
+                })}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* 非表示にしたシナリオ */}
       {hiddenScenarios.size > 0 && (
         <Card>
           <CardHeader>
@@ -392,4 +229,3 @@ export function PlayedScenariosPage() {
     </div>
   )
 }
-
