@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmModal } from '@/components/patterns/modal'
-import { TanStackDataTable } from '@/components/patterns/table'
+import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/table'
+import { useTablePreferences } from '@/hooks/useTablePreferences'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StaffEditForm } from './components/StaffEditForm'
@@ -222,9 +223,9 @@ export function StaffManagement() {
   const tableColumns = useMemo(
     () => createStaffColumns(
       { stores, getScenario, getScenarioName, getAuthStatus },
-      { 
-        onEdit: handleEditStaff, 
-        onLink: openLinkModal, 
+      {
+        onEdit: handleEditStaff,
+        onLink: openLinkModal,
         onUnlink: openUnlinkDialog,
         onReinvite: handleReinviteStaff
       }
@@ -232,6 +233,9 @@ export function StaffManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ハンドラーは安定した参照を持つ
     [stores, getScenario, getScenarioName, getAuthStatus, handleReinviteStaff]
   )
+
+  const defaultStaffColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
+  const [staffColumnPrefs, setStaffColumnPrefs] = useTablePreferences('staff-management', defaultStaffColumnKeys)
 
   // スタッフ保存ハンドラ
   const handleSaveStaff = async (staffData: any) => {
@@ -412,21 +416,32 @@ export function StaffManagement() {
             />
 
             {/* スタッフ一覧テーブル (PC表示) */}
-            <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
-              <TanStackDataTable
-                data={sortedStaff}
-                columns={tableColumns}
-                getRowKey={(staff) => staff.id}
-                sortState={sortState}
-                onSort={setSortState}
-                emptyMessage={
-                  searchTerm || statusFilter !== 'all'
-                    ? '検索条件に一致するスタッフが見つかりません'
-                    : 'スタッフが登録されていません'
-                }
-                loading={loading}
-                autoRowHeight
-              />
+            <div className="hidden md:block">
+              <div className="flex justify-end mb-1.5">
+                <ColumnSettingsPanel
+                  columns={tableColumns}
+                  preferences={staffColumnPrefs}
+                  onPreferencesChange={setStaffColumnPrefs}
+                  defaultColumnKeys={defaultStaffColumnKeys}
+                />
+              </div>
+              <div className="bg-white border rounded-lg overflow-hidden">
+                <TanStackDataTable
+                  data={sortedStaff}
+                  columns={tableColumns}
+                  getRowKey={(staff) => staff.id}
+                  sortState={sortState}
+                  onSort={setSortState}
+                  emptyMessage={
+                    searchTerm || statusFilter !== 'all'
+                      ? '検索条件に一致するスタッフが見つかりません'
+                      : 'スタッフが登録されていません'
+                  }
+                  loading={loading}
+                  autoRowHeight
+                  columnPreferences={staffColumnPrefs}
+                />
+              </div>
             </div>
 
             {/* スタッフ一覧リスト (モバイル表示) */}

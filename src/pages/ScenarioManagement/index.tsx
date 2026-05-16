@@ -17,7 +17,8 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmModal } from '@/components/patterns/modal'
-import { TanStackDataTable } from '@/components/patterns/table'
+import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/table'
+import { useTablePreferences } from '@/hooks/useTablePreferences'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 
 // 分離されたコンポーネント
@@ -361,6 +362,9 @@ export function ScenarioManagement() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- ハンドラーは安定した参照を持つ
   [displayMode, storeMap, scenarioStats])
 
+  const defaultColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
+  const [columnPrefs, setColumnPrefs] = useTablePreferences('scenario-management', defaultColumnKeys)
+
   // スクロール位置の保存と復元
   useEffect(() => {
     // ブラウザのデフォルトスクロール復元を無効化
@@ -545,20 +549,31 @@ export function ScenarioManagement() {
           </div>
 
           {/* PC用: テーブル形式 */}
-          <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
-            <TanStackDataTable
-              data={displayedScenarios}
-              columns={tableColumns}
-              getRowKey={(scenario) => scenario.id}
-              sortState={sortState}
-              onSort={handleSort}
-              emptyMessage={
-                searchTerm || statusFilter !== 'all' 
-                  ? '検索条件に一致するシナリオが見つかりません' 
-                  : 'シナリオが登録されていません'
-              }
-              loading={loading}
-            />
+          <div className="hidden md:block">
+            <div className="flex justify-end mb-1.5">
+              <ColumnSettingsPanel
+                columns={tableColumns}
+                preferences={columnPrefs}
+                onPreferencesChange={setColumnPrefs}
+                defaultColumnKeys={defaultColumnKeys}
+              />
+            </div>
+            <div className="bg-white border rounded-lg overflow-hidden">
+              <TanStackDataTable
+                data={displayedScenarios}
+                columns={tableColumns}
+                getRowKey={(scenario) => scenario.id}
+                sortState={sortState}
+                onSort={handleSort}
+                emptyMessage={
+                  searchTerm || statusFilter !== 'all'
+                    ? '検索条件に一致するシナリオが見つかりません'
+                    : 'シナリオが登録されていません'
+                }
+                loading={loading}
+                columnPreferences={columnPrefs}
+              />
+            </div>
           </div>
 
           {/* モバイル用: リスト形式 */}
