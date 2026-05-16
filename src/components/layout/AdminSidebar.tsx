@@ -341,8 +341,10 @@ export const AdminSidebar = memo(function AdminSidebar() {
   )
 })
 
-// ─── 外部コンポーネント（毎レンダーで再マウントしないよう AdminSidebar の外に定義） ───
-// グループのアイテムリスト。マウント時だけアニメーション、同グループ内ナビでは再生しない
+// ページ遷移ごとに AdminSidebar が再マウントされるため、モジュールスコープで
+// 直前のアクティブグループIDを保持する（再マウントを超えて永続）
+const lastActiveGroupId = { current: '' }
+
 function GroupPanel({
   group, isOpen, isActive, isSubActive, userRole, isLicAdmin,
 }: {
@@ -353,22 +355,23 @@ function GroupPanel({
   userRole: string
   isLicAdmin: boolean
 }) {
-  const divRef = useRef<HTMLDivElement>(null)
-  const prevIsOpenRef = useRef(isOpen) // マウント時の値で初期化
+  // マウント時点でこのグループが既にアクティブだったか（同カテゴリ内ナビ）
+  const alreadyActive = isOpen && !!group.label && lastActiveGroupId.current === group.id
+  if (isOpen && group.label) lastActiveGroupId.current = group.id
 
-  // isOpen が false→true になった瞬間だけ DOM 直接操作でアニメーションをリスタート
-  // React の style/class 再適用に依存しないため確実に動作する
+  const divRef = useRef<HTMLDivElement>(null)
+
   useLayoutEffect(() => {
-    const wasOpen = prevIsOpenRef.current
-    prevIsOpenRef.current = isOpen
-    if (!group.label || !divRef.current) return
-    if (!wasOpen && isOpen) {
-      const el = divRef.current
-      el.style.animationName = 'none'
-      void el.getBoundingClientRect() // reflow を強制してアニメーションをリセット
+    const el = divRef.current
+    if (!el || !group.label) return
+    // 常に CSS 自動アニメーションを止め、必要なときだけ手動リスタート
+    el.style.animationName = 'none'
+    if (!alreadyActive) {
+      void el.getBoundingClientRect()
       el.style.animationName = ''
     }
-  })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // マウント時のみ実行
 
   return (
     <div
