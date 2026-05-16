@@ -115,6 +115,9 @@ export function PrivateBookingManagement() {
     loadAvailableGMs
   } = useStoreAndGMManagement()
 
+  // 全リクエストの候補日に対するグローバル競合マップ（カード表示時点から店舗バッジを出すため）
+  const [globalStoreDateConflicts, setGlobalStoreDateConflicts] = useState<Set<string>>(new Set())
+
   // Discord通知再送信ハンドラー
   const handleResendDiscordNotification = async (cardRequest: { id: string; scenario_title: string }) => {
     const request = requests.find(r => r.id === cardRequest.id)
@@ -217,6 +220,48 @@ export function PrivateBookingManagement() {
     loadStores()
     loadAllGMs()
   }, [loadRequests, loadStores, loadAllGMs])
+
+  // requests ロード後：全候補日を1クエリで取得して店舗競合マップを構築
+  useEffect(() => {
+    if (!requests.length) return
+    const allDates = [...new Set(
+      requests.flatMap(r => (r.candidate_datetimes?.candidates || []).map((c: any) => c.date))
+    )].filter(Boolean)
+    if (!allDates.length) return
+
+    supabase
+      .from('schedule_events_staff_view')
+      .select('store_id, date, start_time, end_time')
+      .in('date', allDates)
+      .eq('is_cancelled', false)
+      .then(({ data }) => {
+        if (!data) return
+        const conflictSet = new Set<string>()
+        requests.forEach(req => {
+          (req.candidate_datetimes?.candidates || []).forEach((cand: any) => {
+            data.forEach(ev => {
+              if (ev.store_id && ev.date === cand.date) {
+                const start = cand.startTime || ''
+                const end   = cand.endTime   || ''
+                const evEnd   = (ev.end_time   || '').substring(0, 5)
+                const evStart = (ev.start_time || '').substring(0, 5)
+                // 60分インターバル考慮
+                const addMin = (t: string, m: number) => {
+                  const [h, mn] = t.split(':').map(Number)
+                  const tot = h * 60 + mn + m
+                  return `${String(Math.floor(tot/60)).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`
+                }
+                if (start < addMin(evEnd, 60) && addMin(end, 60) > evStart) {
+                  const ts = cand.timeSlot
+                  conflictSet.add(`${ev.store_id}-${cand.date}-${ts}`)
+                }
+              }
+            })
+          })
+        })
+        setGlobalStoreDateConflicts(conflictSet)
+      })
+  }, [requests])
 
   // 選択されたリクエストの初期化
   useEffect(() => {
@@ -551,16 +596,22 @@ export function PrivateBookingManagement() {
                     request={req}
                     onResendDiscordNotification={handleResendDiscordNotification}
                     selectedCandidateOrder={selectedRequest?.id === req.id ? selectedCandidateOrder : null}
-                    storesPerCandidate={selectedRequest?.id === req.id ? (() => {
-                      const baseStores = (() => {
-                        const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
-                        return ids.length > 0 ? stores.filter(s => ids.includes(s.id)) : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
-                      })()
-                      return (req.candidate_datetimes?.candidates || []).reduce((acc, cand) => {
-                        acc[cand.order] = baseStores.filter(s => !conflictInfo.storeDateConflicts.has(`${s.id}-${cand.date}-${cand.timeSlot}`))
+                    storesPerCandidate={(() => {
+                      // 選択中リクエストは精密な conflictInfo（60分インターバル含む）を使用
+                      // 未選択は globalStoreDateConflicts（一括クエリ結果）を使用
+                      const useDetailedConflict = selectedRequest?.id === req.id
+                      const conflictSet = useDetailedConflict
+                        ? conflictInfo.storeDateConflicts
+                        : globalStoreDateConflicts
+                      const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
+                      const baseStores = ids.length > 0
+                        ? stores.filter(s => ids.includes(s.id))
+                        : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
+                      return (req.candidate_datetimes?.candidates || []).reduce((acc: any, cand: any) => {
+                        acc[cand.order] = baseStores.filter(s => !conflictSet.has(`${s.id}-${cand.date}-${cand.timeSlot}`))
                         return acc
                       }, {} as Record<number, typeof baseStores>)
-                    })() : undefined}
+                    })()}
                     onSelectCandidate={(clickedReq, order) => {
                       // 同じ候補を再クリック → 選択解除
                       if (selectedRequest?.id === clickedReq.id && selectedCandidateOrder === order) {
