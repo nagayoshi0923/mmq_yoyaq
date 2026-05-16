@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
-  CheckCircle2, CircleDashed,
+  CheckCircle2, CircleDashed, XCircle, Clock, MessageCircle,
   RefreshCw, Copy, Check, Mail, Phone
 } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
@@ -209,15 +209,22 @@ export const BookingRequestCard = ({
                   const candidates = response.available_candidates
                   return (
                     <div key={index} className="flex flex-col gap-0.5">
-                      <span className={`text-xs ${!responded ? 'text-gray-400' : available ? 'text-purple-800' : 'text-gray-400 line-through'}`}>
-                        {!responded ? '⏳' : available ? '✅' : '❌'}
-                        {' '}{response.gm_name || 'GM名不明'}
+                      <span className={`text-xs flex items-center gap-0.5 ${!responded ? 'text-gray-400' : available ? 'text-purple-800' : 'text-gray-400 line-through'}`}>
+                        {!responded
+                          ? <Clock className="w-3 h-3 shrink-0" />
+                          : available
+                            ? <CheckCircle2 className="w-3 h-3 shrink-0 text-green-600" />
+                            : <XCircle className="w-3 h-3 shrink-0 text-gray-400" />
+                        }
+                        {response.gm_name || 'GM名不明'}
                         {responded && available && (candidates?.length ?? 0) > 0 && (
                           <span className="text-purple-500 ml-0.5">({candidates!.map(i => i + 1).join(',')})</span>
                         )}
                       </span>
                       {responded && response.notes && (
-                        <span className="text-xs text-purple-600 pl-4 whitespace-pre-wrap">💬 {response.notes}</span>
+                        <span className="text-xs text-purple-600 pl-4 whitespace-pre-wrap flex items-start gap-0.5">
+                          <MessageCircle className="w-3 h-3 shrink-0 mt-0.5" />{response.notes}
+                        </span>
                       )}
                     </div>
                   )
