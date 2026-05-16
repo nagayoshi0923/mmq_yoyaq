@@ -35,18 +35,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 }) => {
   if (stickyLayout) {
     return (
-      <div className="h-screen flex flex-col bg-background overflow-hidden">
+      // w-screen + overflow-hidden でページ横スクロールを完全に封じる
+      <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
         <Header />
-        <div className="flex flex-1 min-h-0 w-full">
+        <div className="flex flex-1 min-h-0 min-w-0">
           <AdminSidebar />
-          <div className={`flex-1 flex min-h-0 ${className}`}>
+          <div className={`flex-1 flex min-h-0 min-w-0 ${className}`}>
             {sidebar && (
               <div className="border-r border-slate-200 shrink-0">
                 {sidebar}
               </div>
             )}
-            <div data-scroll-container className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
-              <div data-scroll-content className={`${containerPadding} w-full min-w-0`}>
+            <div data-scroll-container className="flex-1 min-w-0 overflow-y-auto overflow-x-auto">
+              <div data-scroll-content className={`${containerPadding} min-w-0`}>
                 {children}
               </div>
             </div>
@@ -57,9 +58,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    // max-w-full で body の横はみ出しを防ぐ
+    <div className="min-h-screen max-w-full bg-background overflow-x-hidden">
       <Header />
-      <div className="flex w-full">
+      <div className="flex min-w-0">
         <AdminSidebar />
         <div className={`flex flex-1 min-w-0 ${className}`}>
           {sidebar && (
@@ -67,8 +69,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               {sidebar}
             </div>
           )}
-          <div className="flex-1 min-w-0 overflow-x-hidden">
-            <div className={`${containerPadding} w-full min-w-0`}>
+          <div className="flex-1 min-w-0">
+            <div className={`${containerPadding} min-w-0`}>
               {children}
             </div>
           </div>
