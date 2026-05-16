@@ -580,14 +580,12 @@ export function PrivateBookingManagement() {
 
                         {/* 店舗・GMプルダウン（候補行クリックで開く） */}
                         {(() => {
+                          const selectedCand = req.candidate_datetimes?.candidates?.find(c => c.order === selectedCandidateOrder)
                           const candidateStores = (() => {
                             const ids = req.candidate_datetimes?.requestedStores?.map((s: any) => s.storeId) || []
                             const base = ids.length > 0 ? stores.filter(s => ids.includes(s.id)) : stores.filter(s => s.ownership_type !== 'office' && !s.is_temporary)
-                            // 選択中候補で空いている店舗のみ
-                            const cand = req.candidate_datetimes?.candidates?.find(c => c.order === selectedCandidateOrder)
-                            if (!cand) return base
-                            const ts = cand.timeSlot
-                            return base.filter(s => !conflictInfo.storeDateConflicts.has(`${s.id}-${cand.date}-${ts}`))
+                            if (!selectedCand) return base
+                            return base.filter(s => !conflictInfo.storeDateConflicts.has(`${s.id}-${selectedCand.date}-${selectedCand.timeSlot}`))
                           })()
                           return (
                             <div className="space-y-2">
@@ -596,9 +594,22 @@ export function PrivateBookingManagement() {
                                 <select className="flex-1 h-8 rounded border border-input bg-background px-2 text-sm"
                                   value={selectedStoreId} onChange={e => setSelectedStoreId(e.target.value)}>
                                   <option value="">選択してください</option>
-                                  {candidateStores.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}{(s as any).region ? ` (${(s as any).region})` : ''}</option>
-                                  ))}
+                                  {candidateStores.map(s => {
+                                    const ev = selectedCand
+                                      ? (conflictInfo.existingEvents || []).find(e =>
+                                          e.storeId === s.id && e.date === selectedCand.date &&
+                                          (selectedCand.startTime || '') < e.endTime &&
+                                          (selectedCand.endTime || '') > e.startTime
+                                        )
+                                      : undefined
+                                    const region = (s as any).region ? ` (${(s as any).region})` : ''
+                                    const isRequested = req.candidate_datetimes?.requestedStores?.some((rs: any) => rs.storeId === s.id)
+                                    return (
+                                      <option key={s.id} value={s.id}>
+                                        {s.name}{isRequested ? ' ★' : ''}{region}{ev ? ` ⚠️ ${ev.scenario} (${ev.startTime}〜${ev.endTime})` : ''}
+                                      </option>
+                                    )
+                                  })}
                                 </select>
                               </div>
                               <div className="flex items-center gap-2">
