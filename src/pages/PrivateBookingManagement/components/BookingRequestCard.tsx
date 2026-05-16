@@ -253,8 +253,8 @@ export const BookingRequestCard = ({
                         <span className="text-muted-foreground text-xs">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
                       </div>
 
-                      {/* 2行目：GMバッジ + 店舗バッジ（データがある時のみ） */}
-                      {(availableGMs.length > 0 || availableStores) && (
+                      {/* 2行目：GMバッジ + 店舗バッジ（storesPerCandidateが渡された時 or GMバッジがある時） */}
+                      {(availableGMs.length > 0 || storesPerCandidate !== undefined) && (
                         <div className="flex flex-wrap items-center gap-1 mt-1.5 pl-6">
                           {availableGMs.map((gm, i) => (
                             <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">
