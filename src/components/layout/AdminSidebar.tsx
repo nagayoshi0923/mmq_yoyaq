@@ -294,7 +294,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
           {group.label && (
             <button
               onClick={() => toggleGroup(group.id)}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-slate-700 transition-colors"
             >
               <span>{group.label}</span>
               {openGroups[group.id]
@@ -320,10 +320,10 @@ export const AdminSidebar = memo(function AdminSidebar() {
                   <div key={item.id}>
                     <Link
                       to={item.path}
-                      className={`relative flex items-center px-2 py-1.5 rounded-md text-sm transition-colors ${
+                      className={`relative flex items-center px-3 py-2 text-sm transition-colors ${
                         active
-                          ? 'bg-primary/10 text-primary font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                          ? 'bg-blue-50 text-blue-700 font-medium'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                       }`}
                     >
                       <span className="truncate">{item.label}</span>
@@ -347,10 +347,10 @@ export const AdminSidebar = memo(function AdminSidebar() {
                               )}
                               <Link
                                 to={sub.path}
-                                className={`flex items-center px-2 py-1 rounded-md text-xs transition-colors ${
+                                className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
                                   subActive
-                                    ? 'text-primary font-medium bg-primary/5'
-                                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                                    ? 'bg-blue-50 text-blue-700 font-medium'
+                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
                                 }`}
                               >
                                 <span className="truncate">{sub.label}</span>
