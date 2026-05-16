@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import * as storeApi from '@/lib/api'
@@ -40,261 +41,201 @@ interface UseGMRequestsProps {
   userId?: string
 }
 
-/**
- * GMリクエストデータ取得・管理フック
- */
-export function useGMRequests({ userId }: UseGMRequestsProps) {
-  const [requests, setRequests] = useState<GMRequest[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [stores, setStores] = useState<any[]>([])
-  const [staffName, setStaffName] = useState<string>('')
-  const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedCandidates, setSelectedCandidates] = useState<Record<string, number[]>>({})
-  const [notes, setNotes] = useState<Record<string, string>>({})
+export const gmRequestKeys = {
+  byUser: (userId: string) => ['gm-requests', userId] as const,
+  stores: ['gm-request-stores'] as const,
+}
 
-  /**
-   * 店舗データ取得
-   */
-  const loadStores = async () => {
-    try {
-      const storesData = await storeApi.storeApi.getAll()
-      setStores(storesData)
-    } catch (error) {
-      logger.error('店舗データ取得エラー:', error)
-    }
+async function fetchGMRequestsForUser(userId: string): Promise<{ requests: GMRequest[]; staffName: string }> {
+  const { data: staffData, error: staffError } = await supabase
+    .from('staff')
+    .select('id, discord_id:discord_user_id, name')
+    .eq('user_id', userId)
+    .single()
+
+  if (staffError || !staffData) {
+    logger.error('スタッフ情報取得エラー:', staffError)
+    return { requests: [], staffName: '' }
   }
 
-  /**
-   * GMリクエスト取得
-   */
-  const loadGMRequests = async () => {
-    if (!userId) return
-    
-    try {
-      setIsLoading(true)
-      
-      // 現在のユーザーのstaff_idを取得
-      const { data: staffData, error: staffError } = await supabase
-        .from('staff')
-        .select('id, discord_id:discord_user_id, name')
-        .eq('user_id', userId)
-        .single()
-      
-      if (staffError) {
-        logger.error('スタッフ情報取得エラー:', staffError)
-        setRequests([])
-        setIsLoading(false)
-        return
-      }
-      
-      if (!staffData) {
-        logger.error('このユーザーにはスタッフ情報が紐付けられていません')
-        setRequests([])
-        setIsLoading(false)
-        return
-      }
-      
-      const staffId = staffData.id
-      setStaffName(staffData.name || '')
-      
-      // このGMに送られた確認リクエストを取得
-      const { data: responsesData, error: responsesError } = await supabase
-        .from('gm_availability_responses')
-        .select(`
+  const staffId = staffData.id
+
+  const { data: responsesData, error: responsesError } = await supabase
+    .from('gm_availability_responses')
+    .select(`
+      id,
+      reservation_id,
+      response_status,
+      available_candidates,
+      notes,
+      response_type,
+      selected_candidate_index,
+      gm_discord_id,
+      gm_name,
+      response_datetime,
+      reservations:reservation_id (
+        reservation_number,
+        title,
+        customer_name,
+        candidate_datetimes,
+        status,
+        store_id,
+        created_at,
+        stores:store_id (
           id,
-          reservation_id,
-          response_status,
-          available_candidates,
-          notes,
-          response_type,
-          selected_candidate_index,
-          gm_discord_id,
-          gm_name,
-          response_datetime,
-          reservations:reservation_id (
-            reservation_number,
-            title,
-            customer_name,
-            candidate_datetimes,
-            status,
-            store_id,
-            created_at,
-            stores:store_id (
-              id,
-              name,
-              short_name
-            )
-          )
-        `)
-        .or(`staff_id.eq.${sanitizeForPostgRestFilter(staffId) || staffId}${staffData.discord_id ? `,gm_discord_id.eq.${sanitizeForPostgRestFilter(staffData.discord_id) || staffData.discord_id}` : ''}`)
-        .order('response_datetime', { ascending: false })
-      
-      if (responsesError) {
-        logger.error('GMリクエスト取得エラー:', responsesError)
-        setRequests([])
-        return
+          name,
+          short_name
+        )
+      )
+    `)
+    .or(`staff_id.eq.${sanitizeForPostgRestFilter(staffId) || staffId}${staffData.discord_id ? `,gm_discord_id.eq.${sanitizeForPostgRestFilter(staffData.discord_id) || staffData.discord_id}` : ''}`)
+    .order('response_datetime', { ascending: false })
+
+  if (responsesError) {
+    logger.error('GMリクエスト取得エラー:', responsesError)
+    return { requests: [], staffName: staffData.name || '' }
+  }
+
+  const reservationIds = (responsesData || []).map((r: any) => r.reservation_id).filter(Boolean)
+  const otherGMResponses = new Set<string>()
+
+  if (reservationIds.length > 0) {
+    const { data: allResponsesData } = await supabase
+      .from('gm_availability_responses')
+      .select('reservation_id, response_status, staff_id')
+      .in('reservation_id', reservationIds)
+      .neq('staff_id', staffId)
+      .in('response_status', ['available', 'all_unavailable'])
+
+    allResponsesData?.forEach((r: any) => {
+      if (r.response_status && r.response_status !== 'pending') {
+        otherGMResponses.add(r.reservation_id)
       }
-      
-      logger.log('🔍 GM確認ページ - 取得したデータ:', {
-        staffId,
-        staffDiscordId: staffData.discord_id,
-        responsesCount: responsesData?.length || 0,
-        responsesData: responsesData
-      })
-      
-      // 同じreservation_idに対する他のGMの回答をチェック
-      const reservationIds = (responsesData || []).map((r: any) => r.reservation_id).filter(Boolean)
-      
-      const otherGMResponses: Set<string> = new Set()
-      
-      if (reservationIds.length > 0) {
-        const { data: allResponsesData } = await supabase
-          .from('gm_availability_responses')
-          .select('reservation_id, response_status, staff_id')
-          .in('reservation_id', reservationIds)
-          .neq('staff_id', staffId)
-          .in('response_status', ['available', 'all_unavailable'])
-        
-        if (allResponsesData) {
-          allResponsesData.forEach((r: any) => {
-            if (r.response_status && r.response_status !== 'pending') {
-              otherGMResponses.add(r.reservation_id)
-            }
-          })
+    })
+  }
+
+  const requests: GMRequest[] = (responsesData || []).map((response: any) => {
+    let candidateDatetimes = response.reservations?.candidate_datetimes || { candidates: [] }
+
+    if ((!candidateDatetimes.requestedStores || candidateDatetimes.requestedStores.length === 0) && response.reservations?.store_id) {
+      const storeInfo = response.reservations.stores
+      if (storeInfo) {
+        candidateDatetimes = {
+          ...candidateDatetimes,
+          requestedStores: [{ storeId: storeInfo.id, storeName: storeInfo.name, storeShortName: storeInfo.short_name }],
         }
       }
-      
-      // データを整形
-      const formattedRequests: GMRequest[] = (responsesData || []).map((response: any) => {
-        const hasOtherGMResponse = otherGMResponses.has(response.reservation_id)
-        
-        let candidateDatetimes = response.reservations?.candidate_datetimes || { candidates: [] }
-        
-        // requestedStoresが空で、store_idがある場合は補完
-        if ((!candidateDatetimes.requestedStores || candidateDatetimes.requestedStores.length === 0) && response.reservations?.store_id) {
-          const storeInfo = response.reservations.stores
-          if (storeInfo) {
-            candidateDatetimes = {
-              ...candidateDatetimes,
-              requestedStores: [{
-                storeId: storeInfo.id,
-                storeName: storeInfo.name,
-                storeShortName: storeInfo.short_name
-              }]
-            }
-          }
-        }
-        
-        return {
-          id: response.id,
-          reservation_id: response.reservation_id,
-          reservation_number: response.reservations?.reservation_number || '',
-          scenario_title: response.reservations?.title || '',
-          customer_name: response.reservations?.customer_name || '',
-          candidate_datetimes: candidateDatetimes,
-          response_status: response.response_status || 'pending',
-          available_candidates: response.available_candidates || [],
-          notes: response.notes || '',
-          reservation_status: response.reservations?.status || 'pending',
-          has_other_gm_response: hasOtherGMResponse,
-          created_at: response.reservations?.created_at || new Date().toISOString()
-        }
-      })
-      
-      setRequests(formattedRequests)
-      
-      // 既に回答済みのリクエストは選択状態を復元
+    }
+
+    return {
+      id: response.id,
+      reservation_id: response.reservation_id,
+      reservation_number: response.reservations?.reservation_number || '',
+      scenario_title: response.reservations?.title || '',
+      customer_name: response.reservations?.customer_name || '',
+      candidate_datetimes: candidateDatetimes,
+      response_status: response.response_status || 'pending',
+      available_candidates: response.available_candidates || [],
+      notes: response.notes || '',
+      reservation_status: response.reservations?.status || 'pending',
+      has_other_gm_response: otherGMResponses.has(response.reservation_id),
+      created_at: response.reservations?.created_at || new Date().toISOString(),
+    }
+  })
+
+  logger.log('🔍 GM確認ページ - 取得完了:', requests.length, '件')
+  return { requests, staffName: staffData.name || '' }
+}
+
+export function useGMRequests({ userId }: UseGMRequestsProps) {
+  const queryClient = useQueryClient()
+
+  const { data, isLoading } = useQuery({
+    queryKey: userId ? gmRequestKeys.byUser(userId) : ['gm-requests-disabled'],
+    queryFn: () => fetchGMRequestsForUser(userId!),
+    enabled: !!userId,
+    staleTime: 2 * 60 * 1000, // 2分間キャッシュ
+  })
+
+  const { data: stores = [] } = useQuery({
+    queryKey: gmRequestKeys.stores,
+    queryFn: () => storeApi.storeApi.getAll(),
+    staleTime: 10 * 60 * 1000,
+  })
+
+  const requests = data?.requests ?? []
+  const staffName = data?.staffName ?? ''
+
+  // 回答済みリクエストの初期選択状態を復元（データ初回取得時のみ）
+  const [selectedCandidates, setSelectedCandidates] = useState<Record<string, number[]>>({})
+  const [notes, setNotes] = useState<Record<string, string>>({})
+  const initializedRef = useRef(false)
+
+  useEffect(() => {
+    if (requests.length > 0 && !initializedRef.current) {
+      initializedRef.current = true
       const initialSelections: Record<string, number[]> = {}
       const initialNotes: Record<string, string> = {}
-      formattedRequests.forEach(req => {
-        if (req.available_candidates && req.available_candidates.length > 0) {
-          initialSelections[req.id] = req.available_candidates
-        }
-        if (req.notes) {
-          initialNotes[req.id] = req.notes
-        }
+      requests.forEach(req => {
+        if (req.available_candidates?.length > 0) initialSelections[req.id] = req.available_candidates
+        if (req.notes) initialNotes[req.id] = req.notes
       })
       setSelectedCandidates(initialSelections)
       setNotes(initialNotes)
-      
-    } catch (error) {
-      logger.error('データ読み込みエラー:', error)
-      setRequests([])
-    } finally {
-      setIsLoading(false)
+    }
+  }, [requests])
+
+  const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
+  const [currentDate, setCurrentDate] = useState(new Date())
+
+  const loadGMRequests = () => {
+    if (userId) {
+      initializedRef.current = false
+      queryClient.invalidateQueries({ queryKey: gmRequestKeys.byUser(userId) })
     }
   }
 
-  /**
-   * 候補日時の選択をトグル
-   */
+  const loadStores = () =>
+    queryClient.invalidateQueries({ queryKey: gmRequestKeys.stores })
+
   const toggleCandidate = (requestId: string, candidateOrder: number) => {
     const current = selectedCandidates[requestId] || []
     const newSelection = current.includes(candidateOrder)
       ? current.filter(c => c !== candidateOrder)
       : [...current, candidateOrder]
-    
-    setSelectedCandidates({
-      ...selectedCandidates,
-      [requestId]: newSelection
-    })
+    setSelectedCandidates({ ...selectedCandidates, [requestId]: newSelection })
   }
 
-  /**
-   * 月でフィルタリング
-   */
   const filterByMonth = (reqs: GMRequest[]) => {
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth() + 1
-    
-    return reqs.filter(req => {
-      const candidates = req.candidate_datetimes?.candidates || []
-      return candidates.some(c => {
+    return reqs.filter(req =>
+      req.candidate_datetimes?.candidates?.some(c => {
         const [cYear, cMonth] = c.date.split('-').map(Number)
         return cYear === year && cMonth === month
       })
-    })
+    )
   }
 
-  /**
-   * フィルタリングされたリクエスト
-   */
-  const pendingRequests = requests.filter(r => 
-    r.response_status === 'pending' || 
-    r.response_status === null || 
+  const pendingRequests = requests.filter(r =>
+    r.response_status === 'pending' ||
+    r.response_status === null ||
     r.response_status === '' ||
     r.response_status === 'available'
   )
 
   const allRequests = filterByMonth(requests)
 
-  /**
-   * 月ナビゲーション
-   */
-  const handlePrevMonth = () => {
+  const handlePrevMonth = () =>
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
-  }
 
-  const handleNextMonth = () => {
+  const handleNextMonth = () =>
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
-  }
 
-  const formatMonthYear = (date: Date) => {
-    return `${date.getFullYear()}年${date.getMonth() + 1}月`
-  }
-
-  // 初期データ読み込み
-  useEffect(() => {
-    if (userId) {
-      loadGMRequests()
-      loadStores()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId])
+  const formatMonthYear = (date: Date) =>
+    `${date.getFullYear()}年${date.getMonth() + 1}月`
 
   return {
-    // 状態
     requests,
     isLoading,
     stores,
@@ -307,21 +248,14 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
     setSelectedCandidates,
     notes,
     setNotes,
-    
-    // 関数
     loadGMRequests,
     loadStores,
     toggleCandidate,
     filterByMonth,
-    
-    // フィルタリング結果
     pendingRequests,
     allRequests,
-    
-    // ナビゲーション (非推奨: MonthSwitcher使用を推奨)
     handlePrevMonth,
     handleNextMonth,
-    formatMonthYear
+    formatMonthYear,
   }
 }
-
