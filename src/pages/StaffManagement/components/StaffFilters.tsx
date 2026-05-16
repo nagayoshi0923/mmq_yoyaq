@@ -74,7 +74,7 @@ export const StaffFilters = memo(function StaffFilters({
 
       {/* カラム設定（右端・PCのみ） */}
       {columnSettingsPanel && (
-        <div className="hidden sm:block flex-shrink-0">
+        <div className="hidden sm:block ml-auto flex-shrink-0">
           {columnSettingsPanel}
         </div>
       )}
