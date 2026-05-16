@@ -64,6 +64,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
   const slug = organization?.slug || 'queens-waltz'
 
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null)
   const navigate = useNavigate()
 
   // パス変更でモバイルドロワーを閉じる
@@ -264,11 +265,11 @@ export const AdminSidebar = memo(function AdminSidebar() {
 
   if (!user || user.role === 'customer' || !isAdminPage) return null
 
-  // カテゴリが開いているか（アクティブページが含まれる時だけ）
+  // カテゴリが開いているか（アクティブ or ホバー中）
   const isGroupOpen = useCallback((group: typeof visibleGroups[0]) => {
     if (!group.label) return true  // ラベルなし（トップ）は常に表示
-    return group.items.some(item => isActive(item))
-  }, [isActive])
+    return group.items.some(item => isActive(item)) || hoveredGroup === group.id
+  }, [isActive, hoveredGroup])
 
   // カテゴリヘッダーをクリック → そのカテゴリの最初のアイテムに遷移
   const handleGroupClick = useCallback((group: typeof visibleGroups[0]) => {
@@ -279,7 +280,11 @@ export const AdminSidebar = memo(function AdminSidebar() {
   const SidebarContent = () => (
     <div className="flex flex-col h-full py-3">
       {visibleGroups.map((group, gi) => (
-        <div key={group.id}>
+        <div
+          key={group.id}
+          onMouseEnter={() => group.label && setHoveredGroup(group.id)}
+          onMouseLeave={() => setHoveredGroup(null)}
+        >
           {/* グループセパレーター */}
           {gi > 0 && group.label && (
             <div className="mx-3 my-1 border-t border-border/40" />
