@@ -112,22 +112,29 @@ export const AdminSidebar = memo(function AdminSidebar() {
     },
     {
       id: 'reservations',
-      label: '予約・顧客',
-      icon: Ticket,
+      label: '貸切・予約',
+      icon: ClipboardCheck,
       items: [
-        {
-          id: 'reservations', label: '予約管理', icon: Ticket,
-          path: `/${slug}/reservations`, roles: ['admin', 'license_admin'], badge: pendingCount,
-          subItems: [
-            { id: 'booking-list', label: '予約一覧',       path: `/${slug}/reservations?tab=booking-list` },
-            { id: 'pending',      label: '承認待ち',       path: `/${slug}/reservations?tab=pending` },
-          ],
-        },
         {
           id: 'private-booking-management', label: '貸切管理', icon: ClipboardCheck,
           path: `/${slug}/private-booking-management`, roles: ['admin', 'license_admin'],
         },
         { id: 'private-booking-groups', label: 'グループ一覧', icon: Users, path: `/${slug}/private-booking-groups`, roles: ['admin', 'license_admin'] },
+        {
+          id: 'reservations', label: '予約管理', icon: Ticket,
+          path: `/${slug}/reservations`, roles: ['admin', 'license_admin'], badge: pendingCount,
+          subItems: [
+            { id: 'booking-list', label: '予約一覧', path: `/${slug}/reservations?tab=booking-list` },
+            { id: 'pending',      label: '承認待ち', path: `/${slug}/reservations?tab=pending` },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'customers',
+      label: 'アカウント・顧客',
+      icon: UserCog,
+      items: [
         {
           id: 'accounts', label: 'アカウント', icon: UserCog,
           path: `/${slug}/accounts`, roles: ['admin', 'license_admin'],
