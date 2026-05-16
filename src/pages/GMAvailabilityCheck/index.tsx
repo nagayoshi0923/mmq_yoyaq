@@ -3,16 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { CheckCircle, Clock, Calendar, Settings, UserCheck } from 'lucide-react'
-
-// サイドバーのメニュー項目定義
-const GM_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'gm-list', label: 'GM確認一覧', icon: CheckCircle },
-  { id: 'pending', label: '承認待ち', icon: Clock },
-  { id: 'schedule', label: 'スケジュール', icon: Calendar },
-  { id: 'settings', label: '設定', icon: Settings }
-]
+import { UserCheck } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useGMRequests } from './hooks/useGMRequests'
@@ -26,7 +17,6 @@ import { formatMonthYear } from './utils/gmFormatters'
  */
 export function GMAvailabilityCheck() {
   const { user } = useAuth()
-  const [sidebarActiveTab, setSidebarActiveTab] = useState('availability-check')
 
   // フック
   const {
@@ -98,15 +88,6 @@ export function GMAvailabilityCheck() {
     return (
       <AppLayout
         currentPage="gm-availability"
-        sidebar={
-          <UnifiedSidebar
-            title="GM確認"
-            mode="list"
-            menuItems={GM_MENU_ITEMS}
-            activeTab={sidebarActiveTab}
-            onTabChange={setSidebarActiveTab}
-          />
-        }
         maxWidth="max-w-[1440px]"
         containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
         stickyLayout={true}
@@ -121,15 +102,6 @@ export function GMAvailabilityCheck() {
   return (
     <AppLayout
       currentPage="gm-availability"
-      sidebar={
-        <UnifiedSidebar
-          title="GM確認"
-          mode="list"
-          menuItems={GM_MENU_ITEMS}
-          activeTab={sidebarActiveTab}
-          onTabChange={setSidebarActiveTab}
-        />
-      }
       maxWidth="max-w-[1440px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}

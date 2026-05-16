@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { 
@@ -91,18 +91,11 @@ const LICENSE_MANAGER_MENU_ITEM: SidebarMenuItem = {
 }
 
 export function Settings() {
-  const [activeTab, setActiveTab] = useSessionState('settingsActiveTab', 'organization-info')
+  const [searchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') || 'organization-info'
   const { selectedStoreId, handleStoreChange } = useSettingsStore()
   const { isLicenseManager } = useOrganization()
   const location = useLocation()
-
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search)
-    const tab = searchParams.get('tab')
-    if (tab === 'email-history' && activeTab !== 'email-history') {
-      setActiveTab('email-history')
-    }
-  }, [location.search, activeTab, setActiveTab])
 
   // メニュー項目を動的に生成（ライセンス管理者にはテナント管理を追加）
   const menuItems = useMemo(() => {
@@ -178,16 +171,6 @@ export function Settings() {
   return (
     <AppLayout
       currentPage="settings"
-      sidebar={
-        <UnifiedSidebar
-          title="設定"
-          mode="list"
-          menuItems={menuItems}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          showSearch={true}
-        />
-      }
       maxWidth="max-w-[1440px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}

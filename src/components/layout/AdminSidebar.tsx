@@ -18,6 +18,14 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
+type SubItem = {
+  id: string
+  label: string
+  path: string           // ?tab=xxx 付きURL
+  roles?: string[]
+  sectionLabel?: string  // 直前にセクション区切りを入れる場合のラベル
+}
+
 type NavItem = {
   id: string
   label: string
@@ -25,6 +33,7 @@ type NavItem = {
   path: string
   roles: string[]
   badge?: number
+  subItems?: SubItem[]   // そのページにいる時だけ展開表示
 }
 
 type NavGroup = {
@@ -95,7 +104,15 @@ export const AdminSidebar = memo(function AdminSidebar() {
       icon: CalendarClock,
       items: [
         { id: 'shift-submission', label: 'シフト提出', icon: CalendarClock, path: `/${slug}/shift-submission`, roles: ['admin', 'staff', 'license_admin'] },
-        { id: 'gm-availability', label: 'GM確認', icon: UserCheck, path: `/${slug}/gm-availability`, roles: ['admin', 'staff', 'license_admin'] },
+        {
+          id: 'gm-availability', label: 'GM確認', icon: UserCheck,
+          path: `/${slug}/gm-availability`, roles: ['admin', 'staff', 'license_admin'],
+          subItems: [
+            { id: 'gm-list', label: 'GM確認一覧', path: `/${slug}/gm-availability?tab=gm-list` },
+            { id: 'pending', label: '承認待ち',    path: `/${slug}/gm-availability?tab=pending` },
+            { id: 'schedule', label: 'スケジュール', path: `/${slug}/gm-availability?tab=schedule` },
+          ],
+        },
         { id: 'staff-profile', label: '担当作品', icon: UserCircle, path: `/${slug}/staff-profile`, roles: ['admin', 'staff', 'license_admin'] },
       ],
     },
@@ -104,9 +121,33 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: '予約・顧客',
       icon: Ticket,
       items: [
-        { id: 'reservations', label: '予約管理', icon: Ticket, path: `/${slug}/reservations`, roles: ['admin', 'license_admin'], badge: pendingCount },
-        { id: 'private-booking-management', label: '貸切管理', icon: ClipboardCheck, path: `/${slug}/private-booking-management`, roles: ['admin', 'license_admin'] },
-        { id: 'accounts', label: 'アカウント', icon: UserCog, path: `/${slug}/accounts`, roles: ['admin', 'license_admin'] },
+        {
+          id: 'reservations', label: '予約管理', icon: Ticket,
+          path: `/${slug}/reservations`, roles: ['admin', 'license_admin'], badge: pendingCount,
+          subItems: [
+            { id: 'booking-list', label: '予約一覧',       path: `/${slug}/reservations?tab=booking-list` },
+            { id: 'pending',      label: '承認待ち',       path: `/${slug}/reservations?tab=pending` },
+          ],
+        },
+        {
+          id: 'private-booking-management', label: '貸切管理', icon: ClipboardCheck,
+          path: `/${slug}/private-booking-management`, roles: ['admin', 'license_admin'],
+          subItems: [
+            { id: 'booking-list', label: '貸切一覧',   path: `/${slug}/private-booking-management?tab=booking-list` },
+            { id: 'groups',       label: 'グループ',   path: `/${slug}/private-booking-management?tab=groups` },
+            { id: 'pending',      label: '承認待ち',   path: `/${slug}/private-booking-management?tab=pending` },
+            { id: 'approved',     label: '承認済み',   path: `/${slug}/private-booking-management?tab=approved` },
+            { id: 'settings',     label: '設定',       path: `/${slug}/private-booking-management?tab=settings` },
+          ],
+        },
+        {
+          id: 'accounts', label: 'アカウント', icon: UserCog,
+          path: `/${slug}/accounts`, roles: ['admin', 'license_admin'],
+          subItems: [
+            { id: 'users',     label: 'ユーザー', path: `/${slug}/accounts?tab=users` },
+            { id: 'customers', label: '顧客',     path: `/${slug}/accounts?tab=customers` },
+          ],
+        },
         { id: 'coupons', label: 'クーポン', icon: Gift, path: `/${slug}/coupons`, roles: ['admin', 'license_admin'] },
       ],
     },
@@ -116,8 +157,8 @@ export const AdminSidebar = memo(function AdminSidebar() {
       icon: BookOpen,
       items: [
         { id: 'scenarios', label: 'シナリオ', icon: BookOpen, path: `/${slug}/scenarios`, roles: ['admin', 'staff', 'license_admin'] },
-        { id: 'blog', label: 'ブログ', icon: FileText, path: `/${slug}/blog`, roles: ['admin', 'license_admin'] },
-        { id: 'manual', label: 'マニュアル', icon: HelpCircle, path: `/${slug}/manual`, roles: ['admin', 'staff', 'license_admin'] },
+        { id: 'blog',      label: 'ブログ',   icon: FileText, path: `/${slug}/blog`,      roles: ['admin', 'license_admin'] },
+        { id: 'manual',    label: 'マニュアル', icon: HelpCircle, path: `/${slug}/manual`, roles: ['admin', 'staff', 'license_admin'] },
       ],
     },
     {
@@ -125,9 +166,30 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: '売上・管理',
       icon: TrendingUp,
       items: [
-        { id: 'sales', label: '売上', icon: TrendingUp, path: `/${slug}/sales`, roles: ['admin', 'license_admin'] },
-        { id: 'license-management', label: '公演報告', icon: FileCheck, path: `/${slug}/license-management`, roles: ['admin', 'staff', 'license_admin'] },
-        { id: 'email-history', label: 'メール配信履歴', icon: Mail, path: `/${slug}/settings?tab=email-history`, roles: ['admin', 'license_admin'] },
+        {
+          id: 'sales', label: '売上', icon: TrendingUp,
+          path: `/${slug}/sales`, roles: ['admin', 'license_admin'],
+          subItems: [
+            { id: 'overview',             label: '売上概要',       path: `/${slug}/sales?tab=overview` },
+            { id: 'annual-analysis',      label: '年間分析',       path: `/${slug}/sales?tab=annual-analysis` },
+            { id: 'scenario-performance', label: 'シナリオ別',     path: `/${slug}/sales?tab=scenario-performance` },
+            { id: 'open-event-analysis',  label: '公演分析',       path: `/${slug}/sales?tab=open-event-analysis` },
+            { id: 'external-sales',       label: '外部売上',       path: `/${slug}/sales?tab=external-sales` },
+            { id: 'misc-transactions',    label: '雑収支管理',     path: `/${slug}/sales?tab=misc-transactions` },
+            { id: 'franchise-sales',      label: 'フランチャイズ', path: `/${slug}/sales?tab=franchise-sales` },
+            { id: 'staff-salary-report',  label: 'スタッフ報酬',   path: `/${slug}/sales?tab=staff-salary-report` },
+            { id: 'salary-calculation',   label: '給与計算',       path: `/${slug}/sales?tab=salary-calculation` },
+          ],
+        },
+        {
+          id: 'license-management', label: '公演報告', icon: FileCheck,
+          path: `/${slug}/license-management`, roles: ['admin', 'staff', 'license_admin'],
+          subItems: [
+            { id: 'send',     label: '公演報告', path: `/${slug}/license-management?tab=send` },
+            { id: 'received', label: '受信',     path: `/${slug}/license-management?tab=received`, roles: ['license_admin'] },
+            { id: 'summary',  label: '集計',     path: `/${slug}/license-management?tab=summary`,  roles: ['license_admin'] },
+          ],
+        },
       ],
     },
     {
@@ -135,9 +197,35 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: '設定',
       icon: Settings,
       items: [
-        { id: 'stores', label: '店舗', icon: Store, path: `/${slug}/stores`, roles: ['admin', 'license_admin'] },
-        { id: 'staff', label: 'スタッフ', icon: Users, path: `/${slug}/staff`, roles: ['admin', 'license_admin'] },
-        { id: 'settings', label: '設定', icon: Settings, path: `/${slug}/settings`, roles: ['admin', 'license_admin'] },
+        { id: 'stores', label: '店舗',   icon: Store, path: `/${slug}/stores`, roles: ['admin', 'license_admin'] },
+        { id: 'staff',  label: 'スタッフ', icon: Users, path: `/${slug}/staff`,  roles: ['admin', 'license_admin'] },
+        {
+          id: 'settings', label: '設定', icon: Settings,
+          path: `/${slug}/settings`, roles: ['admin', 'license_admin'],
+          subItems: [
+            // 組織設定
+            { id: 'organization-info',    label: '組織情報',       path: `/${slug}/settings?tab=organization-info` },
+            { id: 'organization-design',  label: '組織デザイン',   path: `/${slug}/settings?tab=organization-design` },
+            { id: 'faq',                  label: 'FAQ設定',        path: `/${slug}/settings?tab=faq` },
+            { id: 'blog',                 label: 'ブログ・お知らせ', path: `/${slug}/settings?tab=blog` },
+            { id: 'general',              label: '全体設定',       path: `/${slug}/settings?tab=general` },
+            // 店舗別設定
+            { id: 'store-basic',          label: '店舗基本設定',   path: `/${slug}/settings?tab=store-basic`,          sectionLabel: '店舗別設定' },
+            { id: 'business-hours',       label: '営業時間',       path: `/${slug}/settings?tab=business-hours` },
+            { id: 'performance-schedule', label: '公演スケジュール', path: `/${slug}/settings?tab=performance-schedule` },
+            { id: 'reservation',          label: '予約設定',       path: `/${slug}/settings?tab=reservation` },
+            { id: 'cancellation',         label: 'キャンセル設定', path: `/${slug}/settings?tab=cancellation` },
+            { id: 'pricing',              label: '料金設定',       path: `/${slug}/settings?tab=pricing` },
+            { id: 'salary',               label: '報酬',           path: `/${slug}/settings?tab=salary` },
+            { id: 'staff-setting',        label: 'スタッフ設定',   path: `/${slug}/settings?tab=staff` },
+            { id: 'email',                label: 'メール設定',     path: `/${slug}/settings?tab=email` },
+            { id: 'notifications',        label: '通知設定',       path: `/${slug}/settings?tab=notifications` },
+            { id: 'booking-notice',       label: '注意事項設定',   path: `/${slug}/settings?tab=booking-notice` },
+            { id: 'categories',           label: 'カテゴリ・作者', path: `/${slug}/settings?tab=categories` },
+            { id: 'system',               label: 'システム設定',   path: `/${slug}/settings?tab=system` },
+            { id: 'data',                 label: 'データ管理',     path: `/${slug}/settings?tab=data` },
+          ],
+        },
       ],
     },
     {
@@ -165,23 +253,28 @@ export const AdminSidebar = memo(function AdminSidebar() {
     })).filter(group => group.items.length > 0)
   }, [NAV_GROUPS, user, isLicAdmin])
 
-  // アクティブ判定
+  // アクティブ判定（ページレベル）
   const isActive = useCallback((item: NavItem) => {
-    const { pathname, search } = location
+    const { pathname } = location
     if (item.id === 'booking') {
       return pathname === `/${slug}` || (
         pathname.startsWith(`/${slug}/`) &&
         !ADMIN_PATH_SEGMENTS.some(seg => pathname.includes(`/${seg}`))
       )
     }
-    if (item.id === 'email-history') {
-      return pathname.includes('/settings') && new URLSearchParams(search).get('tab') === 'email-history'
-    }
-    if (item.id === 'settings') {
-      return pathname.includes('/settings') && new URLSearchParams(search).get('tab') !== 'email-history'
-    }
-    return pathname.includes(`/${item.id}`) || pathname.startsWith(item.path)
+    const basePath = item.path.split('?')[0]
+    return pathname === basePath || pathname.startsWith(basePath + '/')
   }, [location, slug])
+
+  // サブアイテムのアクティブ判定
+  const isSubActive = useCallback((sub: SubItem) => {
+    const { pathname, search } = location
+    const [basePath, query] = sub.path.split('?')
+    if (!query) return pathname === basePath
+    const tabParam = new URLSearchParams(query).get('tab')
+    const currentTab = new URLSearchParams(search).get('tab')
+    return pathname === basePath && currentTab === tabParam
+  }, [location])
 
   // 管理ページかどうか
   const isAdminPage = ADMIN_PATH_SEGMENTS.some(seg => location.pathname.includes(`/${seg}`))
@@ -216,23 +309,58 @@ export const AdminSidebar = memo(function AdminSidebar() {
             <div className="space-y-0.5 px-2">
               {group.items.map(item => {
                 const active = isActive(item)
+                const showSubs = active && item.subItems && item.subItems.length > 0
+                // サブアイテムのロールフィルタリング
+                const visibleSubs = showSubs
+                  ? item.subItems!.filter(s =>
+                      !s.roles || s.roles.includes(user!.role) || (isLicAdmin && s.roles.includes('license_admin'))
+                    )
+                  : []
                 return (
-                  <Link
-                    key={item.id}
-                    to={item.path}
-                    className={`relative flex items-center px-2 py-1.5 rounded-md text-sm transition-colors ${
-                      active
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                    }`}
-                  >
-                    <span className="truncate">{item.label}</span>
-                    {item.badge != null && item.badge > 0 && (
-                      <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
-                        {item.badge > 99 ? '99+' : item.badge}
-                      </span>
+                  <div key={item.id}>
+                    <Link
+                      to={item.path}
+                      className={`relative flex items-center px-2 py-1.5 rounded-md text-sm transition-colors ${
+                        active
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                      }`}
+                    >
+                      <span className="truncate">{item.label}</span>
+                      {item.badge != null && item.badge > 0 && (
+                        <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                          {item.badge > 99 ? '99+' : item.badge}
+                        </span>
+                      )}
+                    </Link>
+                    {/* サブアイテム（そのページにいる時だけ展開） */}
+                    {showSubs && visibleSubs.length > 0 && (
+                      <div className="ml-3 pl-2 border-l border-border/60 space-y-0.5 mt-0.5 mb-1">
+                        {visibleSubs.map(sub => {
+                          const subActive = isSubActive(sub)
+                          return (
+                            <div key={sub.id}>
+                              {sub.sectionLabel && (
+                                <p className="text-[10px] font-semibold text-muted-foreground/60 px-2 pt-2 pb-0.5 uppercase tracking-wide">
+                                  {sub.sectionLabel}
+                                </p>
+                              )}
+                              <Link
+                                to={sub.path}
+                                className={`flex items-center px-2 py-1 rounded-md text-xs transition-colors ${
+                                  subActive
+                                    ? 'text-primary font-medium bg-primary/5'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                                }`}
+                              >
+                                <span className="truncate">{sub.label}</span>
+                              </Link>
+                            </div>
+                          )
+                        })}
+                      </div>
                     )}
-                  </Link>
+                  </div>
                 )
               })}
             </div>

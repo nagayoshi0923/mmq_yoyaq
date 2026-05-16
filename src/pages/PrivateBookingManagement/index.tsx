@@ -9,18 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { AlertCircle, Calendar, CheckCircle, Clock, Settings, MapPin, Users } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
-// サイドバーのメニュー項目定義
-const PRIVATE_BOOKING_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'booking-list', label: '貸切確認一覧', icon: Calendar },
-  { id: 'groups', label: 'グループ一覧', icon: Users },
-  { id: 'pending', label: '承認待ち', icon: Clock },
-  { id: 'approved', label: '承認済み', icon: CheckCircle },
-  { id: 'settings', label: '設定', icon: Settings }
-]
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { useSessionState } from '@/hooks/useSessionState'
@@ -60,19 +51,9 @@ const normalizeTimeSlot = (timeSlot: string): string => {
 
 export function PrivateBookingManagement() {
   const { user } = useAuth()
-  const [sidebarActiveTab, setSidebarActiveTab] = useState('booking-list')
-  
+
   // タブ状態（sessionStorageと同期）
   const [activeTab, setActiveTab] = useSessionState<'gm_pending' | 'store_pending' | 'rejected' | 'all' | 'groups'>('privateBookingActiveTab', 'store_pending')
-  
-  // タブとサイドバーを同期
-  useEffect(() => {
-    if (activeTab === 'groups') {
-      setSidebarActiveTab('groups')
-    } else {
-      setSidebarActiveTab('booking-list')
-    }
-  }, [activeTab])
   
   // 選択状態
   const [selectedRequest, setSelectedRequest] = useState<PrivateBookingRequest | null>(null)
@@ -484,15 +465,6 @@ export function PrivateBookingManagement() {
     return (
       <AppLayout
         currentPage="private-booking"
-        sidebar={
-          <UnifiedSidebar
-            title="貸切確認"
-            mode="list"
-            menuItems={PRIVATE_BOOKING_MENU_ITEMS}
-            activeTab={sidebarActiveTab}
-            onTabChange={setSidebarActiveTab}
-          />
-        }
         maxWidth="max-w-[1440px]"
         containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
         stickyLayout={true}
@@ -507,22 +479,6 @@ export function PrivateBookingManagement() {
   return (
     <AppLayout
       currentPage="private-booking"
-      sidebar={
-        <UnifiedSidebar
-          title="貸切確認"
-          mode="list"
-          menuItems={PRIVATE_BOOKING_MENU_ITEMS}
-          activeTab={sidebarActiveTab}
-          onTabChange={(tab) => {
-            setSidebarActiveTab(tab)
-            if (tab === 'groups') {
-              setActiveTab('groups')
-            } else if (tab === 'booking-list') {
-              setActiveTab('all')
-            }
-          }}
-        />
-      }
       maxWidth="max-w-[1440px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
