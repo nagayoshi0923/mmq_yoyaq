@@ -319,13 +319,22 @@ export const AdminSidebar = memo(function AdminSidebar() {
           )}
 
           {/* グループアイテム — grid-rows で height:auto アニメーション */}
-          <div className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
-            isGroupOpen(group) ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-          }`}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateRows: isGroupOpen(group) ? '1fr' : '0fr',
+              opacity: isGroupOpen(group) ? 1 : 0,
+              transition: 'grid-template-rows 280ms ease-out, opacity 220ms ease-out',
+            }}
+          >
             <div className="overflow-hidden">
-            <div className={`space-y-0.5 px-2 pb-1 transition-transform duration-300 ease-out ${
-              isGroupOpen(group) ? 'translate-y-0' : '-translate-y-2'
-            }`}>
+            <div
+              style={{
+                transform: isGroupOpen(group) ? 'translateY(0)' : 'translateY(-6px)',
+                transition: 'transform 280ms ease-out',
+              }}
+              className="space-y-0.5 px-2 pb-1"
+            >
               {group.items.map(item => {
                 const active = isActive(item)
                 const showSubs = active && item.subItems && item.subItems.length > 0
