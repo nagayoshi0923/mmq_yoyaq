@@ -19,11 +19,13 @@ import { devDb } from '@/components/ui/DevField'
 import { useOrganization } from '@/hooks/useOrganization'
 import { StoreFilters } from './components/StoreFilters'
 import { createStoreColumns, getStoreColors, getStatusBadge } from './utils/tableColumns'
+import { useStoreQuery, useStoreQueryClient } from './hooks/useStoreQuery'
 
 export function StoreManagement() {
-  const [stores, setStores] = useState<Store[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const { data: stores = [], isLoading: loading, error: queryError } = useStoreQuery()
+  const { updateStore, addStore, removeStore } = useStoreQueryClient()
+  const error = queryError ? (queryError as Error).message : ''
+
   const [editingStore, setEditingStore] = useState<Store | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -32,10 +34,6 @@ export function StoreManagement() {
 
   useReportRouteScrollRestoration('store-management', { isLoading: loading })
   const { organization } = useOrganization()
-
-  useEffect(() => {
-    loadStores()
-  }, [])
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -51,21 +49,6 @@ export function StoreManagement() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  async function loadStores() {
-    try {
-      setLoading(true)
-      setError('')
-      const data = await storeApi.getAll()
-      setStores(data)
-    } catch (err: any) {
-      logger.error('Error loading stores:', err)
-      setError('店舗データの読み込みに失敗しました: ' + err.message)
-      setStores([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
   function openEditModal(store: Store | null) {
     setEditingStore(store)
     setIsEditModalOpen(true)
@@ -75,10 +58,10 @@ export function StoreManagement() {
     try {
       if (updatedStore.id) {
         const savedStore = await storeApi.update(updatedStore.id, updatedStore)
-        setStores(prev => prev.map(s => s.id === savedStore.id ? savedStore : s))
+        updateStore(savedStore)
       } else {
         const newStore = await storeApi.create(updatedStore)
-        setStores(prev => [...prev, newStore])
+        addStore(newStore)
       }
     } catch (err: any) {
       logger.error('Error saving store:', err)
@@ -90,7 +73,7 @@ export function StoreManagement() {
   async function handleDeleteStore(store: Store) {
     try {
       await storeApi.delete(store.id)
-      setStores(prev => prev.filter(s => s.id !== store.id))
+      removeStore(store.id)
     } catch (err: any) {
       logger.error('Error deleting store:', err)
       showToast.error('店舗の削除に失敗しました', getSafeErrorMessage(err))

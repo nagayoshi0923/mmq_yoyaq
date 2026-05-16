@@ -119,9 +119,6 @@ export function ScenarioManagement() {
     )
   }, [canEditScenarios, location.pathname, location.search, navigate])
   
-  // 新UI用のリフレッシュキー（保存後に更新をトリガー）
-  const [orgScenarioRefreshKey, setOrgScenarioRefreshKey] = useState(0)
-  
   // 組織シナリオリストからの編集（useCallbackで安定化）
   const handleEditFromOrgList = useCallback((id: string) => {
     setEditingScenarioId(id)
@@ -239,9 +236,8 @@ export function ScenarioManagement() {
   function handleCloseEditDialog() {
     setEditDialogOpen(false)
     setEditingScenarioId(null)
-    // ダイアログを閉じた時にも一覧を更新（保存後の反映漏れを防ぐ）
-    setOrgScenarioRefreshKey(prev => prev + 1)
-    // カテゴリ・作者の選択肢キャッシュも無効化
+    // 組織シナリオ一覧とオプションキャッシュを無効化
+    queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'] })
     queryClient.invalidateQueries({ queryKey: ['org-scenarios-options'] })
   }
   
@@ -507,7 +503,6 @@ export function ScenarioManagement() {
           {uiMode === 'new' ? (
             <OrganizationScenarioList
               onEdit={canEditScenarios ? handleEditFromOrgList : undefined}
-              refreshKey={orgScenarioRefreshKey}
               canEdit={canEditScenarios}
             />
           ) : ENABLE_LEGACY_SCENARIO_UI ? (
@@ -743,9 +738,7 @@ export function ScenarioManagement() {
           onScenarioChange={setEditingScenarioId}
           sortedScenarioIds={filteredAndSortedScenarios.map(s => s.id)}
           onSaved={() => {
-            // 新UIの一覧を更新
-            setOrgScenarioRefreshKey(prev => prev + 1)
-            // カテゴリ・作者の選択肢キャッシュも無効化
+            queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'] })
             queryClient.invalidateQueries({ queryKey: ['org-scenarios-options'] })
           }}
         />
