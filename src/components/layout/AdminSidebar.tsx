@@ -36,6 +36,18 @@ type NavItem = {
   subItems?: SubItem[]   // そのページにいる時だけ展開表示
 }
 
+type SidebarContentProps = {
+  slug: string
+  bookingActive: boolean
+  visibleGroups: NavGroup[]
+  isGroupOpen: (group: NavGroup) => boolean
+  isActive: (item: NavItem) => boolean
+  isSubActive: (sub: SubItem) => boolean
+  userRole: string
+  isLicAdmin: boolean
+  handleGroupClick: (group: NavGroup) => void
+}
+
 type NavGroup = {
   id: string
   label: string | null
@@ -277,133 +289,21 @@ export const AdminSidebar = memo(function AdminSidebar() {
 
   const bookingActive = isActive({ id: 'booking', label: '予約サイト', icon: Globe, path: `/${slug}`, roles: [] })
 
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full py-2">
-      {/* 予約サイト（最上部・専用スタイル） */}
-      <div className="px-2 pb-2 mb-1">
-        <Link
-          to={`/${slug}`}
-          className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-md border transition-all duration-150 ${
-            bookingActive
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-          }`}
-        >
-          <Globe className="w-4 h-4 flex-shrink-0" />
-          <span>予約サイト</span>
-        </Link>
-      </div>
-
-      <div className="mx-3 border-t border-border/40 mb-1" />
-
-      {visibleGroups.map((group, gi) => (
-        <div key={group.id}>
-          {/* グループセパレーター */}
-          {gi > 0 && group.label && (
-            <div className="mx-3 my-1 border-t border-border/40" />
-          )}
-
-          {/* カテゴリ見出し（クリックで最初のアイテムへ遷移） */}
-          {group.label && (
-            <button
-              onClick={() => handleGroupClick(group)}
-              className="w-full flex items-center justify-between px-3 pt-2 pb-1 transition-colors duration-150 group"
-            >
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 transition-colors duration-150 group-hover:text-slate-600">
-                {group.label}
-              </span>
-              <ChevronRight className={`w-3 h-3 text-slate-300 transition-all duration-200 group-hover:text-slate-500 ${
-                isGroupOpen(group) ? 'rotate-90' : 'rotate-0'
-              }`} />
-            </button>
-          )}
-
-          {/* グループアイテム — grid-rows で height:auto アニメーション */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateRows: isGroupOpen(group) ? '1fr' : '0fr',
-              opacity: isGroupOpen(group) ? 1 : 0,
-              transition: 'grid-template-rows 280ms ease-out, opacity 220ms ease-out',
-            }}
-          >
-            <div className="overflow-hidden">
-            <div
-              style={{
-                transform: isGroupOpen(group) ? 'translateY(0)' : 'translateY(-6px)',
-                transition: 'transform 280ms ease-out',
-              }}
-              className="space-y-0.5 px-2 pb-1"
-            >
-              {group.items.map(item => {
-                const active = isActive(item)
-                const showSubs = active && item.subItems && item.subItems.length > 0
-                // サブアイテムのロールフィルタリング
-                const visibleSubs = showSubs
-                  ? item.subItems!.filter(s =>
-                      !s.roles || s.roles.includes(user!.role) || (isLicAdmin && s.roles.includes('license_admin'))
-                    )
-                  : []
-                return (
-                  <div key={item.id}>
-                    <Link
-                      to={item.path}
-                      className={`relative flex items-center px-3 py-2 text-sm transition-all duration-150 ${
-                        active
-                          ? 'bg-blue-50 text-blue-700 font-medium'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 hover:translate-x-0.5'
-                      }`}
-                    >
-                      <span className="truncate">{item.label}</span>
-                      {item.badge != null && item.badge > 0 && (
-                        <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
-                          {item.badge > 99 ? '99+' : item.badge}
-                        </span>
-                      )}
-                    </Link>
-                    {/* サブアイテム（そのページにいる時だけ展開） */}
-                    {showSubs && visibleSubs.length > 0 && (
-                      <div className="ml-3 pl-2 border-l border-border/60 space-y-0.5 mt-0.5 mb-1">
-                        {visibleSubs.map(sub => {
-                          const subActive = isSubActive(sub)
-                          return (
-                            <div key={sub.id}>
-                              {sub.sectionLabel && (
-                                <p className="text-[10px] font-semibold text-muted-foreground/60 px-2 pt-2 pb-0.5 uppercase tracking-wide">
-                                  {sub.sectionLabel}
-                                </p>
-                              )}
-                              <Link
-                                to={sub.path}
-                                className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
-                                  subActive
-                                    ? 'bg-blue-50 text-blue-700 font-medium'
-                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                }`}
-                              >
-                                <span className="truncate">{sub.label}</span>
-                              </Link>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-
   return (
     <>
       {/* デスクトップサイドバー */}
       <aside className="hidden md:flex flex-col w-48 shrink-0 border-r border-border bg-background h-full overflow-y-auto">
-        <SidebarContent />
+        <SidebarContent
+          slug={slug}
+          bookingActive={bookingActive}
+          visibleGroups={visibleGroups}
+          isGroupOpen={isGroupOpen}
+          isActive={isActive}
+          isSubActive={isSubActive}
+          userRole={user!.role}
+          isLicAdmin={isLicAdmin}
+          handleGroupClick={handleGroupClick}
+        />
       </aside>
 
       {/* モバイル: ハンバーガーボタン */}
@@ -432,10 +332,145 @@ export const AdminSidebar = memo(function AdminSidebar() {
                 <X className="w-4 h-4" />
               </Button>
             </div>
-            <SidebarContent />
+            <SidebarContent
+          slug={slug}
+          bookingActive={bookingActive}
+          visibleGroups={visibleGroups}
+          isGroupOpen={isGroupOpen}
+          isActive={isActive}
+          isSubActive={isSubActive}
+          userRole={user!.role}
+          isLicAdmin={isLicAdmin}
+          handleGroupClick={handleGroupClick}
+        />
           </aside>
         </>
       )}
     </>
   )
 })
+
+// ─── 外部コンポーネント（毎レンダーで再マウントしないよう AdminSidebar の外に定義） ───
+function SidebarContent({
+  slug, bookingActive, visibleGroups,
+  isGroupOpen, isActive, isSubActive,
+  userRole, isLicAdmin, handleGroupClick,
+}: SidebarContentProps) {
+  return (
+    <div className="flex flex-col h-full py-2">
+      {/* 予約サイト（最上部・専用スタイル） */}
+      <div className="px-2 pb-2 mb-1">
+        <Link
+          to={`/${slug}`}
+          className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-md border transition-all duration-150 ${
+            bookingActive
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+          }`}
+        >
+          <Globe className="w-4 h-4 flex-shrink-0" />
+          <span>予約サイト</span>
+        </Link>
+      </div>
+
+      <div className="mx-3 border-t border-border/40 mb-1" />
+
+      {visibleGroups.map((group, gi) => (
+        <div key={group.id}>
+          {gi > 0 && group.label && (
+            <div className="mx-3 my-1 border-t border-border/40" />
+          )}
+
+          {group.label && (
+            <button
+              onClick={() => handleGroupClick(group)}
+              className="w-full flex items-center justify-between px-3 pt-2 pb-1 transition-colors duration-150 group"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 transition-colors duration-150 group-hover:text-slate-600">
+                {group.label}
+              </span>
+              <ChevronRight className={`w-3 h-3 text-slate-300 transition-all duration-200 group-hover:text-slate-500 ${
+                isGroupOpen(group) ? 'rotate-90' : 'rotate-0'
+              }`} />
+            </button>
+          )}
+
+          {/* grid-rows アニメーション（外部コンポーネントなので transition が正常に動く） */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateRows: isGroupOpen(group) ? '1fr' : '0fr',
+              opacity: isGroupOpen(group) ? 1 : 0,
+              transition: 'grid-template-rows 280ms ease-out, opacity 220ms ease-out',
+            }}
+          >
+            <div className="overflow-hidden">
+              <div
+                style={{
+                  transform: isGroupOpen(group) ? 'translateY(0)' : 'translateY(-6px)',
+                  transition: 'transform 280ms ease-out',
+                }}
+                className="space-y-0.5 px-2 pb-1"
+              >
+                {group.items.map(item => {
+                  const active = isActive(item)
+                  const showSubs = active && item.subItems && item.subItems.length > 0
+                  const visibleSubs = showSubs
+                    ? item.subItems!.filter(s =>
+                        !s.roles || s.roles.includes(userRole) || (isLicAdmin && s.roles.includes('license_admin'))
+                      )
+                    : []
+                  return (
+                    <div key={item.id}>
+                      <Link
+                        to={item.path}
+                        className={`relative flex items-center px-3 py-2 text-sm transition-all duration-150 ${
+                          active
+                            ? 'bg-blue-50 text-blue-700 font-medium'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 hover:translate-x-0.5'
+                        }`}
+                      >
+                        <span className="truncate">{item.label}</span>
+                        {item.badge != null && item.badge > 0 && (
+                          <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                            {item.badge > 99 ? '99+' : item.badge}
+                          </span>
+                        )}
+                      </Link>
+                      {showSubs && visibleSubs.length > 0 && (
+                        <div className="ml-3 pl-2 border-l border-border/60 space-y-0.5 mt-0.5 mb-1">
+                          {visibleSubs.map(sub => {
+                            const subActive = isSubActive(sub)
+                            return (
+                              <div key={sub.id}>
+                                {sub.sectionLabel && (
+                                  <p className="text-[10px] font-semibold text-muted-foreground/60 px-2 pt-2 pb-0.5 uppercase tracking-wide">
+                                    {sub.sectionLabel}
+                                  </p>
+                                )}
+                                <Link
+                                  to={sub.path}
+                                  className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
+                                    subActive
+                                      ? 'bg-blue-50 text-blue-700 font-medium'
+                                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                  }`}
+                                >
+                                  <span className="truncate">{sub.label}</span>
+                                </Link>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
