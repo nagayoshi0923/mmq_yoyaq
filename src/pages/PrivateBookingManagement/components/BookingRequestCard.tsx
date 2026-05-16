@@ -100,53 +100,49 @@ export const BookingRequestCard = ({
   
   return (
     <Card className={cn(getCardClassName(request.status), "shadow-none")}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">{request.scenario_title}</CardTitle>
+      <CardHeader className="pb-2">
+        {/* ── 1行目: タイトル + ステータス ── */}
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-base leading-snug">{request.scenario_title}</CardTitle>
           <StatusBadge status={request.status} />
         </div>
-        <div className="text-xs text-muted-foreground space-y-1 mt-2">
-          <div>予約番号: {request.reservation_number}</div>
-          <div className="flex items-center gap-2">
-            <span>申込日時: {formatDateTime(request.created_at)}</span>
-            <span className={elapsedTimeColor}>({getElapsedTime(request.created_at)})</span>
-          </div>
-          <div>
-            お客様: {request.customer_name}（
-            {formatPrivateBookingParticipantLabel(request.participant_count, request.joined_member_count)}）
-          </div>
-          {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span>希望店舗:</span>
-              {request.candidate_datetimes.requestedStores.map((store, index) => (
-                <Badge key={index} variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal text-xs">
-                  {store.storeName}
-                </Badge>
-              ))}
-            </div>
-          )}
-          {(!request.candidate_datetimes?.requestedStores || request.candidate_datetimes.requestedStores.length === 0) && (
-            <div className="text-purple-600 text-sm">
-              希望店舗: 全ての店舗（顧客希望）
-            </div>
-          )}
-          {request.scenario_player_count_range &&
-            isPlannedCountOutsideScenarioRange(
-              request.participant_count,
-              request.scenario_player_count_range
-            ) && (
-              <Alert variant="default" className="mt-2 border-amber-400 bg-amber-50 py-2 text-amber-950">
-                <AlertTitle className="text-xs font-semibold text-amber-900">
-                  参加予定人数がシナリオの人数帯と一致しません
-                </AlertTitle>
-                <AlertDescription className="text-xs text-amber-900/90">
-                  申込は <strong>{request.participant_count}名</strong> ですが、作品の推奨人数は{' '}
-                  <strong>{formatScenarioPlayerRange(request.scenario_player_count_range)}</strong>{' '}
-                  です。別作品の申込・人数の取り違えがないかご確認ください。
-                </AlertDescription>
-              </Alert>
-            )}
+
+        {/* ── 2行目: サマリー情報（スキャン用） ── */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
+          <span>#{request.reservation_number}</span>
+          <span>
+            {request.customer_name}・{formatPrivateBookingParticipantLabel(request.participant_count, request.joined_member_count)}
+          </span>
+          <span className={elapsedTimeColor}>{getElapsedTime(request.created_at)}</span>
         </div>
+
+        {/* ── 希望店舗（折り畳み） ── */}
+        {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            <span className="text-xs text-muted-foreground mr-0.5">希望店舗:</span>
+            {request.candidate_datetimes.requestedStores.map((store, index) => (
+              <Badge key={index} variant="secondary" className="bg-gray-100 text-gray-700 border-0 rounded font-normal text-xs py-0">
+                {store.storeName}
+              </Badge>
+            ))}
+          </div>
+        )}
+        {request.scenario_player_count_range &&
+          isPlannedCountOutsideScenarioRange(
+            request.participant_count,
+            request.scenario_player_count_range
+          ) && (
+            <Alert variant="default" className="mt-2 border-amber-400 bg-amber-50 py-2 text-amber-950">
+              <AlertTitle className="text-xs font-semibold text-amber-900">
+                参加予定人数がシナリオの人数帯と一致しません
+              </AlertTitle>
+              <AlertDescription className="text-xs text-amber-900/90">
+                申込は <strong>{request.participant_count}名</strong> ですが、推奨人数は{' '}
+                <strong>{formatScenarioPlayerRange(request.scenario_player_count_range)}</strong>{' '}
+                です。
+              </AlertDescription>
+            </Alert>
+          )}
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
@@ -201,24 +197,10 @@ export const BookingRequestCard = ({
 
           {/* 候補日時表示 */}
           <div>
-            <p className="text-sm font-medium mb-2 text-purple-800">
-              お客様希望候補日時
-              {request.status === 'confirmed' ? '（確定済み）' : 
-               (request.status === 'gm_confirmed' || request.status === 'pending_store') ? '（GM回答済み・店舗確認待ち）' : 
-               (request.status === 'pending' || request.status === 'pending_gm') ? '（GM回答待ち）' :
-               ''}
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              候補日時
             </p>
-            {(request.status === 'pending' || request.status === 'pending_gm') && (
-              <p className="text-xs text-gray-500 mb-2">
-                ○ = GMからの回答待ち
-              </p>
-            )}
-            {(request.status === 'gm_confirmed' || request.status === 'pending_store' || request.status === 'confirmed') && (
-              <p className="text-xs text-purple-600 mb-2">
-                ✓ = GMが出勤可能と回答 ・ ✗ = 出勤不可
-              </p>
-            )}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {request.candidate_datetimes?.candidates?.map((candidate) => {
                 // GMが回答した候補かどうかをチェック
                 const isGMSelected = request.gm_responses?.some((response) =>
@@ -233,37 +215,25 @@ export const BookingRequestCard = ({
                 return (
                 <div
                   key={candidate.order}
-                  className={`flex items-center gap-3 p-3 rounded border ${
-                    isConfirmed && isGMSelected ? 'bg-green-50 border-green-300' :
-                    isGMResponded && isGMSelected ? 'bg-purple-50 border-purple-300' :
-                    isWaitingForGM ? 'bg-gray-50 border-gray-200' :
-                    'bg-gray-50 border-gray-300'
+                  className={`flex items-center gap-2 px-3 py-2 rounded text-sm ${
+                    isConfirmed && isGMSelected ? 'bg-green-50 border border-green-200' :
+                    isGMResponded && isGMSelected ? 'bg-purple-50 border border-purple-200' :
+                    isWaitingForGM ? 'bg-gray-50 border border-gray-200' :
+                    'bg-gray-50 border border-gray-200 opacity-60'
                   }`}
                 >
                   {isConfirmed && isGMSelected ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
                   ) : isGMResponded && isGMSelected ? (
-                    <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                    <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
                   ) : isWaitingForGM ? (
-                    <CircleDashed className="w-5 h-5 text-gray-400" />
+                    <CircleDashed className="w-4 h-4 text-gray-400 shrink-0" />
                   ) : (
-                    <XCircle className="w-5 h-5 text-red-600" />
+                    <XCircle className="w-4 h-4 text-red-400 shrink-0" />
                   )}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal">
-                        候補{candidate.order}
-                      </Badge>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span className="">{formatDate(candidate.date)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                        <span>{candidate.timeSlot} {candidate.startTime} - {candidate.endTime}</span>
-                      </div>
-                    </div>
-                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">候補{candidate.order}</span>
+                  <span className="font-medium">{formatDate(candidate.date)}</span>
+                  <span className="text-muted-foreground">{candidate.timeSlot} {candidate.startTime}–{candidate.endTime}</span>
                 </div>
                 )
               })}

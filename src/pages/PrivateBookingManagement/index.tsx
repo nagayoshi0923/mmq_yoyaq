@@ -571,12 +571,17 @@ export function PrivateBookingManagement() {
             }
           }}
         >
-          <DialogContent size="lg" className="max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-base sm:text-lg pr-6">リクエスト詳細 - {selectedRequest?.scenario_title}</DialogTitle>
+          <DialogContent size="xl" className="flex flex-col p-0 gap-0 overflow-hidden max-h-[90vh]">
+            {/* ── 固定ヘッダー ── */}
+            <DialogHeader className="px-5 py-3 border-b shrink-0">
+              <DialogTitle className="text-base sm:text-lg pr-6">
+                {selectedRequest?.scenario_title}
+              </DialogTitle>
             </DialogHeader>
-            {selectedRequest && (
-              <div className="space-y-3">
+
+            {selectedRequest && (<>
+            {/* ── スクロール可能なコンテンツ領域 ── */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
               <CustomerInfo request={selectedRequest} />
               
               {/* アンケート回答閲覧 */}
@@ -818,48 +823,49 @@ export function PrivateBookingManagement() {
                 )}
               </div>
 
-              <div className="pt-3 border-t">
-                <ActionButtons
-                  onApprove={async () => {
-                    // 既に確定済みの場合のみ確認ダイアログを表示（gm_confirmedはGM回答済みだが未承認のため除外）
-                    if (selectedRequest.status === 'confirmed') {
-                      const confirmed = window.confirm('この予約は既に承認済みです。内容を変更しますか？\n\n変更すると、お客様に再度確定メールが送信されます。')
-                      if (!confirmed) return
-                    }
-                    const needTwoGms = (selectedRequest.required_gm_count ?? 1) >= 2
-                    const result = await handleApprove(
-                      selectedRequest.id,
-                      selectedRequest,
-                      selectedGMId,
-                      needTwoGms ? selectedSubGmId : null,
-                      selectedStoreId,
-                      selectedCandidateOrder,
-                      stores
-                    )
-                    if (result && !result.success && result.error) {
-                      showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
-                    }
-                  }}
-                  onReject={() => handleRejectClick(selectedRequest.id)}
-                  onCancel={() => {
-                    setSelectedRequest(null)
-                    setSelectedGMId('')
-                    setSelectedSubGmId('')
-                    setSelectedStoreId('')
-                    setSelectedCandidateOrder(null)
-                  }}
-                  disabled={
-                    submitting ||
-                    !selectedGMId ||
-                    !selectedStoreId ||
-                    !selectedCandidateOrder ||
-                    ((selectedRequest.required_gm_count ?? 1) >= 2 && !selectedSubGmId)
-                  }
-                  submitting={submitting}
-                />
-              </div>
             </div>
-            )}
+
+            {/* ── 固定フッター（承認ボタンは常に表示） ── */}
+            <div className="shrink-0 border-t bg-background px-5 py-3">
+              <ActionButtons
+                onApprove={async () => {
+                  if (selectedRequest.status === 'confirmed') {
+                    const confirmed = window.confirm('この予約は既に承認済みです。内容を変更しますか？\n\n変更すると、お客様に再度確定メールが送信されます。')
+                    if (!confirmed) return
+                  }
+                  const needTwoGms = (selectedRequest.required_gm_count ?? 1) >= 2
+                  const result = await handleApprove(
+                    selectedRequest.id,
+                    selectedRequest,
+                    selectedGMId,
+                    needTwoGms ? selectedSubGmId : null,
+                    selectedStoreId,
+                    selectedCandidateOrder,
+                    stores
+                  )
+                  if (result && !result.success && result.error) {
+                    showToast.error(getSafeErrorMessage(result.error, '処理に失敗しました'))
+                  }
+                }}
+                onReject={() => handleRejectClick(selectedRequest.id)}
+                onCancel={() => {
+                  setSelectedRequest(null)
+                  setSelectedGMId('')
+                  setSelectedSubGmId('')
+                  setSelectedStoreId('')
+                  setSelectedCandidateOrder(null)
+                }}
+                disabled={
+                  submitting ||
+                  !selectedGMId ||
+                  !selectedStoreId ||
+                  !selectedCandidateOrder ||
+                  ((selectedRequest.required_gm_count ?? 1) >= 2 && !selectedSubGmId)
+                }
+                submitting={submitting}
+              />
+            </div>
+            </>)}
           </DialogContent>
         </Dialog>
 
