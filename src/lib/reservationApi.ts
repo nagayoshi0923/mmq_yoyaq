@@ -822,18 +822,18 @@ export const reservationApi = {
         // キャンセル待ち通知を送信
         const orgIdForWaitlist = reservation.organization_id || scheduleEvent?.organization_id
         if (reservation.schedule_event_id && orgIdForWaitlist) {
-          // 組織のslugを取得（tryの外で定義してcatchでも使えるようにする）
-          let orgSlug = 'queens-waltz'
+          // 組織のslugを取得（bookingUrlはサーバー側で生成するため参照のみ）
+          let orgSlug = ''
           try {
             const { data: org } = await supabase
               .from('organizations')
               .select('slug')
               .eq('id', orgIdForWaitlist)
               .single()
-            
-            orgSlug = org?.slug || 'queens-waltz'
+
+            orgSlug = org?.slug || ''
           } catch (orgError) {
-            logger.warn('組織slug取得エラー、デフォルト値を使用:', orgError)
+            logger.warn('組織slug取得エラー:', orgError)
           }
           
           // 🔒 SEC-P0-03対策: bookingUrl はサーバー側で生成（送信しない）

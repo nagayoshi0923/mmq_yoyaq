@@ -2092,7 +2092,7 @@ export function PrivateGroupInvite() {
                               .eq('id', group.organization_id)
                               .single()
                             
-                            const toEmail = org?.contact_email || 'info@queens-waltz.com'
+                            const toEmail = org?.contact_email || ''
                             const subject = encodeURIComponent(`【貸切予約のお問い合わせ】${group.invite_code}`)
                             const body = encodeURIComponent(`${contactMessage}\n\n---\n返信先: ${replyEmail}`)
                             

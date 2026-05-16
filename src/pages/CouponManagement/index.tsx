@@ -56,7 +56,7 @@ export function CouponManagement() {
   }, [loadCampaigns])
 
   const handlePageChange = useCallback((pageId: string) => {
-    const slug = organization?.slug || 'queens-waltz'
+    const slug = organization?.slug || ''
     if (pageId === 'mypage' || pageId === 'my-page') {
       navigate('/mypage')
     } else {

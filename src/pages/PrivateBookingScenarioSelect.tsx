@@ -174,7 +174,7 @@ export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookin
     
     // 貸切リクエスト確認ページへ遷移（組織slugがあれば予約サイト形式）
     // 複数店舗はカンマ区切りで渡す
-    const basePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
+    const basePath = organizationSlug ? `/${organizationSlug}` : ''
     const storeParam = selectedStoreIds.join(',')
     saveScrollPositionForCurrentUrl()
     navigate(

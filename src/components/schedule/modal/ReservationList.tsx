@@ -625,7 +625,7 @@ ${content.organizationName || '店舗'}
               .eq('id', cancelOrgId)
               .single()
             
-            const orgSlug = org?.slug || 'queens-waltz'
+            const orgSlug = org?.slug || ''
             const bookingUrl = `${window.location.origin}/${orgSlug}`
             
             await supabase.functions.invoke('notify-waitlist', {
@@ -1501,7 +1501,7 @@ ${content.organizationName || '店舗'}
                                         .eq('id', orgId)
                                         .single()
                                       
-                                      const orgSlug = org?.slug || 'queens-waltz'
+                                      const orgSlug = org?.slug || ''
                                       const bookingUrl = `${window.location.origin}/${orgSlug}`
                                       
                                       await supabase.functions.invoke('notify-waitlist', {

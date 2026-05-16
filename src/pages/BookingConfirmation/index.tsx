@@ -55,7 +55,7 @@ export function BookingConfirmation({
 }: BookingConfirmationProps) {
   const navigate = useNavigate()
   // 予約サイトのベースパス
-  const bookingBasePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
+  const bookingBasePath = organizationSlug ? `/${organizationSlug}` : ''
   const { user } = useAuth()
   const availableSeats = getAvailableSeats({ max_participants: maxParticipants, current_participants: currentParticipants })
 
