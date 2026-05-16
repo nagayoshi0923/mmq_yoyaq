@@ -16,8 +16,8 @@ import { getCurrentOrganizationId, isMissingColumnOrSchemaSelectError } from '@/
 import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import {
-  Search, Plus, Edit, Trash2, Clock, Users, JapaneseYen, 
-  AlertTriangle, RefreshCw, Filter, X
+  Search, Plus, Edit, Trash2, Clock, Users, JapaneseYen,
+  AlertTriangle, Filter, X
 } from 'lucide-react'
 import {
   Select,
@@ -1217,18 +1217,6 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
                 </Button>
               ))}
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => fetchScenarios(true)}>
-              <RefreshCw className="w-4 h-4 mr-1" />
-              更新
-            </Button>
-            {canEdit && (
-              <Button size="sm" onClick={() => setAddDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-1" />
-                マスタから追加
-              </Button>
-            )}
           </div>
         </div>
 
