@@ -132,6 +132,10 @@ export interface DataTableProps<T> {
    * 指定するとリロード後もカラム順序が維持される
    */
   columnOrderKey?: string
+  /**
+   * trueにすると行高が固定でなくコンテンツに合わせて伸縮する（min-h 使用）
+   */
+  autoRowHeight?: boolean
 }
 
 /**
@@ -224,7 +228,8 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
   stickyHeader = false,
   stickyHeaderContent,
   enableColumnReorder = false,
-  columnOrderKey
+  columnOrderKey,
+  autoRowHeight = false
 }: DataTableProps<T>) {
   // ヘルプテキスト付きヘッダーをレンダリングする関数
   const renderHeaderWithHelp = (col: Column<T>) => {
@@ -531,7 +536,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
             {table.getRowModel().rows.map((row, index) => (
               <div 
                 key={getRowKey(row.original)}
-                className={`flex items-stretch h-[40px] sm:h-[45px] md:h-[50px] border-b border-gray-200 last:border-b-0 hover:bg-gray-50 min-w-max ${
+                className={`flex items-stretch ${autoRowHeight ? 'min-h-[40px] sm:min-h-[45px] md:min-h-[50px]' : 'h-[40px] sm:h-[45px] md:h-[50px]'} border-b border-gray-200 last:border-b-0 hover:bg-gray-50 min-w-max ${
                   index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                 }`}
               >

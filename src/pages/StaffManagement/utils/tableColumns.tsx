@@ -171,13 +171,16 @@ export function createStaffColumns(
       helpText:
         '上段＝メインGM可または両方（青・紫）、下段「サブのみ」＝サブGMのみ対応（水色）。staff_scenario_assignments に準じます。',
       sortable: true,
-      width: 'w-48',
+      width: 'w-56',
       render: (staff) => {
         if (!staff.special_scenarios || staff.special_scenarios.length === 0) {
           return <span className="text-[10px] text-muted-foreground">-</span>
         }
 
-        const truncate = (name: string, max = 10) =>
+        // 3行に収まる目安（列幅 w-56=224px、バッジ平均80px → 1行約2〜3個 → 3行で6〜9個）
+        const ROW_LIMIT = 6
+
+        const truncate = (name: string, max = 11) =>
           name.length > max ? name.slice(0, max) + '…' : name
 
         const playerCountMin = (scenarioId: string) => getScenario(scenarioId)?.player_count_min ?? 999
@@ -198,8 +201,13 @@ export function createStaffColumns(
         const subOnlyIds = sortByPlayerCount(allScenarios.filter((id) => modes?.[id] === 'sub_only'))
         const mainLineIds = sortByPlayerCount(allScenarios.filter((id) => modes?.[id] !== 'sub_only'))
 
+        // 表示上限を適用し、はみ出た分を +N バッジで示す
+        const visibleMain = mainLineIds.slice(0, ROW_LIMIT)
+        const visibleSub = subOnlyIds.slice(0, Math.max(0, ROW_LIMIT - visibleMain.length))
+        const hiddenCount = allScenarios.length - visibleMain.length - visibleSub.length
+
         const badgeRow = (scenarioIds: string[]) => (
-          <div className="flex flex-wrap gap-0.5 min-w-0 overflow-hidden">
+          <div className="flex flex-wrap gap-1">
             {scenarioIds.map((scenarioId) => {
               const mode = modes?.[scenarioId]
               const count = playerCountLabel(scenarioId)
@@ -230,38 +238,33 @@ export function createStaffColumns(
         return (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="cursor-default max-h-[4.5rem] overflow-hidden flex flex-col gap-1 min-w-0 w-full">
-                {mainLineIds.length > 0 ? badgeRow(mainLineIds) : null}
-                {subOnlyIds.length > 0 ? (
-                  <div
-                    className={`flex flex-col gap-0.5 min-w-0 ${
-                      mainLineIds.length > 0 ? 'border-t border-border/60 pt-1' : ''
-                    }`}
-                  >
-                    <span className="text-[9px] text-muted-foreground font-semibold tracking-tight leading-none">
-                      サブのみ
-                    </span>
-                    {badgeRow(subOnlyIds)}
+              <div className="cursor-default flex flex-col gap-1 w-full py-0.5">
+                {visibleMain.length > 0 ? badgeRow(visibleMain) : null}
+                {visibleSub.length > 0 ? (
+                  <div className={`flex flex-col gap-0.5 ${visibleMain.length > 0 ? 'border-t border-border/60 pt-1' : ''}`}>
+                    <span className="text-[9px] text-muted-foreground font-semibold tracking-tight leading-none">サブのみ</span>
+                    {badgeRow(visibleSub)}
                   </div>
                 ) : null}
+                {hiddenCount > 0 && (
+                  <span className="text-[10px] text-muted-foreground">+{hiddenCount}件</span>
+                )}
               </div>
             </TooltipTrigger>
             <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5 max-h-64 overflow-y-auto max-w-xs">
               <div className="flex flex-col gap-1">
-                {mainLineIds.length > 0 ? (
+                {mainLineIds.length > 0 && (
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[10px] text-gray-400 font-medium">メイン可・両方</span>
                     {tooltipLines(mainLineIds)}
                   </div>
-                ) : null}
-                {subOnlyIds.length > 0 ? (
+                )}
+                {subOnlyIds.length > 0 && (
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] text-teal-300/90 font-medium">
-                      サブGMのみ
-                    </span>
+                    <span className="text-[10px] text-teal-300/90 font-medium">サブGMのみ</span>
                     {tooltipLines(subOnlyIds)}
                   </div>
-                ) : null}
+                )}
               </div>
             </TooltipContent>
           </Tooltip>
@@ -279,29 +282,36 @@ export function createStaffColumns(
           return <span className="text-[10px] text-muted-foreground">-</span>
         }
 
-        const truncate = (name: string, max = 10) => 
+        const ROW_LIMIT = 6
+        const visible = experiencedScenarios.slice(0, ROW_LIMIT)
+        const hiddenCount = experiencedScenarios.length - visible.length
+
+        const truncate = (name: string, max = 11) =>
           name.length > max ? name.slice(0, max) + '…' : name
-        
+
         return (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="cursor-default max-h-[2.2rem] overflow-hidden">
-                <div className="flex flex-wrap gap-0.5">
-                  {experiencedScenarios.map((scenarioId: string, index: number) => (
-                    <span 
-                      key={index} 
+              <div className="cursor-default w-full py-0.5">
+                <div className="flex flex-wrap gap-1">
+                  {visible.map((scenarioId: string, index: number) => (
+                    <span
+                      key={index}
                       className="text-[10px] px-1 py-0 bg-green-50 text-green-700 rounded-sm border border-green-200"
                     >
                       {truncate(getScenarioName(scenarioId))}
                     </span>
                   ))}
+                  {hiddenCount > 0 && (
+                    <span className="text-[10px] text-muted-foreground">+{hiddenCount}件</span>
+                  )}
                 </div>
               </div>
             </TooltipTrigger>
             <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5 max-h-64 overflow-y-auto">
               <div className="flex flex-col gap-0.5">
                 {experiencedScenarios.map((scenarioId: string, index: number) => (
-                  <span key={index} className="text-xs">{getScenarioName(scenarioId)}</span>
+                  <span key={index} className="text-xs">・{getScenarioName(scenarioId)}</span>
                 ))}
               </div>
             </TooltipContent>
