@@ -381,6 +381,18 @@ export function ManualPage() {
   // エディターモード
   const [editorMode, setEditorMode] = useState<EditorMode>({ type: 'view' })
 
+  // URL の ?tab= / ?action= が外部ナビゲーション（AdminSidebar等）で変わったときに同期
+  useEffect(() => {
+    if (searchParams.get('action') === 'new') {
+      setEditorMode({ type: 'new' })
+      return
+    }
+    const resolved = resolveTab(searchParams.get('tab'))
+    setActiveTab(resolved)
+    setEditorMode({ type: 'view' })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   const handleTabChange = (id: string) => {
     setActiveTab(id)
     setSearchParams({ tab: id }, { replace: true })
@@ -468,18 +480,6 @@ export function ManualPage() {
   return (
     <AppLayout
       currentPage="manual"
-      sidebar={
-        <ManualSidebar
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-          dbStaffPages={dbStaffPages}
-          dbAdminPages={dbAdminPages}
-          isAdmin={isAdmin}
-          onNewPage={() => setEditorMode({ type: 'new' })}
-          onEditPage={pageId => setEditorMode({ type: 'edit', pageId })}
-          blockBasedSlugs={blockBasedSlugs}
-        />
-      }
       maxWidth="max-w-[1440px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}

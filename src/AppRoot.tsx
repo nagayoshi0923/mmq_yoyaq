@@ -109,6 +109,7 @@ const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
   'complete-profile',
   'coupon-present',
   'register',
+  'start',
   'about',
   'accept-invitation',
   'author-dashboard',
@@ -323,7 +324,7 @@ function AppRoutes() {
     // /complete-profile 自体はスキップ（無限ループ防止）
     const isCompleteProfilePage = location.pathname === '/complete-profile'
     // 認証フローページにいるログイン済み顧客はプロフィールゲート対象外（ループ防止）
-    const isAuthPage = ['/signup', '/login', '/register', '/reset-password', '/set-password'].includes(location.pathname)
+    const isAuthPage = ['/signup', '/login', '/register', '/start', '/reset-password', '/set-password'].includes(location.pathname)
     // 招待リンクはゲスト向けのため、ログイン済みでもプロフィールゲート対象外
     const isInvitePage = location.pathname.startsWith('/group/invite/')
 

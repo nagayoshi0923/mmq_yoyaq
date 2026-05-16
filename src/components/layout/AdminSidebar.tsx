@@ -14,7 +14,7 @@ import {
   CalendarDays, Users, BookOpen, TrendingUp, CalendarClock, Settings,
   ClipboardCheck, UserCog, Store, HelpCircle, Globe, LayoutDashboard,
   UserCircle, UserCheck, Ticket, FileCheck, Shield, Gift, FileText,
-  Mail, Building2, ChevronDown, ChevronRight, Menu, X,
+  Mail, Building2, ChevronDown, ChevronRight, Menu, X, Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -33,7 +33,8 @@ type NavItem = {
   path: string
   roles: string[]
   badge?: number
-  subItems?: SubItem[]   // そのページにいる時だけ展開表示
+  subItems?: SubItem[]
+  sectionLabel?: string  // グループ内でこのアイテムの直前にセクションヘッダーを表示
 }
 
 type SidebarContentProps = {
@@ -134,7 +135,34 @@ export const AdminSidebar = memo(function AdminSidebar() {
       items: [
         { id: 'scenarios', label: 'シナリオ', icon: BookOpen, path: `/${slug}/scenarios`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'blog',      label: 'ブログ',   icon: FileText, path: `/${slug}/blog`,      roles: ['admin', 'license_admin'] },
-        { id: 'manual',    label: 'マニュアル', icon: HelpCircle, path: `/${slug}/manual`, roles: ['admin', 'staff', 'license_admin'] },
+      ],
+    },
+    {
+      id: 'manual-category',
+      label: 'マニュアル',
+      icon: HelpCircle,
+      items: [
+        {
+          id: 'manual-common', label: '共通マニュアル', icon: HelpCircle,
+          path: `/${slug}/manual?tab=checkin`, roles: ['admin', 'staff', 'license_admin'],
+          subItems: [
+            { id: 'manual-checkin',            label: '受付・チェックイン',    path: `/${slug}/manual?tab=checkin` },
+            { id: 'manual-pre-reading-survey', label: '事前アンケート・配役',  path: `/${slug}/manual?tab=pre-reading-survey` },
+            { id: 'manual-coupon-reception',   label: 'クーポン受付対応',      path: `/${slug}/manual?tab=coupon-reception` },
+            { id: 'manual-coupon-types',       label: 'クーポン・チケット種類', path: `/${slug}/manual?tab=coupon-types` },
+          ],
+        },
+        {
+          id: 'manual-admin', label: '運営', icon: HelpCircle,
+          path: `/${slug}/manual?tab=reservation`, roles: ['admin', 'license_admin'],
+          subItems: [
+            { id: 'manual-reservation', label: '予約管理',             path: `/${slug}/manual?tab=reservation` },
+            { id: 'manual-staff-item',  label: 'スタッフ管理',         path: `/${slug}/manual?tab=staff` },
+            { id: 'manual-schedule',    label: 'シフト・スケジュール', path: `/${slug}/manual?tab=schedule` },
+            { id: 'manual-coupon',      label: 'クーポン管理',         path: `/${slug}/manual?tab=coupon` },
+          ],
+        },
+        { id: 'manual-new', label: '新規作成', icon: Plus, path: `/${slug}/manual?action=new`, roles: ['admin'] },
       ],
     },
     {
@@ -243,9 +271,16 @@ export const AdminSidebar = memo(function AdminSidebar() {
       )
     }
     const [basePath, query] = item.path.split('?')
+    const currentTab = new URLSearchParams(search).get('tab')
+    // subItems のいずれかのタブがアクティブなら親も active とみなす
+    if (item.subItems && pathname === basePath) {
+      if (item.subItems.some(sub => {
+        const [, subQuery] = sub.path.split('?')
+        return subQuery && new URLSearchParams(subQuery).get('tab') === currentTab
+      })) return true
+    }
     if (query) {
       const tabParam = new URLSearchParams(query).get('tab')
-      const currentTab = new URLSearchParams(search).get('tab')
       return pathname === basePath && currentTab === tabParam
     }
     return pathname === basePath || pathname.startsWith(basePath + '/')
@@ -390,6 +425,11 @@ function GroupPanel({
             : []
           return (
             <div key={item.id}>
+              {item.sectionLabel && (
+                <p className="text-[10px] font-semibold text-muted-foreground/60 px-3 pt-2 pb-0.5 uppercase tracking-wide">
+                  {item.sectionLabel}
+                </p>
+              )}
               <Link
                 to={item.path}
                 className={`relative flex items-center px-3 py-2 text-sm transition-all duration-150 ${
