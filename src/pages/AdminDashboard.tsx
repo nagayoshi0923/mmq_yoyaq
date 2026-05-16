@@ -266,7 +266,7 @@ export function AdminDashboard() {
   const location = useLocation()
   const navigate = useNavigate()
   const { organization } = useOrganization()
-  const { prefetchSchedule } = usePrefetch()
+  const { prefetchSchedule, prefetchAdminPages } = usePrefetch()
 
   // パスを解析（毎回解析することでURLと表示を同期）
   const { page: currentPage, scenarioId: currentScenarioId, organizationSlug: pathOrganizationSlug } = parsePath(location.pathname)
@@ -283,6 +283,8 @@ export function AdminDashboard() {
       prefetchSchedule(now)
       prefetchSchedule(new Date(now.getFullYear(), now.getMonth() - 1, 1))
       prefetchSchedule(new Date(now.getFullYear(), now.getMonth() + 1, 1))
+      // スタッフ管理・シナリオ管理のマスターデータを先読み
+      prefetchAdminPages()
     }
     if (typeof requestIdleCallback !== 'undefined') {
       const id = requestIdleCallback(run, { timeout: 5000 })
