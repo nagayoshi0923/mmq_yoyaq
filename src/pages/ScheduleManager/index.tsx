@@ -184,7 +184,14 @@ export function ScheduleManager() {
       })
     }
 
-    const ro = new ResizeObserver(syncColWidths)
+    // ウィンドウリサイズ時に連続発火しないよう debounce
+    let rafId: number
+    const debouncedSync = () => {
+      cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(syncColWidths)
+    }
+
+    const ro = new ResizeObserver(debouncedSync)
     ro.observe(tableScroll)
 
     // テーブルの行が描画されるまで少し待つ
@@ -193,6 +200,7 @@ export function ScheduleManager() {
     return () => {
       tableScroll.removeEventListener('scroll', onScroll)
       ro.disconnect()
+      cancelAnimationFrame(rafId)
       clearTimeout(timer)
     }
   }, [])
