@@ -6,7 +6,8 @@
  */
 import { logger } from '@/utils/logger'
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,9 +33,14 @@ import { toast } from 'sonner'
 
 type Step = 'organization' | 'admin' | 'confirm' | 'complete'
 
-const STEPS: { id: Exclude<Step, 'complete'>; label: string }[] = [
+const STEPS_NEW: { id: Exclude<Step, 'complete'>; label: string }[] = [
   { id: 'organization', label: '組織情報' },
   { id: 'admin', label: '管理者アカウント' },
+  { id: 'confirm', label: '確認' },
+]
+
+const STEPS_EXISTING: { id: Exclude<Step, 'complete'>; label: string }[] = [
+  { id: 'organization', label: '組織情報' },
   { id: 'confirm', label: '確認' },
 ]
 
@@ -64,6 +70,11 @@ const BENEFITS = [
 export default function OrgSignup() {
   const [searchParams] = useSearchParams()
   const selectedPlan = searchParams.get('plan') ?? 'free'
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const isLoggedIn = !!user
+
+  const STEPS = isLoggedIn ? STEPS_EXISTING : STEPS_NEW
 
   const [currentStep, setCurrentStep] = useState<Step>('organization')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -107,14 +118,18 @@ export default function OrgSignup() {
   }
 
   const handleNext = () => {
-    if (currentStep === 'organization' && validateOrganization()) setCurrentStep('admin')
-    else if (currentStep === 'admin' && validateAdmin()) setCurrentStep('confirm')
+    if (currentStep === 'organization' && validateOrganization()) {
+      // ログイン済みの場合は admin ステップをスキップ
+      setCurrentStep(isLoggedIn ? 'confirm' : 'admin')
+    } else if (currentStep === 'admin' && validateAdmin()) {
+      setCurrentStep('confirm')
+    }
   }
 
   const handleBack = () => {
     setError(null)
     if (currentStep === 'admin') setCurrentStep('organization')
-    else if (currentStep === 'confirm') setCurrentStep('admin')
+    else if (currentStep === 'confirm') setCurrentStep(isLoggedIn ? 'organization' : 'admin')
   }
 
   // 組織をロールバック（RPC経由で作成した場合）
@@ -142,7 +157,7 @@ export default function OrgSignup() {
         {
           p_name:          orgData.name.trim(),
           p_slug:          orgData.slug.trim(),
-          p_contact_email: orgData.contact_email.trim() || adminData.email.trim(),
+          p_contact_email: orgData.contact_email.trim() || (isLoggedIn ? user?.email ?? '' : adminData.email.trim()),
         }
       )
 
@@ -151,28 +166,44 @@ export default function OrgSignup() {
 
       createdOrgId = newOrg.id
 
-      // 2. signUp に user_metadata を渡す
-      //    handle_new_user トリガーが users + staff レコードを自動作成する
-      const { error: authError } = await supabase.auth.signUp({
-        email: adminData.email.trim(),
-        password: adminData.password,
-        options: {
-          data: {
-            organization_id: newOrg.id,
-            invited_as:      'admin',
-            admin_name:      adminData.name.trim(),
+      if (isLoggedIn) {
+        // ── ログイン済みパス: 既存アカウントを admin に昇格 ──
+        const { error: claimError } = await supabase.rpc('claim_organization_as_admin', {
+          p_org_id:     newOrg.id,
+          p_admin_name: user?.email ?? '',
+        })
+        if (claimError) {
+          if (createdOrgId) await rollbackOrganization(createdOrgId)
+          throw claimError
+        }
+        setCurrentStep('complete')
+        toast.success('組織を登録しました！')
+        // セッションのロール変更を反映するためリロード
+        setTimeout(() => navigate(`/${newOrg.slug}/dashboard`), 1500)
+      } else {
+        // ── 新規アカウントパス: signUp に user_metadata を渡す ──
+        //    handle_new_user トリガーが users + staff レコードを自動作成する
+        const { error: authError } = await supabase.auth.signUp({
+          email: adminData.email.trim(),
+          password: adminData.password,
+          options: {
+            data: {
+              organization_id: newOrg.id,
+              invited_as:      'admin',
+              admin_name:      adminData.name.trim(),
+            },
           },
-        },
-      })
+        })
 
-      if (authError) {
-        if (createdOrgId) await rollbackOrganization(createdOrgId)
-        throw authError
+        if (authError) {
+          if (createdOrgId) await rollbackOrganization(createdOrgId)
+          throw authError
+        }
+
+        // users / staff の手動INSERT は不要（トリガーが処理する）
+        setCurrentStep('complete')
+        toast.success('組織を登録しました！確認メールをご確認ください。')
       }
-
-      // 3. users / staff の手動INSERT は不要（トリガーが処理する）
-      setCurrentStep('complete')
-      toast.success('組織を登録しました！確認メールをご確認ください。')
     } catch (err: unknown) {
       logger.error('Registration failed:', err)
       const msg = err instanceof Error ? err.message : '登録に失敗しました'
@@ -202,10 +233,16 @@ export default function OrgSignup() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">登録完了！</h1>
-            <p className="text-gray-500 text-sm leading-relaxed">
-              確認メールを <span className="font-medium text-gray-700">{adminData.email}</span> に送信しました。<br />
-              メールのリンクをクリックしてアカウントを有効化してください。
-            </p>
+            {isLoggedIn ? (
+              <p className="text-gray-500 text-sm leading-relaxed">
+                ダッシュボードに移動しています…
+              </p>
+            ) : (
+              <p className="text-gray-500 text-sm leading-relaxed">
+                確認メールを <span className="font-medium text-gray-700">{adminData.email}</span> に送信しました。<br />
+                メールのリンクをクリックしてアカウントを有効化してください。
+              </p>
+            )}
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-4 text-left space-y-2 text-sm">
             <div className="flex justify-between">
@@ -271,12 +308,14 @@ export default function OrgSignup() {
           </ul>
         </div>
 
-        <p className="text-white/30 text-xs">
-          既存のアカウントをお持ちの方は{' '}
-          <Link to="/login" className="text-white/60 hover:text-white underline">
-            こちらからログイン
-          </Link>
-        </p>
+        {!isLoggedIn && (
+          <p className="text-white/30 text-xs">
+            既存のアカウントをお持ちの方は{' '}
+            <Link to={`/login?next=${encodeURIComponent('/start')}`} className="text-white/60 hover:text-white underline">
+              こちらからログイン
+            </Link>
+          </p>
+        )}
       </div>
 
       {/* ── 右パネル：フォームエリア ── */}
@@ -535,10 +574,12 @@ export default function OrgSignup() {
             </div>
           )}
 
-          <p className="text-xs text-center text-gray-400 mt-6">
-            既にアカウントをお持ちの方は{' '}
-            <Link to="/login" className="text-gray-600 hover:underline">ログイン</Link>
-          </p>
+          {!isLoggedIn && (
+            <p className="text-xs text-center text-gray-400 mt-6">
+              既にアカウントをお持ちの方は{' '}
+              <Link to={`/login?next=${encodeURIComponent('/start')}`} className="text-gray-600 hover:underline">ログイン</Link>
+            </p>
+          )}
         </form>
       </div>
     </div>
