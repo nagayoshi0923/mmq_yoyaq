@@ -1243,7 +1243,7 @@ export const scheduleApi = {
             
             const demoReservation = {
               schedule_event_id: event.id,
-              organization_id: event.organization_id || 'a0000000-0000-0000-0000-000000000001',
+              organization_id: event.organization_id,
               title: event.scenario || scenarioMaster?.title || '',
               scenario_master_id: event.scenario_master_id,
               store_id: event.store_id || null,
