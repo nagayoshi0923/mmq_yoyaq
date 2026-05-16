@@ -86,14 +86,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
       items: [
         { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, path: `/${slug}/dashboard`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'booking', label: '予約サイト', icon: Globe, path: `/${slug}`, roles: ['admin', 'staff', 'license_admin'] },
-      ],
-    },
-    {
-      id: 'schedule',
-      label: 'スケジュール',
-      icon: CalendarDays,
-      defaultOpen: true,
-      items: [
         { id: 'schedule', label: 'スケジュール', icon: CalendarDays, path: `/${slug}/schedule`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'shift-submission', label: 'シフト提出', icon: CalendarClock, path: `/${slug}/shift-submission`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'gm-availability', label: 'GM確認', icon: UserCheck, path: `/${slug}/gm-availability`, roles: ['admin', 'staff', 'license_admin'] },
@@ -204,10 +196,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
               onClick={() => toggleGroup(group.id)}
               className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
             >
-              <div className="flex items-center gap-1.5">
-                {group.icon && <group.icon className="w-3.5 h-3.5" />}
-                {group.label}
-              </div>
+              <span>{group.label}</span>
               {openGroups[group.id]
                 ? <ChevronDown className="w-3 h-3" />
                 : <ChevronRight className="w-3 h-3" />
@@ -220,18 +209,16 @@ export const AdminSidebar = memo(function AdminSidebar() {
             <div className="space-y-0.5 px-2">
               {group.items.map(item => {
                 const active = isActive(item)
-                const Icon = item.icon
                 return (
                   <Link
                     key={item.id}
                     to={item.path}
-                    className={`relative flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+                    className={`relative flex items-center px-2 py-1.5 rounded-md text-sm transition-colors ${
                       active
                         ? 'bg-primary/10 text-primary font-medium'
                         : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                     }`}
                   >
-                    <Icon className="w-4 h-4 flex-shrink-0" />
                     <span className="truncate">{item.label}</span>
                     {item.badge != null && item.badge > 0 && (
                       <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
