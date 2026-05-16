@@ -127,11 +127,11 @@ export const AdminSidebar = memo(function AdminSidebar() {
           id: 'private-booking-management', label: '貸切管理', icon: ClipboardCheck,
           path: `/${slug}/private-booking-management`, roles: ['admin', 'license_admin'],
           subItems: [
-            { id: 'booking-list', label: '貸切一覧',   path: `/${slug}/private-booking-management?tab=booking-list` },
-            { id: 'groups',       label: 'グループ',   path: `/${slug}/private-booking-management?tab=groups` },
-            { id: 'pending',      label: '承認待ち',   path: `/${slug}/private-booking-management?tab=pending` },
-            { id: 'approved',     label: '承認済み',   path: `/${slug}/private-booking-management?tab=approved` },
-            { id: 'settings',     label: '設定',       path: `/${slug}/private-booking-management?tab=settings` },
+            { id: 'store_pending', label: '店舗承認待ち', path: `/${slug}/private-booking-management?tab=store_pending` },
+            { id: 'gm_pending',    label: 'GM確認中',     path: `/${slug}/private-booking-management?tab=gm_pending` },
+            { id: 'all',           label: 'すべて',       path: `/${slug}/private-booking-management?tab=all` },
+            { id: 'rejected',      label: '却下済み',     path: `/${slug}/private-booking-management?tab=rejected` },
+            { id: 'groups',        label: 'グループ一覧', path: `/${slug}/private-booking-management?tab=groups` },
           ],
         },
         {

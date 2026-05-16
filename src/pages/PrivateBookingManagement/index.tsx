@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,7 +15,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { useSessionState } from '@/hooks/useSessionState'
 import { useReportRouteScrollRestoration } from '@/contexts/RouteScrollRestorationContext'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
@@ -49,11 +49,18 @@ const normalizeTimeSlot = (timeSlot: string): string => {
   return timeSlot
 }
 
+type TabValue = 'gm_pending' | 'store_pending' | 'rejected' | 'all' | 'groups'
+const VALID_TABS: TabValue[] = ['gm_pending', 'store_pending', 'rejected', 'all', 'groups']
+
 export function PrivateBookingManagement() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  // タブ状態（sessionStorageと同期）
-  const [activeTab, setActiveTab] = useSessionState<'gm_pending' | 'store_pending' | 'rejected' | 'all' | 'groups'>('privateBookingActiveTab', 'store_pending')
+  const rawTab = searchParams.get('tab')
+  const activeTab: TabValue = (VALID_TABS.includes(rawTab as TabValue) ? rawTab : 'store_pending') as TabValue
+  const setActiveTab = useCallback((tab: TabValue) => {
+    setSearchParams({ tab }, { replace: true })
+  }, [setSearchParams])
   
   // 選択状態
   const [selectedRequest, setSelectedRequest] = useState<PrivateBookingRequest | null>(null)
@@ -531,12 +538,15 @@ export function PrivateBookingManagement() {
           </div>
 
           {/* グループ一覧タブ */}
-          <TabsContent value="groups" className="mt-0">
-            <PrivateGroupList />
-          </TabsContent>
+          {activeTab === 'groups' && (
+            <div className="mt-0">
+              <PrivateGroupList />
+            </div>
+          )}
 
           {/* 予約リクエストタブ */}
-          <TabsContent value={activeTab === 'groups' ? '' : activeTab} className="mt-0">
+          {activeTab !== 'groups' && (
+          <div className="mt-0">
 
             {filteredRequests.length === 0 ? (
               <Card className="shadow-none border">
@@ -557,7 +567,8 @@ export function PrivateBookingManagement() {
                 ))}
               </div>
             )}
-          </TabsContent>
+          </div>
+          )}
         </Tabs>
 
         {/* 選択されたリクエストの詳細モーダル */}

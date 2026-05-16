@@ -30,10 +30,25 @@ const PRIVATE_BOOKING_LIST_STATUSES = [
 /**
  * 貸切リクエストのデータ取得を管理するフック
  */
+// モジュールレベルキャッシュ（ページ遷移で消えない、ブラウザリロードで消える）
+const cache = {
+  data: null as PrivateBookingRequest[] | null,
+  userId: null as string | null | undefined,
+  fetchedAt: 0,
+}
+const CACHE_TTL_MS = 60_000 // 60秒間はキャッシュを使う
+
 export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps) {
   const { isCustomHoliday } = useCustomHolidays()
-  const [requests, setRequests] = useState<PrivateBookingRequest[]>([])
-  const [loading, setLoading] = useState(true)
+
+  const hasFreshCache = cache.data !== null
+    && cache.userId === userId
+    && Date.now() - cache.fetchedAt < CACHE_TTL_MS
+
+  const [requests, setRequests] = useState<PrivateBookingRequest[]>(
+    hasFreshCache ? cache.data! : []
+  )
+  const [loading, setLoading] = useState(!hasFreshCache)
 
   // 月ごとにフィルタリング
   const filterByMonth = useCallback((reqs: PrivateBookingRequest[], date: Date) => {
@@ -47,15 +62,21 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
     })
   }, [])
 
-  const loadRequests = useCallback(async () => {
+  const loadRequests = useCallback(async (force = false) => {
     try {
-      setLoading(true)
-
       // Auth 復元前に userId / role が undefined のまま走ると、誤ってスタッフ扱いになり空になる
       if (userId == null || userRole == null) {
         privateBookingTrace('ユーザー情報未確定のため取得をスキップ')
         return
       }
+
+      // キャッシュが有効ならスキップ（強制再取得でない場合）
+      if (!force && cache.data !== null && cache.userId === userId && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
+        privateBookingTrace('キャッシュヒット - 取得をスキップ')
+        return
+      }
+
+      setLoading(true)
 
       // admin / license_admin は組織内の全リクエスト（RLS と organization_id で制限）
       const isOrgWideAccess = userRole === 'admin' || userRole === 'license_admin'
@@ -342,6 +363,10 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
       )
 
       setRequests(formattedData)
+      // キャッシュを更新
+      cache.data = formattedData
+      cache.userId = userId
+      cache.fetchedAt = Date.now()
     } catch (error) {
       logger.error('貸切リクエスト取得エラー:', error)
     } finally {
