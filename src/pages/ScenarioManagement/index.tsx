@@ -119,6 +119,7 @@ export function ScenarioManagement() {
   
   // 新UI用のリフレッシュキー（保存後に更新をトリガー）
   const [orgScenarioRefreshKey, setOrgScenarioRefreshKey] = useState(0)
+  const [organizationName, setOrganizationName] = useState('')
   
   // 組織シナリオリストからの編集（useCallbackで安定化）
   const handleEditFromOrgList = useCallback((id: string) => {
@@ -448,7 +449,9 @@ export function ScenarioManagement() {
             title={
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-primary" />
-                <span className="text-lg font-bold">シナリオ管理</span>
+                <span className="text-lg font-bold">
+                  {organizationName ? `${organizationName}のシナリオ管理` : 'シナリオ管理'}
+                </span>
               </div>
             }
             description={`全${allScenarios.length}本のシナリオを管理`}
@@ -457,9 +460,16 @@ export function ScenarioManagement() {
           </PageHeader>
 
           <div className="flex items-center justify-between">
-            {/* 旧UI切り替えは無効化。常に新UIを表示 */}
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs">新UI（マスタ連携）</Badge>
+            {/* 凡例（マスタ由来 / 組織設定） */}
+            <div className="flex items-center gap-4 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 bg-gray-100 border rounded"></span>
+                マスタ由来
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 bg-blue-100 border border-blue-200 rounded"></span>
+                組織設定
+              </span>
               {!canEditScenarios && <Badge variant="outline" className="text-xs">閲覧専用</Badge>}
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
@@ -498,6 +508,7 @@ export function ScenarioManagement() {
               onEdit={canEditScenarios ? handleEditFromOrgList : undefined}
               refreshKey={orgScenarioRefreshKey}
               canEdit={canEditScenarios}
+              onOrganizationNameLoad={setOrganizationName}
             />
           ) : ENABLE_LEGACY_SCENARIO_UI ? (
             <>

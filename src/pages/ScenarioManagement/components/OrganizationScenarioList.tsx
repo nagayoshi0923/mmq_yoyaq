@@ -156,6 +156,8 @@ interface OrganizationScenarioListProps {
   refreshKey?: number
   /** 編集操作を許可するか（staff は false） */
   canEdit?: boolean
+  /** 組織名が取得できたときのコールバック */
+  onOrganizationNameLoad?: (name: string) => void
 }
 
 // ヘッダー・セルスタイル: マスタ由来（通常）vs 組織設定（青）
@@ -174,7 +176,7 @@ interface StoreInfo {
   is_temporary?: boolean
 }
 
-export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }: OrganizationScenarioListProps) {
+export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true, onOrganizationNameLoad }: OrganizationScenarioListProps) {
   const [scenarios, setScenarios] = useState<OrganizationScenarioWithMaster[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -258,6 +260,7 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
 
       if (orgResult.data?.name) {
         setOrganizationName(orgResult.data.name)
+        onOrganizationNameLoad?.(orgResult.data.name)
       }
 
       if (storesResult.data) {
@@ -1076,25 +1079,6 @@ export function OrganizationScenarioList({ onEdit, refreshKey, canEdit = true }:
 
   return (
     <div className="space-y-4">
-      {/* 組織名表示 */}
-      {organizationName && (
-        <div className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-          <span>{organizationName} のシナリオ</span>
-        </div>
-      )}
-
-      {/* 凡例 */}
-      <div className="flex items-center gap-4 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 bg-gray-100 border rounded"></span>
-          マスタ由来
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 bg-blue-100 border border-blue-200 rounded"></span>
-          組織設定
-        </span>
-      </div>
-
       {/* エラー表示 */}
       {error && (
         <Card className="border-red-500 bg-red-50 shadow-none">
