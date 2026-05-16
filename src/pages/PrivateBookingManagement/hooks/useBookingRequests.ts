@@ -183,6 +183,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
         }
       }
 
+      // ── バッチ取得 ① シナリオ情報（duration含む）──────────────────────────────
       const masterIdsForGmCount = [
         ...new Set(
           reservationsList
@@ -194,143 +195,114 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
       ] as string[]
       const gmCountByMasterId = new Map<string, number>()
       const playerRangeByMasterId = new Map<string, { min: number; max: number }>()
+      const scenarioTimingByMasterId = new Map<string, { duration: number; weekend_duration: number | null; extra_preparation_time: number; private_booking_time_slots?: unknown }>()
+
       if (masterIdsForGmCount.length > 0) {
         const { data: viewRows } = await supabase
           .from('organization_scenarios_with_master')
-          .select('scenario_master_id, gm_count, player_count_min, player_count_max')
+          .select('scenario_master_id, gm_count, player_count_min, player_count_max, duration, weekend_duration, extra_preparation_time, private_booking_time_slots')
           .eq('organization_id', orgId)
           .in('scenario_master_id', masterIdsForGmCount)
 
         for (const row of viewRows || []) {
           if (!row.scenario_master_id) continue
-          gmCountByMasterId.set(
-            row.scenario_master_id,
-            resolveStaffProfileGmSlotCount({ gm_count: row.gm_count })
-          )
+          gmCountByMasterId.set(row.scenario_master_id, resolveStaffProfileGmSlotCount({ gm_count: row.gm_count }))
           const pMin = row.player_count_min
           const pMax = row.player_count_max
-          if (
-            typeof pMin === 'number' &&
-            typeof pMax === 'number' &&
-            pMin > 0 &&
-            pMax >= pMin
-          ) {
-            playerRangeByMasterId.set(row.scenario_master_id, {
-              min: pMin,
-              max: pMax,
+          if (typeof pMin === 'number' && typeof pMax === 'number' && pMin > 0 && pMax >= pMin) {
+            playerRangeByMasterId.set(row.scenario_master_id, { min: pMin, max: pMax })
+          }
+          if (typeof row.duration === 'number' && row.duration > 0) {
+            scenarioTimingByMasterId.set(row.scenario_master_id, {
+              duration: row.duration,
+              weekend_duration: typeof row.weekend_duration === 'number' && row.weekend_duration > 0 ? row.weekend_duration : null,
+              extra_preparation_time: typeof row.extra_preparation_time === 'number' ? row.extra_preparation_time : 0,
+              private_booking_time_slots: row.private_booking_time_slots ?? null,
             })
           }
         }
       }
 
-      // 各リクエストに対してGM回答を取得
-      const formattedData: PrivateBookingRequest[] = await Promise.all(
-        reservationsList.map(async (req: any) => {
-          // GM回答を別途取得（スタッフのavatar_colorと名前も含める）
-          const { data: gmResponses } = await supabase
-            .from('gm_availability_responses')
-            .select(
-              'staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name, avatar_color)'
-            )
-            .eq('reservation_id', req.id)
+      // ── バッチ取得 ② GM回答（全予約まとめて1クエリ）──────────────────────────
+      const allReservationIds = reservationsList.map((r: { id: string }) => r.id)
+      const gmResponsesByReservationId = new Map<string, any[]>()
+      if (allReservationIds.length > 0) {
+        const { data: allGmResponses } = await supabase
+          .from('gm_availability_responses')
+          .select('reservation_id, staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, response_datetime, responded_at, updated_at, created_at, staff:staff_id(name, avatar_color)')
+          .in('reservation_id', allReservationIds)
+        for (const gm of allGmResponses || []) {
+          const rid = gm.reservation_id as string
+          if (!gmResponsesByReservationId.has(rid)) gmResponsesByReservationId.set(rid, [])
+          gmResponsesByReservationId.get(rid)!.push(gm)
+        }
+      }
 
-          // GM名がnullの場合はスタッフテーブルの名前を使用。表示は回答が早い順
+      // ── バッチ取得 ③ 候補日（全グループまとめて1クエリ）──────────────────────
+      const candidateDatesByGroupId = new Map<string, any[]>()
+      if (privateGroupIds.length > 0) {
+        const { data: allCandidateDates } = await supabase
+          .from('private_group_candidate_dates')
+          .select('group_id, id, date, time_slot, start_time, end_time, status')
+          .in('group_id', privateGroupIds)
+          .order('date', { ascending: true })
+        for (const cd of allCandidateDates || []) {
+          if (cd.status === 'rejected') continue
+          const gid = cd.group_id as string
+          if (!candidateDatesByGroupId.has(gid)) candidateDatesByGroupId.set(gid, [])
+          candidateDatesByGroupId.get(gid)!.push(cd)
+        }
+      }
+
+      // ── マップ参照のみで各予約を組み立て（追加クエリなし）─────────────────────
+      const formattedData: PrivateBookingRequest[] = reservationsList.map((req: any) => {
+          const gmResponses = gmResponsesByReservationId.get(req.id) || []
           const transformedGMResponses = sortGmResponsesByReplyTime(
-            (gmResponses || []).filter((gm: any) => shouldIncludeGmResponseRow(gm)).map((gm: any) => ({
+            gmResponses.filter((gm: any) => shouldIncludeGmResponseRow(gm)).map((gm: any) => ({
               ...gm,
               gm_name: gm.gm_name || gm.staff?.name || '',
             }))
           )
-          
-          // 確定済み予約で候補日が1つしかない場合、元の候補日をprivate_group_candidate_datesから復元
+
           let candidateDatetimes = req.candidate_datetimes || { candidates: [] }
           const currentCandidates = candidateDatetimes.candidates || []
-          
-          // private_group_idがある場合、元の候補日を取得
-          let originalCandidates: any[] = []
-          if (req.private_group_id) {
-            const { data: candidateDatesData } = await supabase
-              .from('private_group_candidate_dates')
-              .select('id, date, time_slot, start_time, end_time, status')
-              .eq('group_id', req.private_group_id)
-              .order('date', { ascending: true })
+          const originalCandidates = req.private_group_id
+            ? (candidateDatesByGroupId.get(req.private_group_id) || [])
+            : []
 
-            // 店舗却下などで rejected になった候補は申請対象外（復元・表示に含めない）
-            originalCandidates = (candidateDatesData || []).filter(
-              (cd: { status?: string | null }) => cd.status !== 'rejected'
-            )
-          }
-          
-          privateBookingTrace(
-            `予約 ${req.id}: 現在の候補数=${currentCandidates.length}, 元の候補数=${originalCandidates.length}`
-          )
-          
-          // 確定済み予約のみ候補日を復元（pending 時は顧客が選択した日程だけを表示する）
           if (req.status === 'confirmed' && originalCandidates.length > currentCandidates.length) {
-            privateBookingTrace(`候補日を復元: ${originalCandidates.map((c: any) => c.date).join(', ')}`)
-            // 確定された候補を特定
             const confirmedCandidate = currentCandidates.find((c: any) => c.status === 'confirmed')
-            
-            // 元の候補日をcandidate_datetimes形式に変換
             const restoredCandidates = originalCandidates.map((cd: any, idx: number) => {
-              const isConfirmed = confirmedCandidate && 
-                confirmedCandidate.date === cd.date && 
+              const isConfirmed = confirmedCandidate &&
+                confirmedCandidate.date === cd.date &&
                 confirmedCandidate.timeSlot === cd.time_slot
-              
               return {
                 order: idx + 1,
                 date: cd.date,
                 timeSlot: cd.time_slot,
                 startTime: cd.start_time || confirmedCandidate?.startTime || '10:00',
                 endTime: cd.end_time || confirmedCandidate?.endTime || '13:00',
-                status: isConfirmed ? 'confirmed' : 'pending'
+                status: isConfirmed ? 'confirmed' : 'pending',
               }
             })
-            
-            candidateDatetimes = {
-              ...candidateDatetimes,
-              candidates: restoredCandidates
-            }
-          }
-          
-          // scenario_master_id のフォールバック: private_groups.scenario_master_id を使用
-          const scenarioMasterId = req.scenario_master_id || req.private_groups?.scenario_master_id
-          if (!scenarioMasterId) {
-            privateBookingTrace(
-              `予約 ${req.id}: scenario_master_id 未設定（private_groups.scenario_master_id も未設定）`
-            )
+            candidateDatetimes = { ...candidateDatetimes, candidates: restoredCandidates }
           }
 
-          let scenario_timing = await fetchScenarioTimingFromDb(supabase, {
-            organizationId: orgId,
-            scenarioLookupId: req.scenario_master_id,
-            scenarioMasterId,
-          })
-          if (
-            (!scenario_timing.duration || scenario_timing.duration <= 0) &&
-            typeof req.scenario_masters?.official_duration === 'number' &&
-            req.scenario_masters.official_duration > 0
-          ) {
-            scenario_timing = {
-              duration: req.scenario_masters.official_duration,
-              weekend_duration: scenario_timing.weekend_duration,
-              extra_preparation_time: scenario_timing.extra_preparation_time,
-            }
+          const scenarioMasterId = req.scenario_master_id || req.private_groups?.scenario_master_id
+          const cachedTiming = scenarioMasterId ? scenarioTimingByMasterId.get(scenarioMasterId) : undefined
+          let scenario_timing = cachedTiming ?? {
+            duration: typeof req.scenario_masters?.official_duration === 'number' && req.scenario_masters.official_duration > 0
+              ? req.scenario_masters.official_duration
+              : 180,
+            weekend_duration: null,
+            extra_preparation_time: 0,
           }
 
           const candidatesWithScenarioEnd = (candidateDatetimes.candidates || []).map((c: any) => ({
             ...c,
-            endTime: getPrivateBookingDisplayEndTime(
-              c.startTime,
-              c.date,
-              scenario_timing,
-              isCustomHoliday
-            ),
+            endTime: getPrivateBookingDisplayEndTime(c.startTime, c.date, scenario_timing, isCustomHoliday),
           }))
-          candidateDatetimes = {
-            ...candidateDatetimes,
-            candidates: candidatesWithScenarioEnd,
-          }
+          candidateDatetimes = { ...candidateDatetimes, candidates: candidatesWithScenarioEnd }
 
           const pgId = req.private_group_id as string | undefined | null
           const joinedN = pgId ? (joinedMemberCountByGroupId.get(pgId) ?? 0) : undefined
@@ -339,9 +311,7 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
             id: req.id,
             reservation_number: req.reservation_number || '',
             scenario_master_id: scenarioMasterId,
-            required_gm_count: scenarioMasterId
-              ? (gmCountByMasterId.get(scenarioMasterId) ?? 1)
-              : 1,
+            required_gm_count: scenarioMasterId ? (gmCountByMasterId.get(scenarioMasterId) ?? 1) : 1,
             scenario_timing,
             scenario_title: req.scenario_masters?.title || req.title || 'シナリオ名不明',
             customer_name: req.customers?.name || '顧客名不明',
@@ -350,17 +320,14 @@ export function useBookingRequests({ userId, userRole }: UseBookingRequestsProps
             candidate_datetimes: candidateDatetimes,
             participant_count: req.participant_count || 0,
             joined_member_count: pgId !== undefined && pgId !== null ? joinedN : undefined,
-            scenario_player_count_range: scenarioMasterId
-              ? playerRangeByMasterId.get(scenarioMasterId) ?? null
-              : null,
+            scenario_player_count_range: scenarioMasterId ? playerRangeByMasterId.get(scenarioMasterId) ?? null : null,
             notes: req.customer_notes || '',
             status: req.status,
             gm_responses: transformedGMResponses,
             created_at: req.created_at,
-            invite_code: req.private_groups?.invite_code || ''
+            invite_code: req.private_groups?.invite_code || '',
           }
         })
-      )
 
       setRequests(formattedData)
       // キャッシュを更新
