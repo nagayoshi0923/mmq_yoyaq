@@ -1,12 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { getCurrentOrganizationId } from '@/lib/organization'
+import { getCurrentOrganizationId, getOrganizationBySlug } from '@/lib/organization'
+import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 
-// デフォルト組織ID（クインズワルツ）
-const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
+async function resolveCurrentOrgId(): Promise<string | null> {
+  const orgId = await getCurrentOrganizationId()
+  if (orgId) return orgId
+  const slug = getOrganizationSlugFromPath()
+  if (!slug) return null
+  const org = await getOrganizationBySlug(slug)
+  return org?.id ?? null
+}
 
 const FAVORITES_KEY = 'scenario_favorites'
 
@@ -79,8 +86,12 @@ export function useFavorites() {
         }
 
         // 顧客が存在しない場合、作成する（organization_id付き）
-        const orgId = await getCurrentOrganizationId() || DEFAULT_ORG_ID
-        
+        const orgId = await resolveCurrentOrgId()
+        if (!orgId) {
+          logger.warn('useFavorites: org_id が特定できないため顧客レコード作成をスキップ')
+          return
+        }
+
         const { data: newCustomer, error: insertError } = await supabase
           .from('customers')
           .insert({
@@ -190,7 +201,11 @@ export function useFavorites() {
           if (error) throw error
         } else {
           // お気に入りに追加（scenario_master_id を使用）
-          const orgId = await getCurrentOrganizationId() || DEFAULT_ORG_ID
+          const orgId = await resolveCurrentOrgId()
+          if (!orgId) {
+            logger.warn('useFavorites: org_id が特定できないためお気に入り登録をスキップ')
+            return
+          }
           const { error } = await supabase
             .from('scenario_likes')
             .insert({

@@ -28,10 +28,6 @@ import { ScenarioCard } from './components/ScenarioCard'
 import { Footer } from '@/components/layout/Footer'
 import { getOptimizedImageUrl } from '@/utils/imageUtils'
 
-/** DB の紹介文が空のときのデフォルト（queens-waltz） */
-const QUEENS_WALTZ_PUBLIC_BOOKING_HERO_FALLBACK =
-  '都内（大久保、高田馬場、大塚）に4店舗、埼玉に1店舗を運営するマーダーミステリー専門店クインズワルツ。160種類以上のマーダーミステリーシナリオをご用意しています。あなたの気に入る物語がきっと見つかる！'
-
 const DEFAULT_PUBLIC_BOOKING_HERO =
   'リアルな謎解き体験。あなたは事件の真相を暴けるか？'
 
@@ -94,11 +90,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   } = useBookingData(organizationSlug)
 
   const heroDescription = useMemo(() => {
-    const fromDb = organizationPublicBookingHeroDescription?.trim()
-    if (fromDb) return fromDb
-    if (organizationSlug === 'queens-waltz') return QUEENS_WALTZ_PUBLIC_BOOKING_HERO_FALLBACK
-    return DEFAULT_PUBLIC_BOOKING_HERO
-  }, [organizationPublicBookingHeroDescription, organizationSlug])
+    return organizationPublicBookingHeroDescription?.trim() || DEFAULT_PUBLIC_BOOKING_HERO
+  }, [organizationPublicBookingHeroDescription])
   
   useReportRouteScrollRestoration('public-booking-top', {
     isLoading,
@@ -244,7 +237,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   // タブ変更時にURL更新（メモ化）
   const handleTabChange = useCallback((value: string) => {
     setActiveTab(value)
-    const basePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
+    const basePath = organizationSlug ? `/${organizationSlug}` : ''
     if (value === 'calendar') {
       navigate(`${basePath}/calendar`)
     } else if (value === 'list') {

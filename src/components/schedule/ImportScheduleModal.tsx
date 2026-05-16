@@ -12,7 +12,6 @@ import { memoApi } from '@/lib/api/memoApi'
 import { staffApi } from '@/lib/api/staffApi'
 import { scenarioApi } from '@/lib/api/scenarioApi'
 import { useOrganization } from '@/hooks/useOrganization'
-import { QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { getTimeSlot } from '@/utils/scheduleUtils'
@@ -234,7 +233,7 @@ const GM_ROLE_OPTIONS = [
 export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImportComplete }: ImportScheduleModalProps) {
   // 組織IDを動的に取得（マルチテナント対応）
   const { organizationId } = useOrganization()
-  const ORGANIZATION_ID = organizationId || QUEENS_WALTZ_ORG_ID
+  const ORGANIZATION_ID = organizationId
   
   const [scheduleText, setScheduleText] = useState('')
   const [isImporting, setIsImporting] = useState(false)

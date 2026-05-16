@@ -136,7 +136,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const [searchParams, setSearchParams] = useSearchParams()
 
   // 予約サイトのベースパス（propsから優先、なければorganizationから）
-  const bookingBasePath = organizationSlug ? `/${organizationSlug}` : (organization?.slug ? `/${organization.slug}` : '/queens-waltz')
+  const bookingBasePath = organizationSlug ? `/${organizationSlug}` : (organization?.slug ? `/${organization.slug}` : '')
   const catalogQueryScope = organizationSlug ?? organization?.slug ?? 'global'
   const shouldShowNavigation = isStaff
 

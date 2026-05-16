@@ -7,7 +7,7 @@ import { showToast } from '@/utils/toast'
 // API
 import { staffApi, scheduleApi, salesApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
+import { getCurrentOrganizationId } from '@/lib/organization'
 
 // Custom Hooks
 import { useRouteScrollControls } from '@/contexts/RouteScrollRestorationContext'
@@ -282,8 +282,12 @@ export function ScheduleManager() {
       const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
       
       // 組織IDを最初に取得
-      const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
-      
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) {
+        showToast.error('組織情報が取得できません')
+        return
+      }
+
       // まず対象のイベントを取得（シナリオの定員情報も含む、現在の組織のみ）
       // testplay / venue_rental / venue_rental_free / mtg は対象外
       const { data: events, error: fetchError } = await supabase
@@ -526,7 +530,12 @@ export function ScheduleManager() {
     let fixedCount = 0
 
     try {
-      const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) {
+        showToast.error('組織情報が取得できません')
+        setIsCleaningDemo(false)
+        return
+      }
 
       // ─── ① テストプレイのデモ予約を削除 ───
       const { data: testplayEvents } = await supabase

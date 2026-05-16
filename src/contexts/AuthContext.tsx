@@ -39,12 +39,27 @@ async function lookupStaffRole(
 }
 
 /**
- * 現在のURLからorganizationSlugを抽出するヘルパー関数
+ * サインアウト後のリダイレクト先パスを返す。
+ * 公開予約ページ（/org-slug/...）にいる場合はそのorgのトップへ、
+ * 管理画面や判定不能な場合はルート（/）へ。
  */
-function getOrganizationSlugFromUrl(): string {
-  const hash = window.location.hash.replace('#', '')
-  const bookingMatch = hash.match(/^booking\/([^/]+)/)
-  return bookingMatch ? bookingMatch[1] : 'queens-waltz'
+function getSignOutRedirectPath(): string {
+  const pathname = window.location.pathname
+  const match = pathname.match(/^\/([^/]+)/)
+  if (match) {
+    const adminPaths = [
+      'dashboard', 'stores', 'staff', 'scenarios', 'schedule',
+      'shift-submission', 'gm-availability', 'private-booking-management',
+      'reservations', 'accounts', 'sales', 'settings', 'manual',
+      'login', 'signup', 'reset-password', 'set-password', 'complete-profile',
+      'coupon-present', 'license-management', 'staff-profile', 'mypage', 'author',
+      'external-reports', 'accept-invitation', 'organization-register',
+    ]
+    if (!adminPaths.includes(match[1])) {
+      return `/${match[1]}`
+    }
+  }
+  return '/'
 }
 
 // パスワードリセット中フラグのキー（sessionStorage使用）
@@ -492,8 +507,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setStaffCache(new Map())  // キャッシュもクリア
             setIsInitialized(true)
             // ページをリロードしてクリーンな状態にする（現在の組織を維持）
-            const slug = getOrganizationSlugFromUrl()
-            window.location.href = `/${slug}`
+            window.location.href = getSignOutRedirectPath()
             break
           case 'SIGNED_IN':
             // 他のタブでログインした場合、セッションをリフレッシュ
@@ -1073,8 +1087,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       // 予約サイトにリダイレクト（現在の組織を維持）
-      const slug = getOrganizationSlugFromUrl()
-      window.location.href = `/${slug}`
+      window.location.href = getSignOutRedirectPath()
     } catch (error) {
       setLoading(false)
       isExplicitSignOutRef.current = false

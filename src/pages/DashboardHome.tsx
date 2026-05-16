@@ -60,7 +60,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   const modalDataLoaded = useRef(false)
   
   // 予約サイトのベースパス
-  const bookingBasePath = organization?.slug ? `/${organization.slug}` : '/queens-waltz'
+  const bookingBasePath = organization?.slug ? `/${organization.slug}` : ''
 
   // 統計情報を遅延ロード（管理者向け情報として残す）
   const [stats, setStats] = useState({

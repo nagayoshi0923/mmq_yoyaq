@@ -370,11 +370,11 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
             }
 
             if (staffData?.organization_id) {
-              const slug = orgSlug || 'queens-waltz'
+              const slug = orgSlug || ''
 
               if (staffData.role === 'admin' || staffData.role === 'staff') {
                 sessionStorage.removeItem('returnUrl')
-                navigate(`/${slug}/schedule`, { replace: true })
+                navigate(slug ? `/${slug}/schedule` : '/dashboard', { replace: true })
               } else {
                 const rawReturnUrl1 = sessionStorage.getItem('returnUrl')
                 if (rawReturnUrl1) {

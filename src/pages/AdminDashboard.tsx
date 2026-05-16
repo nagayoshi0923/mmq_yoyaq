@@ -269,7 +269,7 @@ export function AdminDashboard() {
   const { page: currentPage, scenarioId: currentScenarioId, organizationSlug: pathOrganizationSlug } = parsePath(location.pathname)
 
   // 組織slugを決定（パスにあればそれ、なければ組織設定から取得）
-  const organizationSlug = pathOrganizationSlug || organization?.slug || 'queens-waltz'
+  const organizationSlug = pathOrganizationSlug || organization?.slug || ''
 
   // スタッフ確定後、ブラウザがアイドル状態になってから前月・当月・次月を先読み
   // requestIdleCallback でダッシュボード自身の描画・データ取得を優先させる
@@ -295,7 +295,7 @@ export function AdminDashboard() {
     if (!isInitialized || loading) return
 
     const isCustomerOrLoggedOut = isCustomer
-    const defaultOrg = organization?.slug || 'queens-waltz'
+    const defaultOrg = organization?.slug || ''
     
     // ルートパス（/）はプラットフォームトップを表示（リダイレクトしない）
     if (location.pathname === '/') {
@@ -328,8 +328,6 @@ export function AdminDashboard() {
   const handleScenarioSelect = useCallback((scenarioId: string) => {
     if (organizationSlug) {
       navigate(`/${organizationSlug}/scenario/${scenarioId}`)
-    } else {
-      navigate(`/queens-waltz/scenario/${scenarioId}`)
     }
   }, [navigate, organizationSlug])
 
