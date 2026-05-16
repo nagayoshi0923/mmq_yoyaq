@@ -46,7 +46,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               </div>
             )}
             <div data-scroll-container className="flex-1 min-w-0 overflow-y-auto overflow-x-clip">
-              <div data-scroll-content className={`${containerPadding} w-full`}>
+              <div data-scroll-content className={containerPadding}>
                 {children}
               </div>
             </div>
@@ -68,7 +68,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <div className={`${containerPadding} w-full`}>
+            <div className={containerPadding}>
               {children}
             </div>
           </div>
