@@ -351,6 +351,86 @@ export const AdminSidebar = memo(function AdminSidebar() {
 })
 
 // ─── 外部コンポーネント（毎レンダーで再マウントしないよう AdminSidebar の外に定義） ───
+// グループのアイテムリスト。マウント時だけアニメーション、同グループ内ナビでは再生しない
+function GroupPanel({
+  group, isOpen, isActive, isSubActive, userRole, isLicAdmin,
+}: {
+  group: NavGroup & { items: NavItem[] }
+  isOpen: boolean
+  isActive: (item: NavItem) => boolean
+  isSubActive: (sub: SubItem) => boolean
+  userRole: string
+  isLicAdmin: boolean
+}) {
+  const [animate, setAnimate] = useState(!!group.label)
+
+  if (!isOpen) return null
+
+  return (
+    <div
+      className={animate ? 'sidebar-items-enter' : ''}
+      onAnimationEnd={() => setAnimate(false)}
+    >
+      <div className="space-y-0.5 px-2 pb-1">
+        {group.items.map(item => {
+          const active = isActive(item)
+          const showSubs = active && item.subItems && item.subItems.length > 0
+          const visibleSubs = showSubs
+            ? item.subItems!.filter(s =>
+                !s.roles || s.roles.includes(userRole) || (isLicAdmin && s.roles.includes('license_admin'))
+              )
+            : []
+          return (
+            <div key={item.id}>
+              <Link
+                to={item.path}
+                className={`relative flex items-center px-3 py-2 text-sm transition-all duration-150 ${
+                  active
+                    ? 'bg-blue-50 text-blue-700 font-medium'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 hover:translate-x-0.5'
+                }`}
+              >
+                <span className="truncate">{item.label}</span>
+                {item.badge != null && item.badge > 0 && (
+                  <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+              </Link>
+              {showSubs && visibleSubs.length > 0 && (
+                <div className="ml-3 pl-2 border-l border-border/60 space-y-0.5 mt-0.5 mb-1">
+                  {visibleSubs.map(sub => {
+                    const subActive = isSubActive(sub)
+                    return (
+                      <div key={sub.id}>
+                        {sub.sectionLabel && (
+                          <p className="text-[10px] font-semibold text-muted-foreground/60 px-2 pt-2 pb-0.5 uppercase tracking-wide">
+                            {sub.sectionLabel}
+                          </p>
+                        )}
+                        <Link
+                          to={sub.path}
+                          className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
+                            subActive
+                              ? 'bg-blue-50 text-blue-700 font-medium'
+                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                          }`}
+                        >
+                          <span className="truncate">{sub.label}</span>
+                        </Link>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function SidebarContent({
   slug, bookingActive, visibleGroups,
   isGroupOpen, isActive, isSubActive,
@@ -395,66 +475,14 @@ function SidebarContent({
             </button>
           )}
 
-          {isGroupOpen(group) && (
-            <div className={group.label ? 'sidebar-items-enter' : ''}>
-            <div className="space-y-0.5 px-2 pb-1">
-                {group.items.map(item => {
-                  const active = isActive(item)
-                  const showSubs = active && item.subItems && item.subItems.length > 0
-                  const visibleSubs = showSubs
-                    ? item.subItems!.filter(s =>
-                        !s.roles || s.roles.includes(userRole) || (isLicAdmin && s.roles.includes('license_admin'))
-                      )
-                    : []
-                  return (
-                    <div key={item.id}>
-                      <Link
-                        to={item.path}
-                        className={`relative flex items-center px-3 py-2 text-sm transition-all duration-150 ${
-                          active
-                            ? 'bg-blue-50 text-blue-700 font-medium'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 hover:translate-x-0.5'
-                        }`}
-                      >
-                        <span className="truncate">{item.label}</span>
-                        {item.badge != null && item.badge > 0 && (
-                          <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
-                            {item.badge > 99 ? '99+' : item.badge}
-                          </span>
-                        )}
-                      </Link>
-                      {showSubs && visibleSubs.length > 0 && (
-                        <div className="ml-3 pl-2 border-l border-border/60 space-y-0.5 mt-0.5 mb-1">
-                          {visibleSubs.map(sub => {
-                            const subActive = isSubActive(sub)
-                            return (
-                              <div key={sub.id}>
-                                {sub.sectionLabel && (
-                                  <p className="text-[10px] font-semibold text-muted-foreground/60 px-2 pt-2 pb-0.5 uppercase tracking-wide">
-                                    {sub.sectionLabel}
-                                  </p>
-                                )}
-                                <Link
-                                  to={sub.path}
-                                  className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
-                                    subActive
-                                      ? 'bg-blue-50 text-blue-700 font-medium'
-                                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                  }`}
-                                >
-                                  <span className="truncate">{sub.label}</span>
-                                </Link>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-            </div>
-            </div>
-          )}
+          <GroupPanel
+            group={group}
+            isOpen={isGroupOpen(group)}
+            isActive={isActive}
+            isSubActive={isSubActive}
+            userRole={userRole}
+            isLicAdmin={isLicAdmin}
+          />
         </div>
       ))}
     </div>
