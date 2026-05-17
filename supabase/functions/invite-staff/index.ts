@@ -150,12 +150,24 @@ serve(async (req) => {
     console.log('📨 Staff invitation request:', { email: maskEmail(email), name: maskName(name) })
 
     const normalizedEmail = email.toLowerCase()
-    const { data: userList, error: listError } = await supabase.auth.admin.listUsers()
-    if (listError) {
-      throw new Error(`ユーザー一覧の取得に失敗しました: ${listError.message}`)
+    // listUsers はデフォルト 50 件のみ取得するので、対象 email がページ後方にいると
+    // 「未登録」と誤判定 → createUser → 「Email already registered」で 500 になる。
+    // ページネーションで全件走査して既存ユーザーを探す。
+    const PER_PAGE = 1000 // listUsers の上限
+    let existingUser: { id: string; email?: string | null } | undefined
+    for (let page = 1; ; page++) {
+      const { data: pageData, error: listError } = await supabase.auth.admin.listUsers({ page, perPage: PER_PAGE })
+      if (listError) {
+        throw new Error(`ユーザー一覧の取得に失敗しました: ${listError.message}`)
+      }
+      const users = pageData?.users ?? []
+      const found = users.find((user) => user.email?.toLowerCase() === normalizedEmail)
+      if (found) {
+        existingUser = found
+        break
+      }
+      if (users.length < PER_PAGE) break // 最終ページ
     }
-
-    const existingUser = userList?.users.find((user) => user.email?.toLowerCase() === normalizedEmail)
     let userId: string
     let isNewUser = false
 
