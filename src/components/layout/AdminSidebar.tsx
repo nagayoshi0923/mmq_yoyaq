@@ -100,6 +100,9 @@ export const AdminSidebar = memo(function AdminSidebar() {
       items: [
         { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, path: `/${slug}/dashboard`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'schedule', label: 'スケジュール', icon: CalendarDays, path: `/${slug}/schedule`, roles: ['admin', 'staff', 'license_admin'] },
+        { id: 'stores',    label: '店舗',     icon: Store,    path: `/${slug}/stores`,    roles: ['admin', 'license_admin'] },
+        { id: 'staff',     label: 'スタッフ', icon: Users,    path: `/${slug}/staff`,     roles: ['admin', 'license_admin'] },
+        { id: 'scenarios', label: 'シナリオ', icon: BookOpen, path: `/${slug}/scenarios`, roles: ['admin', 'staff', 'license_admin'] },
       ],
     },
     {
@@ -110,16 +113,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
         { id: 'shift-submission', label: 'シフト提出', icon: CalendarClock, path: `/${slug}/shift-submission`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'gm-availability', label: 'GM確認', icon: UserCheck, path: `/${slug}/gm-availability`, roles: ['admin', 'staff', 'license_admin'] },
         { id: 'staff-profile', label: '担当作品', icon: UserCircle, path: `/${slug}/staff-profile`, roles: ['admin', 'staff', 'license_admin'] },
-      ],
-    },
-    {
-      id: 'basic-data',
-      label: '基本データ',
-      icon: Store,
-      items: [
-        { id: 'stores',    label: '店舗',     icon: Store,    path: `/${slug}/stores`,    roles: ['admin', 'license_admin'] },
-        { id: 'staff',     label: 'スタッフ', icon: Users,    path: `/${slug}/staff`,     roles: ['admin', 'license_admin'] },
-        { id: 'scenarios', label: 'シナリオ', icon: BookOpen, path: `/${slug}/scenarios`, roles: ['admin', 'staff', 'license_admin'] },
       ],
     },
     {

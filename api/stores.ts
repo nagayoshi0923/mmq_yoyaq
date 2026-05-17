@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { db, getMissingEnvError } from './_lib/db'
-import { requireAuth, requireStaff, ApiError } from './_lib/auth'
+import { db, getMissingEnvError } from './_lib/db.js'
+import { requireAuth, requireStaff, ApiError } from './_lib/auth.js'
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
