@@ -58,12 +58,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }
 
   return (
-    // max-w-full で body の横はみ出しを防ぐ
-    <div className="min-h-screen max-w-full bg-background overflow-x-hidden">
+    // overflow-x-hidden をコンテンツ側に置くことで sticky sidebar が正しく機能する
+    <div className="min-h-screen max-w-full bg-background">
       <Header />
       <div className="flex min-w-0">
         <AdminSidebar />
-        <div className={`flex flex-1 min-w-0 ${className}`}>
+        <div className={`flex flex-1 min-w-0 overflow-x-hidden ${className}`}>
           {sidebar && (
             <div className="border-r border-slate-200 shrink-0">
               {sidebar}
