@@ -4,10 +4,57 @@
  * 公演追加時に備考として引き継がれる
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
+
+// ---- 月単位一括取得（N+M+L のフェッチ枯渇を防ぐ） ----
+
+type SlotMemoMap = Map<string, string>
+
+function memoKey(date: string, storeId: string, timeSlot: string): string {
+  return `${date}|${storeId}|${timeSlot}`
+}
+
+function slotMemosQueryKey(year: number, month: number) {
+  return ['schedule-slot-memos', year, month] as const
+}
+
+async function fetchSlotMemosForMonth(year: number, month: number): Promise<SlotMemoMap> {
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+  const lastDay = new Date(year, month, 0).getDate()
+  const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+
+  const map: SlotMemoMap = new Map()
+  const { data, error } = await supabase
+    .from('schedule_slot_memos')
+    .select('date, store_id, time_slot, memo')
+    .gte('date', startDate)
+    .lte('date', endDate)
+  if (error) {
+    logger.error('スロットメモ一括取得エラー:', error)
+    return map
+  }
+  for (const row of (data as Array<{ date: string; store_id: string; time_slot: string; memo: string }> | null) ?? []) {
+    map.set(memoKey(row.date, row.store_id, row.time_slot), row.memo)
+  }
+  return map
+}
+
+/**
+ * 月単位で schedule_slot_memos を 1 クエリで取得する。
+ * React Query のキャッシュ共有により、同じ月を見ている SlotMemoInput が
+ * 何個マウントされても発火するフェッチは 1 回だけ。
+ */
+export function useScheduleSlotMemos(year: number, month: number) {
+  return useQuery({
+    queryKey: slotMemosQueryKey(year, month),
+    queryFn: () => fetchSlotMemosForMonth(year, month),
+    staleTime: 60_000,
+  })
+}
 
 // ---- localStorage → DB 一回限りの移行 ----
 
@@ -143,6 +190,14 @@ export function SlotMemoInput({ date, storeId, timeSlot }: SlotMemoInputProps) {
   const [memo, setMemo] = useState('')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { organizationId } = useOrganization()
+  const queryClient = useQueryClient()
+
+  // 月単位で全メモを 1 クエリで取得（800+ セルが共有キャッシュを使うので fetch は月 1 回）
+  const [yearStr, monthStr] = date.split('-')
+  const year = Number(yearStr)
+  const month = Number(monthStr)
+  const { data: memosMap } = useScheduleSlotMemos(year, month)
+  const cachedMemo = memosMap?.get(memoKey(date, storeId, timeSlot)) ?? ''
 
   // 初回マウント時に localStorage → DB への一回限りの移行を実行
   useEffect(() => {
@@ -151,10 +206,10 @@ export function SlotMemoInput({ date, storeId, timeSlot }: SlotMemoInputProps) {
     }
   }, [organizationId])
 
-  // マウント時に DB からメモを取得
+  // キャッシュから取得したメモを表示用 state に同期
   useEffect(() => {
-    getEmptySlotMemo(date, storeId, timeSlot).then(setMemo)
-  }, [date, storeId, timeSlot])
+    setMemo(cachedMemo)
+  }, [cachedMemo])
 
   const adjustHeight = useCallback(() => {
     const textarea = textareaRef.current
@@ -167,12 +222,25 @@ export function SlotMemoInput({ date, storeId, timeSlot }: SlotMemoInputProps) {
     if (isEditing) adjustHeight()
   }, [isEditing, memo, adjustHeight])
 
+  const updateMemoCache = useCallback((value: string) => {
+    queryClient.setQueryData<SlotMemoMap>(slotMemosQueryKey(year, month), (prev) => {
+      const next: SlotMemoMap = new Map(prev ?? [])
+      if (value) {
+        next.set(memoKey(date, storeId, timeSlot), value)
+      } else {
+        next.delete(memoKey(date, storeId, timeSlot))
+      }
+      return next
+    })
+  }, [queryClient, year, month, date, storeId, timeSlot])
+
   const persistMemo = useCallback((value: string) => {
+    updateMemoCache(value)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       saveEmptySlotMemo(date, storeId, timeSlot, value, organizationId || undefined)
     }, 500)
-  }, [date, storeId, timeSlot, organizationId])
+  }, [date, storeId, timeSlot, organizationId, updateMemoCache])
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newMemo = e.target.value
@@ -184,6 +252,7 @@ export function SlotMemoInput({ date, storeId, timeSlot }: SlotMemoInputProps) {
   const handleBlur = () => {
     setIsEditing(false)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    updateMemoCache(memo)
     saveEmptySlotMemo(date, storeId, timeSlot, memo, organizationId || undefined)
   }
 
