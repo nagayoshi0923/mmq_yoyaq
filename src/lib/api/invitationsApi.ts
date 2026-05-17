@@ -1,12 +1,39 @@
 /**
  * 組織招待 API
+ *
+ * バックエンド API (/api/invitations) 経由で全ての read/write を実行する。
+ * - 管理者専用エンドポイント（一覧/作成/削除/再送信）は JWT で認証
+ * - 招待受諾画面用エンドポイント（getByToken/accept）は未ログインからもアクセス可能
+ *   （token 自体が秘密情報のため、token を知っているクライアントのみ操作可能）
  */
 import { logger } from '@/utils/logger'
-import { supabase } from '@/lib/supabase'
+import { apiClient } from '@/lib/apiClient'
 import type { OrganizationInvitation } from '@/types'
 
+// ----------------------------------------------------------------------------
+// 公開エンドポイント用の fetch ヘルパー（apiClient は JWT 必須なので使えない）
+// ----------------------------------------------------------------------------
+async function publicFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+    const err = new Error(body?.error ?? `API エラー: ${res.status}`) as Error & { status?: number }
+    err.status = res.status
+    throw err
+  }
+  return res.json() as Promise<T>
+}
+
 /**
- * 招待を作成
+ * 招待を作成（admin 専用）
+ * - organization_id はサーバ側で JWT から取得され、リクエストボディの値は無視される
+ * - created_by もサーバ側で JWT から取得される
  */
 export async function createInvitation(params: {
   organization_id: string
@@ -16,32 +43,16 @@ export async function createInvitation(params: {
   created_by?: string
 }): Promise<{ data: OrganizationInvitation | null; error: Error | null }> {
   try {
-    // トークン生成（クライアント側で生成）
-    const token = crypto.randomUUID() + '-' + Date.now().toString(36)
-    
-    // 有効期限: 7日後
-    const expires_at = new Date()
-    expires_at.setDate(expires_at.getDate() + 7)
-
-    const { data, error } = await supabase
-      .from('organization_invitations')
-      .insert({
-        organization_id: params.organization_id,
-        email: params.email.toLowerCase().trim(),
-        name: params.name.trim(),
-        role: params.role || ['スタッフ'],
-        token,
-        expires_at: expires_at.toISOString(),
-        created_by: params.created_by,
-      })
-      .select(`
-        *,
-        organization:organizations(*)
-      `)
-      .single()
-
-    if (error) throw error
-    return { data: data as OrganizationInvitation, error: null }
+    const data = await apiClient.post<OrganizationInvitation>(
+      '/api/invitations?action=create',
+      {
+        // organization_id / created_by はサーバ側で強制されるため送信不要（互換のため受ける）
+        email: params.email,
+        name: params.name,
+        role: params.role,
+      }
+    )
+    return { data, error: null }
   } catch (error) {
     logger.error('Failed to create invitation:', error)
     return { data: null, error: error as Error }
@@ -49,23 +60,17 @@ export async function createInvitation(params: {
 }
 
 /**
- * トークンで招待を取得
+ * トークンで招待を取得（公開エンドポイント）
+ * 招待受諾画面で未ログインユーザがアクセスする。
  */
 export async function getInvitationByToken(
   token: string
 ): Promise<{ data: OrganizationInvitation | null; error: Error | null }> {
   try {
-    const { data, error } = await supabase
-      .from('organization_invitations')
-      .select(`
-        *,
-        organization:organizations(*)
-      `)
-      .eq('token', token)
-      .single()
-
-    if (error) throw error
-    return { data: data as OrganizationInvitation, error: null }
+    const data = await publicFetch<OrganizationInvitation>(
+      `/api/invitations?token=${encodeURIComponent(token)}`
+    )
+    return { data, error: null }
   } catch (error) {
     logger.error('Failed to get invitation:', error)
     return { data: null, error: error as Error }
@@ -73,123 +78,28 @@ export async function getInvitationByToken(
 }
 
 /**
- * 招待を受諾（パスワード設定 & ユーザー作成）
- * 🔒 アトミック処理により競合状態を防止
+ * 招待を受諾（公開エンドポイント、パスワード設定 & ユーザー作成）
+ *
+ * サーバ側で:
+ *  1. accept_invitation_atomic RPC でアトミックに受諾
+ *  2. auth ユーザ作成（service_role 経由 admin.createUser）
+ *  3. users / staff テーブルにレコード作成（organization_id は招待のものを強制）
+ *  4. 招待に staff_id を紐付け
  */
 export async function acceptInvitation(params: {
   token: string
   password: string
 }): Promise<{ success: boolean; error: string | null }> {
   try {
-    // 🔒 1. アトミックに招待を受諾（競合状態を防止）
-    // この時点で招待が「使用済み」になり、他のリクエストは失敗する
-    const { data: atomicResult, error: atomicError } = await supabase
-      .rpc('accept_invitation_atomic', { p_token: params.token })
-
-    if (atomicError) {
-      logger.error('Failed to accept invitation atomically:', atomicError)
-      return { success: false, error: '招待の処理中にエラーが発生しました' }
-    }
-
-    const invitationResult = atomicResult?.[0] || atomicResult
-    if (!invitationResult?.success) {
-      return { success: false, error: invitationResult?.error_message || '招待の受諾に失敗しました' }
-    }
-
-    // 2. 招待情報を取得（詳細情報が必要な場合）
-    const { data: invitation, error: inviteError } = await getInvitationByToken(params.token)
-    if (inviteError || !invitation) {
-      // アトミック処理は成功しているが、詳細取得に失敗
-      // invitationResultの情報を使用
-      logger.warn('Could not fetch invitation details, using atomic result')
-    }
-
-    const invitationData = invitation || {
-      id: invitationResult.id,
-      email: invitationResult.email,
-      role: invitationResult.role,
-      organization_id: invitationResult.organization_id,
-      name: '',
-    }
-
-    // 3. Supabase Auth でユーザーを作成
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: invitationData.email,
-      password: params.password,
-    })
-
-    if (authError) {
-      // 既存ユーザーの場合
-      if (authError.message.includes('already registered')) {
-        return { success: false, error: 'このメールアドレスは既に登録されています。ログインしてください。' }
+    const data = await publicFetch<{ success: boolean; error?: string }>(
+      '/api/invitations?action=accept',
+      {
+        method: 'POST',
+        body: JSON.stringify({ token: params.token, password: params.password }),
       }
-      throw authError
-    }
-
-    const userId = authData.user?.id
-    if (!userId) {
-      return { success: false, error: 'ユーザーの作成に失敗しました' }
-    }
-
-    // 4. users テーブルにレコードを作成
-    const userRole = Array.isArray(invitationData.role) 
-      ? (invitationData.role.some((r: string) => r.includes('管理者')) ? 'admin' : 'staff')
-      : (typeof invitationData.role === 'string' && invitationData.role.includes('管理者') ? 'admin' : 'staff')
-    
-    const { error: userError } = await supabase
-      .from('users')
-      .upsert({
-        id: userId,
-        email: invitationData.email,
-        role: userRole,
-        organization_id: invitationData.organization_id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'id' })
-
-    if (userError) {
-      logger.error('Failed to create user record:', userError)
-    }
-
-    // 5. staff テーブルにレコードを作成
-    const { data: staffData, error: staffError } = await supabase
-      .from('staff')
-      .insert({
-        name: invitationData.name || invitationData.email?.split('@')[0] || '',
-        email: invitationData.email,
-        user_id: userId,
-        organization_id: invitationData.organization_id,
-        role: invitationData.role,
-        status: 'active',
-        stores: [],
-        ng_days: [],
-        want_to_learn: [],
-        available_scenarios: [],
-        availability: [],
-        experience: 0,
-        special_scenarios: [],
-      })
-      .select()
-      .single()
-
-    if (staffError) {
-      logger.error('Failed to create staff record:', staffError)
-      // スタッフ作成に失敗しても続行（後で修正可能）
-    }
-
-    // 6. 招待にstaff_idを紐付け（アトミック処理でaccepted_atは既に設定済み）
-    if (staffData?.id && invitationData.id) {
-      const { error: updateError } = await supabase
-        .from('organization_invitations')
-        .update({ staff_id: staffData.id })
-        .eq('id', invitationData.id)
-
-      if (updateError) {
-        logger.error('Failed to link staff to invitation:', updateError)
-      }
-    }
-
-    return { success: true, error: null }
+    )
+    if (data.success) return { success: true, error: null }
+    return { success: false, error: data.error ?? '招待の受諾に失敗しました' }
   } catch (error) {
     logger.error('Failed to accept invitation:', error)
     return { success: false, error: (error as Error).message }
@@ -197,23 +107,16 @@ export async function acceptInvitation(params: {
 }
 
 /**
- * 組織の招待一覧を取得
+ * 組織の招待一覧を取得（admin 専用）
+ *
+ * 引数の organizationId は互換のため受けるが、サーバ側で JWT 経由の自組織に強制されるため無視される。
  */
 export async function getInvitationsByOrganization(
-  organizationId: string
+  _organizationId: string
 ): Promise<{ data: OrganizationInvitation[]; error: Error | null }> {
   try {
-    const { data, error } = await supabase
-      .from('organization_invitations')
-      .select(`
-        *,
-        organization:organizations(*)
-      `)
-      .eq('organization_id', organizationId)
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-    return { data: data as OrganizationInvitation[], error: null }
+    const data = await apiClient.get<OrganizationInvitation[]>('/api/invitations')
+    return { data, error: null }
   } catch (error) {
     logger.error('Failed to get invitations:', error)
     return { data: [], error: error as Error }
@@ -221,18 +124,15 @@ export async function getInvitationsByOrganization(
 }
 
 /**
- * 招待を削除
+ * 招待を削除（admin 専用、自組織のみ）
  */
 export async function deleteInvitation(
   invitationId: string
 ): Promise<{ success: boolean; error: Error | null }> {
   try {
-    const { error } = await supabase
-      .from('organization_invitations')
-      .delete()
-      .eq('id', invitationId)
-
-    if (error) throw error
+    await apiClient.delete<{ success: boolean }>(
+      `/api/invitations?id=${encodeURIComponent(invitationId)}`
+    )
     return { success: true, error: null }
   } catch (error) {
     logger.error('Failed to delete invitation:', error)
@@ -241,34 +141,20 @@ export async function deleteInvitation(
 }
 
 /**
- * 招待を再送信（新しいトークンを生成）
+ * 招待を再送信（admin 専用、新しいトークンを生成）
  */
 export async function resendInvitation(
   invitationId: string
 ): Promise<{ data: OrganizationInvitation | null; error: Error | null }> {
   try {
-    const token = crypto.randomUUID() + '-' + Date.now().toString(36)
-    const expires_at = new Date()
-    expires_at.setDate(expires_at.getDate() + 7)
-
-    const { data, error } = await supabase
-      .from('organization_invitations')
-      .update({
-        token,
-        expires_at: expires_at.toISOString(),
-      })
-      .eq('id', invitationId)
-      .select(`
-        *,
-        organization:organizations(*)
-      `)
-      .single()
-
-    if (error) throw error
-    return { data: data as OrganizationInvitation, error: null }
+    const params = new URLSearchParams({ id: invitationId, action: 'resend' })
+    const data = await apiClient.patch<OrganizationInvitation>(
+      `/api/invitations?${params.toString()}`,
+      {}
+    )
+    return { data, error: null }
   } catch (error) {
     logger.error('Failed to resend invitation:', error)
     return { data: null, error: error as Error }
   }
 }
-
