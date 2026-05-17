@@ -18,6 +18,7 @@ import {
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
 import { supabase } from '@/lib/supabase'
+import { updateUserRole } from '@/lib/userApi'
 import { toast } from 'sonner'
 
 function SectionTitle({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
@@ -51,6 +52,8 @@ export function OrganizationInfoSettings() {
   // 管理者ユーザー
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([])
   const [isLoadingAdmins, setIsLoadingAdmins] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null)
 
   // 招待ダイアログ
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -62,6 +65,12 @@ export function OrganizationInfoSettings() {
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [isDirty])
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id ?? null)
+    })
+  }, [])
 
   useEffect(() => {
     if (organization) {
@@ -119,6 +128,21 @@ export function OrganizationInfoSettings() {
       toast.error('更新に失敗しました')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleRemoveAdmin = async (user: AdminUser) => {
+    if (!confirm(`${user.display_name || user.email} を管理者から外しますか？\n（一般ユーザーに変更されます）`)) return
+    setRemovingUserId(user.id)
+    try {
+      await updateUserRole(user.id, 'customer')
+      toast.success(`${user.display_name || user.email} を管理者から外しました`)
+      setAdminUsers(prev => prev.filter(u => u.id !== user.id))
+    } catch (error) {
+      logger.error('Failed to remove admin:', error)
+      toast.error('操作に失敗しました')
+    } finally {
+      setRemovingUserId(null)
     }
   }
 
@@ -297,22 +321,40 @@ export function OrganizationInfoSettings() {
           <p className="text-sm text-muted-foreground text-center py-6">管理者アカウントがありません</p>
         ) : (
           <div className="space-y-2">
-            {adminUsers.map(user => (
-              <div key={user.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <User className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{user.display_name || user.email}</p>
-                  {user.display_name && (
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+            {adminUsers.map(user => {
+              const isSelf = user.id === currentUserId
+              const isLicAdmin = user.role === 'license_admin'
+              return (
+                <div key={user.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <User className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{user.display_name || user.email}</p>
+                      {isSelf && <span className="text-xs text-muted-foreground">（自分）</span>}
+                    </div>
+                    {user.display_name && (
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    )}
+                  </div>
+                  <Badge variant={isLicAdmin ? 'default' : 'secondary'} className="text-xs shrink-0">
+                    {isLicAdmin ? 'MMQ運営' : '管理者'}
+                  </Badge>
+                  {!isSelf && !isLicAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:text-destructive shrink-0"
+                      disabled={removingUserId === user.id}
+                      onClick={() => handleRemoveAdmin(user)}
+                    >
+                      {removingUserId === user.id ? <Loader2 className="w-3 h-3 animate-spin" /> : '外す'}
+                    </Button>
                   )}
                 </div>
-                <Badge variant={user.role === 'license_admin' ? 'default' : 'secondary'} className="text-xs shrink-0">
-                  {user.role === 'license_admin' ? 'MMQ運営' : '管理者'}
-                </Badge>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </section>
