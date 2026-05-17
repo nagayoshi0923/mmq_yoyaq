@@ -23,7 +23,7 @@ export function PlayedScenariosPage() {
   const customerId = playedData?.customerId ?? null
 
   const { data: likedScenarios = new Set<string>() } = useLikedScenarioIdsQuery(customerId)
-  const toggleLike = useToggleLikeMutation(customerId, organizationId)
+  const toggleLike = useToggleLikeMutation(customerId, organizationId ?? undefined)
 
   const handleToggleLike = (scenarioId: string | undefined) => {
     if (!scenarioId || !customerId) return

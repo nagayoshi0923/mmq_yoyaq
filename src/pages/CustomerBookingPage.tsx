@@ -131,7 +131,7 @@ export function CustomerBookingPage() {
     queryFn: () => storeApi.getAll(),
   })
 
-  const { data: events = [], isLoading } = useQuery({
+  const { data: events = [], isLoading } = useQuery<PublicEvent[]>({
     queryKey: ['customer-booking', 'events', organization?.id],
     queryFn: async (): Promise<PublicEvent[]> => {
       const currentDate = new Date()
@@ -180,11 +180,7 @@ export function CustomerBookingPage() {
       })
       return allEvents
     },
-    onError: (error) => {
-      logger.error('公演データの読み込みエラー:', error)
-      showToast.error('公演データの読み込みに失敗しました')
-    },
-  } as any)
+  })
 
   const extractRegionFromAddress = (address?: string): string => {
     if (!address) return 'その他'
