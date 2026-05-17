@@ -521,7 +521,7 @@ function SidebarContent({
               onClick={() => handleGroupClick(group)}
               className="w-full flex items-center justify-between px-3 pt-2 pb-1 transition-colors duration-150 group"
             >
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 transition-colors duration-150 group-hover:text-slate-600">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors duration-150 group-hover:text-slate-600">
                 {group.label}
               </span>
               <ChevronRight className={`w-3 h-3 text-slate-300 transition-all duration-200 group-hover:text-slate-500 ${
