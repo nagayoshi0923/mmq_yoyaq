@@ -222,33 +222,53 @@ export const AdminSidebar = memo(function AdminSidebar() {
           id: 'settings', label: '設定', icon: Settings,
           path: `/${slug}/settings`, roles: ['admin', 'license_admin'],
           subItems: [
-            // 組織
-            { id: 'organization-info',    label: '組織情報',        path: `/${slug}/settings?tab=organization-info`,    sectionLabel: '組織' },
-            { id: 'organization-design',  label: '組織デザイン',    path: `/${slug}/settings?tab=organization-design` },
-            { id: 'faq',                  label: 'FAQ設定',         path: `/${slug}/settings?tab=faq` },
-            { id: 'blog',                 label: 'ブログ・お知らせ', path: `/${slug}/settings?tab=blog` },
-            // 店舗・予約
-            { id: 'store-basic',          label: '店舗基本設定',    path: `/${slug}/settings?tab=store-basic`,          sectionLabel: '店舗・予約' },
-            { id: 'business-hours',       label: '営業時間',        path: `/${slug}/settings?tab=business-hours` },
-            { id: 'performance-schedule', label: '公演スケジュール', path: `/${slug}/settings?tab=performance-schedule` },
-            { id: 'reservation',          label: '予約設定',        path: `/${slug}/settings?tab=reservation` },
-            { id: 'cancellation',         label: 'キャンセル設定',  path: `/${slug}/settings?tab=cancellation` },
-            { id: 'pricing',              label: '料金設定',        path: `/${slug}/settings?tab=pricing` },
-            { id: 'booking-notice',       label: '注意事項設定',    path: `/${slug}/settings?tab=booking-notice` },
-            { id: 'categories',           label: 'カテゴリ・作者',  path: `/${slug}/settings?tab=categories` },
-            // スタッフ
-            { id: 'shift',                label: 'シフト設定',      path: `/${slug}/settings?tab=shift`,                sectionLabel: 'スタッフ' },
-            { id: 'staff-setting',        label: 'スタッフ設定',    path: `/${slug}/settings?tab=staff` },
-            { id: 'salary',               label: '報酬',            path: `/${slug}/settings?tab=salary` },
-            { id: 'customer',             label: '顧客設定',        path: `/${slug}/settings?tab=customer` },
-            // メール・通知
-            { id: 'email',                label: 'メール設定',      path: `/${slug}/settings?tab=email`,                sectionLabel: 'メール・通知' },
-            { id: 'email-history',        label: 'メール配信履歴',  path: `/${slug}/settings?tab=email-history` },
-            { id: 'email-logs',           label: 'メール送信ログ',  path: `/${slug}/settings?tab=email-logs` },
-            { id: 'notifications',        label: '通知設定',        path: `/${slug}/settings?tab=notifications` },
-            // システム
-            { id: 'system',               label: 'システム設定',    path: `/${slug}/settings?tab=system`,               sectionLabel: 'システム' },
-            { id: 'data',                 label: 'データ管理',      path: `/${slug}/settings?tab=data` },
+            {
+              id: 'cat-org', label: '組織',
+              subItems: [
+                { id: 'organization-info',   label: '組織情報',        path: `/${slug}/settings?tab=organization-info` },
+                { id: 'organization-design', label: '組織デザイン',    path: `/${slug}/settings?tab=organization-design` },
+                { id: 'faq',                 label: 'FAQ設定',         path: `/${slug}/settings?tab=faq` },
+                { id: 'blog',                label: 'ブログ・お知らせ', path: `/${slug}/settings?tab=blog` },
+              ],
+            },
+            {
+              id: 'cat-store', label: '店舗・予約',
+              subItems: [
+                { id: 'store-basic',          label: '店舗基本設定',    path: `/${slug}/settings?tab=store-basic` },
+                { id: 'business-hours',       label: '営業時間',        path: `/${slug}/settings?tab=business-hours` },
+                { id: 'performance-schedule', label: '公演スケジュール', path: `/${slug}/settings?tab=performance-schedule` },
+                { id: 'reservation',          label: '予約設定',        path: `/${slug}/settings?tab=reservation` },
+                { id: 'cancellation',         label: 'キャンセル設定',  path: `/${slug}/settings?tab=cancellation` },
+                { id: 'pricing',              label: '料金設定',        path: `/${slug}/settings?tab=pricing` },
+                { id: 'booking-notice',       label: '注意事項設定',    path: `/${slug}/settings?tab=booking-notice` },
+                { id: 'categories',           label: 'カテゴリ・作者',  path: `/${slug}/settings?tab=categories` },
+              ],
+            },
+            {
+              id: 'cat-staff', label: 'スタッフ',
+              subItems: [
+                { id: 'shift',        label: 'シフト設定',   path: `/${slug}/settings?tab=shift` },
+                { id: 'staff-setting', label: 'スタッフ設定', path: `/${slug}/settings?tab=staff` },
+                { id: 'salary',       label: '報酬',         path: `/${slug}/settings?tab=salary` },
+                { id: 'customer',     label: '顧客設定',     path: `/${slug}/settings?tab=customer` },
+              ],
+            },
+            {
+              id: 'cat-mail', label: 'メール・通知',
+              subItems: [
+                { id: 'email',         label: 'メール設定',    path: `/${slug}/settings?tab=email` },
+                { id: 'email-history', label: 'メール配信履歴', path: `/${slug}/settings?tab=email-history` },
+                { id: 'email-logs',    label: 'メール送信ログ', path: `/${slug}/settings?tab=email-logs` },
+                { id: 'notifications', label: '通知設定',      path: `/${slug}/settings?tab=notifications` },
+              ],
+            },
+            {
+              id: 'cat-system', label: 'システム',
+              subItems: [
+                { id: 'system', label: 'システム設定', path: `/${slug}/settings?tab=system` },
+                { id: 'data',   label: 'データ管理',  path: `/${slug}/settings?tab=data` },
+              ],
+            },
           ],
         },
       ],
