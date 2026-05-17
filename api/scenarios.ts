@@ -1,7 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireAuth, requireStaff, ApiError } from './_lib/auth'
-import { db, getMissingEnvError } from './_lib/db'
+import { createClient } from '@supabase/supabase-js'
 
+// ─── DB（service_role）────────────────────────────────────────────────────────
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const db = supabaseUrl && serviceRoleKey
+  ? createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  : null
+
+// ─── CORS ────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
   'http://localhost:5173',
@@ -10,13 +17,14 @@ const ALLOWED_ORIGINS = [
 
 function setCors(req: VercelRequest, res: VercelResponse) {
   const origin = req.headers.origin as string | undefined
-  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
-  if (allowed) res.setHeader('Access-Control-Allow-Origin', allowed)
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+  const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : (ALLOWED_ORIGINS[0] ?? '*')
+  res.setHeader('Access-Control-Allow-Origin', allowed)
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
   res.setHeader('Access-Control-Allow-Credentials', 'true')
 }
 
+// ─── フィールド ───────────────────────────────────────────────────────────────
 const SELECT_FIELDS = [
   'id', 'org_scenario_id', 'organization_id', 'scenario_master_id', 'slug',
   'status', 'org_status', 'title', 'author', 'author_email', 'author_id',
@@ -43,45 +51,61 @@ const SELECT_FIELDS = [
   'private_booking_time_slots', 'private_booking_blocked_slots',
 ].join(', ')
 
+// ─── ハンドラ ─────────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(req, res)
+  if (req.method === 'OPTIONS') return res.status(204).end()
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
-  // CORS preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end()
+  // 環境変数チェック
+  if (!db) {
+    const missing = [
+      !supabaseUrl && 'SUPABASE_URL',
+      !serviceRoleKey && 'SUPABASE_SERVICE_ROLE_KEY',
+    ].filter(Boolean).join(', ')
+    console.error('[scenarios] 環境変数が未設定:', missing)
+    return res.status(500).json({ error: `環境変数が未設定です: ${missing}` })
   }
 
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' })
+  // JWT 検証
+  const authHeader = req.headers['authorization'] as string | undefined
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authorization ヘッダが必要です' })
+  }
+  const jwt = authHeader.slice(7)
+
+  const { data: { user }, error: authError } = await db.auth.getUser(jwt)
+  if (authError || !user) {
+    return res.status(401).json({ error: 'トークンが無効または期限切れです' })
   }
 
-  try {
-    const envError = getMissingEnvError()
-    if (envError || !db) {
-      console.error('[GET /api/scenarios] 環境変数エラー:', envError)
-      return res.status(500).json({ error: `環境変数が未設定です: ${envError}` })
-    }
+  // org_id・role を DB から取得（JWT クレームを信用しない）
+  const { data: profile, error: profileError } = await db
+    .from('users')
+    .select('organization_id, role')
+    .eq('id', user.id)
+    .single()
 
-    const user = await requireAuth(req)
-    requireStaff(user)
-
-    const { data, error } = await db
-      .from('organization_scenarios_with_master')
-      .select(SELECT_FIELDS)
-      .eq('organization_id', user.orgId)  // org_id はサーバー側で強制フィルタ
-      .order('title', { ascending: true })
-
-    if (error) {
-      console.error('[GET /api/scenarios] DB error:', error)
-      return res.status(500).json({ error: 'データ取得に失敗しました' })
-    }
-
-    return res.status(200).json(data ?? [])
-  } catch (e) {
-    if (e instanceof ApiError) {
-      return res.status(e.status).json({ error: e.message })
-    }
-    console.error('[GET /api/scenarios] Unexpected error:', e)
-    return res.status(500).json({ error: 'サーバーエラーが発生しました' })
+  if (profileError || !profile?.organization_id) {
+    return res.status(403).json({ error: 'ユーザー情報が取得できません' })
   }
+
+  const { organization_id: orgId, role } = profile
+  if (!['admin', 'staff', 'license_admin'].includes(role)) {
+    return res.status(403).json({ error: 'スタッフ以上の権限が必要です' })
+  }
+
+  // シナリオ取得（org_id をサーバー側で強制フィルタ）
+  const { data, error } = await db
+    .from('organization_scenarios_with_master')
+    .select(SELECT_FIELDS)
+    .eq('organization_id', orgId)
+    .order('title', { ascending: true })
+
+  if (error) {
+    console.error('[scenarios] DB error:', error)
+    return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
+  }
+
+  return res.status(200).json(data ?? [])
 }
