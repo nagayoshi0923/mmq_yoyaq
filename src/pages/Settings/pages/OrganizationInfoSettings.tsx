@@ -1,6 +1,5 @@
 /**
  * 組織情報設定
- * 組織の基本情報・連絡先・予約ページの紹介文・招待管理
  */
 import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
@@ -10,12 +9,26 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Save, Loader2, Users, CheckCircle, Clock, RefreshCw } from 'lucide-react'
+import {
+  Save, Loader2, Users, CheckCircle, Clock, RefreshCw,
+  Building2, Globe, StickyNote, Users2,
+} from 'lucide-react'
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
 import { getInvitationsByOrganization, resendInvitation, deleteInvitation } from '@/lib/api/invitationsApi'
 import { toast } from 'sonner'
 import type { OrganizationInvitation } from '@/types'
+
+function SectionTitle({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+        <Icon className="h-4 w-4 text-primary" />
+      </div>
+      <h3 className="text-base font-semibold">{label}</h3>
+    </div>
+  )
+}
 
 export function OrganizationInfoSettings() {
   const { organization, isLoading: orgLoading, refetch } = useOrganization()
@@ -120,7 +133,7 @@ export function OrganizationInfoSettings() {
   const acceptedInvitations = invitations.filter(inv => inv.accepted_at)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader title="組織情報" description="組織の基本情報と予約ページの設定">
         <div className="flex items-center gap-2">
           {isDirty && <span className="text-xs text-amber-600 font-medium">未保存</span>}
@@ -131,165 +144,161 @@ export function OrganizationInfoSettings() {
         </div>
       </PageHeader>
 
-      {/* フォームパネル：max-w-3xl で中央寄せ */}
-      <div className="max-w-3xl mx-auto space-y-4">
-      <div className="rounded-lg border bg-white divide-y">
-
-        {/* 組織名・識別子 */}
-        <div className="px-4 py-3 grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label htmlFor="name" className="text-xs">組織名 <span className="text-destructive">*</span></Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="例: 株式会社サンプル"
-              className="h-8 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">識別子（URL）</Label>
-            <div className="flex items-center gap-1.5">
-              <Input value={organization.slug} disabled className="h-8 text-sm bg-muted flex-1" />
-              <Badge variant="outline" className="text-xs whitespace-nowrap">変更不可</Badge>
+      {/* 基本情報 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={Building2} label="基本情報" />
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="name" className="text-sm font-medium">
+                組織名 <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="例: 株式会社サンプル"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">識別子（URL）</Label>
+              <div className="flex items-center gap-2">
+                <Input value={organization.slug} disabled className="bg-muted flex-1" />
+                <Badge variant="outline" className="whitespace-nowrap text-xs">変更不可</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">予約URL: /{organization.slug}</p>
             </div>
           </div>
-        </div>
 
-        {/* 担当者・連絡先 */}
-        <div className="px-4 py-3 space-y-2">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="contact_name" className="text-xs">担当者名</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="notes" className="text-sm font-medium">管理メモ</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="管理者向けのメモ（お客様には表示されません）"
+              rows={2}
+              className="resize-none"
+            />
+          </div>
+
+          {/* プラン */}
+          <div className="flex items-center gap-2 pt-2 border-t">
+            <span className="text-sm text-muted-foreground">プラン</span>
+            <Badge variant="secondary">{(organization.plan || 'free').toUpperCase()}</Badge>
+            <span className="text-xs text-muted-foreground">変更は管理者にお問い合わせください</span>
+          </div>
+        </div>
+      </section>
+
+      {/* 連絡先 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={Users2} label="連絡先情報" />
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="contact_name" className="text-sm font-medium">担当者名</Label>
               <Input
                 id="contact_name"
                 value={formData.contact_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, contact_name: e.target.value }))}
                 placeholder="例: 山田太郎"
-                className="h-8 text-sm"
               />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="contact_email" className="text-xs">連絡先メールアドレス</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="contact_email" className="text-sm font-medium">連絡先メールアドレス</Label>
               <Input
                 id="contact_email"
                 type="email"
                 value={formData.contact_email}
                 onChange={(e) => setFormData(prev => ({ ...prev, contact_email: e.target.value }))}
                 placeholder="例: contact@example.com"
-                className="h-8 text-sm"
               />
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">/{organization.slug}/contact の連絡先ページに表示されます</p>
-        </div>
-
-        {/* 管理メモ */}
-        <div className="px-4 py-3 space-y-1">
-          <Label htmlFor="notes" className="text-xs">管理メモ</Label>
-          <Textarea
-            id="notes"
-            value={formData.notes}
-            onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-            placeholder="管理者向けのメモ（お客様には表示されません）"
-            rows={2}
-            className="text-sm resize-none"
-          />
-        </div>
-
-        {/* 予約トップ紹介文 */}
-        <div className="px-4 py-3 space-y-1.5">
-          <div className="flex items-baseline justify-between gap-2">
-            <Label htmlFor="hero_desc" className="text-xs">予約トップの紹介文</Label>
-            <span className="text-xs text-muted-foreground">/{organization.slug} のトップに表示</span>
+          <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">
+            <Globe className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span>お客様向けの連絡先ページ（/{organization.slug}/contact）に表示されます</span>
           </div>
+        </div>
+      </section>
+
+      {/* 予約トップ紹介文 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={StickyNote} label="予約トップの紹介文" />
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            予約サイト（/{organization.slug}）のトップページに表示する説明文です。空欄の場合はデフォルト文言が表示されます。
+          </p>
           <Textarea
-            id="hero_desc"
             value={formData.public_booking_hero_description}
             onChange={(e) => setFormData(prev => ({ ...prev, public_booking_hero_description: e.target.value }))}
-            placeholder="店舗の特徴やシナリオ数など、お客様へ伝えたい内容を入力。空欄の場合はデフォルト文言が表示されます。"
-            rows={3}
-            className="text-sm resize-none"
+            placeholder="店舗の特徴やシナリオ数など、お客様へ伝えたい内容を入力"
+            rows={4}
+            className="resize-none"
           />
         </div>
-
-        {/* プラン */}
-        <div className="px-4 py-3 flex items-center gap-3">
-          <span className="text-xs text-muted-foreground shrink-0">プラン</span>
-          <Badge variant="secondary" className="text-xs">
-            {(organization.plan || 'free').toUpperCase()}
-          </Badge>
-          <span className="text-xs text-muted-foreground">変更は管理者にお問い合わせください</span>
-        </div>
-      </div>
+      </section>
 
       {/* 招待管理 */}
-      <div className="rounded-lg border bg-white">
-        <div className="px-4 py-3 border-b flex items-center gap-2">
-          <Users className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-sm font-medium">招待管理</span>
-          <span className="text-xs text-muted-foreground ml-auto">管理者アカウントの招待状況</span>
-        </div>
-        <div className="px-4 py-3">
-          {isLoadingInvitations ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-            </div>
-          ) : invitations.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-3">招待履歴がありません</p>
-          ) : (
-            <div className="space-y-3">
-              {pendingInvitations.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <Clock className="w-3 h-3 text-amber-500" />
-                    保留中（{pendingInvitations.length}件）
-                  </p>
-                  {pendingInvitations.map(inv => (
-                    <div key={inv.id} className="flex items-center justify-between py-2 px-3 rounded-md border bg-amber-50/40">
-                      <div>
-                        <p className="text-sm font-medium leading-none">{inv.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{inv.email} · 期限: {new Date(inv.expires_at).toLocaleDateString('ja-JP')}</p>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleResendInvitation(inv)}>
-                          <RefreshCw className="w-3 h-3 mr-1" />再送信
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => handleDeleteInvitation(inv)}>
-                          取消
-                        </Button>
-                      </div>
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={Users} label="招待管理" />
+        {isLoadingInvitations ? (
+          <div className="flex justify-center py-6">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : invitations.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">招待履歴がありません</p>
+        ) : (
+          <div className="space-y-4">
+            {pendingInvitations.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                  保留中（{pendingInvitations.length}件）
+                </p>
+                {pendingInvitations.map(inv => (
+                  <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg border bg-amber-50/40">
+                    <div>
+                      <p className="text-sm font-medium">{inv.name}</p>
+                      <p className="text-xs text-muted-foreground">{inv.email} · 期限: {new Date(inv.expires_at).toLocaleDateString('ja-JP')}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {acceptedInvitations.length > 0 && (
-                <div className="space-y-1.5">
-                  {pendingInvitations.length > 0 && <div className="border-t my-1" />}
-                  <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <CheckCircle className="w-3 h-3 text-green-500" />
-                    受諾済み（{acceptedInvitations.length}件）
-                  </p>
-                  {acceptedInvitations.slice(0, 5).map(inv => (
-                    <div key={inv.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/40">
-                      <div>
-                        <p className="text-sm font-medium leading-none">{inv.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{inv.email}</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{new Date(inv.accepted_at!).toLocaleDateString('ja-JP')}</p>
+                    <div className="flex gap-1.5">
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleResendInvitation(inv)}>
+                        <RefreshCw className="w-3 h-3 mr-1" />再送信
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => handleDeleteInvitation(inv)}>
+                        取消
+                      </Button>
                     </div>
-                  ))}
-                  {acceptedInvitations.length > 5 && (
-                    <p className="text-xs text-muted-foreground text-center pt-1">他 {acceptedInvitations.length - 5} 件</p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-      </div>{/* /max-w-3xl */}
+                  </div>
+                ))}
+              </div>
+            )}
+            {acceptedInvitations.length > 0 && (
+              <div className="space-y-2">
+                {pendingInvitations.length > 0 && <div className="border-t" />}
+                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                  受諾済み（{acceptedInvitations.length}件）
+                </p>
+                {acceptedInvitations.slice(0, 5).map(inv => (
+                  <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                    <div>
+                      <p className="text-sm font-medium">{inv.name}</p>
+                      <p className="text-xs text-muted-foreground">{inv.email}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{new Date(inv.accepted_at!).toLocaleDateString('ja-JP')}</p>
+                  </div>
+                ))}
+                {acceptedInvitations.length > 5 && (
+                  <p className="text-xs text-muted-foreground text-center pt-1">他 {acceptedInvitations.length - 5} 件</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   )
 }
