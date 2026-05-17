@@ -296,7 +296,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   if (organizationNotFound) {
     return (
       <div className="min-h-screen bg-background">
-        <Header backgroundColor={heroBgColor} />
+        <Header />
         <div className="container mx-auto max-w-7xl px-4 md:px-6 py-16">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">ページが見つかりません</h1>
