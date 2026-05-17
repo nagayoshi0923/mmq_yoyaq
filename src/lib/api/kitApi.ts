@@ -6,6 +6,7 @@
 
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '../organization'
+import { apiClient } from '@/lib/apiClient'
 import type { KitLocation, KitTransferEvent, KitCondition, KitTransferCompletion } from '@/types'
 
 /**
@@ -55,35 +56,18 @@ export const kitApi = {
 
   /**
    * 全キット位置を取得
+   * バックエンド API (/api/kit-locations) 経由で org_id をサーバー側で強制フィルタ
    */
   async getKitLocations(): Promise<KitLocation[]> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) return []
-
-    const { data, error } = await supabase
-      .from('scenario_kit_locations')
-      .select(`
-        *,
-        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        scenario_master:scenario_masters!scenario_kit_locations_scenario_master_id_fkey(id, title),
-        store:stores(id, name, short_name)
-      `)
-      .eq('organization_id', orgId)
-      .order('org_scenario_id', { nullsFirst: false })
-      .order('scenario_master_id', { nullsFirst: false })
-      .order('kit_number')
-
-    if (error) {
-      console.error('Failed to fetch kit locations:', error)
-      throw error
+    type KitLocationRaw = {
+      org_scenario?: { id: string; scenario_master_id: string; scenario_masters?: { id?: string; title?: string | null } | null } | null
+      scenario_master?: { id: string; title?: string | null } | null
+      [key: string]: unknown
     }
+    const data = await apiClient.get<KitLocationRaw[]>('/api/kit-locations')
 
     // org_scenario または scenario_master から scenario 形式に変換
-    const transformed = (data || []).map(item => {
+    const transformed = data.map(item => {
       if (item.org_scenario) {
         return {
           ...item,
