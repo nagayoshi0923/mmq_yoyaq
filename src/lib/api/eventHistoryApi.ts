@@ -1,4 +1,5 @@
 // 公演の更新履歴を管理するAPI
+// すべてバックエンド API (/api/event-history) 経由で org_id をサーバー側で強制
 
 import { supabase } from '@/lib/supabase'
 import { getCurrentStaff } from '@/lib/organization'
@@ -93,7 +94,7 @@ function calculateChanges(
   newValues: Record<string, unknown>
 ): Record<string, { old: unknown; new: unknown }> {
   const changes: Record<string, { old: unknown; new: unknown }> = {}
-  
+
   // 比較対象のフィールド（重要なフィールドのみ）
   // DBカラム名と一致させること（capacity, store_idなど）
   const fieldsToCompare = [
@@ -103,29 +104,30 @@ function calculateChanges(
     'is_cancelled', 'is_tentative', 'is_reservation_enabled',
     'reservation_name', 'time_slot', 'venue_rental_fee'
   ]
-  
+
   for (const field of fieldsToCompare) {
     const oldVal = oldValues?.[field]
     const newVal = newValues[field]
-    
+
     // 値が異なる場合のみ記録
     const oldStr = JSON.stringify(oldVal ?? null)
     const newStr = JSON.stringify(newVal ?? null)
-    
+
     if (oldStr !== newStr) {
       changes[field] = { old: oldVal ?? null, new: newVal ?? null }
     }
   }
-  
+
   return changes
 }
 
 /**
- * 履歴エントリを作成
+ * 履歴エントリを作成（バックエンド API 経由）
+ * organizationId 引数は後方互換のため残すが、サーバー側で JWT から強制設定される
  */
 export async function createEventHistory(
   scheduleEventId: string | null,
-  organizationId: string,
+  _organizationId: string,
   actionType: ActionType,
   oldValues: Record<string, unknown> | null,
   newValues: Record<string, unknown>,
@@ -136,10 +138,10 @@ export async function createEventHistory(
   }
 ): Promise<void> {
   try {
-    // 現在のスタッフ情報を取得
+    // 現在のスタッフ情報を取得（display name 表示用）
     const currentStaff = await getCurrentStaff()
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     // 変更差分を計算
     // 作成・移動・複製は差分ではなく「操作の事実」を記録するため changes は空にする
     const noDiffActions: ActionType[] = ['create', 'move_out', 'move_in', 'copy']
@@ -153,36 +155,23 @@ export async function createEventHistory(
       logger.log('変更がないため履歴をスキップ')
       return
     }
-    
-    const historyEntry = {
+
+    await apiClient.post('/api/event-history', {
       schedule_event_id: scheduleEventId,
-      organization_id: organizationId,
       event_date: cellInfo.date,
       store_id: cellInfo.storeId,
       time_slot: cellInfo.timeSlot,
-      changed_by_user_id: user?.id || null,
-      changed_by_staff_id: currentStaff?.id || null,
+      changed_by_user_id: user?.id ?? null,
+      changed_by_staff_id: currentStaff?.id ?? null,
       changed_by_name: currentStaff?.name || user?.email || '不明',
       action_type: actionType,
       changes,
       old_values: oldValues,
       new_values: newValues,
-      deleted_event_scenario: options?.deletedEventScenario || null,
-      notes: options?.notes || null,
-    }
-    
-    const { data, error } = await supabase
-      .from('schedule_event_history')
-      .insert(historyEntry)
-      .select()
-      .single()
-    
-    if (error) {
-      logger.error('履歴作成エラー:', error)
-      // 履歴作成の失敗は本体処理に影響させない
-    } else {
-      logger.log('履歴を作成しました:', { scheduleEventId, actionType })
-    }
+      deleted_event_scenario: options?.deletedEventScenario ?? null,
+      notes: options?.notes ?? null,
+    })
+    logger.log('履歴を作成しました:', { scheduleEventId, actionType })
   } catch (error) {
     logger.error('履歴作成中のエラー:', error)
     // 履歴作成の失敗は本体処理に影響させない
@@ -227,11 +216,11 @@ const GM_ROLE_LABELS: Record<string, string> = {
  * GMリストと役割を組み合わせて表示用文字列を生成
  */
 export function formatGMsWithRoles(
-  gms: string[] | null | undefined, 
+  gms: string[] | null | undefined,
   gmRoles: Record<string, string> | null | undefined
 ): string {
   if (!gms || gms.length === 0) return '（なし）'
-  
+
   return gms.map(gm => {
     const role = gmRoles?.[gm]
     if (role && role !== 'main') {
@@ -249,13 +238,13 @@ export function formatValue(field: string, value: unknown): string {
   if (value === null || value === undefined) {
     return '（なし）'
   }
-  
+
   // 配列の場合
   if (Array.isArray(value)) {
     if (value.length === 0) return '（なし）'
     return value.join(', ')
   }
-  
+
   // gm_rolesの場合（役割を日本語で表示）
   if (field === 'gm_roles' && typeof value === 'object') {
     const entries = Object.entries(value as Record<string, string>)
@@ -265,14 +254,14 @@ export function formatValue(field: string, value: unknown): string {
       return `${name}(${roleLabel})`
     }).join(', ')
   }
-  
+
   // その他のオブジェクトの場合
   if (typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
     if (entries.length === 0) return '（なし）'
     return entries.map(([k, v]) => `${k}: ${v}`).join(', ')
   }
-  
+
   // ブール値
   if (typeof value === 'boolean') {
     if (field === 'is_cancelled') return value ? '中止' : '実施'
@@ -280,7 +269,7 @@ export function formatValue(field: string, value: unknown): string {
     if (field === 'is_reservation_enabled') return value ? '受付中' : '受付停止'
     return value ? 'はい' : 'いいえ'
   }
-  
+
   // カテゴリの場合
   if (field === 'category') {
     const categoryLabels: Record<string, string> = {
@@ -296,12 +285,11 @@ export function formatValue(field: string, value: unknown): string {
     }
     return categoryLabels[value as string] || String(value)
   }
-  
+
   // 時間の場合（HH:MM:SS → HH:MM）
   if (field === 'start_time' || field === 'end_time') {
     return String(value).slice(0, 5)
   }
-  
+
   return String(value)
 }
-

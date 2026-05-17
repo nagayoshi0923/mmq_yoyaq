@@ -59,12 +59,12 @@ export function useReservationsQuery(userId: string | undefined, email: string |
       const reservations = reservationsResult.data || []
       const waitlist = waitlistResult.data || []
 
-      let scenarioImages: Record<string, string> = {}
-      let scenarioInfo: Record<string, { min: number; max: number }> = {}
-      let scenarioTitles: Record<string, string> = {}
-      let stores: Record<string, Store> = {}
-      let storeDeadlines: Record<string, number> = {}
-      let storePrivateDeadlines: Record<string, number> = {}
+      const scenarioImages: Record<string, string> = {}
+      const scenarioInfo: Record<string, { min: number; max: number }> = {}
+      const scenarioTitles: Record<string, string> = {}
+      const stores: Record<string, Store> = {}
+      const storeDeadlines: Record<string, number> = {}
+      const storePrivateDeadlines: Record<string, number> = {}
 
       if (reservations.length > 0) {
         const storeIds = new Set<string>()

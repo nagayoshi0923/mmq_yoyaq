@@ -63,10 +63,10 @@ export default defineConfig({
   server: {
     // 既定 127.0.0.1（起動安定）。スマホ等から繋ぐときは VITE_DEV_HOST=all npm run dev
     host: devHost,
-    // vercel dev はランダムな PORT を渡してきて、その port を vite が掴むのを待つ。
-    // PORT があれば従い、なければ 5173 固定（通常の npm run dev）。
-    port: process.env.PORT ? Number(process.env.PORT) : 5173,
-    strictPort: !process.env.PORT, // 通常時のみ strict
+    // `vercel dev` 経由で起動された場合は PORT env が渡されるのでそれに従う。
+    // 単独 `npm run dev` 時は 5173 固定（別ポートに逃がさない）。
+    port: process.env.PORT ? parseInt(process.env.PORT, 10) : 5173,
+    strictPort: !process.env.PORT,
     // CORS設定（ネットワーク経由アクセス対応）
     cors: true,
     // /api/* をステージング Vercel deploy に転送する

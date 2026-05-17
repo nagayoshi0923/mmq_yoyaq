@@ -140,7 +140,7 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
     const defaultSlots = ['morning', 'afternoon', 'evening', 'late_night']
     const defaultTimes = ['10:00', '14:00', '18:00', '22:00']
     const currentTimes = formData.performance_times
-    let newTimes = count > currentTimes.length
+    const newTimes = count > currentTimes.length
       ? [...currentTimes, ...Array.from({ length: count - currentTimes.length }, (_, i) => ({
           slot: defaultSlots[currentTimes.length + i] || `slot${currentTimes.length + i + 1}`,
           start_time: defaultTimes[currentTimes.length + i] || '12:00'

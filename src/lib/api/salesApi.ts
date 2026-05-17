@@ -1,699 +1,225 @@
 /**
  * 売上分析関連API
+ *
+ * read 系メソッドはすべてバックエンド API (/api/sales) 経由。
+ * org_id はサーバー側で JWT から取得するため、クライアントからは渡さない。
  */
-import { supabase } from '../supabase'
-import { logger } from '@/utils/logger'
-import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 
-// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
-const SCHEDULE_EVENT_SALES_SELECT_FIELDS =
-  'id, organization_id, date, start_time, end_time, store_id, venue, scenario_master_id, scenario, organization_scenario_id, category, gms, gm_roles, capacity, max_participants, venue_rental_fee, is_cancelled' as const
+// ── 戻り値型 ──────────────────────────────────────────────────────────────
+// NOTE: 既存呼び出し側との互換性のため、サーバー側で null になりうるフィールドも
+// 呼び出し側が前提とする string 型に寄せている。
+
+export interface SalesPeriodEvent {
+  id: string
+  organization_id: string
+  date: string
+  start_time?: string
+  end_time?: string
+  store_id: string
+  venue?: string
+  scenario_master_id?: string
+  scenario?: string
+  organization_scenario_id?: string
+  category: string
+  gms?: string[]
+  gm_roles?: Record<string, string>
+  capacity?: number
+  max_participants?: number
+  venue_rental_fee?: number
+  is_cancelled: boolean
+  // enrich 結果
+  scenarios?: {
+    id?: string
+    title?: string
+    author?: string
+    duration?: number
+    participation_fee?: number
+    gm_test_participation_fee?: number
+    participation_costs?: Array<{ item: string; amount: number; startDate?: string; endDate?: string; status?: string }>
+    license_amount?: number
+    gm_test_license_amount?: number
+    franchise_license_amount?: number
+    franchise_gm_test_license_amount?: number
+    external_license_amount?: number
+    external_gm_test_license_amount?: number
+    fc_receive_license_amount?: number
+    fc_receive_gm_test_license_amount?: number
+    fc_author_license_amount?: number
+    fc_author_gm_test_license_amount?: number
+    scenario_type?: string
+    gm_costs?: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }>
+    production_costs?: Array<{ item: string; amount: number; startDate?: string; endDate?: string; status?: string }>
+    required_props?: Array<{ item: string; amount: number; startDate?: string; endDate?: string; status?: string }>
+  }
+  revenue: number
+  actual_participants: number
+  has_demo_participant: boolean
+  // 互換性のため任意フィールド
+  current_participants?: number
+}
+
+export interface SalesStore {
+  id: string
+  name: string
+  short_name: string
+  fixed_costs?: Array<{
+    item: string
+    amount: number
+    frequency?: 'monthly' | 'yearly' | 'one-time'
+    startDate?: string
+    endDate?: string
+  }>
+  ownership_type?: 'corporate' | 'franchise' | 'office'
+  transport_allowance?: number
+  franchise_fee?: number
+}
+
+export interface ScenarioPerformanceItem {
+  id: string
+  title: string
+  author: string
+  category: 'open' | 'gmtest'
+  events: number
+  stores: string[]
+  // 互換性のため：旧コードが perf.store_id にアクセスするケースがある
+  store_id?: string
+}
+
+export interface OpenEventAnalysisItem {
+  id: string
+  date: string
+  start_time: string | null
+  scenario: string | null
+  scenario_master_id: string | null
+  capacity: number | null
+  max_participants: number | null
+  current_participants: number | null
+  is_cancelled: boolean
+  created_at: string
+  store_id: string | null
+  category?: string | null
+}
+
+export interface OpenEventReservation {
+  id: string
+  schedule_event_id: string
+  created_at: string
+  participant_count: number | null
+  status: string
+}
+
+export interface ScheduleExportRow {
+  date: string
+  start_time: string
+  end_time: string
+  store_name: string
+  scenario: string
+  category: string
+  gms: string
+  capacity: number
+  total_participants: number
+  regular_participants: number
+  staff_participants: number
+  onsite_amount: number
+  online_amount: number
+  total_revenue: number
+  license_amount: number
+  gm_cost: number
+  net_profit: number
+}
 
 export const salesApi = {
   // 期間別売上データを取得
-  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
-  async getSalesByPeriod(startDate: string, endDate: string, organizationId?: string) {
-    // 組織フィルタリング
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    // まずschedule_eventsを取得
-    let query = supabase
-      .from('schedule_events_staff_view')
-      .select(SCHEDULE_EVENT_SALES_SELECT_FIELDS)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .eq('is_cancelled', false)
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data: events, error } = await query.order('date', { ascending: true })
-    
-    if (error) {
-      throw error
-    }
-    
-    if (!events || events.length === 0) {
-      return []
-    }
-    
-    // シナリオを取得（organization_scenarios_with_master: 組織固有設定を含む）
-    let scenarioQuery = supabase
-      .from('organization_scenarios_with_master')
-      .select('id, title, author, duration, participation_fee, gm_test_participation_fee, participation_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, scenario_type, gm_costs, production_costs, required_props')
-    
-    if (orgId) {
-      scenarioQuery = scenarioQuery.eq('organization_id', orgId)
-    }
-    
-    const { data: scenarios, error: scenariosError } = await scenarioQuery
-    
-    if (scenariosError) {
-      logger.error('シナリオデータの取得に失敗:', scenariosError)
-    }
-    
-    // organization_scenarios を取得（組織固有のGM報酬設定を取得）
-    let orgScenarioQuery = supabase
-      .from('organization_scenarios')
-      .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, external_license_amount, external_gm_test_license_amount, fc_receive_license_amount, fc_receive_gm_test_license_amount, fc_author_license_amount, fc_author_gm_test_license_amount, participation_fee, gm_test_participation_fee')
-    
-    if (orgId) {
-      orgScenarioQuery = orgScenarioQuery.eq('organization_id', orgId)
-    }
-    
-    const { data: orgScenarios, error: orgScenariosError } = await orgScenarioQuery
-    
-    if (orgScenariosError) {
-      logger.error('組織シナリオデータの取得に失敗:', orgScenariosError)
-    }
-    
-    // organization_scenario_id でマッピング
-    const orgScenarioMap = new Map()
-    orgScenarios?.forEach(os => {
-      orgScenarioMap.set(os.id, os)
+  // organizationId は後方互換のため引数を残すが、バックエンド経由ではサーバー側で JWT から取得するため未使用
+  async getSalesByPeriod(startDate: string, endDate: string, _organizationId?: string): Promise<SalesPeriodEvent[]> {
+    const params = new URLSearchParams({
+      type: 'by-period',
+      start: startDate,
+      end: endDate,
     })
-    
-    // スタッフを取得（組織フィルタ適用）
-    let staffQuery = supabase
-      .from('staff')
-      .select('name')
-    
-    if (orgId) {
-      staffQuery = staffQuery.eq('organization_id', orgId)
-    }
-    
-    const { data: staff, error: staffError } = await staffQuery
-    
-    if (staffError) {
-      logger.error('スタッフデータの取得に失敗:', staffError)
-    }
-    
-    const staffNames = new Set(staff?.map(s => s.name) || [])
-    
-    // シナリオ名でマッピング（scenario_master_idがない場合のフォールバック）
-    const scenarioMap = new Map()
-    scenarios?.forEach(s => {
-      scenarioMap.set(s.title, s)
-    })
-    
-    // 各イベントの実際の予約データを取得して売上を計算
-    const enrichedEvents = await Promise.all(events.map(async (event) => {
-      let scenarioInfo = null
-      
-      // scenario_master_id、なければ scenario（TEXT）からマッチング
-      const scenarioKey = event.scenario_master_id
-      if (scenarioKey && scenarios) {
-        scenarioInfo = scenarios.find(s => s.id === scenarioKey)
-      } else if (event.scenario) {
-        scenarioInfo = scenarioMap.get(event.scenario)
-      }
-      
-      // organization_scenario_id があれば、組織固有の設定（gm_costs等）で上書き
-      logger.log('🔍 organization_scenario_id チェック:', {
-        eventId: event.id,
-        scenario: event.scenario,
-        organization_scenario_id: event.organization_scenario_id,
-        hasOrgScenario: event.organization_scenario_id ? orgScenarioMap.has(event.organization_scenario_id) : false,
-        orgScenarioMapSize: orgScenarioMap.size
-      })
-      
-      if (event.organization_scenario_id && orgScenarioMap.has(event.organization_scenario_id)) {
-        const orgScenario = orgScenarioMap.get(event.organization_scenario_id)
-        logger.log('🔍 organization_scenario から取得:', {
-          scenario: event.scenario,
-          orgScenario_gm_costs: orgScenario.gm_costs,
-          orgScenario_gm_costs_length: orgScenario.gm_costs?.length
-        })
-        if (scenarioInfo) {
-          // 組織シナリオの設定で上書き（空でなければ）
-          scenarioInfo = {
-            ...scenarioInfo,
-            gm_costs: (orgScenario.gm_costs && orgScenario.gm_costs.length > 0) 
-              ? orgScenario.gm_costs 
-              : scenarioInfo.gm_costs,
-            license_amount: orgScenario.license_amount ?? scenarioInfo.license_amount,
-            gm_test_license_amount: orgScenario.gm_test_license_amount ?? scenarioInfo.gm_test_license_amount,
-            franchise_license_amount: orgScenario.franchise_license_amount ?? scenarioInfo.franchise_license_amount,
-            franchise_gm_test_license_amount: orgScenario.franchise_gm_test_license_amount ?? scenarioInfo.franchise_gm_test_license_amount,
-            // 他店受取金額
-            external_license_amount: orgScenario.external_license_amount ?? scenarioInfo.external_license_amount,
-            external_gm_test_license_amount: orgScenario.external_gm_test_license_amount ?? scenarioInfo.external_gm_test_license_amount,
-            // フランチャイズ専用
-            fc_receive_license_amount: orgScenario.fc_receive_license_amount,
-            fc_receive_gm_test_license_amount: orgScenario.fc_receive_gm_test_license_amount,
-            fc_author_license_amount: orgScenario.fc_author_license_amount,
-            fc_author_gm_test_license_amount: orgScenario.fc_author_gm_test_license_amount,
-          }
-        } else {
-          // scenarioInfoがない場合はorgScenarioの情報を使用（idはscenario_master_id）
-          scenarioInfo = {
-            id: orgScenario.scenario_master_id ?? orgScenario.id,
-            title: event.scenario || '不明',
-            gm_costs: orgScenario.gm_costs || [],
-            license_amount: orgScenario.license_amount,
-            gm_test_license_amount: orgScenario.gm_test_license_amount,
-            franchise_license_amount: orgScenario.franchise_license_amount,
-            franchise_gm_test_license_amount: orgScenario.franchise_gm_test_license_amount,
-            // 他店受取金額
-            external_license_amount: orgScenario.external_license_amount,
-            external_gm_test_license_amount: orgScenario.external_gm_test_license_amount,
-            // フランチャイズ専用
-            fc_receive_license_amount: orgScenario.fc_receive_license_amount,
-            fc_receive_gm_test_license_amount: orgScenario.fc_receive_gm_test_license_amount,
-            fc_author_license_amount: orgScenario.fc_author_license_amount,
-            fc_author_gm_test_license_amount: orgScenario.fc_author_gm_test_license_amount,
-          }
-        }
-      }
-      
-      // このイベントの予約データを取得（組織フィルタ付き）
-      let resQuery = supabase
-        .from('reservations')
-        .select('participant_count, participant_names, payment_method, final_price')
-        .eq('schedule_event_id', event.id)
-        .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
-      
-      if (orgId) {
-        resQuery = resQuery.eq('organization_id', orgId)
-      }
-      
-      const { data: reservations, error: reservationError } = await resQuery
-      
-      if (reservationError) {
-        // PGRST116 は "No rows" エラーなので無視
-        if (reservationError.code !== 'PGRST116') {
-          logger.warn('予約データの取得に失敗:', {
-            eventId: event.id,
-            code: reservationError.code,
-            message: reservationError.message,
-            details: reservationError.details
-          })
-        }
-      }
-      
-      // 実際の参加者数と売上を計算
-      let totalParticipants = 0
-      let totalRevenue = 0
-      
-      // 場所貸しの場合は venue_rental_fee を使用
-      const isVenueRental = event.category === 'venue_rental' || event.category === 'venue_rental_free'
-      if (isVenueRental) {
-        // 場所貸し無料は0円、場所貸しは設定された料金（デフォルト12,000円）
-        totalRevenue = event.category === 'venue_rental_free' ? 0 : (event.venue_rental_fee || 12000)
-      } else {
-        reservations?.forEach(reservation => {
-          const participantCount = reservation.participant_count || 0
-          totalParticipants += participantCount
-          
-          // 参加者名をチェックしてスタッフかどうか判定
-          const participantNames = reservation.participant_names || []
-          const hasStaffParticipant = participantNames.some((name: string) => staffNames.has(name))
-          
-          if (hasStaffParticipant || reservation.payment_method === 'staff') {
-            // スタッフ参加の場合は参加費0円
-            totalRevenue += 0
-          } else {
-            // 通常参加の場合は実際の支払い金額を使用
-            totalRevenue += reservation.final_price || 0
-          }
-        })
-      }
-      
-      return {
-        ...event,
-        scenarios: scenarioInfo,
-        revenue: totalRevenue,
-        actual_participants: totalParticipants,
-        has_demo_participant: totalParticipants >= (event.max_participants || event.capacity || 0)
-      }
-    }))
-    
-    return enrichedEvents
+    return apiClient.get<SalesPeriodEvent[]>(`/api/sales?${params.toString()}`)
   },
 
   // 店舗別売上データを取得
-  async getSalesByStore(startDate: string, endDate: string) {
-    const orgId = await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('schedule_events_staff_view')
-      .select(`
-        *,
-        stores:store_id (
-          id,
-          name,
-          short_name
-        ),
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          author,
-          duration
-        ),
-        organization_scenarios:organization_scenario_id (
-          participation_fee,
-          gm_test_participation_fee,
-          participation_costs,
-          license_amount,
-          gm_test_license_amount,
-          gm_costs
-        )
-      `)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .eq('is_cancelled', false)
-
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-
-    const { data, error } = await query
-
-    if (error) throw error
-    return data || []
+  async getSalesByStore(startDate: string, endDate: string): Promise<Array<Record<string, unknown>>> {
+    const params = new URLSearchParams({
+      type: 'by-store',
+      start: startDate,
+      end: endDate,
+    })
+    return apiClient.get<Array<Record<string, unknown>>>(`/api/sales?${params.toString()}`)
   },
 
   // シナリオ別売上データを取得
-  async getSalesByScenario(startDate: string, endDate: string) {
-    const orgId = await getCurrentOrganizationId()
-
-    let query = supabase
-      .from('schedule_events_staff_view')
-      .select(`
-        *,
-        stores:store_id (
-          id,
-          name,
-          short_name
-        ),
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          author,
-          duration
-        ),
-        organization_scenarios:organization_scenario_id (
-          participation_fee,
-          gm_test_participation_fee,
-          participation_costs,
-          license_amount,
-          gm_test_license_amount,
-          gm_costs
-        )
-      `)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .eq('is_cancelled', false)
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    return data || []
+  async getSalesByScenario(startDate: string, endDate: string): Promise<Array<Record<string, unknown>>> {
+    const params = new URLSearchParams({
+      type: 'by-scenario',
+      start: startDate,
+      end: endDate,
+    })
+    return apiClient.get<Array<Record<string, unknown>>>(`/api/sales?${params.toString()}`)
   },
 
   // 作者別公演実行回数を取得
-  async getPerformanceCountByAuthor(startDate: string, endDate: string) {
-    const orgId = await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('schedule_events_staff_view')
-      .select(`
-        date,
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          author
-        )
-      `)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .eq('is_cancelled', false)
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    return data || []
+  async getPerformanceCountByAuthor(startDate: string, endDate: string): Promise<Array<Record<string, unknown>>> {
+    const params = new URLSearchParams({
+      type: 'author-performance-count',
+      start: startDate,
+      end: endDate,
+    })
+    return apiClient.get<Array<Record<string, unknown>>>(`/api/sales?${params.toString()}`)
   },
 
   // 店舗一覧を取得
-  async getStores() {
-    const orgId = await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('stores')
-      .select('id, name, short_name, fixed_costs, ownership_type, transport_allowance, franchise_fee')
-      .order('name', { ascending: true })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    return data || []
+  async getStores(): Promise<SalesStore[]> {
+    const params = new URLSearchParams({ type: 'stores' })
+    return apiClient.get<SalesStore[]>(`/api/sales?${params.toString()}`)
   },
 
   // シナリオ別公演数データ取得
-  async getScenarioPerformance(startDate: string, endDate: string, storeIds?: string[]) {
-    const orgId = await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('schedule_events_staff_view')
-      .select(SCHEDULE_EVENT_SALES_SELECT_FIELDS)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .eq('is_cancelled', false)
-
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-
+  async getScenarioPerformance(startDate: string, endDate: string, storeIds?: string[]): Promise<ScenarioPerformanceItem[]> {
+    const params = new URLSearchParams({
+      type: 'scenario-performance',
+      start: startDate,
+      end: endDate,
+    })
     if (storeIds && storeIds.length > 0) {
-      query = query.in('store_id', storeIds)
+      params.set('store_ids', storeIds.join(','))
     }
-
-    const { data: events, error } = await query
-
-    if (error) throw error
-
-    if (!events || events.length === 0) {
-      return []
-    }
-
-    // 全シナリオを取得（組織フィルタ）- organization_scenarios_with_master を使用
-    let scenarioQuery = supabase
-      .from('organization_scenarios_with_master')
-      .select('id, title, author, license_amount, gm_test_license_amount, gm_costs')
-    
-    if (orgId) {
-      scenarioQuery = scenarioQuery.eq('organization_id', orgId)
-    }
-    
-    const { data: scenarios, error: scenariosError } = await scenarioQuery
-    
-    if (scenariosError) {
-      logger.error('organization_scenarios_with_master取得エラー:', scenariosError)
-    }
-
-    // シナリオ名でマッピング
-    const scenarioMap = new Map()
-    scenarios?.forEach(s => {
-      scenarioMap.set(s.title, s)
-    })
-
-    // シナリオ別に集計（GMテストのみ分離、それ以外は統合）
-    const performanceMap = new Map()
-    
-    events.forEach(event => {
-      let scenarioInfo = null
-      const scenarioKey = event.scenario_master_id
-      if (scenarioKey && scenarios) {
-        scenarioInfo = scenarios.find(s => s.id === scenarioKey)
-      } else if (event.scenario) {
-        scenarioInfo = scenarioMap.get(event.scenario)
-      }
-
-      if (!scenarioInfo && event.scenario) {
-        scenarioInfo = {
-          id: event.scenario,
-          title: event.scenario,
-          author: '不明'
-        }
-      }
-
-      if (scenarioInfo) {
-        const category = event.category || 'open'
-        const isGMTest = category === 'gmtest'
-        const key = isGMTest ? `${scenarioInfo.id}_gmtest` : scenarioInfo.id
-        
-        if (performanceMap.has(key)) {
-          const existing = performanceMap.get(key)
-          existing.events += 1
-          if (event.venue) {
-            existing.stores.add(event.venue)
-          }
-        } else {
-          performanceMap.set(key, {
-            id: scenarioInfo.id,
-            title: scenarioInfo.title,
-            author: scenarioInfo.author,
-            category: isGMTest ? 'gmtest' : 'open',
-            events: 1,
-            stores: new Set(event.venue ? [event.venue] : [])
-          })
-        }
-      }
-    })
-
-    const result = Array.from(performanceMap.values()).map(item => ({
-      ...item,
-      stores: Array.from(item.stores)
-    }))
-
-    return result
+    return apiClient.get<ScenarioPerformanceItem[]>(`/api/sales?${params.toString()}`)
   },
 
   // オープン公演分析データを取得
-  async getOpenEventAnalysis(startDate: string, endDate: string, storeIds?: string[], includeGmTest = false) {
-    const orgId = await getCurrentOrganizationId()
-
-    // オープン（＋オプションでGMテスト）公演を取得
-    const categories = includeGmTest ? ['open', 'gmtest'] : ['open']
-    let eventsQuery = supabase
-      .from('schedule_events_staff_view')
-      .select('id, date, start_time, scenario, scenario_master_id, capacity, max_participants, current_participants, is_cancelled, created_at, store_id, category')
-      .in('category', categories)
-      .gte('date', startDate)
-      .lte('date', endDate)
-
-    if (orgId) {
-      eventsQuery = eventsQuery.eq('organization_id', orgId)
-    }
-
+  async getOpenEventAnalysis(
+    startDate: string,
+    endDate: string,
+    storeIds?: string[],
+    includeGmTest = false,
+  ): Promise<{ events: OpenEventAnalysisItem[]; reservations: OpenEventReservation[] }> {
+    const params = new URLSearchParams({
+      type: 'open-event-analysis',
+      start: startDate,
+      end: endDate,
+    })
     if (storeIds && storeIds.length > 0) {
-      eventsQuery = eventsQuery.in('store_id', storeIds)
+      params.set('store_ids', storeIds.join(','))
     }
-
-    const { data: events, error: eventsError } = await eventsQuery.order('date', { ascending: true })
-
-    if (eventsError) throw eventsError
-    if (!events || events.length === 0) return { events: [], reservations: [] }
-
-    // 対象イベントの予約を取得（満席日数計算のため）
-    const eventIds = events.map(e => e.id)
-    // キャンセル以外の予約をすべて取得（URLの長さ制限のため100件ずつバッチ処理）
-    const BATCH_SIZE = 100
-    const allReservations: Array<{ id: string; schedule_event_id: string; created_at: string; participant_count: number | null; status: string }> = []
-
-    for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
-      const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-      const { data: batch, error: batchError } = await supabase
-        .from('reservations')
-        .select('id, schedule_event_id, created_at, participant_count, status')
-        .in('schedule_event_id', batchIds)
-        .neq('status', 'cancelled')
-
-      if (batchError) {
-        logger.error('予約データの取得に失敗:', batchError)
-      } else if (batch) {
-        allReservations.push(...batch)
-      }
+    if (includeGmTest) {
+      params.set('include_gm_test', 'true')
     }
-
-    return { events, reservations: allReservations }
+    return apiClient.get<{ events: OpenEventAnalysisItem[]; reservations: OpenEventReservation[] }>(
+      `/api/sales?${params.toString()}`
+    )
   },
 
   // スケジュールCSVエクスポート用データを取得
-  async getScheduleExportData(startDate: string, endDate: string) {
-    const orgId = await getCurrentOrganizationId()
-
-    let eventsQuery = supabase
-      .from('schedule_events_staff_view')
-      .select('id, date, start_time, end_time, store_id, venue, scenario, scenario_master_id, organization_scenario_id, category, gms, capacity, max_participants, venue_rental_fee, is_cancelled, organization_id')
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .eq('is_cancelled', false)
-      .order('date', { ascending: true })
-      .order('start_time', { ascending: true })
-
-    if (orgId) {
-      eventsQuery = eventsQuery.eq('organization_id', orgId)
-    }
-
-    const { data: events, error } = await eventsQuery
-    if (error) throw error
-    if (!events || events.length === 0) return []
-
-    // スタッフ名セットを取得（スタッフ参加判定用）
-    let staffQuery = supabase.from('staff').select('name')
-    if (orgId) staffQuery = staffQuery.eq('organization_id', orgId)
-    const { data: staffData } = await staffQuery
-    const staffNames = new Set(staffData?.map(s => s.name) || [])
-
-    // 店舗一覧を取得
-    const { data: stores } = await supabase
-      .from('stores')
-      .select('id, name, short_name')
-    const storeMap = new Map(stores?.map(s => [s.id, s]) || [])
-
-    // シナリオ情報を取得（ライセンス・GM代金計算用）
-    type ScenarioInfo = {
-      id: string
-      gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
-      license_amount: number | null
-      gm_test_license_amount: number | null
-    }
-    let scenarioQuery = supabase
-      .from('organization_scenarios_with_master')
-      .select('id, gm_costs, license_amount, gm_test_license_amount')
-    if (orgId) scenarioQuery = scenarioQuery.eq('organization_id', orgId)
-    const { data: scenariosData } = await scenarioQuery
-    // id = scenario_master_id でマップ
-    const scenarioByMasterId = new Map<string, ScenarioInfo>(
-      scenariosData?.map(s => [s.id, s as ScenarioInfo]) || []
-    )
-
-    // organization_scenarios の個別オーバーライドを取得（organization_scenario_id キー）
-    let orgScenarioQuery = supabase
-      .from('organization_scenarios')
-      .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount')
-    if (orgId) orgScenarioQuery = orgScenarioQuery.eq('organization_id', orgId)
-    const { data: orgScenariosData } = await orgScenarioQuery
-    const orgScenarioById = new Map(orgScenariosData?.map(s => [s.id, s]) || [])
-
-    // 全予約を一括取得（バッチ処理）
-    const eventIds = events.map(e => e.id)
-    const BATCH_SIZE = 100
-    const allReservations: Array<{
-      schedule_event_id: string
-      participant_count: number | null
-      participant_names: string[] | null
-      payment_method: string | null
-      final_price: number | null
-    }> = []
-
-    for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
-      const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-      let resQuery = supabase
-        .from('reservations')
-        .select('schedule_event_id, participant_count, participant_names, payment_method, final_price')
-        .in('schedule_event_id', batchIds)
-        .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
-
-      if (orgId) resQuery = resQuery.eq('organization_id', orgId)
-
-      const { data: batch } = await resQuery
-      if (batch) allReservations.push(...batch)
-    }
-
-    // イベントIDごとに予約をグループ化
-    const reservationsByEvent = new Map<string, typeof allReservations>()
-    allReservations.forEach(r => {
-      const existing = reservationsByEvent.get(r.schedule_event_id) || []
-      existing.push(r)
-      reservationsByEvent.set(r.schedule_event_id, existing)
+  async getScheduleExportData(startDate: string, endDate: string): Promise<ScheduleExportRow[]> {
+    const params = new URLSearchParams({
+      type: 'schedule-export',
+      start: startDate,
+      end: endDate,
     })
-
-    return events.map(event => {
-      const reservations = reservationsByEvent.get(event.id) || []
-      const isVenueRental = event.category === 'venue_rental' || event.category === 'venue_rental_free'
-      const isGmTest = event.category === 'gmtest'
-      const store = storeMap.get(event.store_id ?? '')
-
-      // シナリオ情報をマージ（organization_scenario_id があれば上書き）
-      let scenarioInfo: ScenarioInfo | null = scenarioByMasterId.get(event.scenario_master_id ?? '') ?? null
-      if (event.organization_scenario_id) {
-        const override = orgScenarioById.get(event.organization_scenario_id)
-        if (override) {
-          scenarioInfo = {
-            ...scenarioInfo,
-            id: scenarioInfo?.id ?? '',
-            gm_costs: (override.gm_costs?.length > 0 ? override.gm_costs : scenarioInfo?.gm_costs) ?? null,
-            license_amount: override.license_amount ?? scenarioInfo?.license_amount ?? null,
-            gm_test_license_amount: override.gm_test_license_amount ?? scenarioInfo?.gm_test_license_amount ?? null,
-          }
-        }
-      }
-
-      // ライセンス金額
-      const licenseAmount = isGmTest
-        ? (scenarioInfo?.gm_test_license_amount || scenarioInfo?.license_amount || 0)
-        : (scenarioInfo?.license_amount || 0)
-
-      // GM代金: 実際のGM数に応じて先頭N件を合計（main→sub→...の順）
-      const actualGmCount = Array.isArray(event.gms) ? (event.gms as string[]).length : 0
-      let gmCost = 0
-      if (scenarioInfo?.gm_costs && scenarioInfo.gm_costs.length > 0) {
-        const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
-        const applicable = scenarioInfo.gm_costs
-          .filter(g => (g.category || 'normal') === (isGmTest ? 'gmtest' : 'normal'))
-          .sort((a, b) => (roleOrder[a.role.toLowerCase()] ?? 999) - (roleOrder[b.role.toLowerCase()] ?? 999))
-        const sliced = actualGmCount > 0 ? applicable.slice(0, actualGmCount) : applicable
-        gmCost = sliced.reduce((sum, g) => sum + (g.reward || 0), 0)
-      }
-
-      let totalParticipants = 0
-      let staffParticipants = 0
-      let regularParticipants = 0
-      let onsiteAmount = 0
-      let onlineAmount = 0
-
-      if (isVenueRental) {
-        onsiteAmount = event.category === 'venue_rental_free' ? 0 : (event.venue_rental_fee || 12000)
-      } else {
-        reservations.forEach(r => {
-          const count = r.participant_count || 0
-          totalParticipants += count
-
-          const names = r.participant_names || []
-          // payment_method='staff' か、参加者名がスタッフリストに一致する場合はスタッフ参加
-          const isStaff = r.payment_method === 'staff' || names.some((n: string) => staffNames.has(n))
-
-          if (isStaff) {
-            // スタッフ参加は売上に含めない
-            staffParticipants += count
-          } else {
-            regularParticipants += count
-            const price = r.final_price || 0
-            if (r.payment_method === 'onsite') onsiteAmount += price
-            else if (r.payment_method === 'online') onlineAmount += price
-          }
-        })
-      }
-
-      const totalRevenue = onsiteAmount + onlineAmount
-      const netProfit = totalRevenue - licenseAmount - gmCost
-
-      return {
-        date: event.date,
-        start_time: event.start_time,
-        end_time: event.end_time,
-        store_name: store?.short_name || store?.name || event.venue || '',
-        scenario: event.scenario || '',
-        category: event.category,
-        gms: Array.isArray(event.gms) ? (event.gms as string[]).join('・') : String(event.gms || ''),
-        capacity: event.max_participants || event.capacity || 0,
-        total_participants: totalParticipants,
-        regular_participants: regularParticipants,
-        staff_participants: staffParticipants,
-        onsite_amount: onsiteAmount,
-        online_amount: onlineAmount,
-        total_revenue: totalRevenue,
-        license_amount: licenseAmount,
-        gm_cost: gmCost,
-        net_profit: netProfit,
-      }
-    })
+    return apiClient.get<ScheduleExportRow[]>(`/api/sales?${params.toString()}`)
   },
 }
-
