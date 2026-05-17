@@ -10,14 +10,15 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import {
-  Save, Loader2, Users, CheckCircle, Clock, RefreshCw,
-  Building2, StickyNote, Users2,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Save, Loader2, Users, Building2, StickyNote, Users2, UserPlus, Mail, User,
 } from 'lucide-react'
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
-import { getInvitationsByOrganization, resendInvitation, deleteInvitation } from '@/lib/api/invitationsApi'
+import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
-import type { OrganizationInvitation } from '@/types'
 
 function SectionTitle({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
@@ -30,16 +31,31 @@ function SectionTitle({ icon: Icon, label }: { icon: React.ElementType; label: s
   )
 }
 
+interface AdminUser {
+  id: string
+  email: string
+  display_name: string | null
+  role: string
+  created_at: string
+}
+
 export function OrganizationInfoSettings() {
   const { organization, isLoading: orgLoading, refetch } = useOrganization()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [invitations, setInvitations] = useState<OrganizationInvitation[]>([])
-  const [isLoadingInvitations, setIsLoadingInvitations] = useState(false)
 
   const emptyForm = { name: '', contact_name: '', contact_email: '', notes: '', public_booking_hero_description: '' }
   const [formData, setFormData] = useState(emptyForm)
   const [savedData, setSavedData] = useState(emptyForm)
   const isDirty = JSON.stringify(formData) !== JSON.stringify(savedData)
+
+  // 管理者ユーザー
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([])
+  const [isLoadingAdmins, setIsLoadingAdmins] = useState(false)
+
+  // 招待ダイアログ
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteForm, setInviteForm] = useState({ name: '', email: '' })
+  const [isInviting, setIsInviting] = useState(false)
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => { if (isDirty) e.preventDefault() }
@@ -58,19 +74,27 @@ export function OrganizationInfoSettings() {
       }
       setFormData(data)
       setSavedData(data)
+      loadAdminUsers(organization.id)
     }
   }, [organization])
 
-  useEffect(() => {
-    async function loadInvitations() {
-      if (!organization?.id) return
-      setIsLoadingInvitations(true)
-      const { data } = await getInvitationsByOrganization(organization.id)
-      setInvitations(data)
-      setIsLoadingInvitations(false)
+  const loadAdminUsers = async (orgId: string) => {
+    setIsLoadingAdmins(true)
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, display_name, role, created_at')
+        .eq('organization_id', orgId)
+        .in('role', ['admin', 'license_admin'])
+        .order('created_at')
+      if (error) throw error
+      setAdminUsers(data as AdminUser[])
+    } catch (error) {
+      logger.error('Failed to load admin users:', error)
+    } finally {
+      setIsLoadingAdmins(false)
     }
-    loadInvitations()
-  }, [organization?.id])
+  }
 
   const handleSave = async () => {
     if (!organization) return
@@ -98,22 +122,42 @@ export function OrganizationInfoSettings() {
     }
   }
 
-  const handleResendInvitation = async (invitation: OrganizationInvitation) => {
-    const { data, error } = await resendInvitation(invitation.id)
-    if (error) toast.error('再送信に失敗しました')
-    else if (data) {
-      toast.success(`${invitation.name} さんに招待を再送信しました`)
-      setInvitations(prev => prev.map(inv => inv.id === data.id ? data : inv))
-    }
-  }
+  const handleInvite = async () => {
+    if (!inviteForm.name.trim()) { toast.error('名前を入力してください'); return }
+    if (!inviteForm.email.trim()) { toast.error('メールアドレスを入力してください'); return }
+    if (!organization) return
 
-  const handleDeleteInvitation = async (invitation: OrganizationInvitation) => {
-    if (!confirm(`${invitation.name} さんの招待を取り消しますか？`)) return
-    const { success, error } = await deleteInvitation(invitation.id)
-    if (error) toast.error('削除に失敗しました')
-    else if (success) {
-      toast.success('招待を取り消しました')
-      setInvitations(prev => prev.filter(inv => inv.id !== invitation.id))
+    setIsInviting(true)
+    try {
+      const response = await supabase.functions.invoke('invite-staff', {
+        body: {
+          name: inviteForm.name.trim(),
+          email: inviteForm.email.trim(),
+          role: ['管理者'],
+          organization_id: organization.id,
+        },
+      })
+
+      if (response.error) throw response.error
+      const result = response.data
+
+      if (!result.success) {
+        if (result.error?.includes('既に')) {
+          toast.error('このメールアドレスは既に登録されています')
+          return
+        }
+        throw new Error(result.error || '招待に失敗しました')
+      }
+
+      toast.success(`${inviteForm.name} さんに招待メールを送信しました`)
+      setInviteOpen(false)
+      setInviteForm({ name: '', email: '' })
+      loadAdminUsers(organization.id)
+    } catch (error) {
+      logger.error('Failed to invite admin:', error)
+      toast.error('招待に失敗しました')
+    } finally {
+      setIsInviting(false)
     }
   }
 
@@ -128,9 +172,6 @@ export function OrganizationInfoSettings() {
   if (!organization) {
     return <p className="text-sm text-amber-700 p-4 bg-amber-50 rounded-lg border border-amber-200">組織情報が取得できません</p>
   }
-
-  const pendingInvitations = invitations.filter(inv => !inv.accepted_at)
-  const acceptedInvitations = invitations.filter(inv => inv.accepted_at)
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
@@ -182,7 +223,6 @@ export function OrganizationInfoSettings() {
             />
           </div>
 
-          {/* プラン */}
           <div className="flex items-center gap-2 pt-2 border-t">
             <span className="text-sm text-muted-foreground">プラン</span>
             <Badge variant="secondary">{(organization.plan || 'free').toUpperCase()}</Badge>
@@ -239,65 +279,93 @@ export function OrganizationInfoSettings() {
         </div>
       </section>
 
-      {/* 招待管理 */}
+      {/* 管理者アカウント */}
       <section className="bg-white rounded-xl border p-6">
-        <SectionTitle icon={Users} label="招待管理" />
-        {isLoadingInvitations ? (
+        <div className="flex items-start justify-between mb-4">
+          <SectionTitle icon={Users} label="管理者アカウント" />
+          <Button size="sm" variant="outline" onClick={() => setInviteOpen(true)}>
+            <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+            管理者を招待
+          </Button>
+        </div>
+
+        {isLoadingAdmins ? (
           <div className="flex justify-center py-6">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
-        ) : invitations.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">招待履歴がありません</p>
+        ) : adminUsers.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">管理者アカウントがありません</p>
         ) : (
-          <div className="space-y-4">
-            {pendingInvitations.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-amber-500" />
-                  保留中（{pendingInvitations.length}件）
-                </p>
-                {pendingInvitations.map(inv => (
-                  <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg border bg-amber-50/40">
-                    <div>
-                      <p className="text-sm font-medium">{inv.name}</p>
-                      <p className="text-xs text-muted-foreground">{inv.email} · 期限: {new Date(inv.expires_at).toLocaleDateString('ja-JP')}</p>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleResendInvitation(inv)}>
-                        <RefreshCw className="w-3 h-3 mr-1" />再送信
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => handleDeleteInvitation(inv)}>
-                        取消
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+          <div className="space-y-2">
+            {adminUsers.map(user => (
+              <div key={user.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <User className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{user.display_name || user.email}</p>
+                  {user.display_name && (
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  )}
+                </div>
+                <Badge variant={user.role === 'license_admin' ? 'default' : 'secondary'} className="text-xs shrink-0">
+                  {user.role === 'license_admin' ? 'MMQ運営' : '管理者'}
+                </Badge>
               </div>
-            )}
-            {acceptedInvitations.length > 0 && (
-              <div className="space-y-2">
-                {pendingInvitations.length > 0 && <div className="border-t" />}
-                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                  受諾済み（{acceptedInvitations.length}件）
-                </p>
-                {acceptedInvitations.slice(0, 5).map(inv => (
-                  <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                    <div>
-                      <p className="text-sm font-medium">{inv.name}</p>
-                      <p className="text-xs text-muted-foreground">{inv.email}</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{new Date(inv.accepted_at!).toLocaleDateString('ja-JP')}</p>
-                  </div>
-                ))}
-                {acceptedInvitations.length > 5 && (
-                  <p className="text-xs text-muted-foreground text-center pt-1">他 {acceptedInvitations.length - 5} 件</p>
-                )}
-              </div>
-            )}
+            ))}
           </div>
         )}
       </section>
+
+      {/* 招待ダイアログ */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>管理者を招待</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              招待メールを送信します。受信者は記載されたリンクから管理者アカウントを作成できます。
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-name" className="text-sm font-medium">名前 <span className="text-destructive">*</span></Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="invite-name"
+                  value={inviteForm.name}
+                  onChange={(e) => setInviteForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="例: 山田太郎"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-email" className="text-sm font-medium">メールアドレス <span className="text-destructive">*</span></Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="invite-email"
+                  type="email"
+                  value={inviteForm.email}
+                  onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="例: admin@example.com"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setInviteOpen(false); setInviteForm({ name: '', email: '' }) }}>
+              キャンセル
+            </Button>
+            <Button onClick={handleInvite} disabled={isInviting}>
+              {isInviting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Mail className="w-3.5 h-3.5 mr-1.5" />}
+              招待メールを送信
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
