@@ -138,7 +138,9 @@ export function EmailLogsSettings() {
     try {
       let query = supabase
         .from('email_logs')
-        .select('*')
+        .select(
+          'id, organization_id, reservation_id, schedule_event_id, email_type, to_email, to_name, subject, body_text, body_html, provider, provider_message_id, status, error_message, sent_at, delivered_at, opened_at, bounced_at, complained_at, created_at',
+        )
         .order('created_at', { ascending: false })
         .limit(200)
 
