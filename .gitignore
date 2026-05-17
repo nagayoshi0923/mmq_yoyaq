@@ -54,3 +54,4 @@ supabase/schema_snapshot.sql
 
 # AI team runtime state
 scripts/ai-team/.processed_issues
+.env*.local
