@@ -443,15 +443,27 @@ function GroupPanel({
   if (isOpen && group.label) lastActiveGroupId.current = group.id
 
   const location = useLocation()
-  // 手動で展開したカテゴリID
-  const [openCategories, setOpenCategories] = useState<Set<string>>(new Set())
+  const navigate = useNavigate()
+  // 手動で折り畳んだカテゴリID（アクティブでも折り畳める）
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
 
-  const toggleCategory = (id: string) => {
-    setOpenCategories(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
+  const handleCategoryClick = (id: string, firstPath: string, isActive: boolean) => {
+    if (isActive) {
+      // アクティブなカテゴリはトグルのみ（ページ遷移なし）
+      setCollapsedCategories(prev => {
+        const next = new Set(prev)
+        next.has(id) ? next.delete(id) : next.add(id)
+        return next
+      })
+    } else {
+      // 非アクティブなカテゴリは最初の項目に遷移（自動展開）
+      navigate(firstPath)
+      setCollapsedCategories(prev => {
+        const next = new Set(prev)
+        next.delete(id) // 展開状態にリセット
+        return next
+      })
+    }
   }
 
   const isSubSubActive = (ssub: SubSubItem) => {
@@ -522,11 +534,12 @@ function GroupPanel({
                         s => !s.roles || s.roles.includes(userRole) || (isLicAdmin && s.roles.includes('license_admin'))
                       )
                       const categoryActive = visibleSubSubs.some(s => isSubSubActive(s))
-                      const categoryOpen = categoryActive || openCategories.has(sub.id)
+                      const categoryOpen = categoryActive && !collapsedCategories.has(sub.id)
+                      const firstPath = visibleSubSubs[0]?.path ?? ''
                       return (
                         <div key={sub.id}>
                           <button
-                            onClick={() => toggleCategory(sub.id)}
+                            onClick={() => handleCategoryClick(sub.id, firstPath, categoryActive)}
                             className={`w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold transition-colors ${
                               categoryActive ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'
                             }`}
