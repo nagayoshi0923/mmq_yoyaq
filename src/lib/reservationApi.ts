@@ -178,45 +178,19 @@ export const customerApi = {
 // 予約関連のAPI
 export const reservationApi = {
   // 全予約を取得
-  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
-  async getAll(organizationId?: string): Promise<Reservation[]> {
-    // 組織フィルタリング
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('reservations')
-      .select(RESERVATION_SELECT_FIELDS)
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query.order('requested_datetime', { ascending: false })
-    
-    if (error) throw error
-    return data || []
+  // バックエンド API (/api/reservations) 経由で org_id をサーバー側で強制フィルタ
+  // organizationId 引数は後方互換のため残すが未使用
+  async getAll(_organizationId?: string): Promise<Reservation[]> {
+    return apiClient.get<Reservation[]>('/api/reservations')
   },
 
   // 特定期間の予約を取得
-  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
-  async getByDateRange(startDate: string, endDate: string, organizationId?: string): Promise<Reservation[]> {
-    // 組織フィルタリング
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('reservations')
-      .select(RESERVATION_SELECT_FIELDS)
-      .gte('requested_datetime', startDate)
-      .lte('requested_datetime', endDate)
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query.order('requested_datetime', { ascending: true })
-    
-    if (error) throw error
-    return data || []
+  // バックエンド API (/api/reservations?start=&end=) 経由で org_id をサーバー側で強制フィルタ
+  // organizationId 引数は後方互換のため残すが未使用
+  async getByDateRange(startDate: string, endDate: string, _organizationId?: string): Promise<Reservation[]> {
+    return apiClient.get<Reservation[]>(
+      `/api/reservations?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`
+    )
   },
 
   // スケジュールイベントIDで予約を取得
