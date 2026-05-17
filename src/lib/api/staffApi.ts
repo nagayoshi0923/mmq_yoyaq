@@ -4,6 +4,7 @@
 import { supabase } from '../supabase'
 import type { RpcAdminUpdateReservationFieldsParams } from '@/lib/rpcTypes'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 import { sanitizeForPostgRestFilter } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 import type { Staff } from '@/types'
@@ -16,25 +17,23 @@ const STAFF_SELECT_FIELDS =
 
 export const staffApi = {
   // 全スタッフを取得
-  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
-  // skipOrgFilter: trueの場合、組織フィルタをスキップ（全組織のデータを取得）
+  // organizationId: 後方互換のため引数は残すがバックエンド経由ではサーバー側で JWT から取得するため未使用
+  // skipOrgFilter: trueの場合、組織フィルタをスキップ（全組織のデータを取得、Supabase 直接クエリ）
+  //
+  // 通常時はバックエンド API (/api/staff) 経由で取得し、org_id をサーバー側で強制フィルタする。
   async getAll(organizationId?: string, skipOrgFilter?: boolean): Promise<Staff[]> {
-    let query = supabase
-      .from('staff')
-      .select(STAFF_SELECT_FIELDS)
-    
-    // 組織フィルタリング
-    if (!skipOrgFilter) {
-      const orgId = organizationId || await getCurrentOrganizationId()
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
+    if (skipOrgFilter) {
+      // skipOrgFilter=true（ライセンス管理者の全組織取得）は Supabase 直接クエリ
+      const { data, error } = await supabase
+        .from('staff')
+        .select(STAFF_SELECT_FIELDS)
+        .order('name', { ascending: true })
+      if (error) throw error
+      return data || []
     }
-    
-    const { data, error } = await query.order('name', { ascending: true })
-    
-    if (error) throw error
-    return data || []
+
+    // バックエンド API 経由: org_id をサーバー側で強制フィルタ
+    return apiClient.get<Staff[]>('/api/staff')
   },
 
   // スタッフを作成

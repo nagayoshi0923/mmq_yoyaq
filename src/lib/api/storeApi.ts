@@ -3,6 +3,7 @@
  */
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 import type { Store } from '@/types'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
@@ -12,38 +13,38 @@ const STORE_SELECT_FIELDS =
 export const storeApi = {
   // 全店舗を取得
   // @param includeTemporary - 臨時会場を含めるかどうか（デフォルト: false）
-  // @param organizationId - 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
-  // @param skipOrgFilter - trueの場合、組織フィルタをスキップ（全組織のデータを取得）
+  // @param organizationId - 後方互換のため引数は残すがバックエンド経由ではサーバー側で JWT から取得するため未使用
+  // @param skipOrgFilter - trueの場合、組織フィルタをスキップ（全組織のデータを取得、Supabase 直接クエリ）
   // @param excludeOffice - trueの場合、オフィス（ownership_type='office'）を除外（デフォルト: false）
+  //
+  // 通常時はバックエンド API (/api/stores) 経由で取得し、org_id をサーバー側で強制フィルタする。
+  // includeTemporary/excludeOffice はクライアント側でフィルタリング。
   async getAll(includeTemporary: boolean = false, organizationId?: string, skipOrgFilter?: boolean, excludeOffice: boolean = false): Promise<Store[]> {
-    let query = supabase.from('stores').select(STORE_SELECT_FIELDS)
-    
-    // 組織フィルタリング
-    if (!skipOrgFilter) {
-      // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
-      const orgId = organizationId || await getCurrentOrganizationId()
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
+    let rawData: Store[]
+
+    if (skipOrgFilter) {
+      // skipOrgFilter=true（ライセンス管理者の全組織取得）は Supabase 直接クエリ
+      const { data, error } = await supabase.from('stores').select(STORE_SELECT_FIELDS)
+      if (error) throw error
+      rawData = (data || []) as Store[]
+    } else {
+      // バックエンド API 経由: org_id をサーバー側で強制フィルタ
+      rawData = await apiClient.get<Store[]>('/api/stores')
     }
-    
-    // 臨時会場を除外する場合
+
+    // 臨時会場フィルタ（クライアント側）
+    let filtered = rawData
     if (!includeTemporary) {
-      query = query.or('is_temporary.is.null,is_temporary.eq.false')
+      filtered = filtered.filter(s => !s.is_temporary)
     }
-    
-    // オフィスを除外する場合
+    // オフィス除外（クライアント側）
     if (excludeOffice) {
-      query = query.neq('ownership_type', 'office')
+      filtered = filtered.filter(s => s.ownership_type !== 'office')
     }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    
+
     // display_order順にソート（DBのカラムを使用）
     // 臨時会場は最後に配置
-    const sortedData = (data || []).sort((a, b) => {
+    const sortedData = filtered.sort((a, b) => {
       // 臨時会場は最後に配置
       if (a.is_temporary && !b.is_temporary) return 1
       if (!a.is_temporary && b.is_temporary) return -1
