@@ -216,12 +216,7 @@ export const OpenEventAnalysis: React.FC<OpenEventAnalysisProps> = ({
     <div className="space-y-4 md:space-y-6">
       {/* ヘッダー */}
       <PageHeader
-        title={
-          <div className="flex items-center gap-2">
-            <CalendarCheck className="h-5 w-5 text-primary" />
-            <span className="text-lg font-bold">公演分析</span>
-          </div>
-        }
+        title={<><CalendarCheck className="h-5 w-5 text-primary" />公演分析</>}
         description="オープン公演の満席率・満席日数を分析します"
       />
 

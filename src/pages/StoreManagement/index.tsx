@@ -189,12 +189,10 @@ export function StoreManagement() {
       <div className="space-y-6">
         <PageHeader
           title={
-            <div className="flex items-center gap-2">
+            <>
               <StoreIcon className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">
-                {organization?.name ? `${organization.name}の店舗管理` : '店舗管理'}
-              </span>
-            </div>
+              {organization?.name ? `${organization.name}の店舗管理` : '店舗管理'}
+            </>
           }
           description={`全${stores.length}店舗の管理`}
         >

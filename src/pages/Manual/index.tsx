@@ -486,12 +486,7 @@ export function ManualPage() {
     >
       <div className="space-y-6">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">操作マニュアル</span>
-            </div>
-          }
+          title={<><BookOpen className="h-5 w-5 text-primary" />操作マニュアル</>}
           description="システムの操作方法と使用シーンについてのガイド"
         />
         {renderContent()}

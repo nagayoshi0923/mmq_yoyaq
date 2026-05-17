@@ -444,12 +444,10 @@ export function ScenarioManagement() {
         <div className="space-y-6">
           <PageHeader
             title={
-              <div className="flex items-center gap-2">
+              <>
                 <BookOpen className="h-5 w-5 text-primary" />
-                <span className="text-lg font-bold">
-                  {organization?.name ? `${organization.name}のシナリオ管理` : 'シナリオ管理'}
-                </span>
-              </div>
+                {organization?.name ? `${organization.name}のシナリオ管理` : 'シナリオ管理'}
+              </>
             }
             description={`全${allScenarios.length}本のシナリオを管理`}
           >

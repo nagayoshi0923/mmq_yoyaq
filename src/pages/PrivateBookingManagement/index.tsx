@@ -487,12 +487,7 @@ export function PrivateBookingManagement() {
     >
       <div className="space-y-4">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">貸切予約管理</span>
-            </div>
-          }
+          title={<><Calendar className="h-5 w-5 text-primary" />貸切予約管理</>}
           description="貸切予約リクエストの承認・却下・店舗調整を行います"
         />
 

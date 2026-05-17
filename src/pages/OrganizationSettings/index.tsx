@@ -180,12 +180,7 @@ export default function OrganizationSettings() {
     <AppLayout currentPage="organization-settings" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
       <div className="space-y-6">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">会社情報</span>
-            </div>
-          }
+          title={<><Building2 className="h-5 w-5 text-primary" />会社情報</>}
           description={`${organization.name} の基本情報と管理者の招待`}
         />
 

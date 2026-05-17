@@ -52,12 +52,7 @@ export default function CustomerManagement() {
     >
       <div className="space-y-6">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">顧客管理</span>
-            </div>
-          }
+          title={<><Users className="h-5 w-5 text-primary" />顧客管理</>}
           description={`全${customers.length}名の顧客を管理`}
         >
           <HelpButton topic="customer" label="顧客管理マニュアル" />
