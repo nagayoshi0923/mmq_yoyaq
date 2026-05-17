@@ -82,6 +82,11 @@ type CreateReservationWithLockParams = Omit<
 }
 
 // 顧客関連のAPI
+// 顧客関連のAPI
+//
+// 全メソッドがバックエンド API (/api/customers) 経由。organization_id は
+// サーバー側で JWT から強制取得し、自組織が所有する顧客のみ操作できる。
+// クライアントが渡した organization_id / user_id は無視される（マルチテナント境界）。
 export const customerApi = {
   // 全顧客を取得
   // バックエンド API (/api/customers) 経由で org_id をサーバー側で強制フィルタ
@@ -91,87 +96,39 @@ export const customerApi = {
   },
 
   // 顧客を作成
+  // バックエンド API 経由。organization_id はサーバー側で JWT から強制設定。
+  // クライアントが他組織の組織 ID を渡しても無視される。
   async create(customer: Omit<Customer, 'id' | 'created_at' | 'updated_at' | 'visit_count' | 'total_spent'>): Promise<Customer> {
-    // organization_idを自動取得（マルチテナント対応）
-    const organizationId = await getCurrentOrganizationId()
-    if (!organizationId) {
-      throw new Error('組織情報が取得できません。再ログインしてください。')
-    }
-    
-    const { data, error } = await supabase
-      .from('customers')
-      .insert([{ ...customer, organization_id: organizationId }])
-      .select(CUSTOMER_SELECT_FIELDS)
-      .single()
-    
-    if (error) throw error
-    return data
+    return apiClient.post<Customer>('/api/customers', { customer })
   },
 
   // 顧客を更新
+  // バックエンド API 経由。自組織が所有する顧客のみ更新可能（サーバー側でガード）。
+  // 更新可能フィールドはサーバー側のホワイトリストでフィルタされる（Mass Assignment 防止）。
   async update(id: string, updates: Partial<Customer>): Promise<Customer> {
-    // ⚠️ Mass Assignment 防止: 更新可能フィールドのホワイトリスト
-    const CUSTOMER_UPDATABLE_FIELDS = [
-      'name', 'email', 'phone', 'nickname', 'line_name', 'notes', 'status',
-      'preferred_staff', 'visit_count', 'last_visit_date', 'reservation_count',
-      'discord_user_id', 'avatar_url',
-    ] as const
-    const safeUpdates: Record<string, unknown> = {}
-    for (const key of Object.keys(updates)) {
-      if ((CUSTOMER_UPDATABLE_FIELDS as readonly string[]).includes(key)) {
-        safeUpdates[key] = (updates as Record<string, unknown>)[key]
-      }
-    }
-
-    const { data, error } = await supabase
-      .from('customers')
-      .update(safeUpdates)
-      .eq('id', id)
-      .select(CUSTOMER_SELECT_FIELDS)
-      .single()
-    
-    if (error) throw error
-    return data
+    const params = new URLSearchParams({ id })
+    return apiClient.patch<Customer>(`/api/customers?${params}`, { updates })
   },
 
-  // メールアドレスで検索
+  // メールアドレスで自組織内の顧客を検索（バックエンド経由）
+  // サーバー側で organization_id を JWT から強制フィルタするため、
+  // 他組織の同一メールアドレス顧客は返らない（マルチテナント境界）。
   async findByEmail(email: string): Promise<Customer | null> {
-    const { data, error } = await supabase
-      .from('customers')
-      .select(CUSTOMER_SELECT_FIELDS)
-      .eq('email', email)
-      .single()
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null // Not found
-      throw error
-    }
-    return data
+    const params = new URLSearchParams({ action: 'findByEmail', email })
+    return apiClient.get<Customer | null>(`/api/customers?${params}`)
   },
 
-  // 電話番号で検索
+  // 電話番号で自組織内の顧客を検索（バックエンド経由）
   async findByPhone(phone: string): Promise<Customer | null> {
-    const { data, error } = await supabase
-      .from('customers')
-      .select(CUSTOMER_SELECT_FIELDS)
-      .eq('phone', phone)
-      .single()
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null // Not found
-      throw error
-    }
-    return data
+    const params = new URLSearchParams({ action: 'findByPhone', phone })
+    return apiClient.get<Customer | null>(`/api/customers?${params}`)
   },
 
   // 顧客を削除
+  // バックエンド API 経由。自組織が所有する顧客のみ削除可能（サーバー側でガード）。
   async delete(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('customers')
-      .delete()
-      .eq('id', id)
-    
-    if (error) throw error
+    const params = new URLSearchParams({ id })
+    await apiClient.delete<{ success: boolean }>(`/api/customers?${params}`)
   }
 }
 
