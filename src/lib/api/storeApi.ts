@@ -1,8 +1,13 @@
 /**
  * 店舗関連API
+ *
+ * 通常時はバックエンド API (/api/stores) 経由で取得・更新し、
+ * organization_id はサーバー側で JWT から強制取得する（マルチテナント境界）。
+ *
+ * getAllPublic は未認証のお客様向け公開ページで使用するため、
+ * RLS で保護された stores_public ビューを Supabase 直接で読む。
  */
 import { supabase } from '../supabase'
-import { getCurrentOrganizationId } from '@/lib/organization'
 import { apiClient } from '@/lib/apiClient'
 import type { Store } from '@/types'
 
@@ -55,7 +60,7 @@ export const storeApi = {
         if (orderA !== orderB) return orderA - orderB
         return a.name.localeCompare(b.name, 'ja')
       }
-      
+
       // 通常の店舗同士はdisplay_order順
       const orderA = a.display_order ?? 999
       const orderB = b.display_order ?? 999
@@ -63,106 +68,44 @@ export const storeApi = {
       // 同じ順序の場合は名前順
       return a.name.localeCompare(b.name, 'ja')
     })
-    
+
     return sortedData
   },
 
   // 公開ページ用: 店舗一覧を取得（コスト情報を除外）
   // @param organizationId - 組織ID（必須）
+  // NOTE: 未認証の公開ページから呼ばれるため、RLS で保護された stores_public ビューを直接読む
   async getAllPublic(organizationId: string): Promise<Store[]> {
     const { data, error } = await supabase
       .from('stores_public')
       .select('id, organization_id, name, short_name, address, access_info, opening_date, status, ownership_type, capacity, rooms, color, is_temporary, temporary_date, temporary_dates, temporary_venue_names, display_order, region, kit_group_id, created_at, updated_at')
       .eq('organization_id', organizationId)
       .order('display_order', { ascending: true, nullsFirst: false })
-    
+
     if (error) throw error
     return (data || []) as Store[]
   },
 
-  // 店舗の表示順序を一括更新
+  // 店舗の表示順序を一括更新（admin 権限が必要）
   async updateDisplayOrder(storeOrders: { id: string; display_order: number }[]): Promise<void> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('組織情報が取得できません。再ログインしてください。')
-
-    // 並列で更新
-    const updates = storeOrders.map(({ id, display_order }) =>
-      supabase
-        .from('stores')
-        .update({ display_order })
-        .eq('id', id)
-        .eq('organization_id', orgId)
+    await apiClient.patch<void>(
+      '/api/stores?action=updateDisplayOrder',
+      { orders: storeOrders },
     )
-    
-    const results = await Promise.all(updates)
-    const errors = results.filter(r => r.error)
-    if (errors.length > 0) {
-      throw new Error('表示順序の更新に失敗しました')
-    }
   },
 
-  // 店舗を作成
+  // 店舗を作成（admin 権限が必要）
   async create(store: Omit<Store, 'id' | 'created_at' | 'updated_at'>): Promise<Store> {
-    // organization_idを自動取得（マルチテナント対応）
-    const organizationId = await getCurrentOrganizationId()
-    if (!organizationId) {
-      throw new Error('組織情報が取得できません。再ログインしてください。')
-    }
-    
-    const { data, error } = await supabase
-      .from('stores')
-      .insert([{ ...store, organization_id: organizationId }])
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    return apiClient.post<Store>('/api/stores', store)
   },
 
-  // 店舗を更新
+  // 店舗を更新（admin 権限が必要）
   async update(id: string, updates: Partial<Store>): Promise<Store> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('組織情報が取得できません。再ログインしてください。')
-
-    // ⚠️ Mass Assignment 防止: 更新可能フィールドのホワイトリスト
-    const STORE_UPDATABLE_FIELDS = [
-      'name', 'short_name', 'address', 'access_info', 'phone_number', 'email',
-      'opening_date', 'manager_name', 'status', 'ownership_type', 'franchise_fee',
-      'capacity', 'rooms', 'notes', 'color', 'fixed_costs', 'venue_cost_per_performance',
-      'is_temporary', 'temporary_date', 'temporary_dates', 'temporary_venue_names',
-      'display_order', 'region', 'transport_allowance', 'kit_group_id',
-    ] as const
-    const safeUpdates: Record<string, unknown> = {}
-    for (const key of Object.keys(updates)) {
-      if ((STORE_UPDATABLE_FIELDS as readonly string[]).includes(key)) {
-        safeUpdates[key] = (updates as Record<string, unknown>)[key]
-      }
-    }
-
-    const { data, error } = await supabase
-      .from('stores')
-      .update(safeUpdates)
-      .eq('id', id)
-      .eq('organization_id', orgId)
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+    return apiClient.patch<Store>(`/api/stores?id=${encodeURIComponent(id)}`, updates)
   },
 
-  // 店舗を削除
+  // 店舗を削除（admin 権限が必要）
   async delete(id: string): Promise<void> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('組織情報が取得できません。再ログインしてください。')
-
-    const { error } = await supabase
-      .from('stores')
-      .delete()
-      .eq('id', id)
-      .eq('organization_id', orgId)
-    
-    if (error) throw error
-  }
+    await apiClient.delete<void>(`/api/stores?id=${encodeURIComponent(id)}`)
+  },
 }
-
