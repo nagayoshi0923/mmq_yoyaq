@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Save, Loader2, Users, Building2, StickyNote, Users2, UserPlus, Mail, User,
 } from 'lucide-react'
@@ -55,6 +56,8 @@ export function OrganizationInfoSettings() {
   const [isLoadingAdmins, setIsLoadingAdmins] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [removingUserId, setRemovingUserId] = useState<string | null>(null)
+  const [removeTarget, setRemoveTarget] = useState<AdminUser | null>(null)
+  const [newRole, setNewRole] = useState<'customer' | 'staff'>('staff')
 
   // 招待ダイアログ
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -143,13 +146,20 @@ export function OrganizationInfoSettings() {
     }
   }
 
-  const handleRemoveAdmin = async (user: AdminUser) => {
-    if (!confirm(`${user.display_name || user.email} を管理者から外しますか？\n（一般ユーザーに変更されます）`)) return
-    setRemovingUserId(user.id)
+  const handleRemoveAdmin = (user: AdminUser) => {
+    setRemoveTarget(user)
+    setNewRole('staff')
+  }
+
+  const confirmRemoveAdmin = async () => {
+    if (!removeTarget) return
+    setRemovingUserId(removeTarget.id)
     try {
-      await updateUserRole(user.id, 'customer')
-      toast.success(`${user.display_name || user.email} を管理者から外しました`)
-      setAdminUsers(prev => prev.filter(u => u.id !== user.id))
+      await updateUserRole(removeTarget.id, newRole)
+      const label = newRole === 'staff' ? 'スタッフ' : '一般顧客'
+      toast.success(`${removeTarget.staff_name || removeTarget.display_name || removeTarget.email} を管理者から外し、${label}に変更しました`)
+      setAdminUsers(prev => prev.filter(u => u.id !== removeTarget.id))
+      setRemoveTarget(null)
     } catch (error) {
       logger.error('Failed to remove admin:', error)
       toast.error('操作に失敗しました')
@@ -375,6 +385,44 @@ export function OrganizationInfoSettings() {
           </div>
         )}
       </section>
+
+      {/* 管理者から外すダイアログ */}
+      <Dialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>管理者から外す</DialogTitle>
+            <DialogDescription>
+              {removeTarget?.staff_name || removeTarget?.display_name || removeTarget?.email} の権限を変更します
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <p className="text-sm text-muted-foreground">変更後のアカウント種別を選択してください</p>
+            <RadioGroup value={newRole} onValueChange={(v) => setNewRole(v as 'customer' | 'staff')} className="space-y-2">
+              <div className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/40" onClick={() => setNewRole('staff')}>
+                <RadioGroupItem value="staff" id="role-staff" className="mt-0.5" />
+                <label htmlFor="role-staff" className="cursor-pointer space-y-0.5">
+                  <p className="text-sm font-medium">スタッフ</p>
+                  <p className="text-xs text-muted-foreground">スケジュール・シフト提出などのスタッフ機能のみ利用可能</p>
+                </label>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/40" onClick={() => setNewRole('customer')}>
+                <RadioGroupItem value="customer" id="role-customer" className="mt-0.5" />
+                <label htmlFor="role-customer" className="cursor-pointer space-y-0.5">
+                  <p className="text-sm font-medium">一般顧客</p>
+                  <p className="text-xs text-muted-foreground">管理機能・スタッフ機能へのアクセス不可</p>
+                </label>
+              </div>
+            </RadioGroup>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoveTarget(null)}>キャンセル</Button>
+            <Button variant="destructive" onClick={confirmRemoveAdmin} disabled={!!removingUserId}>
+              {removingUserId ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+              管理者から外す
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 招待ダイアログ */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
