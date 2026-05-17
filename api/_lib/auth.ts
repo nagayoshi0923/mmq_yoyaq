@@ -1,3 +1,4 @@
+import type { VercelRequest } from '@vercel/node'
 import { db } from './db'
 
 export type ApiRole = 'admin' | 'staff' | 'customer' | 'license_admin'
@@ -19,21 +20,20 @@ export class ApiError extends Error {
 }
 
 /**
- * リクエストの Authorization ヘッダから JWT を取り出し、
- * Supabase で署名検証 → public.users テーブルから org_id と role を取得して返す。
+ * リクエストの Authorization ヘッダから JWT を検証し、
+ * public.users テーブルから org_id と role を取得して返す。
  *
- * org_id はフロントから受け取るのではなく必ず DB から取得する。
- * これにより、フロントが org_id を改ざんしても意味がない。
+ * org_id はフロントから受け取らず必ず DB から取得する。
  */
-export async function requireAuth(req: Request): Promise<AuthUser> {
-  const authHeader = req.headers.get('Authorization')
+export async function requireAuth(req: VercelRequest): Promise<AuthUser> {
+  const authHeader = req.headers['authorization'] as string | undefined
   if (!authHeader?.startsWith('Bearer ')) {
     throw new ApiError(401, 'Authorization ヘッダが必要です')
   }
 
   const jwt = authHeader.slice(7)
 
-  // Supabase 側で署名検証・有効期限チェックを行う
+  // Supabase 側で署名検証・有効期限チェック
   const { data: { user }, error: authError } = await db.auth.getUser(jwt)
   if (authError || !user) {
     throw new ApiError(401, 'トークンが無効または期限切れです')
@@ -61,14 +61,12 @@ export async function requireAuth(req: Request): Promise<AuthUser> {
   }
 }
 
-/** スタッフ以上の権限が必要なエンドポイント用 */
 export function requireStaff(user: AuthUser): void {
   if (!['admin', 'staff', 'license_admin'].includes(user.role)) {
     throw new ApiError(403, 'スタッフ以上の権限が必要です')
   }
 }
 
-/** ライセンス管理者のみ使えるエンドポイント用 */
 export function requireLicenseAdmin(user: AuthUser): void {
   if (user.role !== 'license_admin') {
     throw new ApiError(403, 'ライセンス管理者権限が必要です')

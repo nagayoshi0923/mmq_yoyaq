@@ -8,7 +8,7 @@
   "trailingSlash": false,
   "redirects": [
     {
-      "source": "/((?!assets/).*)",
+      "source": "/((?!assets/)(?!api/).*)",
       "missing": [
         {
           "type": "query",
