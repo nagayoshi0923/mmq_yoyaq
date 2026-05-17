@@ -4,46 +4,13 @@
  * 公演スケジュールの取得・作成・更新・削除を行う
  */
 import { supabase } from '../supabase'
+import { apiClient } from '@/lib/apiClient'
 import { logger } from '@/utils/logger'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
-import { ACTIVE_RESERVATION_STATUSES, ACTIVE_RESERVATION_STATUSES_SET, RESERVATION_SOURCE } from '@/lib/constants'
+import { ACTIVE_RESERVATION_STATUSES, RESERVATION_SOURCE } from '@/lib/constants'
 import type { RpcAdminDeleteReservationsBySourceParams } from '@/lib/rpcTypes'
 import { getScenarioAliases } from '@/lib/api/scenarioAliasApi'
-
-// 候補日時の型定義
-interface CandidateDateTime {
-  order: number
-  date: string
-  startTime?: string
-  endTime?: string
-  status?: 'confirmed' | 'pending' | 'rejected'
-  timeSlot?: string
-}
-
-// スケジュールイベントの型定義
-interface ScheduleEvent {
-  id: string
-  date: string
-  venue: string
-  store_id: string
-  scenario: string
-  scenario_master_id?: string
-  start_time: string
-  end_time: string
-  category: string
-  is_cancelled: boolean
-  is_reservation_enabled: boolean
-  current_participants: number
-  max_participants: number
-  capacity: number
-  gms: string[]
-  gm_roles?: Record<string, string>
-  stores?: unknown
-  scenarios?: unknown
-  is_private_booking?: boolean
-  timeSlot?: string
-}
 
 /**
  * organization_scenarios_with_master ビューから player_count_max を取得し、
@@ -191,666 +158,75 @@ async function findMatchingScenario(scenarioName: string | undefined): Promise<{
 // 公演スケジュール関連のAPI
 export const scheduleApi = {
   // 自分のスケジュールを取得（期間指定）
+  // バックエンド API (/api/schedule?type=my-schedule) 経由で取得
   async getMySchedule(staffName: string, startDate: string, endDate: string) {
-    // 組織フィルタ用
-    const orgId = await getCurrentOrganizationId()
-    
-    // 1. GM（メインGM/サブGM）として割り当てられた公演を取得
-    let gmQuery = supabase
-      .from('schedule_events_staff_view')
-      .select(`
-        *,
-        stores:store_id (
-          id,
-          name,
-          short_name,
-          color,
-          address
-        ),
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          player_count_max,
-          official_duration,
-          genre
-        )
-      `)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .contains('gms', [staffName])
-      .eq('is_cancelled', false)
-    
-    if (orgId) {
-      gmQuery = gmQuery.eq('organization_id', orgId)
-    }
-    
-    const { data: gmEvents, error: gmError } = await gmQuery
-      .order('date', { ascending: true })
-      .order('start_time', { ascending: true })
-    
-    if (gmError) throw gmError
-    
-    // 2. スタッフ参加（予約）として登録された公演を取得
-    let resQuery = supabase
-      .from('reservations')
-      .select(`
-        schedule_event_id,
-        schedule_events!inner (
-          *,
-          stores:store_id (
-            id,
-            name,
-            short_name,
-            color,
-            address
-          ),
-          scenario_masters:scenario_master_id (
-            id,
-            title,
-            player_count_max,
-            official_duration,
-            genre
-          )
-        )
-      `)
-      .contains('participant_names', [staffName])
-      .eq('payment_method', 'staff')
-        .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
-      
-      if (orgId) {
-        resQuery = resQuery.eq('organization_id', orgId)
-      }
-      
-      const { data: staffReservations } = await resQuery
-    
-    // スタッフ参加の公演を抽出（日付フィルタリング）
-    type JoinedScheduleEvent = { id: string; date: string; start_time: string; is_cancelled: boolean; scenario_masters?: unknown; max_participants?: number; capacity?: number; [key: string]: unknown }
-    const staffEvents = (staffReservations || [])
-      .map(r => r.schedule_events as unknown as JoinedScheduleEvent)
-      .filter((event): event is JoinedScheduleEvent => 
-        event !== null && 
-        event.date >= startDate && 
-        event.date <= endDate && 
-        !event.is_cancelled
-      )
-    
-    // 3. 重複を除去してマージ（GMとスタッフ参加の両方に含まれる場合）
-    const eventMap = new Map<string, JoinedScheduleEvent>()
-    gmEvents.forEach(event => eventMap.set(event.id, event as unknown as JoinedScheduleEvent))
-    staffEvents.forEach(event => {
-      if (event && !eventMap.has(event.id)) {
-        eventMap.set(event.id, event)
-      }
+    const params = new URLSearchParams({
+      type: 'my-schedule',
+      staff_name: staffName,
+      start: startDate,
+      end: endDate,
     })
-    const scheduleEvents = Array.from(eventMap.values())
-    
-    // 4. イベントの参加者数を取得・計算
-    const eventIds = scheduleEvents.map(e => e.id)
-    const reservationsMap = new Map<string, { participant_count: number }[]>()
-    
-    if (eventIds.length > 0) {
-      const BATCH_SIZE = 100
-      const allReservations: Array<{ schedule_event_id: string; participant_count: number; status: string }> = []
-      
-      for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
-        const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-        let allResQuery = supabase
-          .from('reservations')
-          .select('schedule_event_id, participant_count, status')
-          .in('schedule_event_id', batchIds)
-          .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
-        
-        if (orgId) {
-          allResQuery = allResQuery.eq('organization_id', orgId)
-        }
-        
-        const { data, error: reservationError } = await allResQuery
-        if (!reservationError && data) {
-          allReservations.push(...(data as typeof allReservations))
-        }
-      }
-      
-      allReservations.forEach(reservation => {
-        const eventId = reservation.schedule_event_id
-        if (!reservationsMap.has(eventId)) {
-          reservationsMap.set(eventId, [])
-        }
-        reservationsMap.get(eventId)!.push(reservation)
-      })
-    }
-
-    const orgScenarioMap = await getOrgScenarioPlayerCounts(orgId)
-
-    const myEvents = scheduleEvents.map(event => {
-      const reservations = reservationsMap.get(event.id) || []
-      const actualParticipants = reservations.reduce((sum, r) => sum + (r.participant_count || 0), 0)
-      
-      const maxParticipants = resolveMaxParticipants(event, orgScenarioMap)
-
-      return {
-        ...event,
-        current_participants: actualParticipants,
-        max_participants: maxParticipants,
-        capacity: maxParticipants,
-        is_private_booking: false
-      }
-    })
-    
-    // 日付・時間順でソート
-    return myEvents.sort((a, b) => {
-      if (a.date !== b.date) return a.date.localeCompare(b.date)
-      return a.start_time.localeCompare(b.start_time)
-    })
+    return await apiClient.get<unknown[]>(`/api/schedule?${params.toString()}`)
   },
 
   // 指定月の公演を取得（通常公演 + 確定した貸切公演）
-  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
-  // skipOrgFilter: trueの場合、組織フィルタをスキップ（全組織のデータを取得）
-  // skipPrivateBookings: trueの場合、確定貸切予約のクエリをスキップ（公開ページ用）
-  async getByMonth(year: number, month: number, organizationId?: string, skipOrgFilter?: boolean, skipPrivateBookings?: boolean) {
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const lastDay = new Date(year, month, 0).getDate()
-    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-    
-    // 通常公演を取得（スタッフ専用ビュー経由で全カラムにアクセス）
-    let query = supabase
-      .from('schedule_events_staff_view')
-      .select(`
-        id,
-        date,
-        start_time,
-        end_time,
-        venue,
-        store_id,
-        scenario,
-        scenario_id,
-        scenario_master_id,
-        organization_scenario_id,
-        category,
-        is_cancelled,
-        is_reservation_enabled,
-        is_tentative,
-        is_recruitment_extended,
-        current_participants,
-        max_participants,
-        capacity,
-        gms,
-        gm_roles,
-        notes,
-        time_slot,
-        organization_id,
-        updated_at,
-        reservation_name,
-        reservation_id,
-        is_reservation_name_overwritten,
-        stores:store_id (
-          id,
-          name,
-          short_name,
-          color
-        ),
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          player_count_max
-        )
-      `)
-      .gte('date', startDate)
-      .lte('date', endDate)
-    
-    // 組織フィルタリング
-    if (!skipOrgFilter) {
-      // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
-      const orgId = organizationId || await getCurrentOrganizationId()
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
-    }
-    
-    const { data: scheduleEvents, error } = await query
-      .order('date', { ascending: true })
-      .order('start_time', { ascending: true })
-    
-    if (error) throw error
-    
-    // 最適化: すべてのイベントIDの予約を一度に取得（組織フィルタ付き）
-    const eventIds = scheduleEvents.map(e => e.id)
-    const reservationsMap = new Map<
-      string,
-      {
-        participant_count: number
-        status?: string
-        candidate_datetimes?: { candidates?: Array<{ status?: string; timeSlot?: string }> }
-        reservation_source?: string
-      }[]
-    >()
-
-    // 組織フィルタ用（キャッシュ済みなので高速）
-    const resOrgId = organizationId || await getCurrentOrganizationId()
-
-    // 予約バッチクエリとシナリオマップ取得を並列実行
-    const BATCH_SIZE = 100
-    const batches: string[][] = []
-    for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
-      batches.push(eventIds.slice(i, i + BATCH_SIZE))
-    }
-
-    const [batchResults, orgScenarioMap] = await Promise.all([
-      // NOTE: 予約バッチも並列実行（直列だと公演数×RTT分遅延する）
-      Promise.all(batches.map(batchIds => {
-        let resQuery = supabase
-          .from('reservations')
-          .select('schedule_event_id, participant_count, status, candidate_datetimes, reservation_source')
-          .in('schedule_event_id', batchIds)
-        if (resOrgId && !skipOrgFilter) {
-          resQuery = resQuery.eq('organization_id', resOrgId)
-        }
-        return resQuery
-      })),
-      getOrgScenarioPlayerCounts(resOrgId || undefined)
-    ])
-
-    batchResults.forEach(({ data: batchReservations, error: reservationError }) => {
-      if (!reservationError && batchReservations) {
-        batchReservations.forEach(reservation => {
-          const eventId = reservation.schedule_event_id
-          if (!reservationsMap.has(eventId)) {
-            reservationsMap.set(eventId, [])
-          }
-          reservationsMap.get(eventId)!.push(reservation)
-        })
-      }
+  // organizationId: 互換のため残すがバックエンド側で JWT から取得する（無視される）
+  // skipOrgFilter: 互換のため残すがバックエンド側では常に JWT の組織でフィルタする（無視される）
+  // skipPrivateBookings: trueの場合、確定貸切予約のクエリをスキップ
+  // バックエンド API (/api/schedule?type=by-month) 経由で取得
+  async getByMonth(year: number, month: number, _organizationId?: string, _skipOrgFilter?: boolean, skipPrivateBookings?: boolean) {
+    const params = new URLSearchParams({
+      type: 'by-month',
+      year: String(year),
+      month: String(month),
     })
-
-    const eventsWithActualParticipants = scheduleEvents.map((event) => {
-      const reservations = reservationsMap.get(event.id) || []
-      
-      // 予約テーブルが single source of truth（active: confirmed/pending/gm_confirmed/checked_in）
-      // ※ cancelled のみのケースでも reservations は存在し得るが、人数計算は active のみで行う
-      const hasAnyReservations = reservations.length > 0
-      // 中止公演は「中止時点で集まっていた人数」を表示するため、全ステータスを合算する
-      const actualParticipants = event.is_cancelled
-        ? reservations.reduce((sum, r) => sum + (r.participant_count || 0), 0)
-        : reservations.reduce((sum, reservation) => {
-            if (!reservation.status || !ACTIVE_RESERVATION_STATUSES_SET.has(reservation.status)) return sum
-            return sum + (reservation.participant_count || 0)
-          }, 0)
-      
-      let timeSlot: string | undefined
-      let isPrivateBooking = false
-      
-      // time_slotが保存されている場合は常にそれを優先（選択した枠を尊重）
-      if (event.time_slot) {
-        timeSlot = event.time_slot
-      }
-      
-      if (event.category === 'private') {
-        isPrivateBooking = true
-        // time_slotが未設定の場合のみ、予約情報から取得（フォールバック）
-        if (!timeSlot) {
-          const privateReservation = reservations.find(r => r.reservation_source === RESERVATION_SOURCE.WEB_PRIVATE)
-          if (privateReservation?.candidate_datetimes?.candidates) {
-            const confirmedCandidate = privateReservation.candidate_datetimes.candidates.find(
-              (c) => c.status === 'confirmed'
-            )
-            if (confirmedCandidate?.timeSlot) {
-              timeSlot = confirmedCandidate.timeSlot
-            } else if (privateReservation.candidate_datetimes.candidates[0]?.timeSlot) {
-              timeSlot = privateReservation.candidate_datetimes.candidates[0].timeSlot
-            }
-          }
-        }
-      }
-      
-      const maxForSync = resolveMaxParticipants(event, orgScenarioMap)
-      const cappedActualParticipants = Math.min(actualParticipants, maxForSync)
-
-      // 予約が存在する公演は、予約テーブル（active集計）を single source of truth として同期する
-      // （キャンセルで減った場合も反映する）
-      //
-      // NOTE:
-      // - 「手動で満席」(schedule_events.current_participants だけを増やす) の運用があるため、
-      //   予約が1件も無い公演では current_participants を上書きしない。
-      // - デモ参加者を「予約として」追加している場合は hasAnyReservations=true になるので、
-      //   この同期処理で消えることはない（active集計に含まれる）。
-      if (!event.is_cancelled && hasAnyReservations && cappedActualParticipants !== (event.current_participants || 0)) {
-        Promise.resolve(
-          supabase
-            .from('schedule_events')
-            .update({ current_participants: cappedActualParticipants })
-            .eq('id', event.id)
-        )
-          .then(() => {
-            logger.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${cappedActualParticipants})`)
-          })
-          .catch((syncError) => {
-            logger.error('参加者数の同期に失敗:', syncError)
-          })
-      }
-      
-      const maxParticipants = maxForSync
-      
-      // 表示用の参加者数
-      // - 中止公演: 全予約（キャンセル含む）の合計 or DB値の大きい方（中止前の人数を保持）
-      // - 通常公演・予約あり: 実予約数（active）を表示（キャンセルで減るのも反映）
-      // - 通常公演・予約なし: 手動入力された current_participants を表示（過去データ/手動満席など）
-      const effectiveParticipants = event.is_cancelled
-        ? Math.max(cappedActualParticipants, Math.min(event.current_participants || 0, maxParticipants))
-        : (hasAnyReservations
-            ? cappedActualParticipants
-            : Math.min(event.current_participants || 0, maxParticipants))
-      
-      return {
-        ...event,
-        current_participants: effectiveParticipants,
-        max_participants: maxParticipants,
-        capacity: maxParticipants,
-        is_private_booking: isPrivateBooking,
-        ...(timeSlot && { timeSlot })
-      }
-    })
-    
-    // 確定した貸切公演を取得（組織フィルタ付き）
-    // 公開ページでは不要なためスキップ可能
-    const privateEvents: ScheduleEvent[] = []
-    
-    if (!skipPrivateBookings) {
-      const privateOrgId = organizationId || await getCurrentOrganizationId()
-      let privateQuery = supabase
-        .from('reservations')
-        .select(`
-          id,
-          scenario_master_id,
-          store_id,
-          gm_staff,
-          participant_count,
-          candidate_datetimes,
-          schedule_event_id,
-          scenario_masters:scenario_master_id (
-            id,
-            title,
-            player_count_max
-          ),
-          stores:store_id (
-            id,
-            name,
-            short_name,
-            color,
-            address
-          )
-        `)
-        .eq('reservation_source', RESERVATION_SOURCE.WEB_PRIVATE)
-        .eq('status', 'confirmed')
-        .is('schedule_event_id', null)
-      
-      if (privateOrgId && !skipOrgFilter) {
-        privateQuery = privateQuery.eq('organization_id', privateOrgId)
-      }
-      
-      const { data: confirmedPrivateBookings, error: privateError } = await privateQuery
-      
-      if (privateError) {
-        logger.error('確定貸切公演取得エラー:', privateError)
-      }
-    
-    if (confirmedPrivateBookings) {
-      const gmStaffIds = confirmedPrivateBookings
-        .map(booking => booking.gm_staff)
-        .filter((id): id is string => !!id)
-      
-      const uniqueGmStaffIds = [...new Set(gmStaffIds)]
-      const gmStaffMap = new Map<string, string>()
-      
-      if (uniqueGmStaffIds.length > 0) {
-        const { data: gmStaffList } = await supabase
-          .from('staff')
-          .select('id, name')
-          .in('id', uniqueGmStaffIds)
-        
-        if (gmStaffList) {
-          gmStaffList.forEach(staff => {
-            gmStaffMap.set(staff.id, staff.name)
-          })
-        }
-      }
-      
-      for (const booking of confirmedPrivateBookings) {
-        if (booking.candidate_datetimes?.candidates) {
-          const confirmedCandidates = booking.candidate_datetimes.candidates.filter((c: CandidateDateTime) => c.status === 'confirmed')
-          const candidatesToShow = confirmedCandidates.length > 0 
-            ? confirmedCandidates.slice(0, 1)
-            : booking.candidate_datetimes.candidates.slice(0, 1)
-          
-          for (const candidate of candidatesToShow) {
-            const candidateDate = new Date(candidate.date)
-            const candidateDateStr = candidateDate.toISOString().split('T')[0]
-            
-            if (candidateDateStr >= startDate && candidateDateStr <= endDate) {
-              const candidateStartTime = candidate.startTime || '18:00:00'
-              const candidateEndTime = candidate.endTime || '21:00:00'
-              
-              let gmNames: string[] = []
-              
-              if (booking.gm_staff && gmStaffMap.has(booking.gm_staff)) {
-                gmNames = [gmStaffMap.get(booking.gm_staff)!]
-              }
-              
-              if (gmNames.length === 0) {
-                gmNames = ['未定']
-              }
-              
-              const scenarioData = Array.isArray(booking.scenario_masters) ? booking.scenario_masters[0] : booking.scenario_masters
-              const candidateTimeSlot = candidate.timeSlot || ''
-              
-              const privateMaxParticipants = resolveMaxParticipants(
-                { scenario_master_id: scenarioData?.id, scenario: scenarioData?.title, scenario_masters: scenarioData },
-                orgScenarioMap
-              )
-              privateEvents.push({
-                id: `private-${booking.id}-${candidate.order}`,
-                date: candidateDateStr,
-                venue: booking.store_id,
-                store_id: booking.store_id,
-                scenario: scenarioData?.title || '',
-                scenario_master_id: booking.scenario_master_id,
-                start_time: candidateStartTime,
-                end_time: candidateEndTime,
-                category: 'private',
-                is_cancelled: false,
-                is_reservation_enabled: true,
-                current_participants: booking.participant_count,
-                max_participants: privateMaxParticipants,
-                capacity: privateMaxParticipants,
-                gms: gmNames,
-                stores: booking.stores,
-                scenarios: scenarioData,
-                is_private_booking: true,
-                timeSlot: candidateTimeSlot
-              })
-            }
-          }
-        }
-      }
+    if (skipPrivateBookings) {
+      params.set('skip_private_bookings', 'true')
     }
-    } // skipPrivateBookings の閉じ括弧
-    
-    const allEvents = [...(eventsWithActualParticipants || []), ...privateEvents]
-    allEvents.sort((a, b) => {
-      const dateCompare = a.date.localeCompare(b.date)
-      if (dateCompare !== 0) return dateCompare
-      return a.start_time.localeCompare(b.start_time)
-    })
-    
-    return allEvents
+    return await apiClient.get<unknown[]>(`/api/schedule?${params.toString()}`)
   },
 
   // 日付範囲でスケジュールを取得（キット管理用）
-  async getByDateRange(startDate: string, endDate: string, organizationId?: string, includeCancelled = false) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('schedule_events')
-      .select(`
-        id,
-        date,
-        venue,
-        store_id,
-        scenario,
-        scenario_id,
-        scenario_master_id,
-        start_time,
-        end_time,
-        category,
-        is_cancelled,
-        current_participants,
-        capacity
-      `)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .order('date')
-      .order('start_time')
-    
-    if (!includeCancelled) {
-      query = query.eq('is_cancelled', false)
+  // organizationId: 互換のため残すがバックエンド側で JWT から取得する（無視される）
+  // バックエンド API (/api/schedule?type=by-date-range) 経由で取得
+  async getByDateRange(startDate: string, endDate: string, _organizationId?: string, includeCancelled = false) {
+    const params = new URLSearchParams({
+      type: 'by-date-range',
+      start: startDate,
+      end: endDate,
+    })
+    if (includeCancelled) {
+      params.set('include_cancelled', 'true')
     }
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
+    type ScheduleEventRow = {
+      id: string
+      date: string
+      venue: string
+      store_id: string
+      scenario: string
+      scenario_id?: string | null
+      scenario_master_id?: string | null
+      start_time: string
+      end_time: string
+      category: string
+      is_cancelled: boolean
+      current_participants: number
+      capacity: number
     }
-    
-    const { data, error } = await query
-    
-    if (error) {
-      logger.error('Failed to fetch schedule by date range:', error)
-      throw error
-    }
-    
-    return data || []
+    return await apiClient.get<ScheduleEventRow[]>(`/api/schedule?${params.toString()}`)
   },
 
   // シナリオIDで指定期間の公演を取得
-  async getByScenarioId(scenarioId: string, startDate: string, endDate: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('schedule_events')
-      .select(`
-        id, date, start_time, end_time, time_slot,
-        store_id, scenario_master_id, organization_scenario_id,
-        category, is_cancelled, is_reservation_enabled,
-        current_participants, max_participants, capacity, organization_id,
-        stores:store_id (
-          id,
-          name,
-          short_name,
-          color
-        ),
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          player_count_max
-        )
-      `)
-      .eq('scenario_master_id', scenarioId)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .in('category', ['open', 'offsite'])
-      .eq('is_reservation_enabled', true)
-      .eq('is_cancelled', false)
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data: scheduleEvents, error } = await query
-      .order('date', { ascending: true })
-      .order('start_time', { ascending: true })
-    
-    if (error) throw error
-    
-    if (!scheduleEvents || scheduleEvents.length === 0) {
-      return []
-    }
-    
-    const eventIds = scheduleEvents.map(e => e.id)
-    
-    // 予約データ取得（組織フィルタ付き） PostgREST URL長制限回避: バッチ分割
-    const BATCH_SIZE = 100
-    const allReservations: Array<{ schedule_event_id: string; participant_count: number }> = []
-    
-    for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
-      const batchIds = eventIds.slice(i, i + BATCH_SIZE)
-      let resQuery = supabase
-        .from('reservations')
-        .select('schedule_event_id, participant_count')
-        .in('schedule_event_id', batchIds)
-        .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
-      
-      if (orgId) {
-        resQuery = resQuery.eq('organization_id', orgId)
-      }
-      
-      const { data, error: reservationError } = await resQuery
-      
-      if (reservationError) {
-        if (reservationError.code !== 'PGRST116') {
-          logger.warn('予約データの取得に失敗:', {
-            code: reservationError.code,
-            message: reservationError.message,
-            details: reservationError.details
-          })
-        }
-      }
-      if (data) {
-        allReservations.push(...(data as typeof allReservations))
-      }
-    }
-    
-    const participantsByEventId = new Map<string, number>()
-    allReservations.forEach((reservation) => {
-      const eventId = reservation.schedule_event_id
-      const count = reservation.participant_count || 0
-      participantsByEventId.set(eventId, (participantsByEventId.get(eventId) || 0) + count)
+  // organizationId: 互換のため残すがバックエンド側で JWT から取得する（無視される）
+  // バックエンド API (/api/schedule?type=by-scenario) 経由で取得
+  async getByScenarioId(scenarioId: string, startDate: string, endDate: string, _organizationId?: string) {
+    const params = new URLSearchParams({
+      type: 'by-scenario',
+      scenario_id: scenarioId,
+      start: startDate,
+      end: endDate,
     })
-    
-    const orgScenarioMapForScenario = await getOrgScenarioPlayerCounts(orgId)
-
-    const eventsWithActualParticipants = scheduleEvents.map((event) => {
-      const actualParticipants = participantsByEventId.get(event.id) || 0
-      
-      // 予約から計算した参加者数が現在の値より大きい場合のみ更新
-      // （手動で設定した「満席」状態が上書きされないようにする）
-      const shouldUpdate = actualParticipants > (event.current_participants || 0)
-      if (shouldUpdate) {
-        supabase
-          .from('schedule_events')
-          .update({ current_participants: actualParticipants })
-          .eq('id', event.id)
-          .then(({ error: updateError }) => {
-            if (updateError) {
-              logger.error('参加者数の同期に失敗:', updateError)
-            } else {
-              logger.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${actualParticipants})`)
-            }
-          })
-      }
-      
-      const maxParticipants = resolveMaxParticipants(event, orgScenarioMapForScenario)
-      
-      // 現在の値と予約から計算した値の大きい方を使用
-      const effectiveParticipants = Math.max(actualParticipants, event.current_participants || 0)
-      
-      return {
-        ...event,
-        current_participants: effectiveParticipants,
-        max_participants: maxParticipants,
-        capacity: maxParticipants,
-        is_private_booking: false,
-        ...(event.time_slot && { timeSlot: event.time_slot })
-      }
-    })
-    
-    return eventsWithActualParticipants
+    return await apiClient.get<unknown[]>(`/api/schedule?${params.toString()}`)
   },
 
   // 公演を作成
