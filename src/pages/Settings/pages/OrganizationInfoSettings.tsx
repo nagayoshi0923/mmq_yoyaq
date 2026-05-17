@@ -195,6 +195,10 @@ export function OrganizationInfoSettings() {
       <section className="bg-white rounded-xl border p-6">
         <SectionTitle icon={Users2} label="連絡先情報" />
         <div className="space-y-4">
+          <div className="flex items-start gap-2 text-sm text-muted-foreground leading-relaxed">
+            <Globe className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span>お客様向けの連絡先ページ（/{organization.slug}/contact）に表示されます</span>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="contact_name" className="text-sm font-medium">担当者名</Label>
@@ -215,10 +219,6 @@ export function OrganizationInfoSettings() {
                 placeholder="例: contact@example.com"
               />
             </div>
-          </div>
-          <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">
-            <Globe className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-            <span>お客様向けの連絡先ページ（/{organization.slug}/contact）に表示されます</span>
           </div>
         </div>
       </section>
