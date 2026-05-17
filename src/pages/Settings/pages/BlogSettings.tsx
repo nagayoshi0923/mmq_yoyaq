@@ -3,7 +3,6 @@
  * @path /settings (blog タブ)
  */
 import { useState, useEffect, useRef } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -30,6 +29,8 @@ import {
 } from 'lucide-react'
 import { uploadBlogCoverImage, deleteBlogCoverImage, validateImageFile } from '@/lib/uploadImage'
 import type { BlogPost } from '@/types'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { SectionTitle } from '@/components/settings/SectionTitle'
 
 /** 自前アップロード（blog-covers）の公開URLからストレージパスを復元 */
 function storagePathFromBlogCoverPublicUrl(url: string): string | null {
@@ -133,7 +134,7 @@ export function BlogSettings() {
     const timestamp = Date.now().toString(36)
     const sanitized = title
       .toLowerCase()
-      .replace(/[^a-z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/g, '-')
+      .replace(/[^a-z0-9぀-ゟ゠-ヿ一-龯]/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
       .slice(0, 30)
@@ -304,108 +305,103 @@ export function BlogSettings() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                ブログ・お知らせ管理
-              </CardTitle>
-              <CardDescription>
-                トップページやマイページに表示するお知らせ記事を管理します
-              </CardDescription>
-            </div>
-            <Button onClick={openNewDialog}>
-              <Plus className="w-4 h-4 mr-2" />
-              新規作成
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+      <PageHeader title="ブログ・お知らせ" description="予約サイトのお知らせページ（/{slug}/blog）に公開する記事を管理します" />
+
+      <section className="bg-white rounded-xl border p-6">
+        <div className="flex items-start justify-between mb-2">
+          <SectionTitle
+            icon={FileText}
+            label="記事一覧"
+            description="公開・非公開の記事を管理します。公開した記事は予約サイトのお知らせページに表示されます。"
+          />
+          <Button onClick={openNewDialog}>
+            <Plus className="w-4 h-4 mr-2" />
+            新規作成
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>まだ記事がありません</p>
+            <Button variant="outline" className="mt-4" onClick={openNewDialog}>
+              最初の記事を作成
             </Button>
           </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-            </div>
-          ) : posts.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>まだ記事がありません</p>
-              <Button variant="outline" className="mt-4" onClick={openNewDialog}>
-                最初の記事を作成
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {posts.map(post => (
-                <div
-                  key={post.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium truncate">{post.title}</h3>
-                      <Badge variant={post.is_published ? 'default' : 'secondary'}>
-                        {post.is_published ? '公開中' : '下書き'}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {formatDate(post.published_at || post.created_at)}
-                      </span>
-                      {post.excerpt && (
-                        <span className="truncate max-w-[200px]">{post.excerpt}</span>
-                      )}
-                    </div>
+        ) : (
+          <div className="space-y-3">
+            {posts.map(post => (
+              <div
+                key={post.id}
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-medium truncate">{post.title}</h3>
+                    <Badge variant={post.is_published ? 'default' : 'secondary'}>
+                      {post.is_published ? '公開中' : '下書き'}
+                    </Badge>
                   </div>
-                  <div className="flex items-center gap-2 ml-4 shrink-0">
-                    {post.is_published ? (
-                      <Button variant="ghost" size="sm" asChild title="公開ページを新しいタブで開く">
-                        <a
-                          href={publicBlogPostHref(post.slug)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </Button>
-                    ) : null}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => togglePublish(post)}
-                      title={post.is_published ? '非公開にする' : '公開する'}
-                    >
-                      {post.is_published ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditDialog(post)}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(post)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {formatDate(post.published_at || post.created_at)}
+                    </span>
+                    {post.excerpt && (
+                      <span className="truncate max-w-[200px]">{post.excerpt}</span>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <div className="flex items-center gap-2 ml-4 shrink-0">
+                  {post.is_published ? (
+                    <Button variant="ghost" size="sm" asChild title="公開ページを新しいタブで開く">
+                      <a
+                        href={publicBlogPostHref(post.slug)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => togglePublish(post)}
+                    title={post.is_published ? '非公開にする' : '公開する'}
+                  >
+                    {post.is_published ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openEditDialog(post)}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(post)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* 編集ダイアログ */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

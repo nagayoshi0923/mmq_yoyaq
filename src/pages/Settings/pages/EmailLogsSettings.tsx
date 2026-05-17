@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { RefreshCw, Search, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import { RefreshCw, Search, ChevronDown, ChevronUp, ExternalLink, FileText, Filter } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { SectionTitle } from '@/components/settings/SectionTitle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -183,24 +183,25 @@ export function EmailLogsSettings() {
   }, [logs, keyword])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="メール送信ログ"
-        description="アプリ側で長期保存しているメール送信履歴です（Resend の保持期間に依存しません）"
+        description="アプリが記録したメール送信ログ。送信日時・宛先・本文を確認できます"
       >
-        <Button onClick={() => fetchLogs(true)} disabled={refreshing}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+        <Button size="sm" onClick={() => fetchLogs(true)} disabled={refreshing}>
+          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
           更新
         </Button>
       </PageHeader>
 
       {/* フィルター */}
-      <Card>
-        <CardHeader>
-          <CardTitle>フィルター / 検索</CardTitle>
-          <CardDescription>メールアドレス・件名・メール種別・ステータス・日付で絞り込めます</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Filter}
+          label="フィルター / 検索"
+          description="メールアドレス・件名・メール種別・ステータス・日付で絞り込めます"
+        />
+        <div className="space-y-3">
           <div className="relative max-w-xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -251,140 +252,137 @@ export function EmailLogsSettings() {
               />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* ログ一覧 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>送信ログ（最新200件）</CardTitle>
-          <CardDescription>
-            宛先は部分マスク表示。詳細を開くと件名・本文・エラー内容を確認できます。
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
-          ) : filteredLogs.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">該当するログがありません</div>
-          ) : (
-            <div className="space-y-2">
-              {filteredLogs.map((log) => (
-                <div key={log.id} className="border rounded-lg bg-white overflow-hidden">
-                  {/* ヘッダー行 */}
-                  <button
-                    type="button"
-                    className="w-full text-left p-4 hover:bg-gray-50 transition-colors"
-                    onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                  >
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <Badge className={statusBadgeClass(log.status)}>
-                        {STATUS_LABELS[log.status] ?? log.status}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {TYPE_LABELS[log.email_type] ?? log.email_type}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        {formatJst(log.created_at)}
-                      </span>
-                      {expandedId === log.id
-                        ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                    </div>
-                    <div className="space-y-0.5">
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">To:</span>{' '}
-                        {maskEmail(log.to_email)}
-                        {log.to_name && (
-                          <span className="text-muted-foreground"> ({log.to_name})</span>
-                        )}
-                      </div>
-                      <div className="text-sm font-medium truncate">{log.subject}</div>
-                    </div>
-                  </button>
-
-                  {/* 詳細展開 */}
-                  {expandedId === log.id && (
-                    <div className="border-t bg-gray-50 p-4 space-y-3 text-sm">
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-                        <dt className="text-muted-foreground font-medium">送信日時</dt>
-                        <dd>{formatJst(log.sent_at)}</dd>
-                        <dt className="text-muted-foreground font-medium">配信日時</dt>
-                        <dd>{formatJst(log.delivered_at)}</dd>
-                        <dt className="text-muted-foreground font-medium">開封日時</dt>
-                        <dd>{formatJst(log.opened_at)}</dd>
-                        {log.bounced_at && (
-                          <>
-                            <dt className="text-muted-foreground font-medium">バウンス日時</dt>
-                            <dd className="text-red-600">{formatJst(log.bounced_at)}</dd>
-                          </>
-                        )}
-                        {log.complained_at && (
-                          <>
-                            <dt className="text-muted-foreground font-medium">苦情日時</dt>
-                            <dd className="text-red-600">{formatJst(log.complained_at)}</dd>
-                          </>
-                        )}
-                        <dt className="text-muted-foreground font-medium">プロバイダ</dt>
-                        <dd>{log.provider}</dd>
-                        {log.provider_message_id && (
-                          <>
-                            <dt className="text-muted-foreground font-medium">Message ID</dt>
-                            <dd className="font-mono text-xs break-all">{log.provider_message_id}</dd>
-                          </>
-                        )}
-                        {log.error_message && (
-                          <>
-                            <dt className="text-muted-foreground font-medium">エラー</dt>
-                            <dd className="text-red-600 break-all">{log.error_message}</dd>
-                          </>
-                        )}
-                      </dl>
-
-                      {/* 関連リンク */}
-                      <div className="flex flex-wrap gap-2">
-                        {log.reservation_id && (
-                          <a
-                            href={`?page=reservations&id=${log.reservation_id}`}
-                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            予約を開く
-                          </a>
-                        )}
-                      </div>
-
-                      {/* 本文プレビュー */}
-                      {log.body_text && (
-                        <details className="mt-2">
-                          <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                            テキスト本文を表示
-                          </summary>
-                          <pre className="mt-2 p-3 bg-white border rounded text-xs whitespace-pre-wrap break-all max-h-60 overflow-y-auto">
-                            {log.body_text}
-                          </pre>
-                        </details>
-                      )}
-                      {log.body_html && (
-                        <details className="mt-2">
-                          <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                            HTML本文を表示
-                          </summary>
-                          <div
-                            className="mt-2 p-3 bg-white border rounded text-xs max-h-80 overflow-y-auto"
-                            // biome-ignore lint/security/noDangerouslySetInnerHtml: 管理者のみが閲覧するため許容
-                            dangerouslySetInnerHTML={{ __html: log.body_html }}
-                          />
-                        </details>
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={FileText}
+          label="送信ログ（最新200件）"
+          description="宛先は部分マスク表示。詳細を開くと件名・本文・エラー内容を確認できます。"
+        />
+        {loading ? (
+          <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
+        ) : filteredLogs.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">該当するログがありません</div>
+        ) : (
+          <div className="space-y-2">
+            {filteredLogs.map((log) => (
+              <div key={log.id} className="border rounded-lg bg-white overflow-hidden">
+                {/* ヘッダー行 */}
+                <button
+                  type="button"
+                  className="w-full text-left p-4 hover:bg-gray-50 transition-colors"
+                  onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                >
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <Badge className={statusBadgeClass(log.status)}>
+                      {STATUS_LABELS[log.status] ?? log.status}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {TYPE_LABELS[log.email_type] ?? log.email_type}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {formatJst(log.created_at)}
+                    </span>
+                    {expandedId === log.id
+                      ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">To:</span>{' '}
+                      {maskEmail(log.to_email)}
+                      {log.to_name && (
+                        <span className="text-muted-foreground"> ({log.to_name})</span>
                       )}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    <div className="text-sm font-medium truncate">{log.subject}</div>
+                  </div>
+                </button>
+
+                {/* 詳細展開 */}
+                {expandedId === log.id && (
+                  <div className="border-t bg-gray-50 p-4 space-y-3 text-sm">
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+                      <dt className="text-muted-foreground font-medium">送信日時</dt>
+                      <dd>{formatJst(log.sent_at)}</dd>
+                      <dt className="text-muted-foreground font-medium">配信日時</dt>
+                      <dd>{formatJst(log.delivered_at)}</dd>
+                      <dt className="text-muted-foreground font-medium">開封日時</dt>
+                      <dd>{formatJst(log.opened_at)}</dd>
+                      {log.bounced_at && (
+                        <>
+                          <dt className="text-muted-foreground font-medium">バウンス日時</dt>
+                          <dd className="text-red-600">{formatJst(log.bounced_at)}</dd>
+                        </>
+                      )}
+                      {log.complained_at && (
+                        <>
+                          <dt className="text-muted-foreground font-medium">苦情日時</dt>
+                          <dd className="text-red-600">{formatJst(log.complained_at)}</dd>
+                        </>
+                      )}
+                      <dt className="text-muted-foreground font-medium">プロバイダ</dt>
+                      <dd>{log.provider}</dd>
+                      {log.provider_message_id && (
+                        <>
+                          <dt className="text-muted-foreground font-medium">Message ID</dt>
+                          <dd className="font-mono text-xs break-all">{log.provider_message_id}</dd>
+                        </>
+                      )}
+                      {log.error_message && (
+                        <>
+                          <dt className="text-muted-foreground font-medium">エラー</dt>
+                          <dd className="text-red-600 break-all">{log.error_message}</dd>
+                        </>
+                      )}
+                    </dl>
+
+                    {/* 関連リンク */}
+                    <div className="flex flex-wrap gap-2">
+                      {log.reservation_id && (
+                        <a
+                          href={`?page=reservations&id=${log.reservation_id}`}
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          予約を開く
+                        </a>
+                      )}
+                    </div>
+
+                    {/* 本文プレビュー */}
+                    {log.body_text && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                          テキスト本文を表示
+                        </summary>
+                        <pre className="mt-2 p-3 bg-white border rounded text-xs whitespace-pre-wrap break-all max-h-60 overflow-y-auto">
+                          {log.body_text}
+                        </pre>
+                      </details>
+                    )}
+                    {log.body_html && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                          HTML本文を表示
+                        </summary>
+                        <div
+                          className="mt-2 p-3 bg-white border rounded text-xs max-h-80 overflow-y-auto"
+                          // biome-ignore lint/security/noDangerouslySetInnerHtml: 管理者のみが閲覧するため許容
+                          dangerouslySetInnerHTML={{ __html: log.body_html }}
+                        />
+                      </details>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

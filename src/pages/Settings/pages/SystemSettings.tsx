@@ -1,12 +1,12 @@
 import { PageHeader } from "@/components/layout/PageHeader"
-import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { SectionTitle } from '@/components/settings/SectionTitle'
+import { useState, useEffect } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Save, Shield } from 'lucide-react'
+import { Save, Shield, Globe, DollarSign } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -226,27 +226,25 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="システム設定"
-        description="システムの詳細設定"
+        description="システム全体の動作に関わる基本設定"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
 
-      {/* システム名・メンテナンスモード */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-blue-600" />
-            <CardTitle>基本設定</CardTitle>
-          </div>
-          <CardDescription>システム名とメンテナンスモードの設定（組織全体に適用）</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* 基本設定 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Shield}
+          label="基本設定"
+          description="システム名とメンテナンスモードを設定します（組織全体に適用）"
+        />
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label>システム名</Label>
             <Input
@@ -275,21 +273,25 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
               />
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* 地域設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>地域設定</CardTitle>
-          <CardDescription>タイムゾーンと言語を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Globe}
+          label="地域設定"
+          description="タイムゾーンと表示言語を設定します（将来実装予定）"
+        />
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+            現在、タイムゾーン・言語の設定変更はシステムに反映されません。将来のバージョンで対応予定です。
+          </p>
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-2">
               <Label>タイムゾーン</Label>
-              <Select 
-                value={formData.timezone} 
+              <Select
+                value={formData.timezone}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, timezone: value }))}
               >
                 <SelectTrigger>
@@ -304,10 +306,10 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>表示言語</Label>
-              <Select 
-                value={formData.language} 
+              <Select
+                value={formData.language}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, language: value }))}
               >
                 <SelectTrigger>
@@ -323,21 +325,25 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
               </Select>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* 通貨・表示形式 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>通貨・表示形式</CardTitle>
-          <CardDescription>金額や日付の表示形式を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={DollarSign}
+          label="通貨・表示形式"
+          description="金額や日付の表示形式を設定します（将来実装予定）"
+        />
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+            現在、通貨・日付形式・小数点桁数の設定変更はシステムに反映されません。将来のバージョンで対応予定です。
+          </p>
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-2">
               <Label>通貨単位</Label>
-              <Select 
-                value={formData.currency} 
+              <Select
+                value={formData.currency}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
               >
                 <SelectTrigger>
@@ -352,10 +358,10 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>日付フォーマット</Label>
-              <Select 
-                value={formData.date_format} 
+              <Select
+                value={formData.date_format}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, date_format: value }))}
               >
                 <SelectTrigger>
@@ -371,11 +377,10 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
               </Select>
             </div>
           </div>
-
-          <div>
+          <div className="space-y-2">
             <Label>小数点以下桁数</Label>
-            <Select 
-              value={formData.decimal_places.toString()} 
+            <Select
+              value={formData.decimal_places.toString()}
               onValueChange={(value) => setFormData(prev => ({ ...prev, decimal_places: parseInt(value) }))}
             >
               <SelectTrigger className="w-48">
@@ -387,13 +392,12 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
                 <SelectItem value="2">2桁</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground">
               金額や統計の小数点以下の表示桁数
             </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   )
 }
-

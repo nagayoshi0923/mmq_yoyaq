@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Save } from 'lucide-react'
+import { SectionTitle } from '@/components/settings/SectionTitle'
+import { Save, CalendarDays, Users, ShieldCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -186,100 +186,96 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="予約設定"
-        description="予約の受付期間、人数制限、認証設定"
+        description="予約の受付期間・人数制限・認証・支払い方法を店舗ごとに設定します"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
 
-      {/* 予約期間設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>予約受付期間</CardTitle>
-          <CardDescription>予約の受付開始日と締切を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* 予約受付期間 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={CalendarDays}
+          label="予約受付期間"
+          description="何日前から予約を受け付けるか、公演直前の締切をいつにするかを設定します。予約サイトのカレンダー表示に反映されます"
+        />
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="advance_booking_days">事前予約可能日数</Label>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">事前予約可能日数</Label>
               <Input
-                id="advance_booking_days"
                 type="number"
                 value={formData.advance_booking_days}
                 onChange={(e) => setFormData(prev => ({ ...prev, advance_booking_days: parseInt(e.target.value) || 0 }))}
                 min="1"
                 max="365"
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground">
                 {formData.advance_booking_days}日前から予約可能
               </p>
             </div>
-            <div>
-              <Label htmlFor="same_day_booking_cutoff">当日予約締切（時間前）</Label>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">当日予約締切（時間前）</Label>
               <Input
-                id="same_day_booking_cutoff"
                 type="number"
                 value={formData.same_day_booking_cutoff}
                 onChange={(e) => setFormData(prev => ({ ...prev, same_day_booking_cutoff: parseInt(e.target.value) || 0 }))}
                 min="0"
                 max="24"
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground">
                 {formData.same_day_booking_cutoff === 0
                   ? '公演開始まで予約可能'
                   : `公演開始の${formData.same_day_booking_cutoff}時間前まで予約可能`}
               </p>
             </div>
           </div>
-          
-          <div className="pt-4 border-t">
-            <div>
-              <Label htmlFor="private_booking_deadline_days">貸切予約の受付締切（日前）</Label>
-              <Input
-                id="private_booking_deadline_days"
-                type="number"
-                value={formData.private_booking_deadline_days}
-                onChange={(e) => setFormData(prev => ({ ...prev, private_booking_deadline_days: parseInt(e.target.value) || 0 }))}
-                min="0"
-                max="90"
-                className="max-w-[200px]"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                公演日の{formData.private_booking_deadline_days}日前まで貸切申込を受付
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* 人数制限 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>参加人数・予約数制限</CardTitle>
-          <CardDescription>1回の予約あたりの最大人数と顧客あたりの予約数を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">貸切予約の受付締切（日前）</Label>
+            <Input
+              type="number"
+              value={formData.private_booking_deadline_days}
+              onChange={(e) => setFormData(prev => ({ ...prev, private_booking_deadline_days: parseInt(e.target.value) || 0 }))}
+              min="0"
+              max="90"
+              className="max-w-[200px]"
+            />
+            <p className="text-xs text-muted-foreground">
+              公演日の{formData.private_booking_deadline_days}日前まで貸切申込を受付。貸切申込フォームの締切に使用されます
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 参加人数 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Users}
+          label="参加人数"
+          description="1回の予約で申し込める最大人数を設定します。予約フォームの人数上限として機能します"
+        />
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="max_participants_per_booking">1回の予約の最大人数</Label>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">1回の予約の最大人数</Label>
               <Input
-                id="max_participants_per_booking"
                 type="number"
                 value={formData.max_participants_per_booking}
                 onChange={(e) => setFormData(prev => ({ ...prev, max_participants_per_booking: parseInt(e.target.value) || 0 }))}
                 min="1"
                 max="50"
               />
+              <p className="text-xs text-muted-foreground">予約フォームで選択できる人数の上限です</p>
             </div>
-            <div>
-              <Label htmlFor="max_bookings_per_customer">顧客あたりの最大予約数</Label>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">顧客あたりの最大予約数</Label>
               <Input
-                id="max_bookings_per_customer"
                 type="number"
                 value={formData.max_bookings_per_customer || 0}
                 onChange={(e) => {
@@ -289,68 +285,53 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
                 min="0"
                 max="20"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                0 = 制限なし
-              </p>
+              <p className="text-xs text-muted-foreground">0 = 制限なし</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      {/* 電話番号認証 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>認証設定</CardTitle>
-          <CardDescription>予約時の認証要件を設定します</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
+      {/* 本人確認・支払い */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={ShieldCheck}
+          label="本人確認・支払い"
+          description="電話番号確認の要否と、予約確認画面に表示される支払い方法の表示内容を設定します"
+        />
+        <div className="space-y-4">
+          <div className="flex items-center justify-between py-2">
             <div>
-              <Label htmlFor="require_phone_verification">電話番号認証を要求</Label>
-              <p className="text-xs text-muted-foreground">予約時に電話番号の認証を必須にします</p>
+              <p className="text-sm font-medium">電話番号認証を要求</p>
+              <p className="text-xs text-muted-foreground">有効にすると、予約時に電話番号の認証が必須になります</p>
             </div>
             <Switch
-              id="require_phone_verification"
               checked={formData.require_phone_verification}
               onCheckedChange={(checked) => setFormData(prev => ({ ...prev, require_phone_verification: checked }))}
             />
           </div>
-        </CardContent>
-      </Card>
 
-      {/* 支払い方法表示設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>支払い方法</CardTitle>
-          <CardDescription>予約確認画面に表示される支払い方法の表示内容を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="payment_method_label">支払い方法の名称</Label>
-            <Input
-              id="payment_method_label"
-              value={formData.payment_method_label}
-              onChange={(e) => setFormData(prev => ({ ...prev, payment_method_label: e.target.value }))}
-              placeholder="現地決済"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              例: 現地決済、当日現金払い、カード決済可 など
-            </p>
+          <div className="border-t pt-4 space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">支払い方法の名称</Label>
+              <Input
+                value={formData.payment_method_label}
+                onChange={(e) => setFormData(prev => ({ ...prev, payment_method_label: e.target.value }))}
+                placeholder="現地決済"
+              />
+              <p className="text-xs text-muted-foreground">例: 現地決済、当日現金払い、カード決済可 など</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">支払い方法の説明文</Label>
+              <Input
+                value={formData.payment_method_description}
+                onChange={(e) => setFormData(prev => ({ ...prev, payment_method_description: e.target.value }))}
+                placeholder="ご来店時にお支払いください"
+              />
+              <p className="text-xs text-muted-foreground">予約確認画面・確認メールに表示される補足説明です</p>
+            </div>
           </div>
-          <div>
-            <Label htmlFor="payment_method_description">説明文</Label>
-            <Input
-              id="payment_method_description"
-              value={formData.payment_method_description}
-              onChange={(e) => setFormData(prev => ({ ...prev, payment_method_description: e.target.value }))}
-              placeholder="ご来店時にお支払いください"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              支払い方法の補足説明
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   )
 }

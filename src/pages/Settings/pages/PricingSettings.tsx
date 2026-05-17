@@ -1,11 +1,11 @@
 import { PageHeader } from "@/components/layout/PageHeader"
+import { SectionTitle } from '@/components/settings/SectionTitle'
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Save, Plus, X } from 'lucide-react'
+import { Save, Plus, X, CircleDollarSign, Clock, Tag } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -192,26 +192,27 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="料金設定"
-        description="料金体系と割引設定"
+        description="参加費・時間帯別料金・割引設定を管理します"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
 
-      {/* デフォルト参加費 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>デフォルト参加費</CardTitle>
-          <CardDescription>基本的な参加費を設定します</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <Label className="w-32">参加費</Label>
+      {/* 基本料金 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={CircleDollarSign}
+          label="基本料金"
+          description="時間帯別料金が設定されていない公演に適用されるデフォルトの参加費です。予約フォームの料金表示に反映されます"
+        />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">デフォルト参加費</Label>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
@@ -220,21 +221,22 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
                 min="0"
                 max="100000"
                 step="100"
-                className="w-32"
+                className="w-36"
               />
-              <span className="text-xs text-muted-foreground">円</span>
+              <span className="text-sm text-muted-foreground">円</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* 時間帯別料金 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>時間帯別料金</CardTitle>
-          <CardDescription>曜日や時間帯によって異なる料金を設定できます</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Clock}
+          label="時間帯別料金"
+          description="朝・昼・夜・平日・休日など時間帯によって異なる料金を設定できます。公演登録時にここで設定した時間帯から選択できます"
+        />
+        <div className="space-y-4">
           <div className="flex gap-2">
             <Input
               value={newTimePricing.time_slot}
@@ -251,7 +253,7 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
                 className="w-32"
                 step="100"
               />
-              <span className="text-xs text-muted-foreground">円</span>
+              <span className="text-sm text-muted-foreground">円</span>
             </div>
             <Button onClick={addTimePricing} variant="outline">
               <Plus className="h-4 w-4" />
@@ -261,15 +263,16 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
           {formData.time_based_pricing.length > 0 && (
             <div className="space-y-2">
               {formData.time_based_pricing.map((pricing, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded">
+                <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
                   <div className="flex items-center gap-4">
-                    <span className="w-32">{pricing.time_slot}</span>
-                    <span className="text-muted-foreground">¥{pricing.price.toLocaleString()}</span>
+                    <span className="w-32 text-sm font-medium">{pricing.time_slot}</span>
+                    <span className="text-sm text-muted-foreground">¥{pricing.price.toLocaleString()}</span>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => removeTimePricing(index)}
+                    className="h-8 w-8 p-0"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -277,186 +280,193 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
 
-      {/* 早割設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>早割設定</CardTitle>
-          <CardDescription>早期予約による割引を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label>早割を有効にする</Label>
-            <Switch
-              checked={formData.early_bird_discount.enabled}
-              onCheckedChange={(checked) => 
-                setFormData(prev => ({
-                  ...prev,
-                  early_bird_discount: { ...prev.early_bird_discount, enabled: checked }
-                }))
-              }
-            />
-          </div>
-
-          {formData.early_bird_discount.enabled && (
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-              <div>
-                <Label>予約期限（日前）</Label>
-                <Input
-                  type="number"
-                  value={formData.early_bird_discount.days}
-                  onChange={(e) => 
-                    setFormData(prev => ({
-                      ...prev,
-                      early_bird_discount: { ...prev.early_bird_discount, days: parseInt(e.target.value) || 0 }
-                    }))
-                  }
-                  min="1"
-                  max="90"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formData.early_bird_discount.days}日前までの予約で割引適用
-                </p>
-              </div>
-              <div>
-                <Label>割引額</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    value={formData.early_bird_discount.discount}
-                    onChange={(e) => 
-                      setFormData(prev => ({
-                        ...prev,
-                        early_bird_discount: { ...prev.early_bird_discount, discount: parseInt(e.target.value) || 0 }
-                      }))
-                    }
-                    min="0"
-                    step="100"
-                  />
-                  <span className="text-xs text-muted-foreground">円</span>
-                </div>
-              </div>
-            </div>
+          {formData.time_based_pricing.length === 0 && (
+            <p className="text-xs text-muted-foreground">時間帯別料金が未設定の場合、デフォルト参加費が適用されます</p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      {/* 団体割引設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>団体割引設定</CardTitle>
-          <CardDescription>一定人数以上の予約による割引を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label>団体割引を有効にする</Label>
-            <Switch
-              checked={formData.group_discount.enabled}
-              onCheckedChange={(checked) => 
-                setFormData(prev => ({
-                  ...prev,
-                  group_discount: { ...prev.group_discount, enabled: checked }
-                }))
-              }
-            />
-          </div>
-
-          {formData.group_discount.enabled && (
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+      {/* 割引設定 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Tag}
+          label="割引設定"
+          description="早期予約割引・グループ割引を有効にすると、予約フォームで自動的に割引が適用されます"
+        />
+        <div className="space-y-6">
+          {/* 早割 */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
               <div>
-                <Label>最小人数</Label>
-                <Input
-                  type="number"
-                  value={formData.group_discount.min_people}
-                  onChange={(e) => 
-                    setFormData(prev => ({
-                      ...prev,
-                      group_discount: { ...prev.group_discount, min_people: parseInt(e.target.value) || 0 }
-                    }))
-                  }
-                  min="2"
-                  max="20"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formData.group_discount.min_people}名以上で割引適用
-                </p>
+                <p className="text-sm font-medium">早期予約割引（早割）</p>
+                <p className="text-xs text-muted-foreground">設定日数以上前の予約に対して割引を適用します</p>
               </div>
-              <div>
-                <Label>割引額（1人あたり）</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    value={formData.group_discount.discount}
-                    onChange={(e) => 
-                      setFormData(prev => ({
-                        ...prev,
-                        group_discount: { ...prev.group_discount, discount: parseInt(e.target.value) || 0 }
-                      }))
-                    }
-                    min="0"
-                    step="100"
-                  />
-                  <span className="text-xs text-muted-foreground">円</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* キャンセル料設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>キャンセル料設定</CardTitle>
-          <CardDescription>キャンセル時の料金を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>キャンセル料発生（日前）</Label>
-              <Input
-                type="number"
-                value={formData.cancellation_fee.days_before}
-                onChange={(e) => 
+              <Switch
+                checked={formData.early_bird_discount.enabled}
+                onCheckedChange={(checked) =>
                   setFormData(prev => ({
                     ...prev,
-                    cancellation_fee: { ...prev.cancellation_fee, days_before: parseInt(e.target.value) || 0 }
+                    early_bird_discount: { ...prev.early_bird_discount, enabled: checked }
                   }))
                 }
-                min="0"
-                max="30"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                公演日の{formData.cancellation_fee.days_before}日前からキャンセル料が発生
-              </p>
             </div>
+
+            {formData.early_bird_discount.enabled && (
+              <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">予約期限（日前）</Label>
+                  <Input
+                    type="number"
+                    value={formData.early_bird_discount.days}
+                    onChange={(e) =>
+                      setFormData(prev => ({
+                        ...prev,
+                        early_bird_discount: { ...prev.early_bird_discount, days: parseInt(e.target.value) || 0 }
+                      }))
+                    }
+                    min="1"
+                    max="90"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {formData.early_bird_discount.days}日前までの予約で割引適用
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">割引額</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={formData.early_bird_discount.discount}
+                      onChange={(e) =>
+                        setFormData(prev => ({
+                          ...prev,
+                          early_bird_discount: { ...prev.early_bird_discount, discount: parseInt(e.target.value) || 0 }
+                        }))
+                      }
+                      min="0"
+                      step="100"
+                    />
+                    <span className="text-sm text-muted-foreground">円</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t" />
+
+          {/* グループ割引 */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">グループ割引</p>
+                <p className="text-xs text-muted-foreground">一定人数以上の予約に対して1人あたりの割引を適用します</p>
+              </div>
+              <Switch
+                checked={formData.group_discount.enabled}
+                onCheckedChange={(checked) =>
+                  setFormData(prev => ({
+                    ...prev,
+                    group_discount: { ...prev.group_discount, enabled: checked }
+                  }))
+                }
+              />
+            </div>
+
+            {formData.group_discount.enabled && (
+              <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">最小人数</Label>
+                  <Input
+                    type="number"
+                    value={formData.group_discount.min_people}
+                    onChange={(e) =>
+                      setFormData(prev => ({
+                        ...prev,
+                        group_discount: { ...prev.group_discount, min_people: parseInt(e.target.value) || 0 }
+                      }))
+                    }
+                    min="2"
+                    max="20"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {formData.group_discount.min_people}名以上で割引適用
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">割引額（1人あたり）</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={formData.group_discount.discount}
+                      onChange={(e) =>
+                        setFormData(prev => ({
+                          ...prev,
+                          group_discount: { ...prev.group_discount, discount: parseInt(e.target.value) || 0 }
+                        }))
+                      }
+                      min="0"
+                      step="100"
+                    />
+                    <span className="text-sm text-muted-foreground">円</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t" />
+
+          {/* キャンセル料 */}
+          <div className="space-y-3">
             <div>
-              <Label>キャンセル料</Label>
-              <div className="flex items-center gap-2">
+              <p className="text-sm font-medium">キャンセル料</p>
+              <p className="text-xs text-muted-foreground">公演日の一定日数前を過ぎたキャンセルに発生する料金です。予約キャンセル処理時に参照されます</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">キャンセル料発生（日前）</Label>
                 <Input
                   type="number"
-                  value={formData.cancellation_fee.fee}
-                  onChange={(e) => 
+                  value={formData.cancellation_fee.days_before}
+                  onChange={(e) =>
                     setFormData(prev => ({
                       ...prev,
-                      cancellation_fee: { ...prev.cancellation_fee, fee: parseInt(e.target.value) || 0 }
+                      cancellation_fee: { ...prev.cancellation_fee, days_before: parseInt(e.target.value) || 0 }
                     }))
                   }
                   min="0"
-                  step="100"
+                  max="30"
                 />
-                <span className="text-xs text-muted-foreground">円</span>
+                <p className="text-xs text-muted-foreground">
+                  公演日の{formData.cancellation_fee.days_before}日前からキャンセル料が発生
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                期限を過ぎたキャンセルで発生する料金
-              </p>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">キャンセル料</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={formData.cancellation_fee.fee}
+                    onChange={(e) =>
+                      setFormData(prev => ({
+                        ...prev,
+                        cancellation_fee: { ...prev.cancellation_fee, fee: parseInt(e.target.value) || 0 }
+                      }))
+                    }
+                    min="0"
+                    step="100"
+                  />
+                  <span className="text-sm text-muted-foreground">円</span>
+                </div>
+                <p className="text-xs text-muted-foreground">期限を過ぎたキャンセルで発生する料金</p>
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   )
 }
-

@@ -4,7 +4,6 @@
  * 一覧・追加・編集・削除・並び替え・使用シナリオ数表示
  */
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -33,6 +32,8 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { useQueryClient } from '@tanstack/react-query'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { SectionTitle } from '@/components/settings/SectionTitle'
 
 // ---------- 型定義 ----------
 interface MasterItem {
@@ -399,121 +400,112 @@ function MasterListManager({
 
   // ---------- レンダリング ----------
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {icon}
-            <div>
-              <CardTitle className="text-base">{title}</CardTitle>
-              <CardDescription className="text-xs">{description}</CardDescription>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {hasOrderChanges && (
-              <Button size="sm" onClick={handleSaveOrder} disabled={saving}>
-                {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                並び順を保存
-              </Button>
-            )}
-            <Button size="sm" onClick={handleAdd} disabled={saving}>
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              追加
+    <section className="bg-white rounded-xl border p-6">
+      <div className="flex items-start justify-between mb-2">
+        <SectionTitle icon={tableName === 'organization_categories' ? Tags : UserCog} label={title} description={description} />
+        <div className="flex items-center gap-2">
+          {hasOrderChanges && (
+            <Button size="sm" onClick={handleSaveOrder} disabled={saving}>
+              {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+              並び順を保存
             </Button>
-          </div>
+          )}
+          <Button size="sm" onClick={handleAdd} disabled={saving}>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            追加
+          </Button>
         </div>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-sm text-muted-foreground">読み込み中...</span>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">読み込み中...</span>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-8 text-sm text-muted-foreground">
+          まだ{title === 'カテゴリ管理' ? 'カテゴリ' : '作者'}が登録されていません。
+          <br />
+          「追加」ボタンから新しく登録してください。
+        </div>
+      ) : (
+        <div className="border rounded-md">
+          {/* ヘッダー */}
+          <div className="grid grid-cols-[32px_1fr_80px_80px] gap-2 px-3 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
+            <div></div>
+            <div>名前</div>
+            <div className="text-center">使用数</div>
+            <div className="text-center">操作</div>
           </div>
-        ) : items.length === 0 ? (
-          <div className="text-center py-8 text-sm text-muted-foreground">
-            まだ{title === 'カテゴリ管理' ? 'カテゴリ' : '作者'}が登録されていません。
-            <br />
-            「追加」ボタンから新しく登録してください。
-          </div>
-        ) : (
-          <div className="border rounded-md">
-            {/* ヘッダー */}
-            <div className="grid grid-cols-[32px_1fr_80px_80px] gap-2 px-3 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
-              <div></div>
-              <div>名前</div>
-              <div className="text-center">使用数</div>
-              <div className="text-center">操作</div>
-            </div>
-            {/* リスト */}
-            {items.map((item, index) => (
-              <div
-                key={item.id}
-                className="grid grid-cols-[32px_1fr_80px_80px] gap-2 px-3 py-2 border-b last:border-b-0 items-center hover:bg-muted/30 transition-colors"
-              >
-                {/* 並び替えボタン */}
-                <div className="flex flex-col gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => handleMoveUp(index)}
-                    disabled={index === 0 || saving}
-                    className="p-0.5 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="上に移動"
-                  >
-                    <ArrowUp className="h-3 w-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleMoveDown(index)}
-                    disabled={index === items.length - 1 || saving}
-                    className="p-0.5 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="下に移動"
-                  >
-                    <ArrowDown className="h-3 w-3" />
-                  </button>
-                </div>
-
-                {/* 名前 */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">{item.name}</span>
-                </div>
-
-                {/* 使用数 */}
-                <div className="text-center">
-                  {item.usage_count > 0 ? (
-                    <Badge variant="secondary" className="text-xs">
-                      {item.usage_count}件
-                    </Badge>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">未使用</span>
-                  )}
-                </div>
-
-                {/* 操作 */}
-                <div className="flex items-center justify-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleEdit(item)}
-                    disabled={saving}
-                    className="p-1.5 rounded hover:bg-muted transition-colors"
-                    title="編集"
-                  >
-                    <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(item)}
-                    disabled={saving}
-                    className="p-1.5 rounded hover:bg-destructive/10 transition-colors"
-                    title="削除"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </button>
-                </div>
+          {/* リスト */}
+          {items.map((item, index) => (
+            <div
+              key={item.id}
+              className="grid grid-cols-[32px_1fr_80px_80px] gap-2 px-3 py-2 border-b last:border-b-0 items-center hover:bg-muted/30 transition-colors"
+            >
+              {/* 並び替えボタン */}
+              <div className="flex flex-col gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => handleMoveUp(index)}
+                  disabled={index === 0 || saving}
+                  className="p-0.5 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="上に移動"
+                >
+                  <ArrowUp className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMoveDown(index)}
+                  disabled={index === items.length - 1 || saving}
+                  className="p-0.5 rounded hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="下に移動"
+                >
+                  <ArrowDown className="h-3 w-3" />
+                </button>
               </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
+
+              {/* 名前 */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{item.name}</span>
+              </div>
+
+              {/* 使用数 */}
+              <div className="text-center">
+                {item.usage_count > 0 ? (
+                  <Badge variant="secondary" className="text-xs">
+                    {item.usage_count}件
+                  </Badge>
+                ) : (
+                  <span className="text-xs text-muted-foreground">未使用</span>
+                )}
+              </div>
+
+              {/* 操作 */}
+              <div className="flex items-center justify-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleEdit(item)}
+                  disabled={saving}
+                  className="p-1.5 rounded hover:bg-muted transition-colors"
+                  title="編集"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(item)}
+                  disabled={saving}
+                  className="p-1.5 rounded hover:bg-destructive/10 transition-colors"
+                  title="削除"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* 追加/編集ダイアログ */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) { setInputName(''); setEditingItem(null) } setDialogOpen(open) }}>
@@ -552,7 +544,7 @@ function MasterListManager({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </section>
   )
 }
 
@@ -593,10 +585,12 @@ export function CategoryAuthorManagementSettings() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+      <PageHeader title="カテゴリ・作者管理" description="シナリオに設定するカテゴリと作者を管理します" />
+
       <MasterListManager
         title="カテゴリ管理"
-        description="シナリオのカテゴリ（ジャンル）を管理します。並び順はプルダウンの表示順に反映されます。"
+        description="シナリオに設定できるカテゴリ（ジャンル）の一覧を管理します。並び順はプルダウンの表示順に反映されます。"
         icon={<Tags className="h-5 w-5 text-primary" />}
         tableName="organization_categories"
         scenarioColumn="genre"
@@ -608,7 +602,7 @@ export function CategoryAuthorManagementSettings() {
 
       <MasterListManager
         title="作者管理"
-        description="シナリオの作者を管理します。並び順はプルダウンの表示順に反映されます。"
+        description="シナリオ作者の一覧を管理します。並び順はプルダウンの表示順に反映されます。"
         icon={<UserCog className="h-5 w-5 text-primary" />}
         tableName="organization_authors"
         scenarioColumn="author"

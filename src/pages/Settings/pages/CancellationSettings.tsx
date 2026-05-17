@@ -1,11 +1,11 @@
 import { PageHeader } from "@/components/layout/PageHeader"
+import { SectionTitle } from '@/components/settings/SectionTitle'
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Save, Plus, Trash2, Users, Lock, Building2, Settings2, ChevronDown, ChevronRight, Sparkles, ExternalLink } from 'lucide-react'
+import { Save, Plus, Trash2, Users, Lock, Building2, Settings2, Sparkles, ExternalLink } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -81,14 +81,6 @@ interface CancellationSettings {
 
 interface CancellationSettingsProps {
   storeId: string
-}
-
-// アコーディオンの開閉状態
-interface AccordionState {
-  regular: boolean
-  private: boolean
-  organizer: boolean
-  other: boolean
 }
 
 // キャンセル料金コンポーネント
@@ -330,16 +322,6 @@ const DEFAULT_JUDGMENT_RULES: CancellationJudgmentRule[] = [
 const generateId = () => Math.random().toString(36).substring(2, 9)
 
 export function CancellationSettings({ storeId }: CancellationSettingsProps) {
-  const [openSections, setOpenSections] = useState<AccordionState>({
-    regular: true,
-    private: false,
-    organizer: false,
-    other: false
-  })
-  
-  const toggleSection = (section: keyof AccordionState) => {
-    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }))
-  }
   const [formData, setFormData] = useState<CancellationSettings>({
     id: '',
     store_id: storeId,
@@ -869,38 +851,38 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="キャンセル設定"
-        description="通常公演・貸切公演それぞれのキャンセルポリシー"
+        description="通常公演・貸切公演それぞれのキャンセルポリシーを設定します"
       >
         <div className="flex items-center gap-2">
           <a
             href="/cancel-policy"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
           >
-            <ExternalLink className="h-4 w-4" />
+            <ExternalLink className="h-3.5 w-3.5 mr-1" />
             ポリシーページを確認
           </a>
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="h-4 w-4 mr-2" />
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            <Save className="w-3.5 h-3.5 mr-1.5" />
             {saving ? '保存中...' : '保存'}
           </Button>
         </div>
       </PageHeader>
 
       {/* テンプレート適用バナー */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-purple-100 p-2 rounded-lg">
-              <Sparkles className="h-5 w-5 text-purple-600" />
+            <div className="bg-purple-100 p-2 rounded-full">
+              <Sparkles className="h-4 w-4 text-purple-600" />
             </div>
             <div>
-              <h3 className="font-medium text-gray-900">標準テンプレートを使う</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="font-medium text-gray-900 text-sm">標準テンプレートを使う</h3>
+              <p className="text-xs text-gray-600">
                 一般的なキャンセルポリシーを一括で設定できます。後から編集も可能です。
               </p>
             </div>
@@ -908,256 +890,227 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           <Button
             onClick={applyStandardTemplate}
             variant="outline"
+            size="sm"
             className="border-purple-300 text-purple-700 hover:bg-purple-100"
           >
-            <Sparkles className="h-4 w-4 mr-2" />
+            <Sparkles className="h-3.5 w-3.5 mr-1.5" />
             テンプレートを適用
           </Button>
         </div>
       </div>
 
       {!storeId && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
           <p className="text-sm text-blue-800">
             <strong>全店舗選択中:</strong> 保存すると、全店舗にこの設定が一括適用されます。
           </p>
         </div>
       )}
 
-      {/* 通常公演設定（アコーディオン） */}
-      <div className="border rounded-lg overflow-hidden">
-        <button
-          onClick={() => toggleSection('regular')}
-          className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 transition-colors text-left"
-        >
-          <div className="flex items-center gap-3">
-            <Users className="h-5 w-5 text-green-600" />
-            <div>
-              <span className="font-medium text-gray-900">通常公演のキャンセルポリシー</span>
-              <p className="text-xs text-gray-500">一般参加者向けのキャンセル規約</p>
-            </div>
+      {/* 通常公演のキャンセルポリシー */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Users}
+          label="通常公演のキャンセルポリシー"
+          description="一般参加者が予約をキャンセルした際に適用されるポリシーです。予約確認メール・キャンセルポリシーページに表示されます。"
+        />
+        <div className="space-y-6">
+          <PolicyItemsEditor
+            items={formData.cancellation_policy_items}
+            onAdd={addPolicyItem}
+            onRemove={removePolicyItem}
+            onUpdate={updatePolicyItem}
+            onMoveUp={movePolicyItemUp}
+            onMoveDown={movePolicyItemDown}
+          />
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">補足説明（任意）</Label>
+            <Textarea
+              id="cancellation_policy"
+              value={formData.cancellation_policy}
+              onChange={(e) => setFormData(prev => ({ ...prev, cancellation_policy: e.target.value }))}
+              placeholder="上記項目以外の補足説明があれば入力"
+              rows={2}
+            />
+            <p className="text-xs text-muted-foreground">ポリシー項目に収まらない補足事項をご記入ください</p>
           </div>
-          {openSections.regular ? <ChevronDown className="h-5 w-5 text-gray-500" /> : <ChevronRight className="h-5 w-5 text-gray-500" />}
-        </button>
-        {openSections.regular && (
-          <div className="p-4 bg-white border-t space-y-6">
-            {/* ポリシー項目 */}
-              <PolicyItemsEditor
-                items={formData.cancellation_policy_items}
-                onAdd={addPolicyItem}
-                onRemove={removePolicyItem}
-                onUpdate={updatePolicyItem}
-                onMoveUp={movePolicyItemUp}
-                onMoveDown={movePolicyItemDown}
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">キャンセル受付期限</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="cancellation_deadline_hours"
+                type="number"
+                value={formData.cancellation_deadline_hours}
+                onChange={(e) => setFormData(prev => ({ ...prev, cancellation_deadline_hours: parseInt(e.target.value) || 0 }))}
+                min="0"
+                max="720"
+                className="w-32"
               />
-
-              {/* 補足文章（任意） */}
-              <div>
-                <Label htmlFor="cancellation_policy">補足説明（任意）</Label>
-                <Textarea
-                  id="cancellation_policy"
-                  value={formData.cancellation_policy}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cancellation_policy: e.target.value }))}
-                  placeholder="上記項目以外の補足説明があれば入力"
-                  rows={2}
-                  className="mt-1"
-                />
-              </div>
-
-              <div className="border-t pt-4">
-                <Label htmlFor="cancellation_deadline_hours">キャンセル受付期限</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    id="cancellation_deadline_hours"
-                    type="number"
-                    value={formData.cancellation_deadline_hours}
-                    onChange={(e) => setFormData(prev => ({ ...prev, cancellation_deadline_hours: parseInt(e.target.value) || 0 }))}
-                    min="0"
-                    max="720"
-                    className="w-32"
-                  />
-                  <span className="text-sm text-muted-foreground">時間前まで受付</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  公演開始の{formData.cancellation_deadline_hours}時間前（{Math.floor(formData.cancellation_deadline_hours / 24)}日{formData.cancellation_deadline_hours % 24}時間前）までキャンセル可能
-                </p>
-              </div>
-
-            <CancellationFeesEditor
-              fees={formData.cancellation_fees}
-              onAdd={addCancellationFee}
-              onRemove={removeCancellationFee}
-              onUpdate={updateCancellationFee}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* 貸切公演設定（アコーディオン） */}
-      <div className="border rounded-lg overflow-hidden">
-        <button
-          onClick={() => toggleSection('private')}
-          className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 transition-colors text-left"
-        >
-          <div className="flex items-center gap-3">
-            <Lock className="h-5 w-5 text-blue-600" />
-            <div>
-              <span className="font-medium text-gray-900">貸切公演のキャンセルポリシー</span>
-              <p className="text-xs text-gray-500">貸切予約者向けのキャンセル規約（通常より厳しめ）</p>
+              <span className="text-sm text-muted-foreground">時間前まで受付</span>
             </div>
+            <p className="text-xs text-muted-foreground">
+              公演開始の{formData.cancellation_deadline_hours}時間前（{Math.floor(formData.cancellation_deadline_hours / 24)}日{formData.cancellation_deadline_hours % 24}時間前）までキャンセル可能。期限を過ぎると参加者はキャンセル操作できなくなります。
+            </p>
           </div>
-          {openSections.private ? <ChevronDown className="h-5 w-5 text-gray-500" /> : <ChevronRight className="h-5 w-5 text-gray-500" />}
-        </button>
-        {openSections.private && (
-          <div className="p-4 bg-white border-t space-y-6">
-            {/* ポリシー項目 */}
-            <PolicyItemsEditor
-              items={formData.private_cancellation_policy_items}
-              onAdd={addPrivatePolicyItem}
-              onRemove={removePrivatePolicyItem}
-              onUpdate={updatePrivatePolicyItem}
-              onMoveUp={movePrivatePolicyItemUp}
-              onMoveDown={movePrivatePolicyItemDown}
-            />
 
-            {/* 補足文章（任意） */}
-            <div>
-              <Label htmlFor="private_cancellation_policy">補足説明（任意）</Label>
+          <CancellationFeesEditor
+            fees={formData.cancellation_fees}
+            onAdd={addCancellationFee}
+            onRemove={removeCancellationFee}
+            onUpdate={updateCancellationFee}
+          />
+        </div>
+      </section>
+
+      {/* 貸切公演のキャンセルポリシー */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Lock}
+          label="プライベート貸切のキャンセルポリシー"
+          description="貸切予約者に適用される専用ポリシーです。通常公演より厳しい条件が設定できます。貸切申請フォームおよびキャンセルポリシーページに表示されます。"
+        />
+        <div className="space-y-6">
+          <PolicyItemsEditor
+            items={formData.private_cancellation_policy_items}
+            onAdd={addPrivatePolicyItem}
+            onRemove={removePrivatePolicyItem}
+            onUpdate={updatePrivatePolicyItem}
+            onMoveUp={movePrivatePolicyItemUp}
+            onMoveDown={movePrivatePolicyItemDown}
+          />
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">補足説明（任意）</Label>
+            <Textarea
+              id="private_cancellation_policy"
+              value={formData.private_cancellation_policy}
+              onChange={(e) => setFormData(prev => ({ ...prev, private_cancellation_policy: e.target.value }))}
+              placeholder="上記項目以外の補足説明があれば入力"
+              rows={2}
+            />
+            <p className="text-xs text-muted-foreground">ポリシー項目に収まらない補足事項をご記入ください</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">キャンセル受付期限</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="private_cancellation_deadline_hours"
+                type="number"
+                value={formData.private_cancellation_deadline_hours}
+                onChange={(e) => setFormData(prev => ({ ...prev, private_cancellation_deadline_hours: parseInt(e.target.value) || 0 }))}
+                min="0"
+                max="720"
+                className="w-32"
+              />
+              <span className="text-sm text-muted-foreground">時間前まで受付</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              公演開始の{formData.private_cancellation_deadline_hours}時間前（{Math.floor(formData.private_cancellation_deadline_hours / 24)}日{formData.private_cancellation_deadline_hours % 24}時間前）までキャンセル可能
+            </p>
+          </div>
+
+          <CancellationFeesEditor
+            fees={formData.private_cancellation_fees}
+            onAdd={addPrivateCancellationFee}
+            onRemove={removePrivateCancellationFee}
+            onUpdate={updatePrivateCancellationFee}
+          />
+        </div>
+      </section>
+
+      {/* その他のポリシー */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Settings2}
+          label="その他のポリシー"
+          description="店舗都合によるキャンセル理由・中止判定ルール・予約変更・返金方法など、追加のキャンセルルールを設定します。"
+        />
+        <div className="space-y-8">
+          {/* 店舗都合キャンセル */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-semibold text-gray-800">店舗都合によるキャンセル</h4>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">キャンセルとなる理由</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormData(prev => ({
+                    ...prev,
+                    organizer_cancel_reasons: [
+                      ...prev.organizer_cancel_reasons,
+                      { id: generateId(), content: '' }
+                    ]
+                  }))}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  追加
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {formData.organizer_cancel_reasons.map((reason) => (
+                  <div key={reason.id} className="flex items-center gap-2">
+                    <Input
+                      value={reason.content}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        organizer_cancel_reasons: prev.organizer_cancel_reasons.map(r =>
+                          r.id === reason.id ? { ...r, content: e.target.value } : r
+                        )
+                      }))}
+                      placeholder="キャンセル理由を入力"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setFormData(prev => ({
+                        ...prev,
+                        organizer_cancel_reasons: prev.organizer_cancel_reasons.filter(r => r.id !== reason.id)
+                      }))}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50 h-9 w-9 p-0"
+                      disabled={formData.organizer_cancel_reasons.length <= 1}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">キャンセルポリシーページの「店舗都合によるキャンセル」欄に表示されます</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">返金に関する説明</Label>
               <Textarea
-                id="private_cancellation_policy"
-                value={formData.private_cancellation_policy}
-                onChange={(e) => setFormData(prev => ({ ...prev, private_cancellation_policy: e.target.value }))}
-                placeholder="上記項目以外の補足説明があれば入力"
+                id="organizer_cancel_refund_note"
+                value={formData.organizer_cancel_refund_note}
+                onChange={(e) => setFormData(prev => ({ ...prev, organizer_cancel_refund_note: e.target.value }))}
+                placeholder="店舗都合の場合の返金について"
                 rows={2}
-                className="mt-1"
               />
-            </div>
-
-            <div className="border-t pt-4">
-              <Label htmlFor="private_cancellation_deadline_hours">キャンセル受付期限</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <Input
-                  id="private_cancellation_deadline_hours"
-                  type="number"
-                  value={formData.private_cancellation_deadline_hours}
-                  onChange={(e) => setFormData(prev => ({ ...prev, private_cancellation_deadline_hours: parseInt(e.target.value) || 0 }))}
-                  min="0"
-                  max="720"
-                  className="w-32"
-                />
-                <span className="text-sm text-muted-foreground">時間前まで受付</span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                公演開始の{formData.private_cancellation_deadline_hours}時間前（{Math.floor(formData.private_cancellation_deadline_hours / 24)}日{formData.private_cancellation_deadline_hours % 24}時間前）までキャンセル可能
-              </p>
-            </div>
-
-            <CancellationFeesEditor
-              fees={formData.private_cancellation_fees}
-              onAdd={addPrivateCancellationFee}
-              onRemove={removePrivateCancellationFee}
-              onUpdate={updatePrivateCancellationFee}
-            />
-
-            {/* 貸切用の注意事項 */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <p className="text-sm text-amber-800 mb-1">💡 貸切公演のポイント</p>
-              <ul className="text-xs text-amber-700 space-y-0.5">
-                <li>• 貸切は会場を専有するため、通常より早い期限・高いキャンセル料が一般的です</li>
-                <li>• 2週間〜1ヶ月前からキャンセル料が発生することが多いです</li>
-              </ul>
+              <p className="text-xs text-muted-foreground">店舗都合キャンセル時の返金対応を参加者に伝えます</p>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* 店舗都合キャンセル設定（アコーディオン） */}
-      <div className="border rounded-lg overflow-hidden">
-        <button
-          onClick={() => toggleSection('organizer')}
-          className="w-full flex items-center justify-between p-4 bg-amber-50 hover:bg-amber-100 transition-colors text-left"
-        >
-          <div className="flex items-center gap-3">
-            <Building2 className="h-5 w-5 text-amber-600" />
-            <div>
-              <span className="font-medium text-gray-900">店舗都合によるキャンセル</span>
-              <p className="text-xs text-gray-500">中止判定のルール、連絡方法など</p>
-            </div>
-          </div>
-          {openSections.organizer ? <ChevronDown className="h-5 w-5 text-gray-500" /> : <ChevronRight className="h-5 w-5 text-gray-500" />}
-        </button>
-        {openSections.organizer && (
-          <div className="p-4 bg-white border-t space-y-6">
-            {/* キャンセル理由 */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label>キャンセルとなる理由</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFormData(prev => ({
-                      ...prev,
-                      organizer_cancel_reasons: [
-                        ...prev.organizer_cancel_reasons,
-                        { id: generateId(), content: '' }
-                      ]
-                    }))}
-                    className="text-amber-600 border-amber-600 hover:bg-amber-50"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    追加
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {formData.organizer_cancel_reasons.map((reason, index) => (
-                    <div key={reason.id} className="flex items-center gap-2">
-                      <Input
-                        value={reason.content}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          organizer_cancel_reasons: prev.organizer_cancel_reasons.map(r =>
-                            r.id === reason.id ? { ...r, content: e.target.value } : r
-                          )
-                        }))}
-                        placeholder="キャンセル理由を入力"
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setFormData(prev => ({
-                          ...prev,
-                          organizer_cancel_reasons: prev.organizer_cancel_reasons.filter(r => r.id !== reason.id)
-                        }))}
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50 h-9 w-9 p-0"
-                        disabled={formData.organizer_cancel_reasons.length <= 1}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 返金に関する説明 */}
-              <div>
-                <Label htmlFor="organizer_cancel_refund_note">返金に関する説明</Label>
-                <Textarea
-                  id="organizer_cancel_refund_note"
-                  value={formData.organizer_cancel_refund_note}
-                  onChange={(e) => setFormData(prev => ({ ...prev, organizer_cancel_refund_note: e.target.value }))}
-                  placeholder="店舗都合の場合の返金について"
-                  rows={2}
-                  className="mt-1"
-                />
+          {/* 中止判定ルール */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b">
+              <Settings2 className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-semibold text-gray-800">中止判定のルール</h4>
             </div>
 
-            {/* 中止判定タイミング */}
-            <div className="border-t pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <Label>中止判定のルール</Label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">判定ルール一覧</Label>
                 <Button
                   type="button"
                   variant="outline"
@@ -1169,14 +1122,13 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                       { id: generateId(), timing: '', condition: '', result: '' }
                     ]
                   }))}
-                  className="text-amber-600 border-amber-600 hover:bg-amber-50"
                 >
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="h-3.5 w-3.5 mr-1" />
                   追加
                 </Button>
               </div>
               <div className="space-y-3">
-                {formData.cancellation_judgment_rules.map((rule, index) => (
+                {formData.cancellation_judgment_rules.map((rule) => (
                   <div key={rule.id} className="border rounded-lg p-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
@@ -1240,11 +1192,11 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                   </div>
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground">公演の中止判定タイミングと条件を設定します。キャンセルポリシーページに表示されます。</p>
             </div>
-            {/* 中止時の連絡 */}
-            <div className="border-t pt-4">
-              <Label htmlFor="cancellation_notice_note">中止時のご連絡</Label>
-              <p className="text-xs text-muted-foreground mb-2">中止が決定した場合の連絡方法</p>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">中止時のご連絡方法</Label>
               <Textarea
                 id="cancellation_notice_note"
                 value={formData.cancellation_notice_note}
@@ -1252,113 +1204,103 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                 placeholder="中止時の連絡方法について"
                 rows={2}
               />
+              <p className="text-xs text-muted-foreground">中止が決定した場合に参加者へどう連絡するかを記載します</p>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* その他の設定（アコーディオン） */}
-      <div className="border rounded-lg overflow-hidden">
-        <button
-          onClick={() => toggleSection('other')}
-          className="w-full flex items-center justify-between p-4 bg-purple-50 hover:bg-purple-100 transition-colors text-left"
-        >
-          <div className="flex items-center gap-3">
-            <Settings2 className="h-5 w-5 text-purple-600" />
-            <div>
-              <span className="font-medium text-gray-900">その他の設定</span>
-              <p className="text-xs text-gray-500">予約変更、返金方法など</p>
+          {/* 予約変更 */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-semibold text-gray-800">予約変更</h4>
             </div>
-          </div>
-          {openSections.other ? <ChevronDown className="h-5 w-5 text-gray-500" /> : <ChevronRight className="h-5 w-5 text-gray-500" />}
-        </button>
-        {openSections.other && (
-          <div className="p-4 bg-white border-t space-y-6">
-            {/* 予約変更（通常・貸切を並べて表示） */}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* 通常公演 */}
-              <div className="border rounded-lg p-4 bg-green-50/50">
-                <div className="flex items-center gap-2 mb-3">
-                  <Users className="h-4 w-4 text-green-600" />
-                  <span className="font-medium text-sm">予約変更（通常公演）</span>
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-sm font-medium">通常公演</span>
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="reservation_change_deadline_hours" className="text-xs">変更可能期限</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Input
-                        id="reservation_change_deadline_hours"
-                        type="number"
-                        value={formData.reservation_change_deadline_hours}
-                        onChange={(e) => setFormData(prev => ({ ...prev, reservation_change_deadline_hours: parseInt(e.target.value) || 0 }))}
-                        min="0"
-                        max="720"
-                        className="w-20"
-                      />
-                      <span className="text-xs text-muted-foreground">時間前</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      = {Math.floor(formData.reservation_change_deadline_hours / 24)}日{formData.reservation_change_deadline_hours % 24}時間前
-                    </p>
-                  </div>
-                  <div>
-                    <Label htmlFor="reservation_change_note" className="text-xs">説明</Label>
-                    <Textarea
-                      id="reservation_change_note"
-                      value={formData.reservation_change_note}
-                      onChange={(e) => setFormData(prev => ({ ...prev, reservation_change_note: e.target.value }))}
-                      placeholder="予約変更に関する説明"
-                      rows={2}
-                      className="mt-1 text-sm"
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">変更可能期限</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="reservation_change_deadline_hours"
+                      type="number"
+                      value={formData.reservation_change_deadline_hours}
+                      onChange={(e) => setFormData(prev => ({ ...prev, reservation_change_deadline_hours: parseInt(e.target.value) || 0 }))}
+                      min="0"
+                      max="720"
+                      className="w-20"
                     />
+                    <span className="text-xs text-muted-foreground">時間前</span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    = {Math.floor(formData.reservation_change_deadline_hours / 24)}日{formData.reservation_change_deadline_hours % 24}時間前
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">説明</Label>
+                  <Textarea
+                    id="reservation_change_note"
+                    value={formData.reservation_change_note}
+                    onChange={(e) => setFormData(prev => ({ ...prev, reservation_change_note: e.target.value }))}
+                    placeholder="予約変更に関する説明"
+                    rows={2}
+                    className="text-sm"
+                  />
                 </div>
               </div>
 
               {/* 貸切公演 */}
-              <div className="border rounded-lg p-4 bg-blue-50/50">
-                <div className="flex items-center gap-2 mb-3">
-                  <Lock className="h-4 w-4 text-blue-600" />
-                  <span className="font-medium text-sm">予約変更（貸切公演）</span>
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-sm font-medium">貸切公演</span>
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="private_reservation_change_deadline_hours" className="text-xs">変更可能期限</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Input
-                        id="private_reservation_change_deadline_hours"
-                        type="number"
-                        value={formData.private_reservation_change_deadline_hours}
-                        onChange={(e) => setFormData(prev => ({ ...prev, private_reservation_change_deadline_hours: parseInt(e.target.value) || 0 }))}
-                        min="0"
-                        max="720"
-                        className="w-20"
-                      />
-                      <span className="text-xs text-muted-foreground">時間前</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      = {Math.floor(formData.private_reservation_change_deadline_hours / 24)}日{formData.private_reservation_change_deadline_hours % 24}時間前
-                    </p>
-                  </div>
-                  <div>
-                    <Label htmlFor="private_reservation_change_note" className="text-xs">説明</Label>
-                    <Textarea
-                      id="private_reservation_change_note"
-                      value={formData.private_reservation_change_note}
-                      onChange={(e) => setFormData(prev => ({ ...prev, private_reservation_change_note: e.target.value }))}
-                      placeholder="貸切予約変更に関する説明"
-                      rows={2}
-                      className="mt-1 text-sm"
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">変更可能期限</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="private_reservation_change_deadline_hours"
+                      type="number"
+                      value={formData.private_reservation_change_deadline_hours}
+                      onChange={(e) => setFormData(prev => ({ ...prev, private_reservation_change_deadline_hours: parseInt(e.target.value) || 0 }))}
+                      min="0"
+                      max="720"
+                      className="w-20"
                     />
+                    <span className="text-xs text-muted-foreground">時間前</span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    = {Math.floor(formData.private_reservation_change_deadline_hours / 24)}日{formData.private_reservation_change_deadline_hours % 24}時間前
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">説明</Label>
+                  <Textarea
+                    id="private_reservation_change_note"
+                    value={formData.private_reservation_change_note}
+                    onChange={(e) => setFormData(prev => ({ ...prev, private_reservation_change_note: e.target.value }))}
+                    placeholder="貸切予約変更に関する説明"
+                    rows={2}
+                    className="text-sm"
+                  />
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* 返金方法 */}
-            <div className="border-t pt-4">
-              <Label htmlFor="refund_method_note">返金について</Label>
-              <p className="text-xs text-muted-foreground mb-2">返金方法の説明</p>
+          {/* 返金方法 */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b">
+              <Settings2 className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-semibold text-gray-800">返金・その他</h4>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">返金について</Label>
               <Textarea
                 id="refund_method_note"
                 value={formData.refund_method_note}
@@ -1366,29 +1308,23 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                 placeholder="返金方法について"
                 rows={2}
               />
+              <p className="text-xs text-muted-foreground">キャンセル料が発生した場合の返金方法・手順をキャンセルポリシーページに表示します</p>
             </div>
 
-            {/* 最終更新日 */}
-            <div className="border-t pt-4">
-              <div className="flex items-center gap-4">
-                <div>
-                  <Label htmlFor="policy_updated_at">ポリシー最終更新日</Label>
-                  <Input
-                    id="policy_updated_at"
-                    type="date"
-                    value={formData.policy_updated_at}
-                    onChange={(e) => setFormData(prev => ({ ...prev, policy_updated_at: e.target.value }))}
-                    className="w-48 mt-1"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground pt-6">
-                  キャンセルポリシーページに表示されます
-                </p>
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">ポリシー最終更新日</Label>
+              <Input
+                id="policy_updated_at"
+                type="date"
+                value={formData.policy_updated_at}
+                onChange={(e) => setFormData(prev => ({ ...prev, policy_updated_at: e.target.value }))}
+                className="w-48"
+              />
+              <p className="text-xs text-muted-foreground">キャンセルポリシーページに「最終更新日」として表示されます</p>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      </section>
     </div>
   )
 }
