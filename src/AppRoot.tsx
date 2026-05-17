@@ -207,7 +207,13 @@ function ScrollToTop() {
     }
     const prev = prevPathRef.current
     if (prev !== null && prev !== pathname) {
-      window.scrollTo(0, 0)
+      // overflow-y-auto のコンテナがあればそちらをリセット、なければ window
+      const container = document.querySelector('[data-scroll-container]') as HTMLElement | null
+      if (container) {
+        container.scrollTop = 0
+      } else {
+        window.scrollTo(0, 0)
+      }
     }
     prevPathRef.current = pathname
   }, [pathname, navType])
