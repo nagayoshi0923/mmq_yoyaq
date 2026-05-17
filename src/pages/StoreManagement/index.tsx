@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -70,10 +70,10 @@ export function StoreManagement() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  function openEditModal(store: Store | null) {
+  const openEditModal = useCallback((store: Store | null) => {
     setEditingStore(store)
     setIsEditModalOpen(true)
-  }
+  }, [])
 
   async function handleSaveStore(updatedStore: Store) {
     try {
@@ -140,8 +140,7 @@ export function StoreManagement() {
 
   const tableColumns = useMemo(
     () => createStoreColumns({ onEdit: openEditModal }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [openEditModal]
   )
 
   const defaultColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
