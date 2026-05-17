@@ -23,11 +23,17 @@ const ACTIVE_RESERVATION_STATUSES = ['pending', 'confirmed', 'gm_confirmed', 'ch
 const ACTIVE_RESERVATION_STATUSES_SET = new Set<string>(ACTIVE_RESERVATION_STATUSES)
 const RESERVATION_SOURCE_WEB_PRIVATE = 'web_private'
 
-// schedule_events_staff_view から取得するカラム（getByMonth 用）
+// NOTE: schedule_events_staff_view ではなく schedule_events を直接参照する。
+// 理由: スタッフ向けビューは `WHERE is_staff_or_admin()` で auth.uid() を見るが、
+// この API ハンドラは service role で実行されるため auth.uid() が NULL になり
+// ビュー越しでは常に 0 件しか返らない。本ハンドラは requireStaff(user) で既に
+// スタッフ権限を確認しているので、ビューの追加チェックは不要。
+
+// schedule_events から取得するカラム（getByMonth 用）
 const SCHEDULE_EVENT_MONTH_FIELDS =
   'id, date, start_time, end_time, venue, store_id, scenario, scenario_id, scenario_master_id, organization_scenario_id, category, is_cancelled, is_reservation_enabled, is_tentative, is_recruitment_extended, current_participants, max_participants, capacity, gms, gm_roles, notes, time_slot, organization_id, updated_at, reservation_name, reservation_id, is_reservation_name_overwritten'
 
-// schedule_events_staff_view から取得するネスト付き select（getByMonth 用）
+// schedule_events から取得するネスト付き select（getByMonth 用）
 const SCHEDULE_EVENT_MONTH_SELECT = `
   ${SCHEDULE_EVENT_MONTH_FIELDS},
   stores:store_id (
@@ -43,7 +49,7 @@ const SCHEDULE_EVENT_MONTH_SELECT = `
   )
 `
 
-// schedule_events_staff_view から取得するネスト付き select（getMySchedule 用）
+// schedule_events から取得するネスト付き select（getMySchedule 用）
 const SCHEDULE_EVENT_MY_SELECT = `
   id, date, start_time, end_time, venue, store_id, scenario, scenario_id, scenario_master_id, organization_scenario_id, category, is_cancelled, is_reservation_enabled, is_tentative, current_participants, max_participants, capacity, gms, gm_roles, notes, time_slot, organization_id, updated_at,
   stores:store_id (
@@ -245,7 +251,7 @@ async function handleMySchedule(req: VercelRequest, res: VercelResponse, user: A
   // 1. GM として割り当てられた公演を取得
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: gmEvents, error: gmError } = await (db as any)
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select(SCHEDULE_EVENT_MY_SELECT)
     .eq('organization_id', user.orgId)
     .gte('date', startDate)
@@ -384,7 +390,7 @@ async function handleByMonth(req: VercelRequest, res: VercelResponse, user: Auth
   // 通常公演を取得
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: scheduleEventsRaw, error } = await (db as any)
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select(SCHEDULE_EVENT_MONTH_SELECT)
     .eq('organization_id', user.orgId)
     .gte('date', startDate)
@@ -1027,7 +1033,7 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
 
   // スタッフ専用ビューから完全レコードを返す
   const { data: fullEvent, error: fetchError } = await database
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select(SCHEDULE_EVENT_FULL_SELECT)
     .eq('id', insertedId)
     .eq('organization_id', user.orgId)
@@ -1146,7 +1152,7 @@ async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthU
   }
 
   const { data: fullEvent, error: fetchError } = await database
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select(SCHEDULE_EVENT_FULL_SELECT)
     .eq('id', id)
     .eq('organization_id', user.orgId)
@@ -1198,7 +1204,7 @@ async function handleToggleCancel(req: VercelRequest, res: VercelResponse, user:
   }
 
   const { data, error: fetchError } = await database
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select()
     .eq('id', id)
     .eq('organization_id', user.orgId)
@@ -1247,7 +1253,7 @@ async function handleAddDemoParticipants(_req: VercelRequest, res: VercelRespons
 
   // 中止でない自組織の全公演を取得
   const { data: events, error: eventsError } = await database
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select('id, organization_id, scenario_master_id, scenario, store_id, date, start_time, category, gms, capacity, max_participants')
     .eq('is_cancelled', false)
     .eq('organization_id', user.orgId)
