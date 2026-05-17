@@ -35,9 +35,10 @@ function getOrgSlugFromUrl(): string | null {
 
 interface HeaderProps {
   onPageChange?: (pageId: string) => void
+  backgroundColor?: string // 組織のテーマカラーで上書き可能
 }
 
-export const Header = memo(function Header({ onPageChange }: HeaderProps) {
+export const Header = memo(function Header({ onPageChange, backgroundColor }: HeaderProps) {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { organization: staffOrganization, organizationId } = useOrganization()
@@ -130,7 +131,7 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
   return (
     <header 
       className="border-b h-[44px] sm:h-[48px] md:h-[52px] text-white relative"
-      style={{ backgroundColor: THEME.primary, borderColor: THEME.primaryHover, zIndex: 40 }}
+      style={{ backgroundColor: backgroundColor ?? THEME.primary, borderColor: THEME.primaryHover, zIndex: 40 }}
     >
       <div className="mx-auto px-2 sm:px-3 md:px-4 md:px-6 h-full max-w-full overflow-visible">
         <div className="flex items-center justify-between h-full gap-1 sm:gap-2">
