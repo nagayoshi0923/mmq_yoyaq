@@ -70,10 +70,10 @@ export function AlbumPage() {
   const storeOptions = optionsData?.storeOptions ?? []
 
   // Mutations
-  const addManualHistory = useAddManualHistoryMutation(customerId, scenarioOptions, storeOptions, organizationId, user?.email)
+  const addManualHistory = useAddManualHistoryMutation(customerId, scenarioOptions, storeOptions, organizationId ?? undefined, user?.email)
   const saveCharacter = useSaveCharacterMutation(customerId, user?.email)
   const deleteManualHistory = useDeleteManualHistoryMutation(customerId, user?.email)
-  const toggleLike = useToggleLikeMutation(customerId, organizationId, user?.email)
+  const toggleLike = useToggleLikeMutation(customerId, organizationId ?? undefined, user?.email)
   const removeLike = useRemoveLikeMutation(user?.email)
 
   const handleAddManualHistory = async () => {
