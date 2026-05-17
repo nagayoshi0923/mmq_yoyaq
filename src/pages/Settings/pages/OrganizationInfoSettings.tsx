@@ -3,8 +3,7 @@
  * 組織の基本情報・連絡先・予約ページの紹介文・招待管理
  */
 import { logger } from '@/utils/logger'
-import { useState, useEffect, useCallback } from 'react'
-import { useBlocker } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -52,18 +51,6 @@ export function OrganizationInfoSettings() {
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [isDirty])
-
-  // React Router 内のページ遷移をブロック
-  const blocker = useBlocker(isDirty)
-  useEffect(() => {
-    if (blocker.state === 'blocked') {
-      if (window.confirm('保存されていない変更があります。このページを離れますか？')) {
-        blocker.proceed()
-      } else {
-        blocker.reset()
-      }
-    }
-  }, [blocker])
 
   useEffect(() => {
     if (organization) {
