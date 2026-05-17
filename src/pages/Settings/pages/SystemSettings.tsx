@@ -3,7 +3,6 @@ import { SectionTitle } from '@/components/settings/SectionTitle'
 import { useState, useEffect } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Save, Shield } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -21,8 +20,6 @@ export function SystemSettings({ storeId: _storeId }: SystemSettingsProps) {
   const [globalSettingsId, setGlobalSettingsId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     system_name: 'MMQ 予約管理システム',
-    maintenance_mode: false,
-    maintenance_message: '',
   })
 
   useEffect(() => {
@@ -36,17 +33,13 @@ export function SystemSettings({ storeId: _storeId }: SystemSettingsProps) {
       if (!orgId) return
       const { data, error } = await supabase
         .from('global_settings')
-        .select('id, system_name, maintenance_mode, maintenance_message')
+        .select('id, system_name')
         .eq('organization_id', orgId)
         .single()
       if (error) { logger.error('システム設定の取得に失敗:', error); return }
       if (data) {
         setGlobalSettingsId(data.id)
-        setFormData({
-          system_name: data.system_name ?? 'MMQ 予約管理システム',
-          maintenance_mode: data.maintenance_mode ?? false,
-          maintenance_message: data.maintenance_message ?? '',
-        })
+        setFormData({ system_name: data.system_name ?? 'MMQ 予約管理システム' })
       }
     } catch (error) {
       logger.error('設定取得エラー:', error)
@@ -61,11 +54,7 @@ export function SystemSettings({ storeId: _storeId }: SystemSettingsProps) {
     try {
       const { error } = await supabase
         .from('global_settings')
-        .update({
-          system_name: formData.system_name,
-          maintenance_mode: formData.maintenance_mode,
-          maintenance_message: formData.maintenance_message || null,
-        })
+        .update({ system_name: formData.system_name })
         .eq('id', globalSettingsId)
       if (error) throw error
       showToast.success('保存しました')
@@ -94,39 +83,15 @@ export function SystemSettings({ storeId: _storeId }: SystemSettingsProps) {
         <SectionTitle
           icon={Shield}
           label="基本設定"
-          description="システム名とメンテナンスモードを設定します。メンテナンスモードを有効にすると管理者以外はアクセスできなくなります。"
+          description="管理画面全体で表示されるシステム名を設定します。"
         />
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">システム名</Label>
-            <Input
-              value={formData.system_name}
-              onChange={(e) => setFormData(prev => ({ ...prev, system_name: e.target.value }))}
-              placeholder="MMQ 予約管理システム"
-            />
-          </div>
-
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <Label className="text-sm font-medium">メンテナンスモード</Label>
-              <p className="text-xs text-muted-foreground mt-1">有効にすると、管理者以外はシステムにアクセスできなくなります</p>
-            </div>
-            <Switch
-              checked={formData.maintenance_mode}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, maintenance_mode: checked }))}
-            />
-          </div>
-
-          {formData.maintenance_mode && (
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium">メンテナンスメッセージ</Label>
-              <Input
-                value={formData.maintenance_message}
-                onChange={(e) => setFormData(prev => ({ ...prev, maintenance_message: e.target.value }))}
-                placeholder="現在メンテナンス中です。しばらくお待ちください。"
-              />
-            </div>
-          )}
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium">システム名</Label>
+          <Input
+            value={formData.system_name}
+            onChange={(e) => setFormData(prev => ({ ...prev, system_name: e.target.value }))}
+            placeholder="MMQ 予約管理システム"
+          />
         </div>
       </section>
     </div>
