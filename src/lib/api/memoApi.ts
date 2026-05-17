@@ -3,39 +3,24 @@
  */
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
+
+interface DailyMemo {
+  date: string
+  venue_id: string
+  memo_text?: string
+  organization_id?: string
+  stores?: { id: string; name: string; short_name: string } | null
+  created_at?: string
+  updated_at?: string
+}
 
 export const memoApi = {
-  // 指定月のメモを取得（組織フィルタ付き）
-  async getByMonth(year: number, month: number, organizationId?: string) {
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const lastDay = new Date(year, month, 0).getDate()
-    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-    
-    // 組織フィルタ（マルチテナント対応）
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('daily_memos')
-      .select(`
-        *,
-        stores:venue_id (
-          id,
-          name,
-          short_name
-        )
-      `)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .order('date', { ascending: true })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    return data || []
+  // 指定月のメモを取得
+  // バックエンド API (/api/memos) 経由で org_id をサーバー側で強制フィルタ
+  // organizationId 引数は後方互換のため残すが未使用
+  async getByMonth(year: number, month: number, _organizationId?: string): Promise<DailyMemo[]> {
+    return apiClient.get<DailyMemo[]>(`/api/memos?year=${year}&month=${month}`)
   },
 
   // メモを保存（UPSERT）

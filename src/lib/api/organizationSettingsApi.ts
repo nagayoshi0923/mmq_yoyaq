@@ -4,6 +4,7 @@
  */
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 // ⚠️ P1-17: 通常の取得では機密トークンを含めない（XSS 時の漏洩防止）
@@ -79,39 +80,15 @@ export interface OrganizationSettings {
 
 export const organizationSettingsApi = {
   // 現在の組織の設定を取得
+  // バックエンド API (/api/org-settings) 経由で org_id をサーバー側で強制フィルタする
   async get(): Promise<OrganizationSettings | null> {
-    const organizationId = await getCurrentOrganizationId()
-    if (!organizationId) return null
-    
-    const { data, error } = await supabase
-      .from('organization_settings')
-      .select(ORG_SETTINGS_SELECT_FIELDS)
-      .eq('organization_id', organizationId)
-      .single()
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null // Not found
-      throw error
-    }
-    return data
+    return apiClient.get<OrganizationSettings | null>('/api/org-settings')
   },
-  
+
   // 機密トークン含む全設定を取得（設定編集画面専用）
+  // バックエンド API (/api/org-settings?with_secrets=true) 経由
   async getWithSecrets(): Promise<OrganizationSettings | null> {
-    const organizationId = await getCurrentOrganizationId()
-    if (!organizationId) return null
-    
-    const { data, error } = await supabase
-      .from('organization_settings')
-      .select(ORG_SETTINGS_ALL_FIELDS)
-      .eq('organization_id', organizationId)
-      .single()
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null
-      throw error
-    }
-    return data
+    return apiClient.get<OrganizationSettings | null>('/api/org-settings?with_secrets=true')
   },
 
   // 組織IDで設定を取得

@@ -3,23 +3,18 @@
  */
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 import type { ManualPage, ManualPageWithBlocks, ManualBlock, BlockType, BlockContentMap } from '@/types/manual'
 
 // ---------------------------------------------------------------------------
 // Pages
 // ---------------------------------------------------------------------------
 export const manualPageApi = {
-  /** 組織のマニュアルページ一覧（ブロックなし） */
+  /** 組織のマニュアルページ一覧（ブロックなし）
+   * バックエンド API (/api/manuals) 経由で org_id をサーバー側で強制フィルタ
+   */
   async list(): Promise<ManualPage[]> {
-    const orgId = await getCurrentOrganizationId()
-    const { data, error } = await supabase
-      .from('manual_pages')
-      .select('*')
-      .eq('organization_id', orgId)
-      .eq('is_active', true)
-      .order('display_order', { ascending: true })
-    if (error) throw error
-    return data as ManualPage[]
+    return apiClient.get<ManualPage[]>('/api/manuals')
   },
 
   /** ページ1件をブロック込みで取得 */

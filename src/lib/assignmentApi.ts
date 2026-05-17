@@ -1,72 +1,32 @@
 import { supabase } from './supabase'
 import { getCurrentOrganizationId } from './organization'
+import { apiClient } from '@/lib/apiClient'
 import {
   buildGmScenarioModesFromAssignments,
   type GmScenarioMode,
 } from './gmScenarioMode'
 
+// 担当関係レコードの型（旧 Supabase select で推論されていた構造に合わせる）
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AssignmentRow = any
+
 // スタッフ⇔シナリオの担当関係を管理するAPI
 export const assignmentApi = {
   // スタッフの担当シナリオ一覧を取得（GM可能なシナリオのみ）
-  async getStaffAssignments(staffId: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    // まず全てのアサインメントを取得（組織でフィルタ）
-    let query = supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        *,
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          author
-        )
-      `)
-      .eq('staff_id', staffId)
-      .order('assigned_at', { ascending: false })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    
+  // バックエンド API (/api/assignments) 経由で org_id をサーバー側で強制フィルタ
+  async getStaffAssignments(staffId: string, _organizationId?: string): Promise<AssignmentRow[]> {
+    const data = await apiClient.get<AssignmentRow[]>(`/api/assignments?staff_id=${encodeURIComponent(staffId)}`)
+
     // クライアント側でGM可能なシナリオのみフィルタ
-    // (can_main_gm = true OR can_sub_gm = true)
-    const filteredData = (data || []).filter(assignment => 
+    return (data || []).filter((assignment: AssignmentRow) =>
       assignment.can_main_gm === true || assignment.can_sub_gm === true
     )
-    
-    return filteredData
   },
 
   // スタッフの全アサインメント一覧を取得（体験済み含む）
-  async getAllStaffAssignments(staffId: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        *,
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          author
-        )
-      `)
-      .eq('staff_id', staffId)
-      .order('assigned_at', { ascending: false })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    return data || []
+  // バックエンド API (/api/assignments) 経由で org_id をサーバー側で強制フィルタ
+  async getAllStaffAssignments(staffId: string, _organizationId?: string): Promise<AssignmentRow[]> {
+    return apiClient.get<AssignmentRow[]>(`/api/assignments?staff_id=${encodeURIComponent(staffId)}`)
   },
 
   // スタッフの体験済みシナリオ一覧を取得（GM不可のもののみ）
@@ -106,65 +66,20 @@ export const assignmentApi = {
   },
 
   // シナリオの担当スタッフ一覧を取得（GM可能なスタッフのみ）
-  async getScenarioAssignments(scenarioId: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    // まず全てのアサインメントを取得（組織でフィルタ）
-    let query = supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        *,
-        staff:staff_id (
-          id,
-          name,
-          line_name
-        )
-      `)
-      .eq('scenario_master_id', scenarioId)
-      .order('assigned_at', { ascending: false })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    
+  // バックエンド API (/api/assignments) 経由で org_id をサーバー側で強制フィルタ
+  async getScenarioAssignments(scenarioId: string, _organizationId?: string): Promise<AssignmentRow[]> {
+    const data = await apiClient.get<AssignmentRow[]>(`/api/assignments?scenario_id=${encodeURIComponent(scenarioId)}`)
+
     // クライアント側でGM可能なスタッフのみフィルタ
-    // (can_main_gm = true OR can_sub_gm = true)
-    const filteredData = (data || []).filter(assignment => 
+    return (data || []).filter((assignment: AssignmentRow) =>
       assignment.can_main_gm === true || assignment.can_sub_gm === true
     )
-    
-    return filteredData
   },
 
   // シナリオの全スタッフ一覧を取得（体験済み含む）
-  async getAllScenarioAssignments(scenarioId: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        *,
-        staff:staff_id (
-          id,
-          name,
-          line_name
-        )
-      `)
-      .eq('scenario_master_id', scenarioId)
-      .order('assigned_at', { ascending: false })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    return data || []
+  // バックエンド API (/api/assignments) 経由で org_id をサーバー側で強制フィルタ
+  async getAllScenarioAssignments(scenarioId: string, _organizationId?: string): Promise<AssignmentRow[]> {
+    return apiClient.get<AssignmentRow[]>(`/api/assignments?scenario_id=${encodeURIComponent(scenarioId)}`)
   },
 
   // シナリオの体験済みスタッフ一覧を取得（GM不可のもののみ）

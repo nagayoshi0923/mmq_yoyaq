@@ -1,12 +1,9 @@
 // 公演の更新履歴を管理するAPI
 
 import { supabase } from '@/lib/supabase'
-import { getCurrentStaff, getCurrentOrganizationId } from '@/lib/organization'
+import { getCurrentStaff } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 import { logger } from '@/utils/logger'
-
-// NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
-const EVENT_HISTORY_SELECT_FIELDS =
-  'id, schedule_event_id, organization_id, event_date, store_id, time_slot, changed_by_user_id, changed_by_staff_id, changed_by_name, action_type, changes, old_values, new_values, deleted_event_scenario, notes, created_at' as const
 
 // 変更アクションの種類
 export type ActionType =
@@ -194,66 +191,27 @@ export async function createEventHistory(
 
 /**
  * セルの履歴を取得
- * セル（日付＋会場＋時間帯）単位で全履歴を取得（現在の公演 + 過去に削除された公演すべて）
+ * セル（日付＋会場＋時間帯）単位で全履歴を取得
+ *
+ * バックエンド API (/api/event-history) 経由で org_id をサーバー側で強制フィルタ。
+ * organizationId 引数は後方互換のため残すが未使用。
  */
 export async function getEventHistory(
   cellInfo: CellInfo,
-  organizationId?: string
+  _organizationId?: string
 ): Promise<EventHistory[]> {
-  const allHistory: EventHistory[] = []
-  const seenIds = new Set<string>()
-
-  const orgId = organizationId || await getCurrentOrganizationId()
-  if (!orgId) return allHistory
-
-  const baseQuery = () => supabase
-    .from('schedule_event_history')
-    .select(EVENT_HISTORY_SELECT_FIELDS)
-    .eq('organization_id', orgId)
-    .eq('event_date', cellInfo.date)
-    .eq('store_id', cellInfo.storeId)
-
-  // time_slot で絞り込んで取得
-  let query = baseQuery()
-  if (cellInfo.timeSlot === null) {
-    query = query.is('time_slot', null)
-  } else {
-    query = query.eq('time_slot', cellInfo.timeSlot)
+  try {
+    const params = new URLSearchParams({
+      date: cellInfo.date,
+      store_id: cellInfo.storeId,
+      time_slot: cellInfo.timeSlot ?? 'null',
+    })
+    const data = await apiClient.get<EventHistory[]>(`/api/event-history?${params.toString()}`)
+    return data ?? []
+  } catch (error) {
+    logger.error('セル履歴取得エラー:', error)
+    return []
   }
-
-  const { data: cellHistory, error: cellError } = await query.order('created_at', { ascending: false })
-
-  if (cellError) {
-    logger.error('セル履歴取得エラー:', cellError)
-  } else if (cellHistory) {
-    for (const h of cellHistory) {
-      if (!seenIds.has(h.id)) {
-        seenIds.add(h.id)
-        allHistory.push(h as EventHistory)
-      }
-    }
-  }
-
-  // time_slot が null の古いレコードも拾うフォールバック（time_slot 未設定で保存された履歴対応）
-  if (cellInfo.timeSlot !== null) {
-    const { data: nullSlotHistory } = await baseQuery()
-      .is('time_slot', null)
-      .order('created_at', { ascending: false })
-
-    if (nullSlotHistory) {
-      for (const h of nullSlotHistory) {
-        if (!seenIds.has(h.id)) {
-          seenIds.add(h.id)
-          allHistory.push(h as EventHistory)
-        }
-      }
-    }
-  }
-
-  // 日時順にソート（新しい順）
-  allHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
-  return allHistory
 }
 
 // GM役割の日本語ラベル
