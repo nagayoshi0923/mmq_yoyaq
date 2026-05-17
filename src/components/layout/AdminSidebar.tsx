@@ -18,12 +18,20 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
+type SubSubItem = {
+  id: string
+  label: string
+  path: string
+  roles?: string[]
+}
+
 type SubItem = {
   id: string
   label: string
-  path: string           // ?tab=xxx 付きURL
+  path?: string          // ?tab=xxx 付きURL（カテゴリヘッダーは省略）
   roles?: string[]
   sectionLabel?: string  // 直前にセクション区切りを入れる場合のラベル
+  subItems?: SubSubItem[] // 設定サブカテゴリ用
 }
 
 type NavItem = {
@@ -287,8 +295,15 @@ export const AdminSidebar = memo(function AdminSidebar() {
     // subItems のいずれかのタブがアクティブなら親も active とみなす
     if (item.subItems && pathname === basePath) {
       if (item.subItems.some(sub => {
-        const [, subQuery] = sub.path.split('?')
-        return subQuery && new URLSearchParams(subQuery).get('tab') === currentTab
+        if (sub.path) {
+          const [, subQuery] = sub.path.split('?')
+          if (subQuery && new URLSearchParams(subQuery).get('tab') === currentTab) return true
+        }
+        // カテゴリ（path なし）の場合は sub.subItems を確認
+        return sub.subItems?.some(ssub => {
+          const [, ssQuery] = ssub.path.split('?')
+          return ssQuery && new URLSearchParams(ssQuery).get('tab') === currentTab
+        }) ?? false
       })) return true
     }
     if (query) {
@@ -298,8 +313,9 @@ export const AdminSidebar = memo(function AdminSidebar() {
     return pathname === basePath || pathname.startsWith(basePath + '/')
   }, [location, slug])
 
-  // サブアイテムのアクティブ判定
+  // サブアイテムのアクティブ判定（path がある場合のみ）
   const isSubActive = useCallback((sub: SubItem) => {
+    if (!sub.path) return false
     const { pathname, search } = location
     const [basePath, query] = sub.path.split('?')
     if (!query) return pathname === basePath
@@ -406,6 +422,26 @@ function GroupPanel({
   const alreadyActive = isOpen && !!group.label && lastActiveGroupId.current === group.id
   if (isOpen && group.label) lastActiveGroupId.current = group.id
 
+  const location = useLocation()
+  // 手動で展開したカテゴリID
+  const [openCategories, setOpenCategories] = useState<Set<string>>(new Set())
+
+  const toggleCategory = (id: string) => {
+    setOpenCategories(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const isSubSubActive = (ssub: SubSubItem) => {
+    const { pathname, search } = location
+    const [basePath, query] = ssub.path.split('?')
+    if (!query) return pathname === basePath
+    const tabParam = new URLSearchParams(query).get('tab')
+    return pathname === basePath && new URLSearchParams(search).get('tab') === tabParam
+  }
+
   const divRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
@@ -460,6 +496,48 @@ function GroupPanel({
               {showSubs && visibleSubs.length > 0 && (
                 <div className="ml-3 pl-2 border-l border-border/60 space-y-0.5 mt-0.5 mb-1">
                   {visibleSubs.map(sub => {
+                    // ── カテゴリ（sub.subItems あり）
+                    if (sub.subItems && sub.subItems.length > 0) {
+                      const visibleSubSubs = sub.subItems.filter(
+                        s => !s.roles || s.roles.includes(userRole) || (isLicAdmin && s.roles.includes('license_admin'))
+                      )
+                      const categoryActive = visibleSubSubs.some(s => isSubSubActive(s))
+                      const categoryOpen = categoryActive || openCategories.has(sub.id)
+                      return (
+                        <div key={sub.id}>
+                          <button
+                            onClick={() => toggleCategory(sub.id)}
+                            className={`w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold transition-colors ${
+                              categoryActive ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                          >
+                            <span>{sub.label}</span>
+                            <ChevronDown className={`h-3 w-3 transition-transform duration-150 ${categoryOpen ? '' : '-rotate-90'}`} />
+                          </button>
+                          {categoryOpen && (
+                            <div className="ml-2 pl-2 border-l border-border/40 space-y-0.5 mb-1">
+                              {visibleSubSubs.map(ssub => {
+                                const ssActive = isSubSubActive(ssub)
+                                return (
+                                  <Link
+                                    key={ssub.id}
+                                    to={ssub.path}
+                                    className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
+                                      ssActive
+                                        ? 'bg-blue-50 text-blue-700 font-medium'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                    }`}
+                                  >
+                                    <span className="truncate">{ssub.label}</span>
+                                  </Link>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }
+                    // ── 通常サブアイテム
                     const subActive = isSubActive(sub)
                     return (
                       <div key={sub.id}>
@@ -468,16 +546,18 @@ function GroupPanel({
                             {sub.sectionLabel}
                           </p>
                         )}
-                        <Link
-                          to={sub.path}
-                          className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
-                            subActive
-                              ? 'bg-blue-50 text-blue-700 font-medium'
-                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                          }`}
-                        >
-                          <span className="truncate">{sub.label}</span>
-                        </Link>
+                        {sub.path && (
+                          <Link
+                            to={sub.path}
+                            className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
+                              subActive
+                                ? 'bg-blue-50 text-blue-700 font-medium'
+                                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                            }`}
+                          >
+                            <span className="truncate">{sub.label}</span>
+                          </Link>
+                        )}
                       </div>
                     )
                   })}
