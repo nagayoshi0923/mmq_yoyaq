@@ -25,7 +25,7 @@ interface EventDetail {
   current_participants: number
   max_participants: number
   half_required?: number
-  result: 'confirmed' | 'extended' | 'cancelled' | 'already_extended'
+  result: 'confirmed' | 'extended' | 'cancelled' | 'already_extended' | 'private'
   organization_id: string
   gms: string[]
 }
@@ -1016,6 +1016,42 @@ async function sendBusinessSummaryNotification(
 
   console.log(`📊 既に延長済みのイベント: ${alreadyExtendedDetails.length}件`)
 
+  // 前日判定の場合、貸切公演も取得してGM出勤リマインダーに含める
+  let privateBookingDetails: EventDetail[] = []
+  if (checkType === 'day_before') {
+    const { data: privateEvents } = await supabase
+      .from('schedule_events')
+      .select(`
+        id,
+        date,
+        start_time,
+        scenario,
+        current_participants,
+        max_participants,
+        organization_id,
+        gms,
+        stores!inner(name)
+      `)
+      .eq('date', targetDateForQuery)
+      .eq('is_cancelled', false)
+      .eq('category', 'private')
+
+    privateBookingDetails = (privateEvents || []).map(e => ({
+      event_id: e.id,
+      date: e.date,
+      start_time: e.start_time,
+      scenario: e.scenario,
+      store_name: (e.stores as { name: string })?.name || '',
+      current_participants: e.current_participants || 0,
+      max_participants: e.max_participants || 0,
+      result: 'private' as const,
+      organization_id: e.organization_id,
+      gms: e.gms || []
+    }))
+
+    console.log(`📊 貸切公演: ${privateBookingDetails.length}件`)
+  }
+
   // 対象日の表示文字列を計算（処理イベント→延長済みイベント→フォールバックの順で取得）
   let targetDateStr: string
   if (result.details.length > 0 && result.details[0].date) {
@@ -1043,9 +1079,11 @@ async function sendBusinessSummaryNotification(
       
       // 今回処理したイベントのみ（実際にキャンセル・延長・開催決定になったもの）
       const allEvents = [...result.details]
-      
-      // GMのDiscord IDを取得してメンション用マップを作成
-      const allGMs = allEvents.flatMap(e => e.gms || [])
+      // 貸切公演はorg絞り込み
+      const orgPrivateEvents = privateBookingDetails.filter(e => e.organization_id === org.organization_id)
+
+      // GMのDiscord IDを取得してメンション用マップを作成（貸切公演GMも含む）
+      const allGMs = [...allEvents, ...orgPrivateEvents].flatMap(e => e.gms || [])
       const uniqueGMs = [...new Set(allGMs)]
       let gmMentionMap: Record<string, string> = {}
       
@@ -1078,6 +1116,7 @@ async function sendBusinessSummaryNotification(
         if (r === 'extended') return '【募集延長】'
         if (r === 'already_extended') return '【延長中】'
         if (r === 'confirmed') return '【開催決定】'
+        if (r === 'private') return '【貸切】'
         return '【不明】'
       }
       
@@ -1098,24 +1137,24 @@ async function sendBusinessSummaryNotification(
       lines.push(summaryParts.join(' | '))
       lines.push('')
       
-      if (result.details.length === 0 && alreadyExtendedDetails.length === 0) {
-        // 処理イベントも延長中イベントもない場合はスキップ
+      if (result.details.length === 0 && alreadyExtendedDetails.length === 0 && orgPrivateEvents.length === 0) {
+        // 処理イベントも延長中イベントも貸切もない場合はスキップ
         console.log(`ℹ️ 対象公演なし: org=${org.organization_id}, 通知スキップ`)
         continue
       }
-      
-      if (result.details.length === 0) {
-        // 今回実際に処理したイベントがなければ通知しない（延長中のみの情報は毎時間不要）
+
+      if (result.details.length === 0 && orgPrivateEvents.length === 0) {
+        // 今回実際に処理したイベントも貸切もなければ通知しない
         console.log(`ℹ️ 今回処理なし（延長中のみ）: org=${org.organization_id}, 通知スキップ`)
         continue
       } else {
-        // 公演を時間順にソート
-        const sortedEvents = [...allEvents].sort((a, b) => {
+        // 公演を時間順にソート（オープン公演 + 貸切公演）
+        const sortedEvents = [...allEvents, ...orgPrivateEvents].sort((a, b) => {
           const timeA = a.start_time || '00:00'
           const timeB = b.start_time || '00:00'
           return timeA.localeCompare(timeB)
         })
-        
+
         // 各公演を表示
         for (const event of sortedEvents) {
           const label = getResultLabel(event.result)
@@ -1124,11 +1163,11 @@ async function sendBusinessSummaryNotification(
           const participants = `${event.current_participants}/${event.max_participants}名`
           const gms = formatGMsWithMention(event.gms)
           const store = event.store_name || ''
-          
+
           let line = `${label} ${time} **${scenario}** (${participants})`
           if (store) line += ` @${store}`
           if (gms) line += ` GM: ${gms}`
-          
+
           lines.push(line)
         }
       }
