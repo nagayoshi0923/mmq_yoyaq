@@ -4,18 +4,16 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error(
-    'SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY 環境変数が必要です。' +
-    'Vercel の Environment Variables に設定してください。'
-  )
-}
+// モジュール読み込み時に throw しない（FUNCTION_INVOCATION_FAILED を防ぐ）
+// 代わりに db を使う時点でエラーを返す
+export const db = (supabaseUrl && serviceRoleKey)
+  ? createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null
 
-// service_role クライアント: RLS を完全にバイパスする
-// 絶対にフロントエンドのコードに含めないこと
-export const db = createClient(supabaseUrl, serviceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
+export function getMissingEnvError(): string | null {
+  if (!supabaseUrl) return 'SUPABASE_URL（または VITE_SUPABASE_URL）が設定されていません'
+  if (!serviceRoleKey) return 'SUPABASE_SERVICE_ROLE_KEY が設定されていません'
+  return null
+}
