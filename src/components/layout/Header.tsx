@@ -1,4 +1,4 @@
-import { useCallback, memo, useEffect, useState } from 'react'
+import { useCallback, memo, useEffect, useState, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
@@ -35,9 +35,10 @@ function getOrgSlugFromUrl(): string | null {
 
 interface HeaderProps {
   onPageChange?: (pageId: string) => void
+  backgroundColor?: string
 }
 
-export const Header = memo(function Header({ onPageChange }: HeaderProps) {
+export const Header = memo(function Header({ onPageChange, backgroundColor }: HeaderProps) {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { organization: staffOrganization, organizationId } = useOrganization()
@@ -127,10 +128,28 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
   // スタッフまたは管理者かどうか（MMQ運営も含む）
   const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin' || user?.role === 'license_admin'
 
+  // 公開組織ページ（/{slug} 以下の予約サイト）かどうかを判定
+  // 管理ページのセグメントを含む場合は管理ページとみなす
+  const isPublicOrgPage = useMemo(() => {
+    const adminSegments = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission',
+      'gm-availability', 'private-booking-management', 'private-booking-groups', 'reservations', 'accounts', 'sales',
+      'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
+      'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation',
+      'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario',
+      'organizations', 'coupons', 'blog', 'user-management', 'scenario-masters', 'scenario-matcher',
+      'license-reports', 'customer-management']
+    const match = location.pathname.match(/^\/([^/]+)/)
+    if (!match) return false
+    return !adminSegments.includes(match[1])
+  }, [location.pathname])
+
+  // 組織の公開ページのみテーマカラーを適用、管理ページはデフォルト
+  const headerBgColor = backgroundColor ?? (isPublicOrgPage ? (displayOrganization?.theme_color ?? THEME.primary) : THEME.primary)
+
   return (
-    <header 
-      className="border-b h-[44px] sm:h-[48px] md:h-[52px] text-white relative"
-      style={{ backgroundColor: THEME.primary, borderColor: THEME.primaryHover, zIndex: 40 }}
+    <header
+      className="h-[44px] sm:h-[48px] md:h-[52px] text-white relative"
+      style={{ backgroundColor: headerBgColor, zIndex: 40 }}
     >
       <div className="mx-auto px-2 sm:px-3 md:px-4 md:px-6 h-full max-w-full overflow-visible">
         <div className="flex items-center justify-between h-full gap-1 sm:gap-2">

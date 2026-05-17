@@ -1,12 +1,12 @@
 import { PageHeader } from "@/components/layout/PageHeader"
-import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { SectionTitle } from '@/components/settings/SectionTitle'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Save, UserPlus, Mail, User, Loader2 } from 'lucide-react'
+import { Save, UserPlus, Mail, User, Loader2, Coins, Clock, GraduationCap, BookOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -207,34 +207,33 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="スタッフ設定"
         description="スタッフの権限と報酬設定"
       >
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}>
-            <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-            スタッフを招待
+            <UserPlus className="h-3.5 w-3.5 mr-1.5" />スタッフを招待
           </Button>
           <Button size="sm" onClick={handleSave} disabled={saving}>
-            <Save className="h-3.5 w-3.5 mr-1.5" />
-            {saving ? '保存中...' : '保存'}
+            <Save className="w-3.5 h-3.5 mr-1.5" />{saving ? '保存中...' : '保存'}
           </Button>
         </div>
       </PageHeader>
 
       {/* GM報酬デフォルト値 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>GM報酬デフォルト値</CardTitle>
-          <CardDescription>新しいシナリオを作成する際のデフォルト報酬額</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Coins}
+          label="GM報酬デフォルト値"
+          description="新しいシナリオを作成する際のデフォルト報酬額。シナリオ編集のGM設定に反映される"
+        />
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>メインGM報酬</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mt-1.5">
                 <Input
                   type="number"
                   value={formData.default_main_gm_reward}
@@ -247,7 +246,7 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
             </div>
             <div>
               <Label>サブGM報酬</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mt-1.5">
                 <Input
                   type="number"
                   value={formData.default_sub_gm_reward}
@@ -259,16 +258,17 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* シフト提出期限 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>シフト提出期限</CardTitle>
-          <CardDescription>スタッフがシフトを提出する期限を設定します</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Clock}
+          label="シフト提出期限"
+          description="公演日の何日前まで提出が必要か。シフト提出画面の期限判定に使用"
+        />
+        <div className="space-y-4">
           <div className="flex items-center gap-4">
             <Label className="w-32">提出期限</Label>
             <div className="flex items-center gap-2">
@@ -284,19 +284,20 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
               <span className="text-xs text-muted-foreground">日前まで</span>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 ml-36">
+          <p className="text-xs text-muted-foreground ml-36">
             例: 14日前の場合、2週間前までにシフト提出が必要
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* スタッフランク制度 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>スタッフランク制度</CardTitle>
-          <CardDescription>スタッフのランク分けを有効にします</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={GraduationCap}
+          label="スタッフランク制度"
+          description="経験・実績によるランク分けを有効化"
+        />
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <Label>スタッフランク制度を有効にする</Label>
@@ -306,21 +307,22 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
             </div>
             <Switch
               checked={formData.staff_rank_enabled}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked) =>
                 setFormData(prev => ({ ...prev, staff_rank_enabled: checked }))
               }
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* 研修期間 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>研修期間</CardTitle>
-          <CardDescription>新人スタッフの研修期間を設定します</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={BookOpen}
+          label="研修期間"
+          description="入社から何日間を研修期間とするか"
+        />
+        <div className="space-y-4">
           <div className="flex items-center gap-4">
             <Label className="w-32">研修期間</Label>
             <div className="flex items-center gap-2">
@@ -335,11 +337,11 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
               <span className="text-xs text-muted-foreground">日間</span>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 ml-36">
+          <p className="text-xs text-muted-foreground ml-36">
             入社から{formData.training_period_days}日間は研修期間として扱われます
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* スタッフ招待ダイアログ */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>

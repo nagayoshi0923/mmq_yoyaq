@@ -5,7 +5,6 @@ import { SettingsLayout } from '@/components/settings/SettingsLayout'
 
 // 設定ページコンポーネント
 import { ShiftSettings } from './pages/ShiftSettings'
-import { StoreBasicSettings } from './pages/StoreBasicSettings'
 import { BusinessHoursSettings } from './pages/BusinessHoursSettings'
 import { PerformanceScheduleSettings } from './pages/PerformanceScheduleSettings'
 import { ReservationSettings } from './pages/ReservationSettings'
@@ -13,12 +12,10 @@ import { CancellationSettings } from './pages/CancellationSettings'
 import { PricingSettings } from './pages/PricingSettings'
 import { SalesReportSettings } from './pages/SalesReportSettings'
 import { NotificationSettings } from './pages/NotificationSettings'
-import { StaffSettings } from './pages/StaffSettings'
 import { SystemSettings } from './pages/SystemSettings'
 import { EmailSettings } from './pages/EmailSettings'
 import { EmailDeliveryHistorySettings } from './pages/EmailDeliveryHistorySettings'
 import { EmailLogsSettings } from './pages/EmailLogsSettings'
-import { CustomerSettings } from './pages/CustomerSettings'
 import { DataManagementSettings } from './pages/DataManagementSettings'
 import { BookingNoticeSettings } from './pages/BookingNoticeSettings'
 import { SalarySettings } from './pages/SalarySettings'
@@ -52,8 +49,6 @@ export function Settings() {
         return <BlogSettings />
       case 'shift':
         return <ShiftSettings />
-      case 'store-basic':
-        return <StoreBasicSettings storeId={storeId} />
       case 'business-hours':
         return <BusinessHoursSettings storeId={storeId} />
       case 'performance-schedule':
@@ -70,8 +65,6 @@ export function Settings() {
         return <SalesReportSettings storeId={storeId} />
       case 'notifications':
         return <NotificationSettings storeId={storeId} />
-      case 'staff':
-        return <StaffSettings storeId={storeId} />
       case 'system':
         return <SystemSettings storeId={storeId} />
       case 'email':
@@ -80,8 +73,6 @@ export function Settings() {
         return <EmailDeliveryHistorySettings />
       case 'email-logs':
         return <EmailLogsSettings />
-      case 'customer':
-        return <CustomerSettings storeId={storeId} />
       case 'data':
         return <DataManagementSettings storeId={storeId} />
       case 'booking-notice':

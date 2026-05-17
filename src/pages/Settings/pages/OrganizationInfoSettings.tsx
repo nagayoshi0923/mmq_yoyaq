@@ -4,6 +4,7 @@
 import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { SectionTitle } from '@/components/settings/SectionTitle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,16 +23,6 @@ import { supabase } from '@/lib/supabase'
 import { updateUserRole } from '@/lib/userApi'
 import { toast } from 'sonner'
 
-function SectionTitle({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
-  return (
-    <div className="flex items-center gap-3 mb-4">
-      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <Icon className="h-4 w-4 text-primary" />
-      </div>
-      <h3 className="text-base font-semibold">{label}</h3>
-    </div>
-  )
-}
 
 interface AdminUser {
   id: string
@@ -233,7 +224,7 @@ export function OrganizationInfoSettings() {
 
       {/* 基本情報 */}
       <section className="bg-white rounded-xl border p-6">
-        <SectionTitle icon={Building2} label="基本情報" />
+        <SectionTitle icon={Building2} label="基本情報" description="管理画面全体で使用される組織名と、URLに使われる識別子（変更不可）です。" />
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -279,7 +270,7 @@ export function OrganizationInfoSettings() {
 
       {/* 連絡先 */}
       <section className="bg-white rounded-xl border p-6">
-        <SectionTitle icon={Users2} label="連絡先情報" />
+        <SectionTitle icon={Users2} label="連絡先情報" description={`お客様向けの連絡先ページ（/${organization.slug}/contact）に表示されます。`} />
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground leading-relaxed">
             お客様向けの連絡先ページ（/{organization.slug}/contact）に表示されます
@@ -310,7 +301,7 @@ export function OrganizationInfoSettings() {
 
       {/* 予約トップ紹介文 */}
       <section className="bg-white rounded-xl border p-6">
-        <SectionTitle icon={StickyNote} label="予約トップの紹介文" />
+        <SectionTitle icon={StickyNote} label="予約トップの紹介文" description={`予約サイト（/${organization.slug}）のトップに表示されるキャッチコピー。空欄の場合はデフォルト文言が表示されます。`} />
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground leading-relaxed">
             予約サイト（/{organization.slug}）のトップページに表示する説明文です。空欄の場合はデフォルト文言が表示されます。
@@ -328,7 +319,7 @@ export function OrganizationInfoSettings() {
       {/* 管理者アカウント */}
       <section className="bg-white rounded-xl border p-6">
         <div className="flex items-start justify-between mb-4">
-          <SectionTitle icon={Users} label="管理者アカウント" />
+          <SectionTitle icon={Users} label="管理者アカウント" description="管理画面にアクセスできるアカウントです。スタッフの招待は設定 → スタッフ → スタッフ設定から行ってください。" />
           <Button size="sm" variant="outline" onClick={() => setInviteOpen(true)}>
             <UserPlus className="w-3.5 h-3.5 mr-1.5" />
             管理者を招待

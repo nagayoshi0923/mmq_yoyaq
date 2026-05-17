@@ -1,10 +1,10 @@
 import { PageHeader } from "@/components/layout/PageHeader"
+import { SectionTitle } from '@/components/settings/SectionTitle'
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Save, Calendar } from 'lucide-react'
+import { Save, Calendar, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
@@ -99,124 +99,119 @@ export function ShiftSettings() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="シフト設定"
         description="シフト提出期間・編集期限の設定"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-blue-600" />
-            <CardTitle>シフト提出期間設定</CardTitle>
-          </div>
-          <CardDescription>スタッフがシフトを提出できる期間を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="shift_submission_start_day">提出開始日</Label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">毎月</span>
-                <Input
-                  id="shift_submission_start_day"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.shift_submission_start_day}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    shift_submission_start_day: parseInt(e.target.value) || 1
-                  }))}
-                  className="w-20"
-                />
-                <span className="text-xs text-muted-foreground">日から</span>
-              </div>
-              <p className="text-xs text-muted-foreground">この日からシフト提出が可能になります</p>
+      {/* シフト提出期間 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Calendar}
+          label="シフト提出期間"
+          description="毎月いつからいつまでシフトを提出できるか、何ヶ月先を対象とするかを設定します。スタッフのシフト提出画面に反映されます。"
+        />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">提出開始日</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">毎月</span>
+              <Input
+                id="shift_submission_start_day"
+                type="number"
+                min="1"
+                max="31"
+                value={formData.shift_submission_start_day}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  shift_submission_start_day: parseInt(e.target.value) || 1
+                }))}
+                className="w-20"
+              />
+              <span className="text-sm text-muted-foreground">日から</span>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="shift_submission_end_day">提出締切日</Label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">毎月</span>
-                <Input
-                  id="shift_submission_end_day"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.shift_submission_end_day}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    shift_submission_end_day: parseInt(e.target.value) || 15
-                  }))}
-                  className="w-20"
-                />
-                <span className="text-xs text-muted-foreground">日まで</span>
-              </div>
-              <p className="text-xs text-muted-foreground">この日を過ぎると締切警告が表示されます</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="shift_submission_target_months_ahead">対象月</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="shift_submission_target_months_ahead"
-                  type="number"
-                  min="0"
-                  max="3"
-                  value={formData.shift_submission_target_months_ahead}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    shift_submission_target_months_ahead: parseInt(e.target.value) || 1
-                  }))}
-                  className="w-20"
-                />
-                <span className="text-xs text-muted-foreground">ヶ月先</span>
-              </div>
-              <p className="text-xs text-muted-foreground">提出するシフトの対象月</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="shift_edit_deadline_days_before">編集締切</Label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">対象月の</span>
-                <Input
-                  id="shift_edit_deadline_days_before"
-                  type="number"
-                  min="0"
-                  max="31"
-                  value={formData.shift_edit_deadline_days_before}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    shift_edit_deadline_days_before: parseInt(e.target.value) || 7
-                  }))}
-                  className="w-20"
-                />
-                <span className="text-xs text-muted-foreground">日前まで編集可</span>
-              </div>
-              <p className="text-xs text-muted-foreground">この日以降はシフトの変更ができなくなります</p>
-            </div>
+            <p className="text-xs text-muted-foreground">この日からスタッフがシフト提出できるようになります。</p>
           </div>
 
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm text-blue-900 mb-2">設定例</p>
-            <p className="text-xs text-blue-700">
-              提出期間: {formData.shift_submission_start_day}日〜{formData.shift_submission_end_day}日、
-              対象: {formData.shift_submission_target_months_ahead}ヶ月先、
-              編集締切: 対象月の{formData.shift_edit_deadline_days_before}日前まで
-              <br />
-              → 毎月{formData.shift_submission_start_day}日〜{formData.shift_submission_end_day}日の間に、
-              {formData.shift_submission_target_months_ahead}ヶ月後のシフトを提出してください
-            </p>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">提出締切日</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">毎月</span>
+              <Input
+                id="shift_submission_end_day"
+                type="number"
+                min="1"
+                max="31"
+                value={formData.shift_submission_end_day}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  shift_submission_end_day: parseInt(e.target.value) || 15
+                }))}
+                className="w-20"
+              />
+              <span className="text-sm text-muted-foreground">日まで</span>
+            </div>
+            <p className="text-xs text-muted-foreground">この日を過ぎると締切警告がスタッフ画面に表示されます。</p>
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">対象月</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="shift_submission_target_months_ahead"
+                type="number"
+                min="0"
+                max="3"
+                value={formData.shift_submission_target_months_ahead}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  shift_submission_target_months_ahead: parseInt(e.target.value) || 1
+                }))}
+                className="w-20"
+              />
+              <span className="text-sm text-muted-foreground">ヶ月先</span>
+            </div>
+            <p className="text-xs text-muted-foreground">提出するシフトの対象月です。「1」なら翌月分を提出します。</p>
+          </div>
+        </div>
+      </section>
+
+      {/* 編集締切 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Clock}
+          label="編集締切"
+          description="対象月の何日前まで変更を受け付けるかを設定します。この日以降はスタッフによるシフト変更ができなくなります。"
+        />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">変更可能な期限</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">対象月の</span>
+              <Input
+                id="shift_edit_deadline_days_before"
+                type="number"
+                min="0"
+                max="31"
+                value={formData.shift_edit_deadline_days_before}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  shift_edit_deadline_days_before: parseInt(e.target.value) || 7
+                }))}
+                className="w-20"
+              />
+              <span className="text-sm text-muted-foreground">日前まで編集可</span>
+            </div>
+            <p className="text-xs text-muted-foreground">この日を過ぎると、スタッフはシフト内容を変更できなくなります。</p>
+          </div>
+        </div>
+      </section>
     </div>
   )
 }

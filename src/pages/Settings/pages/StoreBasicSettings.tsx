@@ -1,12 +1,12 @@
 import { PageHeader } from "@/components/layout/PageHeader"
+import { SectionTitle } from '@/components/settings/SectionTitle'
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
-import { Save, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
+import { Save, ArrowUp, ArrowDown, GripVertical, Store, Link2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -68,7 +68,7 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
     try {
       // 組織対応済みの店舗取得
       const data = await storeApi.getAll()
-      
+
       if (data && data.length > 0) {
         setStores(data)
         setSelectedStoreId(data[0].id)
@@ -87,21 +87,21 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
     // 通常店舗と仮設店舗を含む（オフィスのみ除外）
     const regularStores = stores.filter(s => s.ownership_type !== 'office')
     const targetIndex = regularStores.findIndex(s => s.id === stores[index].id)
-    
+
     if (targetIndex === -1) return
     if (direction === 'up' && targetIndex === 0) return
     if (direction === 'down' && targetIndex === regularStores.length - 1) return
-    
+
     const swapIndex = direction === 'up' ? targetIndex - 1 : targetIndex + 1
     const newOrder = [...regularStores]
     ;[newOrder[targetIndex], newOrder[swapIndex]] = [newOrder[swapIndex], newOrder[targetIndex]]
-    
+
     // display_orderを再計算
     const updates = newOrder.map((store, i) => ({
       id: store.id,
       display_order: i + 1
     }))
-    
+
     try {
       await storeApi.updateDisplayOrder(updates)
       showToast.success('表示順を更新しました')
@@ -152,7 +152,7 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
 
       // ローカルステートを更新
       setStores(prev => prev.map(s => s.id === formData.id ? formData : s))
-      
+
       showToast.success('保存しました')
     } catch (error) {
       logger.error('保存エラー:', error)
@@ -169,179 +169,85 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="店舗基本設定"
-        description="店舗の基本情報と表示設定"
+        description="店舗の基本情報と表示設定を管理します"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
 
-      {/* 店舗表示順 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>店舗の表示順序</CardTitle>
-          <CardDescription>スケジュール管理や予約サイトでの店舗の表示順を設定します</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {stores
-              .filter(s => s.ownership_type !== 'office')
-              .map((store, index, filteredStores) => (
-                <div 
-                  key={store.id} 
-                  className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"
-                >
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                  <div 
-                    className="w-3 h-3 rounded-full flex-shrink-0" 
-                    style={{ backgroundColor: store.color || '#gray' }} 
-                  />
-                  <span className="flex-1 font-medium">{store.short_name || store.name}</span>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const originalIndex = stores.findIndex(s => s.id === store.id)
-                        moveStore(originalIndex, 'up')
-                      }}
-                      disabled={index === 0}
-                      className="h-8 w-8 p-0"
-                    >
-                      <ArrowUp className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const originalIndex = stores.findIndex(s => s.id === store.id)
-                        moveStore(originalIndex, 'down')
-                      }}
-                      disabled={index === filteredStores.length - 1}
-                      className="h-8 w-8 p-0"
-                    >
-                      <ArrowDown className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* 店舗情報 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Store}
+          label="店舗情報"
+          description="店名・識別子・表示色・並び順など、予約サイトやスケジュール画面に反映される基本情報です"
+        />
 
-      {/* 基本情報 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>基本情報</CardTitle>
-          <CardDescription>店舗の基本的な情報を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        {/* 店舗選択 */}
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">編集する店舗</Label>
+            <Select value={selectedStoreId} onValueChange={handleStoreChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="店舗を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {stores.map(store => (
+                  <SelectItem key={store.id} value={store.id}>
+                    {store.short_name || store.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">店舗名 *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">店舗名 *</Label>
               <Input
-                id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="例: クイーンズワルツ渋谷店"
               />
             </div>
-            <div>
-              <Label htmlFor="short_name">略称 *</Label>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">略称 *</Label>
               <Input
-                id="short_name"
                 value={formData.short_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, short_name: e.target.value }))}
                 placeholder="例: 馬場、大塚、別館①"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                シナリオ一覧やスケジュール画面で表示される短い店舗名
-              </p>
+              <p className="text-xs text-muted-foreground">シナリオ一覧やスケジュール画面で使われる短縮表示名</p>
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="address">住所</Label>
-            <Input
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-              placeholder="例: 東京都渋谷区..."
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="access_info">アクセス方法</Label>
-            <Textarea
-              id="access_info"
-              value={formData.access_info || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, access_info: e.target.value }))}
-              placeholder="例: JR渋谷駅ハチ公口から徒歩5分。○○ビル3F"
-              rows={3}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="phone_number">電話番号</Label>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">店舗カラー</Label>
+            <div className="flex items-center gap-4">
               <Input
-                id="phone_number"
-                value={formData.phone_number}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
-                placeholder="例: 03-1234-5678"
+                type="color"
+                value={formData.color}
+                onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                className="w-20 h-10"
+              />
+              <div
+                className="h-10 flex-1 rounded border"
+                style={{ backgroundColor: formData.color }}
               />
             </div>
-            <div>
-              <Label htmlFor="email">メールアドレス</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="例: info@example.com"
-              />
-            </div>
+            <p className="text-xs text-muted-foreground">スケジュール・予約管理画面のUI色として使用されます</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="opening_date">営業開始日</Label>
-              <Input
-                id="opening_date"
-                type="date"
-                value={formData.opening_date}
-                onChange={(e) => setFormData(prev => ({ ...prev, opening_date: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="manager_name">店舗責任者</Label>
-              <Input
-                id="manager_name"
-                value={formData.manager_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, manager_name: e.target.value }))}
-                placeholder="例: 山田太郎"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ステータスと設備 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>ステータスと設備</CardTitle>
-          <CardDescription>店舗の営業状態と設備情報を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="status">営業ステータス</Label>
-            <Select 
-              value={formData.status} 
-              onValueChange={(value: 'active' | 'temporarily_closed' | 'closed') => 
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">営業ステータス</Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value: 'active' | 'temporarily_closed' | 'closed') =>
                 setFormData(prev => ({ ...prev, status: value }))
               }
             >
@@ -354,13 +260,13 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
                 <SelectItem value="closed">閉店</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">「閉店」にすると予約サイトへの公開が停止されます</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="capacity">収容人数</Label>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">収容人数</Label>
               <Input
-                id="capacity"
                 type="number"
                 value={formData.capacity}
                 onChange={(e) => setFormData(prev => ({ ...prev, capacity: parseInt(e.target.value) || 0 }))}
@@ -368,10 +274,9 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
                 max="100"
               />
             </div>
-            <div>
-              <Label htmlFor="rooms">部屋数</Label>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">部屋数</Label>
               <Input
-                id="rooms"
                 type="number"
                 value={formData.rooms}
                 onChange={(e) => setFormData(prev => ({ ...prev, rooms: parseInt(e.target.value) || 1 }))}
@@ -380,10 +285,125 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
               />
             </div>
           </div>
-          
-          {/* キットグループ設定 */}
-          <div>
-            <Label htmlFor="kit_group">キットグループ（同一拠点）</Label>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">住所</Label>
+              <Input
+                value={formData.address}
+                onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                placeholder="例: 東京都渋谷区..."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">電話番号</Label>
+              <Input
+                value={formData.phone_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
+                placeholder="例: 03-1234-5678"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">アクセス方法</Label>
+            <Textarea
+              value={formData.access_info || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, access_info: e.target.value }))}
+              placeholder="例: JR渋谷駅ハチ公口から徒歩5分。○○ビル3F"
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">予約確認メールや予約サイトのアクセス欄に表示されます</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">メールアドレス</Label>
+              <Input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="例: info@example.com"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">営業開始日</Label>
+              <Input
+                type="date"
+                value={formData.opening_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, opening_date: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">店舗責任者</Label>
+            <Input
+              value={formData.manager_name}
+              onChange={(e) => setFormData(prev => ({ ...prev, manager_name: e.target.value }))}
+              placeholder="例: 山田太郎"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">メモ</Label>
+            <Input
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="店舗に関するメモ"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 表示順（並び替え） */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={GripVertical}
+          label="表示順"
+          description="スケジュール管理・予約サイトでの店舗の並び順です。即座に反映されます。"
+        />
+        <div className="space-y-2">
+          {stores
+            .filter(s => s.ownership_type !== 'office')
+            .map((store, index, filteredStores) => (
+              <div
+                key={store.id}
+                className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"
+              >
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                <div
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: store.color || '#3B82F6' }}
+                />
+                <span className="flex-1 text-sm font-medium">{store.short_name || store.name}</span>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm"
+                    onClick={() => { const i = stores.findIndex(s => s.id === store.id); moveStore(i, 'up') }}
+                    disabled={index === 0} className="h-8 w-8 p-0">
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm"
+                    onClick={() => { const i = stores.findIndex(s => s.id === store.id); moveStore(i, 'down') }}
+                    disabled={index === filteredStores.length - 1} className="h-8 w-8 p-0">
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+        </div>
+      </section>
+
+      {/* キットグループ設定 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Link2}
+          label="キットグループ設定"
+          description="同一拠点にある複数の店舗をグループ化することで、キット移動計算が正確になります"
+        />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">キット管理グループの紐付け</Label>
             <Select
               value={formData.kit_group_id || 'none'}
               onValueChange={(value) => setFormData(prev => ({
@@ -391,7 +411,7 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
                 kit_group_id: value === 'none' ? null : value
               }))}
             >
-              <SelectTrigger id="kit_group">
+              <SelectTrigger>
                 <SelectValue placeholder="なし（単独店舗）" />
               </SelectTrigger>
               <SelectContent>
@@ -406,40 +426,12 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
                 }
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground">
               同じ住所にある別店舗を選択すると、キット移動計算で同一拠点として扱います（例：森1と森2）
             </p>
           </div>
-
-          <div>
-            <Label htmlFor="color">店舗カラー（UI表示用）</Label>
-            <div className="flex items-center gap-4">
-              <Input
-                id="color"
-                type="color"
-                value={formData.color}
-                onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
-                className="w-20 h-10"
-              />
-              <div 
-                className="h-10 flex-1 rounded border"
-                style={{ backgroundColor: formData.color }}
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="notes">メモ</Label>
-            <Input
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="店舗に関するメモ"
-            />
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   )
 }
-

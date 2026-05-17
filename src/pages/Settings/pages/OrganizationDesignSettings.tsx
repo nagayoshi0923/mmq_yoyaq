@@ -3,7 +3,6 @@
  * 組織トップページのデザインに関わる設定を管理
  */
 import { useState, useEffect, useRef } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Save, Loader2, Palette, Image, Upload, X } from 'lucide-react'
@@ -12,6 +11,8 @@ import { updateOrganization } from '@/lib/organization'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { SectionTitle } from '@/components/settings/SectionTitle'
 
 export function OrganizationDesignSettings() {
   const { organization, isLoading, refetch: refetchOrg } = useOrganization()
@@ -141,81 +142,71 @@ export function OrganizationDesignSettings() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* 説明 */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="p-4">
-          <p className="text-sm text-blue-800">
-            <strong>このページでできること：</strong>
-            予約トップページのデザインに関わる設定を行います。
-            テーマカラーやヘッダー画像を設定できます。
-          </p>
-        </CardContent>
-      </Card>
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+      <PageHeader title="デザイン設定" description="予約サイトの見た目・ブランド表示を管理します">
+        <Button size="sm" onClick={handleSave} disabled={saving || uploading || uploadingFavicon}>
+          {saving && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+          {!saving && <Save className="w-3.5 h-3.5 mr-1.5" />}
+          保存
+        </Button>
+      </PageHeader>
 
-      {/* テーマカラー設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
-            テーマカラー
-          </CardTitle>
-          <CardDescription>
-            予約トップページのアクセントカラーやボタンの色に使用されます
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <input
-              type="color"
-              value={themeColor}
-              onChange={(e) => setThemeColor(e.target.value)}
-              className="w-16 h-12 rounded border border-gray-300 cursor-pointer"
-            />
-            <Input
-              value={themeColor}
-              onChange={(e) => setThemeColor(e.target.value)}
-              placeholder="#E60012"
-              className="w-32 font-mono"
-            />
-            <div 
-              className="px-6 py-2 rounded text-white text-sm font-medium"
-              style={{ backgroundColor: themeColor }}
-            >
-              プレビュー
+      {/* テーマカラー */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Palette}
+          label="テーマカラー"
+          description="サイトのアクセントカラーです。予約ページ（/{slug}）のボタンや強調色に適用されます。"
+        />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-4">
+              <input
+                type="color"
+                value={themeColor}
+                onChange={(e) => setThemeColor(e.target.value)}
+                className="w-14 h-10 rounded border border-gray-300 cursor-pointer"
+              />
+              <Input
+                value={themeColor}
+                onChange={(e) => setThemeColor(e.target.value)}
+                placeholder="#E60012"
+                className="w-32 font-mono"
+              />
+              <div
+                className="px-5 py-2 rounded text-white text-sm font-medium"
+                style={{ backgroundColor: themeColor }}
+              >
+                プレビュー
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground">カラーピッカーまたは16進数コードで指定してください。</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      {/* ヘッダー画像設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Image className="h-5 w-5" />
-            ヘッダー画像
-          </CardTitle>
-          <CardDescription>
-            予約トップページのヒーローセクションの背景画像として表示されます
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* アップロードエリア */}
-          <div className="space-y-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              onChange={handleImageUpload}
-              className="hidden"
-              id="header-image-upload"
-            />
-            
+      {/* ヘッダー画像 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Image}
+          label="ヘッダー画像"
+          description="予約サイトトップのヒーロー画像として表示されます。推奨サイズは横幅1200px以上・高さ300〜400px程度です。"
+        />
+        <div className="space-y-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            onChange={handleImageUpload}
+            className="hidden"
+            id="header-image-upload"
+          />
+
+          <div className="space-y-1.5">
             {headerImageUrl ? (
-              // 画像プレビュー
               <div className="relative rounded-lg overflow-hidden border bg-gray-50">
-                <img 
-                  src={headerImageUrl} 
+                <img
+                  src={headerImageUrl}
                   alt="ヘッダープレビュー"
                   className="w-full h-40 object-cover"
                   onError={(e) => {
@@ -234,7 +225,6 @@ export function OrganizationDesignSettings() {
                 </button>
               </div>
             ) : (
-              // アップロードボタン
               <label
                 htmlFor="header-image-upload"
                 className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors"
@@ -254,7 +244,6 @@ export function OrganizationDesignSettings() {
               </label>
             )}
 
-            {/* 画像変更ボタン */}
             {headerImageUrl && (
               <Button
                 type="button"
@@ -271,26 +260,19 @@ export function OrganizationDesignSettings() {
                 画像を変更
               </Button>
             )}
+            <p className="text-xs text-muted-foreground">画像を変更するとすぐにプレビューへ反映されます。「保存」を押すまで確定されません。</p>
           </div>
+        </div>
+      </section>
 
-          <p className="text-xs text-muted-foreground">
-            推奨サイズ: 横幅1200px以上、高さ300px〜400px程度
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* ファビコン設定 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Image className="h-5 w-5" />
-            ファビコン
-          </CardTitle>
-          <CardDescription>
-            ブラウザのタブに表示される小さなアイコンです（推奨: 32x32px または 64x64px）
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* ファビコン */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Image}
+          label="ファビコン"
+          description="ブラウザのタブに表示されるアイコンです。正方形（推奨: 32×32px または 64×64px）の画像を設定してください。"
+        />
+        <div className="space-y-4">
           <input
             ref={faviconInputRef}
             type="file"
@@ -299,62 +281,52 @@ export function OrganizationDesignSettings() {
             className="hidden"
             id="favicon-upload"
           />
-          
-          <div className="flex items-center gap-4">
-            {faviconUrl ? (
-              <div className="relative">
-                <div className="w-16 h-16 rounded border bg-gray-50 flex items-center justify-center overflow-hidden">
-                  <img 
-                    src={faviconUrl} 
-                    alt="ファビコン"
-                    className="max-w-full max-h-full object-contain"
-                  />
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-4">
+              {faviconUrl ? (
+                <div className="relative">
+                  <div className="w-16 h-16 rounded border bg-gray-50 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={faviconUrl}
+                      alt="ファビコン"
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveFavicon}
+                    className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 rounded-full text-white transition-colors"
+                    title="削除"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleRemoveFavicon}
-                  className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 rounded-full text-white transition-colors"
-                  title="削除"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ) : (
-              <div className="w-16 h-16 rounded border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
-                <span className="text-xs text-gray-400">未設定</span>
-              </div>
-            )}
-            
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => faviconInputRef.current?.click()}
-              disabled={uploadingFavicon}
-            >
-              {uploadingFavicon ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
-                <Upload className="w-4 h-4 mr-2" />
+                <div className="w-16 h-16 rounded border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                  <span className="text-xs text-gray-400">未設定</span>
+                </div>
               )}
-              {faviconUrl ? 'ファビコンを変更' : 'ファビコンをアップロード'}
-            </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => faviconInputRef.current?.click()}
+                disabled={uploadingFavicon}
+              >
+                {uploadingFavicon ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4 mr-2" />
+                )}
+                {faviconUrl ? 'ファビコンを変更' : 'ファビコンをアップロード'}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">PNG, ICO, SVG形式（1MB以下）。予約サイトのタブに表示されます。</p>
           </div>
-
-          <p className="text-xs text-muted-foreground">
-            PNG, ICO, SVG形式（1MB以下）。正方形の画像を推奨します。
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* 保存ボタン */}
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving || uploading || uploadingFavicon}>
-          {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          <Save className="w-4 h-4 mr-2" />
-          保存
-        </Button>
-      </div>
+        </div>
+      </section>
     </div>
   )
 }

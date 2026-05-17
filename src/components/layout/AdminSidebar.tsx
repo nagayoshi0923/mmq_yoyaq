@@ -235,12 +235,10 @@ export const AdminSidebar = memo(function AdminSidebar() {
           path: `/${slug}/settings?tab=store-basic`,
           roles: ['admin', 'license_admin'], isGroupHeader: true,
           subItems: [
-            { id: 'store-basic',          label: '店舗基本設定',    path: `/${slug}/settings?tab=store-basic` },
             { id: 'business-hours',       label: '営業時間',        path: `/${slug}/settings?tab=business-hours` },
             { id: 'performance-schedule', label: '公演スケジュール', path: `/${slug}/settings?tab=performance-schedule` },
             { id: 'reservation',          label: '予約設定',        path: `/${slug}/settings?tab=reservation` },
             { id: 'cancellation',         label: 'キャンセル設定',  path: `/${slug}/settings?tab=cancellation` },
-            { id: 'pricing',              label: '料金設定',        path: `/${slug}/settings?tab=pricing` },
             { id: 'booking-notice',       label: '注意事項設定',    path: `/${slug}/settings?tab=booking-notice` },
             { id: 'categories',           label: 'カテゴリ・作者',  path: `/${slug}/settings?tab=categories` },
           ],
@@ -251,9 +249,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
           roles: ['admin', 'license_admin'], isGroupHeader: true,
           subItems: [
             { id: 'shift',         label: 'シフト設定',   path: `/${slug}/settings?tab=shift` },
-            { id: 'staff-setting', label: 'スタッフ設定', path: `/${slug}/settings?tab=staff` },
             { id: 'salary',        label: '報酬',         path: `/${slug}/settings?tab=salary` },
-            { id: 'customer',      label: '顧客設定',     path: `/${slug}/settings?tab=customer` },
           ],
         },
         {

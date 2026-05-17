@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { SectionTitle } from '@/components/settings/SectionTitle'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -16,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Plus, Pencil, Trash2, Save, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, Loader2, ClipboardList } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { CATEGORY_CONFIG } from '@/utils/scheduleUtils'
@@ -321,127 +322,127 @@ export function BookingNoticeSettings() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>注意事項設定</CardTitle>
-              <CardDescription>
-                予約時に表示する注意事項を管理します。公演カテゴリごとに表示/非表示を設定できます。
-              </CardDescription>
-            </div>
-            <Button onClick={handleAdd}>
-              <Plus className="w-4 h-4 mr-2" />
-              追加
-            </Button>
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+      <PageHeader
+        title="予約注意事項"
+        description="予約完了画面・確認メールに表示する注意事項を管理します"
+      >
+        <Button size="sm" onClick={handleAdd}>
+          <Plus className="w-3.5 h-3.5 mr-1.5" />
+          追加
+        </Button>
+      </PageHeader>
+
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={ClipboardList}
+          label="注意事項一覧"
+          description="予約完了画面・確認メールに表示される注意事項を管理します。公演カテゴリや店舗ごとに表示条件を細かく設定できます。"
+        />
+
+        {notices.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            注意事項がまだ登録されていません
           </div>
-        </CardHeader>
-        <CardContent>
-          {notices.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              注意事項がまだ登録されていません
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {notices.map((notice, index) => (
-                <div
-                  key={notice.id}
-                  className={`flex items-start gap-3 p-3 border rounded-lg ${
-                    notice.is_active ? 'bg-white' : 'bg-gray-50 opacity-60'
-                  }`}
-                >
-                  {/* 並び替えボタン */}
-                  <div className="flex flex-col gap-0.5 pt-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 w-5 p-0"
-                      onClick={() => handleMoveUp(index)}
-                      disabled={index === 0}
-                    >
-                      ▲
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 w-5 p-0"
-                      onClick={() => handleMoveDown(index)}
-                      disabled={index === notices.length - 1}
-                    >
-                      ▼
-                    </Button>
-                  </div>
+        ) : (
+          <div className="space-y-2">
+            {notices.map((notice, index) => (
+              <div
+                key={notice.id}
+                className={`flex items-start gap-3 p-3 border rounded-lg ${
+                  notice.is_active ? 'bg-white' : 'bg-gray-50 opacity-60'
+                }`}
+              >
+                {/* 並び替えボタン */}
+                <div className="flex flex-col gap-0.5 pt-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 w-5 p-0"
+                    onClick={() => handleMoveUp(index)}
+                    disabled={index === 0}
+                  >
+                    ▲
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 w-5 p-0"
+                    onClick={() => handleMoveDown(index)}
+                    disabled={index === notices.length - 1}
+                  >
+                    ▼
+                  </Button>
+                </div>
 
-                  {/* 内容 */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm mb-2">{notice.content}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {notice.applicable_types?.map(type => {
-                        const config = CATEGORY_CONFIG[type as keyof typeof CATEGORY_CONFIG]
-                        return (
-                          <Badge
-                            key={type}
-                            variant="secondary"
-                            className={`text-xs ${config?.badgeColor || 'bg-gray-100'}`}
-                          >
-                            {config?.label || type}
-                          </Badge>
-                        )
-                      })}
-                      {(notice.store_ids?.length > 0 || notice.store_id) && (
-                        <>
-                          {(notice.store_ids?.length > 0 ? notice.store_ids : [notice.store_id]).map(storeId => (
-                            <Badge key={storeId} variant="outline" className="text-xs">
-                              {stores.find(s => s.id === storeId)?.short_name || '店舗'}
-                            </Badge>
-                          ))}
-                        </>
-                      )}
-                      {notice.requires_pre_reading && (
-                        <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
-                          📖 事前読込あり
+                {/* 内容 */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm mb-2">{notice.content}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {notice.applicable_types?.map(type => {
+                      const config = CATEGORY_CONFIG[type as keyof typeof CATEGORY_CONFIG]
+                      return (
+                        <Badge
+                          key={type}
+                          variant="secondary"
+                          className={`text-xs ${config?.badgeColor || 'bg-gray-100'}`}
+                        >
+                          {config?.label || type}
                         </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 有効/無効スイッチ */}
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={notice.is_active}
-                      onCheckedChange={() => handleToggleActive(notice)}
-                    />
-                    <span className="text-xs text-muted-foreground w-8">
-                      {notice.is_active ? '有効' : '無効'}
-                    </span>
-                  </div>
-
-                  {/* アクションボタン */}
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleEdit(notice)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => handleDelete(notice)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                      )
+                    })}
+                    {(notice.store_ids?.length > 0 || notice.store_id) && (
+                      <>
+                        {(notice.store_ids?.length > 0 ? notice.store_ids : [notice.store_id]).map(storeId => (
+                          <Badge key={storeId} variant="outline" className="text-xs">
+                            {stores.find(s => s.id === storeId)?.short_name || '店舗'}
+                          </Badge>
+                        ))}
+                      </>
+                    )}
+                    {notice.requires_pre_reading && (
+                      <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
+                        事前読込あり
+                      </Badge>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+
+                {/* 有効/無効スイッチ */}
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={notice.is_active}
+                    onCheckedChange={() => handleToggleActive(notice)}
+                  />
+                  <span className="text-xs text-muted-foreground w-8">
+                    {notice.is_active ? '有効' : '無効'}
+                  </span>
+                </div>
+
+                {/* アクションボタン */}
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => handleEdit(notice)}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => handleDelete(notice)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* 編集ダイアログ */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

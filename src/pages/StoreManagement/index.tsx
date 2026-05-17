@@ -14,7 +14,7 @@ import type { Store } from '@/types'
 import { logger } from '@/utils/logger'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
-import { Store as StoreIcon } from 'lucide-react'
+import { Store as StoreIcon, GripVertical, ArrowUp, ArrowDown } from 'lucide-react'
 import { devDb } from '@/components/ui/DevField'
 import { useOrganization } from '@/hooks/useOrganization'
 import { StoreFilters } from './components/StoreFilters'
@@ -31,6 +31,27 @@ export function StoreManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortState, setSortState] = useState<{ field: string; direction: 'asc' | 'desc' } | undefined>(undefined)
+  const [isReordering, setIsReordering] = useState(false)
+
+  const moveStore = async (storeId: string, direction: 'up' | 'down') => {
+    const orderable = [...stores].filter(s => s.ownership_type !== 'office')
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+    const idx = orderable.findIndex(s => s.id === storeId)
+    if (idx === -1) return
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= orderable.length) return
+    const reordered = [...orderable]
+    ;[reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]]
+    const updates = reordered.map((s, i) => ({ id: s.id, display_order: i + 1 }))
+    setIsReordering(true)
+    try {
+      await storeApi.updateDisplayOrder(updates)
+    } catch (error) {
+      showToast.error('並び順の更新に失敗しました')
+    } finally {
+      setIsReordering(false)
+    }
+  }
 
   useReportRouteScrollRestoration('store-management', { isLoading: loading })
   const { organization } = useOrganization()
@@ -225,6 +246,39 @@ export function StoreManagement() {
             />
           }
         />
+
+        {/* 表示順 */}
+        <details className="bg-white border rounded-lg">
+          <summary className="px-4 py-3 cursor-pointer text-sm font-medium flex items-center gap-2 select-none">
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+            表示順の変更
+            <span className="text-xs text-muted-foreground font-normal ml-1">— スケジュール・予約サイトでの並び順</span>
+          </summary>
+          <div className="px-4 pb-4 space-y-1.5">
+            {[...stores]
+              .filter(s => s.ownership_type !== 'office')
+              .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+              .map((store, index, arr) => (
+                <div key={store.id} className="flex items-center gap-3 p-2 rounded-lg border bg-muted/20">
+                  <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: store.color || '#3B82F6' }} />
+                  <span className="flex-1 text-sm">{store.short_name || store.name}</span>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                      disabled={index === 0 || isReordering}
+                      onClick={() => moveStore(store.id, 'up')}>
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                      disabled={index === arr.length - 1 || isReordering}
+                      onClick={() => moveStore(store.id, 'down')}>
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </details>
 
         {/* PC用: テーブル形式 */}
         <div className="hidden md:block">

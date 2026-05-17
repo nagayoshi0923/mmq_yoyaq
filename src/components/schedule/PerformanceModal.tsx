@@ -147,6 +147,9 @@ export function PerformanceModal({
     evening: { start_time: '19:00', end_time: '23:00', label: '夜公演' }
   })
 
+  // 店舗のデフォルト公演時間（分）- performance_schedule_settings から取得
+  const [defaultDuration, setDefaultDuration] = useState(180)
+
   // 営業時間制限（開始時刻・終了時刻）
   const [businessHours, setBusinessHours] = useState<{ openTime: string; closeTime: string } | null>(null)
 
@@ -387,6 +390,27 @@ export function PerformanceModal({
     return store?.id || null
   }
 
+  // デフォルト公演時間を読み込む（performance_schedule_settings から）
+  useEffect(() => {
+    const loadDefaultDuration = async () => {
+      try {
+        const venueValue = formData.venue || ''
+        const storeId = resolveStoreId(venueValue) || stores[0]?.id
+        if (!storeId) return
+        const { data } = await supabase
+          .from('performance_schedule_settings')
+          .select('default_duration')
+          .eq('store_id', storeId)
+          .maybeSingle()
+        if (data?.default_duration) {
+          setDefaultDuration(data.default_duration)
+        }
+      } catch { /* ignore */ }
+    }
+    loadDefaultDuration()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.venue, stores])
+
   // 営業時間設定を読み込む（公演時間設定は useTimeSlotSettings で取得）
   useEffect(() => {
     const loadBusinessHoursSettings = async () => {
@@ -579,7 +603,18 @@ export function PerformanceModal({
   // 開始時間変更時の自動設定
   // ※開始時間を変更しても時間帯（朝/昼/夜）は変更されない
   const handleStartTimeChange = (startTime: string) => {
-    const endTime = formData.scenario ? calculateEndTime(startTime, formData.scenario) : startTime
+    // シナリオが選択されている場合はシナリオのdurationで計算
+    // 未選択の場合は公演スケジュール設定のdefault_durationで計算
+    let endTime: string
+    if (formData.scenario) {
+      endTime = calculateEndTime(startTime, formData.scenario)
+    } else {
+      const [h, m] = startTime.split(':').map(Number)
+      const totalMinutes = h * 60 + m + defaultDuration
+      const endH = Math.floor(totalMinutes / 60)
+      const endM = totalMinutes % 60
+      endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`
+    }
     
     setFormData((prev: EventFormData) => ({
       ...prev,
