@@ -120,7 +120,7 @@ export function OrganizationInfoSettings() {
   const acceptedInvitations = invitations.filter(inv => inv.accepted_at)
 
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4 max-w-3xl mx-auto">
       <PageHeader title="組織情報" description="組織の基本情報と予約ページの設定">
         <div className="flex items-center gap-2">
           {isDirty && <span className="text-xs text-amber-600 font-medium">未保存</span>}
