@@ -18,12 +18,20 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
+type SubSubItem = {
+  id: string
+  label: string
+  path: string
+  roles?: string[]
+}
+
 type SubItem = {
   id: string
   label: string
-  path: string           // ?tab=xxx 付きURL
+  path?: string          // ?tab=xxx 付きURL（カテゴリヘッダーは省略）
   roles?: string[]
   sectionLabel?: string  // 直前にセクション区切りを入れる場合のラベル
+  subItems?: SubSubItem[] // 設定サブカテゴリ用
 }
 
 type NavItem = {
@@ -35,6 +43,7 @@ type NavItem = {
   badge?: number
   subItems?: SubItem[]
   sectionLabel?: string  // グループ内でこのアイテムの直前にセクションヘッダーを表示
+  isGroupHeader?: boolean // リンクではなく折り畳みセクションとして描画
 }
 
 type SidebarContentProps = {
@@ -211,31 +220,60 @@ export const AdminSidebar = memo(function AdminSidebar() {
       icon: Settings,
       items: [
         {
-          id: 'settings', label: '設定', icon: Settings,
-          path: `/${slug}/settings`, roles: ['admin', 'license_admin'],
+          id: 'cat-org', label: '組織', icon: Building2,
+          path: `/${slug}/settings?tab=organization-info`,
+          roles: ['admin', 'license_admin'], isGroupHeader: true,
           subItems: [
-            // 組織設定
-            { id: 'tenant-management',    label: 'テナント管理',   path: `/${slug}/settings?tab=tenant-management`, roles: ['license_admin'] },
-            { id: 'organization-info',    label: '組織情報',       path: `/${slug}/settings?tab=organization-info` },
-            { id: 'organization-design',  label: '組織デザイン',   path: `/${slug}/settings?tab=organization-design` },
-            { id: 'faq',                  label: 'FAQ設定',        path: `/${slug}/settings?tab=faq` },
-            { id: 'blog',                 label: 'ブログ・お知らせ', path: `/${slug}/settings?tab=blog` },
-            { id: 'general',              label: '全体設定',       path: `/${slug}/settings?tab=general` },
-            // 店舗別設定
-            { id: 'store-basic',          label: '店舗基本設定',   path: `/${slug}/settings?tab=store-basic`,          sectionLabel: '店舗別設定' },
-            { id: 'business-hours',       label: '営業時間',       path: `/${slug}/settings?tab=business-hours` },
+            { id: 'organization-info',   label: '組織情報',        path: `/${slug}/settings?tab=organization-info` },
+            { id: 'organization-design', label: '組織デザイン',    path: `/${slug}/settings?tab=organization-design` },
+            { id: 'faq',                 label: 'FAQ設定',         path: `/${slug}/settings?tab=faq` },
+            { id: 'blog',                label: 'ブログ・お知らせ', path: `/${slug}/settings?tab=blog` },
+          ],
+        },
+        {
+          id: 'cat-store', label: '店舗・予約', icon: Store,
+          path: `/${slug}/settings?tab=store-basic`,
+          roles: ['admin', 'license_admin'], isGroupHeader: true,
+          subItems: [
+            { id: 'store-basic',          label: '店舗基本設定',    path: `/${slug}/settings?tab=store-basic` },
+            { id: 'business-hours',       label: '営業時間',        path: `/${slug}/settings?tab=business-hours` },
             { id: 'performance-schedule', label: '公演スケジュール', path: `/${slug}/settings?tab=performance-schedule` },
-            { id: 'reservation',          label: '予約設定',       path: `/${slug}/settings?tab=reservation` },
-            { id: 'cancellation',         label: 'キャンセル設定', path: `/${slug}/settings?tab=cancellation` },
-            { id: 'pricing',              label: '料金設定',       path: `/${slug}/settings?tab=pricing` },
-            { id: 'salary',               label: '報酬',           path: `/${slug}/settings?tab=salary` },
-            { id: 'staff-setting',        label: 'スタッフ設定',   path: `/${slug}/settings?tab=staff` },
-            { id: 'email',                label: 'メール設定',     path: `/${slug}/settings?tab=email` },
-            { id: 'notifications',        label: '通知設定',       path: `/${slug}/settings?tab=notifications` },
-            { id: 'booking-notice',       label: '注意事項設定',   path: `/${slug}/settings?tab=booking-notice` },
-            { id: 'categories',           label: 'カテゴリ・作者', path: `/${slug}/settings?tab=categories` },
-            { id: 'system',               label: 'システム設定',   path: `/${slug}/settings?tab=system` },
-            { id: 'data',                 label: 'データ管理',     path: `/${slug}/settings?tab=data` },
+            { id: 'reservation',          label: '予約設定',        path: `/${slug}/settings?tab=reservation` },
+            { id: 'cancellation',         label: 'キャンセル設定',  path: `/${slug}/settings?tab=cancellation` },
+            { id: 'pricing',              label: '料金設定',        path: `/${slug}/settings?tab=pricing` },
+            { id: 'booking-notice',       label: '注意事項設定',    path: `/${slug}/settings?tab=booking-notice` },
+            { id: 'categories',           label: 'カテゴリ・作者',  path: `/${slug}/settings?tab=categories` },
+          ],
+        },
+        {
+          id: 'cat-staff', label: 'スタッフ', icon: UserCog,
+          path: `/${slug}/settings?tab=shift`,
+          roles: ['admin', 'license_admin'], isGroupHeader: true,
+          subItems: [
+            { id: 'shift',         label: 'シフト設定',   path: `/${slug}/settings?tab=shift` },
+            { id: 'staff-setting', label: 'スタッフ設定', path: `/${slug}/settings?tab=staff` },
+            { id: 'salary',        label: '報酬',         path: `/${slug}/settings?tab=salary` },
+            { id: 'customer',      label: '顧客設定',     path: `/${slug}/settings?tab=customer` },
+          ],
+        },
+        {
+          id: 'cat-mail', label: 'メール・通知', icon: Mail,
+          path: `/${slug}/settings?tab=email`,
+          roles: ['admin', 'license_admin'], isGroupHeader: true,
+          subItems: [
+            { id: 'email',         label: 'メール設定',    path: `/${slug}/settings?tab=email` },
+            { id: 'email-history', label: 'メール配信履歴', path: `/${slug}/settings?tab=email-history` },
+            { id: 'email-logs',    label: 'メール送信ログ', path: `/${slug}/settings?tab=email-logs` },
+            { id: 'notifications', label: '通知設定',      path: `/${slug}/settings?tab=notifications` },
+          ],
+        },
+        {
+          id: 'cat-system', label: 'システム', icon: Shield,
+          path: `/${slug}/settings?tab=system`,
+          roles: ['admin', 'license_admin'], isGroupHeader: true,
+          subItems: [
+            { id: 'system', label: 'システム設定', path: `/${slug}/settings?tab=system` },
+            { id: 'data',   label: 'データ管理',  path: `/${slug}/settings?tab=data` },
           ],
         },
       ],
@@ -282,8 +320,15 @@ export const AdminSidebar = memo(function AdminSidebar() {
     // subItems のいずれかのタブがアクティブなら親も active とみなす
     if (item.subItems && pathname === basePath) {
       if (item.subItems.some(sub => {
-        const [, subQuery] = sub.path.split('?')
-        return subQuery && new URLSearchParams(subQuery).get('tab') === currentTab
+        if (sub.path) {
+          const [, subQuery] = sub.path.split('?')
+          if (subQuery && new URLSearchParams(subQuery).get('tab') === currentTab) return true
+        }
+        // カテゴリ（path なし）の場合は sub.subItems を確認
+        return sub.subItems?.some(ssub => {
+          const [, ssQuery] = ssub.path.split('?')
+          return ssQuery && new URLSearchParams(ssQuery).get('tab') === currentTab
+        }) ?? false
       })) return true
     }
     if (query) {
@@ -293,8 +338,9 @@ export const AdminSidebar = memo(function AdminSidebar() {
     return pathname === basePath || pathname.startsWith(basePath + '/')
   }, [location, slug])
 
-  // サブアイテムのアクティブ判定
+  // サブアイテムのアクティブ判定（path がある場合のみ）
   const isSubActive = useCallback((sub: SubItem) => {
+    if (!sub.path) return false
     const { pathname, search } = location
     const [basePath, query] = sub.path.split('?')
     if (!query) return pathname === basePath
@@ -325,7 +371,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
   return (
     <>
       {/* デスクトップサイドバー */}
-      <aside className="hidden md:flex flex-col w-48 shrink-0 border-r border-border bg-background h-full overflow-y-auto">
+      <aside className="hidden md:flex flex-col w-48 shrink-0 border-r border-border bg-slate-50 h-full overflow-y-auto">
         <SidebarContent
           slug={slug}
           bookingActive={bookingActive}
@@ -401,6 +447,38 @@ function GroupPanel({
   const alreadyActive = isOpen && !!group.label && lastActiveGroupId.current === group.id
   if (isOpen && group.label) lastActiveGroupId.current = group.id
 
+  const location = useLocation()
+  const navigate = useNavigate()
+  // 手動で折り畳んだカテゴリID（アクティブでも折り畳める）
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
+
+  const handleCategoryClick = (id: string, firstPath: string, isActive: boolean) => {
+    if (isActive) {
+      // アクティブなカテゴリはトグルのみ（ページ遷移なし）
+      setCollapsedCategories(prev => {
+        const next = new Set(prev)
+        next.has(id) ? next.delete(id) : next.add(id)
+        return next
+      })
+    } else {
+      // 非アクティブなカテゴリは最初の項目に遷移（自動展開）
+      navigate(firstPath)
+      setCollapsedCategories(prev => {
+        const next = new Set(prev)
+        next.delete(id) // 展開状態にリセット
+        return next
+      })
+    }
+  }
+
+  const isSubSubActive = (ssub: SubSubItem) => {
+    const { pathname, search } = location
+    const [basePath, query] = ssub.path.split('?')
+    if (!query) return pathname === basePath
+    const tabParam = new URLSearchParams(query).get('tab')
+    return pathname === basePath && new URLSearchParams(search).get('tab') === tabParam
+  }
+
   const divRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
@@ -424,6 +502,46 @@ function GroupPanel({
       <div className="space-y-0.5 px-2 pb-1">
         {group.items.map(item => {
           const active = isActive(item)
+          // isGroupHeader: リンクではなく折り畳みセクションとして描画
+          if (item.isGroupHeader) {
+            const visibleSubs = (item.subItems ?? []).filter(
+              s => !s.roles || s.roles.includes(userRole) || (isLicAdmin && s.roles.includes('license_admin'))
+            )
+            const catOpen = active && !collapsedCategories.has(item.id)
+            const firstPath = visibleSubs[0]?.path ?? item.path
+            return (
+              <div key={item.id}>
+                <button
+                  onClick={() => handleCategoryClick(item.id, firstPath, active)}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    active ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  <span>{item.label}</span>
+                  <ChevronDown className={`h-3 w-3 transition-transform duration-150 ${catOpen ? '' : '-rotate-90'}`} />
+                </button>
+                {catOpen && (
+                  <div className="ml-3 pl-2 border-l border-border/40 space-y-0.5 mb-1">
+                    {visibleSubs.map(sub => {
+                      const subActive = isSubActive(sub)
+                      return sub.path ? (
+                        <Link
+                          key={sub.id}
+                          to={sub.path}
+                          className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
+                            subActive ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                          }`}
+                        >
+                          <span className="truncate">{sub.label}</span>
+                        </Link>
+                      ) : null
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          }
+
           const showSubs = active && item.subItems && item.subItems.length > 0
           const visibleSubs = showSubs
             ? item.subItems!.filter(s =>
@@ -455,6 +573,49 @@ function GroupPanel({
               {showSubs && visibleSubs.length > 0 && (
                 <div className="ml-3 pl-2 border-l border-border/60 space-y-0.5 mt-0.5 mb-1">
                   {visibleSubs.map(sub => {
+                    // ── カテゴリ（sub.subItems あり）
+                    if (sub.subItems && sub.subItems.length > 0) {
+                      const visibleSubSubs = sub.subItems.filter(
+                        s => !s.roles || s.roles.includes(userRole) || (isLicAdmin && s.roles.includes('license_admin'))
+                      )
+                      const categoryActive = visibleSubSubs.some(s => isSubSubActive(s))
+                      const categoryOpen = categoryActive && !collapsedCategories.has(sub.id)
+                      const firstPath = visibleSubSubs[0]?.path ?? ''
+                      return (
+                        <div key={sub.id}>
+                          <button
+                            onClick={() => handleCategoryClick(sub.id, firstPath, categoryActive)}
+                            className={`w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold transition-colors ${
+                              categoryActive ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                          >
+                            <span>{sub.label}</span>
+                            <ChevronDown className={`h-3 w-3 transition-transform duration-150 ${categoryOpen ? '' : '-rotate-90'}`} />
+                          </button>
+                          {categoryOpen && (
+                            <div className="ml-2 pl-2 border-l border-border/40 space-y-0.5 mb-1">
+                              {visibleSubSubs.map(ssub => {
+                                const ssActive = isSubSubActive(ssub)
+                                return (
+                                  <Link
+                                    key={ssub.id}
+                                    to={ssub.path}
+                                    className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
+                                      ssActive
+                                        ? 'bg-blue-50 text-blue-700 font-medium'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                    }`}
+                                  >
+                                    <span className="truncate">{ssub.label}</span>
+                                  </Link>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }
+                    // ── 通常サブアイテム
                     const subActive = isSubActive(sub)
                     return (
                       <div key={sub.id}>
@@ -463,16 +624,18 @@ function GroupPanel({
                             {sub.sectionLabel}
                           </p>
                         )}
-                        <Link
-                          to={sub.path}
-                          className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
-                            subActive
-                              ? 'bg-blue-50 text-blue-700 font-medium'
-                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                          }`}
-                        >
-                          <span className="truncate">{sub.label}</span>
-                        </Link>
+                        {sub.path && (
+                          <Link
+                            to={sub.path}
+                            className={`flex items-center px-2 py-1.5 text-xs transition-colors ${
+                              subActive
+                                ? 'bg-blue-50 text-blue-700 font-medium'
+                                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                            }`}
+                          >
+                            <span className="truncate">{sub.label}</span>
+                          </Link>
+                        )}
                       </div>
                     )
                   })}
@@ -521,7 +684,7 @@ function SidebarContent({
               onClick={() => handleGroupClick(group)}
               className="w-full flex items-center justify-between px-3 pt-2 pb-1 transition-colors duration-150 group"
             >
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 transition-colors duration-150 group-hover:text-slate-600">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors duration-150 group-hover:text-slate-600">
                 {group.label}
               </span>
               <ChevronRight className={`w-3 h-3 text-slate-300 transition-all duration-200 group-hover:text-slate-500 ${
@@ -540,6 +703,8 @@ function SidebarContent({
           />
         </div>
       ))}
+      {/* 最下部の余白（最後のメニューが押しにくくなるのを防ぐ） */}
+      <div className="h-48 flex-shrink-0" />
     </div>
   )
 }

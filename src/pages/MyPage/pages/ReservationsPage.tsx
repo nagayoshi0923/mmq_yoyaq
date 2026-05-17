@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { RESERVATION_SOURCE } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -7,9 +7,6 @@ import { Calendar, Clock, CheckCircle, MapPin, X, Users, AlertTriangle, Calendar
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
-import { reservationApi } from '@/lib/reservationApi'
-import type { RpcChangeReservationScheduleParams } from '@/lib/rpcTypes'
-import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { parseIntSafe } from '@/utils/number'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import {
@@ -39,6 +36,11 @@ import {
   DEFAULT_OPEN_CANCEL_DEADLINE_HOURS,
   DEFAULT_PRIVATE_CANCEL_DEADLINE_HOURS,
 } from '@/constants/cancellationPolicyDefaults'
+import {
+  useReservationsQuery, useEventSeatsQuery, useAvailableEventsQuery,
+  useCancelReservationMutation, useUpdateParticipantsMutation,
+  useCancelWaitlistMutation, useChangeDateMutation,
+} from '../hooks/useReservationsQuery'
 
 /** 貸切・オープンでキャンセル料テーブル・受付期限を切り替える */
 function isPrivateReservation(reservation: Reservation): boolean {
@@ -61,269 +63,52 @@ interface CancellationPolicy {
 
 export function ReservationsPage() {
   const { user } = useAuth()
-  const [reservations, setReservations] = useState<Reservation[]>([])
-  const [waitlist, setWaitlist] = useState<Waitlist[]>([])
-  const [loading, setLoading] = useState(true)
-  const [scenarioImages, setScenarioImages] = useState<Record<string, string>>({})
-  const [scenarioInfo, setScenarioInfo] = useState<Record<string, { min: number; max: number }>>({})
-  const [scenarioTitles, setScenarioTitles] = useState<Record<string, string>>({})
-  const [stores, setStores] = useState<Record<string, Store>>({})
-  
+
   // キャンセルダイアログ
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null)
-  const [cancelling, setCancelling] = useState(false)
   const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicy | null>(null)
-  
-  // 店舗ごとのキャンセル期限をキャッシュ
-  const [storeDeadlines, setStoreDeadlines] = useState<Record<string, number>>({})
-  const [storePrivateDeadlines, setStorePrivateDeadlines] = useState<Record<string, number>>({})
-  
+
   // 人数変更ダイアログ
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Reservation | null>(null)
   const [newParticipantCount, setNewParticipantCount] = useState(1)
-  const [updating, setUpdating] = useState(false)
-  const [maxParticipants, setMaxParticipants] = useState<number | null>(null)
-  const [currentEventParticipants, setCurrentEventParticipants] = useState(0)
 
   // キャンセル待ち解除ダイアログ
   const [waitlistCancelDialogOpen, setWaitlistCancelDialogOpen] = useState(false)
   const [waitlistCancelTarget, setWaitlistCancelTarget] = useState<Waitlist | null>(null)
-  const [waitlistCancelling, setWaitlistCancelling] = useState(false)
 
   // 日程変更ダイアログ
   const [dateChangeDialogOpen, setDateChangeDialogOpen] = useState(false)
   const [dateChangeTarget, setDateChangeTarget] = useState<Reservation | null>(null)
-  const [availableEvents, setAvailableEvents] = useState<Array<{
-    id: string
-    date: string
-    start_time: string
-    end_time: string | null
-    max_participants: number
-    current_participants: number
-    store_name: string
-    store_id: string
-  }>>([])
   const [selectedNewEventId, setSelectedNewEventId] = useState<string | null>(null)
-  const [loadingEvents, setLoadingEvents] = useState(false)
-  const [changingDate, setChangingDate] = useState(false)
 
-  useEffect(() => {
-    if (user?.email) {
-      fetchReservations()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
-  }, [user])
+  // React Query
+  const { data: rqData, isLoading: loading } = useReservationsQuery(user?.id, user?.email)
+  const reservations = rqData?.reservations ?? []
+  const waitlist = rqData?.waitlist ?? []
+  const scenarioImages = rqData?.scenarioImages ?? {}
+  const scenarioInfo = rqData?.scenarioInfo ?? {}
+  const scenarioTitles = rqData?.scenarioTitles ?? {}
+  const stores = rqData?.stores ?? {}
+  const storeDeadlines = rqData?.storeDeadlines ?? {}
+  const storePrivateDeadlines = rqData?.storePrivateDeadlines ?? {}
 
-  const fetchReservations = async () => {
-    if (!user?.email) return
+  const { data: eventSeatsData } = useEventSeatsQuery(editTarget?.schedule_event_id ?? undefined, editDialogOpen)
+  const maxParticipants = eventSeatsData?.max_participants || null
+  const currentEventParticipants = (eventSeatsData?.current_participants || 0) - (editTarget?.participant_count || 0)
 
-    setLoading(true)
-    try {
-      // 顧客情報を取得（user_idまたはemailで検索）
-      let customer = null
-      const { data: customerByUserId } = await supabase
-        .from('customers')
-        .select('id, user_id')
-        .eq('user_id', user.id)
-        .maybeSingle()
+  const { data: availableEvents = [], isLoading: loadingEvents } = useAvailableEventsQuery(
+    dateChangeTarget?.scenario_master_id ?? undefined,
+    dateChangeTarget?.schedule_event_id,
+    dateChangeTarget?.participant_count ?? 1,
+    dateChangeDialogOpen
+  )
 
-      if (customerByUserId) {
-        customer = customerByUserId
-      } else {
-        const { data: customerByEmail, error: emailError } = await supabase
-          .from('customers')
-          .select('id, user_id')
-          .ilike('email', user.email)
-          .maybeSingle()
-        
-        if (emailError && emailError.code !== 'PGRST116') throw emailError
-        
-        if (customerByEmail) {
-          customer = customerByEmail
-          
-          if (!customerByEmail.user_id && user.id) {
-            supabase
-              .from('customers')
-              .update({ user_id: user.id })
-              .eq('id', customerByEmail.id)
-              .then(() => {})
-          }
-        }
-      }
-
-      if (!customer) {
-        setReservations([])
-        setWaitlist([])
-        return
-      }
-
-      // キャンセル待ちと予約を並列取得
-      const [waitlistResult, reservationsResult] = await Promise.all([
-        supabase
-          .from('waitlist')
-          .select(`
-            *,
-            schedule_events(id, date, start_time, end_time, venue, scenario)
-          `)
-          .eq('customer_email', user.email)
-          .in('status', ['waiting', 'notified'])
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('reservations')
-          .select(`
-            *, 
-            payment_method, 
-            payment_status,
-            schedule_events!schedule_event_id(
-              id, 
-              date,
-              start_time,
-              current_participants, 
-              max_participants,
-              category
-            )
-          `)
-          .eq('customer_id', customer.id)
-          .order('requested_datetime', { ascending: false })
-      ])
-
-      if (waitlistResult.error) {
-        logger.error('キャンセル待ち取得エラー:', waitlistResult.error)
-      } else {
-        setWaitlist(waitlistResult.data || [])
-      }
-
-      if (reservationsResult.error) throw reservationsResult.error
-      const data = reservationsResult.data || []
-      setReservations(data)
-
-      // 関連データを並列取得
-      if (data && data.length > 0) {
-        const scenarioMasterIds = data
-          .map(r => r.scenario_master_id)
-          .filter((id): id is string => id !== null && id !== undefined)
-        
-        const storeIds = new Set<string>()
-        data.forEach(r => {
-          if (r.store_id) storeIds.add(r.store_id)
-          if (r.candidate_datetimes) {
-            const cd = r.candidate_datetimes
-            if (cd.confirmedStore?.storeId) storeIds.add(cd.confirmedStore.storeId)
-            if (cd.requestedStores) {
-              cd.requestedStores.forEach((store: any) => {
-                if (store.storeId) storeIds.add(store.storeId)
-              })
-            }
-          }
-        })
-
-        const storeIdsArray = Array.from(storeIds)
-        
-        // 組織IDごとにシナリオIDをグループ化（organization_scenarios_with_master で正しいタイトルを取得するため）
-        const orgToScenarioIds = new Map<string, Set<string>>()
-        const idsWithoutOrg = new Set<string>()
-        data.forEach(r => {
-          const masterId = r.scenario_master_id
-          if (!masterId) return
-          if (r.organization_id) {
-            if (!orgToScenarioIds.has(r.organization_id)) orgToScenarioIds.set(r.organization_id, new Set())
-            orgToScenarioIds.get(r.organization_id)!.add(masterId)
-          } else {
-            idsWithoutOrg.add(masterId)
-          }
-        })
-
-        // シナリオ、店舗、設定を並列取得
-        const scenarioViewQueries = Array.from(orgToScenarioIds.entries()).map(([orgId, ids]) =>
-          supabase
-            .from('organization_scenarios_with_master')
-            .select('id, title, key_visual_url, player_count_min, player_count_max')
-            .in('id', Array.from(ids))
-            .eq('organization_id', orgId)
-        )
-        // organization_id がない予約は scenario_masters にフォールバック
-        if (idsWithoutOrg.size > 0) {
-          scenarioViewQueries.push(
-            supabase
-              .from('scenario_masters')
-              .select('id, title, key_visual_url, player_count_min, player_count_max')
-              .in('id', Array.from(idsWithoutOrg)) as any
-          )
-        }
-
-        const [scenarioResults, storesResult, settingsResult] = await Promise.all([
-          scenarioViewQueries.length > 0
-            ? Promise.all(scenarioViewQueries)
-            : Promise.resolve([]),
-          storeIdsArray.length > 0
-            ? supabase
-                .from('stores')
-                .select('id, name, address, color')
-                .in('id', storeIdsArray)
-            : Promise.resolve({ data: null, error: null }),
-          storeIdsArray.length > 0
-            ? supabase
-                .from('reservation_settings')
-                .select('store_id, cancellation_deadline_hours, private_cancellation_deadline_hours')
-                .in('store_id', storeIdsArray)
-            : Promise.resolve({ data: null, error: null })
-        ])
-
-        // シナリオ情報処理
-        const allScenarioData = (scenarioResults as { data: { id: string; title: string; key_visual_url: string | null; player_count_min: number; player_count_max: number }[] | null }[])
-          .flatMap(r => r.data ?? [])
-        if (allScenarioData.length > 0) {
-          const imageMap: Record<string, string> = {}
-          const scenarioInfoMap: Record<string, { min: number; max: number }> = {}
-          const titleMap: Record<string, string> = {}
-          allScenarioData.forEach(s => {
-            if (s.key_visual_url) imageMap[s.id] = s.key_visual_url
-            if (s.title) titleMap[s.id] = s.title
-            scenarioInfoMap[s.id] = {
-              min: s.player_count_min || 1,
-              max: s.player_count_max || 8
-            }
-          })
-          setScenarioImages(imageMap)
-          setScenarioInfo(scenarioInfoMap)
-          setScenarioTitles(titleMap)
-        }
-
-        // 店舗情報処理
-        if (storesResult.data) {
-          const storeMap: Record<string, Store> = {}
-          storesResult.data.forEach(store => {
-            storeMap[store.id] = store as Store
-          })
-          setStores(storeMap)
-        }
-
-        // キャンセル期限処理
-        if (settingsResult.data) {
-          const deadlineMap: Record<string, number> = {}
-          const privateDeadlineMap: Record<string, number> = {}
-          settingsResult.data.forEach(setting => {
-            if (setting.store_id != null) {
-              if (setting.cancellation_deadline_hours != null) {
-                deadlineMap[setting.store_id] = setting.cancellation_deadline_hours
-              }
-              if (setting.private_cancellation_deadline_hours != null) {
-                privateDeadlineMap[setting.store_id] = setting.private_cancellation_deadline_hours
-              }
-            }
-          })
-          setStoreDeadlines(deadlineMap)
-          setStorePrivateDeadlines(privateDeadlineMap)
-        }
-      }
-    } catch (error) {
-      logger.error('予約履歴取得エラー:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const cancelMutation = useCancelReservationMutation(user?.id, user?.email)
+  const updateMutation = useUpdateParticipantsMutation(user?.id, user?.email)
+  const cancelWaitlistMutation = useCancelWaitlistMutation(user?.id, user?.email)
+  const changeDateMutation = useChangeDateMutation(user?.id, user?.email)
 
   // 時間のみ表示（タイトルに日付が含まれているため）
   const formatTime = (dateString: string) => {
@@ -543,7 +328,6 @@ export function ReservationsPage() {
   // キャンセル処理
   const handleCancelClick = async (reservation: Reservation) => {
     setCancelTarget(reservation)
-    // キャンセルポリシーを取得
     const policy = await fetchCancellationPolicy(reservation.store_id, reservation)
     setCancellationPolicy(policy)
     setCancelDialogOpen(true)
@@ -551,302 +335,58 @@ export function ReservationsPage() {
 
   const handleCancelConfirm = async () => {
     if (!cancelTarget) return
-    
-    setCancelling(true)
     try {
-      // 予約をキャンセル（RPC + 通知）
-      await reservationApi.cancel(cancelTarget.id, 'お客様によるキャンセル')
-
+      await cancelMutation.mutateAsync(cancelTarget.id)
       toast.success('予約をキャンセルしました')
-      fetchReservations()
-    } catch (error) {
-      logger.error('予約キャンセルエラー:', error)
+    } catch {
       toast.error('キャンセルに失敗しました')
     } finally {
-      setCancelling(false)
       setCancelDialogOpen(false)
       setCancelTarget(null)
     }
   }
 
   // 人数変更処理
-  const handleEditClick = async (reservation: Reservation) => {
+  const handleEditClick = (reservation: Reservation) => {
     setEditTarget(reservation)
     setNewParticipantCount(reservation.participant_count)
-    
-    // 公演の空席情報を取得（公開用ビュー）
-    if (reservation.schedule_event_id) {
-      try {
-        const { data: eventData } = await supabase
-          .from('schedule_events_public')
-          .select('max_participants, current_participants')
-          .eq('id', reservation.schedule_event_id)
-          .single()
-        
-        if (eventData) {
-          setMaxParticipants(eventData.max_participants || null)
-          // この予約の人数を引いた現在の参加者数（他の予約分）
-          setCurrentEventParticipants((eventData.current_participants || 0) - reservation.participant_count)
-        }
-      } catch (error) {
-        logger.error('公演情報取得エラー:', error)
-      }
-    }
-    
     setEditDialogOpen(true)
   }
 
   const handleEditConfirm = async () => {
     if (!editTarget) return
-    
-    setUpdating(true)
     try {
-      const oldCount = editTarget.participant_count
-      const countDiff = newParticipantCount - oldCount
-
-      // 予約時点の1人あたり料金を取得（優先順位: unit_price → 計算値 → シナリオ）
-      let pricePerPerson = editTarget.unit_price // 予約時点の料金
-      
-      if (!pricePerPerson && oldCount > 0) {
-        // unit_priceがない場合はbase_priceから逆算
-        pricePerPerson = Math.round((editTarget.base_price || 0) / oldCount)
-      }
-      
-      if (!pricePerPerson && editTarget.scenario_master_id) {
-        // それでもない場合は organization_scenarios_with_master から取得（フォールバック）
-        const scenarioMasterId = editTarget.scenario_master_id
-        const { data: scenarioData } = await supabase
-          .from('organization_scenarios_with_master')
-          .select('participation_fee')
-          .eq('id', scenarioMasterId)
-          .eq('organization_id', editTarget.organization_id)
-          .maybeSingle()
-        
-        if (scenarioData?.participation_fee) {
-          pricePerPerson = scenarioData.participation_fee
-        }
-      }
-      
-      pricePerPerson = pricePerPerson || 0
-      
-      const newBasePrice = pricePerPerson * newParticipantCount
-      // オプション料金は維持（options_price）
-      const optionsPrice = editTarget.options_price || 0
-      const newTotalPrice = newBasePrice + optionsPrice
-      const newFinalPrice = newTotalPrice - (editTarget.discount_amount || 0)
-
-      // 🚨 SECURITY FIX (SEC-P0-05): 料金の直接UPDATE削除
-      // 
-      // 問題:
-      //   - 元の実装は RPC で人数変更後、料金を直接UPDATEしていた
-      //   - RLS で顧客の UPDATE 権限を削除したため、このコードは動作しなくなる
-      // 
-      // 修正:
-      //   - 料金計算も含めて RPC 内で完結させる（027マイグレーションで対応）
-      //   - 当面は人数変更のみで、料金は従来のunit_price×新人数で自動計算
-      
-      // 参加人数の更新はRPCでロック付き実行
-      await reservationApi.updateParticipantsWithLock(
-        editTarget.id,
-        newParticipantCount,
-        editTarget.customer_id ?? null
-      )
-      
-      // TODO: 料金更新はRPC内で実施（027マイグレーション適用後）
-      // 現状は updateParticipantsWithLock が人数のみ更新し、
-      // 料金は別途計算が必要な場合はスタッフが管理画面から調整
-
-      // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
-      if (editTarget.schedule_event_id) {
-        try {
-          await recalculateCurrentParticipants(editTarget.schedule_event_id)
-        } catch (updateError) {
-          logger.error('参加者数の更新エラー:', updateError)
-        }
-      }
-
-      // 人数が減少した場合、キャンセル待ち通知を送信
-      logger.log('人数変更チェック:', { 
-        countDiff, 
-        schedule_event_id: editTarget.schedule_event_id, 
-        organization_id: editTarget.organization_id 
-      })
-      
-      if (countDiff < 0 && editTarget.schedule_event_id) {
-        try {
-          // 公演情報を取得（公開用ビュー）
-          const { data: eventData } = await supabase
-            .from('schedule_events_public')
-            .select('date, start_time, end_time, scenario, venue, organization_id')
-            .eq('id', editTarget.schedule_event_id)
-            .single()
-          
-          const orgId = editTarget.organization_id || eventData?.organization_id
-          logger.log('キャンセル待ち通知準備:', { eventData, orgId })
-          
-          if (eventData && orgId) {
-            const result = await supabase.functions.invoke('notify-waitlist', {
-              body: {
-                organizationId: orgId,
-                scheduleEventId: editTarget.schedule_event_id,
-                freedSeats: Math.abs(countDiff), // 減少した人数分が空席
-                scenarioTitle: editTarget.title || eventData.scenario || '',
-                eventDate: eventData.date,
-                startTime: eventData.start_time,
-                endTime: eventData.end_time,
-                storeName: eventData.venue || ''
-              }
-            })
-            logger.log('キャンセル待ち通知送信結果:', result)
-          }
-        } catch (waitlistError) {
-          logger.error('キャンセル待ち通知エラー:', waitlistError)
-          // 通知失敗しても処理は続行
-        }
-      }
-
+      await updateMutation.mutateAsync({ reservation: editTarget, newCount: newParticipantCount })
       toast.success('参加人数を変更しました')
-      fetchReservations()
-    } catch (error) {
-      logger.error('予約更新エラー:', error)
+    } catch {
       toast.error('変更に失敗しました')
     } finally {
-      setUpdating(false)
       setEditDialogOpen(false)
       setEditTarget(null)
     }
   }
 
   // 日程変更処理
-  const handleDateChangeClick = async (reservation: Reservation) => {
-    const scenarioMasterId = reservation.scenario_master_id
-    if (!scenarioMasterId) {
+  const handleDateChangeClick = (reservation: Reservation) => {
+    if (!reservation.scenario_master_id) {
       toast.error('シナリオ情報がありません')
       return
     }
-
     setDateChangeTarget(reservation)
     setSelectedNewEventId(null)
-    setLoadingEvents(true)
     setDateChangeDialogOpen(true)
-
-    try {
-      // 同じシナリオの今後の公演を取得（現在の予約を除く）
-      // 公開用ビューを使用（リレーションは使えないため店舗は別途取得）
-      const today = new Date().toISOString().split('T')[0]
-      const { data: events, error } = await supabase
-        .from('schedule_events_public')
-        .select('id, date, start_time, end_time, max_participants, current_participants, store_id')
-        .eq('scenario_master_id', scenarioMasterId)
-        .gte('date', today)
-        .eq('is_cancelled', false)
-        .neq('id', reservation.schedule_event_id || '')
-        .order('date', { ascending: true })
-        .order('start_time', { ascending: true })
-
-      if (error) throw error
-
-      // 店舗情報を取得
-      const storeIds = [...new Set((events || []).map(e => e.store_id).filter(Boolean))]
-      const storeMap = new Map<string, { id: string; name: string }>()
-      if (storeIds.length > 0) {
-        const { data: storesData } = await supabase
-          .from('stores_public')
-          .select('id, name')
-          .in('id', storeIds)
-        for (const s of storesData || []) {
-          storeMap.set(s.id, s)
-        }
-      }
-
-      // 空席がある公演のみフィルタ
-      const availableEventsData = (events || [])
-        .filter(e => {
-          const available = (e.max_participants || 0) - (e.current_participants || 0)
-          return available >= reservation.participant_count
-        })
-        .map(e => ({
-          id: e.id,
-          date: e.date,
-          start_time: e.start_time,
-          end_time: e.end_time,
-          max_participants: e.max_participants || 0,
-          current_participants: e.current_participants || 0,
-          store_name: storeMap.get(e.store_id)?.name || '未定',
-          store_id: e.store_id || ''
-        }))
-
-      setAvailableEvents(availableEventsData)
-    } catch (error) {
-      logger.error('公演取得エラー:', error)
-      toast.error('公演情報の取得に失敗しました')
-    } finally {
-      setLoadingEvents(false)
-    }
   }
 
   const handleDateChangeConfirm = async () => {
     if (!dateChangeTarget || !selectedNewEventId) return
-
-    setChangingDate(true)
+    const newEvent = availableEvents.find(e => e.id === selectedNewEventId)
+    if (!newEvent) { toast.error('選択した公演が見つかりません'); return }
     try {
-      const oldEventId = dateChangeTarget.schedule_event_id
-      const newEvent = availableEvents.find(e => e.id === selectedNewEventId)
-      if (!newEvent) throw new Error('選択した公演が見つかりません')
-
-      // 顧客IDを取得
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single()
-
-      if (!customer) throw new Error('顧客情報が取得できません')
-
-      // 🔒 RPCで日程変更（在庫をアトミックに調整）
-      const changeScheduleParams: RpcChangeReservationScheduleParams = {
-        p_reservation_id: dateChangeTarget.id,
-        p_new_schedule_event_id: selectedNewEventId,
-        p_customer_id: customer.id,
-      }
-      const { error } = await supabase.rpc('change_reservation_schedule', changeScheduleParams)
-
-      if (error) {
-        logger.error('日程変更RPCエラー:', error)
-        if (error.code === 'P0020') throw new Error('選択した公演が見つかりません')
-        if (error.code === 'P0021') throw new Error('選択した公演に空席がありません')
-        if (error.code === 'P0007') throw new Error('予約が見つかりません')
-        if (error.code === 'P0010') throw new Error('この予約を変更する権限がありません')
-        throw error
-      }
-
-      // 日程変更確認メールを送信（失敗しても処理は続行）
-      try {
-        await supabase.functions.invoke('send-booking-change-confirmation', {
-          body: {
-            reservationId: dateChangeTarget.id,
-            customerEmail: user?.email,
-            customerName: dateChangeTarget.customer_name,
-            scenarioTitle: dateChangeTarget.title,
-            oldDate: dateChangeTarget.requested_datetime?.split('T')[0],
-            newDate: newEvent.date,
-            newStartTime: newEvent.start_time,
-            storeName: newEvent.store_name,
-            participantCount: dateChangeTarget.participant_count
-          }
-        })
-      } catch (emailError) {
-        logger.error('メール送信エラー:', emailError)
-        // メール送信失敗は処理に影響させない
-      }
-
+      await changeDateMutation.mutateAsync({ reservation: dateChangeTarget, newEventId: selectedNewEventId, newEvent, userEmail: user?.email })
       toast.success('日程を変更しました')
-      fetchReservations()
-    } catch (error) {
-      logger.error('日程変更エラー:', error)
-      toast.error('日程変更に失敗しました')
+    } catch (error: any) {
+      toast.error(error.message || '日程変更に失敗しました')
     } finally {
-      setChangingDate(false)
       setDateChangeDialogOpen(false)
       setDateChangeTarget(null)
     }
@@ -1546,13 +1086,13 @@ export function ReservationsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancelling}>戻る</AlertDialogCancel>
+            <AlertDialogCancel disabled={cancelMutation.isPending}>戻る</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCancelConfirm}
-              disabled={cancelling}
+              disabled={cancelMutation.isPending}
               className="bg-red-600 hover:bg-red-700"
             >
-              {cancelling ? 'キャンセル中...' : 'キャンセルする'}
+              {cancelMutation.isPending ? 'キャンセル中...' : 'キャンセルする'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1591,31 +1131,22 @@ export function ReservationsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={waitlistCancelling}>戻る</AlertDialogCancel>
+            <AlertDialogCancel disabled={cancelWaitlistMutation.isPending}>戻る</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
                 if (!waitlistCancelTarget) return
-                setWaitlistCancelling(true)
                 try {
-                  const { error } = await supabase
-                    .from('waitlist')
-                    .delete()
-                    .eq('id', waitlistCancelTarget.id)
-                  if (error) throw error
-                  setWaitlist(prev => prev.filter(w => w.id !== waitlistCancelTarget.id))
+                  await cancelWaitlistMutation.mutateAsync(waitlistCancelTarget.id)
                   toast.success('キャンセル待ちを解除しました')
                   setWaitlistCancelDialogOpen(false)
-                } catch (e) {
-                  logger.error('キャンセル待ち解除エラー:', e)
+                } catch {
                   toast.error('キャンセル待ちの解除に失敗しました')
-                } finally {
-                  setWaitlistCancelling(false)
                 }
               }}
-              disabled={waitlistCancelling}
+              disabled={cancelWaitlistMutation.isPending}
               className="bg-red-600 hover:bg-red-700"
             >
-              {waitlistCancelling ? '解除中...' : '解除する'}
+              {cancelWaitlistMutation.isPending ? '解除中...' : '解除する'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1694,14 +1225,14 @@ export function ReservationsPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={updating}>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={updateMutation.isPending}>
               キャンセル
             </Button>
             <Button
               onClick={handleEditConfirm}
-              disabled={updating || !!(editTarget && newParticipantCount === editTarget.participant_count)}
+              disabled={updateMutation.isPending || !!(editTarget && newParticipantCount === editTarget.participant_count)}
             >
-              {updating ? '変更中...' : '変更を保存'}
+              {updateMutation.isPending ? '変更中...' : '変更を保存'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1797,15 +1328,15 @@ export function ReservationsPage() {
             <Button 
               variant="outline" 
               onClick={() => setDateChangeDialogOpen(false)} 
-              disabled={changingDate}
+              disabled={changeDateMutation.isPending}
             >
               キャンセル
             </Button>
             <Button
               onClick={handleDateChangeConfirm}
-              disabled={changingDate || !selectedNewEventId}
+              disabled={changeDateMutation.isPending || !selectedNewEventId}
             >
-              {changingDate ? '変更中...' : '日程を変更'}
+              {changeDateMutation.isPending ? '変更中...' : '日程を変更'}
             </Button>
           </DialogFooter>
         </DialogContent>

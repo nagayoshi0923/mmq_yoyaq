@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -30,9 +31,48 @@ export function PrivateGroupCreate() {
   const organizationSlug = searchParams.get('org')
   const mode = searchParams.get('mode')
 
-  const [scenario, setScenario] = useState<any>(null)
-  const [stores, setStores] = useState<any[]>([])
-  const [loadingData, setLoadingData] = useState(true)
+  const { data: scenarioStoreData, isLoading: loadingData } = useQuery({
+    queryKey: ['private-group-create', scenarioId, organizationSlug],
+    enabled: !!scenarioId,
+    queryFn: async () => {
+      let organizationId: string | null = null
+      if (organizationSlug) {
+        const orgData = await resolveOrganizationFromPathSegment(organizationSlug, { requireActive: false })
+        organizationId = orgData?.id || null
+      }
+      if (!organizationId) organizationId = await getCurrentOrganizationId()
+      if (!organizationId) throw new Error('組織情報が取得できません')
+
+      const isUuidLike = /^[0-9a-f]{8}-/.test(scenarioId!)
+      let resolvedMasterId = scenarioId!
+      if (!isUuidLike) {
+        const resolved = await scenarioApi.getByIdOrSlug(scenarioId!, organizationId)
+        if (!resolved) throw new Error('シナリオが見つかりません')
+        resolvedMasterId = resolved.scenario_master_id || resolved.id
+      }
+
+      const { data: scenarioData, error: scenarioError } = await supabase
+        .from('organization_scenarios_with_master')
+        .select('id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max, available_stores')
+        .eq('scenario_master_id', resolvedMasterId)
+        .eq('organization_id', organizationId)
+        .single()
+      if (scenarioError) throw scenarioError
+
+      const { data: storesData, error: storesError } = await supabase
+        .from('stores')
+        .select('id, name, address, region')
+        .eq('organization_id', organizationId)
+        .eq('status', 'active')
+        .neq('is_temporary', true)
+        .or('ownership_type.neq.office,ownership_type.is.null')
+      if (storesError) throw storesError
+
+      return { scenario: scenarioData, stores: storesData || [] }
+    },
+  })
+  const scenario = scenarioStoreData?.scenario ?? null
+  const stores = scenarioStoreData?.stores ?? []
 
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [groupName, setGroupName] = useState('')
@@ -44,69 +84,6 @@ export function PrivateGroupCreate() {
 
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!scenarioId) {
-        setLoadingData(false)
-        return
-      }
-
-      try {
-        // organizationSlug がある場合はそれから organization_id を取得
-        let organizationId: string | null = null
-        if (organizationSlug) {
-          const orgData = await resolveOrganizationFromPathSegment(organizationSlug, {
-            requireActive: false,
-          })
-          organizationId = orgData?.id || null
-        }
-        if (!organizationId) {
-          organizationId = await getCurrentOrganizationId()
-        }
-        if (!organizationId) throw new Error('組織情報が取得できません')
-
-        // scenarioId が UUID でない場合（slug）は、先に scenario_master_id を解決する
-        const isUuidLike = /^[0-9a-f]{8}-/.test(scenarioId)
-        let resolvedMasterId = scenarioId
-        if (!isUuidLike) {
-          const resolved = await scenarioApi.getByIdOrSlug(scenarioId, organizationId)
-          if (!resolved) throw new Error('シナリオが見つかりません')
-          resolvedMasterId = resolved.scenario_master_id || resolved.id
-        }
-
-        const { data: scenarioData, error: scenarioError } = await supabase
-          .from('organization_scenarios_with_master')
-          .select(
-            'id, organization_id, scenario_master_id, title, key_visual_url, player_count_min, player_count_max, available_stores'
-          )
-          .eq('scenario_master_id', resolvedMasterId)
-          .eq('organization_id', organizationId)
-          .single()
-
-        if (scenarioError) throw scenarioError
-        setScenario(scenarioData)
-
-        const { data: storesData, error: storesError } = await supabase
-          .from('stores')
-          .select('id, name, address, region')
-          .eq('organization_id', organizationId)
-          .eq('status', 'active')
-          .neq('is_temporary', true)
-          .or('ownership_type.neq.office,ownership_type.is.null')
-
-        if (storesError) throw storesError
-        setStores(storesData || [])
-
-      } catch (err) {
-        logger.error('Failed to fetch data', err)
-        setError('データの取得に失敗しました')
-      } finally {
-        setLoadingData(false)
-      }
-    }
-
-    fetchData()
-  }, [scenarioId, organizationSlug])
 
   /** シナリオ設定で公演店舗が限定されているか（空配列・未設定は全店舗可） */
   const scenarioStoreAllowlist = useMemo(() => {

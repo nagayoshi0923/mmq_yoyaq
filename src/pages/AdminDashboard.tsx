@@ -956,20 +956,22 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       <Header onPageChange={handlePageChange} />
-      <div className="flex flex-1">
+      <div className="flex flex-1 min-h-0">
         {shouldShowNavigation && <AdminSidebar />}
-        <main className="flex-1 max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
-          <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
-            {currentPage === 'dashboard' ? (
-              <DashboardHome onPageChange={handlePageChange} />
-            ) : currentPage === 'report-form' ? (
-              <ExternalReportForm />
-            ) : (
-              <DashboardHome onPageChange={handlePageChange} />
-            )}
-          </Suspense>
+        <main data-scroll-container className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+          <div className="max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
+            <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
+              {currentPage === 'dashboard' ? (
+                <DashboardHome onPageChange={handlePageChange} />
+              ) : currentPage === 'report-form' ? (
+                <ExternalReportForm />
+              ) : (
+                <DashboardHome onPageChange={handlePageChange} />
+              )}
+            </Suspense>
+          </div>
         </main>
       </div>
     </div>

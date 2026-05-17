@@ -1,35 +1,10 @@
-import { useEffect, useMemo } from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { 
-  Settings as SettingsIcon, 
-  Building2, 
-  Clock, 
-  Calendar, 
-  Users, 
-  Mail, 
-  Bell, 
-  Database,
-  DollarSign,
-  UserCog,
-  Shield,
-  AlertCircle,
-  Calculator,
-  Layers,
-  XCircle,
-  Tags,
-  Palette,
-  HelpCircle,
-  FileText
-} from 'lucide-react'
-import { useSessionState } from '@/hooks/useSessionState'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
-import { useOrganization } from '@/hooks/useOrganization'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
 
 // 設定ページコンポーネント
-import { GeneralSettings } from './pages/GeneralSettings'
+import { ShiftSettings } from './pages/ShiftSettings'
 import { StoreBasicSettings } from './pages/StoreBasicSettings'
 import { BusinessHoursSettings } from './pages/BusinessHoursSettings'
 import { PerformanceScheduleSettings } from './pages/PerformanceScheduleSettings'
@@ -48,70 +23,18 @@ import { DataManagementSettings } from './pages/DataManagementSettings'
 import { BookingNoticeSettings } from './pages/BookingNoticeSettings'
 import { SalarySettings } from './pages/SalarySettings'
 import { OrganizationInfoSettings } from './pages/OrganizationInfoSettings'
-import { TenantManagementSettings } from './pages/TenantManagementSettings'
 import { CategoryAuthorManagementSettings } from './pages/CategoryAuthorManagementSettings'
 import { OrganizationDesignSettings } from './pages/OrganizationDesignSettings'
 import { FAQSettings } from './pages/FAQSettings'
 import { BlogSettings } from './pages/BlogSettings'
 
-// 基本のメニュー項目
-const BASE_MENU_ITEMS: SidebarMenuItem[] = [
-  // 組織設定
-  { id: 'organization-info', label: '組織情報', icon: Building2, description: '会社情報・招待管理' },
-  { id: 'organization-design', label: '組織デザイン', icon: Palette, description: 'テーマカラー・ヘッダー画像' },
-  { id: 'faq', label: 'FAQ設定', icon: HelpCircle, description: 'よくある質問' },
-  { id: 'blog', label: 'ブログ・お知らせ', icon: FileText, description: '記事の作成・管理' },
-  
-  // 全体設定
-  { id: 'general', label: '全体設定', icon: SettingsIcon, description: 'システム全体の設定' },
-  
-  // 店舗別設定
-  { id: 'store-basic', label: '店舗基本設定', icon: Building2, description: '店舗情報' },
-  { id: 'business-hours', label: '営業時間', icon: Clock, description: '営業時間設定' },
-  { id: 'performance-schedule', label: '公演スケジュール', icon: Calendar, description: 'スケジュール設定' },
-  { id: 'reservation', label: '予約設定', icon: Users, description: '予約ルール' },
-  { id: 'cancellation', label: 'キャンセル設定', icon: XCircle, description: 'キャンセルポリシー' },
-  { id: 'pricing', label: '料金設定', icon: DollarSign, description: '料金体系' },
-  { id: 'salary', label: '報酬', icon: Calculator, description: 'GM報酬の設定' },
-  { id: 'staff', label: 'スタッフ設定', icon: UserCog, description: 'スタッフ管理' },
-  { id: 'email', label: 'メール設定', icon: Mail, description: 'メールテンプレート' },
-  { id: 'email-history', label: 'メール配信履歴', icon: Mail, description: '配信先・ステータスの確認' },
-  { id: 'email-logs', label: 'メール送信ログ', icon: Mail, description: 'アプリ長期保存ログ' },
-  { id: 'notifications', label: '通知設定', icon: Bell, description: '通知の設定' },
-  { id: 'booking-notice', label: '注意事項設定', icon: AlertCircle, description: '予約時の注意事項' },
-  { id: 'categories', label: 'カテゴリ・作者管理', icon: Tags, description: 'カテゴリ・作者の管理' },
-  { id: 'system', label: 'システム設定', icon: Shield, description: 'システム設定' },
-  { id: 'data', label: 'データ管理', icon: Database, description: 'データ管理' }
-]
-
-// ライセンス管理者専用メニュー
-const LICENSE_MANAGER_MENU_ITEM: SidebarMenuItem = {
-  id: 'tenant-management',
-  label: 'テナント管理',
-  icon: Layers,
-  description: '全組織の管理（QW専用）'
-}
-
 export function Settings() {
   const [searchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || 'organization-info'
   const { selectedStoreId, handleStoreChange } = useSettingsStore()
-  const { isLicenseManager } = useOrganization()
-  const location = useLocation()
-
-  // メニュー項目を動的に生成（ライセンス管理者にはテナント管理を追加）
-  const menuItems = useMemo(() => {
-    if (isLicenseManager) {
-      // テナント管理を組織情報の後に追加
-      const items = [...BASE_MENU_ITEMS]
-      items.splice(1, 0, LICENSE_MANAGER_MENU_ITEM)
-      return items
-    }
-    return BASE_MENU_ITEMS
-  }, [isLicenseManager])
 
   // 店舗セレクターを表示しないページ
-  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'tenant-management', 'general', 'salary', 'booking-notice', 'categories', 'email-history', 'email-logs']
+  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'shift', 'salary', 'booking-notice', 'categories', 'email-history', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
   const showStoreSelector = !noStoreSelectorPages.includes(activeTab)
 
   const renderContent = () => {
@@ -127,10 +50,8 @@ export function Settings() {
         return <FAQSettings />
       case 'blog':
         return <BlogSettings />
-      case 'tenant-management':
-        return <TenantManagementSettings />
-      case 'general':
-        return <GeneralSettings />
+      case 'shift':
+        return <ShiftSettings />
       case 'store-basic':
         return <StoreBasicSettings storeId={storeId} />
       case 'business-hours':

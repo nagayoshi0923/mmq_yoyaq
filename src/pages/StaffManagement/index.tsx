@@ -35,6 +35,7 @@ import { useStaffInvitation } from './hooks/useStaffInvitation'
 import { useStaffQuery, useStaffMutation } from './hooks/useStaffQuery'
 import { useStaffAuthStatus } from './hooks/useStaffAuthStatus'
 import { useQueryClient } from '@tanstack/react-query'
+import { useOrganization } from '@/hooks/useOrganization'
 
 // 分離されたコンポーネントとユーティリティ
 import { StaffFilters } from './components/StaffFilters'
@@ -51,6 +52,7 @@ export function StaffManagement() {
 
   // React Query でCRUD操作
   const queryClient = useQueryClient()
+  const { organization } = useOrganization()
   const { data: staff = [], isLoading: staffLoading, error: queryError } = useStaffQuery()
   const staffMutation = useStaffMutation()
   const error = queryError ? (queryError as Error).message : ''
@@ -359,7 +361,9 @@ export function StaffManagement() {
               title={
                 <div className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
-                  <span className="text-lg font-bold">スタッフ管理</span>
+                  <span className="text-lg font-bold">
+                  {organization?.name ? `${organization.name}のスタッフ管理` : 'スタッフ管理'}
+                </span>
                 </div>
               }
               description={`全${staff.length}名のスタッフを管理`}
@@ -576,7 +580,7 @@ export function StaffManagement() {
           confirmLabel="連携解除"
         />
 
-        {/* スタッフ招待モーダル（既存コードを一時的に簡略化） */}
+        {/* スタッフ招待モーダル */}
         <Dialog open={isInviteModalOpen} onOpenChange={closeInviteModal}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>

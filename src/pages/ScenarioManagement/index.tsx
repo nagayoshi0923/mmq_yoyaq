@@ -47,6 +47,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { generateSlugFromTitle } from '@/utils/toRomaji'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
 
 /**
  * 旧UIの表示切替は無効化（切り離し）
@@ -66,6 +67,7 @@ export function ScenarioManagement() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
   const canEditScenarios = isAdmin
+  const { organization } = useOrganization()
 
   // UI状態
   const [uiMode, setUIMode] = useState<'legacy' | 'new'>(() =>
@@ -116,10 +118,6 @@ export function ScenarioManagement() {
       { replace: true }
     )
   }, [canEditScenarios, location.pathname, location.search, navigate])
-  
-  // 新UI用のリフレッシュキー（保存後に更新をトリガー）
-  const [orgScenarioRefreshKey, setOrgScenarioRefreshKey] = useState(0)
-  const [organizationName, setOrganizationName] = useState('')
   
   // 組織シナリオリストからの編集（useCallbackで安定化）
   const handleEditFromOrgList = useCallback((id: string) => {
@@ -238,9 +236,8 @@ export function ScenarioManagement() {
   function handleCloseEditDialog() {
     setEditDialogOpen(false)
     setEditingScenarioId(null)
-    // ダイアログを閉じた時にも一覧を更新（保存後の反映漏れを防ぐ）
-    setOrgScenarioRefreshKey(prev => prev + 1)
-    // カテゴリ・作者の選択肢キャッシュも無効化
+    // 組織シナリオ一覧とオプションキャッシュを無効化
+    queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'] })
     queryClient.invalidateQueries({ queryKey: ['org-scenarios-options'] })
   }
   
@@ -450,7 +447,7 @@ export function ScenarioManagement() {
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-primary" />
                 <span className="text-lg font-bold">
-                  {organizationName ? `${organizationName}のシナリオ管理` : 'シナリオ管理'}
+                  {organization?.name ? `${organization.name}のシナリオ管理` : 'シナリオ管理'}
                 </span>
               </div>
             }
@@ -506,9 +503,7 @@ export function ScenarioManagement() {
           {uiMode === 'new' ? (
             <OrganizationScenarioList
               onEdit={canEditScenarios ? handleEditFromOrgList : undefined}
-              refreshKey={orgScenarioRefreshKey}
               canEdit={canEditScenarios}
-              onOrganizationNameLoad={setOrganizationName}
             />
           ) : ENABLE_LEGACY_SCENARIO_UI ? (
             <>
@@ -743,9 +738,7 @@ export function ScenarioManagement() {
           onScenarioChange={setEditingScenarioId}
           sortedScenarioIds={filteredAndSortedScenarios.map(s => s.id)}
           onSaved={() => {
-            // 新UIの一覧を更新
-            setOrgScenarioRefreshKey(prev => prev + 1)
-            // カテゴリ・作者の選択肢キャッシュも無効化
+            queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'] })
             queryClient.invalidateQueries({ queryKey: ['org-scenarios-options'] })
           }}
         />

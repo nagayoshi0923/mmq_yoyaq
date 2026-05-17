@@ -3,10 +3,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
-import { Save } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Save, Shield } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
@@ -69,8 +72,17 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  // 組織全体設定（global_settings）
+  const [globalSettingsId, setGlobalSettingsId] = useState<string | null>(null)
+  const [globalFormData, setGlobalFormData] = useState({
+    system_name: 'MMQ 予約管理システム',
+    maintenance_mode: false,
+    maintenance_message: '',
+  })
+
   useEffect(() => {
     fetchData()
+    fetchGlobalSettings()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ実行
   }, [])
 
@@ -121,6 +133,29 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
     }
   }
 
+  const fetchGlobalSettings = async () => {
+    try {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return
+      const { data, error } = await supabase
+        .from('global_settings')
+        .select('id, system_name, maintenance_mode, maintenance_message')
+        .eq('organization_id', orgId)
+        .single()
+      if (error) { logger.error('システム名設定の取得に失敗:', error); return }
+      if (data) {
+        setGlobalSettingsId(data.id)
+        setGlobalFormData({
+          system_name: data.system_name ?? 'MMQ 予約管理システム',
+          maintenance_mode: data.maintenance_mode ?? false,
+          maintenance_message: data.maintenance_message ?? '',
+        })
+      }
+    } catch (error) {
+      logger.error('グローバル設定取得エラー:', error)
+    }
+  }
+
   const handleStoreChange = async (storeId: string) => {
     setSelectedStoreId(storeId)
     await fetchSettings(storeId)
@@ -164,6 +199,19 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
         }
       }
 
+      // グローバル設定（system_name・maintenance_mode）も保存
+      if (globalSettingsId) {
+        const { error: globalError } = await supabase
+          .from('global_settings')
+          .update({
+            system_name: globalFormData.system_name,
+            maintenance_mode: globalFormData.maintenance_mode,
+            maintenance_message: globalFormData.maintenance_message || null,
+          })
+          .eq('id', globalSettingsId)
+        if (globalError) logger.error('グローバル設定の保存エラー:', globalError)
+      }
+
       showToast.success('保存しました')
     } catch (error) {
       logger.error('保存エラー:', error)
@@ -188,6 +236,47 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
+
+      {/* システム名・メンテナンスモード */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-blue-600" />
+            <CardTitle>基本設定</CardTitle>
+          </div>
+          <CardDescription>システム名とメンテナンスモードの設定（組織全体に適用）</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>システム名</Label>
+            <Input
+              value={globalFormData.system_name}
+              onChange={(e) => setGlobalFormData(prev => ({ ...prev, system_name: e.target.value }))}
+              placeholder="MMQ 予約管理システム"
+            />
+          </div>
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <Label>メンテナンスモード</Label>
+              <p className="text-xs text-muted-foreground mt-1">有効にすると、管理者以外はシステムにアクセスできなくなります</p>
+            </div>
+            <Switch
+              checked={globalFormData.maintenance_mode}
+              onCheckedChange={(checked) => setGlobalFormData(prev => ({ ...prev, maintenance_mode: checked }))}
+            />
+          </div>
+          {globalFormData.maintenance_mode && (
+            <div className="space-y-2">
+              <Label>メンテナンスメッセージ</Label>
+              <Input
+                value={globalFormData.maintenance_message}
+                onChange={(e) => setGlobalFormData(prev => ({ ...prev, maintenance_message: e.target.value }))}
+                placeholder="現在メンテナンス中です。しばらくお待ちください。"
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* 地域設定 */}
       <Card>

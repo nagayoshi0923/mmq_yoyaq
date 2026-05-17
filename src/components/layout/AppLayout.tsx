@@ -58,18 +58,17 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }
 
   return (
-    // max-w-full で body の横はみ出しを防ぐ
-    <div className="min-h-screen max-w-full bg-background overflow-x-hidden">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       <Header />
-      <div className="flex min-w-0">
+      <div className="flex flex-1 min-h-0 min-w-0">
         <AdminSidebar />
-        <div className={`flex flex-1 min-w-0 ${className}`}>
+        <div className={`flex flex-1 min-h-0 min-w-0 ${className}`}>
           {sidebar && (
             <div className="border-r border-slate-200 shrink-0">
               {sidebar}
             </div>
           )}
-          <div className="flex-1 min-w-0">
+          <div data-scroll-container className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             <div className={`${containerPadding} min-w-0`}>
               {children}
             </div>
