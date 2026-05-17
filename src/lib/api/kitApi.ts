@@ -1,7 +1,12 @@
 /**
  * キット管理API
- * 
+ *
  * シナリオキットの配置管理と移動イベントを操作するAPI
+ *
+ * - キット位置 (scenario_kit_locations) はバックエンド API (/api/kit-locations) 経由で
+ *   org_id をサーバー側で強制フィルタする
+ * - キット移動イベント・完了状態 (kit_transfer_events / kit_transfer_completions) は
+ *   引き続き Supabase 経由（別タスクで API 化予定）
  */
 
 import { supabase } from '../supabase'
@@ -9,278 +14,80 @@ import { getCurrentOrganizationId } from '../organization'
 import { apiClient } from '@/lib/apiClient'
 import type { KitLocation, KitTransferEvent, KitCondition, KitTransferCompletion } from '@/types'
 
-/**
- * UI の scenario.id は多くの場合 scenario_master_id。
- * DB の org_scenario_id は organization_scenarios.id のみ有効なので解決する。
- */
-async function resolveOrgScenarioId(
-  organizationId: string,
-  scenarioIdOrMasterId: string
-): Promise<string | null> {
-  const { data: asOrgRow } = await supabase
-    .from('organization_scenarios')
-    .select('id')
-    .eq('organization_id', organizationId)
-    .eq('id', scenarioIdOrMasterId)
-    .maybeSingle()
-
-  if (asOrgRow?.id) return asOrgRow.id
-
-  const { data: asMaster } = await supabase
-    .from('organization_scenarios')
-    .select('id')
-    .eq('organization_id', organizationId)
-    .eq('scenario_master_id', scenarioIdOrMasterId)
-    .maybeSingle()
-
-  return asMaster?.id ?? null
+/** API 応答の素の構造（org_scenario / scenario_master を scenario に変換するため） */
+type KitLocationRaw = {
+  org_scenario?: {
+    id: string
+    scenario_master_id: string
+    scenario_masters?: { id?: string; title?: string | null } | null
+  } | null
+  scenario_master?: { id: string; title?: string | null } | null
+  [key: string]: unknown
 }
 
-/** getKitLocations と同じく scenario.id に scenario_master_id を載せる */
-function scenarioSummaryFromOrgScenario(org: {
-  id: string
-  scenario_master_id: string
-  scenario_masters?: { id?: string; title?: string | null } | null
-}): { id: string; title: string; kit_count: number } {
-  return {
-    id: org.scenario_master_id,
-    title: org.scenario_masters?.title || '',
-    kit_count: 1,
+function transformKitLocation(item: KitLocationRaw): KitLocation {
+  if (item.org_scenario) {
+    return {
+      ...item,
+      scenario: {
+        id: item.org_scenario.scenario_master_id,
+        title: item.org_scenario.scenario_masters?.title || '',
+        kit_count: 1,
+      },
+    } as unknown as KitLocation
   }
+  if (item.scenario_master) {
+    return {
+      ...item,
+      scenario: {
+        id: item.scenario_master.id,
+        title: item.scenario_master.title || '',
+        kit_count: 1,
+      },
+    } as unknown as KitLocation
+  }
+  return { ...item, scenario: null } as unknown as KitLocation
 }
 
 export const kitApi = {
   // ============================================
-  // キット位置関連
+  // キット位置関連（バックエンド API 経由）
   // ============================================
 
   /**
    * 全キット位置を取得
-   * バックエンド API (/api/kit-locations) 経由で org_id をサーバー側で強制フィルタ
    */
   async getKitLocations(): Promise<KitLocation[]> {
-    type KitLocationRaw = {
-      org_scenario?: { id: string; scenario_master_id: string; scenario_masters?: { id?: string; title?: string | null } | null } | null
-      scenario_master?: { id: string; title?: string | null } | null
-      [key: string]: unknown
-    }
     const data = await apiClient.get<KitLocationRaw[]>('/api/kit-locations')
-
-    // org_scenario または scenario_master から scenario 形式に変換
-    const transformed = data.map(item => {
-      if (item.org_scenario) {
-        return {
-          ...item,
-          scenario: {
-            id: item.org_scenario.scenario_master_id,
-            title: item.org_scenario.scenario_masters?.title || '',
-            kit_count: 1
-          }
-        }
-      } else if (item.scenario_master) {
-        return {
-          ...item,
-          scenario: {
-            id: item.scenario_master.id,
-            title: item.scenario_master.title || '',
-            kit_count: 1
-          }
-        }
-      }
-      return { ...item, scenario: null }
-    })
-
-    return transformed as KitLocation[]
+    return data.map(transformKitLocation)
   },
 
   /**
    * 特定シナリオのキット位置を取得
-   * scenarioId: organization_scenarios.id または scenarios.id
+   * scenarioId: organization_scenarios.id または scenarios.id（master id）
    */
   async getKitLocationsByScenario(scenarioId: string): Promise<KitLocation[]> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) return []
-
-    // まず org_scenario_id で検索
-    let { data, error } = await supabase
-      .from('scenario_kit_locations')
-      .select(`
-        *,
-        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        scenario_master:scenario_masters!scenario_kit_locations_scenario_master_id_fkey(id, title),
-        store:stores(id, name, short_name)
-      `)
-      .eq('organization_id', orgId)
-      .eq('org_scenario_id', scenarioId)
-      .order('kit_number')
-
-    // 結果がなければ scenario_master_id で検索
-    if (!data || data.length === 0) {
-      const masterResult = await supabase
-        .from('scenario_kit_locations')
-        .select(`
-          *,
-          org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-            id,
-            scenario_master_id,
-            scenario_masters(id, title)
-          ),
-          scenario_master:scenario_masters!scenario_kit_locations_scenario_master_id_fkey(id, title),
-          store:stores(id, name, short_name)
-        `)
-        .eq('organization_id', orgId)
-        .eq('scenario_master_id', scenarioId)
-        .order('kit_number')
-      
-      data = masterResult.data
-      error = masterResult.error
-    }
-
-    if (error) {
-      console.error('Failed to fetch kit locations by scenario:', error)
-      throw error
-    }
-
-    const transformed = (data || []).map(item => {
-      if (item.org_scenario) {
-        return {
-          ...item,
-          scenario: {
-            id: item.org_scenario.scenario_master_id,
-            title: item.org_scenario.scenario_masters?.title || '',
-            kit_count: 1
-          }
-        }
-      } else if (item.scenario_master) {
-        return {
-          ...item,
-          scenario: {
-            id: item.scenario_master.id,
-            title: item.scenario_master.title || '',
-            kit_count: 1
-          }
-        }
-      }
-      return { ...item, scenario: null }
-    })
-
-    return transformed as KitLocation[]
+    const data = await apiClient.get<KitLocationRaw[]>(
+      `/api/kit-locations?scenario_id=${encodeURIComponent(scenarioId)}`
+    )
+    return (data || []).map(transformKitLocation)
   },
 
   /**
    * キット位置を設定（初期設定または更新）
-   * scenarioId: organization_scenarios.id または scenario_master_id（一覧の scenario.id と同一）
+   * scenarioId: organization_scenarios.id または scenario_master_id
    */
   async setKitLocation(
     scenarioId: string,
     kitNumber: number,
     storeId: string
   ): Promise<KitLocation> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
-
-    const resolvedOrgScenarioId = await resolveOrgScenarioId(orgId, scenarioId)
-
-    let existing: { id: string; org_scenario_id: string | null; scenario_master_id: string | null } | null =
-      null
-
-    if (resolvedOrgScenarioId) {
-      const r1 = await supabase
-        .from('scenario_kit_locations')
-        .select('id, org_scenario_id, scenario_master_id')
-        .eq('organization_id', orgId)
-        .eq('kit_number', kitNumber)
-        .eq('org_scenario_id', resolvedOrgScenarioId)
-        .maybeSingle()
-      existing = r1.data
-    }
-
-    if (!existing) {
-      const r2 = await supabase
-        .from('scenario_kit_locations')
-        .select('id, org_scenario_id, scenario_master_id')
-        .eq('organization_id', orgId)
-        .eq('kit_number', kitNumber)
-        .or(`org_scenario_id.eq.${scenarioId},scenario_master_id.eq.${scenarioId}`)
-        .maybeSingle()
-      existing = r2.data
-    }
-
-    const orgScenarioIdForWrite =
-      resolvedOrgScenarioId ?? existing?.org_scenario_id ?? null
-
-    if (!orgScenarioIdForWrite) {
-      throw new Error(
-        'organization_scenarios を特定できません。シナリオが組織に紐づいているか確認してください。'
-      )
-    }
-
-    let data
-    let error
-
-    if (existing) {
-      // 既存レコードを更新（マスタIDで来た場合も org_scenario_id を正規化）
-      const result = await supabase
-        .from('scenario_kit_locations')
-        .update({
-          store_id: storeId,
-          org_scenario_id: orgScenarioIdForWrite,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existing.id)
-        .select(`
-          *,
-          org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-            id,
-            scenario_master_id,
-            scenario_masters(id, title)
-          ),
-          store:stores(id, name, short_name)
-        `)
-        .single()
-      data = result.data
-      error = result.error
-    } else {
-      // 新規レコードを挿入
-      const result = await supabase
-        .from('scenario_kit_locations')
-        .insert({
-          organization_id: orgId,
-          org_scenario_id: orgScenarioIdForWrite,
-          kit_number: kitNumber,
-          store_id: storeId
-        })
-        .select(`
-          *,
-          org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-            id,
-            scenario_master_id,
-            scenario_masters(id, title)
-          ),
-          store:stores(id, name, short_name)
-        `)
-        .single()
-      data = result.data
-      error = result.error
-    }
-
-    if (error) {
-      console.error('Failed to set kit location:', error)
-      throw error
-    }
-
-    const transformed = {
-      ...data,
-      scenario: data.org_scenario
-        ? scenarioSummaryFromOrgScenario(data.org_scenario)
-        : null,
-    }
-
-    return transformed as KitLocation
+    const data = await apiClient.post<KitLocationRaw>('/api/kit-locations', {
+      scenario_id: scenarioId,
+      kit_number: kitNumber,
+      store_id: storeId,
+    })
+    return transformKitLocation(data)
   },
 
   /**
@@ -293,51 +100,13 @@ export const kitApi = {
     condition: KitCondition,
     conditionNotes?: string | null
   ): Promise<KitLocation> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
-
-    const resolved = await resolveOrgScenarioId(orgId, scenarioId)
-
-    let q = supabase
-      .from('scenario_kit_locations')
-      .update({
-        condition,
-        condition_notes: conditionNotes
-      })
-      .eq('organization_id', orgId)
-      .eq('kit_number', kitNumber)
-
-    if (resolved) {
-      q = q.eq('org_scenario_id', resolved)
-    } else {
-      q = q.or(`org_scenario_id.eq.${scenarioId},scenario_master_id.eq.${scenarioId}`)
-    }
-
-    const { data, error } = await q
-      .select(`
-        *,
-        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        store:stores(id, name, short_name)
-      `)
-      .single()
-
-    if (error) {
-      console.error('Failed to update kit condition:', error)
-      throw error
-    }
-
-    const transformed = {
-      ...data,
-      scenario: data.org_scenario
-        ? scenarioSummaryFromOrgScenario(data.org_scenario)
-        : null,
-    }
-
-    return transformed as KitLocation
+    const data = await apiClient.patch<KitLocationRaw>('/api/kit-locations', {
+      scenario_id: scenarioId,
+      kit_number: kitNumber,
+      condition,
+      condition_notes: conditionNotes ?? null,
+    })
+    return transformKitLocation(data)
   },
 
   /**
@@ -346,57 +115,18 @@ export const kitApi = {
    */
   async setAllKitLocations(
     scenarioId: string,
-    storeIds: string[]  // kit_number順に店舗IDを指定
+    storeIds: string[] // kit_number順に店舗IDを指定
   ): Promise<KitLocation[]> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
-
-    const resolved = await resolveOrgScenarioId(orgId, scenarioId)
-    if (!resolved) {
-      throw new Error(
-        'organization_scenarios を特定できません。シナリオが組織に紐づいているか確認してください。'
-      )
-    }
-
-    const records = storeIds.map((storeId, index) => ({
-      organization_id: orgId,
-      org_scenario_id: resolved,
-      kit_number: index + 1,
-      store_id: storeId
-    }))
-
-    const { data, error } = await supabase
-      .from('scenario_kit_locations')
-      .upsert(records, {
-        onConflict: 'organization_id,org_scenario_id,kit_number'
-      })
-      .select(`
-        *,
-        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        store:stores(id, name, short_name)
-      `)
-
-    if (error) {
-      console.error('Failed to set all kit locations:', error)
-      throw error
-    }
-
-    const transformed = (data || []).map(item => ({
-      ...item,
-      scenario: item.org_scenario
-        ? scenarioSummaryFromOrgScenario(item.org_scenario)
-        : null,
-    }))
-
-    return transformed as KitLocation[]
+    const data = await apiClient.post<KitLocationRaw[]>(
+      '/api/kit-locations?action=set_all',
+      { scenario_id: scenarioId, store_ids: storeIds }
+    )
+    return (data || []).map(transformKitLocation)
   },
 
   // ============================================
   // キット移動イベント関連
+  // TODO: バックエンド API 化（kit_transfer_events 用エンドポイント）
   // ============================================
 
   /**
@@ -621,6 +351,7 @@ export const kitApi = {
 
   // ============================================
   // キット移動完了状態関連
+  // TODO: バックエンド API 化（kit_transfer_completions 用エンドポイント）
   // ============================================
 
   /**
@@ -814,18 +545,14 @@ export const kitApi = {
       throw error
     }
 
-    // 2. キットの所在地を移動先店舗に更新
-    const { error: locationError } = await supabase
-      .from('scenario_kit_locations')
-      .update({
+    // 2. キットの所在地を移動先店舗に更新（バックエンド API 経由）
+    try {
+      await apiClient.post('/api/kit-locations', {
+        scenario_id: scenarioId,
+        kit_number: kitNumber,
         store_id: toStoreId,
-        updated_at: new Date().toISOString()
       })
-      .eq('organization_id', orgId)
-      .eq('org_scenario_id', scenarioId)
-      .eq('kit_number', kitNumber)
-
-    if (locationError) {
+    } catch (locationError) {
       console.error('Failed to update kit location:', locationError)
       // 完了状態の更新は成功しているので、ログだけ出してエラーはスローしない
     }
