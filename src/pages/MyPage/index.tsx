@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useRef, Suspense } from 'react'
+import { useMyPageDataQuery, useMyPageAlbumOptionsQuery, useAddManualHistoryMutation, useDeleteManualHistoryMutation } from './hooks/useMyPageDataQuery'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Calendar, Clock, MapPin, Users, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Pencil, Ticket, Plus, Trash2, EyeOff, Eye, UserPlus, MoreVertical, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -121,65 +122,85 @@ export default function MyPage() {
     return next
   }, { replace: true })
   
-  // データ
-  const [reservations, setReservations] = useState<Reservation[]>([])
-  const [scheduleEvents, setScheduleEvents] = useState<Record<string, { 
-    date: string
-    start_time: string
-    category?: string
-    current_participants?: number
-    max_participants?: number
-  }>>({})
-  const [scenarioImages, setScenarioImages] = useState<Record<string, string>>({})
-  const [scenarioSlugs, setScenarioSlugs] = useState<Record<string, string>>({})
-  const [scenarioInfo, setScenarioInfo] = useState<Record<string, { min: number; max: number }>>({})
-  const [orgSlugs, setOrgSlugs] = useState<Record<string, string>>({})
-  const [orgNames, setOrgNames] = useState<Record<string, string>>({})
-  const [stores, setStores] = useState<Record<string, Store>>({})
+  // --- React Query ---
+  const { data: myPageData, isLoading: loading } = useMyPageDataQuery(user?.id, user?.email)
+  const reservations = myPageData?.reservations ?? []
+  const scheduleEvents = myPageData?.scheduleEvents ?? {}
+  const scenarioImages = myPageData?.scenarioImages ?? {}
+  const scenarioSlugs = myPageData?.scenarioSlugs ?? {}
+  const scenarioInfo = myPageData?.scenarioInfo ?? {}
+  const orgSlugs = myPageData?.orgSlugs ?? {}
+  const orgNames = myPageData?.orgNames ?? {}
+  const stores = myPageData?.stores ?? {}
+  const privateGroups = myPageData?.privateGroups ?? []
+  const customerId = myPageData?.customerId ?? null
+  const customerInfo = myPageData?.customerInfo ?? null
+
+  // ratingsMap は optimistic update のためローカルステートに同期
+  const [ratingsMap, setRatingsMap] = useState<Record<string, number>>({})
+  // playedScenarios は optimistic update（手動date変更等）のためローカルステートに同期
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
-  const [privateGroups, setPrivateGroups] = useState<PrivateGroupSummary[]>([])
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({ participationCount: 0, points: 0 })
-  const [customerInfo, setCustomerInfo] = useState<{ name?: string; nickname?: string } | null>(null)
-  const [customerId, setCustomerId] = useState<string | null>(null)
-  
+
+  // myPageData.ratingsMap が変わったらローカルステートを更新
+  const prevRatingsRef = useRef(myPageData?.ratingsMap)
+  if (myPageData?.ratingsMap !== prevRatingsRef.current) {
+    prevRatingsRef.current = myPageData?.ratingsMap
+    if (myPageData?.ratingsMap) setRatingsMap(myPageData.ratingsMap)
+  }
+  const prevPlayedRef = useRef(myPageData?.playedScenarios)
+  if (myPageData?.playedScenarios !== prevPlayedRef.current) {
+    prevPlayedRef.current = myPageData?.playedScenarios
+    if (myPageData?.playedScenarios) setPlayedScenarios(myPageData.playedScenarios)
+  }
+
+  // アバター画像はローカルステートで管理（アップロード後に即反映するため）
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const prevAvatarRef = useRef(myPageData?.avatarUrl)
+  if (myPageData?.avatarUrl !== prevAvatarRef.current) {
+    prevAvatarRef.current = myPageData?.avatarUrl
+    if (myPageData?.avatarUrl && !avatarUrl) setAvatarUrl(myPageData.avatarUrl)
+  }
+
+  const stats = myPageData?.stats ?? { participationCount: 0, points: 0 }
+
+  // Album options (遅延取得: albumタブを開いたときのみ)
+  const albumOptionsFetchedRef = useRef(false)
+  if (activeTab === 'album') albumOptionsFetchedRef.current = true
+  const { data: albumOptionsData, isLoading: optionsLoading } = useMyPageAlbumOptionsQuery(albumOptionsFetchedRef.current)
+  const scenarioOptions = albumOptionsData?.scenarioOptions ?? []
+  const storeOptions = albumOptionsData?.storeOptions ?? []
+
+  // Mutations
+  const addManualHistoryMutation = useAddManualHistoryMutation(customerId, user?.id, user?.email)
+  const deleteManualHistoryMutation = useDeleteManualHistoryMutation(customerId, user?.id, user?.email)
+
   // 手動登録用ステート
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [newScenarioId, setNewScenarioId] = useState('')
   const [newPlayedAt, setNewPlayedAt] = useState('')
   const [newStoreId, setNewStoreId] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   // アルバム編集ダイアログ用ステート
   const [editingScenario, setEditingScenario] = useState<PlayedScenario | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [showHiddenItems, setShowHiddenItems] = useState(false)
   const [editingDate, setEditingDate] = useState<string>('')
   const [isEditingDate, setIsEditingDate] = useState(false)
-  
-  // おすすめ度（ratings）
-  const [ratingsMap, setRatingsMap] = useState<Record<string, number>>({})
+
   const [albumSortOrder, setAlbumSortOrder] = useState<'date' | 'rating_desc' | 'rating_asc'>('date')
-  
+
   // 削除したプレイ履歴（予約ベース用、localStorageで管理）
   const [deletedPlays, setDeletedPlays] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('deleted_played_scenarios')
     return saved ? new Set(JSON.parse(saved)) : new Set()
   })
-  
+
   // 日付オーバーライド（予約ベース用、localStorageで管理）
   const [dateOverrides, setDateOverrides] = useState<Record<string, string>>(() => {
     const saved = localStorage.getItem('played_scenarios_date_overrides')
     return saved ? JSON.parse(saved) : {}
   })
-  
-  // 選択肢用データ
-  const [scenarioOptions, setScenarioOptions] = useState<ScenarioOption[]>([])
-  const [storeOptions, setStoreOptions] = useState<StoreOption[]>([])
-  const [optionsLoading, setOptionsLoading] = useState(false)
-  
-  // アバター画像
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 表示名：ニックネーム > 名前 > メール > ゲスト
@@ -258,631 +279,27 @@ export default function MyPage() {
     }
   }
 
-  // 予約データ取得
-  useEffect(() => {
-    if (user?.email) {
-      fetchData()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
-  }, [user])
-
-  // アルバムの「過去の体験を追加」用オプションのみ必要のため、タブ表示時まで遅延（入室時の重いクエリを回避）
-  const albumOptionsFetchedRef = useRef(false)
-  useEffect(() => {
-    if (activeTab !== 'album' || albumOptionsFetchedRef.current) return
-    albumOptionsFetchedRef.current = true
-
-    const fetchOptions = async () => {
-      setOptionsLoading(true)
-      try {
-        const { data: scenarios, error: scenarioError } = await supabase
-          .from('organization_scenarios_with_master')
-          .select('scenario_master_id, title, org_status')
-          .eq('org_status', 'available')
-          .order('title')
-
-        if (scenarioError) throw scenarioError
-
-        const uniqueScenarios = scenarios?.reduce((acc, s) => {
-          if (!acc.find(item => item.id === s.scenario_master_id)) {
-            acc.push({ id: s.scenario_master_id, title: s.title })
-          }
-          return acc
-        }, [] as ScenarioOption[]) || []
-
-        setScenarioOptions(uniqueScenarios)
-
-        const { data: storesData, error: storeError } = await supabase
-          .from('stores')
-          .select('id, name, short_name, is_temporary')
-          .order('name')
-
-        if (storeError) throw storeError
-
-        const filteredStores = (storesData || []).filter(store => {
-          if (!store.is_temporary) return true
-          return store.short_name === '臨時1' || store.name === '臨時会場1'
-        })
-
-        setStoreOptions(filteredStores.map(s => ({ id: s.id, name: s.name })))
-      } catch (error) {
-        logger.error('オプション取得エラー:', error)
-      } finally {
-        setOptionsLoading(false)
-      }
-    }
-
-    fetchOptions()
-  }, [activeTab])
-
-  const fetchData = async () => {
-    if (!user?.email) return
-
-    setLoading(true)
-    try {
-      // 顧客情報を取得（user_id優先、emailフォールバック）
-      let customer = null
-      
-      // まずuser_idで検索
-      const { data: customerByUserId } = await supabase
-        .from('customers')
-        .select('id, name, nickname, avatar_url, user_id, organization_id')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (customerByUserId) {
-        customer = customerByUserId
-      } else {
-        // user_idで見つからない場合、emailで検索（大文字/小文字を区別しない）
-        const { data: customerByEmail, error: emailError } = await supabase
-          .from('customers')
-          .select('id, name, nickname, avatar_url, user_id, organization_id')
-          .ilike('email', user.email)
-          .maybeSingle()
-        
-        if (emailError && emailError.code !== 'PGRST116') throw emailError
-        
-        if (customerByEmail) {
-          customer = customerByEmail
-          
-          // user_idが設定されていない場合は自動で紐付け（非同期で実行、待機しない）
-          if (!customerByEmail.user_id && user.id) {
-            supabase
-              .from('customers')
-              .update({ user_id: user.id })
-              .eq('id', customerByEmail.id)
-              .then(() => logger.log('顧客レコードにuser_idを自動設定しました:', customerByEmail.id))
-          }
-        }
-      }
-
-      if (!customer) {
-        setReservations([])
-        setCustomerInfo(null)
-        setLoading(false)
-        return
-      }
-      
-      // 顧客情報をセット
-      setCustomerInfo({ name: customer.name, nickname: customer.nickname })
-      setCustomerId(customer.id)
-      // アバター画像をセット
-      if (customer.avatar_url) {
-        setAvatarUrl(customer.avatar_url)
-      }
-
-      // 🚀 並列でデータ取得（パフォーマンス最適化）
-      const [reservationResult, privateGroupsResult, manualHistoryResult, ratingsResult] = await Promise.all([
-        // 予約を取得
-        supabase
-          .from('reservations')
-          .select('id, organization_id, reservation_number, title, scenario_id, scenario_master_id, store_id, schedule_event_id, requested_datetime, duration, participant_count, status, candidate_datetimes, reservation_source, base_price, options_price, total_price, discount_amount, final_price, unit_price, payment_status, created_at, updated_at')
-          .eq('customer_id', customer.id)
-          .order('requested_datetime', { ascending: false })
-          .limit(50),
-        
-        // 貸切グループを取得（メンバー数も含めて取得）
-        supabase
-          .from('private_group_members')
-          .select(`
-            id,
-            is_organizer,
-            status,
-            group_id,
-            private_groups:group_id (
-              id,
-              name,
-              invite_code,
-              status,
-              created_at,
-              reservation_id,
-              scenario_masters:scenario_master_id (id, title, key_visual_url, player_count_max)
-            )
-          `)
-          .eq('user_id', user.id)
-          .eq('status', 'joined'),
-        
-        // 手動登録履歴を取得
-        supabase
-          .from('manual_play_history')
-          .select('id, scenario_title, played_at, venue, scenario_id, scenario_master_id')
-          .eq('customer_id', customer.id)
-          .order('created_at', { ascending: false })
-          .limit(MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER),
-
-        // おすすめ度を取得
-        supabase
-          .from('scenario_ratings')
-          .select('scenario_master_id, rating')
-          .eq('customer_id', customer.id)
-      ])
-      
-      const reservationData = reservationResult.data
-      const reservationError = reservationResult.error
-
-      if (reservationError) throw reservationError
-      setReservations(reservationData || [])
-
-      // おすすめ度マップをセット
-      if (ratingsResult.data) {
-        const map: Record<string, number> = {}
-        ratingsResult.data.forEach((r: any) => {
-          if (r.scenario_master_id) map[r.scenario_master_id] = r.rating
-        })
-        setRatingsMap(map)
-      }
-
-      // 統計情報を計算（即座に実行可能）
-      const confirmedPast = (reservationData || []).filter(
-        r => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed'
-      )
-      setStats({
-        participationCount: confirmedPast.length,
-        points: confirmedPast.length * 100
-      })
-
-      // 🚀 関連データを並列で取得（第2波）
-      const eventIds = reservationData
-        ?.map(r => r.schedule_event_id)
-        .filter((id): id is string => id !== null && id !== undefined) || []
-      
-      const orgIds = [...new Set((reservationData || []).map(r => r.organization_id).filter(Boolean))]
-      
-      // 手動登録のシナリオIDも含める
-      const manualScenarioIds = (manualHistoryResult.data || [])
-        .map((m: any) => m.scenario_master_id ?? m.scenario_id)
-        .filter((id: string | null): id is string => id !== null && id !== undefined)
-      
-      const scenarioMasterIds = [...new Set([
-        ...(reservationData || [])
-          .map(r => r.scenario_master_id)
-          .filter((id): id is string => id !== null && id !== undefined),
-        ...manualScenarioIds
-      ])]
-      const storeIdsFromReservations = [...new Set((reservationData || []).map(r => r.store_id).filter(Boolean))]
-
-      const memberRecords = privateGroupsResult.data || []
-      const groupIds = memberRecords
-        .map(r => (r.private_groups as any)?.id)
-        .filter(Boolean)
-
-      const [eventsResult, orgsResult, scenariosResult, privateGroupSchedulesResult, membersDetailResult, candidateDatesResult] =
-        await Promise.all([
-          eventIds.length > 0
-            ? supabase
-                .from('schedule_events_public')
-                .select('id, date, start_time, category, current_participants, max_participants')
-                .in('id', eventIds)
-            : Promise.resolve({ data: [] }),
-          orgIds.length > 0
-            ? supabase.from('organizations').select('id, slug, name').in('id', orgIds)
-            : Promise.resolve({ data: [] }),
-          scenarioMasterIds.length > 0
-            ? supabase
-                .from('scenario_masters')
-                .select('id, title, key_visual_url, player_count_min, player_count_max')
-                .in('id', scenarioMasterIds)
-            : Promise.resolve({ data: [] }),
-          // 参加者も含めてグループの確定スケジュールを取得（SECURITY DEFINER RPCでRLS回避）
-          groupIds.length > 0
-            ? supabase.rpc('get_private_group_schedules', { p_group_ids: groupIds })
-            : Promise.resolve({ data: [] }),
-          groupIds.length > 0
-            ? supabase
-                .from('private_group_members')
-                .select('group_id, guest_name, user_id, is_organizer, status, joined_at')
-                .in('group_id', groupIds)
-                .eq('status', 'joined')
-                .order('joined_at', { ascending: true })
-            : Promise.resolve({ data: [] }),
-          groupIds.length > 0
-            ? supabase.from('private_group_candidate_dates').select('group_id').in('group_id', groupIds)
-            : Promise.resolve({ data: [] as { group_id: string }[] })
-        ])
-
-      const groupSchedules = (privateGroupSchedulesResult.data || []) as Array<{
-        group_id: string
-        requested_datetime: string
-        store_id: string | null
-        store_name: string | null
-      }>
-      const groupScheduleByGroupId: Record<string, (typeof groupSchedules)[0]> = {}
-      groupSchedules.forEach((s) => {
-        groupScheduleByGroupId[s.group_id] = s
-      })
-
-      const allStoreIds = [
-        ...new Set([
-          ...storeIdsFromReservations,
-          ...groupSchedules.map((s) => s.store_id).filter((id): id is string => !!id)
-        ])
-      ]
-
-      const storesFetchResult =
-        allStoreIds.length > 0
-          ? await supabase.from('stores').select('id, name, address, color').in('id', allStoreIds)
-          : { data: [] }
-
-      const storesData = storesFetchResult.data || []
-
-      // スケジュールイベントをマップ化
-      if (eventsResult.data && eventsResult.data.length > 0) {
-        const eventMap: Record<string, { 
-          date: string
-          start_time: string
-          category?: string
-          current_participants?: number
-          max_participants?: number
-        }> = {}
-        eventsResult.data.forEach(e => {
-          eventMap[e.id] = { 
-            date: e.date, 
-            start_time: e.start_time, 
-            category: e.category,
-            current_participants: e.current_participants,
-            max_participants: e.max_participants
-          }
-        })
-        setScheduleEvents(eventMap)
-      }
-
-      // 組織情報をマップ化
-      const orgSlugMap: Record<string, string> = {}
-      const orgNameMap: Record<string, string> = {}
-      if (orgsResult.data) {
-        orgsResult.data.forEach(o => {
-          if (o.slug) orgSlugMap[o.id] = o.slug
-          if (o.name) orgNameMap[o.id] = o.name
-        })
-        setOrgSlugs(orgSlugMap)
-        setOrgNames(orgNameMap)
-      }
-
-      // シナリオ情報をマップ化
-      const imageMap: Record<string, string> = {}
-      const slugMap: Record<string, string> = {}
-      const infoMap: Record<string, { min: number; max: number }> = {}
-      const titleToScenarioData: Record<string, { key_visual_url?: string, id?: string }> = {}
-      if (scenariosResult.data) {
-        scenariosResult.data.forEach(s => {
-          if (s.key_visual_url) imageMap[s.id] = s.key_visual_url
-          slugMap[s.id] = s.id
-          infoMap[s.id] = { min: s.player_count_min || 1, max: s.player_count_max || 8 }
-          if (s.title) titleToScenarioData[s.title] = { key_visual_url: s.key_visual_url, id: s.id }
-        })
-        setScenarioImages(imageMap)
-        setScenarioSlugs(slugMap)
-        setScenarioInfo(infoMap)
-      }
-
-      // 店舗情報をマップ化
-      if (storesData.length > 0) {
-        const storeMap: Record<string, Store> = {}
-        storesData.forEach(store => {
-          storeMap[store.id] = store as Store
-        })
-        setStores(storeMap)
-      }
-
-      const membersDetailRows = (membersDetailResult.data || []) as Array<{
-        group_id: string
-        guest_name: string | null
-        user_id: string | null
-        is_organizer: boolean
-        status: string
-        joined_at: string | null
-      }>
-
-      const candidateCountByGroup: Record<string, number> = {}
-      ;(candidateDatesResult.data || []).forEach((row: { group_id: string }) => {
-        if (!row.group_id) return
-        candidateCountByGroup[row.group_id] = (candidateCountByGroup[row.group_id] || 0) + 1
-      })
-
-      const memberCountMap: Record<string, number> = {}
-      const membersByGroupId: Record<string, typeof membersDetailRows> = {}
-      membersDetailRows.forEach((m) => {
-        memberCountMap[m.group_id] = (memberCountMap[m.group_id] || 0) + 1
-        if (!membersByGroupId[m.group_id]) membersByGroupId[m.group_id] = []
-        membersByGroupId[m.group_id].push(m)
-      })
-
-      const memberUserIds = [...new Set(membersDetailRows.map((m) => m.user_id).filter(Boolean) as string[])]
-      const displayByUserId: Record<string, string> = {}
-      if (memberUserIds.length > 0) {
-        const { data: nameRows, error: nameRpcError } = await supabase.rpc('get_user_display_names', {
-          user_ids: memberUserIds
-        })
-        if (nameRpcError) {
-          logger.warn('get_user_display_names RPC エラー（メンバー名が一部省略される場合があります）:', nameRpcError)
-        } else {
-          (nameRows as { user_id: string; display_name: string }[] | null)?.forEach((row) => {
-            if (row.user_id && row.display_name?.trim()) {
-              displayByUserId[row.user_id] = row.display_name.trim()
-            }
-          })
-        }
-      }
-
-      const storeNameById: Record<string, string> = {}
-      storesData.forEach((s: { id: string; name: string }) => {
-        storeNameById[s.id] = s.name
-      })
-
-      const formatConfirmedScheduleLine = (
-        groupStatus: string,
-        groupId: string
-      ): string | null => {
-        if (!['confirmed', 'booking_requested'].includes(groupStatus)) return null
-        const s = groupScheduleByGroupId[groupId]
-        if (!s?.requested_datetime) return null
-        const raw = s.requested_datetime
-        const iso =
-          raw.includes('+') || raw.endsWith('Z')
-            ? raw
-            : `${raw.slice(0, 10)}T${(raw.match(/T(\d{2}:\d{2})/)?.[1] || '12:00')}:00+09:00`
-        const d = new Date(iso)
-        const dateStr = d.toLocaleDateString('ja-JP', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          weekday: 'short',
-          timeZone: 'Asia/Tokyo'
-        })
-        const hm = raw.match(/T(\d{2}:\d{2})/)
-        const timeStr = hm ? `${hm[1]}〜` : ''
-        const store = s.store_name || (s.store_id ? storeNameById[s.store_id] : '')
-        const line = [dateStr, timeStr, store].filter(Boolean).join(' ')
-        if (groupStatus === 'booking_requested') {
-          return line ? `申込内容: ${line}` : null
-        }
-        return line || null
-      }
-
-      const buildMemberDisplays = (gid: string) => {
-        const rows = membersByGroupId[gid] || []
-        return rows.map((m) => {
-          const fromGuest = m.guest_name?.trim()
-          const fromUser = m.user_id ? displayByUserId[m.user_id] : ''
-          const name = fromGuest || fromUser || '参加者'
-          return { name, is_organizer: m.is_organizer }
-        })
-      }
-
-      // 体験済みシナリオを構築（予約履歴 + 手動登録、両方を常に処理）
-      {
-        const pastReservations = (reservationData || []).filter(
-          r => new Date(r.requested_datetime) < new Date() && (r.status === 'confirmed' || r.status === 'gm_confirmed')
-        )
-        
-        // ratingsMapをローカル変数でも参照できるよう
-        const localRatingsMap: Record<string, number> = {}
-        if (ratingsResult.data) {
-          ratingsResult.data.forEach((r: any) => {
-            if (r.scenario_master_id) localRatingsMap[r.scenario_master_id] = r.rating
-          })
-        }
-
-        const played: PlayedScenario[] = pastReservations.map(reservation => {
-          const scenarioMasterId = reservation.scenario_master_id
-          const title = reservation.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim() || ''
-          const scenarioData = scenarioMasterId ? { key_visual_url: imageMap[scenarioMasterId], slug: scenarioMasterId } : null
-          const titleFallback = title ? titleToScenarioData[title] : null
-          const finalKeyVisual = scenarioData?.key_visual_url || titleFallback?.key_visual_url
-          const finalScenarioId = scenarioMasterId || titleFallback?.id
-          
-          return {
-            scenario: title,
-            date: reservation.requested_datetime.split('T')[0],
-            venue: storesData.find(s => s.id === reservation.store_id)?.name || '店舗情報なし',
-            scenario_id: finalScenarioId || undefined,
-            scenario_slug: scenarioData?.slug || titleFallback?.id || undefined,
-            organization_slug: reservation.organization_id ? orgSlugMap[reservation.organization_id] : undefined,
-            key_visual_url: finalKeyVisual || undefined,
-            is_manual: false,
-            reservation_id: reservation.id,
-            rating: finalScenarioId ? (localRatingsMap[finalScenarioId] ?? null) : null,
-          }
-        })
-        
-        // 手動登録履歴を追加（予約の有無に関わらず常に追加）
-        const manualHistory = manualHistoryResult.data
-        if (manualHistoryResult.error) {
-          logger.error('手動プレイ履歴の取得エラー:', manualHistoryResult.error)
-        }
-        if (manualHistory && manualHistory.length > 0) {
-          manualHistory.forEach((item: any) => {
-            const scenarioMasterId = item.scenario_master_id ?? item.scenario_id
-            played.push({
-              scenario: item.scenario_title,
-              date: item.played_at,
-              venue: item.venue || '',
-              scenario_id: scenarioMasterId || undefined,
-              scenario_slug: scenarioMasterId || undefined,
-              organization_slug: undefined,
-              key_visual_url: scenarioMasterId ? imageMap[scenarioMasterId] : undefined,
-              is_manual: true,
-              manual_id: item.id,
-              rating: scenarioMasterId ? (localRatingsMap[scenarioMasterId] ?? null) : null,
-            })
-          })
-        }
-        
-        // 日付でソート（新しい順）、手動登録(null日付)は先頭に、重複を除去
-        const listDedupeKeys = new Set<string>()
-        const uniquePlayed = played
-          .sort((a, b) => {
-            // 手動登録(is_manual)でdate nullは先頭に表示
-            if (a.is_manual && !a.date && !(b.is_manual && !b.date)) return -1
-            if (b.is_manual && !b.date && !(a.is_manual && !a.date)) return 1
-            if (!a.date && !b.date) return 0
-            if (!a.date) return 1
-            if (!b.date) return -1
-            return new Date(b.date).getTime() - new Date(a.date).getTime()
-          })
-          .filter(p => {
-            const k = playedScenarioListDedupeKey(p)
-            if (listDedupeKeys.has(k)) return false
-            listDedupeKeys.add(k)
-            return true
-          })
-          .slice(0, MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER)
-        
-        setPlayedScenarios(uniquePlayed)
-      }
-
-      // 貸切グループを構築（N+1問題解消済み）
-      if (memberRecords.length > 0) {
-        const groups: PrivateGroupSummary[] = []
-        
-        for (const record of memberRecords) {
-          const group = record.private_groups as any
-          if (!group || group.status === 'cancelled') continue
-          
-          const scenario = group.scenario_masters as any
-          const resId = group.reservation_id as string | null | undefined
-          groups.push({
-            id: group.id,
-            name: group.name,
-            invite_code: group.invite_code,
-            status: group.status,
-            scenario_title: scenario?.title || null,
-            scenario_image: scenario?.key_visual_url || null,
-            scenario_player_count_max: scenario?.player_count_max || null,
-            member_count: memberCountMap[group.id] || 0,
-            is_organizer: record.is_organizer,
-            created_at: group.created_at,
-            reservation_id: resId ?? null,
-            confirmed_schedule_line: formatConfirmedScheduleLine(group.status, group.id),
-            member_displays: buildMemberDisplays(group.id),
-            candidate_dates_count: candidateCountByGroup[group.id] || 0
-          })
-        }
-        
-        // 作成日順（新しい順）でソート
-        groups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        setPrivateGroups(groups)
-      }
-
-    } catch (error) {
-      logger.error('データ取得エラー:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   // 手動登録を追加
   const handleAddManualHistory = async () => {
-    if (!customerId || !newScenarioId) {
-      showToast.error('シナリオは必須です')
-      return
-    }
-
-    setIsSubmitting(true)
+    if (!customerId || !newScenarioId) { showToast.error('シナリオは必須です'); return }
     try {
-      const manualCount = await countManualPlayHistoryForCustomer(customerId)
-      if (isManualPlayHistoryAtCap(manualCount)) {
-        showToast.error(
-          `手動のプレイ履歴は最大${MAX_MANUAL_PLAY_HISTORY_PER_CUSTOMER}件まで登録できます`
-        )
-        return
-      }
-
-      // 選択されたシナリオのタイトルを取得
-      const selectedScenario = scenarioOptions.find(s => s.id === newScenarioId)
-      const scenarioTitle = selectedScenario?.title || ''
-      
-      // 選択された店舗の名前を取得
-      const selectedStore = storeOptions.find(s => s.id === newStoreId)
-      const storeName = selectedStore?.name || null
-
-      // scenario_master_id を設定して画像を取得できるようにする
-      const insertData = {
-        customer_id: customerId,
-        scenario_title: scenarioTitle,
-        scenario_master_id: newScenarioId,
-        played_at: newPlayedAt || null,
-        venue: storeName,
-      }
-      const { data: insertedData, error } = await supabase
-        .from('manual_play_history')
-        .insert(insertData)
-        .select()
-
-      if (error) {
-        logger.error('手動プレイ履歴の追加エラー:', error)
-        throw error
-      }
-
-      if (!insertedData || insertedData.length === 0) {
-        logger.error('手動プレイ履歴: insert 結果が空（RLS の可能性）')
-        throw new Error('データの追加に失敗しました（権限エラーの可能性）')
-      }
-
-      showToast.success('プレイ履歴を追加しました')
+      await addManualHistoryMutation.mutateAsync({ scenarioId: newScenarioId, scenarioOptions, playedAt: newPlayedAt, storeId: newStoreId, storeOptions })
       setIsAddDialogOpen(false)
       setNewScenarioId('')
       setNewPlayedAt('')
       setNewStoreId('')
-      fetchData()
-    } catch (error) {
-      logger.error('手動履歴追加エラー:', error)
-      showToast.error('追加に失敗しました')
-    } finally {
-      setIsSubmitting(false)
-    }
+    } catch { /* エラーはmutation内で処理済み */ }
   }
 
   // 手動登録を削除
   const handleDeleteManualHistory = async (manualId: string) => {
-    if (!customerId) {
-      showToast.error('顧客情報が取得できません。再ログインしてお試しください。')
-      return
-    }
     try {
-      const { data, error } = await supabase
-        .from('manual_play_history')
-        .delete()
-        .eq('id', manualId)
-        .eq('customer_id', customerId)
-        .select('id')
-
-      if (error) throw error
-      if (!data?.length) {
-        logger.error('手動履歴削除: 0件（RLSまたはID不一致）', { manualId, customerId })
-        showToast.error('削除できませんでした。ページを再読み込みしてから再度お試しください。')
-        await fetchData()
-        return
-      }
-
-      showToast.success('削除しました')
+      await deleteManualHistoryMutation.mutateAsync(manualId)
       setPlayedScenarios(prev => prev.filter(p => p.manual_id !== manualId))
       setIsEditDialogOpen(false)
       setEditingScenario(null)
-    } catch (error) {
-      logger.error('手動履歴削除エラー:', error)
-      showToast.error('削除に失敗しました')
-    }
+    } catch { /* エラーはmutation内で処理済み */ }
   }
 
   // おすすめ度を保存（upsert）
@@ -1031,7 +448,6 @@ export default function MyPage() {
       if (!data?.length) {
         logger.error('手動履歴日付更新: 0件（RLSまたはID不一致）', { manualId, customerId })
         showToast.error('更新できませんでした。ページを再読み込みしてから再度お試しください。')
-        await fetchData()
         return
       }
 
@@ -1936,12 +1352,12 @@ export default function MyPage() {
                               allowClear={true}
                             />
                           </div>
-                          <Button 
-                            onClick={handleAddManualHistory} 
-                            disabled={isSubmitting || !newScenarioId}
+                          <Button
+                            onClick={handleAddManualHistory}
+                            disabled={addManualHistoryMutation.isPending || !newScenarioId}
                             className="w-full"
                           >
-                            {isSubmitting ? '追加中...' : '追加'}
+                            {addManualHistoryMutation.isPending ? '追加中...' : '追加'}
                           </Button>
                         </div>
                       </DialogContent>
