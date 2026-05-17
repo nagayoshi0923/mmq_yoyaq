@@ -196,18 +196,19 @@ function BookingShellLazyFallback() {
 //   → さもないと navType が POP 以外になり、scrollTo(0,0) が sessionStorage 復元より後に効いて潰す
 // - それ以外の同一タブ内のパス変更（PUSH/REPLACE）: トップへ
 function ScrollToTop() {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const navType = useNavigationType()
-  const prevPathRef = React.useRef<string | null>(null)
+  const prevKeyRef = React.useRef<string | null>(null)
 
   useLayoutEffect(() => {
+    // pathname + search で同一ページ判定（tab切替もここで検出）
+    const currentKey = `${pathname}${search}`
     if (navType === 'POP') {
-      prevPathRef.current = pathname
+      prevKeyRef.current = currentKey
       return
     }
-    const prev = prevPathRef.current
-    if (prev !== null && prev !== pathname) {
-      // overflow-y-auto のコンテナがあればそちらをリセット、なければ window
+    const prev = prevKeyRef.current
+    if (prev !== null && prev !== currentKey) {
       const container = document.querySelector('[data-scroll-container]') as HTMLElement | null
       if (container) {
         container.scrollTop = 0
@@ -215,12 +216,10 @@ function ScrollToTop() {
         window.scrollTo(0, 0)
       }
       // PUSH遷移では新ページの保存済みスクロール位置を削除して復元を抑制
-      // （POP=戻る/進むの場合はこのブロックに入らないため復元が維持される）
-      const key = `route:${pathname}${window.location.search || ''}ScrollY`
-      sessionStorage.removeItem(key)
+      sessionStorage.removeItem(`route:${pathname}${search}ScrollY`)
     }
-    prevPathRef.current = pathname
-  }, [pathname, navType])
+    prevKeyRef.current = currentKey
+  }, [pathname, search, navType])
 
   return null
 }
