@@ -21,14 +21,16 @@ export const manualPageApi = {
   async getWithBlocks(pageId: string): Promise<ManualPageWithBlocks> {
     const { data: page, error: pageError } = await supabase
       .from('manual_pages')
-      .select('*')
+      .select(
+        'id, organization_id, title, slug, description, category, icon_name, display_order, is_active, created_at, updated_at, page_content',
+      )
       .eq('id', pageId)
       .single()
     if (pageError) throw pageError
 
     const { data: blocks, error: blocksError } = await supabase
       .from('manual_blocks')
-      .select('*')
+      .select('id, page_id, block_type, content, display_order, created_at, updated_at')
       .eq('page_id', pageId)
       .order('display_order', { ascending: true })
     if (blocksError) throw blocksError
