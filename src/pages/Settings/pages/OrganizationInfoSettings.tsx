@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import {
   Save, Loader2, Users, CheckCircle, Clock, RefreshCw,
-  Building2, Globe, StickyNote, Users2,
+  Building2, StickyNote, Users2,
 } from 'lucide-react'
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
@@ -195,10 +195,9 @@ export function OrganizationInfoSettings() {
       <section className="bg-white rounded-xl border p-6">
         <SectionTitle icon={Users2} label="連絡先情報" />
         <div className="space-y-4">
-          <div className="flex items-start gap-2 text-sm text-muted-foreground leading-relaxed">
-            <Globe className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-            <span>お客様向けの連絡先ページ（/{organization.slug}/contact）に表示されます</span>
-          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            お客様向けの連絡先ページ（/{organization.slug}/contact）に表示されます
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="contact_name" className="text-sm font-medium">担当者名</Label>
