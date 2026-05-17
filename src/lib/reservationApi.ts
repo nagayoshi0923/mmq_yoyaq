@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 import { logger, generateCorrelationId, createCorrelatedLogger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { RESERVATION_SOURCE, STAFF_RESERVATION_SOURCES, AUTO_MANAGED_STAFF_SOURCES, GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
@@ -83,23 +84,10 @@ type CreateReservationWithLockParams = Omit<
 // 顧客関連のAPI
 export const customerApi = {
   // 全顧客を取得
-  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
-  async getAll(organizationId?: string): Promise<Customer[]> {
-    // 組織フィルタリング
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('customers')
-      .select(CUSTOMER_SELECT_FIELDS)
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query.order('created_at', { ascending: false })
-    
-    if (error) throw error
-    return data || []
+  // バックエンド API (/api/customers) 経由で org_id をサーバー側で強制フィルタ
+  // organizationId 引数は後方互換のため残すが未使用
+  async getAll(_organizationId?: string): Promise<Customer[]> {
+    return apiClient.get<Customer[]>('/api/customers')
   },
 
   // 顧客を作成
