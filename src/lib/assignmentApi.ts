@@ -7,7 +7,6 @@ import {
 } from './gmScenarioMode'
 
 // 担当関係レコードの型（旧 Supabase select で推論されていた構造に合わせる）
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AssignmentRow = any
 
 // スタッフ⇔シナリオの担当関係を管理するAPI
