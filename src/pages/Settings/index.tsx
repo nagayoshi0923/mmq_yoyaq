@@ -12,7 +12,6 @@ import { CancellationSettings } from './pages/CancellationSettings'
 import { PricingSettings } from './pages/PricingSettings'
 import { SalesReportSettings } from './pages/SalesReportSettings'
 import { NotificationSettings } from './pages/NotificationSettings'
-import { StaffSettings } from './pages/StaffSettings'
 import { SystemSettings } from './pages/SystemSettings'
 import { EmailSettings } from './pages/EmailSettings'
 import { EmailDeliveryHistorySettings } from './pages/EmailDeliveryHistorySettings'
@@ -66,8 +65,6 @@ export function Settings() {
         return <SalesReportSettings storeId={storeId} />
       case 'notifications':
         return <NotificationSettings storeId={storeId} />
-      case 'staff':
-        return <StaffSettings storeId={storeId} />
       case 'system':
         return <SystemSettings storeId={storeId} />
       case 'email':

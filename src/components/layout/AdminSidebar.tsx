@@ -249,7 +249,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
           roles: ['admin', 'license_admin'], isGroupHeader: true,
           subItems: [
             { id: 'shift',         label: 'シフト設定',   path: `/${slug}/settings?tab=shift` },
-            { id: 'staff-setting', label: 'スタッフ設定', path: `/${slug}/settings?tab=staff` },
             { id: 'salary',        label: '報酬',         path: `/${slug}/settings?tab=salary` },
           ],
         },
