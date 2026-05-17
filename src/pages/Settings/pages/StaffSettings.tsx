@@ -45,6 +45,14 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時のみ実行
   }, [])
 
+  useEffect(() => {
+    if (storeId && stores.length > 0 && storeId !== selectedStoreId) {
+      setSelectedStoreId(storeId)
+      fetchSettings(storeId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- storeId変更時のみ実行
+  }, [storeId, stores.length])
+
   const fetchData = async () => {
     setLoading(true)
     try {
@@ -53,8 +61,9 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
 
       if (storesData && storesData.length > 0) {
         setStores(storesData)
-        setSelectedStoreId(storesData[0].id)
-        await fetchSettings(storesData[0].id)
+        const targetStoreId = storeId || storesData[0].id
+        setSelectedStoreId(targetStoreId)
+        await fetchSettings(targetStoreId)
       }
     } catch (error) {
       logger.error('データ取得エラー:', error)

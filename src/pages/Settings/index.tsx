@@ -72,6 +72,7 @@ const BASE_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'reservation', label: '予約設定', icon: Users, description: '予約ルール' },
   { id: 'cancellation', label: 'キャンセル設定', icon: XCircle, description: 'キャンセルポリシー' },
   { id: 'pricing', label: '料金設定', icon: DollarSign, description: '料金体系' },
+  { id: 'customer', label: '顧客設定', icon: Users, description: '顧客・会員設定' },
   { id: 'salary', label: '報酬', icon: Calculator, description: 'GM報酬の設定' },
   { id: 'staff', label: 'スタッフ設定', icon: UserCog, description: 'スタッフ管理' },
   { id: 'email', label: 'メール設定', icon: Mail, description: 'メールテンプレート' },
@@ -111,7 +112,7 @@ export function Settings() {
   }, [isLicenseManager])
 
   // 店舗セレクターを表示しないページ
-  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'tenant-management', 'general', 'salary', 'booking-notice', 'categories', 'email-history', 'email-logs']
+  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'tenant-management', 'general', 'salary', 'booking-notice', 'categories', 'email-history', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
   const showStoreSelector = !noStoreSelectorPages.includes(activeTab)
 
   const renderContent = () => {
