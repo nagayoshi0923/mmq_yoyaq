@@ -371,7 +371,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
   return (
     <>
       {/* デスクトップサイドバー */}
-      <aside className="hidden md:flex flex-col w-48 shrink-0 border-r border-border bg-background h-full overflow-y-auto">
+      <aside className="hidden md:flex flex-col w-48 shrink-0 border-r border-border bg-slate-50 h-full overflow-y-auto">
         <SidebarContent
           slug={slug}
           bookingActive={bookingActive}
