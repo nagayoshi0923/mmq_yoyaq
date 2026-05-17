@@ -29,22 +29,24 @@ export const scenarioApi = {
   // skipOrgFilter: license_admin が全組織を取得したい場合にのみ使用（将来拡張用）。
   //   現時点ではバックエンド未対応のため、true の場合は旧来の Supabase 直接クエリにフォールバック。
   async getAll(organizationId?: string, skipOrgFilter?: boolean): Promise<Scenario[]> {
-    // skipOrgFilter=true（ライセンス管理者の全組織取得）は旧来の実装を使う
-    if (skipOrgFilter) {
-      logger.log('⚠️ skipOrgFilter=true: 旧来の Supabase 直接クエリを使用')
-      let query = supabase
-        .from('organization_scenarios_with_master')
-        .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
-      const { data, error } = await query.order('title', { ascending: true })
-      if (error) throw error
-      return (data || []) as unknown as Scenario[]
+    // TODO: バックエンド API (/api/scenarios) 移行作業中。現在は Supabase 直接クエリを使用。
+    let query = supabase
+      .from('organization_scenarios_with_master')
+      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+
+    if (!skipOrgFilter) {
+      const orgId = organizationId || await getCurrentOrganizationId()
+      logger.log('🏢 シナリオ取得: organization_id =', orgId)
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      } else {
+        logger.log('⚠️ organization_idがnullのため、フィルタなしで取得')
+      }
     }
 
-    // 通常のスタッフ・管理者: バックエンド API を経由して取得する
-    // サーバー側で JWT を検証し organization_id を確実にフィルタするため安全
-    logger.log('🏢 シナリオ取得: /api/scenarios を呼び出し')
-    const params = new URLSearchParams()
-    return apiClient.get<Scenario[]>(`/api/scenarios${params.size ? `?${params}` : ''}`)
+    const { data, error } = await query.order('title', { ascending: true })
+    if (error) throw error
+    return (data || []) as unknown as Scenario[]
   },
 
   // 旧scenarios テーブルから全シナリオを取得（キット管理等レガシー機能用）
