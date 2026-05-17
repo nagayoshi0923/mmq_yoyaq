@@ -58,18 +58,17 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }
 
   return (
-    // overflow-x-hidden をコンテンツ側に置くことで sticky sidebar が正しく機能する
-    <div className="min-h-screen max-w-full bg-background">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       <Header />
-      <div className="flex min-w-0">
+      <div className="flex flex-1 min-h-0 min-w-0">
         <AdminSidebar />
-        <div className={`flex flex-1 min-w-0 overflow-x-hidden ${className}`}>
+        <div className={`flex flex-1 min-h-0 min-w-0 ${className}`}>
           {sidebar && (
             <div className="border-r border-slate-200 shrink-0">
               {sidebar}
             </div>
           )}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             <div className={`${containerPadding} min-w-0`}>
               {children}
             </div>
