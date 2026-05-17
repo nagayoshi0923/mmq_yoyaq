@@ -6,8 +6,9 @@
  */
 import { useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, AlertCircle } from 'lucide-react'
+import { Loader2, AlertCircle, FileCheck } from 'lucide-react'
 import { useOrganization } from '@/hooks/useOrganization'
 import { ReportsReceived } from './tabs/ReportsReceived'
 import { SendReports } from './tabs/SendReports'
@@ -54,6 +55,10 @@ export default function LicenseManagement() {
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
+      <PageHeader
+        title={<><FileCheck className="h-5 w-5" />ライセンス管理</>}
+        description="公演報告の送信・受信・ライセンス料の集計"
+      />
       {renderContent()}
     </AppLayout>
   )

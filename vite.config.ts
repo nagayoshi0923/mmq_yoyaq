@@ -69,12 +69,17 @@ export default defineConfig({
     strictPort: !process.env.PORT,
     // CORS設定（ネットワーク経由アクセス対応）
     cors: true,
-    // /api/* を Vercel dev サーバー（port 3000）に転送する
-    // 開発時は `vercel dev` を port 3000 で起動すること
+    // /api/* をステージング Vercel deploy に転送する
+    // 理由: macOS 上で vercel dev が spawn EBADF で関数を実行できないため、
+    // ローカルからは staging deploy の /api を叩く方式に切り替えた。
+    // ローカルで API 自体を編集したい場合は staging へ push して反映を待つ
+    // （UI のみのローカル開発であれば npm run dev のみで完結する）。
+    // 環境変数 VITE_API_TARGET で別 URL を指定可能（例: 本番確認、preview deploy 確認）
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.VITE_API_TARGET || 'https://mmq-yoyaq-git-staging-nagayoshi0923s-projects.vercel.app',
         changeOrigin: true,
+        secure: true,
       },
     },
     hmr: {

@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:vercel": "bash scripts/dev-local.sh",
+    "dev:stop": "lsof -ti:3000,5173 -sTCP:LISTEN 2>/dev/null | xargs -r kill || true",
     "build": "tsc --noEmit & vite build & wait",
     "build:fast": "vite build",
     "preview": "vite preview",

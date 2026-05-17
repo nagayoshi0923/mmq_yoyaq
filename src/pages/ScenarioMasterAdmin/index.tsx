@@ -245,12 +245,7 @@ export function ScenarioMasterAdmin() {
     >
       <div className="space-y-6">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">シナリオマスタ管理</span>
-            </div>
-          }
+          title={<><Shield className="h-5 w-5 text-primary" />シナリオマスタ管理</>}
           description={`全${masters.length}本のマスタを管理`}
         >
           <Button onClick={handleNew} size="sm">

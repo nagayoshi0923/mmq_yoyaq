@@ -74,12 +74,7 @@ export default function ExternalReports() {
     >
     <div className="space-y-6">
       <PageHeader
-        title={
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            <span className="text-lg font-bold">公演報告</span>
-        </div>
-        }
+        title={<><FileText className="h-5 w-5 text-primary" />公演報告</>}
         description="管理シナリオの公演実績を報告"
       >
         <Button onClick={() => setIsCreateDialogOpen(true)}>

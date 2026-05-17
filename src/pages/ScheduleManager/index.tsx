@@ -997,14 +997,12 @@ export function ScheduleManager() {
     >
       {/* ツールバー（sticky） */}
       <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b -mx-[10px] px-[10px]">
-        {/* 見出し行（sticky に含めて消えないようにする） */}
-        <div className="flex items-center gap-2 pt-2 pb-1">
-          <CalendarDays className="h-4 w-4 text-primary shrink-0" />
-          <h1 className="text-base font-bold leading-none">スケジュール管理</h1>
-          <span className="text-xs text-muted-foreground">
-            {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月
-          </span>
-        </div>
+        {/* 見出し（sticky に含めて消えないようにする / mb-2 は sticky 高さを抑えるため） */}
+        <PageHeader
+          title={<><CalendarDays className="h-5 w-5 text-primary" />スケジュール管理</>}
+          description={`${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月`}
+          className="mb-2 pt-2"
+        />
         <div className="flex items-center h-12 gap-2">
           {/* 月切り替え - 連結ボタングループ */}
           <div className="flex items-center shrink-0 border border-input rounded-lg overflow-hidden bg-background">

@@ -280,12 +280,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     <div id="sales-report-container" className="space-y-3 sm:space-y-4 md:space-y-6">
       {/* ヘッダー：タイトルとエクスポートボタン */}
       <PageHeader
-        title={
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            <span className="text-lg font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</span>
-          </div>
-        }
+        title={<><TrendingUp className="h-5 w-5 text-primary" />{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</>}
         description="期間別の売上・予約実績と分析"
       >
         <ExportButtons salesData={salesData} dateRange={dateRange} />

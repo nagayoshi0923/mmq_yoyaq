@@ -108,12 +108,7 @@ export function GMAvailabilityCheck() {
     >
       <div className="space-y-4">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">GM可否確認</span>
-            </div>
-          }
+          title={<><UserCheck className="h-5 w-5 text-primary" />GM可否確認</>}
           description="貸切予約のGM可否を確認・回答します"
         />
 

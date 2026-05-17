@@ -37,6 +37,7 @@ import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import type { ExternalPerformanceReport } from '@/types'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export default function LicenseReportManagement() {
   const { organization, staff, isLicenseManager, isLoading: orgLoading } = useOrganization()
@@ -98,16 +99,10 @@ export default function LicenseReportManagement() {
       stickyLayout={true}
     >
     <div className="space-y-6">
-      {/* ヘッダー */}
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <FileCheck className="w-6 h-6" />
-          ライセンス報告管理
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          外部からの公演報告の確認と承認
-        </p>
-      </div>
+      <PageHeader
+        title={<><FileCheck className="w-5 h-5" />ライセンス報告管理</>}
+        description="外部からの公演報告の確認と承認"
+      />
 
       <Tabs defaultValue="reports" className="space-y-6">
         <TabsList>

@@ -151,12 +151,7 @@ export function ShiftSubmission() {
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">シフト提出 - {formatMonthYear()}</span>
-            </div>
-          }
+          title={<><CalendarClock className="h-5 w-5 text-primary" />シフト提出 - {formatMonthYear()}</>}
           description="出勤可能な時間帯にチェックを入れてください"
         >
           {/* PC・タブレット用提出ボタン */}
