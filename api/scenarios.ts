@@ -95,7 +95,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(403).json({ error: 'スタッフ以上の権限が必要です' })
   }
 
-  // シナリオ取得（org_id をサーバー側で強制フィルタ）
+  const id = req.query.id as string | undefined
+  const slug = req.query.slug as string | undefined
+
+  // ?id=xxx → 単一シナリオ取得（master_id または org_scenario_id で検索）
+  if (id) {
+    return await handleGetById(res, orgId, id)
+  }
+
+  // ?slug=xxx → slug で単一シナリオ取得
+  if (slug) {
+    return await handleGetBySlug(res, orgId, slug)
+  }
+
+  // 一覧取得（org_id をサーバー側で強制フィルタ）
   const { data, error } = await db
     .from('organization_scenarios_with_master')
     .select(SELECT_FIELDS)
@@ -108,4 +121,90 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   return res.status(200).json(data ?? [])
+}
+
+// 単一シナリオ取得: master_id または org_scenario_id で、まず自組織を、ダメなら共有シナリオを検索。
+// 他組織の非共有シナリオを返さないよう is_shared=true で明示フィルタする（RLS に依存しない）。
+async function handleGetById(res: VercelResponse, orgId: string, id: string) {
+  if (!db) return res.status(500).json({ error: 'db unavailable' })
+
+  // 1. 自組織で id (= scenario_master_id) で検索
+  const r1 = await db
+    .from('organization_scenarios_with_master')
+    .select(SELECT_FIELDS)
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  if (r1.data) return res.status(200).json(r1.data)
+  if (r1.error && r1.error.code !== 'PGRST116') {
+    console.error('[scenarios:getById] step1 error:', r1.error)
+  }
+
+  // 2. 自組織で org_scenario_id でも検索
+  const r2 = await db
+    .from('organization_scenarios_with_master')
+    .select(SELECT_FIELDS)
+    .eq('org_scenario_id', id)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  if (r2.data) return res.status(200).json(r2.data)
+  if (r2.error && r2.error.code !== 'PGRST116') {
+    console.error('[scenarios:getById] step2 error:', r2.error)
+  }
+
+  // 3. 共有シナリオ（他組織でも is_shared=true なら可）から id 検索
+  const r3 = await db
+    .from('organization_scenarios_with_master')
+    .select(SELECT_FIELDS)
+    .eq('id', id)
+    .eq('is_shared', true)
+    .limit(1)
+  if (r3.error) {
+    console.error('[scenarios:getById] step3 error:', r3.error)
+    return res.status(500).json({ error: 'データ取得に失敗しました', detail: r3.error.message })
+  }
+  if (r3.data?.[0]) return res.status(200).json(r3.data[0])
+
+  // 4. 共有シナリオから org_scenario_id でも検索
+  const r4 = await db
+    .from('organization_scenarios_with_master')
+    .select(SELECT_FIELDS)
+    .eq('org_scenario_id', id)
+    .eq('is_shared', true)
+    .limit(1)
+  if (r4.error) {
+    console.error('[scenarios:getById] step4 error:', r4.error)
+    return res.status(500).json({ error: 'データ取得に失敗しました', detail: r4.error.message })
+  }
+
+  return res.status(200).json(r4.data?.[0] ?? null)
+}
+
+// slug で単一シナリオ取得（自組織 → 共有シナリオの順）
+async function handleGetBySlug(res: VercelResponse, orgId: string, slug: string) {
+  if (!db) return res.status(500).json({ error: 'db unavailable' })
+
+  const r1 = await db
+    .from('organization_scenarios_with_master')
+    .select(SELECT_FIELDS)
+    .eq('slug', slug)
+    .eq('organization_id', orgId)
+    .maybeSingle()
+  if (r1.data) return res.status(200).json(r1.data)
+  if (r1.error && r1.error.code !== 'PGRST116') {
+    console.error('[scenarios:getBySlug] step1 error:', r1.error)
+  }
+
+  const r2 = await db
+    .from('organization_scenarios_with_master')
+    .select(SELECT_FIELDS)
+    .eq('slug', slug)
+    .eq('is_shared', true)
+    .limit(1)
+  if (r2.error) {
+    console.error('[scenarios:getBySlug] step2 error:', r2.error)
+    return res.status(500).json({ error: 'データ取得に失敗しました', detail: r2.error.message })
+  }
+
+  return res.status(200).json(r2.data?.[0] ?? null)
 }
