@@ -659,7 +659,7 @@ function SidebarContent({
         </div>
       ))}
       {/* 最下部の余白（最後のメニューが押しにくくなるのを防ぐ） */}
-      <div className="h-8 flex-shrink-0" />
+      <div className="h-48 flex-shrink-0" />
     </div>
   )
 }
