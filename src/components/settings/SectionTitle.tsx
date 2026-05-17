@@ -20,7 +20,7 @@ export function SectionTitle({ icon: Icon, label, description }: SectionTitlePro
         <h3 className="text-base font-semibold">{label}</h3>
       </div>
       {description && (
-        <p className="text-sm text-muted-foreground leading-relaxed mt-2 ml-11">{description}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed mt-2 ml-11">{description}</p>
       )}
     </div>
   )

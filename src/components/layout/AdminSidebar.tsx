@@ -251,7 +251,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
             { id: 'shift',         label: 'シフト設定',   path: `/${slug}/settings?tab=shift` },
             { id: 'staff-setting', label: 'スタッフ設定', path: `/${slug}/settings?tab=staff` },
             { id: 'salary',        label: '報酬',         path: `/${slug}/settings?tab=salary` },
-            { id: 'customer',      label: '顧客設定',     path: `/${slug}/settings?tab=customer` },
           ],
         },
         {

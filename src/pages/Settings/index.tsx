@@ -17,7 +17,6 @@ import { SystemSettings } from './pages/SystemSettings'
 import { EmailSettings } from './pages/EmailSettings'
 import { EmailDeliveryHistorySettings } from './pages/EmailDeliveryHistorySettings'
 import { EmailLogsSettings } from './pages/EmailLogsSettings'
-import { CustomerSettings } from './pages/CustomerSettings'
 import { DataManagementSettings } from './pages/DataManagementSettings'
 import { BookingNoticeSettings } from './pages/BookingNoticeSettings'
 import { SalarySettings } from './pages/SalarySettings'
@@ -77,8 +76,6 @@ export function Settings() {
         return <EmailDeliveryHistorySettings />
       case 'email-logs':
         return <EmailLogsSettings />
-      case 'customer':
-        return <CustomerSettings storeId={storeId} />
       case 'data':
         return <DataManagementSettings storeId={storeId} />
       case 'booking-notice':
