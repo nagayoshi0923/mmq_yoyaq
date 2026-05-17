@@ -10,15 +10,17 @@ interface SearchBarProps {
   searchTerm: string
   onSearchChange: (value: string) => void
   organizationSlug?: string
+  themeColor?: string
 }
 
 /**
  * 検索バーコンポーネント
  */
-export const SearchBar = memo(function SearchBar({ 
-  searchTerm, 
+export const SearchBar = memo(function SearchBar({
+  searchTerm,
   onSearchChange,
-  organizationSlug
+  organizationSlug,
+  themeColor,
 }: SearchBarProps) {
   const navigate = useNavigate()
   const handleCatalogClick = useCallback(() => {
@@ -43,9 +45,9 @@ export const SearchBar = memo(function SearchBar({
         variant="outline"
         onClick={handleCatalogClick}
         className="h-10 md:h-9 px-3 flex items-center gap-1.5 whitespace-nowrap text-sm hover:scale-[1.02] transition-transform"
-        style={{ 
-          borderColor: THEME.primary,
-          color: THEME.primary,
+        style={{
+          borderColor: themeColor ?? THEME.primary,
+          color: themeColor ?? THEME.primary,
           borderWidth: 2,
         }}
       >

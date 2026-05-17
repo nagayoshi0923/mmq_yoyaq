@@ -434,7 +434,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         <div className="container mx-auto max-w-7xl px-4 md:px-6 py-2">
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
-              <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} organizationSlug={organizationSlug} />
+              <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} organizationSlug={organizationSlug} themeColor={heroBgColor} />
             </div>
             <Button
               type="button"
@@ -520,6 +520,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 selectedStoreIds={selectedStoreIds}
                 onStoreIdsChange={handleStoreIdsChange}
                 stores={stores}
+                themeColor={heroBgColor}
               />
             </TabsContent>
 
