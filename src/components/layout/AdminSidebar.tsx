@@ -240,7 +240,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
             { id: 'performance-schedule', label: '公演スケジュール', path: `/${slug}/settings?tab=performance-schedule` },
             { id: 'reservation',          label: '予約設定',        path: `/${slug}/settings?tab=reservation` },
             { id: 'cancellation',         label: 'キャンセル設定',  path: `/${slug}/settings?tab=cancellation` },
-            { id: 'pricing',              label: '料金設定',        path: `/${slug}/settings?tab=pricing` },
             { id: 'booking-notice',       label: '注意事項設定',    path: `/${slug}/settings?tab=booking-notice` },
             { id: 'categories',           label: 'カテゴリ・作者',  path: `/${slug}/settings?tab=categories` },
           ],

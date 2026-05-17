@@ -263,54 +263,6 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
             <p className="text-xs text-muted-foreground">「閉店」にすると予約サイトへの公開が停止されます</p>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">表示順（並び替え）</Label>
-            <div className="space-y-2">
-              {stores
-                .filter(s => s.ownership_type !== 'office')
-                .map((store, index, filteredStores) => (
-                  <div
-                    key={store.id}
-                    className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"
-                  >
-                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                    <div
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: store.color || '#gray' }}
-                    />
-                    <span className="flex-1 font-medium">{store.short_name || store.name}</span>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const originalIndex = stores.findIndex(s => s.id === store.id)
-                          moveStore(originalIndex, 'up')
-                        }}
-                        disabled={index === 0}
-                        className="h-8 w-8 p-0"
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const originalIndex = stores.findIndex(s => s.id === store.id)
-                          moveStore(originalIndex, 'down')
-                        }}
-                        disabled={index === filteredStores.length - 1}
-                        className="h-8 w-8 p-0"
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-            </div>
-            <p className="text-xs text-muted-foreground">スケジュール管理・予約サイトでの店舗の並び順に反映されます</p>
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">収容人数</Label>
@@ -401,6 +353,44 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
               placeholder="店舗に関するメモ"
             />
           </div>
+        </div>
+      </section>
+
+      {/* 表示順（並び替え） */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={GripVertical}
+          label="表示順"
+          description="スケジュール管理・予約サイトでの店舗の並び順です。即座に反映されます。"
+        />
+        <div className="space-y-2">
+          {stores
+            .filter(s => s.ownership_type !== 'office')
+            .map((store, index, filteredStores) => (
+              <div
+                key={store.id}
+                className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"
+              >
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                <div
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: store.color || '#3B82F6' }}
+                />
+                <span className="flex-1 text-sm font-medium">{store.short_name || store.name}</span>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm"
+                    onClick={() => { const i = stores.findIndex(s => s.id === store.id); moveStore(i, 'up') }}
+                    disabled={index === 0} className="h-8 w-8 p-0">
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm"
+                    onClick={() => { const i = stores.findIndex(s => s.id === store.id); moveStore(i, 'down') }}
+                    disabled={index === filteredStores.length - 1} className="h-8 w-8 p-0">
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
         </div>
       </section>
 

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
-import { Save, Loader2, Calendar, Clock } from 'lucide-react'
+import { Save, Loader2, Calendar, Clock, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { organizationSettingsApi, type TimeSlotSettings } from '@/lib/api/organizationSettingsApi'
@@ -188,79 +188,32 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      <PageHeader title="公演スケジュール設定" description="1日の公演回数・時間枠の設定">
+      <PageHeader title="公演スケジュール設定" description="イベント作成時のデフォルト公演時間・時間帯設定">
         <Button size="sm" onClick={handleSave} disabled={saving}>
           <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
 
-      {/* 1日の公演構成 */}
+      {/* デフォルト公演時間 */}
       <section className="bg-white rounded-xl border p-6">
         <SectionTitle
           icon={Calendar}
-          label="1日の公演構成"
-          description="1日に何回公演を行うか、各公演の開始時刻と区分（朝・昼・夜）を設定します。スケジュール管理画面の公演枠表示に反映されます。"
+          label="デフォルト公演時間"
+          description="スケジュール管理でイベントを新規作成するとき、シナリオ未選択の場合にこの時間（分）で終了時刻が自動計算されます。"
         />
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">1日の公演回数</Label>
-            <Select
-              value={formData.performances_per_day.toString()}
-              onValueChange={(v) => handlePerformancesPerDayChange(parseInt(v))}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1,2,3,4,5].map(n => <SelectItem key={n} value={n.toString()}>{n}回</SelectItem>)}
-              </SelectContent>
-            </Select>
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium">デフォルト公演時間</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              value={formData.default_duration}
+              onChange={(e) => setFormData(prev => ({ ...prev, default_duration: parseInt(e.target.value) || 180 }))}
+              min="30" max="480" className="w-24"
+            />
+            <span className="text-sm text-muted-foreground">分</span>
           </div>
-
-          {formData.performance_times.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">各公演の区分と開始時刻</Label>
-              <div className="space-y-2">
-                {formData.performance_times.map((time, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                    <span className="text-xs text-muted-foreground w-16 shrink-0">第{index + 1}公演</span>
-                    <Select value={time.slot} onValueChange={(v) => updatePerformanceTime(index, 'slot', v)}>
-                      <SelectTrigger className="w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timeSlotOptions.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      type="time"
-                      value={time.start_time}
-                      onChange={(e) => updatePerformanceTime(index, 'start_time', e.target.value)}
-                      className="w-32"
-                    />
-                    <span className="text-xs text-muted-foreground">開始</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">公演間の準備時間</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                value={formData.preparation_time}
-                onChange={(e) => setFormData(prev => ({ ...prev, preparation_time: parseInt(e.target.value) || 0 }))}
-                min="0" max="120" className="w-24"
-              />
-              <span className="text-sm text-muted-foreground">分</span>
-            </div>
-            <p className="text-xs text-muted-foreground">公演と公演の間に確保する片付け・準備時間です。</p>
-          </div>
+          <p className="text-xs text-muted-foreground">例: 180分（3時間）</p>
         </div>
       </section>
 

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Save, Plus, X, CircleDollarSign, Clock, Tag } from 'lucide-react'
+import { Save, Plus, X, CircleDollarSign, Clock, Tag, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
@@ -203,8 +203,19 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
         </Button>
       </PageHeader>
 
+      {/* 未実装の注記 */}
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50">
+        <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-sm font-medium text-amber-800">この設定は現在アプリに反映されません</p>
+          <p className="text-xs text-amber-700 mt-1">
+            実際の参加費はシナリオごとの料金設定（シナリオ管理 → 料金タブ）から取得されます。こちらの設定は将来機能として保存のみ行われます。
+          </p>
+        </div>
+      </div>
+
       {/* 基本料金 */}
-      <section className="bg-white rounded-xl border p-6">
+      <section className="bg-white rounded-xl border p-6 opacity-75">
         <SectionTitle
           icon={CircleDollarSign}
           label="基本料金"
@@ -230,7 +241,7 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
       </section>
 
       {/* 時間帯別料金 */}
-      <section className="bg-white rounded-xl border p-6">
+      <section className="bg-white rounded-xl border p-6 opacity-75">
         <SectionTitle
           icon={Clock}
           label="時間帯別料金"
@@ -288,7 +299,7 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
       </section>
 
       {/* 割引設定 */}
-      <section className="bg-white rounded-xl border p-6">
+      <section className="bg-white rounded-xl border p-6 opacity-75">
         <SectionTitle
           icon={Tag}
           label="割引設定"
