@@ -1,5 +1,7 @@
 import { useSearchParams } from 'react-router-dom'
+import { Settings as SettingsIcon } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
 
@@ -91,7 +93,11 @@ export function Settings() {
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
-      <SettingsLayout 
+      <PageHeader
+        title={<><SettingsIcon className="h-5 w-5" />設定</>}
+        description="組織情報・店舗・通知・連携などの各種設定"
+      />
+      <SettingsLayout
         selectedStoreId={selectedStoreId}
         onStoreChange={handleStoreChange}
         showStoreSelector={showStoreSelector}

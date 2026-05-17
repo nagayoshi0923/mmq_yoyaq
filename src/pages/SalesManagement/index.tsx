@@ -1,6 +1,8 @@
 import React, { useEffect, lazy, Suspense } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { TrendingUp } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { useLocalState } from '@/hooks/useLocalState'
 import { useSalesData } from './hooks/useSalesData'
 
@@ -181,6 +183,10 @@ const SalesManagement: React.FC = () => {
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
+      <PageHeader
+        title={<><TrendingUp className="h-5 w-5" />売上管理</>}
+        description="売上集計・年次分析・スタッフ給与レポート"
+      />
       <Suspense fallback={<div className="flex items-center justify-center h-40 text-muted-foreground text-sm">読み込み中...</div>}>
         {renderContent()}
       </Suspense>

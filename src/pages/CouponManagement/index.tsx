@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { Header } from '@/components/layout/Header'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Plus, RefreshCw, Ticket } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -115,26 +116,23 @@ export function CouponManagement() {
       <div className="flex flex-1">
         {shouldShowNavigation && <AdminSidebar />}
         <main className="flex-1 max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Ticket className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">クーポン管理</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={loadCampaigns}
-              disabled={isLoading}
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button onClick={handleCreateNew}>
-              <Plus className="h-4 w-4 mr-2" />
-              新規キャンペーン
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title={<><Ticket className="h-5 w-5" />クーポン管理</>}
+          description="クーポンキャンペーンの作成・配布・利用状況を管理"
+        >
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={loadCampaigns}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button onClick={handleCreateNew}>
+            <Plus className="h-4 w-4 mr-2" />
+            新規キャンペーン
+          </Button>
+        </PageHeader>
 
         <CampaignList
           campaigns={campaigns}
