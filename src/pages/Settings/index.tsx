@@ -3,8 +3,7 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { 
-  Settings as SettingsIcon, 
-  Building2, 
+  Building2,
   Clock, 
   Calendar, 
   Users, 
@@ -29,7 +28,7 @@ import { useOrganization } from '@/hooks/useOrganization'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
 
 // 設定ページコンポーネント
-import { GeneralSettings } from './pages/GeneralSettings'
+import { ShiftSettings } from './pages/ShiftSettings'
 import { StoreBasicSettings } from './pages/StoreBasicSettings'
 import { BusinessHoursSettings } from './pages/BusinessHoursSettings'
 import { PerformanceScheduleSettings } from './pages/PerformanceScheduleSettings'
@@ -62,8 +61,7 @@ const BASE_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'faq', label: 'FAQ設定', icon: HelpCircle, description: 'よくある質問' },
   { id: 'blog', label: 'ブログ・お知らせ', icon: FileText, description: '記事の作成・管理' },
   
-  // 全体設定
-  { id: 'general', label: '全体設定', icon: SettingsIcon, description: 'システム全体の設定' },
+  { id: 'shift', label: 'シフト設定', icon: Calendar, description: 'シフト提出期間・編集締切' },
   
   // 店舗別設定
   { id: 'store-basic', label: '店舗基本設定', icon: Building2, description: '店舗情報' },
@@ -112,7 +110,7 @@ export function Settings() {
   }, [isLicenseManager])
 
   // 店舗セレクターを表示しないページ
-  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'tenant-management', 'general', 'salary', 'booking-notice', 'categories', 'email-history', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
+  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'tenant-management', 'shift', 'salary', 'booking-notice', 'categories', 'email-history', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
   const showStoreSelector = !noStoreSelectorPages.includes(activeTab)
 
   const renderContent = () => {
@@ -130,8 +128,8 @@ export function Settings() {
         return <BlogSettings />
       case 'tenant-management':
         return <TenantManagementSettings />
-      case 'general':
-        return <GeneralSettings />
+      case 'shift':
+        return <ShiftSettings />
       case 'store-basic':
         return <StoreBasicSettings storeId={storeId} />
       case 'business-hours':
