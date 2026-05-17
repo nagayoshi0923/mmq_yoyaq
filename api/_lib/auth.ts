@@ -1,5 +1,5 @@
 import type { VercelRequest } from '@vercel/node'
-import { db, getMissingEnvError } from './db'
+import { db, getMissingEnvError } from './db.js'
 
 export type ApiRole = 'admin' | 'staff' | 'customer' | 'license_admin'
 
