@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { requireAuth, requireStaff, ApiError } from './_lib/auth'
-import { db } from './_lib/db'
+import { db, getMissingEnvError } from './_lib/db'
 
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -56,8 +56,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // JWT を検証し org_id を DB から確実に取得（フロントの入力を信用しない）
-    const user = await requireAuth(req as unknown as Request)
+    const envError = getMissingEnvError()
+    if (envError || !db) {
+      console.error('[GET /api/scenarios] 環境変数エラー:', envError)
+      return res.status(500).json({ error: `環境変数が未設定です: ${envError}` })
+    }
+
+    const user = await requireAuth(req)
     requireStaff(user)
 
     const { data, error } = await db

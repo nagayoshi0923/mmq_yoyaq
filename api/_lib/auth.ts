@@ -1,5 +1,5 @@
 import type { VercelRequest } from '@vercel/node'
-import { db } from './db'
+import { db, getMissingEnvError } from './db'
 
 export type ApiRole = 'admin' | 'staff' | 'customer' | 'license_admin'
 
@@ -32,6 +32,9 @@ export async function requireAuth(req: VercelRequest): Promise<AuthUser> {
   }
 
   const jwt = authHeader.slice(7)
+
+  const envError = getMissingEnvError()
+  if (envError || !db) throw new ApiError(500, `環境変数が未設定です: ${envError}`)
 
   // Supabase 側で署名検証・有効期限チェック
   const { data: { user }, error: authError } = await db.auth.getUser(jwt)
