@@ -1,13 +1,13 @@
 import { PageHeader } from "@/components/layout/PageHeader"
-import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { SectionTitle } from '@/components/settings/SectionTitle'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Save, Send, TestTube, Bell, MessageSquare, BookOpen } from 'lucide-react'
+import { Save, Send, TestTube, Bell, MessageSquare, BookOpen, CalendarCheck, Webhook } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -494,27 +494,21 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="通知設定"
         description="各種通知の設定"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Save className="w-3.5 h-3.5 mr-1.5" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
 
-      {/* 全体通知ON/OFF */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-blue-600" />
-            <CardTitle>全体通知設定</CardTitle>
-          </div>
-          <CardDescription>メール・Discord通知機能の全体的な有効/無効を設定します（組織全体に適用）</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* 全体通知設定 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={Bell} label="全体通知設定" description="メール・Discord通知機能の全体的な有効/無効を設定します（組織全体に適用）" />
+        <div className="space-y-4">
           <div className="flex items-center justify-between p-4 border rounded-lg">
             <div>
               <Label>メール通知</Label>
@@ -535,19 +529,13 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
               onCheckedChange={(checked) => setGlobalFormData(prev => ({ ...prev, enable_discord_notifications: checked }))}
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* システムアナウンス設定 */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-purple-600" />
-            <CardTitle>システムアナウンス設定</CardTitle>
-          </div>
-          <CardDescription>貸切グループのチャットに自動送信されるメッセージの文言を設定します（組織全体に適用）</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={MessageSquare} label="システムアナウンス設定" description="貸切グループのチャットに自動送信されるメッセージの文言を設定します（組織全体に適用）" />
+        <div className="space-y-6">
           {[
             { key: 'group_created', label: 'グループ作成時', color: 'purple', hasNote: true },
             { key: 'booking_requested', label: '予約申込時', color: 'blue', hasNote: false },
@@ -590,19 +578,13 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
               )}
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      {/* 事前読み込み通知 */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-amber-600" />
-            <CardTitle>事前読み込み通知設定</CardTitle>
-          </div>
-          <CardDescription>事前読み込みシナリオの日程確定時にグループチャットに送信されるメッセージ（組織全体に適用）</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* 事前読み込み通知設定 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={BookOpen} label="事前読み込み通知設定" description="事前読み込みシナリオの日程確定時にグループチャットに送信されるメッセージ（組織全体に適用）" />
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label>通知メッセージ</Label>
             <Textarea
@@ -617,16 +599,13 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
               <p className="text-xs text-gray-700 whitespace-pre-wrap">{globalFormData.pre_reading_notice_message || '（未設定）'}</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* 予約関連通知 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>予約関連通知</CardTitle>
-          <CardDescription>新規予約とキャンセルの通知設定</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={CalendarCheck} label="予約関連通知" description="新規予約とキャンセルの通知設定" />
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <Label>新規予約メール通知</Label>
@@ -636,7 +615,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
             </div>
             <Switch
               checked={formData.new_reservation_email}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked) =>
                 setFormData(prev => ({ ...prev, new_reservation_email: checked }))
               }
             />
@@ -651,7 +630,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
             </div>
             <Switch
               checked={formData.new_reservation_discord}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked) =>
                 setFormData(prev => ({ ...prev, new_reservation_discord: checked }))
               }
             />
@@ -666,7 +645,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
             </div>
             <Switch
               checked={formData.cancellation_email}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked) =>
                 setFormData(prev => ({ ...prev, cancellation_email: checked }))
               }
             />
@@ -681,111 +660,36 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
             </div>
             <Switch
               checked={formData.cancellation_discord}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked) =>
                 setFormData(prev => ({ ...prev, cancellation_discord: checked }))
               }
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      {/* リマインダー通知 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>リマインダー通知</CardTitle>
-          <CardDescription>事前リマインドの通知設定</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>シフト提出リマインド（日前）</Label>
-              <Input
-                type="number"
-                value={formData.shift_reminder_days}
-                onChange={(e) => setFormData(prev => ({ ...prev, shift_reminder_days: parseInt(e.target.value) || 0 }))}
-                min="1"
-                max="30"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                シフト期限の{formData.shift_reminder_days}日前にリマインド送信
-              </p>
-            </div>
-            <div>
-              <Label>公演前日リマインド（日前）</Label>
-              <Input
-                type="number"
-                value={formData.performance_reminder_days}
-                onChange={(e) => setFormData(prev => ({ ...prev, performance_reminder_days: parseInt(e.target.value) || 0 }))}
-                min="0"
-                max="7"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                公演の{formData.performance_reminder_days}日前に参加者へリマインド送信
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Discordチャンネル設定 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle icon={Webhook} label="Discordチャンネル設定" description="Discord通知を送信するためのWebhook URLを設定します" />
+        <div>
+          <Label htmlFor="discord_webhook">Webhook URL</Label>
+          <Input
+            id="discord_webhook"
+            type="url"
+            value={formData.discord_webhook_url}
+            onChange={(e) => setFormData(prev => ({ ...prev, discord_webhook_url: e.target.value }))}
+            placeholder="https://discord.com/api/webhooks/..."
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Discord通知を有効にする場合は、Webhook URLを設定してください
+          </p>
+        </div>
+      </section>
 
-      {/* その他の通知 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>その他の通知</CardTitle>
-          <CardDescription>売上レポートなどの通知設定</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>売上レポート通知</Label>
-              <p className="text-xs text-muted-foreground mt-1">
-                月次売上レポート作成時に通知
-              </p>
-            </div>
-            <Switch
-              checked={formData.sales_report_notification}
-              onCheckedChange={(checked) => 
-                setFormData(prev => ({ ...prev, sales_report_notification: checked }))
-              }
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Discord Webhook */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Discord Webhook URL</CardTitle>
-          <CardDescription>Discord通知を送信するためのWebhook URLを設定します</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div>
-            <Label htmlFor="discord_webhook">Webhook URL</Label>
-            <Input
-              id="discord_webhook"
-              type="url"
-              value={formData.discord_webhook_url}
-              onChange={(e) => setFormData(prev => ({ ...prev, discord_webhook_url: e.target.value }))}
-              placeholder="https://discord.com/api/webhooks/..."
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Discord通知を有効にする場合は、Webhook URLを設定してください
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-      
       {/* Discord通知テスト */}
-      <Card className="border-purple-200 bg-purple-50/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-purple-900">
-            <TestTube className="h-5 w-5" />
-            Discord通知テスト
-          </CardTitle>
-          <CardDescription>
-            各種Discord通知をテスト送信して動作確認できます
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      <section className="bg-white rounded-xl border border-purple-200 bg-purple-50/50 p-6">
+        <SectionTitle icon={TestTube} label="Discord通知テスト" description="各種Discord通知をテスト送信して動作確認できます" />
+        <div className="space-y-6">
           {/* シフト提出通知 */}
           <div className="p-4 bg-white rounded-lg border">
             <div className="flex items-center justify-between mb-3">
@@ -812,8 +716,8 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
                   ))}
                 </SelectContent>
               </Select>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={handleTestShiftSubmitted}
                 disabled={testingType !== null || !selectedStaffId}
@@ -824,7 +728,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
               </Button>
             </div>
           </div>
-          
+
           {/* 貸切予約通知 */}
           <div className="p-4 bg-white rounded-lg border">
             <div className="space-y-3">
@@ -845,8 +749,8 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={handleTestPrivateBooking}
                   disabled={testingType !== null || !selectedScenarioId}
@@ -858,7 +762,7 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
               </div>
             </div>
           </div>
-          
+
           {/* シフト募集通知 */}
           <div className="p-4 bg-white rounded-lg border">
             <div className="flex items-center justify-between">
@@ -866,8 +770,8 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
                 <h4 className="font-medium text-sm">シフト募集通知</h4>
                 <p className="text-xs text-muted-foreground">全スタッフへのシフト提出依頼通知</p>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={handleTestShiftRequest}
                 disabled={testingType !== null}
@@ -878,12 +782,12 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
               </Button>
             </div>
           </div>
-          
+
           <p className="text-xs text-muted-foreground">
             ※ テスト通知は実際のDiscordチャンネルに送信されます。設定が正しいか確認できます。
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   )
 }
