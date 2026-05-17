@@ -214,6 +214,10 @@ function ScrollToTop() {
       } else {
         window.scrollTo(0, 0)
       }
+      // PUSH遷移では新ページの保存済みスクロール位置を削除して復元を抑制
+      // （POP=戻る/進むの場合はこのブロックに入らないため復元が維持される）
+      const key = `route:${pathname}${window.location.search || ''}ScrollY`
+      sessionStorage.removeItem(key)
     }
     prevPathRef.current = pathname
   }, [pathname, navType])
