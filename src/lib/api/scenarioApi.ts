@@ -3,6 +3,7 @@
  */
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 import type { Scenario } from '@/types'
 import type { PaginatedResponse } from './types'
 import { logger } from '@/utils/logger'
@@ -19,30 +20,31 @@ const ORG_SCENARIOS_VIEW_SELECT_FIELDS =
   'id, org_scenario_id, organization_id, scenario_master_id, slug, status, org_status, title, author, author_email, author_id, report_display_name, key_visual_url, description, synopsis, caution, player_count_min, player_count_max, male_count, female_count, other_count, duration, weekend_duration, genre, difficulty, has_pre_reading, release_date, official_site_url, required_props, participation_fee, gm_test_participation_fee, participation_costs, flexible_pricing, use_flexible_pricing, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, external_license_amount, external_gm_test_license_amount, fc_receive_license_amount, fc_receive_gm_test_license_amount, fc_author_license_amount, fc_author_gm_test_license_amount, gm_costs, gm_count, gm_assignments, available_gms, experienced_staff, available_stores, production_cost, production_costs, depreciation_per_performance, extra_preparation_time, play_count, notes, created_at, updated_at, master_status, pricing_patterns, is_shared, scenario_type, rating, kit_count, license_rewards, is_recommended, survey_url, survey_enabled, survey_deadline_days, characters, pre_reading_notice_message, booking_start_date, booking_end_date, individual_notice_template, character_assignment_method, private_booking_time_slots, private_booking_blocked_slots' as const
 
 export const scenarioApi = {
-  // 全シナリオを取得
-  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
-  // skipOrgFilter: trueの場合、組織フィルタをスキップ（全組織のデータを取得）
+  // スタッフ・管理者向け: 自組織のシナリオ全件を取得する。
+  // バックエンド API (/api/scenarios) 経由で取得するため、
+  // org_id の強制フィルタはサーバー側で行われる（RLS に依存しない）。
+  //
+  // organizationId: 後方互換のため引数は残すが、サーバー側で JWT から org_id を
+  //   確実に取得するため、フロントから渡した値は使用されない。
+  // skipOrgFilter: license_admin が全組織を取得したい場合にのみ使用（将来拡張用）。
+  //   現時点ではバックエンド未対応のため、true の場合は旧来の Supabase 直接クエリにフォールバック。
   async getAll(organizationId?: string, skipOrgFilter?: boolean): Promise<Scenario[]> {
-    // organization_scenarios_with_master ビューを使用
-    let query = supabase
-      .from('organization_scenarios_with_master')
-      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
-    
-    // 組織フィルタリング
-    if (!skipOrgFilter) {
-      const orgId = organizationId || await getCurrentOrganizationId()
-      logger.log('🏢 シナリオ取得: organization_id =', orgId)
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      } else {
-        logger.log('⚠️ organization_idがnullのため、フィルタなしで取得')
-      }
+    // skipOrgFilter=true（ライセンス管理者の全組織取得）は旧来の実装を使う
+    if (skipOrgFilter) {
+      logger.log('⚠️ skipOrgFilter=true: 旧来の Supabase 直接クエリを使用')
+      let query = supabase
+        .from('organization_scenarios_with_master')
+        .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+      const { data, error } = await query.order('title', { ascending: true })
+      if (error) throw error
+      return (data || []) as unknown as Scenario[]
     }
-    
-    const { data, error } = await query.order('title', { ascending: true })
-    
-    if (error) throw error
-    return (data || []) as unknown as Scenario[]
+
+    // 通常のスタッフ・管理者: バックエンド API を経由して取得する
+    // サーバー側で JWT を検証し organization_id を確実にフィルタするため安全
+    logger.log('🏢 シナリオ取得: /api/scenarios を呼び出し')
+    const params = new URLSearchParams()
+    return apiClient.get<Scenario[]>(`/api/scenarios${params.size ? `?${params}` : ''}`)
   },
 
   // 旧scenarios テーブルから全シナリオを取得（キット管理等レガシー機能用）
