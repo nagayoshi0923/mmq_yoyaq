@@ -1,8 +1,8 @@
 /**
  * メモ関連API
+ *
+ * すべてバックエンド API (/api/memos) 経由で org_id をサーバー側で強制
  */
-import { supabase } from '../supabase'
-import { getCurrentOrganizationId } from '@/lib/organization'
 import { apiClient } from '@/lib/apiClient'
 
 interface DailyMemo {
@@ -17,55 +17,23 @@ interface DailyMemo {
 
 export const memoApi = {
   // 指定月のメモを取得
-  // バックエンド API (/api/memos) 経由で org_id をサーバー側で強制フィルタ
-  // organizationId 引数は後方互換のため残すが未使用
   async getByMonth(year: number, month: number, _organizationId?: string): Promise<DailyMemo[]> {
     return apiClient.get<DailyMemo[]>(`/api/memos?year=${year}&month=${month}`)
   },
 
   // メモを保存（UPSERT）
   async save(date: string, venueId: string, memoText: string) {
-    // 組織IDを自動取得（マルチテナント対応）
-    const organizationId = await getCurrentOrganizationId()
-    if (!organizationId) {
-      throw new Error('組織情報が取得できません。再ログインしてください。')
-    }
-    
-    const { data, error } = await supabase
-      .from('daily_memos')
-      .upsert({
-        date,
-        venue_id: venueId,
-        memo_text: memoText,
-        organization_id: organizationId,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'date,venue_id'
-      })
-      .select()
-    
-    if (error) throw error
-    return data
+    return apiClient.post<DailyMemo[]>('/api/memos', {
+      date,
+      venue_id: venueId,
+      memo_text: memoText,
+    })
   },
 
-  // メモを削除（組織フィルタ付き）
+  // メモを削除（自組織のもののみ）
   async delete(date: string, venueId: string) {
-    // 組織フィルタ（マルチテナント対応）
-    const orgId = await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('daily_memos')
-      .delete()
-      .eq('date', date)
-      .eq('venue_id', venueId)
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { error } = await query
-    
-    if (error) throw error
-  }
+    await apiClient.delete(
+      `/api/memos?date=${encodeURIComponent(date)}&venue_id=${encodeURIComponent(venueId)}`
+    )
+  },
 }
-
