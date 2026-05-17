@@ -214,7 +214,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
           id: 'settings', label: '設定', icon: Settings,
           path: `/${slug}/settings`, roles: ['admin', 'license_admin'],
           subItems: [
-            { id: 'tenant-management',    label: 'テナント管理',    path: `/${slug}/settings?tab=tenant-management`, roles: ['license_admin'] },
             { id: 'organization-info',    label: '組織情報',        path: `/${slug}/settings?tab=organization-info` },
             { id: 'organization-design',  label: '組織デザイン',    path: `/${slug}/settings?tab=organization-design` },
             { id: 'faq',                  label: 'FAQ設定',         path: `/${slug}/settings?tab=faq` },

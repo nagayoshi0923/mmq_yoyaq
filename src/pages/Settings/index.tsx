@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { 
@@ -15,7 +15,6 @@ import {
   Shield,
   AlertCircle,
   Calculator,
-  Layers,
   XCircle,
   Tags,
   Palette,
@@ -24,7 +23,6 @@ import {
 } from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
-import { useOrganization } from '@/hooks/useOrganization'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
 
 // 設定ページコンポーネント
@@ -47,7 +45,6 @@ import { DataManagementSettings } from './pages/DataManagementSettings'
 import { BookingNoticeSettings } from './pages/BookingNoticeSettings'
 import { SalarySettings } from './pages/SalarySettings'
 import { OrganizationInfoSettings } from './pages/OrganizationInfoSettings'
-import { TenantManagementSettings } from './pages/TenantManagementSettings'
 import { CategoryAuthorManagementSettings } from './pages/CategoryAuthorManagementSettings'
 import { OrganizationDesignSettings } from './pages/OrganizationDesignSettings'
 import { FAQSettings } from './pages/FAQSettings'
@@ -83,34 +80,15 @@ const BASE_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'data', label: 'データ管理', icon: Database, description: 'データ管理' }
 ]
 
-// ライセンス管理者専用メニュー
-const LICENSE_MANAGER_MENU_ITEM: SidebarMenuItem = {
-  id: 'tenant-management',
-  label: 'テナント管理',
-  icon: Layers,
-  description: '全組織の管理（QW専用）'
-}
-
 export function Settings() {
   const [searchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || 'organization-info'
   const { selectedStoreId, handleStoreChange } = useSettingsStore()
-  const { isLicenseManager } = useOrganization()
-  const location = useLocation()
 
-  // メニュー項目を動的に生成（ライセンス管理者にはテナント管理を追加）
-  const menuItems = useMemo(() => {
-    if (isLicenseManager) {
-      // テナント管理を組織情報の後に追加
-      const items = [...BASE_MENU_ITEMS]
-      items.splice(1, 0, LICENSE_MANAGER_MENU_ITEM)
-      return items
-    }
-    return BASE_MENU_ITEMS
-  }, [isLicenseManager])
+  const menuItems = useMemo(() => BASE_MENU_ITEMS, [])
 
   // 店舗セレクターを表示しないページ
-  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'tenant-management', 'shift', 'salary', 'booking-notice', 'categories', 'email-history', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
+  const noStoreSelectorPages = ['organization-info', 'organization-design', 'faq', 'blog', 'shift', 'salary', 'booking-notice', 'categories', 'email-history', 'email-logs', 'staff', 'system', 'notifications', 'data', 'customer']
   const showStoreSelector = !noStoreSelectorPages.includes(activeTab)
 
   const renderContent = () => {
@@ -126,8 +104,6 @@ export function Settings() {
         return <FAQSettings />
       case 'blog':
         return <BlogSettings />
-      case 'tenant-management':
-        return <TenantManagementSettings />
       case 'shift':
         return <ShiftSettings />
       case 'store-basic':
