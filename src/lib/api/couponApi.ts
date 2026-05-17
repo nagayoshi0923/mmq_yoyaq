@@ -6,11 +6,11 @@
  * - キャンペーン管理（管理者向け）
  */
 import { supabase } from '../supabase'
+import { apiClient } from '../apiClient'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import type {
   CustomerCoupon,
-  CustomerCouponUsageWithReservation,
   CouponUsage,
   CouponCampaign
 } from '@/types'
@@ -66,81 +66,19 @@ export interface CampaignFormData {
  * - 有効期限内（expires_at が NULL or 未来）
  * - キャンペーンもアクティブ
  *
- * @param organizationId 対象組織ID（予約先の組織でフィルタ）
+ * @param organizationId 対象組織ID（予約先の組織でフィルタ。省略時はサーバ側で JWT の orgId を使う）
  */
 export async function getAvailableCoupons(
   organizationId?: string
 ): Promise<CustomerCoupon[]> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return []
-
-  const orgForCustomer = organizationId ?? (await getCurrentOrganizationId())
-  const customer = await findCustomerByUserId(user.id, orgForCustomer)
-
-  if (!customer) return []
-
-  let query = supabase
-    .from('customer_coupons')
-    .select(`
-      id,
-      campaign_id,
-      customer_id,
-      organization_id,
-      uses_remaining,
-      expires_at,
-      status,
-      created_at,
-      updated_at,
-      coupon_campaigns (
-        id,
-        organization_id,
-        name,
-        description,
-        discount_type,
-        discount_amount,
-        max_uses_per_customer,
-        target_type,
-        target_ids,
-        trigger_type,
-        valid_from,
-        valid_until,
-        is_active
-      )
-    `)
-    .eq('customer_id', customer.id)
-    .eq('status', 'active')
-    .gt('uses_remaining', 0)
-
-  // 組織でフィルタ（予約先組織のクーポンのみ表示）
-  if (organizationId) {
-    query = query.eq('organization_id', organizationId)
-  }
-
-  const { data, error } = await query.order('created_at', { ascending: false })
-
-  if (error) {
-    logger.error('利用可能クーポン取得エラー:', error)
+  try {
+    const params = new URLSearchParams({ type: 'available' })
+    if (organizationId) params.set('organization_id', organizationId)
+    return await apiClient.get<CustomerCoupon[]>(`/api/coupons?${params}`)
+  } catch (err) {
+    logger.error('利用可能クーポン取得エラー:', err)
     return []
   }
-
-  // 有効期限チェック（クライアント側でもフィルタ）
-  const now = new Date()
-  const filtered = (data as unknown as CustomerCoupon[])?.filter(coupon => {
-    // クーポン自体の有効期限
-    if (coupon.expires_at && new Date(coupon.expires_at) < now) {
-      return false
-    }
-    // キャンペーンの有効期限
-    const campaign = coupon.coupon_campaigns
-    if (campaign) {
-      if (!campaign.is_active) return false
-      if (campaign.valid_from && new Date(campaign.valid_from) > now) return false
-      if (campaign.valid_until && new Date(campaign.valid_until) < now) return false
-    }
-    return true
-  }) || []
-
-  return filtered
 }
 
 /**
@@ -148,164 +86,12 @@ export async function getAvailableCoupons(
  * マイページ表示用
  */
 export async function getAllCoupons(): Promise<CustomerCoupon[]> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return []
-
-  const orgForCustomer = await getCurrentOrganizationId()
-  const customer = await findCustomerByUserId(user.id, orgForCustomer)
-
-  if (!customer) return []
-
-  // ネストを1段に抑える（customer_coupons → coupon_usages → … は PostgREST で失敗しやすい）
-  const { data, error } = await supabase
-    .from('customer_coupons')
-    .select(`
-      id,
-      campaign_id,
-      customer_id,
-      organization_id,
-      uses_remaining,
-      expires_at,
-      status,
-      created_at,
-      updated_at,
-      coupon_campaigns (
-        id,
-        organization_id,
-        name,
-        description,
-        discount_type,
-        discount_amount,
-        max_uses_per_customer,
-        target_type,
-        target_ids,
-        trigger_type,
-        valid_from,
-        valid_until,
-        is_active
-      )
-    `)
-    .eq('customer_id', customer.id)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    logger.error('クーポン一覧取得エラー:', error)
+  try {
+    return await apiClient.get<CustomerCoupon[]>('/api/coupons?type=all')
+  } catch (err) {
+    logger.error('クーポン一覧取得エラー:', err)
     return []
   }
-
-  const rows = (data as unknown as CustomerCoupon[]) || []
-  const couponIds = rows.map((c) => c.id)
-  if (couponIds.length === 0) {
-    return rows
-  }
-
-  const { data: usageRows, error: usageError } = await supabase
-    .from('coupon_usages')
-    .select(
-      `
-      id,
-      customer_coupon_id,
-      reservation_id,
-      used_at,
-      discount_amount,
-      reservations (
-        id,
-        title,
-        requested_datetime,
-        store_id
-      )
-    `
-    )
-    .in('customer_coupon_id', couponIds)
-    .order('used_at', { ascending: false })
-
-  if (usageError) {
-    logger.warn('クーポン使用履歴の取得に失敗しました（クーポン一覧のみ表示）:', usageError)
-    return rows.map((c) => ({ ...c, coupon_usages: [] }))
-  }
-
-  type UsageRow = {
-    id: string
-    customer_coupon_id: string
-    reservation_id: string
-    used_at: string
-    discount_amount: number
-    reservations:
-      | {
-          id: string
-          title: string | null
-          requested_datetime: string
-          store_id: string | null
-        }
-      | {
-          id: string
-          title: string | null
-          requested_datetime: string
-          store_id: string | null
-        }[]
-      | null
-  }
-
-  const usages = (usageRows || []) as UsageRow[]
-  const storeIds = [
-    ...new Set(
-      usages
-        .map((u) => {
-          const r = u.reservations
-          const one = Array.isArray(r) ? r[0] : r
-          return one?.store_id
-        })
-        .filter((id): id is string => !!id)
-    )
-  ]
-
-  const storeMap: Record<string, { name: string; short_name: string | null }> = {}
-  if (storeIds.length > 0) {
-    const { data: storeRows, error: storeError } = await supabase
-      .from('stores')
-      .select('id, name, short_name')
-      .in('id', storeIds)
-    if (storeError) {
-      logger.warn('店舗名の取得に失敗（公演表示から店舗名を省略）:', storeError)
-    } else {
-      storeRows?.forEach((s) => {
-        storeMap[s.id] = { name: s.name, short_name: s.short_name }
-      })
-    }
-  }
-
-  const byCoupon: Record<string, CustomerCouponUsageWithReservation[]> = {}
-  for (const u of usages) {
-    const resRaw = u.reservations
-    const res = Array.isArray(resRaw) ? resRaw[0] : resRaw
-    const sid = res?.store_id ?? null
-    const storeInfo = sid ? storeMap[sid] : undefined
-    const entry: CustomerCouponUsageWithReservation = {
-      id: u.id,
-      reservation_id: u.reservation_id,
-      used_at: u.used_at,
-      discount_amount: u.discount_amount,
-      reservations: res
-        ? {
-            id: res.id,
-            title: res.title,
-            requested_datetime: res.requested_datetime,
-            store_id: res.store_id,
-            stores: storeInfo
-              ? { name: storeInfo.name, short_name: storeInfo.short_name }
-              : null
-          }
-        : null
-    }
-    const cid = u.customer_coupon_id
-    if (!byCoupon[cid]) byCoupon[cid] = []
-    byCoupon[cid].push(entry)
-  }
-
-  return rows.map((c) => ({
-    ...c,
-    coupon_usages: byCoupon[c.id] ?? []
-  }))
 }
 
 /**
@@ -721,69 +507,12 @@ export async function getCurrentReservations(): Promise<Array<{
  * クーポン使用履歴を取得
  */
 export async function getCouponUsageHistory(): Promise<CouponUsage[]> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return []
-
-  const orgForCustomer = await getCurrentOrganizationId()
-  const customer = await findCustomerByUserId(user.id, orgForCustomer)
-
-  if (!customer) return []
-
-  // まず顧客のクーポンIDを取得
-  const { data: coupons } = await supabase
-    .from('customer_coupons')
-    .select('id')
-    .eq('customer_id', customer.id)
-
-  if (!coupons || coupons.length === 0) return []
-
-  const couponIds = coupons.map(c => c.id)
-
-  const { data, error } = await supabase
-    .from('coupon_usages')
-    .select(`
-      id,
-      customer_coupon_id,
-      reservation_id,
-      discount_amount,
-      used_at,
-      customer_coupons (
-        id,
-        campaign_id,
-        coupon_campaigns (
-          name,
-          discount_type,
-          discount_amount
-        )
-      )
-    `)
-    .in('customer_coupon_id', couponIds)
-    .order('used_at', { ascending: false })
-
-  if (error) {
-    logger.error('クーポン使用履歴取得エラー:', error)
-    // フォールバック: JOINなしで取得
-    const { data: usages, error: usageError } = await supabase
-      .from('coupon_usages')
-      .select(`
-        id,
-        customer_coupon_id,
-        reservation_id,
-        discount_amount,
-        used_at
-      `)
-      .in('customer_coupon_id', couponIds)
-      .order('used_at', { ascending: false })
-
-    if (usageError) {
-      logger.error('クーポン使用履歴取得フォールバックエラー:', usageError)
-      return []
-    }
-
-    return (usages as unknown as CouponUsage[]) || []
+  try {
+    return await apiClient.get<CouponUsage[]>('/api/coupons?type=usages')
+  } catch (err) {
+    logger.error('クーポン使用履歴取得エラー:', err)
+    return []
   }
-
-  return (data as unknown as CouponUsage[]) || []
 }
 
 // =========================================
