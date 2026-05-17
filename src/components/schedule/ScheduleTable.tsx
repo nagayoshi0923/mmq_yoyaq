@@ -149,7 +149,7 @@ export function ScheduleTable({
   const { categoryConfig, getReservationBadgeClass } = displayConfig
 
   return (
-    <div className="overflow-x-auto -mx-2 sm:mx-0">
+    <div className="overflow-x-auto -mx-2 sm:mx-0" data-schedule-scroll>
       <Table className="table-fixed w-full border-collapse min-w-[534px] sm:min-w-[700px] md:min-w-[800px]">
         <colgroup>
           <col className="w-[32px] sm:w-[40px] md:w-[48px]" />

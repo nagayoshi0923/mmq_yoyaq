@@ -19,12 +19,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: staging
 
       - uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          allowed_tools: "Edit,MultiEdit,Glob,Grep,LS,Read,Write,Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git rm:*),Bash(gh pr create:*),Bash(npm run typecheck:*),Bash(npm run build:fast:*)"
+          allowed_tools: "Edit,MultiEdit,Glob,Grep,LS,Read,Write,Bash(git add:*),Bash(git checkout:*),Bash(git commit:*),Bash(git push:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git rm:*),Bash(git branch:*),Bash(gh pr create:*),Bash(npm run typecheck:*),Bash(npm run build:fast:*)"
           direct_prompt: |
             GitHub Issue #${{ github.event.issue.number }} が作成されました。
 
@@ -34,12 +35,13 @@ jobs:
 
             以下の手順で対応してください：
 
-            1. `fix/issue-${{ github.event.issue.number }}` という名前のブランチを main から作成する
+            1. `git checkout -b fix/issue-${{ github.event.issue.number }}` で staging ベースの新しいブランチを作成する
             2. Issue の内容を読んでコードベースを調査し、修正または機能追加を実装する
             3. `npm run typecheck` でエラーがないことを確認する
-            4. Issue #${{ github.event.issue.number }} を参照する Pull Request を作成する
+            4. `gh pr create --base staging` で staging への Pull Request を作成する（main への PR は絶対に作らない）
 
             注意事項：
+            - PRのターゲットブランチは必ず `staging` にすること（`--base staging` を必ず指定）
             - organization_id によるマルチテナント分離を必ず維持すること
             - reservation_source は src/lib/constants.ts の定数を使うこと
             - RLS ポリシーの変更は行わず、SECURITY DEFINER RPC で対応すること

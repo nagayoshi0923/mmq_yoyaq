@@ -31,6 +31,7 @@ interface SystemMessage {
   title?: string
   body?: string
   note?: string
+  rejectionReason?: string
   // 個別お知らせ用
   target_member_id?: string
   target_member_name?: string
@@ -869,6 +870,11 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                           <p className="text-xs text-gray-600 mt-2">
                             {systemMsg.body || '店舗の都合がつかず、ご希望の日程でのご予約をお受けすることができませんでした。お手数ですが、別の候補日を選択のうえ再度お申し込みください。'}
                           </p>
+                          {systemMsg.rejectionReason && (
+                            <div className="mt-2 bg-white rounded border border-red-100 px-3 py-2">
+                              <p className="text-xs text-gray-700 whitespace-pre-wrap">{systemMsg.rejectionReason}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )
@@ -1448,17 +1454,10 @@ export function GroupChat({ groupId, currentMemberId, members: initialMembers, f
                   <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                   <p className="text-sm">メンバー情報を読み込み中...</p>
                 </div>
-              ) : !scenarioId || !organizationId ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <AlertCircle className="w-6 h-6 mx-auto mb-2 text-amber-500" />
-                  <p className="text-sm">アンケート情報を取得できませんでした</p>
-                </div>
               ) : (
                 <SurveyResponseForm
                   groupId={groupId}
                   memberId={currentMemberId}
-                  scenarioId={scenarioId}
-                  organizationId={organizationId}
                   performanceDate={performanceDate}
                 />
               )}

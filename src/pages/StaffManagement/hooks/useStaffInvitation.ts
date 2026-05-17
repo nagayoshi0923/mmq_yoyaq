@@ -6,6 +6,7 @@ import { inviteStaff, type InviteStaffRequest } from '@/lib/staffInviteApi'
 import { staffKeys } from './useStaffQuery'
 import type { Staff } from '@/types'
 import { logger } from '@/utils/logger'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { getSafeErrorMessage } from '@/lib/apiErrorHandler'
 import { showToast } from '@/utils/toast'
 
@@ -48,9 +49,11 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
     event.preventDefault()
 
     const formData = new FormData(event.currentTarget)
+    const organizationId = await getCurrentOrganizationId()
     const request: InviteStaffRequest = {
       email: formData.get('email') as string,
       name: formData.get('name') as string,
+      organization_id: organizationId ?? undefined,
       phone: formData.get('phone') as string || undefined,
       line_name: formData.get('line_name') as string || undefined,
       x_account: formData.get('x_account') as string || undefined,
@@ -298,6 +301,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       const request: InviteStaffRequest = {
         email: staff.email,
         name: staff.name,
+        organization_id: staff.organization_id ?? undefined,
         phone: staff.phone,
         line_name: staff.line_name,
         x_account: staff.x_account,

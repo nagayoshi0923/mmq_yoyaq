@@ -961,7 +961,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
   const handleSave = async () => {
     const savePayload = {
       // 返信先は会社メールアドレスを使用（未設定の場合はデフォルト）
-      from_email: formData.company_email || formData.from_email || 'noreply@mmq.game',
+      from_email: formData.company_email || formData.from_email,
       from_name: formData.company_name || formData.from_name || '予約システム',
       company_name: formData.company_name,
       company_phone: formData.company_phone,
@@ -1106,7 +1106,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
                 type="email"
                 value={formData.company_email}
                 onChange={(e) => setFormData(prev => ({ ...prev, company_email: e.target.value }))}
-                placeholder="info@queens-waltz.jp"
+                placeholder="info@example.com"
               />
               <p className="text-xs text-muted-foreground mt-1">署名表示 / 返信先</p>
             </div>
@@ -1121,7 +1121,7 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            送信元: noreply@mmq.game（システム固定）/ 返信先: 上記メールアドレス
+            返信先: 上記メールアドレス
           </p>
         </CardContent>
       </Card>

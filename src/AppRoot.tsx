@@ -1,6 +1,9 @@
 import React, { Suspense, useLayoutEffect } from 'react'
 import { BrowserRouter, Navigate, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
+import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { useOrganization, checkIsLicenseAdmin } from '@/hooks/useOrganization'
@@ -39,17 +42,31 @@ const CouponPresent = lazyWithRetry(() =>
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5分間キャッシュ
-      gcTime: 10 * 60 * 1000, // 10分間メモリ保持（旧cacheTime）
-      retry: 1, // 失敗時1回リトライ
-      refetchOnWindowFocus: false, // タブ復帰時の自動再取得を無効化（UX改善）
-      refetchOnMount: false, // キャッシュがあれば再利用（リロード削減）
-      refetchOnReconnect: true, // ネットワーク再接続時に再取得
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: true,
     },
     mutations: {
-      retry: 0, // ミューテーションはリトライしない
+      retry: 0,
     },
   },
+})
+
+// スケジュールデータを IndexedDB に永続化
+// buster を変えるとキャッシュが自動無効化される（スキーマ変更時に更新する）
+const SCHEDULE_CACHE_BUSTER = 'v1'
+const SCHEDULE_CACHE_MAX_AGE = 14 * 24 * 60 * 60 * 1000 // 14日間
+
+const idbPersister = createAsyncStoragePersister({
+  storage: {
+    getItem: (key) => idbGet(key),
+    setItem: (key, value) => idbSet(key, value),
+    removeItem: (key) => idbDel(key),
+  },
+  key: 'mmq-schedule-idb-cache',
 })
 
 /**
@@ -464,7 +481,7 @@ function AppRoutes() {
       ]
       if (adminPaths.some((path) => location.pathname.startsWith(path))) {
         const slug = getOrganizationSlugFromPath()
-        navigate(`/${slug}`, { replace: true })
+        navigate(slug ? `/${slug}` : '/', { replace: true })
         return (
           <Suspense fallback={adminDashboardSuspenseFallback}>
             <AdminDashboard />
@@ -503,7 +520,19 @@ function AppContent() {
 function App() {
   return (
     <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister: idbPersister,
+          maxAge: SCHEDULE_CACHE_MAX_AGE,
+          buster: SCHEDULE_CACHE_BUSTER,
+          dehydrateOptions: {
+            // スケジュールイベントクエリのみ IndexedDB に保存（他は通常のメモリキャッシュ）
+            shouldDehydrateQuery: (query) =>
+              Array.isArray(query.queryKey) && query.queryKey[0] === 'scheduleEvents',
+          },
+        }}
+      >
         <ErrorBoundary>
           <AuthProvider>
             <AppContent />
@@ -516,7 +545,7 @@ function App() {
             />
           </AuthProvider>
         </ErrorBoundary>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </BrowserRouter>
   )
 }

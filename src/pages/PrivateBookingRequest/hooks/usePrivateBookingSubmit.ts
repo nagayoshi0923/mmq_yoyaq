@@ -1,6 +1,16 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
+import { getCurrentOrganizationId, getOrganizationBySlug } from '@/lib/organization'
+import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
+
+async function resolveOrgId(): Promise<string | null> {
+  const orgId = await getCurrentOrganizationId()
+  if (orgId) return orgId
+  const slug = getOrganizationSlugFromPath()
+  if (!slug) return null
+  const org = await getOrganizationBySlug(slug)
+  return org?.id ?? null
+}
 import { logger } from '@/utils/logger'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
 import { GLOBAL_SETTINGS_MSG_SELECT } from '@/lib/constants'
@@ -67,8 +77,9 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
     try {
       // 顧客レコードを取得または作成
       let customerId: string | null = null
-      const organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
-      
+      const organizationId = await resolveOrgId()
+      if (!organizationId) throw new Error('組織情報が取得できません')
+
       try {
         const { data: existingCustomer } = await supabase
           .from('customers')
@@ -239,7 +250,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
             
             if (organizerMember) {
               // 設定からメッセージ文言を取得
-              const msgOrgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+              const msgOrgId = await resolveOrgId()
               const { data: msgSettings } = await supabase
                 .from('global_settings')
                 .select(GLOBAL_SETTINGS_MSG_SELECT.BOOKING_REQUESTED)
@@ -281,7 +292,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
             endTime: c.endTime
           }))
 
-          const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+          const orgId = await resolveOrgId()
           console.log('[貸切リクエスト] メール送信 invoke開始', { orgId, reservationId: parentReservationId })
           const { error: emailError, data: emailData } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
             body: {

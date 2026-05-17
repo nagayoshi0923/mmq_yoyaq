@@ -424,46 +424,43 @@ export const scheduleApi = {
         reservation_source?: string
       }[]
     >()
-    
-    // 組織フィルタ用（まだ取得していない場合）
+
+    // 組織フィルタ用（キャッシュ済みなので高速）
     const resOrgId = organizationId || await getCurrentOrganizationId()
-    
-    if (eventIds.length > 0) {
-      // NOTE:
-      // - 満席の手動入力（schedule_events.current_participants）を残したいケースがある一方、
-      //   予約のキャンセルで人数が減った場合は「実予約数（active）」を優先して表示したい。
-      // - その判定のため、ここでは status も含めて取得し、
-      //   「この公演に予約が存在するか（cancelled だけでも true）」を判定できるようにする。
-      // PostgREST URL長制限回避: IDをバッチに分割してクエリ
-      const BATCH_SIZE = 100
-      for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
-        const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+
+    // 予約バッチクエリとシナリオマップ取得を並列実行
+    const BATCH_SIZE = 100
+    const batches: string[][] = []
+    for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+      batches.push(eventIds.slice(i, i + BATCH_SIZE))
+    }
+
+    const [batchResults, orgScenarioMap] = await Promise.all([
+      // NOTE: 予約バッチも並列実行（直列だと公演数×RTT分遅延する）
+      Promise.all(batches.map(batchIds => {
         let resQuery = supabase
           .from('reservations')
           .select('schedule_event_id, participant_count, status, candidate_datetimes, reservation_source')
           .in('schedule_event_id', batchIds)
-        
         if (resOrgId && !skipOrgFilter) {
           resQuery = resQuery.eq('organization_id', resOrgId)
         }
-        
-        const { data: batchReservations, error: reservationError } = await resQuery
-        
-        if (!reservationError && batchReservations) {
-          batchReservations.forEach(reservation => {
-            const eventId = reservation.schedule_event_id
-            if (!reservationsMap.has(eventId)) {
-              reservationsMap.set(eventId, [])
-            }
-            reservationsMap.get(eventId)!.push(reservation)
-          })
-        }
+        return resQuery
+      })),
+      getOrgScenarioPlayerCounts(resOrgId || undefined)
+    ])
+
+    batchResults.forEach(({ data: batchReservations, error: reservationError }) => {
+      if (!reservationError && batchReservations) {
+        batchReservations.forEach(reservation => {
+          const eventId = reservation.schedule_event_id
+          if (!reservationsMap.has(eventId)) {
+            reservationsMap.set(eventId, [])
+          }
+          reservationsMap.get(eventId)!.push(reservation)
+        })
       }
-    }
-    
-    // 各イベントの実際の参加者数を計算
-    const orgIdForScenarios = organizationId || await getCurrentOrganizationId()
-    const orgScenarioMap = await getOrgScenarioPlayerCounts(orgIdForScenarios || undefined)
+    })
 
     const eventsWithActualParticipants = scheduleEvents.map((event) => {
       const reservations = reservationsMap.get(event.id) || []
@@ -1246,7 +1243,7 @@ export const scheduleApi = {
             
             const demoReservation = {
               schedule_event_id: event.id,
-              organization_id: event.organization_id || 'a0000000-0000-0000-0000-000000000001',
+              organization_id: event.organization_id,
               title: event.scenario || scenarioMaster?.title || '',
               scenario_master_id: event.scenario_master_id,
               store_id: event.store_id || null,

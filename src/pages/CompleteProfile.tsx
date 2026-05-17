@@ -18,9 +18,8 @@ import { grantRegistrationCoupon } from '@/lib/api/couponApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link, useNavigate } from 'react-router-dom'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
-
-// デフォルト組織ID（クインズワルツ）
-const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
+import { getOrganizationBySlug } from '@/lib/organization'
+import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 
 // 都道府県リスト
 const PREFECTURES = [
@@ -374,7 +373,17 @@ export function CompleteProfile() {
           ? existingUser.role
           : 'customer'
 
-      const organizationId = existingUser?.organization_id || DEFAULT_ORG_ID
+      let organizationId = existingUser?.organization_id ?? null
+      if (!organizationId) {
+        const slug = getOrganizationSlugFromPath()
+        if (slug) {
+          const org = await getOrganizationBySlug(slug)
+          organizationId = org?.id ?? null
+        }
+        if (!organizationId) {
+          logger.warn('CompleteProfile: org_id が特定できません（URLにorgスラッグがありません）')
+        }
+      }
       const { error: usersUpsertError } = await supabase
         .from('users')
         .upsert({

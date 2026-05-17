@@ -773,44 +773,14 @@ export function PrivateGroupInvite() {
     }
   }
 
-  // グループ削除（主催者かつgatheringまたはcancelledステータスのみ）
   const handleDeleteGroup = async () => {
     if (!group || !isOrganizer || (group.status !== 'gathering' && group.status !== 'cancelled')) return
-    
+
     setIsDeleting(true)
     try {
-      // メンバーを全員削除
-      const { error: membersError } = await supabase
-        .from('private_group_members')
-        .delete()
-        .eq('group_id', group.id)
-      
-      if (membersError) throw membersError
-      
-      // 候補日を全て削除
-      const { error: datesError } = await supabase
-        .from('private_group_candidate_dates')
-        .delete()
-        .eq('group_id', group.id)
-      
-      if (datesError) throw datesError
-      
-      // メッセージを削除
-      const { error: messagesError } = await supabase
-        .from('private_group_messages')
-        .delete()
-        .eq('group_id', group.id)
-      
-      if (messagesError) throw messagesError
-      
-      // グループを削除
-      const { error: groupDeleteError } = await supabase
-        .from('private_groups')
-        .delete()
-        .eq('id', group.id)
-      
-      if (groupDeleteError) throw groupDeleteError
-      
+      const { error } = await supabase.rpc('delete_private_group', { p_group_id: group.id })
+      if (error) throw error
+
       toast.success('グループを削除しました')
       navigate('/mypage')
     } catch (err: any) {
@@ -2122,7 +2092,7 @@ export function PrivateGroupInvite() {
                               .eq('id', group.organization_id)
                               .single()
                             
-                            const toEmail = org?.contact_email || 'info@queens-waltz.com'
+                            const toEmail = org?.contact_email || ''
                             const subject = encodeURIComponent(`【貸切予約のお問い合わせ】${group.invite_code}`)
                             const body = encodeURIComponent(`${contactMessage}\n\n---\n返信先: ${replyEmail}`)
                             
@@ -3475,8 +3445,6 @@ export function PrivateGroupInvite() {
               <SurveyResponseForm
                 groupId={group.id}
                 memberId={existingMemberId}
-                scenarioId={group.scenario_master_id}
-                organizationId={group.organization_id}
                 performanceDate={group.candidate_dates?.find(cd => cd.order_num === 1)?.date}
                 characters={(group as any).scenario_characters || []}
               />

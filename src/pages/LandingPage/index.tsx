@@ -125,7 +125,7 @@ export function LandingPage() {
               size="lg"
               variant="outline"
               className="text-base font-bold px-10 h-14 rounded-none border-white/20 text-white bg-transparent hover:bg-white/10"
-              onClick={() => navigate('/queens-waltz')}
+              onClick={() => navigate('/')}
             >
               公演を見てみる
               <ChevronRight className="ml-1 w-4 h-4" />
@@ -468,7 +468,7 @@ export function LandingPage() {
               size="lg"
               variant="outline"
               className="font-bold px-10 h-14 rounded-none border-white/20 text-white bg-transparent hover:bg-white/10 text-base"
-              onClick={() => navigate('/queens-waltz')}
+              onClick={() => navigate('/')}
             >
               まず公演を見る
               <ChevronRight className="ml-1 w-4 h-4" />

@@ -125,9 +125,15 @@ serve(async (req) => {
       callerOrganizationId = callerUserOrg?.organization_id || null
     }
 
-    // リクエストで指定された organization_id が呼び出し元の組織と一致するか検証
-    const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
-    const requestedOrganizationId = payload.organization_id || DEFAULT_ORG_ID
+    // organization_id を決定: リクエスト優先、なければ呼び出し元の組織を使用
+    const requestedOrganizationId = payload.organization_id || callerOrganizationId
+
+    if (!requestedOrganizationId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'organization_id が特定できません。管理者に連絡してください。' }),
+        { status: 400, headers: corsHeaders }
+      )
+    }
 
     if (callerOrganizationId && callerOrganizationId !== requestedOrganizationId) {
       console.warn('⚠️ 組織ID不一致: 呼び出し元=%s, リクエスト=%s', callerOrganizationId, requestedOrganizationId)

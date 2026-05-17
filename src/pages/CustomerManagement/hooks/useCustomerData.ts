@@ -28,7 +28,7 @@ export function useCustomerData() {
       const PAGE_SIZE = 1000
       let allCustomers: any[] = []
       let from = 0
-      while (true) {
+      for (;;) {
         let query = supabase
           .from('customers')
           .select('id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at')
@@ -53,7 +53,7 @@ export function useCustomerData() {
       if (customerIds.length > 0) {
         let allReservations: any[] = []
         let resFrom = 0
-        while (true) {
+        for (;;) {
           let resQuery = supabase
             .from('reservations')
             .select('customer_id, total_price, status, requested_datetime')

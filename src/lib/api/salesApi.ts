@@ -511,6 +511,189 @@ export const salesApi = {
     }
 
     return { events, reservations: allReservations }
-  }
+  },
+
+  // スケジュールCSVエクスポート用データを取得
+  async getScheduleExportData(startDate: string, endDate: string) {
+    const orgId = await getCurrentOrganizationId()
+
+    let eventsQuery = supabase
+      .from('schedule_events_staff_view')
+      .select('id, date, start_time, end_time, store_id, venue, scenario, scenario_master_id, organization_scenario_id, category, gms, capacity, max_participants, venue_rental_fee, is_cancelled, organization_id')
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('is_cancelled', false)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+
+    if (orgId) {
+      eventsQuery = eventsQuery.eq('organization_id', orgId)
+    }
+
+    const { data: events, error } = await eventsQuery
+    if (error) throw error
+    if (!events || events.length === 0) return []
+
+    // スタッフ名セットを取得（スタッフ参加判定用）
+    let staffQuery = supabase.from('staff').select('name')
+    if (orgId) staffQuery = staffQuery.eq('organization_id', orgId)
+    const { data: staffData } = await staffQuery
+    const staffNames = new Set(staffData?.map(s => s.name) || [])
+
+    // 店舗一覧を取得
+    const { data: stores } = await supabase
+      .from('stores')
+      .select('id, name, short_name')
+    const storeMap = new Map(stores?.map(s => [s.id, s]) || [])
+
+    // シナリオ情報を取得（ライセンス・GM代金計算用）
+    type ScenarioInfo = {
+      id: string
+      gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }> | null
+      license_amount: number | null
+      gm_test_license_amount: number | null
+    }
+    let scenarioQuery = supabase
+      .from('organization_scenarios_with_master')
+      .select('id, gm_costs, license_amount, gm_test_license_amount')
+    if (orgId) scenarioQuery = scenarioQuery.eq('organization_id', orgId)
+    const { data: scenariosData } = await scenarioQuery
+    // id = scenario_master_id でマップ
+    const scenarioByMasterId = new Map<string, ScenarioInfo>(
+      scenariosData?.map(s => [s.id, s as ScenarioInfo]) || []
+    )
+
+    // organization_scenarios の個別オーバーライドを取得（organization_scenario_id キー）
+    let orgScenarioQuery = supabase
+      .from('organization_scenarios')
+      .select('id, scenario_master_id, gm_costs, license_amount, gm_test_license_amount')
+    if (orgId) orgScenarioQuery = orgScenarioQuery.eq('organization_id', orgId)
+    const { data: orgScenariosData } = await orgScenarioQuery
+    const orgScenarioById = new Map(orgScenariosData?.map(s => [s.id, s]) || [])
+
+    // 全予約を一括取得（バッチ処理）
+    const eventIds = events.map(e => e.id)
+    const BATCH_SIZE = 100
+    const allReservations: Array<{
+      schedule_event_id: string
+      participant_count: number | null
+      participant_names: string[] | null
+      payment_method: string | null
+      final_price: number | null
+    }> = []
+
+    for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+      const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+      let resQuery = supabase
+        .from('reservations')
+        .select('schedule_event_id, participant_count, participant_names, payment_method, final_price')
+        .in('schedule_event_id', batchIds)
+        .in('status', ['confirmed', 'pending', 'gm_confirmed', 'checked_in'])
+
+      if (orgId) resQuery = resQuery.eq('organization_id', orgId)
+
+      const { data: batch } = await resQuery
+      if (batch) allReservations.push(...batch)
+    }
+
+    // イベントIDごとに予約をグループ化
+    const reservationsByEvent = new Map<string, typeof allReservations>()
+    allReservations.forEach(r => {
+      const existing = reservationsByEvent.get(r.schedule_event_id) || []
+      existing.push(r)
+      reservationsByEvent.set(r.schedule_event_id, existing)
+    })
+
+    return events.map(event => {
+      const reservations = reservationsByEvent.get(event.id) || []
+      const isVenueRental = event.category === 'venue_rental' || event.category === 'venue_rental_free'
+      const isGmTest = event.category === 'gmtest'
+      const store = storeMap.get(event.store_id ?? '')
+
+      // シナリオ情報をマージ（organization_scenario_id があれば上書き）
+      let scenarioInfo: ScenarioInfo | null = scenarioByMasterId.get(event.scenario_master_id ?? '') ?? null
+      if (event.organization_scenario_id) {
+        const override = orgScenarioById.get(event.organization_scenario_id)
+        if (override) {
+          scenarioInfo = {
+            ...scenarioInfo,
+            id: scenarioInfo?.id ?? '',
+            gm_costs: (override.gm_costs?.length > 0 ? override.gm_costs : scenarioInfo?.gm_costs) ?? null,
+            license_amount: override.license_amount ?? scenarioInfo?.license_amount ?? null,
+            gm_test_license_amount: override.gm_test_license_amount ?? scenarioInfo?.gm_test_license_amount ?? null,
+          }
+        }
+      }
+
+      // ライセンス金額
+      const licenseAmount = isGmTest
+        ? (scenarioInfo?.gm_test_license_amount || scenarioInfo?.license_amount || 0)
+        : (scenarioInfo?.license_amount || 0)
+
+      // GM代金: 実際のGM数に応じて先頭N件を合計（main→sub→...の順）
+      const actualGmCount = Array.isArray(event.gms) ? (event.gms as string[]).length : 0
+      let gmCost = 0
+      if (scenarioInfo?.gm_costs && scenarioInfo.gm_costs.length > 0) {
+        const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+        const applicable = scenarioInfo.gm_costs
+          .filter(g => (g.category || 'normal') === (isGmTest ? 'gmtest' : 'normal'))
+          .sort((a, b) => (roleOrder[a.role.toLowerCase()] ?? 999) - (roleOrder[b.role.toLowerCase()] ?? 999))
+        const sliced = actualGmCount > 0 ? applicable.slice(0, actualGmCount) : applicable
+        gmCost = sliced.reduce((sum, g) => sum + (g.reward || 0), 0)
+      }
+
+      let totalParticipants = 0
+      let staffParticipants = 0
+      let regularParticipants = 0
+      let onsiteAmount = 0
+      let onlineAmount = 0
+
+      if (isVenueRental) {
+        onsiteAmount = event.category === 'venue_rental_free' ? 0 : (event.venue_rental_fee || 12000)
+      } else {
+        reservations.forEach(r => {
+          const count = r.participant_count || 0
+          totalParticipants += count
+
+          const names = r.participant_names || []
+          // payment_method='staff' か、参加者名がスタッフリストに一致する場合はスタッフ参加
+          const isStaff = r.payment_method === 'staff' || names.some((n: string) => staffNames.has(n))
+
+          if (isStaff) {
+            // スタッフ参加は売上に含めない
+            staffParticipants += count
+          } else {
+            regularParticipants += count
+            const price = r.final_price || 0
+            if (r.payment_method === 'onsite') onsiteAmount += price
+            else if (r.payment_method === 'online') onlineAmount += price
+          }
+        })
+      }
+
+      const totalRevenue = onsiteAmount + onlineAmount
+      const netProfit = totalRevenue - licenseAmount - gmCost
+
+      return {
+        date: event.date,
+        start_time: event.start_time,
+        end_time: event.end_time,
+        store_name: store?.short_name || store?.name || event.venue || '',
+        scenario: event.scenario || '',
+        category: event.category,
+        gms: Array.isArray(event.gms) ? (event.gms as string[]).join('・') : String(event.gms || ''),
+        capacity: event.max_participants || event.capacity || 0,
+        total_participants: totalParticipants,
+        regular_participants: regularParticipants,
+        staff_participants: staffParticipants,
+        onsite_amount: onsiteAmount,
+        online_amount: onlineAmount,
+        total_revenue: totalRevenue,
+        license_amount: licenseAmount,
+        gm_cost: gmCost,
+        net_profit: netProfit,
+      }
+    })
+  },
 }
 
