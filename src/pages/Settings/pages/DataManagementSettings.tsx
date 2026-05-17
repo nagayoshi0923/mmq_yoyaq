@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
-import { Save, Database, Download, Loader2, Users, CalendarDays } from 'lucide-react'
+import { Save, Database, Download, Loader2, Users, CalendarDays, BookOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
@@ -60,6 +60,7 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
   const [exportDateTo, setExportDateTo] = useState(() => new Date().toISOString().split('T')[0])
   const [exportingReservations, setExportingReservations] = useState(false)
   const [exportingStaff, setExportingStaff] = useState(false)
+  const [exportingScenarios, setExportingScenarios] = useState(false)
 
   useEffect(() => { fetchData() }, [])
 
@@ -201,6 +202,54 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
     } finally { setExportingStaff(false) }
   }
 
+  const handleExportScenarios = async () => {
+    setExportingScenarios(true)
+    try {
+      const orgId = await getCurrentOrganizationId()
+      const { data, error } = await supabase
+        .from('organization_scenarios_with_master')
+        .select('title, author, report_display_name, genre, difficulty, duration, weekend_duration, player_count_min, player_count_max, participation_fee, status, org_status, play_count, has_pre_reading, release_date, notes, created_at')
+        .eq('organization_id', orgId!)
+        .order('title')
+
+      if (error) throw error
+
+      const headers = ['タイトル', '作者', 'レポート表示名', 'ジャンル', '難易度', '公演時間(分)', '休日公演時間(分)', '最小参加人数', '最大参加人数', '参加費', 'ステータス', '公開状態', '公演回数', '事前読込', 'リリース日', 'メモ', '登録日']
+      const rows = (data ?? []).map((s: any) => [
+        s.title ?? '',
+        s.author ?? '',
+        s.report_display_name ?? '',
+        Array.isArray(s.genre) ? s.genre.join(', ') : (s.genre ?? ''),
+        String(s.difficulty ?? ''),
+        String(s.duration ?? ''),
+        String(s.weekend_duration ?? ''),
+        String(s.player_count_min ?? ''),
+        String(s.player_count_max ?? ''),
+        String(s.participation_fee ?? ''),
+        s.status ?? '',
+        s.org_status ?? '',
+        String(s.play_count ?? 0),
+        s.has_pre_reading ? 'あり' : 'なし',
+        s.release_date ?? '',
+        s.notes ?? '',
+        s.created_at ? new Date(s.created_at).toLocaleDateString('ja-JP') : '',
+      ])
+
+      const fileName = `シナリオデータ_${new Date().toISOString().split('T')[0]}`
+      if (formData.export_format === 'excel') {
+        await saveAsExcel('シナリオ', headers, rows, `${fileName}.xlsx`)
+      } else if (formData.export_format === 'json') {
+        downloadBlob(JSON.stringify(data, null, 2), 'application/json', `${fileName}.json`)
+      } else {
+        downloadBlob(toCSV(headers, rows), 'text/csv', `${fileName}.csv`)
+      }
+      showToast.success(`${rows.length}件のシナリオデータをエクスポートしました`)
+    } catch (error) {
+      logger.error('エクスポートエラー:', error)
+      showToast.error('エクスポートに失敗しました')
+    } finally { setExportingScenarios(false) }
+  }
+
   if (loading) return <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
 
   return (
@@ -276,6 +325,21 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
             ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             : <Download className="w-4 h-4 mr-2" />}
           スタッフデータをダウンロード
+        </Button>
+      </section>
+
+      {/* シナリオデータエクスポート */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={BookOpen}
+          label="シナリオデータのエクスポート"
+          description="シナリオ一覧（タイトル・作者・難易度・公演時間・参加費・公演回数など）を出力します。"
+        />
+        <Button variant="outline" onClick={handleExportScenarios} disabled={exportingScenarios}>
+          {exportingScenarios
+            ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            : <Download className="w-4 h-4 mr-2" />}
+          シナリオデータをダウンロード
         </Button>
       </section>
     </div>
