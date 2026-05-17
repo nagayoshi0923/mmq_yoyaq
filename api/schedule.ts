@@ -12,7 +12,7 @@ function setCors(req: VercelRequest, res: VercelResponse) {
   const origin = req.headers.origin as string | undefined
   const allowed = origin && ALLOWED_ORIGINS.includes(origin) ? origin : (ALLOWED_ORIGINS[0] ?? '*')
   res.setHeader('Access-Control-Allow-Origin', allowed)
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
   res.setHeader('Access-Control-Allow-Credentials', 'true')
 }
@@ -181,37 +181,56 @@ function resolveMaxParticipants(event: ScheduleEventLike, orgScenarioMap: Map<st
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(req, res)
   if (req.method === 'OPTIONS') return res.status(204).end()
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const envError = getMissingEnvError()
   if (envError || !db) return res.status(500).json({ error: `環境変数が未設定です: ${envError}` })
-
-  const type = req.query.type as string | undefined
-  if (!type) {
-    return res.status(400).json({ error: 'type クエリパラメータが必要です' })
-  }
 
   try {
     const user = await requireAuth(req)
     requireStaff(user)
 
-    switch (type) {
-      case 'my-schedule':
-        return await handleMySchedule(req, res, user)
-      case 'by-month':
-        return await handleByMonth(req, res, user)
-      case 'by-date-range':
-        return await handleByDateRange(req, res, user)
-      case 'by-scenario':
-        return await handleByScenario(req, res, user)
-      default:
-        return res.status(400).json({ error: `未対応の type: ${type}` })
-    }
+    if (req.method === 'GET') return await handleGet(req, res, user)
+    if (req.method === 'POST') return await handlePost(req, res, user)
+    if (req.method === 'PATCH') return await handlePatch(req, res, user)
+    if (req.method === 'DELETE') return await handleDelete(req, res, user)
+    return res.status(405).json({ error: 'Method not allowed' })
   } catch (err) {
     if (err instanceof ApiError) return res.status(err.status).json({ error: err.message })
     console.error('[schedule] unexpected error:', err)
     return res.status(500).json({ error: 'サーバーエラーが発生しました' })
   }
+}
+
+async function handleGet(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const type = req.query.type as string | undefined
+  if (!type) {
+    return res.status(400).json({ error: 'type クエリパラメータが必要です' })
+  }
+  switch (type) {
+    case 'my-schedule':
+      return await handleMySchedule(req, res, user)
+    case 'by-month':
+      return await handleByMonth(req, res, user)
+    case 'by-date-range':
+      return await handleByDateRange(req, res, user)
+    case 'by-scenario':
+      return await handleByScenario(req, res, user)
+    default:
+      return res.status(400).json({ error: `未対応の type: ${type}` })
+  }
+}
+
+async function handlePost(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const action = req.query.action as string | undefined
+  if (action === 'add-demo-participants') return await handleAddDemoParticipants(req, res, user)
+  if (action === 'remove-demo-reservations') return await handleRemoveDemoReservations(req, res, user)
+  return await handleCreate(req, res, user)
+}
+
+async function handlePatch(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const action = req.query.action as string | undefined
+  if (action === 'toggle-cancel') return await handleToggleCancel(req, res, user)
+  return await handleUpdate(req, res, user)
 }
 
 // ─── my-schedule (scheduleApi.getMySchedule) ─────────────────────────────
@@ -794,4 +813,587 @@ async function handleByScenario(req: VercelRequest, res: VercelResponse, user: A
   })
 
   return res.status(200).json(eventsWithActualParticipants)
+}
+
+// ─── write 系ヘルパ ────────────────────────────────────────────────────
+
+// DB で許可されているカテゴリ（チェック制約に合わせる）
+const DB_VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package', 'mtg']
+
+// 作成可能フィールドのホワイトリスト（Mass Assignment 防止）
+const SCHEDULE_CREATABLE_FIELDS = [
+  'date', 'store_id', 'venue', 'scenario', 'scenario_master_id', 'organization_scenario_id',
+  'category', 'start_time', 'end_time', 'capacity', 'gms', 'gm_roles', 'notes',
+  'time_slot', 'is_reservation_enabled', 'is_tentative', 'venue_rental_fee',
+  'reservation_name', 'is_reservation_name_overwritten', 'is_private_request', 'reservation_id',
+] as const
+
+const SCHEDULE_UPDATABLE_FIELDS = [
+  ...SCHEDULE_CREATABLE_FIELDS,
+  'is_cancelled', 'cancellation_reason', 'cancelled_at',
+] as const
+
+function pickFields<T extends readonly string[]>(
+  src: Record<string, unknown>,
+  allowed: T,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(src)) {
+    if ((allowed as readonly string[]).includes(key)) {
+      out[key] = src[key]
+    }
+  }
+  return out
+}
+
+function normalizeScenarioName(name: string): string {
+  return name
+    .replace(/^["「『📗📕]/, '')
+    .replace(/["」』]$/, '')
+    .replace(/^貸・/, '')
+    .replace(/^募・/, '')
+    .replace(/^🈵・/, '')
+    .replace(/^GMテスト・/, '')
+    .replace(/^打診・/, '')
+    .replace(/^仮/, '')
+    .replace(/^（仮）/, '')
+    .replace(/^\(仮\)/, '')
+    .replace(/\(.*?\)$/, '')
+    .replace(/（.*?）$/, '')
+    .trim()
+}
+
+function removeMissingScheduleColumn(
+  payload: Record<string, unknown>,
+  error: { message?: string; details?: string; hint?: string } | null,
+): { nextPayload: Record<string, unknown>; removedColumn: string } | null {
+  if (!error) return null
+  const combined = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`
+  const patterns = [
+    /column "([^"]+)" of relation "schedule_events" does not exist/i,
+    /Could not find the '([^']+)' column of 'schedule_events'/i,
+  ]
+  for (const pattern of patterns) {
+    const match = combined.match(pattern)
+    if (match?.[1]) {
+      const missingColumn = match[1]
+      if (missingColumn in payload) {
+        const nextPayload = { ...payload }
+        delete nextPayload[missingColumn]
+        return { nextPayload, removedColumn: missingColumn }
+      }
+    }
+  }
+  return null
+}
+
+async function findMatchingScenario(scenarioName: string | undefined): Promise<{ id: string; title: string } | null> {
+  if (!scenarioName || scenarioName.trim() === '') return null
+  if (!db) return null
+  const cleanName = normalizeScenarioName(scenarioName)
+  if (cleanName.length < 2) return null
+
+  // エイリアスマッピングを取得
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: aliasRows } = await (db as any)
+    .from('scenario_import_aliases')
+    .select('alias, canonical_name')
+  const aliasMap: Record<string, string> = {}
+  for (const row of (aliasRows as Array<{ alias: string; canonical_name: string }> | null) ?? []) {
+    aliasMap[row.alias] = row.canonical_name
+  }
+
+  let searchName = aliasMap[cleanName] ?? cleanName
+  if (searchName === cleanName) {
+    for (const [alias, formal] of Object.entries(aliasMap)) {
+      if (cleanName.includes(alias)) {
+        searchName = formal
+        break
+      }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: scenarios } = await (db as any)
+    .from('scenario_masters')
+    .select('id, title')
+  if (!scenarios || scenarios.length === 0) return null
+
+  type ScenarioMasterRow = { id: string; title: string }
+  const rows = scenarios as ScenarioMasterRow[]
+  let match: ScenarioMasterRow | undefined = rows.find(s => s.title === searchName)
+  if (!match) match = rows.find(s => s.title.startsWith(searchName))
+  if (!match) match = rows.find(s => searchName.includes(s.title))
+  if (!match && searchName.length >= 4) match = rows.find(s => s.title.includes(searchName))
+  return match || null
+}
+
+// INSERT/UPDATE 後にスタッフ専用ビューから完全レコードを取得する
+const SCHEDULE_EVENT_FULL_SELECT = `
+  *,
+  stores:store_id (
+    id,
+    name,
+    short_name
+  ),
+  scenario_masters:scenario_master_id (
+    id,
+    title,
+    player_count_max
+  )
+`
+
+// ─── handleCreate (POST) ─────────────────────────────────────────────────
+async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const database = db as any
+  const body = (req.body ?? {}) as Record<string, unknown>
+
+  // ホワイトリスト + サーバ強制
+  const insertRow = pickFields(body, SCHEDULE_CREATABLE_FIELDS)
+  insertRow.organization_id = user.orgId // ← クライアント値は使わずサーバ強制
+
+  if (!insertRow.date || !insertRow.store_id || !insertRow.category || !insertRow.start_time || !insertRow.end_time) {
+    return res.status(400).json({ error: 'date / store_id / category / start_time / end_time は必須です' })
+  }
+
+  // 自組織の店舗かを確認
+  const { data: storeRow, error: storeErr } = await database
+    .from('stores')
+    .select('id, organization_id')
+    .eq('id', insertRow.store_id)
+    .maybeSingle()
+  if (storeErr) {
+    console.error('[schedule:create] store lookup error:', storeErr)
+    return res.status(500).json({ error: '店舗確認に失敗しました' })
+  }
+  if (!storeRow) return res.status(404).json({ error: '店舗が見つかりません' })
+  if (storeRow.organization_id !== user.orgId) {
+    return res.status(403).json({ error: '他組織の店舗は使用できません' })
+  }
+
+  // シナリオ名から自動マッチング
+  const scenarioInput = typeof insertRow.scenario === 'string' ? insertRow.scenario : undefined
+  if (scenarioInput && !insertRow.scenario_master_id) {
+    const match = await findMatchingScenario(scenarioInput)
+    if (match) {
+      insertRow.scenario_master_id = match.id
+      insertRow.scenario = match.title
+    }
+  }
+
+  // organization_scenario_id を自動設定（scenario_master_id 経由）
+  if (insertRow.scenario_master_id && !insertRow.organization_scenario_id) {
+    const { data: orgScenario } = await database
+      .from('organization_scenarios')
+      .select('id')
+      .eq('scenario_master_id', insertRow.scenario_master_id as string)
+      .eq('organization_id', user.orgId)
+      .maybeSingle()
+    if (orgScenario?.id) {
+      insertRow.organization_scenario_id = orgScenario.id
+    }
+  }
+
+  // カテゴリのバリデーション
+  if (typeof insertRow.category === 'string' && !DB_VALID_CATEGORIES.includes(insertRow.category)) {
+    insertRow.category = 'open'
+  }
+
+  // INSERT（不明カラムをリトライ削除）
+  let insertPayload: Record<string, unknown> = { ...insertRow }
+  let lastError: { message?: string; details?: string; hint?: string; code?: string } | null = null
+  let insertedId: string | null = null
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data, error } = await database
+      .from('schedule_events')
+      .insert([insertPayload])
+      .select('id')
+      .single()
+    if (!error) {
+      insertedId = data.id as string
+      break
+    }
+    lastError = error
+    const removal = removeMissingScheduleColumn(insertPayload, error)
+    if (!removal) break
+    insertPayload = removal.nextPayload
+  }
+
+  if (!insertedId) {
+    console.error('[schedule:create] insert error:', lastError)
+    return res.status(500).json({ error: '公演の作成に失敗しました', detail: lastError?.message })
+  }
+
+  // スタッフ専用ビューから完全レコードを返す
+  const { data: fullEvent, error: fetchError } = await database
+    .from('schedule_events_staff_view')
+    .select(SCHEDULE_EVENT_FULL_SELECT)
+    .eq('id', insertedId)
+    .eq('organization_id', user.orgId)
+    .single()
+  if (fetchError) {
+    console.error('[schedule:create] fetch error:', fetchError)
+    return res.status(500).json({ error: '作成後の取得に失敗しました', detail: fetchError.message })
+  }
+  return res.status(201).json(fullEvent)
+}
+
+// ─── handleUpdate (PATCH) ────────────────────────────────────────────────
+async function handleUpdate(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const id = req.query.id as string | undefined
+  if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
+
+  const expectedUpdatedAt = req.query.expected_updated_at as string | undefined
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const database = db as any
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const updateRow = pickFields(body, SCHEDULE_UPDATABLE_FIELDS)
+
+  if (Object.keys(updateRow).length === 0) {
+    return res.status(400).json({ error: '更新可能なフィールドがありません' })
+  }
+
+  // 対象イベントが自組織か確認
+  const { data: existing, error: existingErr } = await database
+    .from('schedule_events')
+    .select('id, organization_id, store_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (existingErr) {
+    console.error('[schedule:update] existing lookup error:', existingErr)
+    return res.status(500).json({ error: '公演情報の確認に失敗しました' })
+  }
+  if (!existing) return res.status(404).json({ error: '公演が見つかりません' })
+  if (existing.organization_id !== user.orgId) {
+    return res.status(403).json({ error: '他組織の公演は編集できません' })
+  }
+
+  // store_id を変える場合、移動先店舗も自組織か確認
+  if (typeof updateRow.store_id === 'string' && updateRow.store_id !== existing.store_id) {
+    const { data: newStore, error: newStoreErr } = await database
+      .from('stores')
+      .select('id, organization_id')
+      .eq('id', updateRow.store_id)
+      .maybeSingle()
+    if (newStoreErr) {
+      return res.status(500).json({ error: '店舗確認に失敗しました' })
+    }
+    if (!newStore) return res.status(404).json({ error: '店舗が見つかりません' })
+    if (newStore.organization_id !== user.orgId) {
+      return res.status(403).json({ error: '他組織の店舗は使用できません' })
+    }
+  }
+
+  // シナリオ名から自動マッチング
+  const scenarioInput = typeof updateRow.scenario === 'string' ? updateRow.scenario : undefined
+  if (scenarioInput && !updateRow.scenario_master_id) {
+    const match = await findMatchingScenario(scenarioInput)
+    if (match) {
+      updateRow.scenario_master_id = match.id
+      updateRow.scenario = match.title
+    }
+  }
+
+  // organization_scenario_id を自動設定（scenario_master_id 経由）
+  if (updateRow.scenario_master_id && !updateRow.organization_scenario_id) {
+    const { data: orgScenario } = await database
+      .from('organization_scenarios')
+      .select('id')
+      .eq('scenario_master_id', updateRow.scenario_master_id as string)
+      .eq('organization_id', user.orgId)
+      .maybeSingle()
+    if (orgScenario?.id) {
+      updateRow.organization_scenario_id = orgScenario.id
+    }
+  }
+
+  if (typeof updateRow.category === 'string' && !DB_VALID_CATEGORIES.includes(updateRow.category)) {
+    updateRow.category = 'open'
+  }
+
+  let updatePayload: Record<string, unknown> = { ...updateRow, updated_at: new Date().toISOString() }
+  let lastError: { message?: string; details?: string; hint?: string; code?: string } | null = null
+  let updateSucceeded = false
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    let query = database
+      .from('schedule_events')
+      .update(updatePayload)
+      .eq('id', id)
+      .eq('organization_id', user.orgId)
+    if (expectedUpdatedAt) {
+      query = query.eq('updated_at', expectedUpdatedAt)
+    }
+    const { error } = await query.select('id').single()
+
+    if (!error) {
+      updateSucceeded = true
+      break
+    }
+    if (expectedUpdatedAt && error.code === 'PGRST116') {
+      return res.status(409).json({ error: '他のユーザーが先にこのイベントを更新しました。ページを再読み込みして最新データを確認してください。' })
+    }
+    lastError = error
+    const removal = removeMissingScheduleColumn(updatePayload, error)
+    if (!removal) break
+    updatePayload = removal.nextPayload
+  }
+
+  if (!updateSucceeded) {
+    console.error('[schedule:update] update error:', lastError)
+    return res.status(500).json({ error: '公演の更新に失敗しました', detail: lastError?.message })
+  }
+
+  const { data: fullEvent, error: fetchError } = await database
+    .from('schedule_events_staff_view')
+    .select(SCHEDULE_EVENT_FULL_SELECT)
+    .eq('id', id)
+    .eq('organization_id', user.orgId)
+    .single()
+  if (fetchError) {
+    console.error('[schedule:update] fetch error:', fetchError)
+    return res.status(500).json({ error: '更新後の取得に失敗しました', detail: fetchError.message })
+  }
+  return res.status(200).json(fullEvent)
+}
+
+// ─── handleToggleCancel (PATCH action=toggle-cancel) ─────────────────────
+async function handleToggleCancel(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const id = req.query.id as string | undefined
+  if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const database = db as any
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const isCancelled = body.is_cancelled === true
+  const cancellationReason = typeof body.cancellation_reason === 'string' ? body.cancellation_reason : null
+
+  // 自組織のイベントか確認
+  const { data: existing, error: existingErr } = await database
+    .from('schedule_events')
+    .select('id, organization_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (existingErr) return res.status(500).json({ error: '公演情報の確認に失敗しました' })
+  if (!existing) return res.status(404).json({ error: '公演が見つかりません' })
+  if (existing.organization_id !== user.orgId) {
+    return res.status(403).json({ error: '他組織の公演は変更できません' })
+  }
+
+  const updateData: Record<string, unknown> = {
+    is_cancelled: isCancelled,
+    cancellation_reason: isCancelled ? cancellationReason : null,
+    cancelled_at: isCancelled ? new Date().toISOString() : null,
+  }
+
+  const { error } = await database
+    .from('schedule_events')
+    .update(updateData)
+    .eq('id', id)
+    .eq('organization_id', user.orgId)
+  if (error) {
+    console.error('[schedule:toggle-cancel] update error:', error)
+    return res.status(500).json({ error: '公演の中止状態切り替えに失敗しました', detail: error.message })
+  }
+
+  const { data, error: fetchError } = await database
+    .from('schedule_events_staff_view')
+    .select()
+    .eq('id', id)
+    .eq('organization_id', user.orgId)
+    .single()
+  if (fetchError) {
+    return res.status(500).json({ error: '取得に失敗しました', detail: fetchError.message })
+  }
+  return res.status(200).json(data)
+}
+
+// ─── handleDelete (DELETE) ───────────────────────────────────────────────
+async function handleDelete(req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  const id = req.query.id as string | undefined
+  if (!id) return res.status(400).json({ error: 'id クエリパラメータが必要です' })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const database = db as any
+
+  const { data: existing, error: existingErr } = await database
+    .from('schedule_events')
+    .select('id, organization_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (existingErr) return res.status(500).json({ error: '公演情報の確認に失敗しました' })
+  if (!existing) return res.status(404).json({ error: '公演が見つかりません' })
+  if (existing.organization_id !== user.orgId) {
+    return res.status(403).json({ error: '他組織の公演は削除できません' })
+  }
+
+  const { error } = await database
+    .from('schedule_events')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', user.orgId)
+  if (error) {
+    console.error('[schedule:delete] DB error:', error)
+    return res.status(500).json({ error: '公演の削除に失敗しました', detail: error.message })
+  }
+  return res.status(204).end()
+}
+
+// ─── handleAddDemoParticipants (POST action=add-demo-participants) ───────
+async function handleAddDemoParticipants(_req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const database = db as any
+
+  // 中止でない自組織の全公演を取得
+  const { data: events, error: eventsError } = await database
+    .from('schedule_events_staff_view')
+    .select('id, organization_id, scenario_master_id, scenario, store_id, date, start_time, category, gms, capacity, max_participants')
+    .eq('is_cancelled', false)
+    .eq('organization_id', user.orgId)
+    .order('date', { ascending: true })
+
+  if (eventsError) {
+    console.error('[schedule:add-demo] events fetch error:', eventsError)
+    return res.status(500).json({ error: '公演データの取得に失敗しました', detail: eventsError.message })
+  }
+  if (!events || events.length === 0) {
+    return res.status(200).json({ success: true, message: '中止でない公演が見つかりません', successCount: 0, errorCount: 0 })
+  }
+
+  const orgScenarioMap = await getOrgScenarioPlayerCounts(user.orgId)
+  let successCount = 0
+  let errorCount = 0
+
+  for (const event of events as Array<Record<string, unknown> & { id: string; scenario_master_id: string | null; organization_id: string; scenario: string | null; store_id: string | null; date: string; start_time: string; category: string; gms: string[] | null; capacity: number | null; max_participants: number | null }>) {
+    try {
+      const { data: reservations, error: reservationError } = await database
+        .from('reservations')
+        .select('participant_count, participant_names')
+        .eq('schedule_event_id', event.id)
+        .in('status', [...ACTIVE_RESERVATION_STATUSES])
+      if (reservationError && reservationError.code !== 'PGRST116') {
+        errorCount++
+        continue
+      }
+
+      const reservedParticipants = ((reservations as Array<{ participant_count: number | null; participant_names: string[] | null }> | null) ?? [])
+        .reduce((sum, r) => sum + (r.participant_count || 0), 0)
+
+      const capacity = resolveMaxParticipants(
+        { scenario_master_id: event.scenario_master_id, scenario: event.scenario, max_participants: event.max_participants, capacity: event.capacity },
+        orgScenarioMap,
+      )
+
+      const hasDemoParticipant = ((reservations as Array<{ participant_names: string[] | null }> | null) ?? []).some(r =>
+        r.participant_names?.some((name: string) => typeof name === 'string' && name.includes('デモ')),
+      )
+
+      const neededParticipants = capacity - reservedParticipants
+      if (neededParticipants <= 0 || hasDemoParticipant) continue
+      if (!event.scenario_master_id) continue
+
+      const { data: scenarioMaster, error: masterError } = await database
+        .from('scenario_masters')
+        .select('id, title, official_duration')
+        .eq('id', event.scenario_master_id)
+        .single()
+      if (masterError) { errorCount++; continue }
+
+      const { data: orgScenario } = await database
+        .from('organization_scenarios')
+        .select('participation_fee, gm_test_participation_fee')
+        .eq('scenario_master_id', event.scenario_master_id)
+        .eq('organization_id', user.orgId)
+        .maybeSingle()
+
+      const isGmTest = event.category === 'gmtest'
+      const participationFee = isGmTest
+        ? ((orgScenario as { gm_test_participation_fee?: number; participation_fee?: number } | null)?.gm_test_participation_fee
+          || (orgScenario as { participation_fee?: number } | null)?.participation_fee
+          || 0)
+        : ((orgScenario as { participation_fee?: number } | null)?.participation_fee || 0)
+
+      const demoReservation: Record<string, unknown> = {
+        schedule_event_id: event.id,
+        organization_id: user.orgId, // ← サーバ強制
+        title: event.scenario || (scenarioMaster as { title?: string } | null)?.title || '',
+        scenario_master_id: event.scenario_master_id,
+        store_id: event.store_id || null,
+        customer_id: null,
+        customer_notes: neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${neededParticipants}名`,
+        requested_datetime: `${event.date}T${event.start_time}+09:00`,
+        duration: (scenarioMaster as { official_duration?: number } | null)?.official_duration || 120,
+        participant_count: neededParticipants,
+        participant_names: Array(neededParticipants).fill(null).map((_, i) =>
+          neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`,
+        ),
+        assigned_staff: event.gms || [],
+        base_price: participationFee * neededParticipants,
+        options_price: 0,
+        total_price: participationFee * neededParticipants,
+        discount_amount: 0,
+        final_price: participationFee * neededParticipants,
+        payment_method: 'onsite',
+        payment_status: 'paid',
+        status: 'confirmed',
+        reservation_source: 'demo',
+      }
+
+      const { error: insertError } = await database
+        .from('reservations')
+        .insert(demoReservation)
+      if (insertError) { errorCount++; continue }
+
+      // 参加者数を予約テーブルから再計算して schedule_events を更新
+      const { data: allReservations, error: allResError } = await database
+        .from('reservations')
+        .select('participant_count')
+        .eq('schedule_event_id', event.id)
+        .in('status', [...ACTIVE_RESERVATION_STATUSES])
+      if (!allResError) {
+        const totalParticipants = ((allReservations as Array<{ participant_count: number | null }> | null) ?? [])
+          .reduce((sum, r) => sum + (r.participant_count || 0), 0)
+        await database
+          .from('schedule_events')
+          .update({ current_participants: totalParticipants })
+          .eq('id', event.id)
+          .eq('organization_id', user.orgId)
+      }
+
+      successCount++
+    } catch (err) {
+      console.error(`[schedule:add-demo] event ${event.id} error:`, err)
+      errorCount++
+    }
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: `デモ参加者追加完了: 成功${successCount}件, エラー${errorCount}件`,
+    successCount,
+    errorCount,
+  })
+}
+
+// ─── handleRemoveDemoReservations (POST action=remove-demo-reservations) ─
+async function handleRemoveDemoReservations(_req: VercelRequest, res: VercelResponse, user: AuthUser) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const database = db as any
+
+  // RPC は SECURITY DEFINER だが、自組織のデモ予約のみを削除するため、
+  // ここでは手動で対象を絞ってから DELETE する（org スコープを強制）。
+  const { data, error } = await database
+    .from('reservations')
+    .delete()
+    .eq('reservation_source', 'demo')
+    .eq('organization_id', user.orgId)
+    .select('id')
+
+  if (error) {
+    console.error('[schedule:remove-demo] DB error:', error)
+    return res.status(500).json({ error: 'デモ予約の削除に失敗しました', detail: error.message })
+  }
+  const deletedCount = Array.isArray(data) ? data.length : 0
+  return res.status(200).json({ success: true, deletedCount })
 }
