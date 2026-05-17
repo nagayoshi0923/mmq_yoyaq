@@ -416,7 +416,6 @@ export function StaffManagement() {
               statusFilter={statusFilter}
               onSearchChange={setSearchTerm}
               onStatusFilterChange={setStatusFilter}
-              onInviteClick={openInviteModal}
               resultCount={sortedStaff.length}
               columnSettingsPanel={
                 <ColumnSettingsPanel
@@ -579,59 +578,6 @@ export function StaffManagement() {
           variant="warning"
           confirmLabel="連携解除"
         />
-
-        {/* スタッフ招待モーダル（既存コードを一時的に簡略化） */}
-        <Dialog open={isInviteModalOpen} onOpenChange={closeInviteModal}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>スタッフを招待</DialogTitle>
-              <DialogDescription>
-                新しいスタッフメンバーを招待します。
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={(e) => {
-              setInviteLoading(true)
-              handleInviteStaff(e).finally(() => setInviteLoading(false))
-            }} className="space-y-4">
-              <div>
-                <Label htmlFor="email">メールアドレス *</Label>
-                <Input id="email" name="email" type="email" required />
-              </div>
-              <div>
-                <Label htmlFor="name">名前 *</Label>
-                <Input id="name" name="name" type="text" required />
-              </div>
-              <div>
-                <Label htmlFor="phone">電話番号</Label>
-                <Input id="phone" name="phone" type="tel" />
-              </div>
-              <div>
-                <Label htmlFor="line_name">LINE名</Label>
-                <Input id="line_name" name="line_name" type="text" />
-              </div>
-              <div>
-                <Label htmlFor="x_account">X (Twitter)</Label>
-                <Input id="x_account" name="x_account" type="text" />
-              </div>
-              <div>
-                <Label htmlFor="discord_id">Discord ID</Label>
-                <Input id="discord_id" name="discord_id" type="text" />
-              </div>
-              <div>
-                <Label htmlFor="discord_channel_id">Discord Channel ID</Label>
-                <Input id="discord_channel_id" name="discord_channel_id" type="text" />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button type="button" variant="outline" onClick={closeInviteModal}>
-                  キャンセル
-                </Button>
-                <Button type="submit" disabled={inviteLoading}>
-                  {inviteLoading ? '送信中...' : '招待する'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
 
         {/* 紐付けモーダル（既存コードを一時的に簡略化） */}
         <Dialog open={isLinkModalOpen} onOpenChange={closeLinkModal}>

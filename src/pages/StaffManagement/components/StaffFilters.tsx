@@ -1,6 +1,5 @@
 import { memo, type ReactNode } from 'react'
-import { Search, Filter, Mail } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Search, Filter } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -9,7 +8,6 @@ interface StaffFiltersProps {
   statusFilter: string
   onSearchChange: (value: string) => void
   onStatusFilterChange: (value: string) => void
-  onInviteClick: () => void
   resultCount?: number
   columnSettingsPanel?: ReactNode
 }
@@ -19,7 +17,6 @@ export const StaffFilters = memo(function StaffFilters({
   statusFilter,
   onSearchChange,
   onStatusFilterChange,
-  onInviteClick,
   resultCount,
   columnSettingsPanel,
 }: StaffFiltersProps) {
@@ -59,18 +56,6 @@ export const StaffFilters = memo(function StaffFilters({
           </SelectContent>
         </Select>
       </div>
-
-      {/* 招待ボタン */}
-      <Button
-        variant="outline"
-        onClick={onInviteClick}
-        className="flex items-center gap-1.5 flex-shrink-0 text-xs"
-        size="sm"
-      >
-        <Mail className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">スタッフを招待</span>
-        <span className="sm:hidden">招待</span>
-      </Button>
 
       {/* カラム設定（右端・PCのみ） */}
       {columnSettingsPanel && (

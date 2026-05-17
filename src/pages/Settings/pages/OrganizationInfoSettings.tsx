@@ -38,6 +38,7 @@ interface AdminUser {
   display_name: string | null
   role: string
   created_at: string
+  staff_name: string | null
 }
 
 export function OrganizationInfoSettings() {
@@ -90,14 +91,25 @@ export function OrganizationInfoSettings() {
   const loadAdminUsers = async (orgId: string) => {
     setIsLoadingAdmins(true)
     try {
-      const { data, error } = await supabase
+      const { data: users, error } = await supabase
         .from('users')
         .select('id, email, display_name, role, created_at')
         .eq('organization_id', orgId)
         .in('role', ['admin', 'license_admin'])
         .order('created_at')
       if (error) throw error
-      setAdminUsers(data as AdminUser[])
+
+      // staff テーブルの名前で補完
+      const userIds = (users ?? []).map(u => u.id)
+      const { data: staffData } = await supabase
+        .from('staff')
+        .select('user_id, name')
+        .in('user_id', userIds)
+
+      const staffMap = new Map((staffData ?? []).map(s => [s.user_id, s.name]))
+      setAdminUsers(
+        (users ?? []).map(u => ({ ...u, staff_name: staffMap.get(u.id) ?? null })) as AdminUser[]
+      )
     } catch (error) {
       logger.error('Failed to load admin users:', error)
     } finally {
@@ -312,6 +324,11 @@ export function OrganizationInfoSettings() {
             管理者を招待
           </Button>
         </div>
+        <div className="space-y-2 mb-4">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            管理者は店舗・スタッフ・シナリオ・予約など全ての設定を操作できます。スタッフの招待は <span className="font-medium text-foreground">設定 → スタッフ → スタッフ設定</span> から行ってください。
+          </p>
+        </div>
 
         {isLoadingAdmins ? (
           <div className="flex justify-center py-6">
@@ -331,12 +348,12 @@ export function OrganizationInfoSettings() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{user.display_name || user.email}</p>
+                      <p className="text-sm font-medium">
+                        {user.staff_name || user.display_name || '（名前未設定）'}
+                      </p>
                       {isSelf && <span className="text-xs text-muted-foreground">（自分）</span>}
                     </div>
-                    {user.display_name && (
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
-                    )}
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
                   <Badge variant={isLicAdmin ? 'default' : 'secondary'} className="text-xs shrink-0">
                     {isLicAdmin ? 'MMQ運営' : '管理者'}

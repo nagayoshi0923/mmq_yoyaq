@@ -1,15 +1,17 @@
 import { PageHeader } from "@/components/layout/PageHeader"
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Save } from 'lucide-react'
+import { Save, UserPlus, Mail, User, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { toast } from 'sonner'
 
 interface StaffSettings {
   id: string
@@ -39,6 +41,53 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // スタッフ招待
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteForm, setInviteForm] = useState({ name: '', email: '' })
+  const [isInviting, setIsInviting] = useState(false)
+
+  const handleInvite = async () => {
+    if (!inviteForm.name.trim()) { toast.error('名前を入力してください'); return }
+    if (!inviteForm.email.trim()) { toast.error('メールアドレスを入力してください'); return }
+
+    setIsInviting(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { toast.error('ログインが必要です'); return }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', session.user.id)
+        .single()
+
+      const response = await supabase.functions.invoke('invite-staff', {
+        body: {
+          name: inviteForm.name.trim(),
+          email: inviteForm.email.trim(),
+          role: ['スタッフ'],
+          organization_id: userData?.organization_id,
+        },
+      })
+
+      if (response.error) throw response.error
+      const result = response.data
+      if (!result.success) {
+        if (result.error?.includes('既に')) { toast.error('このメールアドレスは既に登録されています'); return }
+        throw new Error(result.error || '招待に失敗しました')
+      }
+
+      toast.success(`${inviteForm.name} さんに招待メールを送信しました`)
+      setInviteOpen(false)
+      setInviteForm({ name: '', email: '' })
+    } catch (error) {
+      logger.error('Failed to invite staff:', error)
+      toast.error('招待に失敗しました')
+    } finally {
+      setIsInviting(false)
+    }
+  }
 
   useEffect(() => {
     fetchData()
@@ -163,10 +212,16 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
         title="スタッフ設定"
         description="スタッフの権限と報酬設定"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? '保存中...' : '保存'}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}>
+            <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+            スタッフを招待
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            <Save className="h-3.5 w-3.5 mr-1.5" />
+            {saving ? '保存中...' : '保存'}
+          </Button>
+        </div>
       </PageHeader>
 
       {/* GM報酬デフォルト値 */}
@@ -285,6 +340,56 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
           </p>
         </CardContent>
       </Card>
+
+      {/* スタッフ招待ダイアログ */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>スタッフを招待</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              招待メールを送信します。受信者はリンクからスタッフアカウントを作成できます。
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-staff-name" className="text-sm font-medium">名前 <span className="text-destructive">*</span></Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="invite-staff-name"
+                  value={inviteForm.name}
+                  onChange={(e) => setInviteForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="例: 山田太郎"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-staff-email" className="text-sm font-medium">メールアドレス <span className="text-destructive">*</span></Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="invite-staff-email"
+                  type="email"
+                  value={inviteForm.email}
+                  onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="例: staff@example.com"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setInviteOpen(false); setInviteForm({ name: '', email: '' }) }}>
+              キャンセル
+            </Button>
+            <Button onClick={handleInvite} disabled={isInviting}>
+              {isInviting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Mail className="w-3.5 h-3.5 mr-1.5" />}
+              招待メールを送信
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
