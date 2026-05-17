@@ -5,7 +5,6 @@ import { SettingsLayout } from '@/components/settings/SettingsLayout'
 
 // 設定ページコンポーネント
 import { ShiftSettings } from './pages/ShiftSettings'
-import { StoreBasicSettings } from './pages/StoreBasicSettings'
 import { BusinessHoursSettings } from './pages/BusinessHoursSettings'
 import { PerformanceScheduleSettings } from './pages/PerformanceScheduleSettings'
 import { ReservationSettings } from './pages/ReservationSettings'
@@ -52,8 +51,6 @@ export function Settings() {
         return <BlogSettings />
       case 'shift':
         return <ShiftSettings />
-      case 'store-basic':
-        return <StoreBasicSettings storeId={storeId} />
       case 'business-hours':
         return <BusinessHoursSettings storeId={storeId} />
       case 'performance-schedule':

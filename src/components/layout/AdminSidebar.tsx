@@ -235,7 +235,6 @@ export const AdminSidebar = memo(function AdminSidebar() {
           path: `/${slug}/settings?tab=store-basic`,
           roles: ['admin', 'license_admin'], isGroupHeader: true,
           subItems: [
-            { id: 'store-basic',          label: '店舗基本設定',    path: `/${slug}/settings?tab=store-basic` },
             { id: 'business-hours',       label: '営業時間',        path: `/${slug}/settings?tab=business-hours` },
             { id: 'performance-schedule', label: '公演スケジュール', path: `/${slug}/settings?tab=performance-schedule` },
             { id: 'reservation',          label: '予約設定',        path: `/${slug}/settings?tab=reservation` },
