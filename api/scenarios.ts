@@ -8,6 +8,12 @@ const db = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } })
   : null
 
+// NOTE: schedule_events_staff_view ではなく schedule_events を直接参照する。
+// 理由: スタッフ向けビューは `WHERE is_staff_or_admin()` で auth.uid() を見るが、
+// この API ハンドラは service role で実行されるため auth.uid() が NULL になり
+// ビュー越しでは常に 0 件しか返らない。requireStaff(user) で既にスタッフ権限を
+// 確認しているので、ビューの追加チェックは不要。
+
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
@@ -482,7 +488,7 @@ async function handleGetScenarioStats(req: VercelRequest, res: VercelResponse, o
 
   // ── 公演イベント詳細 ────────────────────────────────────────────────────
   const { data: events, error: eventsError } = await db
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select(STATS_SCHEDULE_EVENT_DETAIL_FIELDS)
     .eq('scenario_master_id', scenarioId)
     .eq('organization_id', orgId)
@@ -675,7 +681,7 @@ async function handleGetAllScenarioStats(res: VercelResponse, orgId: string) {
     const from = page * pageSize
     const to = from + pageSize - 1
     const { data, error } = await db
-      .from('schedule_events_staff_view')
+      .from('schedule_events')
       .select(STATS_ALL_SCHEDULE_EVENT_FIELDS)
       .eq('organization_id', orgId)
       .lte('date', today)

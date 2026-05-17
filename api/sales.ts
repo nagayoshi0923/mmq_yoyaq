@@ -2,6 +2,12 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db, getMissingEnvError } from './_lib/db.js'
 import { requireAuth, requireStaff, ApiError } from './_lib/auth.js'
 
+// NOTE: schedule_events_staff_view ではなく schedule_events を直接参照する。
+// 理由: スタッフ向けビューは `WHERE is_staff_or_admin()` で auth.uid() を見るが、
+// この API ハンドラは service role で実行されるため auth.uid() が NULL になり
+// ビュー越しでは常に 0 件しか返らない。本ハンドラは requireStaff(user) で既に
+// スタッフ権限を確認しているので、ビューの追加チェックは不要。
+
 const ALLOWED_ORIGINS = [
   process.env.ALLOWED_ORIGIN,
   'http://localhost:5173',
@@ -188,7 +194,7 @@ async function handleByPeriod(req: VercelRequest, res: VercelResponse, orgId: st
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: events, error } = await (db as any)
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select(SCHEDULE_EVENT_SALES_SELECT_FIELDS)
     .eq('organization_id', orgId)
     .gte('date', start)
@@ -369,7 +375,7 @@ async function handleByStore(req: VercelRequest, res: VercelResponse, orgId: str
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db as any)
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select(STORE_AND_SCENARIO_NESTED_SELECT)
     .eq('organization_id', orgId)
     .gte('date', start)
@@ -391,7 +397,7 @@ async function handleByScenario(req: VercelRequest, res: VercelResponse, orgId: 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db as any)
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select(STORE_AND_SCENARIO_NESTED_SELECT)
     .eq('organization_id', orgId)
     .gte('date', start)
@@ -413,7 +419,7 @@ async function handleAuthorPerformanceCount(req: VercelRequest, res: VercelRespo
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db as any)
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select(AUTHOR_PERFORMANCE_SELECT)
     .eq('organization_id', orgId)
     .gte('date', start)
@@ -452,7 +458,7 @@ async function handleScenarioPerformance(req: VercelRequest, res: VercelResponse
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = (db as any)
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select(SCHEDULE_EVENT_SALES_SELECT_FIELDS)
     .eq('organization_id', orgId)
     .gte('date', start)
@@ -561,7 +567,7 @@ async function handleOpenEventAnalysis(req: VercelRequest, res: VercelResponse, 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let eventsQuery: any = (db as any)
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select('id, date, start_time, scenario, scenario_master_id, capacity, max_participants, current_participants, is_cancelled, created_at, store_id, category')
     .eq('organization_id', orgId)
     .in('category', categories)
@@ -612,7 +618,7 @@ async function handleScheduleExport(req: VercelRequest, res: VercelResponse, org
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: events, error } = await (db as any)
-    .from('schedule_events_staff_view')
+    .from('schedule_events')
     .select('id, date, start_time, end_time, store_id, venue, scenario, scenario_master_id, organization_scenario_id, category, gms, capacity, max_participants, venue_rental_fee, is_cancelled, organization_id')
     .eq('organization_id', orgId)
     .gte('date', start)
