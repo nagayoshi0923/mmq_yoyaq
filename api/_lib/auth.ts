@@ -70,6 +70,12 @@ export function requireStaff(user: AuthUser): void {
   }
 }
 
+export function requireAdmin(user: AuthUser): void {
+  if (!['admin', 'license_admin'].includes(user.role)) {
+    throw new ApiError(403, '管理者権限が必要です')
+  }
+}
+
 export function requireLicenseAdmin(user: AuthUser): void {
   if (user.role !== 'license_admin') {
     throw new ApiError(403, 'ライセンス管理者権限が必要です')
