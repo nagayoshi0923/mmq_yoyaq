@@ -149,9 +149,9 @@ export function CustomerBookingPage() {
         })
 
         for (const event of filteredData) {
-          const isWithinHours = await isWithinBusinessHours(event.date, event.start_time, event.store_id)
+          const e = event as any
+          const isWithinHours = await isWithinBusinessHours(e.date, e.start_time, e.store_id)
           if (isWithinHours) {
-            const e = event as any
             allEvents.push({
               id: e.id,
               date: e.date,
