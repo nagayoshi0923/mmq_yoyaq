@@ -4,6 +4,7 @@
  */
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 import { logger } from '@/utils/logger'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
@@ -229,94 +230,57 @@ export const scenarioMasterApi = {
 export const organizationScenarioApi = {
   /**
    * 自組織のシナリオ一覧を取得（ビュー使用）
+   * 注: organizationId 引数は後方互換のため残しているが、サーバー側で JWT から強制されるため無視される
    */
-  async getAll(organizationId?: string): Promise<OrganizationScenarioWithMaster[]> {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('organization_scenarios_with_master')
-      .select(ORG_SCENARIO_WITH_MASTER_SELECT_FIELDS)
-      .order('title', { ascending: true })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) {
+  async getAll(_organizationId?: string): Promise<OrganizationScenarioWithMaster[]> {
+    try {
+      const data = await apiClient.get<OrganizationScenarioWithMaster[]>('/api/org-scenarios')
+      return data ?? []
+    } catch (error) {
       logger.error('Failed to get organization scenarios:', error)
       throw error
     }
-    return data || []
   },
 
   /**
    * 公開中のシナリオのみ取得（予約サイト用）
    */
-  async getAvailable(organizationId?: string): Promise<OrganizationScenarioWithMaster[]> {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('organization_scenarios_with_master')
-      .select(ORG_SCENARIO_WITH_MASTER_SELECT_FIELDS)
-      .eq('org_status', 'available')
-      .order('title', { ascending: true })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) {
+  async getAvailable(_organizationId?: string): Promise<OrganizationScenarioWithMaster[]> {
+    try {
+      const data = await apiClient.get<OrganizationScenarioWithMaster[]>('/api/org-scenarios?status=available')
+      return data ?? []
+    } catch (error) {
       logger.error('Failed to get available organization scenarios:', error)
       throw error
     }
-    return data || []
   },
 
   /**
-   * IDで組織シナリオを取得
+   * IDで組織シナリオを取得（自組織のみ。サーバー側で organization_id を強制）
    */
-  async getById(id: string): Promise<OrganizationScenarioWithMaster | null> {
-    const { data, error } = await supabase
-      .from('organization_scenarios_with_master')
-      .select(ORG_SCENARIO_WITH_MASTER_SELECT_FIELDS)
-      .eq('id', id)
-      .single()
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null
+  async getById(id: string, _organizationId?: string): Promise<OrganizationScenarioWithMaster | null> {
+    try {
+      return await apiClient.get<OrganizationScenarioWithMaster | null>(
+        `/api/org-scenarios?id=${encodeURIComponent(id)}`
+      )
+    } catch (error) {
       logger.error('Failed to get organization scenario by id:', error)
       throw error
     }
-    return data
   },
 
   /**
-   * slugで組織シナリオを取得
+   * slugで組織シナリオを取得（自組織のみ。サーバー側で organization_id を強制）
    */
-  async getBySlug(slug: string, organizationId?: string): Promise<OrganizationScenarioWithMaster | null> {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('organization_scenarios_with_master')
-      .select(ORG_SCENARIO_WITH_MASTER_SELECT_FIELDS)
-      .eq('slug', slug)
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query.single()
-    
-    if (error) {
-      if (error.code === 'PGRST116') return null
+  async getBySlug(slug: string, _organizationId?: string): Promise<OrganizationScenarioWithMaster | null> {
+    try {
+      return await apiClient.get<OrganizationScenarioWithMaster | null>(
+        `/api/org-scenarios?slug=${encodeURIComponent(slug)}`
+      )
+    } catch (error) {
       logger.error('Failed to get organization scenario by slug:', error)
       throw error
     }
-    return data
   },
 
   /**
@@ -349,16 +313,22 @@ export const organizationScenarioApi = {
   },
 
   /**
-   * 組織シナリオを更新
+   * 組織シナリオを更新（自組織のみ）
    */
   async update(id: string, data: Partial<OrganizationScenario>): Promise<OrganizationScenario> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) {
+      throw new Error('Organization ID is required')
+    }
+
     const { data: updated, error } = await supabase
       .from('organization_scenarios')
       .update(data)
       .eq('id', id)
+      .eq('organization_id', orgId)
       .select()
       .single()
-    
+
     if (error) {
       logger.error('Failed to update organization scenario:', error)
       throw error
@@ -367,14 +337,20 @@ export const organizationScenarioApi = {
   },
 
   /**
-   * 組織シナリオを削除
+   * 組織シナリオを削除（自組織のみ）
    */
   async delete(id: string): Promise<void> {
+    const orgId = await getCurrentOrganizationId()
+    if (!orgId) {
+      throw new Error('Organization ID is required')
+    }
+
     const { error } = await supabase
       .from('organization_scenarios')
       .delete()
       .eq('id', id)
-    
+      .eq('organization_id', orgId)
+
     if (error) {
       logger.error('Failed to delete organization scenario:', error)
       throw error
