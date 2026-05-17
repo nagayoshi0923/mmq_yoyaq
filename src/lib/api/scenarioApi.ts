@@ -29,24 +29,18 @@ export const scenarioApi = {
   // skipOrgFilter: license_admin が全組織を取得したい場合にのみ使用（将来拡張用）。
   //   現時点ではバックエンド未対応のため、true の場合は旧来の Supabase 直接クエリにフォールバック。
   async getAll(organizationId?: string, skipOrgFilter?: boolean): Promise<Scenario[]> {
-    // TODO: バックエンド API (/api/scenarios) 移行作業中。現在は Supabase 直接クエリを使用。
-    let query = supabase
-      .from('organization_scenarios_with_master')
-      .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
-
-    if (!skipOrgFilter) {
-      const orgId = organizationId || await getCurrentOrganizationId()
-      logger.log('🏢 シナリオ取得: organization_id =', orgId)
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      } else {
-        logger.log('⚠️ organization_idがnullのため、フィルタなしで取得')
-      }
+    // skipOrgFilter=true（ライセンス管理者の全組織取得）は Supabase 直接クエリを使う
+    if (skipOrgFilter) {
+      const { data, error } = await supabase
+        .from('organization_scenarios_with_master')
+        .select(ORG_SCENARIOS_VIEW_SELECT_FIELDS)
+        .order('title', { ascending: true })
+      if (error) throw error
+      return (data || []) as unknown as Scenario[]
     }
 
-    const { data, error } = await query.order('title', { ascending: true })
-    if (error) throw error
-    return (data || []) as unknown as Scenario[]
+    // バックエンド API 経由: org_id をサーバー側で強制フィルタ（RLS に依存しない）
+    return apiClient.get<Scenario[]>('/api/scenarios')
   },
 
   // 旧scenarios テーブルから全シナリオを取得（キット管理等レガシー機能用）
