@@ -57,7 +57,9 @@ const queryClient = new QueryClient({
 
 // スケジュールデータを IndexedDB に永続化
 // buster を変えるとキャッシュが自動無効化される（スキーマ変更時に更新する）
-const SCHEDULE_CACHE_BUSTER = 'v1'
+// v2: PR #168 以前は API バグで空配列が永続化されていたため、全クライアントの
+//     キャッシュを強制無効化する
+const SCHEDULE_CACHE_BUSTER = 'v2'
 const SCHEDULE_CACHE_MAX_AGE = 14 * 24 * 60 * 60 * 1000 // 14日間
 
 const idbPersister = createAsyncStoragePersister({
@@ -538,8 +540,14 @@ function App() {
           buster: SCHEDULE_CACHE_BUSTER,
           dehydrateOptions: {
             // スケジュールイベントクエリのみ IndexedDB に保存（他は通常のメモリキャッシュ）
+            // 空配列・エラー結果は永続化しない: 一時的なエラー時のレスポンスが
+            // 「fresh」として残り続け、refetch されなくなる詰みを防ぐ
             shouldDehydrateQuery: (query) =>
-              Array.isArray(query.queryKey) && query.queryKey[0] === 'scheduleEvents',
+              Array.isArray(query.queryKey) &&
+              query.queryKey[0] === 'scheduleEvents' &&
+              query.state.status === 'success' &&
+              Array.isArray(query.state.data) &&
+              (query.state.data as unknown[]).length > 0,
           },
         }}
       >
