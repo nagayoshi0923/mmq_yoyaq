@@ -80,6 +80,7 @@
     "dotenv": "^17.2.3",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
+    "hono": "^4.12.19",
     "html2canvas": "^1.4.1",
     "idb-keyval": "^6.2.2",
     "lucide-react": "^0.400.0",
@@ -91,7 +92,8 @@
     "tailwind-merge": "^2.1.0",
     "tailwindcss-animate": "^1.0.7",
     "vite-plugin-pwa": "^1.1.0",
-    "workbox-window": "^7.3.0"
+    "workbox-window": "^7.3.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

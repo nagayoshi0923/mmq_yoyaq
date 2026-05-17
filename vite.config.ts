@@ -67,6 +67,14 @@ export default defineConfig({
     strictPort: true, // 5173固定（別ポートに逃がさない）
     // CORS設定（ネットワーク経由アクセス対応）
     cors: true,
+    // /api/* を Vercel dev サーバー（port 3000）に転送する
+    // 開発時は `vercel dev` を port 3000 で起動すること
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
     hmr: {
       overlay: true,
       ...(devLan ? { clientPort: 5173 } : {}),
