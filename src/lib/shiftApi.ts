@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const SHIFT_SUBMISSION_SELECT_FIELDS =
@@ -25,29 +26,11 @@ export interface ShiftSubmission {
 
 export const shiftApi = {
   // 月間シフトを取得
+  // バックエンド API (/api/shifts) 経由で org_id をサーバー側で強制フィルタ
   async getByMonth(staffId: string, year: number, month: number): Promise<ShiftSubmission[]> {
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    // month月の最終日を取得（month+1月の0日 = month月の最終日）
-    const daysInMonth = new Date(year, month, 0).getDate()
-    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
-    
-    const orgId = await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('shift_submissions')
-      .select(SHIFT_SUBMISSION_SELECT_FIELDS)
-      .eq('staff_id', staffId)
-      .gte('date', startDate)
-      .lte('date', endDate)
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query.order('date')
-    
-    if (error) throw error
-    return data || []
+    return apiClient.get<ShiftSubmission[]>(
+      `/api/shifts?staff_id=${encodeURIComponent(staffId)}&year=${year}&month=${month}`
+    )
   },
 
   // getByMonthのエイリアス（後方互換性のため）
@@ -162,51 +145,10 @@ export const shiftApi = {
   },
 
   // 全スタッフのシフトを取得（管理者用）
-  // 組織フィルタ: 自組織のスタッフのシフトのみ取得
-  async getAllStaffShifts(year: number, month: number, organizationId?: string): Promise<ShiftSubmission[]> {
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    // month月の最終日を取得
-    const daysInMonth = new Date(year, month, 0).getDate()
-    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
-    
-    // 組織IDを取得
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    // まず自組織のスタッフIDを取得
-    let staffIds: string[] = []
-    if (orgId) {
-      const { data: staffData, error: staffError } = await supabase
-        .from('staff')
-        .select('id')
-        .eq('organization_id', orgId)
-      
-      if (staffError) throw staffError
-      staffIds = staffData?.map(s => s.id) || []
-      
-      // 自組織のスタッフがいない場合は空配列を返す
-      if (staffIds.length === 0) {
-        return []
-      }
-    }
-    
-    let query = supabase
-      .from('shift_submissions')
-      .select(SHIFT_SUBMISSION_SELECT_FIELDS)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .or('morning.eq.true,afternoon.eq.true,evening.eq.true,all_day.eq.true') // 時間帯が1つ以上選択されている
-    
-    // 組織のスタッフのみにフィルタ
-    if (orgId && staffIds.length > 0) {
-      query = query.in('staff_id', staffIds)
-    }
-    
-    const { data, error } = await query
-      .limit(10000) // デフォルト1000件制限を回避
-      .order('date')
-    
-    if (error) throw error
-    return data || []
+  // バックエンド API (/api/shifts) 経由で org_id をサーバー側で強制フィルタ
+  // organizationId 引数は後方互換のため残すが未使用
+  async getAllStaffShifts(year: number, month: number, _organizationId?: string): Promise<ShiftSubmission[]> {
+    return apiClient.get<ShiftSubmission[]>(`/api/shifts?year=${year}&month=${month}`)
   },
 
   // シフトを承認（組織フィルタ付き）
