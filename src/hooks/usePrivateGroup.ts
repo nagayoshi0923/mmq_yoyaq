@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId } from '@/lib/organization'
+import { getCurrentOrganizationId, getOrganizationBySlug } from '@/lib/organization'
+import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 import { logger } from '@/utils/logger'
 import { privateGroupTimeSlotToDb } from '@/lib/privateGroupTimeSlot'
 import {
@@ -228,9 +229,15 @@ export function usePrivateGroup() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('ログインが必要です')
 
-      const organizationId = await getCurrentOrganizationId()
+      let organizationId = await getCurrentOrganizationId()
+      if (!organizationId) {
+        const slug = getOrganizationSlugFromPath()
+        if (slug) {
+          const org = await getOrganizationBySlug(slug)
+          organizationId = org?.id ?? null
+        }
+      }
       if (!organizationId) throw new Error('組織情報が取得できません')
-
 
       let inviteCode = await generateInviteCode()
       let attempts = 0
