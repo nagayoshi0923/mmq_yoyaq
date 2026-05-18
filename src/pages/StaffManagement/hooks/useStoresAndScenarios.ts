@@ -9,13 +9,13 @@ export const storeScenarioKeys = {
 }
 
 export function useStoresAndScenarios() {
-  const { data: stores = [] } = useQuery<Store[]>({
+  const { data: stores = [], isLoading: storesLoading } = useQuery<Store[]>({
     queryKey: storeScenarioKeys.stores,
     queryFn: () => storeApi.getAll(),
     staleTime: 30 * 60 * 1000,
   })
 
-  const { data: scenarios = [] } = useQuery<Scenario[]>({
+  const { data: scenarios = [], isLoading: scenariosLoading } = useQuery<Scenario[]>({
     queryKey: storeScenarioKeys.scenarios,
     queryFn: () => scenarioApi.getAll(),
     staleTime: 30 * 60 * 1000,
@@ -56,6 +56,8 @@ export function useStoresAndScenarios() {
   return {
     stores,
     scenarios,
+    storesLoading,
+    scenariosLoading,
     loadStores,
     loadScenarios,
     getScenario,

@@ -61,14 +61,16 @@ export function StaffManagement() {
   const {
     stores,
     scenarios,
+    storesLoading,
+    scenariosLoading,
     loadStores,
     loadScenarios,
     getScenario,
     getScenarioName
   } = useStoresAndScenarios()
 
-  // 店舗・シナリオが揃うまでローディング扱い（UUID/「不明なシナリオ」の一瞬表示を防ぐ）
-  const loading = staffLoading || stores.length === 0 || scenarios.length === 0
+  // フェッチ完了まではローディング扱い（シナリオ0件の組織でも正しく表示するため length ではなく isLoading で判定）
+  const loading = staffLoading || storesLoading || scenariosLoading
 
   // スタッフの認証状態を取得
   const staffUserIds = useMemo(() => staff.map(s => s.user_id ?? null), [staff])
