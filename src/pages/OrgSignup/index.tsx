@@ -254,12 +254,16 @@ export default function OrgSignup() {
   }
 
   // 組織をロールバック（RPC経由で作成した場合）
+  // signUp 失敗時など、ユーザー紐付け前の孤立組織を rollback_orphan_organization RPC で削除する
+  // RPC 側で「作成 10 分以内 + ユーザー/スタッフ未紐付け」を検証するので不正利用は防げる
   const rollbackOrganization = async (orgId: string) => {
     try {
-      // SECURITY DEFINER RPC で作成した組織を削除するには管理者権限が必要なため、
-      // フロントからは直接削除できない。signUp が失敗した場合は孤立した組織が残るが、
-      // slug でアクセスされることはなく、定期クリーンアップで除去する想定。
-      logger.warn('孤立した組織が発生した可能性があります（org_id=%s）。手動確認が必要です。', orgId)
+      const { error } = await supabase.rpc('rollback_orphan_organization', { p_org_id: orgId })
+      if (error) {
+        logger.error('rollback_orphan_organization failed (org_id=%s):', orgId, error)
+      } else {
+        logger.log('孤立組織を rollback しました (org_id=%s)', orgId)
+      }
     } catch (e) {
       logger.error('rollbackOrganization:', e)
     }
