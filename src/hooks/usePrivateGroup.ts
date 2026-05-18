@@ -239,7 +239,6 @@ export function usePrivateGroup() {
       }
       if (!organizationId) throw new Error('組織情報が取得できません')
 
-
       let inviteCode = await generateInviteCode()
       let attempts = 0
       const maxAttempts = 5
