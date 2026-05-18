@@ -344,12 +344,16 @@ export function CompleteProfile() {
         const { error: updateError } = await supabase.auth.updateUser({
           password: password
         })
-        
+
         if (updateError) {
-          // 「新しいパスワードは古いパスワードと異なる必要があります」エラーは無視
-          // （既存ユーザーが同じパスワードを設定した場合）
-          if (updateError.message?.includes('different from the old password')) {
-            logger.log('✅ パスワードは既に設定済み（スキップ）')
+          const msg = updateError.message || ''
+          if (
+            msg.includes('different from the old password') ||
+            // OTPセッション（マジックリンク）では updateUser({ password }) が 422 を返すことがある。
+            // セッションは有効なままなのでプロフィール保存は続行し、パスワードはスキップする。
+            updateError.status === 422
+          ) {
+            logger.log('✅ パスワード設定スキップ（既設定 or OTPセッション制限）:', msg)
           } else {
             throw updateError
           }
