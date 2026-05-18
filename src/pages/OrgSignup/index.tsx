@@ -33,7 +33,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 
-type Step = 'organization' | 'admin' | 'confirm' | 'complete'
+type Step = 'organization' | 'admin' | 'store' | 'confirm' | 'complete'
 
 const PREFECTURES = [
   '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
@@ -48,11 +48,13 @@ const PREFECTURES = [
 const STEPS_NEW: { id: Exclude<Step, 'complete'>; label: string }[] = [
   { id: 'organization', label: '組織情報' },
   { id: 'admin', label: '管理者アカウント' },
+  { id: 'store', label: '代表店舗' },
   { id: 'confirm', label: '確認' },
 ]
 
 const STEPS_EXISTING: { id: Exclude<Step, 'complete'>; label: string }[] = [
   { id: 'organization', label: '組織情報' },
+  { id: 'store', label: '代表店舗' },
   { id: 'confirm', label: '確認' },
 ]
 
@@ -107,6 +109,14 @@ export default function OrgSignup() {
     prefecture: '',
     birthDate: '',
   })
+
+  const [storeData, setStoreData] = useState({
+    name: '',
+    address: '',
+    phone: '',
+  })
+  // 店舗名が未入力なら組織名をデフォルトとして自動で同期
+  const [storeNameTouched, setStoreNameTouched] = useState(false)
 
   const [agreedToTerms, setAgreedToTerms] = useState(false)
 
@@ -163,6 +173,16 @@ export default function OrgSignup() {
     return true
   }
 
+  const validateStore = (): boolean => {
+    if (!storeData.name.trim()) { setError('店舗名を入力してください'); return false }
+    if (!storeData.address.trim()) { setError('住所を入力してください'); return false }
+    const phoneDigits = storeData.phone.replace(/[-\s]/g, '')
+    if (!phoneDigits) { setError('店舗の電話番号を入力してください'); return false }
+    if (!/^\d{9,11}$/.test(phoneDigits)) { setError('電話番号は9〜11桁で入力してください'); return false }
+    setError(null)
+    return true
+  }
+
   const validateAdmin = (): boolean => {
     if (!adminData.name.trim()) { setError('管理者名を入力してください'); return false }
     if (!adminData.email.trim()) { setError('メールアドレスを入力してください'); return false }
@@ -190,12 +210,20 @@ export default function OrgSignup() {
 
   const handleNext = async () => {
     if (currentStep === 'organization' && validateOrganization()) {
-      // ログイン済みの場合は admin ステップをスキップ
-      setCurrentStep(isLoggedIn ? 'confirm' : 'admin')
+      // 店舗名のデフォルトを組織名で初期化
+      if (!storeNameTouched && !storeData.name) {
+        setStoreData(prev => ({ ...prev, name: orgData.name }))
+      }
+      // ログイン済みの場合は admin ステップをスキップして store へ
+      setCurrentStep(isLoggedIn ? 'store' : 'admin')
+      return
+    }
+    if (currentStep === 'store' && validateStore()) {
+      setCurrentStep('confirm')
       return
     }
     if (currentStep === 'admin' && validateAdmin()) {
-      // ② 既存メアドチェック：既に MMQ アカウントがあれば確認ステップに進ませない
+      // ② 既存メアドチェック：既に MMQ アカウントがあれば店舗ステップに進ませない
       setIsCheckingEmail(true)
       try {
         const { data: status, error: checkErr } = await supabase.rpc(
@@ -205,7 +233,7 @@ export default function OrgSignup() {
         if (checkErr) {
           // チェック失敗時は安全側ではなく続行（既存ユーザーは signUp 側で弾かれる）
           logger.warn('check_email_registration_status エラー（続行）:', checkErr)
-          setCurrentStep('confirm')
+          setCurrentStep('store')
           return
         }
         if (status === 'confirmed') {
@@ -216,7 +244,7 @@ export default function OrgSignup() {
           setEmailCheckStatus('pending_confirmation')
           return
         }
-        setCurrentStep('confirm')
+        setCurrentStep('store')
       } finally {
         setIsCheckingEmail(false)
       }
@@ -226,7 +254,8 @@ export default function OrgSignup() {
   const handleBack = () => {
     setError(null)
     if (currentStep === 'admin') setCurrentStep('organization')
-    else if (currentStep === 'confirm') setCurrentStep(isLoggedIn ? 'organization' : 'admin')
+    else if (currentStep === 'store') setCurrentStep(isLoggedIn ? 'organization' : 'admin')
+    else if (currentStep === 'confirm') setCurrentStep('store')
   }
 
   // 組織をロールバック（RPC経由で作成した場合）
@@ -248,13 +277,16 @@ export default function OrgSignup() {
     let createdOrgId: string | null = null
 
     try {
-      // 1. SECURITY DEFINER RPC で組織を作成（anon 可、RLSをバイパス）
+      // 1. SECURITY DEFINER RPC で組織+代表店舗を作成（anon 可、RLSをバイパス）
       const { data: newOrg, error: orgError } = await supabase.rpc(
         'register_organization_for_signup',
         {
           p_name:          orgData.name.trim(),
           p_slug:          orgData.slug.trim(),
           p_contact_email: orgData.contact_email.trim() || (isLoggedIn ? user?.email ?? '' : adminData.email.trim()),
+          p_store_name:    storeData.name.trim(),
+          p_store_address: storeData.address.trim(),
+          p_store_phone:   storeData.phone.trim(),
         }
       )
 
@@ -742,6 +774,71 @@ export default function OrgSignup() {
             </div>
           )}
 
+          {/* ── ステップ：代表店舗 ── */}
+          {currentStep === 'store' && (
+            <div className="space-y-4">
+              <p className="text-xs text-gray-500 -mt-2">
+                代表となる店舗を 1 件登録してください。後で追加・編集できます。
+              </p>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="store-name" className="text-sm font-medium">
+                  店舗名 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="store-name"
+                  value={storeData.name}
+                  onChange={e => {
+                    setStoreNameTouched(true)
+                    setStoreData(prev => ({ ...prev, name: e.target.value }))
+                  }}
+                  placeholder={`例: ${orgData.name || '〇〇店'}`}
+                />
+                <p className="text-xs text-gray-400">
+                  デフォルトは組織名です。実店舗の名前があれば変更してください。
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="store-address" className="text-sm font-medium">
+                  住所 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="store-address"
+                  value={storeData.address}
+                  onChange={e => setStoreData(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="例: 東京都渋谷区道玄坂 1-2-3 〇〇ビル 5F"
+                  autoComplete="street-address"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="store-phone" className="text-sm font-medium">
+                  電話番号 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="store-phone"
+                  type="tel"
+                  value={storeData.phone}
+                  onChange={e => setStoreData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="例: 03-1234-5678"
+                  autoComplete="tel"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={handleBack}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  戻る
+                </Button>
+                <Button className="flex-1" onClick={handleNext}>
+                  次へ：確認
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* ── ステップ3：確認 ── */}
           {currentStep === 'confirm' && (
             <div className="space-y-4">
@@ -765,28 +862,47 @@ export default function OrgSignup() {
                     )}
                   </div>
                 </div>
+                {!isLoggedIn && (
+                  <div className="border-t border-gray-200 pt-3">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">管理者アカウント</p>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">名前</span>
+                        <span className="font-medium text-gray-900">{adminData.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">メール</span>
+                        <span className="text-gray-900">{adminData.email}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">電話番号</span>
+                        <span className="text-gray-900">{adminData.phone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">都道府県</span>
+                        <span className="text-gray-900">{adminData.prefecture}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">生年月日</span>
+                        <span className="text-gray-900">{adminData.birthDate}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="border-t border-gray-200 pt-3">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">管理者アカウント</p>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">代表店舗</p>
                   <div className="space-y-1.5">
                     <div className="flex justify-between">
-                      <span className="text-gray-500">名前</span>
-                      <span className="font-medium text-gray-900">{adminData.name}</span>
+                      <span className="text-gray-500">店舗名</span>
+                      <span className="font-medium text-gray-900">{storeData.name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">メール</span>
-                      <span className="text-gray-900">{adminData.email}</span>
+                      <span className="text-gray-500">住所</span>
+                      <span className="text-gray-900 text-right max-w-[60%]">{storeData.address}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">電話番号</span>
-                      <span className="text-gray-900">{adminData.phone}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">都道府県</span>
-                      <span className="text-gray-900">{adminData.prefecture}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">生年月日</span>
-                      <span className="text-gray-900">{adminData.birthDate}</span>
+                      <span className="text-gray-900">{storeData.phone}</span>
                     </div>
                   </div>
                 </div>
