@@ -334,7 +334,9 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
     console.error('[reservations:create] schedule_events check error:', evError)
     return res.status(404).json({ error: 'schedule_event が見つかりません' })
   }
-  if (ev.organization_id !== user.orgId) {
+  // customer ロールはプラットフォーム横断で予約可能なので org チェックを免除
+  // staff/admin は自組織の schedule_event のみ操作可
+  if (user.role !== 'customer' && ev.organization_id !== user.orgId) {
     return res.status(403).json({ error: '他組織の schedule_event は指定できません' })
   }
 
