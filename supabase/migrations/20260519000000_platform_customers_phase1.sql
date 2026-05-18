@@ -32,7 +32,15 @@ CREATE TABLE public.customer_org_stats (
 ALTER TABLE public.customer_org_stats ENABLE ROW LEVEL SECURITY;
 
 -- =============================================================================
--- 2. ログイン済み顧客のデータ移行
+-- 2. organization_id を先に nullable にする
+--    （DO ブロック内で NULL に更新するため、制約を先に解除する）
+-- =============================================================================
+
+ALTER TABLE public.customers
+  ALTER COLUMN organization_id DROP NOT NULL;
+
+-- =============================================================================
+-- 3. ログイン済み顧客のデータ移行
 --    - 全 org レコードの統計・メモ → customer_org_stats
 --    - 同一 user_id の重複レコード → 最古のレコードに統合
 --    - canonical レコードの organization_id → NULL
@@ -137,21 +145,17 @@ BEGIN
 END $$;
 
 -- =============================================================================
--- 3. スキーマ変更
+-- 4. org 依存カラムを削除（customer_org_stats に移行済み）
 -- =============================================================================
 
--- organization_id を nullable に
-ALTER TABLE public.customers
-  ALTER COLUMN organization_id DROP NOT NULL;
-
--- org 依存カラムを削除（customer_org_stats に移行済み）
+-- org 依存カラムを削除
 ALTER TABLE public.customers DROP COLUMN IF EXISTS visit_count;
 ALTER TABLE public.customers DROP COLUMN IF EXISTS total_spent;
 ALTER TABLE public.customers DROP COLUMN IF EXISTS last_visit;
 ALTER TABLE public.customers DROP COLUMN IF EXISTS notes;
 
 -- =============================================================================
--- 4. grant_registration_coupons トリガー修正
+-- 5. grant_registration_coupons トリガー修正
 --    organization_id = NULL のプラットフォーム顧客はスキップ
 --    （クーポンは org 固有なので、org が確定している guest 顧客のみ対象）
 -- =============================================================================
@@ -224,7 +228,7 @@ END;
 $$;
 
 -- =============================================================================
--- 5. customers RLS ポリシー全面書き直し
+-- 6. customers RLS ポリシー全面書き直し
 -- =============================================================================
 
 -- 既存ポリシーを全削除
@@ -352,7 +356,7 @@ USING (
 );
 
 -- =============================================================================
--- 6. customer_org_stats RLS ポリシー
+-- 7. customer_org_stats RLS ポリシー
 -- =============================================================================
 
 CREATE POLICY "customer_org_stats_select"
@@ -399,7 +403,7 @@ USING (
 );
 
 -- =============================================================================
--- 7. updated_at 自動更新トリガー（customer_org_stats）
+-- 8. updated_at 自動更新トリガー（customer_org_stats）
 -- =============================================================================
 
 CREATE TRIGGER set_customer_org_stats_updated_at
