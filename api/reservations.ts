@@ -347,7 +347,9 @@ async function handleCreate(req: VercelRequest, res: VercelResponse, user: AuthU
     console.error('[reservations:create] customers check error:', custError)
     return res.status(404).json({ error: 'customer が見つかりません' })
   }
-  if (cust.organization_id !== user.orgId) {
+  // platform customer (organization_id = NULL) は全組織で利用可
+  // guest customer は自組織のみ
+  if (cust.organization_id !== null && cust.organization_id !== user.orgId) {
     return res.status(403).json({ error: '他組織の customer は指定できません' })
   }
   // 顧客ロールの場合は自分自身の customers 行のみ作成可
