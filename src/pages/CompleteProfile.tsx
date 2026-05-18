@@ -18,7 +18,7 @@ import { grantRegistrationCoupon } from '@/lib/api/couponApi'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link, useNavigate } from 'react-router-dom'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
-import { getOrganizationBySlug } from '@/lib/organization'
+import { getOrganizationBySlug, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 
 // 都道府県リスト
@@ -380,9 +380,19 @@ export function CompleteProfile() {
           const org = await getOrganizationBySlug(slug)
           organizationId = org?.id ?? null
         }
-        if (!organizationId) {
-          logger.warn('CompleteProfile: org_id が特定できません（URLにorgスラッグがありません）')
+      }
+      if (!organizationId) {
+        // next クエリパラメータからスラッグを取得（例: ?next=/queens-waltz/booking/...）
+        const nextParam = new URLSearchParams(window.location.search).get('next')
+        const nextSlug = nextParam?.match(/^\/([^/?#]+)/)?.[1]
+        if (nextSlug) {
+          const org = await getOrganizationBySlug(nextSlug)
+          organizationId = org?.id ?? null
         }
+      }
+      if (!organizationId) {
+        logger.warn('CompleteProfile: org_id が特定できません（URLにorgスラッグがありません）')
+        organizationId = QUEENS_WALTZ_ORG_ID
       }
       const { error: usersUpsertError } = await supabase
         .from('users')
