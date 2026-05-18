@@ -98,7 +98,7 @@ export function PrivateGroupInvite() {
     queryKey: ['private-group-invite', 'coupons', user?.id, group?.organization_id],
     enabled: !!user && !!group?.organization_id,
     queryFn: async (): Promise<Coupon[]> => {
-      const { data: customer } = await supabase.from('customers').select('id').eq('user_id', user!.id).eq('organization_id', group!.organization_id).maybeSingle()
+      const { data: customer } = await supabase.from('customers').select('id').eq('user_id', user!.id).maybeSingle()
       if (!customer) return []
       const { data: couponData, error } = await supabase.from('customer_coupons').select(`id, expires_at, status, uses_remaining, coupon_campaigns (id, name, discount_amount)`).eq('customer_id', customer.id).eq('status', 'active').gt('uses_remaining', 0).or(`expires_at.is.null,expires_at.gte.${new Date().toISOString()}`)
       if (error) throw error
