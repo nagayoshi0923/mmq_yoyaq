@@ -26,7 +26,7 @@ export function useStaffModals() {
   /**
    * 編集モーダルを開く
    */
-  const openEditModal = useCallback((staffMember: Staff) => {
+  const openEditModal = useCallback((staffMember: Staff | null) => {
     setEditingStaff(staffMember)
     setIsEditModalOpen(true)
   }, [])

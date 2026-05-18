@@ -272,7 +272,7 @@ export const AdminSidebar = memo(function AdminSidebar() {
       label: 'MMQ運営',
       icon: Shield,
       items: [
-        { id: 'accounts', label: 'ユーザー管理', icon: UserCog, path: `/${slug}/accounts?tab=users`, roles: ['admin', 'license_admin'] },
+        { id: 'accounts', label: 'ユーザー管理', icon: UserCog, path: `/${slug}/accounts?tab=users`, roles: ['license_admin'] },
         { id: 'organizations',     label: 'テナント管理',       icon: Building2, path: `/${slug}/organizations`,     roles: ['license_admin'] },
         { id: 'scenario-masters',  label: 'マスタ管理',         icon: Shield,    path: '/admin/scenario-masters',     roles: ['license_admin'] },
         { id: 'external-reports',  label: '外部公演報告',       icon: FileCheck, path: `/${slug}/external-reports`,  roles: ['license_admin'] },

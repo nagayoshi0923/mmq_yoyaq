@@ -30,10 +30,11 @@ async function fetchCustomersWithStats(): Promise<CustomerDataResult> {
   for (;;) {
     let query = supabase
       .from('customers')
-      .select('id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at')
+      .select('id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, avatar_url, birth_date, prefecture, preferences, notification_settings, created_at, updated_at')
       .order('created_at', { ascending: false })
       .range(from, from + PAGE_SIZE - 1)
-    if (orgId) query = query.eq('organization_id', orgId)
+    // organization_id フィルタは不要（RLS が接点チェックを行う）
+    void orgId
     const { data: pageData, error } = await query
     if (error) throw error
     allCustomers = allCustomers.concat(pageData || [])

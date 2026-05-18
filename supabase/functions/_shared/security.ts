@@ -106,6 +106,7 @@ const PROD_ALLOWED_ORIGINS = [
   'https://mmq.game',
   'https://www.mmq.game',
   'https://mmq-yoyaq.vercel.app',
+  'https://mmq-yoyaq-git-staging-nagayoshi0923s-projects.vercel.app',
 ]
 
 const DEV_ALLOWED_ORIGINS = [

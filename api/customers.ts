@@ -18,7 +18,7 @@ function setCors(req: VercelRequest, res: VercelResponse) {
 }
 
 const SELECT_FIELDS =
-  'id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at'
+  'id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, avatar_url, birth_date, prefecture, preferences, notification_settings, created_at, updated_at'
 
 // 作成時に受け取れるフィールドのホワイトリスト
 // organization_id は受け取らない（JWT から強制）
@@ -32,15 +32,16 @@ const CUSTOMER_CREATE_FIELDS = [
   'phone',
   'address',
   'line_id',
-  'notes',
   'avatar_url',
+  'birth_date',
+  'prefecture',
   'preferences',
   'notification_settings',
 ] as const
 
 // 更新可能フィールドのホワイトリスト（Mass Assignment 防止）
-// organization_id / user_id / id / created_at / updated_at / visit_count / total_spent
-// は更新不可（DB 側のトリガまたは集計関数が更新する想定）
+// organization_id / user_id / id / created_at / updated_at は更新不可
+// notes / visit_count / total_spent / last_visit は customer_org_stats に移行済み
 const CUSTOMER_UPDATABLE_FIELDS = [
   'name',
   'nickname',
@@ -49,12 +50,61 @@ const CUSTOMER_UPDATABLE_FIELDS = [
   'phone',
   'address',
   'line_id',
-  'notes',
   'avatar_url',
+  'birth_date',
+  'prefecture',
   'preferences',
   'notification_settings',
-  'last_visit',
 ] as const
+
+// プラットフォーム顧客（organization_id IS NULL）はこの組織への接点があるか確認する
+async function filterToOrgCustomers(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbClient: any,
+  customers: Record<string, unknown>[],
+  orgId: string,
+): Promise<Record<string, unknown>[]> {
+  const result: Record<string, unknown>[] = []
+  for (const c of customers) {
+    if (c.organization_id === orgId) { result.push(c); continue }
+    // プラットフォーム顧客: reservations 経由の接点を確認
+    const { data } = await dbClient
+      .from('reservations')
+      .select('id')
+      .eq('customer_id', c.id)
+      .eq('organization_id', orgId)
+      .limit(1)
+      .maybeSingle()
+    if (data) result.push(c)
+  }
+  return result
+}
+
+// org がこの顧客を操作できるか確認（ゲスト: org_id 一致、プラットフォーム: 予約接点あり）
+async function assertOrgOwnsCustomer(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbClient: any,
+  customerId: string,
+  orgId: string,
+): Promise<boolean> {
+  const { data: c } = await dbClient
+    .from('customers')
+    .select('id, organization_id')
+    .eq('id', customerId)
+    .maybeSingle()
+  if (!c) return false
+  if (c.organization_id === orgId) return true
+  if (c.organization_id !== null) return false
+  // プラットフォーム顧客: reservations 接点チェック
+  const { data: r } = await dbClient
+    .from('reservations')
+    .select('id')
+    .eq('customer_id', customerId)
+    .eq('organization_id', orgId)
+    .limit(1)
+    .maybeSingle()
+  return !!r
+}
 
 function pickFields<T extends readonly string[]>(
   source: Record<string, unknown>,
@@ -109,19 +159,20 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
     const email = req.query.email as string | undefined
     if (!email) return res.status(400).json({ error: 'email が必要です' })
 
+    // メールで検索: 自組織のゲスト顧客 or プラットフォーム顧客（接点あり）
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data: allMatches, error } = await (db as any)
       .from('customers')
       .select(SELECT_FIELDS)
-      .eq('organization_id', orgId)
       .eq('email', email)
-      .maybeSingle()
+      .or(`organization_id.eq.${orgId},organization_id.is.null`)
 
     if (error) {
       console.error('[customers:findByEmail] DB error:', error)
       return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
     }
-    return res.status(200).json(data ?? null)
+    const data = await filterToOrgCustomers(db, allMatches ?? [], orgId)
+    return res.status(200).json(data[0] ?? null)
   }
 
   if (action === 'findByPhone') {
@@ -129,27 +180,23 @@ async function routeGet(req: VercelRequest, res: VercelResponse, orgId: string) 
     if (!phone) return res.status(400).json({ error: 'phone が必要です' })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (db as any)
+    const { data: allMatches, error } = await (db as any)
       .from('customers')
       .select(SELECT_FIELDS)
-      .eq('organization_id', orgId)
       .eq('phone', phone)
-      .maybeSingle()
+      .or(`organization_id.eq.${orgId},organization_id.is.null`)
 
     if (error) {
       console.error('[customers:findByPhone] DB error:', error)
       return res.status(500).json({ error: 'データ取得に失敗しました', detail: error.message })
     }
-    return res.status(200).json(data ?? null)
+    const data = await filterToOrgCustomers(db, allMatches ?? [], orgId)
+    return res.status(200).json(data[0] ?? null)
   }
 
-  // デフォルト: 自組織の全顧客
+  // デフォルト: 自組織が見られる全顧客（RPC 経由）
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
-    .from('customers')
-    .select(SELECT_FIELDS)
-    .eq('organization_id', orgId)
-    .order('created_at', { ascending: false })
+  const { data, error } = await (db as any).rpc('get_org_customers', { p_org_id: orgId })
 
   if (error) {
     console.error('[customers] DB error:', error)
@@ -209,21 +256,9 @@ async function routePatch(req: VercelRequest, res: VercelResponse, orgId: string
     return res.status(400).json({ error: 'updates が必要です' })
   }
 
-  // マルチテナント境界チェック: 自組織が所有する顧客か確認
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing, error: existingError } = await (db as any)
-    .from('customers')
-    .select('id, organization_id')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (existingError) {
-    console.error('[customers:update] existence check error:', existingError)
-    return res.status(500).json({ error: '更新対象の確認に失敗しました', detail: existingError.message })
-  }
-  if (!existing || existing.organization_id !== orgId) {
-    return res.status(404).json({ error: '顧客が見つかりません' })
-  }
+  // マルチテナント境界チェック
+  const canEdit = await assertOrgOwnsCustomer(db, id, orgId)
+  if (!canEdit) return res.status(404).json({ error: '顧客が見つかりません' })
 
   // ホワイトリストでフィルタ
   const safeUpdates = pickFields(updates, CUSTOMER_UPDATABLE_FIELDS)
@@ -236,7 +271,6 @@ async function routePatch(req: VercelRequest, res: VercelResponse, orgId: string
     .from('customers')
     .update(safeUpdates)
     .eq('id', id)
-    .eq('organization_id', orgId) // 念のため二重ガード
     .select(SELECT_FIELDS)
     .single()
 
@@ -257,27 +291,14 @@ async function routeDelete(req: VercelRequest, res: VercelResponse, orgId: strin
   if (!id) return res.status(400).json({ error: 'id が必要です' })
 
   // マルチテナント境界チェック
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing, error: existingError } = await (db as any)
-    .from('customers')
-    .select('id, organization_id')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (existingError) {
-    console.error('[customers:delete] existence check error:', existingError)
-    return res.status(500).json({ error: '削除対象の確認に失敗しました', detail: existingError.message })
-  }
-  if (!existing || existing.organization_id !== orgId) {
-    return res.status(404).json({ error: '顧客が見つかりません' })
-  }
+  const canDelete = await assertOrgOwnsCustomer(db, id, orgId)
+  if (!canDelete) return res.status(404).json({ error: '顧客が見つかりません' })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (db as any)
     .from('customers')
     .delete()
     .eq('id', id)
-    .eq('organization_id', orgId) // 念のため二重ガード
 
   if (error) {
     console.error('[customers:delete] DB error:', error)

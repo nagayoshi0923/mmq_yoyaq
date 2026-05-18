@@ -6,7 +6,6 @@ import { format } from '@/lib/dateFns'
 import { ja } from 'date-fns/locale'
 import { Clock, User, ArrowRight, Plus, Trash2, Ban, RotateCcw, Eye, EyeOff, Loader2, UserPlus, UserMinus, MoveRight, MoveLeft, Copy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
   getEventHistory, 
   EventHistory, 
@@ -358,13 +357,11 @@ export function EventHistoryTab({ cellInfo, organizationId, stores }: EventHisto
   }
   
   return (
-    <ScrollArea className="h-[400px] pr-3">
-      <div className="space-y-3">
-        {history.map((entry) => (
-          <HistoryEntry key={entry.id} entry={entry} stores={stores} />
-        ))}
-      </div>
-    </ScrollArea>
+    <div className="space-y-3">
+      {history.map((entry) => (
+        <HistoryEntry key={entry.id} entry={entry} stores={stores} />
+      ))}
+    </div>
   )
 }
 

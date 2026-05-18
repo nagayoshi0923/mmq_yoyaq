@@ -1425,18 +1425,18 @@ export function ScheduleManager() {
         {/* JS でテーブル実測値を適用 → 列幅が常にピクセル単位で一致 */}
         <div className="overflow-x-hidden border-t -mx-[10px]" ref={colHeaderScrollRef}>
           <div className="flex bg-muted" ref={colHeaderInnerRef}>
-            <div data-col className="shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
+            <div data-col className="shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight w-[32px] sm:w-[40px] md:w-[48px]">
               <span className="hidden sm:inline">日付</span>
               <span className="sm:hidden">日</span>
             </div>
-            <div data-col className="shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
+            <div data-col className="shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight w-[24px] sm:w-[28px] md:w-[32px]">
               <span className="hidden sm:inline">会場</span>
               <span className="sm:hidden">店</span>
             </div>
-            <div data-col className="border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午前</div>
-            <div data-col className="border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午後</div>
-            <div data-col className="border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">夜</div>
-            <div data-col className="shrink-0 text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">メモ</div>
+            <div data-col className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午前</div>
+            <div data-col className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午後</div>
+            <div data-col className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">夜</div>
+            <div data-col className="shrink-0 text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight w-[160px]">メモ</div>
           </div>
         </div>
         
