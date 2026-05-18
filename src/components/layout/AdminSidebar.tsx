@@ -341,19 +341,18 @@ export const AdminSidebar = memo(function AdminSidebar() {
   // 管理ページかどうか
   const isAdminPage = ADMIN_PATH_SEGMENTS.some(seg => location.pathname.includes(`/${seg}`))
 
-  if (!user || user.role === 'customer' || !isAdminPage) return null
-
-  // カテゴリが開いているか（アクティブページが含まれる時のみ）
+  // フックは早期 return の前に宣言する（Rules of Hooks）
   const isGroupOpen = useCallback((group: typeof visibleGroups[0]) => {
-    if (!group.label) return true  // ラベルなし（トップ）は常に表示
+    if (!group.label) return true
     return group.items.some(item => isActive(item))
   }, [isActive])
 
-  // カテゴリヘッダーをクリック → そのカテゴリの最初のアイテムに遷移
   const handleGroupClick = useCallback((group: typeof visibleGroups[0]) => {
     const firstItem = group.items[0]
     if (firstItem) navigate(firstItem.path)
   }, [navigate])
+
+  if (!user || user.role === 'customer' || !isAdminPage) return null
 
   const bookingActive = isActive({ id: 'booking', label: '予約サイト', icon: Globe, path: `/${slug}`, roles: [] })
 
