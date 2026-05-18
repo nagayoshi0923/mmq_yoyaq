@@ -97,7 +97,6 @@ export default function OrgSignup() {
   const [orgData, setOrgData] = useState({
     name: '',
     slug: '',
-    contact_email: '',
   })
 
   const [adminData, setAdminData] = useState({
@@ -113,7 +112,6 @@ export default function OrgSignup() {
   const [storeData, setStoreData] = useState({
     name: '',
     address: '',
-    phone: '',
   })
   // 店舗名が未入力なら組織名をデフォルトとして自動で同期
   const [storeNameTouched, setStoreNameTouched] = useState(false)
@@ -176,9 +174,6 @@ export default function OrgSignup() {
   const validateStore = (): boolean => {
     if (!storeData.name.trim()) { setError('店舗名を入力してください'); return false }
     if (!storeData.address.trim()) { setError('住所を入力してください'); return false }
-    const phoneDigits = storeData.phone.replace(/[-\s]/g, '')
-    if (!phoneDigits) { setError('店舗の電話番号を入力してください'); return false }
-    if (!/^\d{9,11}$/.test(phoneDigits)) { setError('電話番号は9〜11桁で入力してください'); return false }
     setError(null)
     return true
   }
@@ -283,10 +278,10 @@ export default function OrgSignup() {
         {
           p_name:          orgData.name.trim(),
           p_slug:          orgData.slug.trim(),
-          p_contact_email: orgData.contact_email.trim() || (isLoggedIn ? user?.email ?? '' : adminData.email.trim()),
+          // 連絡先メアドは admin メアド / ログイン中ユーザーのメアドを自動採用
+          p_contact_email: isLoggedIn ? user?.email ?? '' : adminData.email.trim(),
           p_store_name:    storeData.name.trim(),
           p_store_address: storeData.address.trim(),
-          p_store_phone:   storeData.phone.trim(),
         }
       )
 
@@ -537,22 +532,6 @@ export default function OrgSignup() {
                   半角英数字・ハイフンのみ。<br />
                   予約サイトのURL（{window.location.origin}/<span className="font-mono">{orgData.slug || 'your-org'}</span>）に使用されます。
                 </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="org-email" className="text-sm font-medium">連絡先メールアドレス</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    id="org-email"
-                    type="email"
-                    value={orgData.contact_email}
-                    onChange={e => setOrgData(prev => ({ ...prev, contact_email: e.target.value }))}
-                    placeholder="例: contact@example.com"
-                    className="pl-9"
-                    autoComplete="off"
-                  />
-                </div>
               </div>
 
               <Button className="w-full" onClick={handleNext}>
@@ -812,20 +791,6 @@ export default function OrgSignup() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="store-phone" className="text-sm font-medium">
-                  電話番号 <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="store-phone"
-                  type="tel"
-                  value={storeData.phone}
-                  onChange={e => setStoreData(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="例: 03-1234-5678"
-                  autoComplete="tel"
-                />
-              </div>
-
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={handleBack}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
@@ -854,12 +819,6 @@ export default function OrgSignup() {
                       <span className="text-gray-500">識別子</span>
                       <span className="font-mono text-gray-900 text-xs">{orgData.slug}</span>
                     </div>
-                    {orgData.contact_email && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">連絡先</span>
-                        <span className="text-gray-900">{orgData.contact_email}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
                 {!isLoggedIn && (
@@ -899,10 +858,6 @@ export default function OrgSignup() {
                     <div className="flex justify-between">
                       <span className="text-gray-500">住所</span>
                       <span className="text-gray-900 text-right max-w-[60%]">{storeData.address}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">電話番号</span>
-                      <span className="text-gray-900">{storeData.phone}</span>
                     </div>
                   </div>
                 </div>
