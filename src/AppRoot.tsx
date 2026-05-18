@@ -540,14 +540,14 @@ function App() {
           buster: SCHEDULE_CACHE_BUSTER,
           dehydrateOptions: {
             // スケジュールイベントクエリのみ IndexedDB に保存（他は通常のメモリキャッシュ）
-            // 空配列・エラー結果は永続化しない: 一時的なエラー時のレスポンスが
-            // 「fresh」として残り続け、refetch されなくなる詰みを防ぐ
+            // error 結果は永続化しない（再 fetch されなくなる詰みを防ぐ）。
+            // 空配列（イベントゼロの月）は legit な成功結果なので永続化する
+            // → 月切替時のプリフェッチが効く。API バグで全月空になる事故は
+            // SCHEDULE_CACHE_BUSTER を bump して運用で吸収する
             shouldDehydrateQuery: (query) =>
               Array.isArray(query.queryKey) &&
               query.queryKey[0] === 'scheduleEvents' &&
-              query.state.status === 'success' &&
-              Array.isArray(query.state.data) &&
-              (query.state.data as unknown[]).length > 0,
+              query.state.status === 'success',
           },
         }}
       >
