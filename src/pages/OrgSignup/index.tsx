@@ -27,9 +27,11 @@ import {
   BarChart3,
   Users,
   Zap,
+  LogIn,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 
 type Step = 'organization' | 'admin' | 'confirm' | 'complete'
 
@@ -95,8 +97,49 @@ export default function OrgSignup() {
 
   const [agreedToTerms, setAgreedToTerms] = useState(false)
 
+  // 既存メアドチェック関連
+  const [emailCheckStatus, setEmailCheckStatus] = useState<
+    'idle' | 'confirmed' | 'pending_confirmation'
+  >('idle')
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendMessage, setResendMessage] = useState('')
+  const [resendError, setResendError] = useState('')
+
   const handleOrgNameChange = (name: string) => {
     setOrgData(prev => ({ ...prev, name }))
+  }
+
+  // メアドが変更されたら既存チェック結果をリセット
+  const handleAdminEmailChange = (email: string) => {
+    setAdminData(prev => ({ ...prev, email }))
+    if (emailCheckStatus !== 'idle') {
+      setEmailCheckStatus('idle')
+      setResendMessage('')
+      setResendError('')
+    }
+  }
+
+  // 確認メール再送
+  const handleResendConfirmation = async () => {
+    setResendError('')
+    setResendMessage('')
+    setResendLoading(true)
+    try {
+      const result = await resendSignupConfirmationEmail(
+        adminData.email.trim(),
+        `${window.location.origin}/complete-profile`
+      )
+      if (result.ok) {
+        setResendMessage(
+          '確認メールを再送しました。メールのリンクをクリックして登録を完了してから、再度この画面から組織登録をやり直してください。'
+        )
+      } else {
+        setResendError(result.message)
+      }
+    } finally {
+      setResendLoading(false)
+    }
   }
 
   const validateOrganization = (): boolean => {
@@ -117,12 +160,38 @@ export default function OrgSignup() {
     return true
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === 'organization' && validateOrganization()) {
       // ログイン済みの場合は admin ステップをスキップ
       setCurrentStep(isLoggedIn ? 'confirm' : 'admin')
-    } else if (currentStep === 'admin' && validateAdmin()) {
-      setCurrentStep('confirm')
+      return
+    }
+    if (currentStep === 'admin' && validateAdmin()) {
+      // ② 既存メアドチェック：既に MMQ アカウントがあれば確認ステップに進ませない
+      setIsCheckingEmail(true)
+      try {
+        const { data: status, error: checkErr } = await supabase.rpc(
+          'check_email_registration_status',
+          { p_email: adminData.email.trim() }
+        )
+        if (checkErr) {
+          // チェック失敗時は安全側ではなく続行（既存ユーザーは signUp 側で弾かれる）
+          logger.warn('check_email_registration_status エラー（続行）:', checkErr)
+          setCurrentStep('confirm')
+          return
+        }
+        if (status === 'confirmed') {
+          setEmailCheckStatus('confirmed')
+          return
+        }
+        if (status === 'pending_confirmation') {
+          setEmailCheckStatus('pending_confirmation')
+          return
+        }
+        setCurrentStep('confirm')
+      } finally {
+        setIsCheckingEmail(false)
+      }
     }
   }
 
@@ -452,13 +521,80 @@ export default function OrgSignup() {
                     id="admin-email"
                     type="email"
                     value={adminData.email}
-                    onChange={e => setAdminData(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={e => handleAdminEmailChange(e.target.value)}
                     placeholder="例: admin@example.com"
                     className="pl-9"
                     autoComplete="email"
                   />
                 </div>
               </div>
+
+              {/* ② 既存 MMQ アカウントあり */}
+              {emailCheckStatus === 'confirmed' && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <div className="flex items-start gap-2 text-sm text-amber-900">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <p>
+                      このメールアドレスは既に MMQ アカウントとして登録されています。
+                      <br />
+                      <span className="font-medium">先にログイン</span>してから組織を登録してください。
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Link to={`/login?next=${encodeURIComponent('/start')}`} className="flex-1 min-w-[140px]">
+                      <Button type="button" size="sm" className="w-full">
+                        <LogIn className="w-3.5 h-3.5 mr-1.5" />
+                        ログインへ進む
+                      </Button>
+                    </Link>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 min-w-[140px]"
+                      onClick={() => {
+                        setEmailCheckStatus('idle')
+                        setAdminData(prev => ({ ...prev, email: '' }))
+                      }}
+                    >
+                      別のメアドを入力
+                    </Button>
+                  </div>
+                  <p className="text-xs text-amber-700">
+                    ※ ログイン後にこの画面へ戻る際は組織情報の再入力が必要です。
+                  </p>
+                </div>
+              )}
+
+              {/* ② 未確認（確認メール待ち） */}
+              {emailCheckStatus === 'pending_confirmation' && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <div className="flex items-start gap-2 text-sm text-amber-900">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <p>
+                      このメールアドレスは確認メール待ちの状態です。
+                      <br />
+                      まずメールのリンクから登録を完了してから、再度この画面で組織登録をやり直してください。
+                    </p>
+                  </div>
+                  {resendMessage && (
+                    <p className="text-xs text-green-700">{resendMessage}</p>
+                  )}
+                  {resendError && (
+                    <p className="text-xs text-red-600">{resendError}</p>
+                  )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    disabled={resendLoading}
+                    onClick={handleResendConfirmation}
+                  >
+                    {resendLoading ? '送信中…' : '確認メールを再送する'}
+                  </Button>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label htmlFor="admin-password" className="text-sm font-medium">パスワード <span className="text-red-500">*</span></Label>
@@ -497,9 +633,14 @@ export default function OrgSignup() {
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   戻る
                 </Button>
-                <Button className="flex-1" onClick={handleNext}>
+                <Button
+                  className="flex-1"
+                  onClick={handleNext}
+                  disabled={isCheckingEmail || emailCheckStatus !== 'idle'}
+                >
+                  {isCheckingEmail && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   次へ：確認
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  {!isCheckingEmail && <ArrowRight className="w-4 h-4 ml-2" />}
                 </Button>
               </div>
             </div>
