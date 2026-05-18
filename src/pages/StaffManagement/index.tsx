@@ -416,6 +416,7 @@ export function StaffManagement() {
               statusFilter={statusFilter}
               onSearchChange={setSearchTerm}
               onStatusFilterChange={setStatusFilter}
+              onAddClick={() => openEditModal(null)}
               onInviteClick={openInviteModal}
               resultCount={sortedStaff.length}
               columnSettingsPanel={
