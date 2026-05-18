@@ -231,9 +231,20 @@ export function usePrivateGroup() {
 
       let organizationId = await getCurrentOrganizationId()
       if (!organizationId) {
+        // 1. パスの先頭セグメントからスラッグを解決（例: /queens-waltz/private-booking-request）
         const slug = getOrganizationSlugFromPath()
         if (slug) {
           const org = await getOrganizationBySlug(slug)
+          organizationId = org?.id ?? null
+        }
+      }
+      if (!organizationId) {
+        // 2. ?org= クエリパラメータから解決（例: /group/create?org=queens-waltz）
+        const orgParam = typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('org')
+          : null
+        if (orgParam) {
+          const org = await getOrganizationBySlug(orgParam)
           organizationId = org?.id ?? null
         }
       }

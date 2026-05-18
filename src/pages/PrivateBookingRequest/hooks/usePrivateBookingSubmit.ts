@@ -6,10 +6,21 @@ import { getOrganizationSlugFromPath } from '@/lib/publicBookingPath'
 async function resolveOrgId(): Promise<string | null> {
   const orgId = await getCurrentOrganizationId()
   if (orgId) return orgId
+  // 1. パスの先頭セグメント（例: /queens-waltz/private-booking-request）
   const slug = getOrganizationSlugFromPath()
-  if (!slug) return null
-  const org = await getOrganizationBySlug(slug)
-  return org?.id ?? null
+  if (slug) {
+    const org = await getOrganizationBySlug(slug)
+    if (org?.id) return org.id
+  }
+  // 2. ?org= クエリパラメータ（例: /group/create?org=queens-waltz）
+  const orgParam = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('org')
+    : null
+  if (orgParam) {
+    const org = await getOrganizationBySlug(orgParam)
+    if (org?.id) return org.id
+  }
+  return null
 }
 import { logger } from '@/utils/logger'
 import { hasNonEmptyCustomerPhone, MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING } from '@/lib/customerPhonePolicy'
