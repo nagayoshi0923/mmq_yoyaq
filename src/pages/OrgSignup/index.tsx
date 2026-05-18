@@ -33,16 +33,28 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 
-type Step = 'organization' | 'admin' | 'confirm' | 'complete'
+type Step = 'organization' | 'admin' | 'store' | 'confirm' | 'complete'
+
+const PREFECTURES = [
+  '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+  '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+  '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
+  '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
+  '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+  '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
+  '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
+]
 
 const STEPS_NEW: { id: Exclude<Step, 'complete'>; label: string }[] = [
   { id: 'organization', label: '組織情報' },
   { id: 'admin', label: '管理者アカウント' },
+  { id: 'store', label: '代表店舗' },
   { id: 'confirm', label: '確認' },
 ]
 
 const STEPS_EXISTING: { id: Exclude<Step, 'complete'>; label: string }[] = [
   { id: 'organization', label: '組織情報' },
+  { id: 'store', label: '代表店舗' },
   { id: 'confirm', label: '確認' },
 ]
 
@@ -93,7 +105,18 @@ export default function OrgSignup() {
     email: '',
     password: '',
     confirmPassword: '',
+    phone: '',
+    prefecture: '',
+    birthDate: '',
   })
+
+  const [storeData, setStoreData] = useState({
+    name: '',
+    address: '',
+    phone: '',
+  })
+  // 店舗名が未入力なら組織名をデフォルトとして自動で同期
+  const [storeNameTouched, setStoreNameTouched] = useState(false)
 
   const [agreedToTerms, setAgreedToTerms] = useState(false)
 
@@ -150,24 +173,57 @@ export default function OrgSignup() {
     return true
   }
 
+  const validateStore = (): boolean => {
+    if (!storeData.name.trim()) { setError('店舗名を入力してください'); return false }
+    if (!storeData.address.trim()) { setError('住所を入力してください'); return false }
+    const phoneDigits = storeData.phone.replace(/[-\s]/g, '')
+    if (!phoneDigits) { setError('店舗の電話番号を入力してください'); return false }
+    if (!/^\d{9,11}$/.test(phoneDigits)) { setError('電話番号は9〜11桁で入力してください'); return false }
+    setError(null)
+    return true
+  }
+
   const validateAdmin = (): boolean => {
     if (!adminData.name.trim()) { setError('管理者名を入力してください'); return false }
     if (!adminData.email.trim()) { setError('メールアドレスを入力してください'); return false }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminData.email)) { setError('有効なメールアドレスを入力してください'); return false }
     if (adminData.password.length < 8) { setError('パスワードは8文字以上で入力してください'); return false }
     if (adminData.password !== adminData.confirmPassword) { setError('パスワードが一致しません'); return false }
+
+    const phoneDigits = adminData.phone.replace(/[-\s]/g, '')
+    if (!phoneDigits) { setError('電話番号を入力してください'); return false }
+    if (!/^\d{10,11}$/.test(phoneDigits)) { setError('電話番号は10〜11桁で入力してください'); return false }
+    if (!adminData.prefecture) { setError('お住まいの都道府県を選択してください'); return false }
+    if (!adminData.birthDate) { setError('生年月日を入力してください'); return false }
+    const birthDateMatch = adminData.birthDate.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
+    if (!birthDateMatch) { setError('生年月日は YYYY/MM/DD 形式で入力してください'); return false }
+    const [, y, m, d] = birthDateMatch
+    const dt = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
+    if (dt.getFullYear() !== parseInt(y) || dt.getMonth() !== parseInt(m) - 1 || dt.getDate() !== parseInt(d)) {
+      setError('有効な日付を入力してください'); return false
+    }
+    if (dt >= new Date()) { setError('生年月日に未来の日付は設定できません'); return false }
+
     setError(null)
     return true
   }
 
   const handleNext = async () => {
     if (currentStep === 'organization' && validateOrganization()) {
-      // ログイン済みの場合は admin ステップをスキップ
-      setCurrentStep(isLoggedIn ? 'confirm' : 'admin')
+      // 店舗名のデフォルトを組織名で初期化
+      if (!storeNameTouched && !storeData.name) {
+        setStoreData(prev => ({ ...prev, name: orgData.name }))
+      }
+      // ログイン済みの場合は admin ステップをスキップして store へ
+      setCurrentStep(isLoggedIn ? 'store' : 'admin')
+      return
+    }
+    if (currentStep === 'store' && validateStore()) {
+      setCurrentStep('confirm')
       return
     }
     if (currentStep === 'admin' && validateAdmin()) {
-      // ② 既存メアドチェック：既に MMQ アカウントがあれば確認ステップに進ませない
+      // ② 既存メアドチェック：既に MMQ アカウントがあれば店舗ステップに進ませない
       setIsCheckingEmail(true)
       try {
         const { data: status, error: checkErr } = await supabase.rpc(
@@ -177,7 +233,7 @@ export default function OrgSignup() {
         if (checkErr) {
           // チェック失敗時は安全側ではなく続行（既存ユーザーは signUp 側で弾かれる）
           logger.warn('check_email_registration_status エラー（続行）:', checkErr)
-          setCurrentStep('confirm')
+          setCurrentStep('store')
           return
         }
         if (status === 'confirmed') {
@@ -188,7 +244,7 @@ export default function OrgSignup() {
           setEmailCheckStatus('pending_confirmation')
           return
         }
-        setCurrentStep('confirm')
+        setCurrentStep('store')
       } finally {
         setIsCheckingEmail(false)
       }
@@ -198,7 +254,8 @@ export default function OrgSignup() {
   const handleBack = () => {
     setError(null)
     if (currentStep === 'admin') setCurrentStep('organization')
-    else if (currentStep === 'confirm') setCurrentStep(isLoggedIn ? 'organization' : 'admin')
+    else if (currentStep === 'store') setCurrentStep(isLoggedIn ? 'organization' : 'admin')
+    else if (currentStep === 'confirm') setCurrentStep('store')
   }
 
   // 組織をロールバック（RPC経由で作成した場合）
@@ -220,13 +277,16 @@ export default function OrgSignup() {
     let createdOrgId: string | null = null
 
     try {
-      // 1. SECURITY DEFINER RPC で組織を作成（anon 可、RLSをバイパス）
+      // 1. SECURITY DEFINER RPC で組織+代表店舗を作成（anon 可、RLSをバイパス）
       const { data: newOrg, error: orgError } = await supabase.rpc(
         'register_organization_for_signup',
         {
           p_name:          orgData.name.trim(),
           p_slug:          orgData.slug.trim(),
           p_contact_email: orgData.contact_email.trim() || (isLoggedIn ? user?.email ?? '' : adminData.email.trim()),
+          p_store_name:    storeData.name.trim(),
+          p_store_address: storeData.address.trim(),
+          p_store_phone:   storeData.phone.trim(),
         }
       )
 
@@ -251,15 +311,22 @@ export default function OrgSignup() {
         setTimeout(() => navigate(`/${newOrg.slug}/dashboard`), 1500)
       } else {
         // ── 新規アカウントパス: signUp に user_metadata を渡す ──
-        //    handle_new_user トリガーが users + staff レコードを自動作成する
+        //    handle_new_user トリガーが users + staff + customers レコードを自動作成する
+        const birthMatch = adminData.birthDate.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
+        const adminBirthDateIso = birthMatch
+          ? `${birthMatch[1]}-${birthMatch[2]}-${birthMatch[3]}`
+          : null
         const { error: authError } = await supabase.auth.signUp({
           email: adminData.email.trim(),
           password: adminData.password,
           options: {
             data: {
-              organization_id: newOrg.id,
-              invited_as:      'admin',
-              admin_name:      adminData.name.trim(),
+              organization_id:   newOrg.id,
+              invited_as:        'admin',
+              admin_name:        adminData.name.trim(),
+              admin_phone:       adminData.phone.trim(),
+              admin_prefecture:  adminData.prefecture,
+              admin_birth_date:  adminBirthDateIso,
             },
           },
         })
@@ -596,6 +663,67 @@ export default function OrgSignup() {
                 </div>
               )}
 
+              {/* ── 電話番号 ── */}
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-phone" className="text-sm font-medium">
+                  電話番号 <span className="text-red-500">*</span>
+                  <span className="text-xs text-gray-500 ml-2">（当日連絡用）</span>
+                </Label>
+                <Input
+                  id="admin-phone"
+                  type="tel"
+                  value={adminData.phone}
+                  onChange={e => setAdminData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="例: 090-1234-5678"
+                  autoComplete="tel"
+                />
+              </div>
+
+              {/* ── 都道府県 ── */}
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-prefecture" className="text-sm font-medium">
+                  お住まいの都道府県 <span className="text-red-500">*</span>
+                </Label>
+                <select
+                  id="admin-prefecture"
+                  value={adminData.prefecture}
+                  onChange={e => setAdminData(prev => ({ ...prev, prefecture: e.target.value }))}
+                  className="w-full h-10 px-3 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-[#E60012] focus:border-transparent"
+                >
+                  <option value="">選択してください</option>
+                  {PREFECTURES.map((pref) => (
+                    <option key={pref} value={pref}>{pref}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ── 生年月日 ── */}
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-birth-date" className="text-sm font-medium">
+                  生年月日 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="admin-birth-date"
+                  type="text"
+                  inputMode="numeric"
+                  value={adminData.birthDate}
+                  onChange={e => {
+                    let value = e.target.value.replace(/[^\d/]/g, '')
+                    const digits = value.replace(/\//g, '')
+                    if (digits.length <= 4) {
+                      value = digits
+                    } else if (digits.length <= 6) {
+                      value = `${digits.slice(0, 4)}/${digits.slice(4)}`
+                    } else {
+                      value = `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6, 8)}`
+                    }
+                    setAdminData(prev => ({ ...prev, birthDate: value }))
+                  }}
+                  placeholder="1990/01/15"
+                  maxLength={10}
+                />
+              </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="admin-password" className="text-sm font-medium">パスワード <span className="text-red-500">*</span></Label>
                 <div className="relative">
@@ -646,6 +774,71 @@ export default function OrgSignup() {
             </div>
           )}
 
+          {/* ── ステップ：代表店舗 ── */}
+          {currentStep === 'store' && (
+            <div className="space-y-4">
+              <p className="text-xs text-gray-500 -mt-2">
+                代表となる店舗を 1 件登録してください。後で追加・編集できます。
+              </p>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="store-name" className="text-sm font-medium">
+                  店舗名 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="store-name"
+                  value={storeData.name}
+                  onChange={e => {
+                    setStoreNameTouched(true)
+                    setStoreData(prev => ({ ...prev, name: e.target.value }))
+                  }}
+                  placeholder={`例: ${orgData.name || '〇〇店'}`}
+                />
+                <p className="text-xs text-gray-400">
+                  デフォルトは組織名です。実店舗の名前があれば変更してください。
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="store-address" className="text-sm font-medium">
+                  住所 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="store-address"
+                  value={storeData.address}
+                  onChange={e => setStoreData(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="例: 東京都渋谷区道玄坂 1-2-3 〇〇ビル 5F"
+                  autoComplete="street-address"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="store-phone" className="text-sm font-medium">
+                  電話番号 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="store-phone"
+                  type="tel"
+                  value={storeData.phone}
+                  onChange={e => setStoreData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="例: 03-1234-5678"
+                  autoComplete="tel"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={handleBack}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  戻る
+                </Button>
+                <Button className="flex-1" onClick={handleNext}>
+                  次へ：確認
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* ── ステップ3：確認 ── */}
           {currentStep === 'confirm' && (
             <div className="space-y-4">
@@ -669,16 +862,47 @@ export default function OrgSignup() {
                     )}
                   </div>
                 </div>
+                {!isLoggedIn && (
+                  <div className="border-t border-gray-200 pt-3">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">管理者アカウント</p>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">名前</span>
+                        <span className="font-medium text-gray-900">{adminData.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">メール</span>
+                        <span className="text-gray-900">{adminData.email}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">電話番号</span>
+                        <span className="text-gray-900">{adminData.phone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">都道府県</span>
+                        <span className="text-gray-900">{adminData.prefecture}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">生年月日</span>
+                        <span className="text-gray-900">{adminData.birthDate}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="border-t border-gray-200 pt-3">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">管理者アカウント</p>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">代表店舗</p>
                   <div className="space-y-1.5">
                     <div className="flex justify-between">
-                      <span className="text-gray-500">名前</span>
-                      <span className="font-medium text-gray-900">{adminData.name}</span>
+                      <span className="text-gray-500">店舗名</span>
+                      <span className="font-medium text-gray-900">{storeData.name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">メール</span>
-                      <span className="text-gray-900">{adminData.email}</span>
+                      <span className="text-gray-500">住所</span>
+                      <span className="text-gray-900 text-right max-w-[60%]">{storeData.address}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">電話番号</span>
+                      <span className="text-gray-900">{storeData.phone}</span>
                     </div>
                   </div>
                 </div>
