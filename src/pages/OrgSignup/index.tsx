@@ -35,6 +35,16 @@ import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 
 type Step = 'organization' | 'admin' | 'confirm' | 'complete'
 
+const PREFECTURES = [
+  '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+  '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+  '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県',
+  '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県',
+  '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+  '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県',
+  '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
+]
+
 const STEPS_NEW: { id: Exclude<Step, 'complete'>; label: string }[] = [
   { id: 'organization', label: '組織情報' },
   { id: 'admin', label: '管理者アカウント' },
@@ -93,6 +103,9 @@ export default function OrgSignup() {
     email: '',
     password: '',
     confirmPassword: '',
+    phone: '',
+    prefecture: '',
+    birthDate: '',
   })
 
   const [agreedToTerms, setAgreedToTerms] = useState(false)
@@ -156,6 +169,21 @@ export default function OrgSignup() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminData.email)) { setError('有効なメールアドレスを入力してください'); return false }
     if (adminData.password.length < 8) { setError('パスワードは8文字以上で入力してください'); return false }
     if (adminData.password !== adminData.confirmPassword) { setError('パスワードが一致しません'); return false }
+
+    const phoneDigits = adminData.phone.replace(/[-\s]/g, '')
+    if (!phoneDigits) { setError('電話番号を入力してください'); return false }
+    if (!/^\d{10,11}$/.test(phoneDigits)) { setError('電話番号は10〜11桁で入力してください'); return false }
+    if (!adminData.prefecture) { setError('お住まいの都道府県を選択してください'); return false }
+    if (!adminData.birthDate) { setError('生年月日を入力してください'); return false }
+    const birthDateMatch = adminData.birthDate.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
+    if (!birthDateMatch) { setError('生年月日は YYYY/MM/DD 形式で入力してください'); return false }
+    const [, y, m, d] = birthDateMatch
+    const dt = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
+    if (dt.getFullYear() !== parseInt(y) || dt.getMonth() !== parseInt(m) - 1 || dt.getDate() !== parseInt(d)) {
+      setError('有効な日付を入力してください'); return false
+    }
+    if (dt >= new Date()) { setError('生年月日に未来の日付は設定できません'); return false }
+
     setError(null)
     return true
   }
@@ -251,15 +279,22 @@ export default function OrgSignup() {
         setTimeout(() => navigate(`/${newOrg.slug}/dashboard`), 1500)
       } else {
         // ── 新規アカウントパス: signUp に user_metadata を渡す ──
-        //    handle_new_user トリガーが users + staff レコードを自動作成する
+        //    handle_new_user トリガーが users + staff + customers レコードを自動作成する
+        const birthMatch = adminData.birthDate.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
+        const adminBirthDateIso = birthMatch
+          ? `${birthMatch[1]}-${birthMatch[2]}-${birthMatch[3]}`
+          : null
         const { error: authError } = await supabase.auth.signUp({
           email: adminData.email.trim(),
           password: adminData.password,
           options: {
             data: {
-              organization_id: newOrg.id,
-              invited_as:      'admin',
-              admin_name:      adminData.name.trim(),
+              organization_id:   newOrg.id,
+              invited_as:        'admin',
+              admin_name:        adminData.name.trim(),
+              admin_phone:       adminData.phone.trim(),
+              admin_prefecture:  adminData.prefecture,
+              admin_birth_date:  adminBirthDateIso,
             },
           },
         })
@@ -596,6 +631,67 @@ export default function OrgSignup() {
                 </div>
               )}
 
+              {/* ── 電話番号 ── */}
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-phone" className="text-sm font-medium">
+                  電話番号 <span className="text-red-500">*</span>
+                  <span className="text-xs text-gray-500 ml-2">（当日連絡用）</span>
+                </Label>
+                <Input
+                  id="admin-phone"
+                  type="tel"
+                  value={adminData.phone}
+                  onChange={e => setAdminData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="例: 090-1234-5678"
+                  autoComplete="tel"
+                />
+              </div>
+
+              {/* ── 都道府県 ── */}
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-prefecture" className="text-sm font-medium">
+                  お住まいの都道府県 <span className="text-red-500">*</span>
+                </Label>
+                <select
+                  id="admin-prefecture"
+                  value={adminData.prefecture}
+                  onChange={e => setAdminData(prev => ({ ...prev, prefecture: e.target.value }))}
+                  className="w-full h-10 px-3 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-[#E60012] focus:border-transparent"
+                >
+                  <option value="">選択してください</option>
+                  {PREFECTURES.map((pref) => (
+                    <option key={pref} value={pref}>{pref}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ── 生年月日 ── */}
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-birth-date" className="text-sm font-medium">
+                  生年月日 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="admin-birth-date"
+                  type="text"
+                  inputMode="numeric"
+                  value={adminData.birthDate}
+                  onChange={e => {
+                    let value = e.target.value.replace(/[^\d/]/g, '')
+                    const digits = value.replace(/\//g, '')
+                    if (digits.length <= 4) {
+                      value = digits
+                    } else if (digits.length <= 6) {
+                      value = `${digits.slice(0, 4)}/${digits.slice(4)}`
+                    } else {
+                      value = `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6, 8)}`
+                    }
+                    setAdminData(prev => ({ ...prev, birthDate: value }))
+                  }}
+                  placeholder="1990/01/15"
+                  maxLength={10}
+                />
+              </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="admin-password" className="text-sm font-medium">パスワード <span className="text-red-500">*</span></Label>
                 <div className="relative">
@@ -679,6 +775,18 @@ export default function OrgSignup() {
                     <div className="flex justify-between">
                       <span className="text-gray-500">メール</span>
                       <span className="text-gray-900">{adminData.email}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">電話番号</span>
+                      <span className="text-gray-900">{adminData.phone}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">都道府県</span>
+                      <span className="text-gray-900">{adminData.prefecture}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">生年月日</span>
+                      <span className="text-gray-900">{adminData.birthDate}</span>
                     </div>
                   </div>
                 </div>
