@@ -33,7 +33,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { resendSignupConfirmationEmail } from '@/lib/authResendSignup'
 
-type Step = 'organization' | 'admin' | 'store' | 'confirm' | 'complete'
+type Step = 'form' | 'confirm' | 'complete'
 
 const PREFECTURES = [
   '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
@@ -45,16 +45,8 @@ const PREFECTURES = [
   '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
 ]
 
-const STEPS_NEW: { id: Exclude<Step, 'complete'>; label: string }[] = [
-  { id: 'organization', label: '組織情報' },
-  { id: 'admin', label: '管理者アカウント' },
-  { id: 'store', label: '代表店舗' },
-  { id: 'confirm', label: '確認' },
-]
-
-const STEPS_EXISTING: { id: Exclude<Step, 'complete'>; label: string }[] = [
-  { id: 'organization', label: '組織情報' },
-  { id: 'store', label: '代表店舗' },
+const STEPS: { id: Exclude<Step, 'complete'>; label: string }[] = [
+  { id: 'form', label: '入力' },
   { id: 'confirm', label: '確認' },
 ]
 
@@ -88,9 +80,7 @@ export default function OrgSignup() {
   const navigate = useNavigate()
   const isLoggedIn = !!user
 
-  const STEPS = isLoggedIn ? STEPS_EXISTING : STEPS_NEW
-
-  const [currentStep, setCurrentStep] = useState<Step>('organization')
+  const [currentStep, setCurrentStep] = useState<Step>('form')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -113,8 +103,6 @@ export default function OrgSignup() {
     name: '',
     address: '',
   })
-  // 店舗名が未入力なら組織名をデフォルトとして自動で同期
-  const [storeNameTouched, setStoreNameTouched] = useState(false)
 
   const [agreedToTerms, setAgreedToTerms] = useState(false)
 
@@ -163,62 +151,76 @@ export default function OrgSignup() {
     }
   }
 
-  const validateOrganization = (): boolean => {
+  const validateForm = (): boolean => {
+    // 組織情報
     if (!orgData.name.trim()) { setError('組織名を入力してください'); return false }
     if (!orgData.slug.trim()) { setError('識別子を入力してください'); return false }
     if (!/^[a-z0-9-]+$/.test(orgData.slug)) { setError('識別子は半角英数字とハイフンのみ使用できます'); return false }
-    setError(null)
-    return true
-  }
 
-  const validateStore = (): boolean => {
-    if (!storeData.name.trim()) { setError('店舗名を入力してください'); return false }
-    if (!storeData.address.trim()) { setError('住所を入力してください'); return false }
-    setError(null)
-    return true
-  }
+    // 管理者アカウント（未ログイン時のみ）
+    if (!isLoggedIn) {
+      if (!adminData.name.trim()) { setError('管理者名を入力してください'); return false }
+      if (!adminData.email.trim()) { setError('メールアドレスを入力してください'); return false }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminData.email)) { setError('有効なメールアドレスを入力してください'); return false }
+      if (adminData.password.length < 8) { setError('パスワードは8文字以上で入力してください'); return false }
+      if (adminData.password !== adminData.confirmPassword) { setError('パスワードが一致しません'); return false }
 
-  const validateAdmin = (): boolean => {
-    if (!adminData.name.trim()) { setError('管理者名を入力してください'); return false }
-    if (!adminData.email.trim()) { setError('メールアドレスを入力してください'); return false }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminData.email)) { setError('有効なメールアドレスを入力してください'); return false }
-    if (adminData.password.length < 8) { setError('パスワードは8文字以上で入力してください'); return false }
-    if (adminData.password !== adminData.confirmPassword) { setError('パスワードが一致しません'); return false }
-
-    const phoneDigits = adminData.phone.replace(/[-\s]/g, '')
-    if (!phoneDigits) { setError('電話番号を入力してください'); return false }
-    if (!/^\d{10,11}$/.test(phoneDigits)) { setError('電話番号は10〜11桁で入力してください'); return false }
-    if (!adminData.prefecture) { setError('お住まいの都道府県を選択してください'); return false }
-    if (!adminData.birthDate) { setError('生年月日を入力してください'); return false }
-    const birthDateMatch = adminData.birthDate.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
-    if (!birthDateMatch) { setError('生年月日は YYYY/MM/DD 形式で入力してください'); return false }
-    const [, y, m, d] = birthDateMatch
-    const dt = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
-    if (dt.getFullYear() !== parseInt(y) || dt.getMonth() !== parseInt(m) - 1 || dt.getDate() !== parseInt(d)) {
-      setError('有効な日付を入力してください'); return false
+      const phoneDigits = adminData.phone.replace(/[-\s]/g, '')
+      if (!phoneDigits) { setError('電話番号を入力してください'); return false }
+      if (!/^\d{10,11}$/.test(phoneDigits)) { setError('電話番号は10〜11桁で入力してください'); return false }
+      if (!adminData.prefecture) { setError('お住まいの都道府県を選択してください'); return false }
+      if (!adminData.birthDate) { setError('生年月日を入力してください'); return false }
+      const birthDateMatch = adminData.birthDate.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
+      if (!birthDateMatch) { setError('生年月日は YYYY/MM/DD 形式で入力してください'); return false }
+      const [, y, m, d] = birthDateMatch
+      const dt = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
+      if (dt.getFullYear() !== parseInt(y) || dt.getMonth() !== parseInt(m) - 1 || dt.getDate() !== parseInt(d)) {
+        setError('有効な日付を入力してください'); return false
+      }
+      if (dt >= new Date()) { setError('生年月日に未来の日付は設定できません'); return false }
     }
-    if (dt >= new Date()) { setError('生年月日に未来の日付は設定できません'); return false }
+
+    // 代表店舗（店舗名は空ならフォーム上で組織名にフォールバック）
+    const effectiveStoreName = storeData.name.trim() || orgData.name.trim()
+    if (!effectiveStoreName) { setError('店舗名を入力してください'); return false }
+    if (!storeData.address.trim()) { setError('住所を入力してください'); return false }
 
     setError(null)
     return true
+  }
+
+  // メアド欄を離れた時に既存アカウントチェック（インライン警告表示用）
+  const handleAdminEmailBlur = async () => {
+    const email = adminData.email.trim()
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return
+    setIsCheckingEmail(true)
+    try {
+      const { data: status, error: checkErr } = await supabase.rpc(
+        'check_email_registration_status',
+        { p_email: email }
+      )
+      if (checkErr) {
+        logger.warn('check_email_registration_status エラー（onBlur）:', checkErr)
+        return
+      }
+      if (status === 'confirmed') {
+        setEmailCheckStatus('confirmed')
+      } else if (status === 'pending_confirmation') {
+        setEmailCheckStatus('pending_confirmation')
+      } else {
+        setEmailCheckStatus('idle')
+      }
+    } finally {
+      setIsCheckingEmail(false)
+    }
   }
 
   const handleNext = async () => {
-    if (currentStep === 'organization' && validateOrganization()) {
-      // 店舗名のデフォルトを組織名で初期化
-      if (!storeNameTouched && !storeData.name) {
-        setStoreData(prev => ({ ...prev, name: orgData.name }))
-      }
-      // ログイン済みの場合は admin ステップをスキップして store へ
-      setCurrentStep(isLoggedIn ? 'store' : 'admin')
-      return
-    }
-    if (currentStep === 'store' && validateStore()) {
-      setCurrentStep('confirm')
-      return
-    }
-    if (currentStep === 'admin' && validateAdmin()) {
-      // ② 既存メアドチェック：既に MMQ アカウントがあれば店舗ステップに進ませない
+    if (currentStep !== 'form') return
+    if (!validateForm()) return
+
+    // 確認ステップへ進む前に最終的なメアドチェック（onBlur が走ってないケース対策）
+    if (!isLoggedIn) {
       setIsCheckingEmail(true)
       try {
         const { data: status, error: checkErr } = await supabase.rpc(
@@ -226,31 +228,29 @@ export default function OrgSignup() {
           { p_email: adminData.email.trim() }
         )
         if (checkErr) {
-          // チェック失敗時は安全側ではなく続行（既存ユーザーは signUp 側で弾かれる）
-          logger.warn('check_email_registration_status エラー（続行）:', checkErr)
-          setCurrentStep('store')
-          return
-        }
-        if (status === 'confirmed') {
+          logger.warn('check_email_registration_status エラー（next 押下）:', checkErr)
+        } else if (status === 'confirmed') {
           setEmailCheckStatus('confirmed')
           return
-        }
-        if (status === 'pending_confirmation') {
+        } else if (status === 'pending_confirmation') {
           setEmailCheckStatus('pending_confirmation')
           return
         }
-        setCurrentStep('store')
       } finally {
         setIsCheckingEmail(false)
       }
     }
+
+    // 店舗名が空なら組織名で確定する（confirm 表示・RPC 送信を一貫させる）
+    if (!storeData.name.trim()) {
+      setStoreData(prev => ({ ...prev, name: orgData.name.trim() }))
+    }
+    setCurrentStep('confirm')
   }
 
   const handleBack = () => {
     setError(null)
-    if (currentStep === 'admin') setCurrentStep('organization')
-    else if (currentStep === 'store') setCurrentStep(isLoggedIn ? 'organization' : 'admin')
-    else if (currentStep === 'confirm') setCurrentStep('store')
+    if (currentStep === 'confirm') setCurrentStep('form')
   }
 
   // 組織をロールバック（RPC経由で作成した場合）
@@ -280,7 +280,7 @@ export default function OrgSignup() {
           p_slug:          orgData.slug.trim(),
           // 連絡先メアドは admin メアド / ログイン中ユーザーのメアドを自動採用
           p_contact_email: isLoggedIn ? user?.email ?? '' : adminData.email.trim(),
-          p_store_name:    storeData.name.trim(),
+          p_store_name:    storeData.name.trim() || orgData.name.trim(),
           p_store_address: storeData.address.trim(),
         }
       )
@@ -498,309 +498,288 @@ export default function OrgSignup() {
             </div>
           )}
 
-          {/* ── ステップ1：組織情報 ── */}
-          {currentStep === 'organization' && (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="org-name" className="text-sm font-medium">組織名 <span className="text-red-500">*</span></Label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    id="org-name"
-                    value={orgData.name}
-                    onChange={e => handleOrgNameChange(e.target.value)}
-                    placeholder="例: 株式会社サンプル脱出ゲーム"
-                    className="pl-9"
-                    autoComplete="organization"
-                  />
-                </div>
-              </div>
+          {/* ── ステップ：入力（組織 + 管理者 + 代表店舗 を1ページに統合）── */}
+          {currentStep === 'form' && (
+            <div className="space-y-6">
+              {/* セクション: 組織情報 */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">組織情報</h3>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="org-slug" className="text-sm font-medium">
-                  識別子（URL用）<span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="org-slug"
-                  name="org-identifier-field"
-                  value={orgData.slug}
-                  onChange={e => setOrgData(prev => ({ ...prev, slug: e.target.value.toLowerCase() }))}
-                  placeholder="例: sample-escape"
-                  autoComplete="off"
-                />
-                <p className="text-xs text-gray-400">
-                  半角英数字・ハイフンのみ。<br />
-                  予約サイトのURL（{window.location.origin}/<span className="font-mono">{orgData.slug || 'your-org'}</span>）に使用されます。
-                </p>
-              </div>
-
-              <Button className="w-full" onClick={handleNext}>
-                次へ：管理者アカウント
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          )}
-
-          {/* ── ステップ2：管理者アカウント ── */}
-          {currentStep === 'admin' && (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-name" className="text-sm font-medium">管理者名 <span className="text-red-500">*</span></Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    id="admin-name"
-                    value={adminData.name}
-                    onChange={e => setAdminData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="例: 山田太郎"
-                    className="pl-9"
-                    autoComplete="name"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-email" className="text-sm font-medium">メールアドレス <span className="text-red-500">*</span></Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    id="admin-email"
-                    type="email"
-                    value={adminData.email}
-                    onChange={e => handleAdminEmailChange(e.target.value)}
-                    placeholder="例: admin@example.com"
-                    className="pl-9"
-                    autoComplete="email"
-                  />
-                </div>
-              </div>
-
-              {/* ② 既存 MMQ アカウントあり */}
-              {emailCheckStatus === 'confirmed' && (
-                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2">
-                  <div className="flex items-start gap-2 text-sm text-amber-900">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <p>
-                      このメールアドレスは既に MMQ アカウントとして登録されています。
-                      <br />
-                      <span className="font-medium">先にログイン</span>してから組織を登録してください。
-                    </p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="org-name" className="text-sm font-medium">組織名 <span className="text-red-500">*</span></Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="org-name"
+                      value={orgData.name}
+                      onChange={e => handleOrgNameChange(e.target.value)}
+                      placeholder="例: 株式会社サンプル脱出ゲーム"
+                      className="pl-9"
+                      autoComplete="organization"
+                    />
                   </div>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <Link to={`/login?next=${encodeURIComponent('/start')}`} className="flex-1 min-w-[140px]">
-                      <Button type="button" size="sm" className="w-full">
-                        <LogIn className="w-3.5 h-3.5 mr-1.5" />
-                        ログインへ進む
-                      </Button>
-                    </Link>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 min-w-[140px]"
-                      onClick={() => {
-                        setEmailCheckStatus('idle')
-                        setAdminData(prev => ({ ...prev, email: '' }))
-                      }}
-                    >
-                      別のメアドを入力
-                    </Button>
-                  </div>
-                  <p className="text-xs text-amber-700">
-                    ※ ログイン後にこの画面へ戻る際は組織情報の再入力が必要です。
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="org-slug" className="text-sm font-medium">
+                    識別子（URL用）<span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="org-slug"
+                    name="org-identifier-field"
+                    value={orgData.slug}
+                    onChange={e => setOrgData(prev => ({ ...prev, slug: e.target.value.toLowerCase() }))}
+                    placeholder="例: sample-escape"
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-gray-400">
+                    半角英数字・ハイフンのみ。<br />
+                    予約サイトのURL（{window.location.origin}/<span className="font-mono">{orgData.slug || 'your-org'}</span>）に使用されます。
                   </p>
                 </div>
-              )}
+              </section>
 
-              {/* ② 未確認（確認メール待ち） */}
-              {emailCheckStatus === 'pending_confirmation' && (
-                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2">
-                  <div className="flex items-start gap-2 text-sm text-amber-900">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <p>
-                      このメールアドレスは確認メール待ちの状態です。
-                      <br />
-                      まずメールのリンクから登録を完了してから、再度この画面で組織登録をやり直してください。
-                    </p>
+              {/* セクション: 管理者アカウント（未ログイン時のみ）*/}
+              {!isLoggedIn && (
+                <section className="space-y-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">管理者アカウント</h3>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="admin-name" className="text-sm font-medium">管理者名 <span className="text-red-500">*</span></Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="admin-name"
+                        value={adminData.name}
+                        onChange={e => setAdminData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="例: 山田太郎"
+                        className="pl-9"
+                        autoComplete="name"
+                      />
+                    </div>
                   </div>
-                  {resendMessage && (
-                    <p className="text-xs text-green-700">{resendMessage}</p>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="admin-email" className="text-sm font-medium">
+                      メールアドレス <span className="text-red-500">*</span>
+                      {isCheckingEmail && <Loader2 className="w-3 h-3 inline ml-2 animate-spin text-gray-400" />}
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="admin-email"
+                        type="email"
+                        value={adminData.email}
+                        onChange={e => handleAdminEmailChange(e.target.value)}
+                        onBlur={handleAdminEmailBlur}
+                        placeholder="例: admin@example.com"
+                        className="pl-9"
+                        autoComplete="email"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 既存 MMQ アカウントあり */}
+                  {emailCheckStatus === 'confirmed' && (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2">
+                      <div className="flex items-start gap-2 text-sm text-amber-900">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <p>
+                          このメールアドレスは既に MMQ アカウントとして登録されています。
+                          <br />
+                          <span className="font-medium">先にログイン</span>してから組織を登録してください。
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <Link to={`/login?next=${encodeURIComponent('/start')}`} className="flex-1 min-w-[140px]">
+                          <Button type="button" size="sm" className="w-full">
+                            <LogIn className="w-3.5 h-3.5 mr-1.5" />
+                            ログインへ進む
+                          </Button>
+                        </Link>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 min-w-[140px]"
+                          onClick={() => {
+                            setEmailCheckStatus('idle')
+                            setAdminData(prev => ({ ...prev, email: '' }))
+                          }}
+                        >
+                          別のメアドを入力
+                        </Button>
+                      </div>
+                      <p className="text-xs text-amber-700">
+                        ※ ログイン後にこの画面へ戻る際は組織情報の再入力が必要です。
+                      </p>
+                    </div>
                   )}
-                  {resendError && (
-                    <p className="text-xs text-red-600">{resendError}</p>
+
+                  {/* 未確認（確認メール待ち） */}
+                  {emailCheckStatus === 'pending_confirmation' && (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2">
+                      <div className="flex items-start gap-2 text-sm text-amber-900">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <p>
+                          このメールアドレスは確認メール待ちの状態です。
+                          <br />
+                          まずメールのリンクから登録を完了してから、再度この画面で組織登録をやり直してください。
+                        </p>
+                      </div>
+                      {resendMessage && (
+                        <p className="text-xs text-green-700">{resendMessage}</p>
+                      )}
+                      {resendError && (
+                        <p className="text-xs text-red-600">{resendError}</p>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        disabled={resendLoading}
+                        onClick={handleResendConfirmation}
+                      >
+                        {resendLoading ? '送信中…' : '確認メールを再送する'}
+                      </Button>
+                    </div>
                   )}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    disabled={resendLoading}
-                    onClick={handleResendConfirmation}
-                  >
-                    {resendLoading ? '送信中…' : '確認メールを再送する'}
-                  </Button>
-                </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="admin-phone" className="text-sm font-medium">
+                      電話番号 <span className="text-red-500">*</span>
+                      <span className="text-xs text-gray-500 ml-2">（当日連絡用）</span>
+                    </Label>
+                    <Input
+                      id="admin-phone"
+                      type="tel"
+                      value={adminData.phone}
+                      onChange={e => setAdminData(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="例: 090-1234-5678"
+                      autoComplete="tel"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="admin-prefecture" className="text-sm font-medium">
+                      お住まいの都道府県 <span className="text-red-500">*</span>
+                    </Label>
+                    <select
+                      id="admin-prefecture"
+                      value={adminData.prefecture}
+                      onChange={e => setAdminData(prev => ({ ...prev, prefecture: e.target.value }))}
+                      className="w-full h-10 px-3 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-[#E60012] focus:border-transparent"
+                    >
+                      <option value="">選択してください</option>
+                      {PREFECTURES.map((pref) => (
+                        <option key={pref} value={pref}>{pref}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="admin-birth-date" className="text-sm font-medium">
+                      生年月日 <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="admin-birth-date"
+                      type="text"
+                      inputMode="numeric"
+                      value={adminData.birthDate}
+                      onChange={e => {
+                        let value = e.target.value.replace(/[^\d/]/g, '')
+                        const digits = value.replace(/\//g, '')
+                        if (digits.length <= 4) {
+                          value = digits
+                        } else if (digits.length <= 6) {
+                          value = `${digits.slice(0, 4)}/${digits.slice(4)}`
+                        } else {
+                          value = `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6, 8)}`
+                        }
+                        setAdminData(prev => ({ ...prev, birthDate: value }))
+                      }}
+                      placeholder="1990/01/15"
+                      maxLength={10}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="admin-password" className="text-sm font-medium">パスワード <span className="text-red-500">*</span></Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="admin-password"
+                        type="password"
+                        value={adminData.password}
+                        onChange={e => setAdminData(prev => ({ ...prev, password: e.target.value }))}
+                        placeholder="8文字以上"
+                        className="pl-9"
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="admin-confirm" className="text-sm font-medium">パスワード（確認）<span className="text-red-500">*</span></Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="admin-confirm"
+                        type="password"
+                        value={adminData.confirmPassword}
+                        onChange={e => setAdminData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                        placeholder="もう一度入力"
+                        className="pl-9"
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  </div>
+                </section>
               )}
 
-              {/* ── 電話番号 ── */}
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-phone" className="text-sm font-medium">
-                  電話番号 <span className="text-red-500">*</span>
-                  <span className="text-xs text-gray-500 ml-2">（当日連絡用）</span>
-                </Label>
-                <Input
-                  id="admin-phone"
-                  type="tel"
-                  value={adminData.phone}
-                  onChange={e => setAdminData(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="例: 090-1234-5678"
-                  autoComplete="tel"
-                />
-              </div>
+              {/* セクション: 代表店舗 */}
+              <section className="space-y-4 pt-4 border-t border-gray-200">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">代表店舗</h3>
 
-              {/* ── 都道府県 ── */}
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-prefecture" className="text-sm font-medium">
-                  お住まいの都道府県 <span className="text-red-500">*</span>
-                </Label>
-                <select
-                  id="admin-prefecture"
-                  value={adminData.prefecture}
-                  onChange={e => setAdminData(prev => ({ ...prev, prefecture: e.target.value }))}
-                  className="w-full h-10 px-3 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-[#E60012] focus:border-transparent"
-                >
-                  <option value="">選択してください</option>
-                  {PREFECTURES.map((pref) => (
-                    <option key={pref} value={pref}>{pref}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* ── 生年月日 ── */}
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-birth-date" className="text-sm font-medium">
-                  生年月日 <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="admin-birth-date"
-                  type="text"
-                  inputMode="numeric"
-                  value={adminData.birthDate}
-                  onChange={e => {
-                    let value = e.target.value.replace(/[^\d/]/g, '')
-                    const digits = value.replace(/\//g, '')
-                    if (digits.length <= 4) {
-                      value = digits
-                    } else if (digits.length <= 6) {
-                      value = `${digits.slice(0, 4)}/${digits.slice(4)}`
-                    } else {
-                      value = `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6, 8)}`
-                    }
-                    setAdminData(prev => ({ ...prev, birthDate: value }))
-                  }}
-                  placeholder="1990/01/15"
-                  maxLength={10}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-password" className="text-sm font-medium">パスワード <span className="text-red-500">*</span></Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <div className="space-y-1.5">
+                  <Label htmlFor="store-name" className="text-sm font-medium">
+                    店舗名 <span className="text-red-500">*</span>
+                  </Label>
                   <Input
-                    id="admin-password"
-                    type="password"
-                    value={adminData.password}
-                    onChange={e => setAdminData(prev => ({ ...prev, password: e.target.value }))}
-                    placeholder="8文字以上"
-                    className="pl-9"
-                    autoComplete="new-password"
+                    id="store-name"
+                    value={storeData.name}
+                    onChange={e => setStoreData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder={`例: ${orgData.name || '〇〇店'}`}
+                  />
+                  <p className="text-xs text-gray-400">
+                    未入力なら組織名を使います。実店舗の名前があれば入力してください。
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="store-address" className="text-sm font-medium">
+                    住所 <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="store-address"
+                    value={storeData.address}
+                    onChange={e => setStoreData(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder="例: 東京都渋谷区道玄坂 1-2-3 〇〇ビル 5F"
+                    autoComplete="street-address"
                   />
                 </div>
-              </div>
+              </section>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-confirm" className="text-sm font-medium">パスワード（確認）<span className="text-red-500">*</span></Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    id="admin-confirm"
-                    type="password"
-                    value={adminData.confirmPassword}
-                    onChange={e => setAdminData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                    placeholder="もう一度入力"
-                    className="pl-9"
-                    autoComplete="new-password"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={handleBack}>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  戻る
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={handleNext}
-                  disabled={isCheckingEmail || emailCheckStatus !== 'idle'}
-                >
-                  {isCheckingEmail && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  次へ：確認
-                  {!isCheckingEmail && <ArrowRight className="w-4 h-4 ml-2" />}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* ── ステップ：代表店舗 ── */}
-          {currentStep === 'store' && (
-            <div className="space-y-4">
-              <p className="text-xs text-gray-500 -mt-2">
-                代表となる店舗を 1 件登録してください。後で追加・編集できます。
-              </p>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="store-name" className="text-sm font-medium">
-                  店舗名 <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="store-name"
-                  value={storeData.name}
-                  onChange={e => {
-                    setStoreNameTouched(true)
-                    setStoreData(prev => ({ ...prev, name: e.target.value }))
-                  }}
-                  placeholder={`例: ${orgData.name || '〇〇店'}`}
-                />
-                <p className="text-xs text-gray-400">
-                  デフォルトは組織名です。実店舗の名前があれば変更してください。
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="store-address" className="text-sm font-medium">
-                  住所 <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="store-address"
-                  value={storeData.address}
-                  onChange={e => setStoreData(prev => ({ ...prev, address: e.target.value }))}
-                  placeholder="例: 東京都渋谷区道玄坂 1-2-3 〇〇ビル 5F"
-                  autoComplete="street-address"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={handleBack}>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  戻る
-                </Button>
-                <Button className="flex-1" onClick={handleNext}>
-                  次へ：確認
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
+              <Button
+                className="w-full"
+                onClick={handleNext}
+                disabled={isCheckingEmail || emailCheckStatus !== 'idle'}
+              >
+                {isCheckingEmail && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                次へ：確認
+                {!isCheckingEmail && <ArrowRight className="w-4 h-4 ml-2" />}
+              </Button>
             </div>
           )}
 
