@@ -8,7 +8,7 @@ import type { Reservation, Customer, ReservationSummary } from '@/types'
 
 // NOTE: Supabase の型推論（select parser）の都合で、select 文字列は literal に寄せる
 const CUSTOMER_SELECT_FIELDS =
-  'id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, notes, avatar_url, visit_count, total_spent, last_visit, preferences, notification_settings, created_at, updated_at' as const
+  'id, organization_id, user_id, name, nickname, email, email_verified, phone, address, line_id, avatar_url, birth_date, prefecture, preferences, notification_settings, created_at, updated_at' as const
 
 // =============================================================================
 // 予約 SELECT フィールド定数
@@ -258,15 +258,12 @@ export const reservationApi = {
 
     logger.log('予約情報取得:', reservation)
 
-    // 同一 user_id で複数組織の customers 行がある場合に誤マッチしないよう、予約の organization_id で絞る
-    let customerQuery = supabase
+    // user_id でプラットフォーム共通の顧客レコードを取得（organization_id は不要）
+    const { data: customerRow, error: customerErr } = await supabase
       .from('customers')
       .select('id')
       .eq('user_id', user.id)
-    if (reservation.organization_id) {
-      customerQuery = customerQuery.eq('organization_id', reservation.organization_id)
-    }
-    const { data: customerRow, error: customerErr } = await customerQuery.maybeSingle()
+      .maybeSingle()
     if (customerErr) {
       logger.error('顧客ID取得エラー:', customerErr)
       throw new Error('顧客情報の取得に失敗しました')

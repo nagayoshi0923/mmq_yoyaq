@@ -148,13 +148,8 @@ export function SettingsPage() {
     try {
       let query = supabase
         .from('customers')
-        .select('id, organization_id, user_id, name, nickname, email, phone, address, line_id, notes, avatar_url, notification_settings, created_at, updated_at')
+        .select('id, organization_id, user_id, name, nickname, email, phone, address, line_id, avatar_url, notification_settings, created_at, updated_at')
 
-      // マルチテナント: 組織コンテキストがある場合は必ず絞る（複数組織所属時の混線防止）
-      if (organizationId) {
-        query = query.eq('organization_id', organizationId)
-      }
-      
       if (user?.id) {
         query = query.eq('user_id', user.id)
       } else if (user?.email) {
@@ -173,7 +168,7 @@ export function SettingsPage() {
           phone: data.phone || '',
           address: data.address || '',
           lineId: data.line_id || '',
-          notes: data.notes || '',
+          notes: '',
         })
         // 通知設定を読み込み
         if (data.notification_settings) {
@@ -219,16 +214,12 @@ export function SettingsPage() {
             phone: formData.phone.trim() || null,
             address: formData.address || null,
             line_id: formData.lineId || null,
-            notes: formData.notes || null,
             email: user?.email || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', customerInfo.id)
         if (user?.id) {
           profileUpdate = profileUpdate.eq('user_id', user.id)
-        }
-        if (organizationId) {
-          profileUpdate = profileUpdate.eq('organization_id', organizationId)
         }
         const { error } = await profileUpdate
 
