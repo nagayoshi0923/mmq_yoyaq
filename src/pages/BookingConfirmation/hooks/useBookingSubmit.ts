@@ -511,15 +511,12 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         throw new Error('顧客情報の取得に失敗しました。もう一度お試しください。')
       }
 
-      let phoneVerifyQuery = supabase
+      const { data: phoneRow, error: phoneVerifyError } = await supabase
         .from('customers')
         .select('phone')
         .eq('id', customerId)
         .eq('user_id', props.userId)
-      if (organizationId) {
-        phoneVerifyQuery = phoneVerifyQuery.eq('organization_id', organizationId)
-      }
-      const { data: phoneRow, error: phoneVerifyError } = await phoneVerifyQuery.maybeSingle()
+        .maybeSingle()
       if (phoneVerifyError || !hasNonEmptyCustomerPhone(phoneRow?.phone)) {
         throw new Error(MSG_CUSTOMER_PHONE_REQUIRED_FOR_BOOKING)
       }
