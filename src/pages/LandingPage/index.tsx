@@ -494,6 +494,40 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* ═══ 店舗オーナー向けCTA ═══ */}
+      <section className="py-16 px-4 bg-gray-50 border-t border-gray-200">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">FOR STORE OWNERS</p>
+          <h2 className="text-2xl md:text-3xl font-black text-gray-900 mb-4">
+            店舗オーナーの方へ
+          </h2>
+          <p className="text-gray-500 text-sm leading-relaxed mb-6 max-w-xl mx-auto">
+            MMQはプレイヤー向けの予約・記録機能に加え、店舗向けの管理機能も提供しています。<br />
+            スケジュール管理・スタッフ管理・売上レポートが<span className="font-semibold text-gray-700">ずっと無料</span>で使えます。
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              size="lg"
+              className="font-bold px-8 h-12 rounded-none text-sm"
+              style={{ backgroundColor: PRIMARY, color: '#fff' }}
+              onClick={() => navigate('/for-business')}
+            >
+              無料で店舗登録する
+              <ArrowRight className="ml-2 w-4 h-4" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="font-bold px-8 h-12 rounded-none border-gray-300 text-gray-700 text-sm"
+              onClick={() => navigate('/pricing')}
+            >
+              料金プランを見る
+              <ChevronRight className="ml-1 w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </section>
+
       <Footer />
     </div>
   )

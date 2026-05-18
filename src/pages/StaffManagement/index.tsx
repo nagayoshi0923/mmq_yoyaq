@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmModal } from '@/components/patterns/modal'
-import { TanStackDataTable } from '@/components/patterns/table'
+import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/table'
+import { useTablePreferences } from '@/hooks/useTablePreferences'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StaffEditForm } from './components/StaffEditForm'
@@ -34,6 +35,7 @@ import { useStaffInvitation } from './hooks/useStaffInvitation'
 import { useStaffQuery, useStaffMutation } from './hooks/useStaffQuery'
 import { useStaffAuthStatus } from './hooks/useStaffAuthStatus'
 import { useQueryClient } from '@tanstack/react-query'
+import { useOrganization } from '@/hooks/useOrganization'
 
 // 分離されたコンポーネントとユーティリティ
 import { StaffFilters } from './components/StaffFilters'
@@ -50,7 +52,8 @@ export function StaffManagement() {
 
   // React Query でCRUD操作
   const queryClient = useQueryClient()
-  const { data: staff = [], isLoading: loading, error: queryError } = useStaffQuery()
+  const { organization } = useOrganization()
+  const { data: staff = [], isLoading: staffLoading, error: queryError } = useStaffQuery()
   const staffMutation = useStaffMutation()
   const error = queryError ? (queryError as Error).message : ''
 
@@ -63,6 +66,9 @@ export function StaffManagement() {
     getScenario,
     getScenarioName
   } = useStoresAndScenarios()
+
+  // 店舗・シナリオが揃うまでローディング扱い（UUID/「不明なシナリオ」の一瞬表示を防ぐ）
+  const loading = staffLoading || stores.length === 0 || scenarios.length === 0
 
   // スタッフの認証状態を取得
   const staffUserIds = useMemo(() => staff.map(s => s.user_id ?? null), [staff])
@@ -165,12 +171,6 @@ export function StaffManagement() {
     }
   })
 
-  // 初期データ読み込み
-  useEffect(() => {
-    loadStores()
-    loadScenarios()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // 検索・フィルタの状態を自動保存
   useEffect(() => {
@@ -225,9 +225,9 @@ export function StaffManagement() {
   const tableColumns = useMemo(
     () => createStaffColumns(
       { stores, getScenario, getScenarioName, getAuthStatus },
-      { 
-        onEdit: handleEditStaff, 
-        onLink: openLinkModal, 
+      {
+        onEdit: handleEditStaff,
+        onLink: openLinkModal,
         onUnlink: openUnlinkDialog,
         onReinvite: handleReinviteStaff
       }
@@ -235,6 +235,9 @@ export function StaffManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ハンドラーは安定した参照を持つ
     [stores, getScenario, getScenarioName, getAuthStatus, handleReinviteStaff]
   )
+
+  const defaultStaffColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
+  const [staffColumnPrefs, setStaffColumnPrefs] = useTablePreferences('staff-management', defaultStaffColumnKeys)
 
   // スタッフ保存ハンドラ
   const handleSaveStaff = async (staffData: any) => {
@@ -356,10 +359,10 @@ export function StaffManagement() {
         <div className="space-y-6">
             <PageHeader
               title={
-                <div className="flex items-center gap-2">
+                <>
                   <Users className="h-5 w-5 text-primary" />
-                  <span className="text-lg font-bold">スタッフ管理</span>
-                </div>
+                  {organization?.name ? `${organization.name}のスタッフ管理` : 'スタッフ管理'}
+                </>
               }
               description={`全${staff.length}名のスタッフを管理`}
             >
@@ -412,23 +415,36 @@ export function StaffManagement() {
               onSearchChange={setSearchTerm}
               onStatusFilterChange={setStatusFilter}
               onInviteClick={openInviteModal}
+              resultCount={sortedStaff.length}
+              columnSettingsPanel={
+                <ColumnSettingsPanel
+                  columns={tableColumns}
+                  preferences={staffColumnPrefs}
+                  onPreferencesChange={setStaffColumnPrefs}
+                  defaultColumnKeys={defaultStaffColumnKeys}
+                />
+              }
             />
 
             {/* スタッフ一覧テーブル (PC表示) */}
-            <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
-              <TanStackDataTable
-                data={sortedStaff}
-                columns={tableColumns}
-                getRowKey={(staff) => staff.id}
-                sortState={sortState}
-                onSort={setSortState}
-                emptyMessage={
-                  searchTerm || statusFilter !== 'all'
-                    ? '検索条件に一致するスタッフが見つかりません'
-                    : 'スタッフが登録されていません'
-                }
-                loading={loading}
-              />
+            <div className="hidden md:block">
+              <div className="bg-white border rounded-lg overflow-hidden">
+                <TanStackDataTable
+                  data={sortedStaff}
+                  columns={tableColumns}
+                  getRowKey={(staff) => staff.id}
+                  sortState={sortState}
+                  onSort={setSortState}
+                  emptyMessage={
+                    searchTerm || statusFilter !== 'all'
+                      ? '検索条件に一致するスタッフが見つかりません'
+                      : 'スタッフが登録されていません'
+                  }
+                  loading={loading}
+                  autoRowHeight
+                  columnPreferences={staffColumnPrefs}
+                />
+              </div>
             </div>
 
             {/* スタッフ一覧リスト (モバイル表示) */}
@@ -562,7 +578,7 @@ export function StaffManagement() {
           confirmLabel="連携解除"
         />
 
-        {/* スタッフ招待モーダル（既存コードを一時的に簡略化） */}
+        {/* スタッフ招待モーダル */}
         <Dialog open={isInviteModalOpen} onOpenChange={closeInviteModal}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>

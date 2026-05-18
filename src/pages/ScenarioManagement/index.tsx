@@ -17,7 +17,8 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmModal } from '@/components/patterns/modal'
-import { TanStackDataTable } from '@/components/patterns/table'
+import { TanStackDataTable, ColumnSettingsPanel } from '@/components/patterns/table'
+import { useTablePreferences } from '@/hooks/useTablePreferences'
 import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 
 // 分離されたコンポーネント
@@ -46,6 +47,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { generateSlugFromTitle } from '@/utils/toRomaji'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
 
 /**
  * 旧UIの表示切替は無効化（切り離し）
@@ -65,6 +67,7 @@ export function ScenarioManagement() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
   const canEditScenarios = isAdmin
+  const { organization } = useOrganization()
 
   // UI状態
   const [uiMode, setUIMode] = useState<'legacy' | 'new'>(() =>
@@ -115,9 +118,6 @@ export function ScenarioManagement() {
       { replace: true }
     )
   }, [canEditScenarios, location.pathname, location.search, navigate])
-  
-  // 新UI用のリフレッシュキー（保存後に更新をトリガー）
-  const [orgScenarioRefreshKey, setOrgScenarioRefreshKey] = useState(0)
   
   // 組織シナリオリストからの編集（useCallbackで安定化）
   const handleEditFromOrgList = useCallback((id: string) => {
@@ -236,9 +236,8 @@ export function ScenarioManagement() {
   function handleCloseEditDialog() {
     setEditDialogOpen(false)
     setEditingScenarioId(null)
-    // ダイアログを閉じた時にも一覧を更新（保存後の反映漏れを防ぐ）
-    setOrgScenarioRefreshKey(prev => prev + 1)
-    // カテゴリ・作者の選択肢キャッシュも無効化
+    // 組織シナリオ一覧とオプションキャッシュを無効化
+    queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'] })
     queryClient.invalidateQueries({ queryKey: ['org-scenarios-options'] })
   }
   
@@ -361,6 +360,9 @@ export function ScenarioManagement() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- ハンドラーは安定した参照を持つ
   [displayMode, storeMap, scenarioStats])
 
+  const defaultColumnKeys = useMemo(() => tableColumns.map(c => c.key), [tableColumns])
+  const [columnPrefs, setColumnPrefs] = useTablePreferences('scenario-management', defaultColumnKeys)
+
   // スクロール位置の保存と復元
   useEffect(() => {
     // ブラウザのデフォルトスクロール復元を無効化
@@ -442,10 +444,10 @@ export function ScenarioManagement() {
         <div className="space-y-6">
           <PageHeader
             title={
-              <div className="flex items-center gap-2">
+              <>
                 <BookOpen className="h-5 w-5 text-primary" />
-                <span className="text-lg font-bold">シナリオ管理</span>
-              </div>
+                {organization?.name ? `${organization.name}のシナリオ管理` : 'シナリオ管理'}
+              </>
             }
             description={`全${allScenarios.length}本のシナリオを管理`}
           >
@@ -453,9 +455,16 @@ export function ScenarioManagement() {
           </PageHeader>
 
           <div className="flex items-center justify-between">
-            {/* 旧UI切り替えは無効化。常に新UIを表示 */}
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs">新UI（マスタ連携）</Badge>
+            {/* 凡例（マスタ由来 / 組織設定） */}
+            <div className="flex items-center gap-4 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 bg-gray-100 border rounded"></span>
+                マスタ由来
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 bg-blue-100 border border-blue-200 rounded"></span>
+                組織設定
+              </span>
               {!canEditScenarios && <Badge variant="outline" className="text-xs">閲覧専用</Badge>}
             </div>
             <div className="flex items-center gap-2 sm:gap-4">
@@ -492,7 +501,6 @@ export function ScenarioManagement() {
           {uiMode === 'new' ? (
             <OrganizationScenarioList
               onEdit={canEditScenarios ? handleEditFromOrgList : undefined}
-              refreshKey={orgScenarioRefreshKey}
               canEdit={canEditScenarios}
             />
           ) : ENABLE_LEGACY_SCENARIO_UI ? (
@@ -545,20 +553,31 @@ export function ScenarioManagement() {
           </div>
 
           {/* PC用: テーブル形式 */}
-          <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
-            <TanStackDataTable
-              data={displayedScenarios}
-              columns={tableColumns}
-              getRowKey={(scenario) => scenario.id}
-              sortState={sortState}
-              onSort={handleSort}
-              emptyMessage={
-                searchTerm || statusFilter !== 'all' 
-                  ? '検索条件に一致するシナリオが見つかりません' 
-                  : 'シナリオが登録されていません'
-              }
-              loading={loading}
-            />
+          <div className="hidden md:block">
+            <div className="flex justify-end mb-1.5">
+              <ColumnSettingsPanel
+                columns={tableColumns}
+                preferences={columnPrefs}
+                onPreferencesChange={setColumnPrefs}
+                defaultColumnKeys={defaultColumnKeys}
+              />
+            </div>
+            <div className="bg-white border rounded-lg overflow-hidden">
+              <TanStackDataTable
+                data={displayedScenarios}
+                columns={tableColumns}
+                getRowKey={(scenario) => scenario.id}
+                sortState={sortState}
+                onSort={handleSort}
+                emptyMessage={
+                  searchTerm || statusFilter !== 'all'
+                    ? '検索条件に一致するシナリオが見つかりません'
+                    : 'シナリオが登録されていません'
+                }
+                loading={loading}
+                columnPreferences={columnPrefs}
+              />
+            </div>
           </div>
 
           {/* モバイル用: リスト形式 */}
@@ -717,9 +736,7 @@ export function ScenarioManagement() {
           onScenarioChange={setEditingScenarioId}
           sortedScenarioIds={filteredAndSortedScenarios.map(s => s.id)}
           onSaved={() => {
-            // 新UIの一覧を更新
-            setOrgScenarioRefreshKey(prev => prev + 1)
-            // カテゴリ・作者の選択肢キャッシュも無効化
+            queryClient.invalidateQueries({ queryKey: ['org-scenarios', 'list'] })
             queryClient.invalidateQueries({ queryKey: ['org-scenarios-options'] })
           }}
         />

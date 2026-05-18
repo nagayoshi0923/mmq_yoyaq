@@ -1,83 +1,16 @@
-import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { BookOpen } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { logger } from '@/utils/logger'
+import { useStaffInfoQuery, useGmPlayedScenariosQuery } from '../hooks/useGmHistoryQuery'
 
 export function GmHistoryPage() {
   const { user } = useAuth()
-  const [playedScenarios, setPlayedScenarios] = useState<any[]>([])
-  const [staffInfo, setStaffInfo] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (user?.email) {
-      fetchStaffInfo()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- user変更時のみ実行
-  }, [user])
+  const { data: staffInfo, isLoading: staffLoading } = useStaffInfoQuery(user?.email)
+  const { data: playedScenarios = [], isLoading: scenariosLoading } = useGmPlayedScenariosQuery(staffInfo?.name)
 
-  useEffect(() => {
-    if (staffInfo?.id) {
-      fetchPlayedScenarios()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- staffInfo変更時のみ実行
-  }, [staffInfo])
-
-  const fetchStaffInfo = async () => {
-    if (!user?.email) return
-
-    try {
-      const { data, error } = await supabase
-        .from('staff')
-        .select('id, organization_id, name, email')
-        .eq('email', user.email)
-        .maybeSingle()
-
-      if (error) throw error
-      setStaffInfo(data)
-    } catch (error) {
-      logger.error('スタッフ情報取得エラー:', error)
-    }
-  }
-
-  const fetchPlayedScenarios = async () => {
-    if (!staffInfo?.name) return
-
-    setLoading(true)
-    try {
-      // スタッフが担当した公演を取得
-      const { data, error } = await supabase
-        .from('schedule_events_staff_view')
-        .select('scenario, date, venue')
-        .contains('gms', [staffInfo.name])
-        .eq('is_cancelled', false)
-        .lte('date', new Date().toISOString().split('T')[0])
-        .order('date', { ascending: false })
-
-      if (error) throw error
-
-      // シナリオごとにグループ化してカウント
-      const scenarioMap = new Map()
-      data?.forEach((event) => {
-        const count = scenarioMap.get(event.scenario) || 0
-        scenarioMap.set(event.scenario, count + 1)
-      })
-
-      const scenarios = Array.from(scenarioMap.entries()).map(([scenario, count]) => ({
-        scenario,
-        count,
-      }))
-
-      setPlayedScenarios(scenarios)
-    } catch (error) {
-      logger.error('体験済みシナリオ取得エラー:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const loading = staffLoading || scenariosLoading
 
   if (loading) {
     return (
@@ -161,4 +94,3 @@ export function GmHistoryPage() {
     </div>
   )
 }
-

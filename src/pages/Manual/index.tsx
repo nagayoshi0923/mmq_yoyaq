@@ -381,6 +381,18 @@ export function ManualPage() {
   // エディターモード
   const [editorMode, setEditorMode] = useState<EditorMode>({ type: 'view' })
 
+  // URL の ?tab= / ?action= が外部ナビゲーション（AdminSidebar等）で変わったときに同期
+  useEffect(() => {
+    if (searchParams.get('action') === 'new') {
+      setEditorMode({ type: 'new' })
+      return
+    }
+    const resolved = resolveTab(searchParams.get('tab'))
+    setActiveTab(resolved)
+    setEditorMode({ type: 'view' })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   const handleTabChange = (id: string) => {
     setActiveTab(id)
     setSearchParams({ tab: id }, { replace: true })
@@ -468,30 +480,13 @@ export function ManualPage() {
   return (
     <AppLayout
       currentPage="manual"
-      sidebar={
-        <ManualSidebar
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-          dbStaffPages={dbStaffPages}
-          dbAdminPages={dbAdminPages}
-          isAdmin={isAdmin}
-          onNewPage={() => setEditorMode({ type: 'new' })}
-          onEditPage={pageId => setEditorMode({ type: 'edit', pageId })}
-          blockBasedSlugs={blockBasedSlugs}
-        />
-      }
       maxWidth="max-w-[1440px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
       <div className="space-y-6">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">操作マニュアル</span>
-            </div>
-          }
+          title={<><BookOpen className="h-5 w-5 text-primary" />操作マニュアル</>}
           description="システムの操作方法と使用シーンについてのガイド"
         />
         {renderContent()}

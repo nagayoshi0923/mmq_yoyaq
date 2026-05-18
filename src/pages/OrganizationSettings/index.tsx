@@ -14,20 +14,23 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Building2, 
-  Mail, 
-  User, 
-  Save, 
-  Loader2, 
+import {
+  Building2,
+  Mail,
+  User,
+  Save,
+  Loader2,
   Users,
   CheckCircle,
   Clock,
   RefreshCw,
-  Timer
+  Timer,
+  Globe,
+  Send
 } from 'lucide-react'
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
+import { supabase } from '@/lib/supabase'
 import { getInvitationsByOrganization, resendInvitation, deleteInvitation } from '@/lib/api/invitationsApi'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -37,6 +40,7 @@ import type { OrganizationInvitation } from '@/types'
 export default function OrganizationSettings() {
   const { organization, isLoading: orgLoading, refetch } = useOrganization()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isApplying, setIsApplying] = useState(false)
   const [invitations, setInvitations] = useState<OrganizationInvitation[]>([])
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(false)
   
@@ -100,6 +104,24 @@ export default function OrganizationSettings() {
     }
   }
 
+  // 予約サイト公開を申請
+  const handleApplyBookingSite = async () => {
+    setIsApplying(true)
+    try {
+      const { error } = await supabase.rpc('apply_for_booking_site')
+      if (error) throw error
+      toast.success('予約サイト公開を申請しました。審査をお待ちください。')
+      refetch()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '申請に失敗しました'
+      if (msg.includes('already_pending')) toast.error('既に申請中です')
+      else if (msg.includes('already_approved')) toast.error('既に承認済みです')
+      else toast.error(msg)
+    } finally {
+      setIsApplying(false)
+    }
+  }
+
   // 招待を再送信
   const handleResendInvitation = async (invitation: OrganizationInvitation) => {
     const { data, error } = await resendInvitation(invitation.id)
@@ -158,12 +180,7 @@ export default function OrganizationSettings() {
     <AppLayout currentPage="organization-settings" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
       <div className="space-y-6">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">会社情報</span>
-            </div>
-          }
+          title={<><Building2 className="h-5 w-5 text-primary" />会社情報</>}
           description={`${organization.name} の基本情報と管理者の招待`}
         />
 
@@ -260,19 +277,59 @@ export default function OrganizationSettings() {
         {/* プラン情報 */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">プラン情報</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Globe className="w-5 h-5" />
+              プラン・予約サイト公開
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
-              <div>
-                <Badge className="text-lg px-4 py-1">
-                  {(organization.plan || 'free').toUpperCase()}
-                </Badge>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                プランの変更は管理者にお問い合わせください
-              </div>
+          <CardContent className="space-y-4">
+            {/* 現在のプラン */}
+            <div className="flex items-center gap-3">
+              <Badge variant={organization.plan === 'free' ? 'secondary' : 'default'} className="px-3 py-1">
+                {organization.plan === 'free' ? '無料プラン' : `${organization.plan.toUpperCase()} プラン`}
+              </Badge>
+              {organization.plan !== 'free' && (
+                <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                  <CheckCircle className="w-4 h-4" />
+                  予約サイト公開中
+                </span>
+              )}
             </div>
+
+            {/* 予約サイト公開の申請ステータス */}
+            {organization.plan === 'free' && (
+              <div className="border rounded-lg p-4 space-y-3">
+                <p className="text-sm font-medium">予約サイト公開（月額 ¥4,980）</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  24時間オンライン予約受付・自動メール送信・予約サイトのカスタマイズが利用できます。
+                </p>
+
+                {organization.booking_site_status === 'pending' ? (
+                  <div className="flex items-center gap-2 text-amber-600 bg-amber-50 rounded px-3 py-2 text-sm">
+                    <Clock className="w-4 h-4 flex-shrink-0" />
+                    <span>申請中です。MMQ運営による審査をお待ちください。</span>
+                  </div>
+                ) : organization.booking_site_status === 'approved' ? (
+                  <div className="flex items-center gap-2 text-green-600 bg-green-50 rounded px-3 py-2 text-sm">
+                    <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>承認されました。プランが更新されます。</span>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleApplyBookingSite}
+                    disabled={isApplying}
+                  >
+                    {isApplying
+                      ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      : <Send className="w-4 h-4 mr-2" />
+                    }
+                    予約サイト公開を申請する
+                  </Button>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

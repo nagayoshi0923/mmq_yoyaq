@@ -86,8 +86,12 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     organizationNotFound,
     organizationName,
     organizationHeaderImageUrl,
-    organizationPublicBookingHeroDescription
+    organizationPublicBookingHeroDescription,
+    organizationThemeColor,
   } = useBookingData(organizationSlug)
+
+  // 組織設定のテーマカラーがあればそれを使用、なければデフォルト
+  const heroBgColor = organizationThemeColor || THEME.primary
 
   const heroDescription = useMemo(() => {
     return organizationPublicBookingHeroDescription?.trim() || DEFAULT_PUBLIC_BOOKING_HERO
@@ -321,7 +325,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
       {/* ヒーローセクション - 背景画像対応 */}
       <section 
         className="relative overflow-hidden"
-        style={{ backgroundColor: THEME.primary }}
+        style={{ backgroundColor: heroBgColor }}
       >
         {/* 背景画像（設定されている場合） */}
         {organizationHeaderImageUrl && (
@@ -346,14 +350,14 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
           <>
             <div 
               className="absolute top-0 right-0 w-48 h-48 opacity-20"
-              style={{ 
-                background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+              style={{
+                background: `radial-gradient(circle at center, ${heroBgColor} 0%, transparent 70%)`,
                 transform: 'translate(30%, -30%)'
               }}
             />
-            <div 
+            <div
               className="absolute bottom-0 left-0 w-1 h-12"
-              style={{ backgroundColor: THEME.accent }}
+              style={{ backgroundColor: heroBgColor }}
             />
           </>
         )}
@@ -364,7 +368,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             {organizationName && (
               <div
                 className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium mb-2"
-                style={{ backgroundColor: THEME.accent, color: '#000' }}
+                style={{ backgroundColor: heroBgColor, color: '#fff', opacity: 0.85 }}
               >
                 <Sparkles className="w-2.5 h-2.5" />
                 {organizationName.toUpperCase()}
@@ -430,7 +434,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         <div className="container mx-auto max-w-7xl px-4 md:px-6 py-2">
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
-              <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} organizationSlug={organizationSlug} />
+              <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} organizationSlug={organizationSlug} themeColor={heroBgColor} />
             </div>
             <Button
               type="button"
@@ -516,6 +520,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 selectedStoreIds={selectedStoreIds}
                 onStoreIdsChange={handleStoreIdsChange}
                 stores={stores}
+                themeColor={heroBgColor}
               />
             </TabsContent>
 

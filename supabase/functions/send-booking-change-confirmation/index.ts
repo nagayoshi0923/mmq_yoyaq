@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getStoreEmailSettings } from '../_shared/organization-settings.ts'
 import { getAnonKey, getServiceRoleKey, getCorsHeaders, maskEmail, maskName, verifyAuth, errorResponse, sanitizeErrorMessage } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface BookingChangeRequest {
   organizationId?: string  // マルチテナント対応
@@ -363,11 +364,23 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
       finalText = emailText
     }
 
+    const emailSubject = `【予約内容変更】${changeData.scenarioTitle} - ${changeData.reservationNumber}${companyName ? ` | ${companyName}` : ''}`
+
+    const emailLogId = await insertEmailLog(serviceClient, {
+      organization_id: resolvedOrganizationId ?? null,
+      reservation_id:  changeData.reservationId,
+      email_type:      'reservation_changed',
+      to_email:        changeData.customerEmail,
+      to_name:         changeData.customerName ?? null,
+      subject:         emailSubject,
+      status:          'queued',
+    })
+
     // Resend APIを使ってメール送信
     const emailPayload: Record<string, unknown> = {
       from: `${companyName} <${senderEmail}>`,
       to: [changeData.customerEmail],
-      subject: `【予約内容変更】${changeData.scenarioTitle} - ${changeData.reservationNumber}${companyName ? ` | ${companyName}` : ''}`,
+      subject: emailSubject,
       html: finalHtml,
       text: finalText,
     }
@@ -389,11 +402,20 @@ ${companyEmail ? `Email: ${companyEmail}` : ''}
     if (!resendResponse.ok) {
       const errorData = await resendResponse.json()
       console.error('Resend API error:', errorData)
+      await updateEmailLog(serviceClient, emailLogId, {
+        status: 'failed',
+        error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+      })
       throw new Error(`メール送信に失敗しました: ${JSON.stringify(errorData)}`)
     }
 
     const result = await resendResponse.json()
     console.log('Email sent successfully:', result)
+    await updateEmailLog(serviceClient, emailLogId, {
+      status: 'sent',
+      provider_message_id: result.id,
+      sent_at: new Date().toISOString(),
+    })
 
     return new Response(
       JSON.stringify({ 

@@ -201,6 +201,33 @@ export function CompleteProfile() {
 
     ;(async () => {
       try {
+        // admin/staff ユーザーは顧客プロフィールフォームをスキップしてダッシュボードへ
+        const { data: userRecord } = await supabase
+          .from('users')
+          .select('role, organization_id')
+          .eq('id', userId)
+          .maybeSingle()
+
+        if (cancelled) return
+
+        const isStaffOrAdmin =
+          userRecord?.role === 'admin' ||
+          userRecord?.role === 'staff' ||
+          userRecord?.role === 'license_admin'
+
+        if (isStaffOrAdmin) {
+          logger.log('✅ admin/staff ユーザーのためダッシュボードへリダイレクト')
+          setProfileGate('leaving')
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('slug')
+            .eq('id', userRecord?.organization_id)
+            .maybeSingle()
+          const dest = org?.slug ? `/${org.slug}/dashboard` : '/dashboard'
+          navigate(dest, { replace: true })
+          return
+        }
+
         const { data: rows, error } = await supabase
           .from('customers')
           .select('id, name, phone, email')
@@ -375,6 +402,7 @@ export function CompleteProfile() {
 
       let organizationId = existingUser?.organization_id ?? null
       if (!organizationId) {
+        // 1. 現在のURLパスからスラッグを取得（/complete-profile は adminPaths なので null になる）
         const slug = getOrganizationSlugFromPath()
         if (slug) {
           const org = await getOrganizationBySlug(slug)
@@ -382,7 +410,7 @@ export function CompleteProfile() {
         }
       }
       if (!organizationId) {
-        // next クエリパラメータからスラッグを取得（例: ?next=/queens-waltz/booking/...）
+        // 2. next クエリパラメータからスラッグを取得（例: ?next=/queens-waltz/booking/...）
         const nextParam = new URLSearchParams(window.location.search).get('next')
         const nextSlug = nextParam?.match(/^\/([^/?#]+)/)?.[1]
         if (nextSlug) {
@@ -391,6 +419,7 @@ export function CompleteProfile() {
         }
       }
       if (!organizationId) {
+        // 3. どうしても特定できない場合はデフォルト組織（Queens Waltz）を使用
         logger.warn('CompleteProfile: org_id が特定できません（URLにorgスラッグがありません）')
         organizationId = QUEENS_WALTZ_ORG_ID
       }

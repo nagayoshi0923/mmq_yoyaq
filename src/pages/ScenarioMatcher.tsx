@@ -4,6 +4,7 @@ import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -222,7 +223,13 @@ export function ScenarioMatcher() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <AppLayout
+      currentPage="scenario-matcher"
+      maxWidth="max-w-[1440px]"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+      stickyLayout={true}
+    >
+    <div className="space-y-6">
       <div className="max-w-6xl mx-auto">
         <Card className="p-8">
           <h1 className="text-lg mb-4">🔗 シナリオマッチングツール</h1>
@@ -371,6 +378,7 @@ export function ScenarioMatcher() {
         </Card>
       </div>
     </div>
+    </AppLayout>
   )
 }
 

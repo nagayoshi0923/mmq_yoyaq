@@ -18,6 +18,7 @@ interface GlobalSettings {
   shift_submission_start_day: number
   shift_submission_end_day: number
   shift_submission_target_months_ahead: number
+  shift_edit_deadline_days_before: number
   system_name: string
   maintenance_mode: boolean
   maintenance_message: string | null
@@ -50,6 +51,7 @@ export function GeneralSettings() {
     shift_submission_start_day: 1,
     shift_submission_end_day: 15,
     shift_submission_target_months_ahead: 1,
+    shift_edit_deadline_days_before: 7,
     system_name: 'MMQ 予約管理システム',
     maintenance_mode: false,
     maintenance_message: '',
@@ -89,7 +91,7 @@ export function GeneralSettings() {
       
       const { data, error } = await supabase
         .from('global_settings')
-        .select('id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message, system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body, system_msg_booking_rejected_title, system_msg_booking_rejected_body, system_msg_booking_cancelled_title, system_msg_booking_cancelled_body')
+        .select('id, organization_id, shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead, shift_edit_deadline_days_before, system_name, maintenance_mode, maintenance_message, enable_email_notifications, enable_discord_notifications, pre_reading_notice_message, system_msg_group_created_title, system_msg_group_created_body, system_msg_group_created_note, system_msg_booking_requested_title, system_msg_booking_requested_body, system_msg_schedule_confirmed_title, system_msg_schedule_confirmed_body, system_msg_booking_rejected_title, system_msg_booking_rejected_body, system_msg_booking_cancelled_title, system_msg_booking_cancelled_body')
         .eq('organization_id', orgId)
         .single()
 
@@ -105,6 +107,7 @@ export function GeneralSettings() {
           shift_submission_start_day: data.shift_submission_start_day,
           shift_submission_end_day: data.shift_submission_end_day,
           shift_submission_target_months_ahead: data.shift_submission_target_months_ahead,
+          shift_edit_deadline_days_before: data.shift_edit_deadline_days_before ?? 7,
           system_name: data.system_name,
           maintenance_mode: data.maintenance_mode,
           maintenance_message: data.maintenance_message || '',
@@ -144,6 +147,7 @@ export function GeneralSettings() {
           shift_submission_start_day: formData.shift_submission_start_day,
           shift_submission_end_day: formData.shift_submission_end_day,
           shift_submission_target_months_ahead: formData.shift_submission_target_months_ahead,
+          shift_edit_deadline_days_before: formData.shift_edit_deadline_days_before,
           system_name: formData.system_name,
           maintenance_mode: formData.maintenance_mode,
           maintenance_message: formData.maintenance_message || null,
@@ -211,6 +215,27 @@ export function GeneralSettings() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
+              <Label htmlFor="shift_submission_start_day">提出開始日</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">毎月</span>
+                <Input
+                  id="shift_submission_start_day"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={formData.shift_submission_start_day}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    shift_submission_start_day: parseInt(e.target.value) || 1
+                  }))}
+                  className="w-20"
+                />
+                <span className="text-xs text-muted-foreground">日から</span>
+              </div>
+              <p className="text-xs text-muted-foreground">この日からシフト提出が可能になります</p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="shift_submission_end_day">提出締切日</Label>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">毎月</span>
@@ -220,9 +245,9 @@ export function GeneralSettings() {
                   min="1"
                   max="31"
                   value={formData.shift_submission_end_day}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    shift_submission_end_day: parseInt(e.target.value) || 15 
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    shift_submission_end_day: parseInt(e.target.value) || 15
                   }))}
                   className="w-20"
                 />
@@ -240,9 +265,9 @@ export function GeneralSettings() {
                   min="0"
                   max="3"
                   value={formData.shift_submission_target_months_ahead}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    shift_submission_target_months_ahead: parseInt(e.target.value) || 1 
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    shift_submission_target_months_ahead: parseInt(e.target.value) || 1
                   }))}
                   className="w-20"
                 />
@@ -250,15 +275,37 @@ export function GeneralSettings() {
               </div>
               <p className="text-xs text-muted-foreground">提出するシフトの対象月</p>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="shift_edit_deadline_days_before">編集締切</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">対象月の</span>
+                <Input
+                  id="shift_edit_deadline_days_before"
+                  type="number"
+                  min="0"
+                  max="31"
+                  value={formData.shift_edit_deadline_days_before}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    shift_edit_deadline_days_before: parseInt(e.target.value) || 7
+                  }))}
+                  className="w-20"
+                />
+                <span className="text-xs text-muted-foreground">日前まで編集可</span>
+              </div>
+              <p className="text-xs text-muted-foreground">この日以降はシフトの変更ができなくなります</p>
+            </div>
           </div>
 
           <div className="bg-blue-50 p-4 rounded-lg">
             <p className="text-sm text-blue-900 mb-2">設定例</p>
             <p className="text-xs text-blue-700">
-              締切日: {formData.shift_submission_end_day}日、
-              対象: {formData.shift_submission_target_months_ahead}ヶ月先
+              提出期間: {formData.shift_submission_start_day}日〜{formData.shift_submission_end_day}日、
+              対象: {formData.shift_submission_target_months_ahead}ヶ月先、
+              編集締切: 対象月の{formData.shift_edit_deadline_days_before}日前まで
               <br />
-              → 毎月{formData.shift_submission_end_day}日までに、
+              → 毎月{formData.shift_submission_start_day}日〜{formData.shift_submission_end_day}日の間に、
               {formData.shift_submission_target_months_ahead}ヶ月後のシフトを提出してください
             </p>
           </div>

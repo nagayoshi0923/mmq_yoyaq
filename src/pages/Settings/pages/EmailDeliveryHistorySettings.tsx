@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { RefreshCw, Search } from 'lucide-react'
+import { RefreshCw, Search, Mail } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { SectionTitle } from '@/components/settings/SectionTitle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -109,71 +109,71 @@ export function EmailDeliveryHistorySettings() {
   }, [emails, keyword])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="メール配信履歴"
-        description="Resendに記録されている送信先・件名・ステータスを確認できます"
+        description="Resend経由で実際に送信されたメールの配信履歴。ステータス・宛先・件名を確認できます"
       >
-        <Button onClick={() => fetchHistory(true)} disabled={refreshing}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+        <Button size="sm" onClick={() => fetchHistory(true)} disabled={refreshing}>
+          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
           更新
         </Button>
       </PageHeader>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>検索</CardTitle>
-          <CardDescription>送信先メールアドレス・件名・ステータスで絞り込めます</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="relative max-w-xl">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              className="pl-9"
-              placeholder="例: gmail.com / 貸切予約 / delivered"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* 検索 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Search}
+          label="検索"
+          description="送信先メールアドレス・件名・ステータスで絞り込めます"
+        />
+        <div className="relative max-w-xl">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            className="pl-9"
+            placeholder="例: gmail.com / 貸切予約 / delivered"
+          />
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>履歴一覧（最新100件）</CardTitle>
-          <CardDescription>開封判定（opened）は受信環境により誤差が出る場合があります</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
-          ) : filteredEmails.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">該当する履歴がありません</div>
-          ) : (
-            <div className="space-y-3">
-              {filteredEmails.map((item) => (
-                <div key={item.id} className="border rounded-lg p-4 bg-white">
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <Badge className={getEventBadgeClass(item.last_event)}>
-                      {getEventLabel(item.last_event)}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">{formatJstDateTime(item.created_at)}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">To:</span>{' '}
-                      {item.to.length > 0 ? item.to.join(', ') : '-'}
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">件名:</span> {item.subject || '-'}
-                    </div>
-                    <div className="text-xs text-muted-foreground break-all">Message ID: {item.id}</div>
-                  </div>
+      {/* 履歴一覧 */}
+      <section className="bg-white rounded-xl border p-6">
+        <SectionTitle
+          icon={Mail}
+          label="履歴一覧（最新100件）"
+          description="開封判定（opened）は受信環境により誤差が出る場合があります"
+        />
+        {loading ? (
+          <div className="text-center py-12 text-muted-foreground">読み込み中...</div>
+        ) : filteredEmails.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">該当する履歴がありません</div>
+        ) : (
+          <div className="space-y-3">
+            {filteredEmails.map((item) => (
+              <div key={item.id} className="border rounded-lg p-4 bg-gray-50">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <Badge className={getEventBadgeClass(item.last_event)}>
+                    {getEventLabel(item.last_event)}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">{formatJstDateTime(item.created_at)}</span>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <div className="space-y-1">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">To:</span>{' '}
+                    {item.to.length > 0 ? item.to.join(', ') : '-'}
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">件名:</span> {item.subject || '-'}
+                  </div>
+                  <div className="text-xs text-muted-foreground break-all">Message ID: {item.id}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

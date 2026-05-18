@@ -10,7 +10,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings, getEmailTemplates, getStoreEmailSettings } from '../_shared/organization-settings.ts'
-import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse } from '../_shared/security.ts'
+import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, checkRateLimit, getClientIP, rateLimitResponse, getServiceRoleKey } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface NotifyWaitlistRequest {
   organizationId: string
@@ -490,6 +491,17 @@ ${emailTemplates.footer}
         finalText = emailText
       }
 
+      const waitlistEmailSubject = `【空席のお知らせ】${data.scenarioTitle} - ${formatDate(data.eventDate)}`
+      const waitlistEmailLogId = await insertEmailLog(serviceClient, {
+        organization_id:   data.organizationId ?? null,
+        schedule_event_id: data.scheduleEventId ?? null,
+        email_type:        'waitlist_confirmed',
+        to_email:          entry.customer_email,
+        to_name:           entry.customer_name ?? null,
+        subject:           waitlistEmailSubject,
+        status:            'queued',
+      })
+
       try {
         const resendResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -500,7 +512,7 @@ ${emailTemplates.footer}
           body: JSON.stringify({
             from: `${companyName} <${senderEmail}>`,
             to: [entry.customer_email],
-            subject: `【空席のお知らせ】${data.scenarioTitle} - ${formatDate(data.eventDate)}`,
+            subject: waitlistEmailSubject,
             html: finalHtml,
             text: finalText,
             reply_to: companyEmail || undefined,
@@ -510,8 +522,19 @@ ${emailTemplates.footer}
         if (!resendResponse.ok) {
           const errorData = await resendResponse.json()
           console.error('Resend API error for', entry.customer_email, ':', errorData)
+          await updateEmailLog(serviceClient, waitlistEmailLogId, {
+            status: 'failed',
+            error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+          })
           return { success: false, entryId: entry.id, error: errorData }
         }
+
+        const waitlistEmailResult = await resendResponse.json()
+        await updateEmailLog(serviceClient, waitlistEmailLogId, {
+          status: 'sent',
+          provider_message_id: waitlistEmailResult?.id ?? null,
+          sent_at: new Date().toISOString(),
+        })
 
         // 🔒 SEC-P0-03: ステータス更新はRPCで既に完了済み
         // fetch_and_lock_waitlist_entries でアトミックに更新されているため、ここでの更新は不要
@@ -520,6 +543,10 @@ ${emailTemplates.footer}
         return { success: true, entryId: entry.id }
       } catch (err) {
         console.error('Email send error for', entry.customer_email, ':', err)
+        await updateEmailLog(serviceClient, waitlistEmailLogId, {
+          status: 'failed',
+          error_message: sanitizeErrorMessage(err?.message ?? String(err)),
+        })
         return { success: false, entryId: entry.id, error: err.message }
       }
     })

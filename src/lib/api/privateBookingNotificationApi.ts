@@ -1,4 +1,11 @@
-import { supabase } from '@/lib/supabase'
+/**
+ * 貸切予約 Discord 通知 API
+ *
+ * バックエンド API (/api/private-booking-notifications) 経由で実行する。
+ * - サーバ側で予約の organization_id がユーザの所属組織と一致するか検証
+ * - 検証後、Edge Function (notify-private-booking-discord) を service_role で invoke
+ */
+import { apiClient } from '@/lib/apiClient'
 import { logger } from '@/utils/logger'
 
 interface ResendBookingData {
@@ -30,35 +37,26 @@ export async function resendPrivateBookingDiscordNotification(
   booking: ResendBookingData
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { data, error } = await supabase.functions.invoke(
-      'notify-private-booking-discord',
+    const result = await apiClient.post<{ success: boolean; data?: unknown }>(
+      '/api/private-booking-notifications?action=resend-discord',
       {
-        body: {
-          type: 'resend',
-          table: 'reservations',
-          record: {
-            id: booking.id,
-            scenario_id: booking.scenario_master_id,
-            scenario_title: booking.scenario_title,
-            customer_name: booking.customer_name,
-            customer_email: booking.customer_email,
-            customer_phone: booking.customer_phone,
-            participant_count: booking.participant_count,
-            candidate_datetimes: booking.candidate_datetimes,
-            notes: booking.notes,
-            created_at: booking.created_at,
-          },
-        },
+        id: booking.id,
+        scenario_master_id: booking.scenario_master_id,
+        scenario_title: booking.scenario_title,
+        customer_name: booking.customer_name,
+        customer_email: booking.customer_email,
+        customer_phone: booking.customer_phone,
+        participant_count: booking.participant_count,
+        candidate_datetimes: booking.candidate_datetimes,
+        notes: booking.notes,
+        created_at: booking.created_at,
       }
     )
-
-    if (error) {
-      logger.error('Discord通知再送信エラー:', error)
-      return { success: false, error: error.message || 'Discord通知の再送信に失敗しました' }
+    if (result.success) {
+      logger.log('Discord通知再送信成功:', result.data)
+      return { success: true }
     }
-
-    logger.log('Discord通知再送信成功:', data)
-    return { success: true }
+    return { success: false, error: 'Discord通知の再送信に失敗しました' }
   } catch (err) {
     logger.error('Discord通知再送信例外:', err)
     return {

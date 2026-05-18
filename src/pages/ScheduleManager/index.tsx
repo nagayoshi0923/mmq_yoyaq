@@ -184,7 +184,14 @@ export function ScheduleManager() {
       })
     }
 
-    const ro = new ResizeObserver(syncColWidths)
+    // リサイズ時の連続発火を 50ms debounce で抑制
+    let debounceTimer: ReturnType<typeof setTimeout>
+    const debouncedSync = () => {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(syncColWidths, 50)
+    }
+
+    const ro = new ResizeObserver(debouncedSync)
     ro.observe(tableScroll)
 
     // テーブルの行が描画されるまで少し待つ
@@ -193,6 +200,7 @@ export function ScheduleManager() {
     return () => {
       tableScroll.removeEventListener('scroll', onScroll)
       ro.disconnect()
+      clearTimeout(debounceTimer)
       clearTimeout(timer)
     }
   }, [])
@@ -983,24 +991,18 @@ export function ScheduleManager() {
     <AppLayout
       currentPage="schedule" 
       maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-4"
+      containerPadding="px-[10px] py-0"
       className="mx-auto"
       stickyLayout
     >
-      <PageHeader
-        title={
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-primary" />
-            スケジュール管理
-          </div>
-        }
-        description={`${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月のスケジュールを管理`}
-      >
-        <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
-      </PageHeader>
-
       {/* ツールバー（sticky） */}
       <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b -mx-[10px] px-[10px]">
+        {/* 見出し（sticky に含めて消えないようにする / mb-2 は sticky 高さを抑えるため） */}
+        <PageHeader
+          title={<><CalendarDays className="h-5 w-5 text-primary" />スケジュール管理</>}
+          description={`${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月`}
+          className="mb-2 pt-2"
+        />
         <div className="flex items-center h-12 gap-2">
           {/* 月切り替え - 連結ボタングループ */}
           <div className="flex items-center shrink-0 border border-input rounded-lg overflow-hidden bg-background">
@@ -1259,6 +1261,9 @@ export function ScheduleManager() {
           
           {/* アクションボタン - PC用連結グループ */}
           <div className="hidden sm:flex items-center h-9 border border-input rounded-lg overflow-hidden bg-background shrink-0 ml-auto">
+            <div className="h-9 w-9 flex items-center justify-center border-r border-input">
+              <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
+            </div>
             <button
               onClick={() => setIsKitManagementOpen(true)}
               title="キット配置管理"

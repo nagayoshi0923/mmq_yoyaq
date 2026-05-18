@@ -1,302 +1,111 @@
 /**
  * キット管理API
- * 
+ *
  * シナリオキットの配置管理と移動イベントを操作するAPI
+ *
+ * すべてバックエンド API (/api/kit-locations, /api/kit-transfer-events,
+ * /api/kit-transfer-completions) 経由で org_id をサーバー側で強制フィルタする
  */
 
-import { supabase } from '../supabase'
-import { getCurrentOrganizationId } from '../organization'
+import { apiClient } from '@/lib/apiClient'
 import type { KitLocation, KitTransferEvent, KitCondition, KitTransferCompletion } from '@/types'
 
-/**
- * UI の scenario.id は多くの場合 scenario_master_id。
- * DB の org_scenario_id は organization_scenarios.id のみ有効なので解決する。
- */
-async function resolveOrgScenarioId(
-  organizationId: string,
-  scenarioIdOrMasterId: string
-): Promise<string | null> {
-  const { data: asOrgRow } = await supabase
-    .from('organization_scenarios')
-    .select('id')
-    .eq('organization_id', organizationId)
-    .eq('id', scenarioIdOrMasterId)
-    .maybeSingle()
-
-  if (asOrgRow?.id) return asOrgRow.id
-
-  const { data: asMaster } = await supabase
-    .from('organization_scenarios')
-    .select('id')
-    .eq('organization_id', organizationId)
-    .eq('scenario_master_id', scenarioIdOrMasterId)
-    .maybeSingle()
-
-  return asMaster?.id ?? null
+/** API 応答の素の構造（org_scenario / scenario_master を scenario に変換するため） */
+type KitLocationRaw = {
+  org_scenario?: {
+    id: string
+    scenario_master_id: string
+    scenario_masters?: { id?: string; title?: string | null } | null
+  } | null
+  scenario_master?: { id: string; title?: string | null } | null
+  [key: string]: unknown
 }
 
-/** getKitLocations と同じく scenario.id に scenario_master_id を載せる */
-function scenarioSummaryFromOrgScenario(org: {
-  id: string
-  scenario_master_id: string
-  scenario_masters?: { id?: string; title?: string | null } | null
-}): { id: string; title: string; kit_count: number } {
-  return {
-    id: org.scenario_master_id,
-    title: org.scenario_masters?.title || '',
-    kit_count: 1,
+function transformKitLocation(item: KitLocationRaw): KitLocation {
+  if (item.org_scenario) {
+    return {
+      ...item,
+      scenario: {
+        id: item.org_scenario.scenario_master_id,
+        title: item.org_scenario.scenario_masters?.title || '',
+        kit_count: 1,
+      },
+    } as unknown as KitLocation
   }
+  if (item.scenario_master) {
+    return {
+      ...item,
+      scenario: {
+        id: item.scenario_master.id,
+        title: item.scenario_master.title || '',
+        kit_count: 1,
+      },
+    } as unknown as KitLocation
+  }
+  return { ...item, scenario: null } as unknown as KitLocation
+}
+
+/** transfer_events / transfer_completions の生レスポンス（scenario 整形用） */
+type TransferEventRaw = {
+  org_scenario?: {
+    id: string
+    scenario_master_id?: string
+    scenario_masters?: { id?: string; title?: string | null } | null
+  } | null
+  [key: string]: unknown
+}
+
+function transformTransferEvent(item: TransferEventRaw): KitTransferEvent {
+  return {
+    ...item,
+    scenario: item.org_scenario
+      ? {
+          id: item.org_scenario.id,
+          title: item.org_scenario.scenario_masters?.title || '',
+        }
+      : null,
+  } as unknown as KitTransferEvent
 }
 
 export const kitApi = {
   // ============================================
-  // キット位置関連
+  // キット位置関連（バックエンド API 経由）
   // ============================================
 
   /**
    * 全キット位置を取得
    */
   async getKitLocations(): Promise<KitLocation[]> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) return []
-
-    const { data, error } = await supabase
-      .from('scenario_kit_locations')
-      .select(`
-        *,
-        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        scenario_master:scenario_masters!scenario_kit_locations_scenario_master_id_fkey(id, title),
-        store:stores(id, name, short_name)
-      `)
-      .eq('organization_id', orgId)
-      .order('org_scenario_id', { nullsFirst: false })
-      .order('scenario_master_id', { nullsFirst: false })
-      .order('kit_number')
-
-    if (error) {
-      console.error('Failed to fetch kit locations:', error)
-      throw error
-    }
-
-    // org_scenario または scenario_master から scenario 形式に変換
-    const transformed = (data || []).map(item => {
-      if (item.org_scenario) {
-        return {
-          ...item,
-          scenario: {
-            id: item.org_scenario.scenario_master_id,
-            title: item.org_scenario.scenario_masters?.title || '',
-            kit_count: 1
-          }
-        }
-      } else if (item.scenario_master) {
-        return {
-          ...item,
-          scenario: {
-            id: item.scenario_master.id,
-            title: item.scenario_master.title || '',
-            kit_count: 1
-          }
-        }
-      }
-      return { ...item, scenario: null }
-    })
-
-    return transformed as KitLocation[]
+    const data = await apiClient.get<KitLocationRaw[]>('/api/kit-locations')
+    return data.map(transformKitLocation)
   },
 
   /**
    * 特定シナリオのキット位置を取得
-   * scenarioId: organization_scenarios.id または scenarios.id
+   * scenarioId: organization_scenarios.id または scenarios.id（master id）
    */
   async getKitLocationsByScenario(scenarioId: string): Promise<KitLocation[]> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) return []
-
-    // まず org_scenario_id で検索
-    let { data, error } = await supabase
-      .from('scenario_kit_locations')
-      .select(`
-        *,
-        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        scenario_master:scenario_masters!scenario_kit_locations_scenario_master_id_fkey(id, title),
-        store:stores(id, name, short_name)
-      `)
-      .eq('organization_id', orgId)
-      .eq('org_scenario_id', scenarioId)
-      .order('kit_number')
-
-    // 結果がなければ scenario_master_id で検索
-    if (!data || data.length === 0) {
-      const masterResult = await supabase
-        .from('scenario_kit_locations')
-        .select(`
-          *,
-          org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-            id,
-            scenario_master_id,
-            scenario_masters(id, title)
-          ),
-          scenario_master:scenario_masters!scenario_kit_locations_scenario_master_id_fkey(id, title),
-          store:stores(id, name, short_name)
-        `)
-        .eq('organization_id', orgId)
-        .eq('scenario_master_id', scenarioId)
-        .order('kit_number')
-      
-      data = masterResult.data
-      error = masterResult.error
-    }
-
-    if (error) {
-      console.error('Failed to fetch kit locations by scenario:', error)
-      throw error
-    }
-
-    const transformed = (data || []).map(item => {
-      if (item.org_scenario) {
-        return {
-          ...item,
-          scenario: {
-            id: item.org_scenario.scenario_master_id,
-            title: item.org_scenario.scenario_masters?.title || '',
-            kit_count: 1
-          }
-        }
-      } else if (item.scenario_master) {
-        return {
-          ...item,
-          scenario: {
-            id: item.scenario_master.id,
-            title: item.scenario_master.title || '',
-            kit_count: 1
-          }
-        }
-      }
-      return { ...item, scenario: null }
-    })
-
-    return transformed as KitLocation[]
+    const data = await apiClient.get<KitLocationRaw[]>(
+      `/api/kit-locations?scenario_id=${encodeURIComponent(scenarioId)}`
+    )
+    return (data || []).map(transformKitLocation)
   },
 
   /**
    * キット位置を設定（初期設定または更新）
-   * scenarioId: organization_scenarios.id または scenario_master_id（一覧の scenario.id と同一）
+   * scenarioId: organization_scenarios.id または scenario_master_id
    */
   async setKitLocation(
     scenarioId: string,
     kitNumber: number,
     storeId: string
   ): Promise<KitLocation> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
-
-    const resolvedOrgScenarioId = await resolveOrgScenarioId(orgId, scenarioId)
-
-    let existing: { id: string; org_scenario_id: string | null; scenario_master_id: string | null } | null =
-      null
-
-    if (resolvedOrgScenarioId) {
-      const r1 = await supabase
-        .from('scenario_kit_locations')
-        .select('id, org_scenario_id, scenario_master_id')
-        .eq('organization_id', orgId)
-        .eq('kit_number', kitNumber)
-        .eq('org_scenario_id', resolvedOrgScenarioId)
-        .maybeSingle()
-      existing = r1.data
-    }
-
-    if (!existing) {
-      const r2 = await supabase
-        .from('scenario_kit_locations')
-        .select('id, org_scenario_id, scenario_master_id')
-        .eq('organization_id', orgId)
-        .eq('kit_number', kitNumber)
-        .or(`org_scenario_id.eq.${scenarioId},scenario_master_id.eq.${scenarioId}`)
-        .maybeSingle()
-      existing = r2.data
-    }
-
-    const orgScenarioIdForWrite =
-      resolvedOrgScenarioId ?? existing?.org_scenario_id ?? null
-
-    if (!orgScenarioIdForWrite) {
-      throw new Error(
-        'organization_scenarios を特定できません。シナリオが組織に紐づいているか確認してください。'
-      )
-    }
-
-    let data
-    let error
-
-    if (existing) {
-      // 既存レコードを更新（マスタIDで来た場合も org_scenario_id を正規化）
-      const result = await supabase
-        .from('scenario_kit_locations')
-        .update({
-          store_id: storeId,
-          org_scenario_id: orgScenarioIdForWrite,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existing.id)
-        .select(`
-          *,
-          org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-            id,
-            scenario_master_id,
-            scenario_masters(id, title)
-          ),
-          store:stores(id, name, short_name)
-        `)
-        .single()
-      data = result.data
-      error = result.error
-    } else {
-      // 新規レコードを挿入
-      const result = await supabase
-        .from('scenario_kit_locations')
-        .insert({
-          organization_id: orgId,
-          org_scenario_id: orgScenarioIdForWrite,
-          kit_number: kitNumber,
-          store_id: storeId
-        })
-        .select(`
-          *,
-          org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-            id,
-            scenario_master_id,
-            scenario_masters(id, title)
-          ),
-          store:stores(id, name, short_name)
-        `)
-        .single()
-      data = result.data
-      error = result.error
-    }
-
-    if (error) {
-      console.error('Failed to set kit location:', error)
-      throw error
-    }
-
-    const transformed = {
-      ...data,
-      scenario: data.org_scenario
-        ? scenarioSummaryFromOrgScenario(data.org_scenario)
-        : null,
-    }
-
-    return transformed as KitLocation
+    const data = await apiClient.post<KitLocationRaw>('/api/kit-locations', {
+      scenario_id: scenarioId,
+      kit_number: kitNumber,
+      store_id: storeId,
+    })
+    return transformKitLocation(data)
   },
 
   /**
@@ -309,51 +118,13 @@ export const kitApi = {
     condition: KitCondition,
     conditionNotes?: string | null
   ): Promise<KitLocation> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
-
-    const resolved = await resolveOrgScenarioId(orgId, scenarioId)
-
-    let q = supabase
-      .from('scenario_kit_locations')
-      .update({
-        condition,
-        condition_notes: conditionNotes
-      })
-      .eq('organization_id', orgId)
-      .eq('kit_number', kitNumber)
-
-    if (resolved) {
-      q = q.eq('org_scenario_id', resolved)
-    } else {
-      q = q.or(`org_scenario_id.eq.${scenarioId},scenario_master_id.eq.${scenarioId}`)
-    }
-
-    const { data, error } = await q
-      .select(`
-        *,
-        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        store:stores(id, name, short_name)
-      `)
-      .single()
-
-    if (error) {
-      console.error('Failed to update kit condition:', error)
-      throw error
-    }
-
-    const transformed = {
-      ...data,
-      scenario: data.org_scenario
-        ? scenarioSummaryFromOrgScenario(data.org_scenario)
-        : null,
-    }
-
-    return transformed as KitLocation
+    const data = await apiClient.patch<KitLocationRaw>('/api/kit-locations', {
+      scenario_id: scenarioId,
+      kit_number: kitNumber,
+      condition,
+      condition_notes: conditionNotes ?? null,
+    })
+    return transformKitLocation(data)
   },
 
   /**
@@ -362,57 +133,17 @@ export const kitApi = {
    */
   async setAllKitLocations(
     scenarioId: string,
-    storeIds: string[]  // kit_number順に店舗IDを指定
+    storeIds: string[] // kit_number順に店舗IDを指定
   ): Promise<KitLocation[]> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
-
-    const resolved = await resolveOrgScenarioId(orgId, scenarioId)
-    if (!resolved) {
-      throw new Error(
-        'organization_scenarios を特定できません。シナリオが組織に紐づいているか確認してください。'
-      )
-    }
-
-    const records = storeIds.map((storeId, index) => ({
-      organization_id: orgId,
-      org_scenario_id: resolved,
-      kit_number: index + 1,
-      store_id: storeId
-    }))
-
-    const { data, error } = await supabase
-      .from('scenario_kit_locations')
-      .upsert(records, {
-        onConflict: 'organization_id,org_scenario_id,kit_number'
-      })
-      .select(`
-        *,
-        org_scenario:organization_scenarios!scenario_kit_locations_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        store:stores(id, name, short_name)
-      `)
-
-    if (error) {
-      console.error('Failed to set all kit locations:', error)
-      throw error
-    }
-
-    const transformed = (data || []).map(item => ({
-      ...item,
-      scenario: item.org_scenario
-        ? scenarioSummaryFromOrgScenario(item.org_scenario)
-        : null,
-    }))
-
-    return transformed as KitLocation[]
+    const data = await apiClient.post<KitLocationRaw[]>(
+      '/api/kit-locations?action=set_all',
+      { scenario_id: scenarioId, store_ids: storeIds }
+    )
+    return (data || []).map(transformKitLocation)
   },
 
   // ============================================
-  // キット移動イベント関連
+  // キット移動イベント関連（バックエンド API 経由）
   // ============================================
 
   /**
@@ -422,41 +153,10 @@ export const kitApi = {
     startDate: string,
     endDate: string
   ): Promise<KitTransferEvent[]> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) return []
-
-    const { data, error } = await supabase
-      .from('kit_transfer_events')
-      .select(`
-        *,
-        org_scenario:organization_scenarios!kit_transfer_events_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        from_store:stores!kit_transfer_events_from_store_id_fkey(id, name, short_name),
-        to_store:stores!kit_transfer_events_to_store_id_fkey(id, name, short_name)
-      `)
-      .eq('organization_id', orgId)
-      .gte('transfer_date', startDate)
-      .lte('transfer_date', endDate)
-      .order('transfer_date')
-      .order('org_scenario_id')
-
-    if (error) {
-      console.error('Failed to fetch transfer events:', error)
-      throw error
-    }
-
-    const transformed = (data || []).map(item => ({
-      ...item,
-      scenario: item.org_scenario ? {
-        id: item.org_scenario.id,
-        title: item.org_scenario.scenario_masters?.title || ''
-      } : null
-    }))
-
-    return transformed as KitTransferEvent[]
+    const data = await apiClient.get<TransferEventRaw[]>(
+      `/api/kit-transfer-events?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`
+    )
+    return (data || []).map(transformTransferEvent)
   },
 
   /**
@@ -466,44 +166,8 @@ export const kitApi = {
   async createTransferEvent(
     event: Omit<KitTransferEvent, 'id' | 'organization_id' | 'created_at' | 'updated_at' | 'scenario' | 'from_store' | 'to_store'>
   ): Promise<KitTransferEvent> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
-
-    const { data: userData } = await supabase.auth.getUser()
-
-    const { data, error } = await supabase
-      .from('kit_transfer_events')
-      .insert({
-        ...event,
-        organization_id: orgId,
-        created_by: userData?.user?.id
-      })
-      .select(`
-        *,
-        org_scenario:organization_scenarios!kit_transfer_events_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        from_store:stores!kit_transfer_events_from_store_id_fkey(id, name, short_name),
-        to_store:stores!kit_transfer_events_to_store_id_fkey(id, name, short_name)
-      `)
-      .single()
-
-    if (error) {
-      console.error('Failed to create transfer event:', error)
-      throw error
-    }
-
-    const transformed = {
-      ...data,
-      scenario: data.org_scenario ? {
-        id: data.org_scenario.id,
-        title: data.org_scenario.scenario_masters?.title || ''
-      } : null
-    }
-
-    return transformed as KitTransferEvent
+    const data = await apiClient.post<TransferEventRaw>('/api/kit-transfer-events', event)
+    return transformTransferEvent(data)
   },
 
   /**
@@ -513,45 +177,8 @@ export const kitApi = {
   async createTransferEvents(
     events: Array<Omit<KitTransferEvent, 'id' | 'organization_id' | 'created_at' | 'updated_at' | 'scenario' | 'from_store' | 'to_store'>>
   ): Promise<KitTransferEvent[]> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
-
-    const { data: userData } = await supabase.auth.getUser()
-
-    const records = events.map(event => ({
-      ...event,
-      organization_id: orgId,
-      created_by: userData?.user?.id
-    }))
-
-    const { data, error } = await supabase
-      .from('kit_transfer_events')
-      .insert(records)
-      .select(`
-        *,
-        org_scenario:organization_scenarios!kit_transfer_events_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        from_store:stores!kit_transfer_events_from_store_id_fkey(id, name, short_name),
-        to_store:stores!kit_transfer_events_to_store_id_fkey(id, name, short_name)
-      `)
-
-    if (error) {
-      console.error('Failed to create transfer events:', error)
-      throw error
-    }
-
-    const transformed = (data || []).map(item => ({
-      ...item,
-      scenario: item.org_scenario ? {
-        id: item.org_scenario.id,
-        title: item.org_scenario.scenario_masters?.title || ''
-      } : null
-    }))
-
-    return transformed as KitTransferEvent[]
+    const data = await apiClient.post<TransferEventRaw[]>('/api/kit-transfer-events', { events })
+    return (data || []).map(transformTransferEvent)
   },
 
   /**
@@ -561,51 +188,18 @@ export const kitApi = {
     eventId: string,
     status: 'pending' | 'completed' | 'cancelled'
   ): Promise<KitTransferEvent> {
-    const { data, error } = await supabase
-      .from('kit_transfer_events')
-      .update({ status })
-      .eq('id', eventId)
-      .select(`
-        *,
-        org_scenario:organization_scenarios!kit_transfer_events_org_scenario_id_fkey(
-          id,
-          scenario_master_id,
-          scenario_masters(id, title)
-        ),
-        from_store:stores!kit_transfer_events_from_store_id_fkey(id, name, short_name),
-        to_store:stores!kit_transfer_events_to_store_id_fkey(id, name, short_name)
-      `)
-      .single()
-
-    if (error) {
-      console.error('Failed to update transfer status:', error)
-      throw error
-    }
-
-    const transformed = {
-      ...data,
-      scenario: data.org_scenario ? {
-        id: data.org_scenario.id,
-        title: data.org_scenario.scenario_masters?.title || ''
-      } : null
-    }
-
-    return transformed as KitTransferEvent
+    const data = await apiClient.patch<TransferEventRaw>(
+      `/api/kit-transfer-events?id=${encodeURIComponent(eventId)}`,
+      { status }
+    )
+    return transformTransferEvent(data)
   },
 
   /**
    * 移動イベントを削除
    */
   async deleteTransferEvent(eventId: string): Promise<void> {
-    const { error } = await supabase
-      .from('kit_transfer_events')
-      .delete()
-      .eq('id', eventId)
-
-    if (error) {
-      console.error('Failed to delete transfer event:', error)
-      throw error
-    }
+    await apiClient.delete(`/api/kit-transfer-events?id=${encodeURIComponent(eventId)}`)
   },
 
   /**
@@ -615,28 +209,15 @@ export const kitApi = {
     startDate: string,
     endDate: string
   ): Promise<number> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) return 0
-
-    const { data, error } = await supabase
-      .from('kit_transfer_events')
-      .update({ status: 'cancelled' })
-      .eq('organization_id', orgId)
-      .eq('status', 'pending')
-      .gte('transfer_date', startDate)
-      .lte('transfer_date', endDate)
-      .select('id')
-
-    if (error) {
-      console.error('Failed to cancel pending transfers:', error)
-      throw error
-    }
-
-    return data?.length || 0
+    const result = await apiClient.post<{ cancelled: number }>(
+      '/api/kit-transfer-events?action=cancel_pending',
+      { start_date: startDate, end_date: endDate }
+    )
+    return result.cancelled ?? 0
   },
 
   // ============================================
-  // キット移動完了状態関連
+  // キット移動完了状態関連（バックエンド API 経由）
   // ============================================
 
   /**
@@ -646,25 +227,9 @@ export const kitApi = {
     startDate: string,
     endDate: string
   ): Promise<KitTransferCompletion[]> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) return []
-
-    const { data, error } = await supabase
-      .from('kit_transfer_completions')
-      .select(`
-        *,
-        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, name),
-        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, name)
-      `)
-      .eq('organization_id', orgId)
-      .gte('performance_date', startDate)
-      .lte('performance_date', endDate)
-
-    if (error) {
-      console.error('Failed to fetch transfer completions:', error)
-      throw error
-    }
-
+    const data = await apiClient.get<KitTransferCompletion[]>(
+      `/api/kit-transfer-completions?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`
+    )
     return data || []
   },
 
@@ -680,82 +245,17 @@ export const kitApi = {
     toStoreId: string,
     staffId: string
   ): Promise<KitTransferCompletion> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
-
-    // まず既存レコードを検索
-    const { data: existing } = await supabase
-      .from('kit_transfer_completions')
-      .select('id')
-      .eq('organization_id', orgId)
-      .eq('org_scenario_id', scenarioId)
-      .eq('kit_number', kitNumber)
-      .eq('performance_date', performanceDate)
-      .eq('to_store_id', toStoreId)
-      .maybeSingle()
-
-    let data, error
-
-    if (existing) {
-      // 既存レコードがあれば更新
-      const result = await supabase
-        .from('kit_transfer_completions')
-        .update({
-          from_store_id: fromStoreId,
-          picked_up_at: new Date().toISOString(),
-          picked_up_by: staffId
-        })
-        .eq('id', existing.id)
-        .select(`
-          *,
-          picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, name),
-          delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, name)
-        `)
-        .single()
-      data = result.data
-      error = result.error
-    } else {
-      // org_scenario_id から scenario_master_id を取得
-      let scenarioMasterId: string | null = null
-      const { data: orgScenario } = await supabase
-        .from('organization_scenarios')
-        .select('scenario_master_id')
-        .eq('id', scenarioId)
-        .maybeSingle()
-      if (orgScenario) {
-        scenarioMasterId = orgScenario.scenario_master_id
+    return apiClient.post<KitTransferCompletion>(
+      '/api/kit-transfer-completions?action=mark_picked_up',
+      {
+        scenario_id: scenarioId,
+        kit_number: kitNumber,
+        performance_date: performanceDate,
+        from_store_id: fromStoreId,
+        to_store_id: toStoreId,
+        staff_id: staffId,
       }
-
-      // 新規レコードを挿入
-      const result = await supabase
-        .from('kit_transfer_completions')
-        .insert({
-          organization_id: orgId,
-          org_scenario_id: scenarioId,
-          scenario_master_id: scenarioMasterId,
-          kit_number: kitNumber,
-          performance_date: performanceDate,
-          from_store_id: fromStoreId,
-          to_store_id: toStoreId,
-          picked_up_at: new Date().toISOString(),
-          picked_up_by: staffId
-        })
-        .select(`
-          *,
-          picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, name),
-          delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, name)
-        `)
-        .single()
-      data = result.data
-      error = result.error
-    }
-
-    if (error) {
-      console.error('Failed to mark picked up:', error)
-      throw error
-    }
-
-    return data
+    )
   },
 
   /**
@@ -768,27 +268,12 @@ export const kitApi = {
     performanceDate: string,
     toStoreId: string
   ): Promise<void> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
-
-    const { error } = await supabase
-      .from('kit_transfer_completions')
-      .update({
-        picked_up_at: null,
-        picked_up_by: null,
-        delivered_at: null,
-        delivered_by: null
-      })
-      .eq('organization_id', orgId)
-      .eq('org_scenario_id', scenarioId)
-      .eq('kit_number', kitNumber)
-      .eq('performance_date', performanceDate)
-      .eq('to_store_id', toStoreId)
-
-    if (error) {
-      console.error('Failed to unmark picked up:', error)
-      throw error
-    }
+    await apiClient.post('/api/kit-transfer-completions?action=unmark_picked_up', {
+      scenario_id: scenarioId,
+      kit_number: kitNumber,
+      performance_date: performanceDate,
+      to_store_id: toStoreId,
+    })
   },
 
   /**
@@ -803,45 +288,25 @@ export const kitApi = {
     toStoreId: string,
     staffId: string
   ): Promise<KitTransferCompletion> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
+    const data = await apiClient.post<KitTransferCompletion>(
+      '/api/kit-transfer-completions?action=mark_delivered',
+      {
+        scenario_id: scenarioId,
+        kit_number: kitNumber,
+        performance_date: performanceDate,
+        to_store_id: toStoreId,
+        staff_id: staffId,
+      }
+    )
 
-    // 1. 完了状態を更新
-    const { data, error } = await supabase
-      .from('kit_transfer_completions')
-      .update({
-        delivered_at: new Date().toISOString(),
-        delivered_by: staffId
-      })
-      .eq('organization_id', orgId)
-      .eq('org_scenario_id', scenarioId)
-      .eq('kit_number', kitNumber)
-      .eq('performance_date', performanceDate)
-      .eq('to_store_id', toStoreId)
-      .select(`
-        *,
-        picked_up_by_staff:staff!kit_transfer_completions_picked_up_by_fkey(id, name),
-        delivered_by_staff:staff!kit_transfer_completions_delivered_by_fkey(id, name)
-      `)
-      .single()
-
-    if (error) {
-      console.error('Failed to mark delivered:', error)
-      throw error
-    }
-
-    // 2. キットの所在地を移動先店舗に更新
-    const { error: locationError } = await supabase
-      .from('scenario_kit_locations')
-      .update({
+    // キットの所在地を移動先店舗に更新（バックエンド API 経由）
+    try {
+      await apiClient.post('/api/kit-locations', {
+        scenario_id: scenarioId,
+        kit_number: kitNumber,
         store_id: toStoreId,
-        updated_at: new Date().toISOString()
       })
-      .eq('organization_id', orgId)
-      .eq('org_scenario_id', scenarioId)
-      .eq('kit_number', kitNumber)
-
-    if (locationError) {
+    } catch (locationError) {
       console.error('Failed to update kit location:', locationError)
       // 完了状態の更新は成功しているので、ログだけ出してエラーはスローしない
     }
@@ -859,25 +324,12 @@ export const kitApi = {
     performanceDate: string,
     toStoreId: string
   ): Promise<void> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) throw new Error('Organization ID not found')
-
-    const { error } = await supabase
-      .from('kit_transfer_completions')
-      .update({
-        delivered_at: null,
-        delivered_by: null
-      })
-      .eq('organization_id', orgId)
-      .eq('org_scenario_id', scenarioId)
-      .eq('kit_number', kitNumber)
-      .eq('performance_date', performanceDate)
-      .eq('to_store_id', toStoreId)
-
-    if (error) {
-      console.error('Failed to unmark delivered:', error)
-      throw error
-    }
+    await apiClient.post('/api/kit-transfer-completions?action=unmark_delivered', {
+      scenario_id: scenarioId,
+      kit_number: kitNumber,
+      performance_date: performanceDate,
+      to_store_id: toStoreId,
+    })
   },
 
   /**
@@ -887,22 +339,9 @@ export const kitApi = {
     startDate: string,
     endDate: string
   ): Promise<number> {
-    const orgId = await getCurrentOrganizationId()
-    if (!orgId) return 0
-
-    const { data, error } = await supabase
-      .from('kit_transfer_completions')
-      .delete()
-      .eq('organization_id', orgId)
-      .gte('performance_date', startDate)
-      .lte('performance_date', endDate)
-      .select('id')
-
-    if (error) {
-      console.error('Failed to clear completions:', error)
-      throw error
-    }
-
-    return data?.length || 0
+    const result = await apiClient.delete<{ cleared: number }>(
+      `/api/kit-transfer-completions?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`
+    )
+    return result.cleared ?? 0
   }
 }

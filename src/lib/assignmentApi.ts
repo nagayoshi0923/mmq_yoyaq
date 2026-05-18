@@ -1,653 +1,259 @@
-import { supabase } from './supabase'
-import { getCurrentOrganizationId } from './organization'
+import { apiClient } from '@/lib/apiClient'
 import {
   buildGmScenarioModesFromAssignments,
   type GmScenarioMode,
 } from './gmScenarioMode'
 
+// 担当関係レコードの型（旧 Supabase select で推論されていた構造に合わせる）
+type AssignmentRow = any
+
 // スタッフ⇔シナリオの担当関係を管理するAPI
+// すべてバックエンド API (/api/assignments) 経由で org_id をサーバー側で強制
 export const assignmentApi = {
   // スタッフの担当シナリオ一覧を取得（GM可能なシナリオのみ）
-  async getStaffAssignments(staffId: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    // まず全てのアサインメントを取得（組織でフィルタ）
-    let query = supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        *,
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          author
-        )
-      `)
-      .eq('staff_id', staffId)
-      .order('assigned_at', { ascending: false })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    
-    // クライアント側でGM可能なシナリオのみフィルタ
-    // (can_main_gm = true OR can_sub_gm = true)
-    const filteredData = (data || []).filter(assignment => 
+  async getStaffAssignments(staffId: string, _organizationId?: string): Promise<AssignmentRow[]> {
+    const data = await apiClient.get<AssignmentRow[]>(
+      `/api/assignments?staff_id=${encodeURIComponent(staffId)}`
+    )
+    return (data || []).filter((assignment: AssignmentRow) =>
       assignment.can_main_gm === true || assignment.can_sub_gm === true
     )
-    
-    return filteredData
   },
 
   // スタッフの全アサインメント一覧を取得（体験済み含む）
-  async getAllStaffAssignments(staffId: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        *,
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          author
-        )
-      `)
-      .eq('staff_id', staffId)
-      .order('assigned_at', { ascending: false })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    return data || []
+  async getAllStaffAssignments(staffId: string, _organizationId?: string): Promise<AssignmentRow[]> {
+    return apiClient.get<AssignmentRow[]>(`/api/assignments?staff_id=${encodeURIComponent(staffId)}`)
   },
 
   // スタッフの体験済みシナリオ一覧を取得（GM不可のもののみ）
-  async getStaffExperiencedScenarios(staffId: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        *,
-        scenario_masters:scenario_master_id (
-          id,
-          title,
-          author
-        )
-      `)
-      .eq('staff_id', staffId)
-      .order('assigned_at', { ascending: false })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    
-    // 体験済みのみ（GM不可）をフィルタ
-    // can_main_gm = false AND can_sub_gm = false AND is_experienced = true
-    const filteredData = (data || []).filter(assignment => 
-      assignment.can_main_gm === false &&
-      assignment.can_sub_gm === false &&
-      assignment.is_experienced === true
+  async getStaffExperiencedScenarios(staffId: string, _organizationId?: string) {
+    const data = await apiClient.get<AssignmentRow[]>(
+      `/api/assignments?staff_id=${encodeURIComponent(staffId)}`
     )
-    
-    return filteredData
+    return (data || []).filter(
+      (assignment: AssignmentRow) =>
+        assignment.can_main_gm === false &&
+        assignment.can_sub_gm === false &&
+        assignment.is_experienced === true
+    )
   },
 
   // シナリオの担当スタッフ一覧を取得（GM可能なスタッフのみ）
-  async getScenarioAssignments(scenarioId: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    // まず全てのアサインメントを取得（組織でフィルタ）
-    let query = supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        *,
-        staff:staff_id (
-          id,
-          name,
-          line_name
-        )
-      `)
-      .eq('scenario_master_id', scenarioId)
-      .order('assigned_at', { ascending: false })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    
-    // クライアント側でGM可能なスタッフのみフィルタ
-    // (can_main_gm = true OR can_sub_gm = true)
-    const filteredData = (data || []).filter(assignment => 
+  async getScenarioAssignments(scenarioId: string, _organizationId?: string): Promise<AssignmentRow[]> {
+    const data = await apiClient.get<AssignmentRow[]>(
+      `/api/assignments?scenario_id=${encodeURIComponent(scenarioId)}`
+    )
+    return (data || []).filter((assignment: AssignmentRow) =>
       assignment.can_main_gm === true || assignment.can_sub_gm === true
     )
-    
-    return filteredData
   },
 
   // シナリオの全スタッフ一覧を取得（体験済み含む）
-  async getAllScenarioAssignments(scenarioId: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        *,
-        staff:staff_id (
-          id,
-          name,
-          line_name
-        )
-      `)
-      .eq('scenario_master_id', scenarioId)
-      .order('assigned_at', { ascending: false })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    return data || []
+  async getAllScenarioAssignments(scenarioId: string, _organizationId?: string): Promise<AssignmentRow[]> {
+    return apiClient.get<AssignmentRow[]>(`/api/assignments?scenario_id=${encodeURIComponent(scenarioId)}`)
   },
 
   // シナリオの体験済みスタッフ一覧を取得（GM不可のもののみ）
-  async getScenarioExperiencedStaff(scenarioId: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        *,
-        staff:staff_id (
-          id,
-          name,
-          line_name
-        )
-      `)
-      .eq('scenario_master_id', scenarioId)
-      .order('assigned_at', { ascending: false })
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) throw error
-    
-    // 体験済みのみ（GM不可）をフィルタ
-    // can_main_gm = false AND can_sub_gm = false AND is_experienced = true
-    const filteredData = (data || []).filter(assignment => 
-      assignment.can_main_gm === false &&
-      assignment.can_sub_gm === false &&
-      assignment.is_experienced === true
+  async getScenarioExperiencedStaff(scenarioId: string, _organizationId?: string) {
+    const data = await apiClient.get<AssignmentRow[]>(
+      `/api/assignments?scenario_id=${encodeURIComponent(scenarioId)}`
     )
-    
-    return filteredData
+    return (data || []).filter(
+      (assignment: AssignmentRow) =>
+        assignment.can_main_gm === false &&
+        assignment.can_sub_gm === false &&
+        assignment.is_experienced === true
+    )
   },
 
   // 担当関係を追加（既存の体験済みレコードがあれば昇格）
-  async addAssignment(staffId: string, scenarioId: string, notes?: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    if (!orgId) throw new Error('組織情報が取得できません。')
-    
-    // upsert: 既存レコードがあればGMフラグを更新、なければ新規作成
-    const { data, error } = await supabase
-      .from('staff_scenario_assignments')
-      .upsert({
-        staff_id: staffId,
-        scenario_master_id: scenarioId,
-        notes: notes || null,
-        can_main_gm: true,
-        can_sub_gm: true,
-        is_experienced: false,
-        assigned_at: new Date().toISOString(),
-        organization_id: orgId
-      }, {
-        onConflict: 'staff_id,scenario_master_id'
-      })
-      .select()
-      .single()
-    
-    if (error) throw error
-    return data
+  async addAssignment(staffId: string, scenarioId: string, notes?: string, _organizationId?: string) {
+    return apiClient.post<AssignmentRow>('/api/assignments?action=upsert', {
+      staff_id: staffId,
+      scenario_master_id: scenarioId,
+      notes: notes ?? null,
+      can_main_gm: true,
+      can_sub_gm: true,
+      is_experienced: false,
+    })
   },
 
-  // GM担当を解除（体験済みに降格。完全削除ではない）
-  async removeAssignment(staffId: string, scenarioId: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    // GMフラグをfalseにして体験済みに降格
-    let updateQuery = supabase
-      .from('staff_scenario_assignments')
-      .update({
-        can_main_gm: false,
-        can_sub_gm: false,
-        is_experienced: true  // GM経験者 = 体験済み
-      })
-      .eq('staff_id', staffId)
-      .eq('scenario_master_id', scenarioId)
-    
-    if (orgId) {
-      updateQuery = updateQuery.eq('organization_id', orgId)
-    }
-    
-    const { error } = await updateQuery
-    
-    if (error) throw error
+  // GM担当を解除（体験済みに降格）
+  async removeAssignment(staffId: string, scenarioId: string, _organizationId?: string) {
+    await apiClient.delete(
+      `/api/assignments?staff_id=${encodeURIComponent(staffId)}&scenario_master_id=${encodeURIComponent(scenarioId)}`
+    )
   },
 
   // スタッフの担当シナリオを一括更新
-  // 後方互換性: string[] (シナリオIDのみ) または 詳細オブジェクト配列 の両方をサポート
-  // ※ string[]の場合はGM更新のみ。体験済みのみレコードは保護する
-  async updateStaffAssignments(staffId: string, assignments: string[] | Array<{
-    scenarioId: string
-    can_main_gm: boolean
-    can_sub_gm: boolean
-    is_experienced: boolean
-    status?: 'want_to_learn' | 'experienced' | 'can_gm'
-    notes?: string
-  }>, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    // 入力形式を判定: string[] か オブジェクト配列か
+  async updateStaffAssignments(
+    staffId: string,
+    assignments: string[] | Array<{
+      scenarioId: string
+      can_main_gm: boolean
+      can_sub_gm: boolean
+      is_experienced: boolean
+      status?: 'want_to_learn' | 'experienced' | 'can_gm'
+      notes?: string
+    }>,
+    _organizationId?: string
+  ) {
     const isStringArray = assignments.length === 0 || typeof assignments[0] === 'string'
-    
+
     if (isStringArray) {
-      // string[]の場合: GM更新のみ。体験済みのみレコードは保護
-      const newGmScenarioIds = (assignments as string[]).filter(id => id && typeof id === 'string')
-      
-      // 既存の全レコードを取得
-      let fetchQuery = supabase
-        .from('staff_scenario_assignments')
-        .select('scenario_master_id, can_main_gm, can_sub_gm, is_experienced')
-        .eq('staff_id', staffId)
-      if (orgId) {
-        fetchQuery = fetchQuery.eq('organization_id', orgId)
+      // string[] の場合: GM 更新のみ。体験済みのみレコードは保護する（クライアント側でマージ）
+      const newGmScenarioIds = (assignments as string[]).filter((id) => id && typeof id === 'string')
+      const current = await apiClient.get<AssignmentRow[]>(
+        `/api/assignments?staff_id=${encodeURIComponent(staffId)}`
+      )
+      // 体験済みのみのレコードは can_main_gm=false, can_sub_gm=false, is_experienced=true として残す
+      const expOnly = (current || []).filter(
+        (a: AssignmentRow) =>
+          a.can_main_gm === false && a.can_sub_gm === false && a.is_experienced === true
+      )
+      const expOnlyIds: string[] = expOnly.map((a: AssignmentRow) => a.scenario_master_id)
+
+      // 新規 GM リストから体験済みのみのものは除外（重複防止: GM 昇格対象に変換される）
+      const combinedMap = new Map<
+        string,
+        { scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean }
+      >()
+      for (const id of newGmScenarioIds) {
+        combinedMap.set(id, {
+          scenarioId: id,
+          can_main_gm: true,
+          can_sub_gm: true,
+          is_experienced: false,
+        })
       }
-      const { data: currentAll, error: fetchError } = await fetchQuery
-      if (fetchError) throw fetchError
-      
-      const currentGmScenarioIds = (currentAll || [])
-        .filter(a => a.can_main_gm || a.can_sub_gm)
-        .map(a => a.scenario_master_id)
-      
-      // GMから外れるシナリオ → 体験済みに降格（削除しない）
-      const toRemoveFromGm = currentGmScenarioIds.filter(id => !newGmScenarioIds.includes(id))
-      if (toRemoveFromGm.length > 0) {
-        const { error: downgradeError } = await supabase
-          .from('staff_scenario_assignments')
-          .update({ can_main_gm: false, can_sub_gm: false, is_experienced: true })
-          .eq('staff_id', staffId)
-          .in('scenario_master_id', toRemoveFromGm)
-        if (orgId) {
-          // Note: eq is already chained above, need separate query
-        }
-        if (downgradeError) throw downgradeError
-      }
-      
-      // 新規GM追加: 既存の体験済みレコードがあれば昇格、なければ新規作成
-      const toAddAsGm = newGmScenarioIds.filter(id => !currentGmScenarioIds.includes(id))
-      if (toAddAsGm.length > 0) {
-        const existingExpIds = (currentAll || [])
-          .filter(a => !a.can_main_gm && !a.can_sub_gm && toAddAsGm.includes(a.scenario_master_id))
-          .map(a => a.scenario_master_id)
-        
-        // 体験済み → GM昇格
-        if (existingExpIds.length > 0) {
-          await supabase
-            .from('staff_scenario_assignments')
-            .update({ can_main_gm: true, can_sub_gm: true, is_experienced: false })
-            .eq('staff_id', staffId)
-            .in('scenario_master_id', existingExpIds)
-        }
-        
-        // 完全新規
-        const trulyNew = toAddAsGm.filter(id => !existingExpIds.includes(id))
-        if (trulyNew.length > 0) {
-          const newRecords = trulyNew.map(scenarioId => ({
-            staff_id: staffId,
-            scenario_master_id: scenarioId,
-            can_main_gm: true,
-            can_sub_gm: true,
-            is_experienced: false,
-            notes: null,
-            assigned_at: new Date().toISOString(),
-            organization_id: orgId
-          }))
-          const { error: insertError } = await supabase
-            .from('staff_scenario_assignments')
-            .insert(newRecords)
-          if (insertError) throw insertError
+      for (const id of expOnlyIds) {
+        if (!combinedMap.has(id)) {
+          combinedMap.set(id, {
+            scenarioId: id,
+            can_main_gm: false,
+            can_sub_gm: false,
+            is_experienced: true,
+          })
         }
       }
+
+      await apiClient.post('/api/assignments?action=update_staff_assignments', {
+        staff_id: staffId,
+        assignments: Array.from(combinedMap.values()),
+      })
     } else {
-      // 詳細オブジェクト配列の場合: 全レコードを置き換え（StaffProfile等から呼ばれる）
-      let deleteQuery = supabase
-        .from('staff_scenario_assignments')
-        .delete()
-        .eq('staff_id', staffId)
-      if (orgId) {
-        deleteQuery = deleteQuery.eq('organization_id', orgId)
-      }
-      const { error: deleteError } = await deleteQuery
-      if (deleteError) throw deleteError
-
-      const records = (assignments as Array<{ scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; notes?: string }>)
-        .filter(a => a.scenarioId && typeof a.scenarioId === 'string')
-        .map(a => ({
-          staff_id: staffId,
-          scenario_master_id: a.scenarioId,
-          can_main_gm: a.can_main_gm,
-          can_sub_gm: a.can_sub_gm,
-          is_experienced: a.is_experienced,
-          notes: a.notes || null,
-          assigned_at: new Date().toISOString(),
-          organization_id: orgId
-        }))
-
-      if (records.length > 0) {
-        const { error } = await supabase
-          .from('staff_scenario_assignments')
-          .insert(records)
-        if (error) throw error
-      }
+      // 詳細オブジェクト配列の場合: 全レコードを置き換え
+      const records = (
+        assignments as Array<{
+          scenarioId: string
+          can_main_gm: boolean
+          can_sub_gm: boolean
+          is_experienced: boolean
+          notes?: string
+        }>
+      ).filter((a) => a.scenarioId && typeof a.scenarioId === 'string')
+      await apiClient.post('/api/assignments?action=update_staff_assignments', {
+        staff_id: staffId,
+        assignments: records,
+      })
     }
   },
 
   // シナリオの担当スタッフを一括更新（差分更新）
-  // ※ GM可能スタッフのみ対象。体験済みのみ(is_experienced=true)のレコードは保護する
-  async updateScenarioAssignments(scenarioId: string, staffIds: string[], notes?: string, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    if (!orgId) throw new Error('組織情報が取得できません。')
-    
-    // 現在のGM担当関係のみ取得（体験済みのみのレコードは除外）
-    const fetchQuery = supabase
-      .from('staff_scenario_assignments')
-      .select('staff_id, can_main_gm, can_sub_gm, is_experienced')
-      .eq('scenario_master_id', scenarioId)
-      .eq('organization_id', orgId)
-    
-    const { data: currentAssignments, error: fetchError } = await fetchQuery
-    
-    if (fetchError) throw fetchError
-
-    // GM可能なスタッフのみを対象（体験済みのみレコードは保護）
-    const gmAssignments = (currentAssignments || []).filter(
-      a => a.can_main_gm === true || a.can_sub_gm === true
-    )
-    const currentGmStaffIds = gmAssignments.map(a => a.staff_id)
-    
-    // 削除対象: 現在のGMリストにあるが、新しいリストにないもの
-    const toDelete = currentGmStaffIds.filter(id => !staffIds.includes(id))
-    
-    // 追加対象: 新しいリストにあるが、現在のGMリストにないもの
-    const toAdd = staffIds.filter(id => !currentGmStaffIds.includes(id))
-    
-    // 削除実行: GMレコードのみ削除（体験済みのみレコードは保護）
-    // 削除されるGMが体験済みだった場合、is_experienced=trueに変換して保持
-    if (toDelete.length > 0) {
-      // 削除対象のGMスタッフを体験済みに変換（GM→体験済みへの降格）
-      // DB制約: is_experienced=trueの場合、can_main_gm=false, can_sub_gm=false
-      const { error: updateError } = await supabase
-        .from('staff_scenario_assignments')
-        .update({
-          can_main_gm: false,
-          can_sub_gm: false,
-          is_experienced: true
-        })
-        .eq('scenario_master_id', scenarioId)
-        .eq('organization_id', orgId)
-        .in('staff_id', toDelete)
-      
-      if (updateError) throw updateError
-    }
-    
-    // 追加実行（デフォルト設定: can_main_gm=true, can_sub_gm=true）
-    // 注意: gm_experienced_check制約により、GM可能ならis_experiencedはfalse
-    if (toAdd.length > 0) {
-      // 追加対象に既存の体験済みレコードがあるか確認
-      const existingExpOnly = (currentAssignments || []).filter(
-        a => !a.can_main_gm && !a.can_sub_gm && a.is_experienced && toAdd.includes(a.staff_id)
-      )
-      const existingExpStaffIds = existingExpOnly.map(a => a.staff_id)
-      
-      // 既存の体験済みレコードをGMに昇格
-      if (existingExpStaffIds.length > 0) {
-        const { error: upgradeError } = await supabase
-          .from('staff_scenario_assignments')
-          .update({
-            can_main_gm: true,
-            can_sub_gm: true,
-            is_experienced: false // DB制約: GM可能ならis_experiencedはfalse
-          })
-          .eq('scenario_master_id', scenarioId)
-          .eq('organization_id', orgId)
-          .in('staff_id', existingExpStaffIds)
-        
-        if (upgradeError) throw upgradeError
-      }
-      
-      // 新規レコードのみINSERT（既存の体験済みから昇格したものは除く）
-      const trulyNew = toAdd.filter(id => !existingExpStaffIds.includes(id))
-      if (trulyNew.length > 0) {
-        const newAssignments = trulyNew.map(staffId => ({
-          staff_id: staffId,
-          scenario_master_id: scenarioId,
-          can_main_gm: true,
-          can_sub_gm: true,
-          is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
-          notes: notes || null,
-          assigned_at: new Date().toISOString(),
-          organization_id: orgId
-        }))
-
-        const { error: insertError } = await supabase
-          .from('staff_scenario_assignments')
-          .insert(newAssignments)
-        
-        if (insertError) throw insertError
-      }
-    }
+  async updateScenarioAssignments(
+    scenarioId: string,
+    staffIds: string[],
+    notes?: string,
+    _organizationId?: string
+  ) {
+    await apiClient.post('/api/assignments?action=update_scenario_assignments', {
+      scenario_master_id: scenarioId,
+      staff_ids: staffIds,
+      notes: notes ?? null,
+    })
   },
 
   // 担当関係の詳細を更新
-  async updateAssignment(staffId: string, scenarioId: string, updates: {
-    notes?: string
-    assigned_at?: string
-  }, organizationId?: string) {
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let updateQuery = supabase
-      .from('staff_scenario_assignments')
-      .update(updates)
-      .eq('staff_id', staffId)
-      .eq('scenario_master_id', scenarioId)
-    
-    if (orgId) {
-      updateQuery = updateQuery.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await updateQuery.select().single()
-    
-    if (error) throw error
-    return data
+  async updateAssignment(
+    staffId: string,
+    scenarioId: string,
+    updates: {
+      notes?: string
+      assigned_at?: string
+    },
+    _organizationId?: string
+  ) {
+    return apiClient.patch<AssignmentRow>('/api/assignments', {
+      staff_id: staffId,
+      scenario_master_id: scenarioId,
+      ...updates,
+    })
   },
 
   // 複数シナリオのGM情報と体験済みスタッフを一括取得（N+1問題の回避）
-  async getBatchScenarioAssignments(scenarioIds: string[], organizationId?: string): Promise<Map<string, { gmStaff: string[], experiencedStaff: string[] }>> {
-    if (scenarioIds.length === 0) {
-      return new Map()
-    }
+  async getBatchScenarioAssignments(
+    scenarioIds: string[],
+    _organizationId?: string
+  ): Promise<Map<string, { gmStaff: string[]; experiencedStaff: string[] }>> {
+    const result = new Map<string, { gmStaff: string[]; experiencedStaff: string[] }>()
+    if (scenarioIds.length === 0) return result
 
-    const orgId = organizationId || await getCurrentOrganizationId()
-
-    // シナリオIDを50件ずつバッチ処理（URLサイズ制限対策）
+    // バッチごとに 50 件単位（URL 長対策）
     const batchSize = 50
-    const allData: any[] = []
-    
+    type BatchRow = {
+      scenario_master_id: string
+      staff_id: string
+      can_main_gm: boolean | null
+      can_sub_gm: boolean | null
+      is_experienced: boolean | null
+    }
+    const allRows: BatchRow[] = []
     for (let i = 0; i < scenarioIds.length; i += batchSize) {
-      const batchIds = scenarioIds.slice(i, i + batchSize)
-      
-      let query = supabase
-        .from('staff_scenario_assignments')
-        .select(`
-          scenario_master_id,
-          staff_id,
-          can_main_gm,
-          can_sub_gm,
-          is_experienced
-        `)
-        .in('scenario_master_id', batchIds)
-        .limit(10000)
-      
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
-      
-      const { data, error } = await query
-      
-      if (error) throw error
-      if (data) allData.push(...data)
+      const slice = scenarioIds.slice(i, i + batchSize)
+      const data = await apiClient.get<BatchRow[]>(
+        `/api/assignments?scenario_ids=${encodeURIComponent(slice.join(','))}`
+      )
+      allRows.push(...(data ?? []))
     }
-    
-    // GM可能 OR 体験済みのレコードをフィルタ
-    const data = allData.filter(row => 
-      row.can_main_gm === true || row.can_sub_gm === true || row.is_experienced === true
+
+    const filtered = allRows.filter(
+      (r) => r.can_main_gm === true || r.can_sub_gm === true || r.is_experienced === true
     )
-    
-    // staff_idからスタッフ名を取得するために、別途スタッフ情報を取得（組織でフィルタ）
-    const staffIds = [...new Set(data?.map(a => a.staff_id).filter(Boolean) || [])]
-    
+
+    // staff_id -> staff name は /api/staff で取得（自組織のみ）
+    const uniqueStaffIds = Array.from(new Set(filtered.map((r) => r.staff_id).filter(Boolean)))
     const staffMap = new Map<string, string>()
-    if (staffIds.length > 0) {
-      let staffQuery = supabase
-        .from('staff')
-        .select('id, name')
-        .in('id', staffIds)
-      
-      if (orgId) {
-        staffQuery = staffQuery.eq('organization_id', orgId)
-      }
-      
-      const { data: staffData, error: staffError } = await staffQuery
-      
-      if (!staffError && staffData) {
-        staffData.forEach(s => staffMap.set(s.id, s.name))
+    if (uniqueStaffIds.length > 0) {
+      type StaffRow = { id: string; name: string }
+      const allStaff = await apiClient.get<StaffRow[]>('/api/staff')
+      for (const s of allStaff ?? []) {
+        if (uniqueStaffIds.includes(s.id)) {
+          staffMap.set(s.id, s.name)
+        }
       }
     }
-    
-    // シナリオIDごとにGMスタッフと体験済みスタッフをグループ化
-    const assignmentMap = new Map<string, { gmStaff: string[], experiencedStaff: string[] }>()
-    
-    data?.forEach((assignment: any) => {
-      const scenarioId = assignment.scenario_master_id
-      const staffName = staffMap.get(assignment.staff_id)
-      
-      if (staffName) {
-        if (!assignmentMap.has(scenarioId)) {
-          assignmentMap.set(scenarioId, { gmStaff: [], experiencedStaff: [] })
-        }
-        const entry = assignmentMap.get(scenarioId)!
-        
-        // GM可能なスタッフ
-        if (assignment.can_main_gm || assignment.can_sub_gm) {
-          if (!entry.gmStaff.includes(staffName)) {
-            entry.gmStaff.push(staffName)
-          }
-        }
-        
-        // 体験済みスタッフ（GM不可のもののみ）
-        if (assignment.is_experienced && !assignment.can_main_gm && !assignment.can_sub_gm) {
-          if (!entry.experiencedStaff.includes(staffName)) {
-            entry.experiencedStaff.push(staffName)
-          }
-        }
+
+    for (const r of filtered) {
+      const name = staffMap.get(r.staff_id)
+      if (!name) continue
+      if (!result.has(r.scenario_master_id)) {
+        result.set(r.scenario_master_id, { gmStaff: [], experiencedStaff: [] })
       }
-    })
-    
-    return assignmentMap
+      const entry = result.get(r.scenario_master_id)!
+      if (r.can_main_gm || r.can_sub_gm) {
+        if (!entry.gmStaff.includes(name)) entry.gmStaff.push(name)
+      }
+      if (r.is_experienced && !r.can_main_gm && !r.can_sub_gm) {
+        if (!entry.experiencedStaff.includes(name)) entry.experiencedStaff.push(name)
+      }
+    }
+
+    return result
   },
 
   // 複数スタッフの担当シナリオ情報を一括取得（N+1問題の回避）
-  async getBatchStaffAssignments(staffIds: string[], organizationId?: string) {
-    if (staffIds.length === 0) {
-      return new Map<
-        string,
-        {
-          gmScenarios: string[]
-          experiencedScenarios: string[]
-          gm_scenario_modes: Record<string, GmScenarioMode>
-        }
-      >()
-    }
-
-    const orgId = organizationId || await getCurrentOrganizationId()
-
-    // 全データを取得（Supabaseのデフォルト1000件制限を回避するためページネーション）
-    const allData: any[] = []
-    const pageSize = 1000
-    let offset = 0
-    let hasMore = true
-    
-    while (hasMore) {
-      let query = supabase
-        .from('staff_scenario_assignments')
-        .select(`
-          staff_id,
-          scenario_master_id,
-          can_main_gm,
-          can_sub_gm,
-          is_experienced
-        `)
-        .in('staff_id', staffIds)
-        .range(offset, offset + pageSize - 1)
-      
-      if (orgId) {
-        query = query.eq('organization_id', orgId)
-      }
-      
-      const { data, error } = await query
-      
-      if (error) throw error
-      
-      if (data && data.length > 0) {
-        allData.push(...data)
-        offset += pageSize
-        hasMore = data.length === pageSize
-      } else {
-        hasMore = false
-      }
-    }
-    
-    // クライアント側でフィルタリング（GM可能 OR 体験済み）
-    const data = allData.filter(row => 
-      row.can_main_gm === true || row.can_sub_gm === true || row.is_experienced === true
-    )
-    
-    // エラーチェック用の空変数（既存コードとの互換性）
-    const error = null
-    if (error) throw error
-    
-    // スタッフIDごとにGM可能なシナリオと体験済みシナリオをグループ化
-    const assignmentMap = new Map<
+  async getBatchStaffAssignments(staffIds: string[], _organizationId?: string) {
+    const result = new Map<
       string,
       {
         gmScenarios: string[]
@@ -655,52 +261,63 @@ export const assignmentApi = {
         gm_scenario_modes: Record<string, GmScenarioMode>
       }
     >()
+    if (staffIds.length === 0) return result
 
-    data?.forEach((assignment: any) => {
-      const staffId = assignment.staff_id
-      const scenarioId = assignment.scenario_master_id
+    const batchSize = 50
+    type BatchRow = {
+      staff_id: string
+      scenario_master_id: string
+      can_main_gm: boolean | null
+      can_sub_gm: boolean | null
+      is_experienced: boolean | null
+    }
+    const allRows: BatchRow[] = []
+    for (let i = 0; i < staffIds.length; i += batchSize) {
+      const slice = staffIds.slice(i, i + batchSize)
+      const data = await apiClient.get<BatchRow[]>(
+        `/api/assignments?staff_ids=${encodeURIComponent(slice.join(','))}`
+      )
+      allRows.push(...(data ?? []))
+    }
 
-      if (!assignmentMap.has(staffId)) {
-        assignmentMap.set(staffId, {
+    const filtered = allRows.filter(
+      (r) => r.can_main_gm === true || r.can_sub_gm === true || r.is_experienced === true
+    )
+
+    for (const r of filtered) {
+      if (!result.has(r.staff_id)) {
+        result.set(r.staff_id, {
           gmScenarios: [],
           experiencedScenarios: [],
           gm_scenario_modes: {},
         })
       }
-      
-      const staffData = assignmentMap.get(staffId)!
-      
-      // GM可能なシナリオ（can_main_gm = true OR can_sub_gm = true）
-      if ((assignment.can_main_gm || assignment.can_sub_gm) && scenarioId) {
-        if (!staffData.gmScenarios.includes(scenarioId)) {
-          staffData.gmScenarios.push(scenarioId)
+      const staffData = result.get(r.staff_id)!
+      if ((r.can_main_gm || r.can_sub_gm) && r.scenario_master_id) {
+        if (!staffData.gmScenarios.includes(r.scenario_master_id)) {
+          staffData.gmScenarios.push(r.scenario_master_id)
         }
       }
-      
-      // 体験済みシナリオ（GM不可、is_experienced = true）
-      if (assignment.is_experienced && 
-          !assignment.can_main_gm && 
-          !assignment.can_sub_gm && 
-          scenarioId) {
-        if (!staffData.experiencedScenarios.includes(scenarioId)) {
-          staffData.experiencedScenarios.push(scenarioId)
+      if (
+        r.is_experienced &&
+        !r.can_main_gm &&
+        !r.can_sub_gm &&
+        r.scenario_master_id
+      ) {
+        if (!staffData.experiencedScenarios.includes(r.scenario_master_id)) {
+          staffData.experiencedScenarios.push(r.scenario_master_id)
         }
       }
-    })
+    }
 
     for (const staffId of staffIds) {
-      const staffData = assignmentMap.get(staffId)
+      const staffData = result.get(staffId)
       if (!staffData) continue
-      const gmRows = (data || []).filter(
-        (a: {
-          staff_id: string
-          scenario_master_id?: string | null
-          can_main_gm?: boolean | null
-          can_sub_gm?: boolean | null
-        }) =>
-          a.staff_id === staffId &&
-          !!a.scenario_master_id &&
-          (a.can_main_gm === true || a.can_sub_gm === true)
+      const gmRows = filtered.filter(
+        (r) =>
+          r.staff_id === staffId &&
+          !!r.scenario_master_id &&
+          (r.can_main_gm === true || r.can_sub_gm === true)
       )
       staffData.gm_scenario_modes = buildGmScenarioModesFromAssignments(
         gmRows.map((r) => ({
@@ -711,6 +328,6 @@ export const assignmentApi = {
       )
     }
 
-    return assignmentMap
-  }
+    return result
+  },
 }

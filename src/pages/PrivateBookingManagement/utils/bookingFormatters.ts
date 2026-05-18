@@ -126,16 +126,16 @@ export const getCardClassName = (status: string): string => {
   switch (status) {
     case 'pending':
     case 'pending_gm':
-      return 'border-purple-200 bg-purple-50/30'
+      return 'border-l-4 border-l-purple-400 border-purple-200 bg-purple-50/30'
     case 'gm_confirmed':
     case 'pending_store':
-      return 'border-purple-200 bg-purple-50/30'
+      return 'border-l-4 border-l-amber-400 border-amber-200 bg-amber-50/20'
     case 'confirmed':
-      return 'border-green-200 bg-green-50/30'
+      return 'border-l-4 border-l-green-400 border-green-200 bg-green-50/30'
     case 'cancelled':
-      return 'border-red-200 bg-red-50/30'
+      return 'border-l-4 border-l-gray-300 border-gray-200 bg-gray-50/30'
     default:
-      return ''
+      return 'border-l-4 border-l-gray-200'
   }
 }
 

@@ -427,12 +427,13 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   const handleAddGmAssignment = () => {
     const nextRole = getNextAvailableRole()
+    const defaultReward = salarySettings?.gm_base_pay ?? 2000
     setFormData(prev => ({
       ...prev,
-      gm_assignments: [...prev.gm_assignments, { 
-        role: nextRole, 
-        reward: 2000,
-        status: getItemStatus(2000, 0),
+      gm_assignments: [...prev.gm_assignments, {
+        role: nextRole,
+        reward: defaultReward,
+        status: getItemStatus(defaultReward, 0),
         usageCount: 0
       }],
       gm_count: prev.gm_count + 1
@@ -648,20 +649,24 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         license_rewards: [],
         has_pre_reading: scenario.has_pre_reading || false,
         gm_count: scenario.gm_costs?.length || 2,
-        gm_assignments: scenario.gm_costs || [
-          { 
-            role: 'main' as const, 
-            reward: 2000,
-            status: getItemStatus(2000, 8),
-            usageCount: 8
-          },
-          { 
-            role: 'sub1' as const, 
-            reward: 1500,
-            status: getItemStatus(1500, 3),
-            usageCount: 3
-          }
-        ],
+        gm_assignments: scenario.gm_costs || (() => {
+          const mainReward = salarySettings?.gm_base_pay ?? 2000
+          const subReward = salarySettings?.gm_base_pay ? Math.round(salarySettings.gm_base_pay * 0.75) : 1500
+          return [
+            {
+              role: 'main' as const,
+              reward: mainReward,
+              status: getItemStatus(mainReward, 8),
+              usageCount: 8
+            },
+            {
+              role: 'sub1' as const,
+              reward: subReward,
+              status: getItemStatus(subReward, 3),
+              usageCount: 3
+            }
+          ]
+        })(),
         // 項目別料金設定の初期化
         participation_costs: scenario.participation_costs || (scenario.participation_fee > 0 ? [
           { 
@@ -736,12 +741,10 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         ],
         has_pre_reading: false,
         gm_count: 1,
-        gm_assignments: [{ 
-          role: 'main' as const, 
-          reward: 2000,
-          status: getItemStatus(2000, 0),
-          usageCount: 0
-        }],
+        gm_assignments: (() => {
+          const mainReward = salarySettings?.gm_base_pay ?? 2000
+          return [{ role: 'main' as const, reward: mainReward, status: getItemStatus(mainReward, 0), usageCount: 0 }]
+        })(),
         participation_costs: [{ 
           time_slot: '通常', 
           amount: 3000, 

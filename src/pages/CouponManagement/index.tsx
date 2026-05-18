@@ -1,23 +1,24 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AdminSidebar } from '@/components/layout/AdminSidebar'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Plus, RefreshCw, Ticket } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '@/hooks/useOrganization'
-import { 
-  getCampaigns, 
-  createCampaign, 
-  updateCampaign, 
+import {
+  createCampaign,
+  updateCampaign,
   toggleCampaignActive,
-  type CampaignFormData 
+  type CampaignFormData
 } from '@/lib/api/couponApi'
 import type { CouponCampaign } from '@/types'
 import { CampaignList } from './components/CampaignList'
 import { CampaignDialog } from './components/CampaignDialog'
 import { GrantCouponDialog } from './components/GrantCouponDialog'
 import { CampaignStats } from './components/CampaignStats'
+import { useCouponCampaigns } from './hooks/useCouponCampaigns'
 import { toast } from 'sonner'
 
 export function CouponManagement() {
@@ -25,8 +26,7 @@ export function CouponManagement() {
   const navigate = useNavigate()
   const { organization } = useOrganization()
 
-  const [campaigns, setCampaigns] = useState<CouponCampaign[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { campaigns, isLoading, refetch: loadCampaigns } = useCouponCampaigns()
   const [toggleLoading, setToggleLoading] = useState<string | null>(null)
 
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -37,23 +37,6 @@ export function CouponManagement() {
 
   const [statsDialogOpen, setStatsDialogOpen] = useState(false)
   const [statsCampaign, setStatsCampaign] = useState<CouponCampaign | null>(null)
-
-  const loadCampaigns = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const data = await getCampaigns()
-      setCampaigns(data)
-    } catch (error) {
-      console.error('キャンペーン取得エラー:', error)
-      toast.error('キャンペーンの取得に失敗しました')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadCampaigns()
-  }, [loadCampaigns])
 
   const handlePageChange = useCallback((pageId: string) => {
     const slug = organization?.slug || ''
@@ -101,9 +84,7 @@ export function CouponManagement() {
     try {
       const result = await toggleCampaignActive(campaign.id)
       if (result.success) {
-        setCampaigns(prev => prev.map(c => 
-          c.id === campaign.id ? { ...c, is_active: result.isActive! } : c
-        ))
+        loadCampaigns()
         toast.success(result.isActive ? 'キャンペーンを有効にしました' : 'キャンペーンを無効にしました')
       } else {
         toast.error(result.error || '状態の変更に失敗しました')
@@ -130,33 +111,28 @@ export function CouponManagement() {
   const shouldShowNavigation = isStaff
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header onPageChange={handlePageChange} />
-      {shouldShowNavigation && (
-        <NavigationBar currentPage="coupons" onPageChange={handlePageChange} />
-      )}
-
-      <main className="container mx-auto max-w-[1440px] px-[10px] py-3 sm:py-4 md:py-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Ticket className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">クーポン管理</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={loadCampaigns}
-              disabled={isLoading}
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button onClick={handleCreateNew}>
-              <Plus className="h-4 w-4 mr-2" />
-              新規キャンペーン
-            </Button>
-          </div>
-        </div>
+      <div className="flex flex-1">
+        {shouldShowNavigation && <AdminSidebar />}
+        <main className="flex-1 max-w-[1440px] mx-auto px-[10px] py-3 sm:py-4 md:py-6">
+        <PageHeader
+          title={<><Ticket className="h-5 w-5" />クーポン管理</>}
+          description="クーポンキャンペーンの作成・配布・利用状況を管理"
+        >
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={loadCampaigns}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button onClick={handleCreateNew}>
+            <Plus className="h-4 w-4 mr-2" />
+            新規キャンペーン
+          </Button>
+        </PageHeader>
 
         <CampaignList
           campaigns={campaigns}
@@ -167,7 +143,8 @@ export function CouponManagement() {
           onViewStats={handleViewStats}
           toggleLoading={toggleLoading}
         />
-      </main>
+        </main>
+      </div>
 
       <CampaignDialog
         open={editDialogOpen}

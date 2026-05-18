@@ -243,12 +243,7 @@ export function UserManagement() {
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <UserCog className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">ユーザー管理</span>
-            </div>
-          }
+          title={<><UserCog className="h-5 w-5 text-primary" />ユーザー管理</>}
           description="ユーザーの検索・ロール管理を行います"
         >
           <HelpButton topic="user" label="ユーザー管理マニュアル" />

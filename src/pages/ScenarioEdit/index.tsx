@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { useSessionState } from '@/hooks/useSessionState'
 import { Button } from '@/components/ui/button'
@@ -413,35 +414,20 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
-      {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg">
-            {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
-          </h2>
-          {formData.title && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {formData.title}
-            </p>
-          )}
-          {scenarioId && !formData.title && (
-            <p className="text-xs text-muted-foreground mt-1">
-              ID: {scenarioId}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {showSaveSuccess && (
-            <div className="text-sm text-green-600 animate-in fade-in slide-in-from-right-1">
-              ✓ 保存しました
-            </div>
-          )}
-          <Button onClick={handleSave} disabled={scenarioMutation.isPending}>
-            <Save className="h-4 w-4 mr-2" />
-            {scenarioMutation.isPending ? '保存中...' : '保存'}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={<><BookOpen className="h-5 w-5" />{scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}</>}
+        description={formData.title || (scenarioId ? `ID: ${scenarioId}` : undefined)}
+      >
+        {showSaveSuccess && (
+          <div className="text-sm text-green-600 animate-in fade-in slide-in-from-right-1 self-center">
+            ✓ 保存しました
+          </div>
+        )}
+        <Button onClick={handleSave} disabled={scenarioMutation.isPending}>
+          <Save className="h-4 w-4 mr-2" />
+          {scenarioMutation.isPending ? '保存中...' : '保存'}
+        </Button>
+      </PageHeader>
 
       {/* コンテンツ */}
       {renderContent()}

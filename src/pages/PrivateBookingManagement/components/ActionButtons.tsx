@@ -4,19 +4,14 @@ import { CheckCircle2, XCircle, Trash2 } from 'lucide-react'
 interface ActionButtonsProps {
   onApprove: () => void
   onReject: () => void
-  onCancel: () => void
   onDelete?: () => void
   disabled: boolean
   submitting?: boolean
 }
 
-/**
- * 承認/却下/削除ボタンコンポーネント
- */
 export const ActionButtons = ({
   onApprove,
   onReject,
-  onCancel,
   onDelete,
   disabled,
   submitting = false
@@ -24,14 +19,6 @@ export const ActionButtons = ({
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <Button
-          variant="outline"
-          className="flex-1 text-sm"
-          onClick={onCancel}
-          size="sm"
-        >
-          戻る
-        </Button>
         <Button
           variant="destructive"
           className="flex-1 text-sm"

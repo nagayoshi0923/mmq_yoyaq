@@ -25,6 +25,7 @@ interface LineupViewProps {
   selectedStoreIds?: string[]
   onStoreIdsChange?: (storeIds: string[]) => void
   stores?: any[]
+  themeColor?: string
 }
 
 /**
@@ -44,7 +45,8 @@ export const LineupView = memo(function LineupView({
   organizationName,
   selectedStoreIds = [],
   onStoreIdsChange,
-  stores = []
+  stores = [],
+  themeColor,
 }: LineupViewProps) {
   // 検索中かどうか
   const isSearching = searchTerm.length > 0
@@ -268,9 +270,9 @@ export const LineupView = memo(function LineupView({
           variant="outline"
           onClick={handleCatalogClick}
           className="gap-2 hover:scale-[1.02] transition-transform"
-          style={{ 
-            borderColor: THEME.primary,
-            color: THEME.primary,
+          style={{
+            borderColor: themeColor ?? THEME.primary,
+            color: themeColor ?? THEME.primary,
             borderWidth: 2,
           }}
         >

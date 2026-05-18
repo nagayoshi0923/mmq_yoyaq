@@ -1,8 +1,9 @@
 /**
  * マニュアルページ・ブロック CRUD API
+ *
+ * すべてバックエンド API (/api/manuals) 経由で org_id をサーバー側で強制
  */
-import { supabase } from '../supabase'
-import { getCurrentOrganizationId } from '@/lib/organization'
+import { apiClient } from '@/lib/apiClient'
 import type { ManualPage, ManualPageWithBlocks, ManualBlock, BlockType, BlockContentMap } from '@/types/manual'
 
 // ---------------------------------------------------------------------------
@@ -11,34 +12,14 @@ import type { ManualPage, ManualPageWithBlocks, ManualBlock, BlockType, BlockCon
 export const manualPageApi = {
   /** 組織のマニュアルページ一覧（ブロックなし） */
   async list(): Promise<ManualPage[]> {
-    const orgId = await getCurrentOrganizationId()
-    const { data, error } = await supabase
-      .from('manual_pages')
-      .select('*')
-      .eq('organization_id', orgId)
-      .eq('is_active', true)
-      .order('display_order', { ascending: true })
-    if (error) throw error
-    return data as ManualPage[]
+    return apiClient.get<ManualPage[]>('/api/manuals')
   },
 
   /** ページ1件をブロック込みで取得 */
   async getWithBlocks(pageId: string): Promise<ManualPageWithBlocks> {
-    const { data: page, error: pageError } = await supabase
-      .from('manual_pages')
-      .select('*')
-      .eq('id', pageId)
-      .single()
-    if (pageError) throw pageError
-
-    const { data: blocks, error: blocksError } = await supabase
-      .from('manual_blocks')
-      .select('*')
-      .eq('page_id', pageId)
-      .order('display_order', { ascending: true })
-    if (blocksError) throw blocksError
-
-    return { ...(page as ManualPage), blocks: (blocks ?? []) as ManualBlock[] }
+    return apiClient.get<ManualPageWithBlocks>(
+      `/api/manuals?type=with_blocks&page_id=${encodeURIComponent(pageId)}`
+    )
   },
 
   /** ページ新規作成 */
@@ -50,79 +31,33 @@ export const manualPageApi = {
     icon_name?: string
     display_order?: number
   }): Promise<ManualPage> {
-    const orgId = await getCurrentOrganizationId()
-    const { data, error } = await supabase
-      .from('manual_pages')
-      .insert({
-        organization_id: orgId,
-        title: input.title,
-        slug: input.slug,
-        description: input.description ?? null,
-        category: input.category,
-        icon_name: input.icon_name ?? 'FileText',
-        display_order: input.display_order ?? 999,
-      })
-      .select()
-      .single()
-    if (error) throw error
-    return data as ManualPage
+    return apiClient.post<ManualPage>('/api/manuals', input)
   },
 
   /** ページ更新 */
-  async update(pageId: string, input: Partial<{
-    title: string
-    slug: string
-    description: string | null
-    category: 'staff' | 'admin'
-    icon_name: string
-    display_order: number
-    is_active: boolean
-  }>): Promise<ManualPage> {
-    const { data, error } = await supabase
-      .from('manual_pages')
-      .update(input)
-      .eq('id', pageId)
-      .select()
-      .single()
-    if (error) throw error
-    return data as ManualPage
+  async update(
+    pageId: string,
+    input: Partial<{
+      title: string
+      slug: string
+      description: string | null
+      category: 'staff' | 'admin'
+      icon_name: string
+      display_order: number
+      is_active: boolean
+    }>
+  ): Promise<ManualPage> {
+    return apiClient.patch<ManualPage>('/api/manuals', { id: pageId, ...input })
   },
 
   /** ページ削除（ブロックは CASCADE で削除） */
   async delete(pageId: string): Promise<void> {
-    const { error } = await supabase
-      .from('manual_pages')
-      .delete()
-      .eq('id', pageId)
-    if (error) throw error
+    await apiClient.delete(`/api/manuals?id=${encodeURIComponent(pageId)}`)
   },
 
   /** ハードコードページのコンテンツを保存（upsert） */
   async saveHardcodedContent(slug: string, content: unknown): Promise<void> {
-    const orgId = await getCurrentOrganizationId()
-    const { data: existing } = await supabase
-      .from('manual_pages')
-      .select('id')
-      .eq('organization_id', orgId)
-      .eq('slug', slug)
-      .maybeSingle()
-
-    if (existing) {
-      await supabase
-        .from('manual_pages')
-        .update({ page_content: content })
-        .eq('id', existing.id)
-    } else {
-      await supabase
-        .from('manual_pages')
-        .insert({
-          organization_id: orgId,
-          slug,
-          title: slug,
-          category: 'staff',
-          page_content: content,
-        })
-    }
+    await apiClient.post('/api/manuals?action=save_hardcoded', { slug, content })
   },
 }
 
@@ -137,54 +72,30 @@ export const manualBlockApi = {
     content: BlockContentMap[T]
     display_order: number
   }): Promise<ManualBlock> {
-    const { data, error } = await supabase
-      .from('manual_blocks')
-      .insert({
-        page_id: input.page_id,
-        block_type: input.block_type,
-        content: input.content,
-        display_order: input.display_order,
-      })
-      .select()
-      .single()
-    if (error) throw error
-    return data as ManualBlock
+    return apiClient.post<ManualBlock>('/api/manuals?type=block', input)
   },
 
   /** ブロック更新 */
-  async update<T extends BlockType>(blockId: string, input: {
-    content?: BlockContentMap[T]
-    display_order?: number
-    block_type?: T
-  }): Promise<ManualBlock> {
-    const { data, error } = await supabase
-      .from('manual_blocks')
-      .update(input)
-      .eq('id', blockId)
-      .select()
-      .single()
-    if (error) throw error
-    return data as ManualBlock
+  async update<T extends BlockType>(
+    blockId: string,
+    input: {
+      content?: BlockContentMap[T]
+      display_order?: number
+      block_type?: T
+    }
+  ): Promise<ManualBlock> {
+    return apiClient.patch<ManualBlock>('/api/manuals?type=block', { id: blockId, ...input })
   },
 
   /** ブロック削除 */
   async delete(blockId: string): Promise<void> {
-    const { error } = await supabase
-      .from('manual_blocks')
-      .delete()
-      .eq('id', blockId)
-    if (error) throw error
+    await apiClient.delete(
+      `/api/manuals?type=block&id=${encodeURIComponent(blockId)}`
+    )
   },
 
   /** ブロック表示順を一括更新 */
   async reorder(items: { id: string; display_order: number }[]): Promise<void> {
-    await Promise.all(
-      items.map(({ id, display_order }) =>
-        supabase
-          .from('manual_blocks')
-          .update({ display_order })
-          .eq('id', id)
-      )
-    )
+    await apiClient.post('/api/manuals?action=reorder_blocks', { items })
   },
 }

@@ -16,6 +16,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
 import { getCorsHeaders, verifyAuth, errorResponse, sanitizeErrorMessage, timingSafeEqualString, getServiceRoleKey, isCronOrServiceRoleCall } from '../_shared/security.ts'
+import { insertEmailLog, updateEmailLog } from '../_shared/email-logs.ts'
 
 interface QueueItem {
   id: string
@@ -320,6 +321,17 @@ ${item.customer_name} 様
 MMQ
     `
 
+    const queueEmailSubject = `【予約完了】${item.scenario_title} - ${formatDate(item.event_date)}`
+    const queueEmailLogId = await insertEmailLog(supabase, {
+      organization_id: item.organization_id ?? null,
+      reservation_id:  item.reservation_id ?? null,
+      email_type:      'reservation_confirmed',
+      to_email:        item.customer_email,
+      to_name:         item.customer_name ?? null,
+      subject:         queueEmailSubject,
+      status:          'queued',
+    })
+
     // Resend APIでメール送信
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -330,7 +342,7 @@ MMQ
       body: JSON.stringify({
         from: `${emailSettings.senderName} <${emailSettings.senderEmail}>`,
         to: [item.customer_email],
-        subject: `【予約完了】${item.scenario_title} - ${formatDate(item.event_date)}`,
+        subject: queueEmailSubject,
         html: emailHtml,
         text: emailText,
       }),
@@ -338,9 +350,19 @@ MMQ
 
     if (!response.ok) {
       const errorData = await response.json()
+      await updateEmailLog(supabase, queueEmailLogId, {
+        status: 'failed',
+        error_message: sanitizeErrorMessage(JSON.stringify(errorData)),
+      })
       return { success: false, error: JSON.stringify(errorData) }
     }
 
+    const queueEmailResult = await response.json()
+    await updateEmailLog(supabase, queueEmailLogId, {
+      status: 'sent',
+      provider_message_id: queueEmailResult?.id ?? null,
+      sent_at: new Date().toISOString(),
+    })
     return { success: true }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) }

@@ -8,6 +8,7 @@ export interface Organization {
   name: string
   slug: string  // URL用識別子（例: queens-waltz, company-a）
   plan: 'free' | 'basic' | 'pro'
+  booking_site_status?: 'none' | 'pending' | 'approved'
   contact_email?: string | null
   contact_name?: string | null
   is_license_manager: boolean  // ライセンス管理会社かどうか

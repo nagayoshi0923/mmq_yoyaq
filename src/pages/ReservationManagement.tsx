@@ -245,12 +245,7 @@ export function ReservationManagement() {
     <AppLayout currentPage="reservations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6" className="mx-auto">
       <div className="space-y-6">
         <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <Ticket className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">予約一覧</span>
-            </div>
-          }
+          title={<><Ticket className="h-5 w-5 text-primary" />予約一覧</>}
           description="予約状況の確認と管理"
         >
           <HelpButton topic="reservation" label="予約管理マニュアル" />

@@ -57,7 +57,9 @@ const queryClient = new QueryClient({
 
 // スケジュールデータを IndexedDB に永続化
 // buster を変えるとキャッシュが自動無効化される（スキーマ変更時に更新する）
-const SCHEDULE_CACHE_BUSTER = 'v1'
+// v2: PR #168 以前は API バグで空配列が永続化されていたため、全クライアントの
+//     キャッシュを強制無効化する
+const SCHEDULE_CACHE_BUSTER = 'v2'
 const SCHEDULE_CACHE_MAX_AGE = 14 * 24 * 60 * 60 * 1000 // 14日間
 
 const idbPersister = createAsyncStoragePersister({
@@ -109,6 +111,7 @@ const BOOKING_SHELL_GLOBAL_FIRST_SEGMENT = new Set([
   'complete-profile',
   'coupon-present',
   'register',
+  'start',
   'about',
   'accept-invitation',
   'author-dashboard',
@@ -195,21 +198,30 @@ function BookingShellLazyFallback() {
 //   → さもないと navType が POP 以外になり、scrollTo(0,0) が sessionStorage 復元より後に効いて潰す
 // - それ以外の同一タブ内のパス変更（PUSH/REPLACE）: トップへ
 function ScrollToTop() {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const navType = useNavigationType()
-  const prevPathRef = React.useRef<string | null>(null)
+  const prevKeyRef = React.useRef<string | null>(null)
 
   useLayoutEffect(() => {
+    // pathname + search で同一ページ判定（tab切替もここで検出）
+    const currentKey = `${pathname}${search}`
     if (navType === 'POP') {
-      prevPathRef.current = pathname
+      prevKeyRef.current = currentKey
       return
     }
-    const prev = prevPathRef.current
-    if (prev !== null && prev !== pathname) {
-      window.scrollTo(0, 0)
+    const prev = prevKeyRef.current
+    if (prev !== null && prev !== currentKey) {
+      const container = document.querySelector('[data-scroll-container]') as HTMLElement | null
+      if (container) {
+        container.scrollTop = 0
+      } else {
+        window.scrollTo(0, 0)
+      }
+      // PUSH遷移では新ページの保存済みスクロール位置を削除して復元を抑制
+      sessionStorage.removeItem(`route:${pathname}${search}ScrollY`)
     }
-    prevPathRef.current = pathname
-  }, [pathname, navType])
+    prevKeyRef.current = currentKey
+  }, [pathname, search, navType])
 
   return null
 }
@@ -323,7 +335,7 @@ function AppRoutes() {
     // /complete-profile 自体はスキップ（無限ループ防止）
     const isCompleteProfilePage = location.pathname === '/complete-profile'
     // 認証フローページにいるログイン済み顧客はプロフィールゲート対象外（ループ防止）
-    const isAuthPage = ['/signup', '/login', '/register', '/reset-password', '/set-password'].includes(location.pathname)
+    const isAuthPage = ['/signup', '/login', '/register', '/start', '/reset-password', '/set-password'].includes(location.pathname)
     // 招待リンクはゲスト向けのため、ログイン済みでもプロフィールゲート対象外
     const isInvitePage = location.pathname.startsWith('/group/invite/')
 
@@ -528,8 +540,14 @@ function App() {
           buster: SCHEDULE_CACHE_BUSTER,
           dehydrateOptions: {
             // スケジュールイベントクエリのみ IndexedDB に保存（他は通常のメモリキャッシュ）
+            // error 結果は永続化しない（再 fetch されなくなる詰みを防ぐ）。
+            // 空配列（イベントゼロの月）は legit な成功結果なので永続化する
+            // → 月切替時のプリフェッチが効く。API バグで全月空になる事故は
+            // SCHEDULE_CACHE_BUSTER を bump して運用で吸収する
             shouldDehydrateQuery: (query) =>
-              Array.isArray(query.queryKey) && query.queryKey[0] === 'scheduleEvents',
+              Array.isArray(query.queryKey) &&
+              query.queryKey[0] === 'scheduleEvents' &&
+              query.state.status === 'success',
           },
         }}
       >
