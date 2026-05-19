@@ -13,12 +13,16 @@ import { supabase } from '@/lib/supabase'
 
 interface UseCustomHolidaysOptions {
   organizationSlug?: string // 公開ページ用：組織スラッグから取得
+  organizationId?: string   // 公開ページ用：組織IDを直接指定（スラッグ不要）
 }
 
 export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
   const [customHolidays, setCustomHolidays] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const { organizationSlug } = options || {}
+  const { organizationSlug, organizationId } = options || {}
+
+  // options が渡されているが ID/slug がまだ未解決かを判定
+  const hasPublicOption = options !== undefined && ('organizationSlug' in options || 'organizationId' in options)
 
   // 初期ロード
   useEffect(() => {
@@ -35,7 +39,7 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
             // 公開用RPC（機密情報を含まない）を使用
             const { data, error } = await supabase
               .rpc('get_public_custom_holidays', { p_organization_id: orgData.id })
-            
+
             if (!error && data && data.length > 0) {
               setCustomHolidays(data[0].custom_holidays || [])
             }
@@ -43,8 +47,25 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
             return
           }
         }
-        
-        // 通常の取得（ログインユーザーの組織）
+
+        // 組織IDが直接指定されている場合は公開用RPCを使用
+        if (organizationId) {
+          const { data, error } = await supabase
+            .rpc('get_public_custom_holidays', { p_organization_id: organizationId })
+          if (!error && data && data.length > 0) {
+            setCustomHolidays(data[0].custom_holidays || [])
+          }
+          setIsLoading(false)
+          return
+        }
+
+        // 公開オプションが渡されているがIDが未解決の場合はスキップ（ローディング中）
+        if (hasPublicOption) {
+          setIsLoading(false)
+          return
+        }
+
+        // 通常の取得（ログインユーザーの組織 = スタッフ/管理者専用）
         const holidays = await organizationSettingsApi.getCustomHolidays()
         setCustomHolidays(holidays)
       } catch (error) {
@@ -54,7 +75,7 @@ export function useCustomHolidays(options?: UseCustomHolidaysOptions) {
       }
     }
     load()
-  }, [organizationSlug])
+  }, [organizationSlug, organizationId, hasPublicOption])
 
   // 休日を追加
   const addHoliday = useCallback(async (date: string) => {
