@@ -6,7 +6,7 @@ export type ApiRole = 'admin' | 'staff' | 'customer' | 'license_admin'
 
 export type AuthUser = {
   userId: string
-  orgId: string | null  // platform customer は organization_id = NULL
+  orgId: string  // platform customer は '' (空文字)。スタッフ系ルートは requireStaff で別途チェック
   role: ApiRole
   /**
    * 元の JWT。SECURITY DEFINER な RPC で auth.uid() を必要とする場合、
@@ -66,7 +66,7 @@ export async function requireAuth(req: VercelRequest): Promise<AuthUser> {
 
   return {
     userId: user.id,
-    orgId: (profile.organization_id as string | null) ?? null,
+    orgId: (profile.organization_id as string | null) ?? '',
     role: profile.role as ApiRole,
     jwt,
   }
