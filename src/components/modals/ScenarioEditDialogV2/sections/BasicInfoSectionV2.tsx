@@ -3,14 +3,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Upload, X, Trash2, Wand2 } from 'lucide-react'
+import { Upload, X, Trash2, Wand2, FileText, BookOpen, Settings } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
@@ -162,344 +161,228 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
   }
 
   return (
-    <div className="space-y-2">
-      {/* メイン情報カード */}
-      <Card>
-        <CardContent className="p-2">
-          <div className="flex gap-2">
-            {/* キービジュアル */}
-            <div className="w-20 shrink-0">
-              <Label className={labelStyle}>画像</Label>
+    <div className="space-y-3">
+
+      {/* ── 基本情報 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <FileText className="h-3.5 w-3.5" />基本情報
+        </p>
+
+        {/* 画像 + 管理作品 */}
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1">画像</span>
+          <div className="flex items-start gap-4 flex-1">
+            <div className="w-14 shrink-0">
               {formData.key_visual_url ? (
                 <div className="relative group">
-                  <OptimizedImage
-                    src={formData.key_visual_url}
-                    alt="Key Visual"
-                    className="w-full aspect-[3/4] object-cover rounded border"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={handleImageRemove}
-                  >
-                    <X className="h-3 w-3" />
+                  <OptimizedImage src={formData.key_visual_url} alt="Key Visual"
+                    className="w-full aspect-[3/4] object-cover rounded border" />
+                  <Button type="button" variant="destructive" size="icon"
+                    className="absolute top-0 right-0 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={handleImageRemove}>
+                    <X className="h-2.5 w-2.5" />
                   </Button>
                 </div>
               ) : (
-                <div 
-                  className="w-full aspect-[3/4] border-2 border-dashed rounded flex items-center justify-center bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => imageInputRef.current?.click()}
-                >
-                  <input
-                    ref={imageInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  <Upload className="h-5 w-5 text-muted-foreground" />
+                <div className="w-full aspect-[3/4] border-2 border-dashed rounded flex items-center justify-center bg-muted/30 hover:bg-muted/50 cursor-pointer"
+                  onClick={() => imageInputRef.current?.click()}>
+                  <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                  <Upload className="h-4 w-4 text-muted-foreground" />
                 </div>
               )}
             </div>
-
-            {/* タイトル・作者・メール */}
-            <div className="flex-1 space-y-1.5">
-              {/* 管理作品トグル */}
-              <div className="flex items-center justify-between pb-1 border-b">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="scenario_type"
-                    checked={formData.scenario_type === 'managed'}
-                    onCheckedChange={(checked) => setFormData(prev => ({ 
-                      ...prev, 
-                      scenario_type: checked ? 'managed' : 'normal' 
-                    }))}
-                    className="h-4 w-7"
-                  />
-                  <Label htmlFor="scenario_type" className="text-[11px] font-medium cursor-pointer">
-                    管理作品
-                  </Label>
-                </div>
-                {formData.scenario_type === 'managed' && (
-                  <Badge className="bg-blue-100 text-blue-800 text-[10px] px-1 py-0">ライセンス管理</Badge>
-                )}
-              </div>
-              
-              {/* タイトル・Slug（横並び） */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className={labelStyle}>タイトル *</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="シナリオ名称"
-                    className={inputStyle}
-                  />
-                </div>
-                <div>
-                  <Label className={labelStyle}>Slug（URL用）</Label>
-                  <div className="flex gap-1">
-                    <Input
-                      id="slug"
-                      value={formData.slug || ''}
-                      onChange={(e) => {
-                        // 小文字、英数字、ハイフンのみ許可
-                        const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
-                        setFormData(prev => ({ ...prev, slug: value }))
-                      }}
-                      placeholder="aiu-kairo"
-                      className={`${inputStyle} flex-1`}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-6 px-1.5"
-                      onClick={() => {
-                        if (formData.title) {
-                          const generatedSlug = generateSlugFromTitle(formData.title)
-                          setFormData(prev => ({ ...prev, slug: generatedSlug }))
-                          showToast.success('slug生成完了')
-                        } else {
-                          showToast.error('タイトルを入力')
-                        }
-                      }}
-                      title="タイトルから自動生成"
-                    >
-                      <Wand2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              
-              {/* 作者・メール（横並び） */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className={labelStyle}>作者 *</Label>
-                  <MultiSelect
-                    options={authorOptions}
-                    selectedValues={formData.author ? [formData.author] : []}
-                    onSelectionChange={(values) => handleAuthorChange(values[0] || '')}
-                    placeholder="選択"
-                    showBadges={true}
-                    emptyText="見つかりません"
-                    emptyActionLabel="+ 追加"
-                    onEmptyAction={() => { setEditingOldAuthorName(null); setNewAuthorName(''); setIsAddAuthorDialogOpen(true) }}
-                    onEditOption={(value) => {
-                      setEditingOldAuthorName(value)
-                      setNewAuthorName(value)
-                      setIsAddAuthorDialogOpen(true)
-                    }}
-                    closeOnSelect={true}
-                  />
-                </div>
-                <div>
-                  <Label className={labelStyle}>
-                    メール
-                    {formData.author && authorEmailMap.has(formData.author) && (
-                      <span className="text-green-600 ml-1 font-normal text-[10px]">✓</span>
-                    )}
-                  </Label>
-                  <Input
-                    id="author_email"
-                    type="email"
-                    value={formData.author_email || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, author_email: e.target.value }))}
-                    placeholder="報告送信先"
-                    className={inputStyle}
-                  />
-                </div>
-              </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Switch id="scenario_type" checked={formData.scenario_type === 'managed'}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, scenario_type: checked ? 'managed' : 'normal' }))}
+                className="h-4 w-7" />
+              <Label htmlFor="scenario_type" className="text-xs cursor-pointer">管理作品</Label>
+              {formData.scenario_type === 'managed' && (
+                <Badge className="bg-blue-100 text-blue-800 text-[10px] px-1 py-0">ライセンス管理</Badge>
+              )}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* 説明 */}
-      <Card>
-        <CardContent className="p-2">
-          <Label className={labelStyle}>説明・あらすじ</Label>
-          <p className={hintStyle}>予約サイト表示用</p>
-          <Textarea
-            id="description"
-            value={formData.description}
-            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-            rows={2}
-            placeholder="説明を入力"
-            className="text-[11px] mt-1"
-          />
-        </CardContent>
-      </Card>
+        {/* タイトル */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">タイトル *</span>
+          <Input id="title" value={formData.title}
+            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+            placeholder="シナリオ名称" className="h-7 text-xs flex-1" />
+        </div>
 
-      {/* シナリオ特記事項 */}
-      <Card>
-        <CardContent className="p-2">
-          <Label className={labelStyle}>シナリオ特記事項</Label>
-          <p className={hintStyle}>予約サイトのシナリオ詳細ページに表示されます</p>
-          <Textarea
-            id="caution"
-            value={formData.caution || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, caution: e.target.value }))}
-            rows={2}
-            placeholder="例: ホラー表現あり / 暗い部屋での公演 / 激しい運動あり"
-            className="text-[11px] mt-1"
-          />
-        </CardContent>
-      </Card>
-
-      {/* 設定 */}
-      <Card>
-        <CardContent className="p-2 space-y-2">
-          {/* キット数・店舗設定 */}
-          <div className="flex items-end gap-2">
-            <div className="w-24">
-              <Label className={labelStyle}>キット数</Label>
-              <Select
-                value={String(formData.kit_count || 1)}
-                onValueChange={(value) => {
-                  const kitCount = parseInt(value)
-                  setFormData(prev => {
-                    // 既存のproduction_costsを更新（キットの金額を変更）
-                    let newCosts = [...prev.production_costs]
-                    const kitIndex = newCosts.findIndex(c => c.item === 'キット')
-                    
-                    if (kitCount === 0) {
-                      // キット0個の場合は削除
-                      newCosts = newCosts.filter(c => c.item !== 'キット')
-                    } else if (kitIndex >= 0) {
-                      newCosts[kitIndex] = { ...newCosts[kitIndex], amount: kitCount * 30000 }
-                    } else {
-                      // キットがなければ追加
-                      newCosts = [
-                        { item: 'キット', amount: kitCount * 30000 },
-                        ...newCosts
-                      ]
-                    }
-                    // マニュアルがなければ追加
-                    if (!newCosts.find(c => c.item === 'マニュアル')) {
-                      newCosts.push({ item: 'マニュアル', amount: 10000 })
-                    }
-                    // スライドがなければ追加
-                    if (!newCosts.find(c => c.item === 'スライド')) {
-                      newCosts.push({ item: 'スライド', amount: 10000 })
-                    }
-                    return {
-                      ...prev,
-                      kit_count: kitCount,
-                      production_costs: newCosts
-                    }
-                  })
-                }}
-              >
-                <SelectTrigger className={inputStyle}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        {/* Slug */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">Slug</span>
+          <div className="flex gap-1 flex-1">
+            <Input id="slug" value={formData.slug || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
+              placeholder="aiu-kairo" className="h-7 text-xs flex-1" />
+            <Button type="button" variant="outline" size="sm" className="h-7 px-2"
+              onClick={() => { if (formData.title) { setFormData(prev => ({ ...prev, slug: generateSlugFromTitle(formData.title) })); showToast.success('slug生成完了') } else showToast.error('タイトルを入力') }}
+              title="タイトルから自動生成">
+              <Wand2 className="h-3 w-3" />
+            </Button>
           </div>
-          
-          {/* 下段：公演可能店舗 */}
-          <div>
-            <Label className={labelStyle}>公演可能店舗</Label>
-            <StoreMultiSelect
-              stores={stores}
-              selectedStoreIds={formData.available_stores || []}
-              onStoreIdsChange={(storeIds) => {
-                setFormData(prev => ({ ...prev, available_stores: storeIds }))
-              }}
-              hideLabel={true}
-              placeholder="全店舗で公演可能"
-            />
-          </div>
+        </div>
 
-          {/* 貸切受付時間枠 */}
-          <div>
-            <Label className={labelStyle}>貸切受付時間枠</Label>
-            <p className={hintStyle}>選択した時間枠のみ貸切予約を受け付けます。未選択で全時間枠を受付。</p>
-            <div className="flex gap-2 mt-1">
+        {/* 作者 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">作者 *</span>
+          <div className="flex-1">
+            <MultiSelect options={authorOptions} selectedValues={formData.author ? [formData.author] : []}
+              onSelectionChange={(values) => handleAuthorChange(values[0] || '')}
+              placeholder="選択" showBadges={true} emptyText="見つかりません"
+              emptyActionLabel="+ 追加"
+              onEmptyAction={() => { setEditingOldAuthorName(null); setNewAuthorName(''); setIsAddAuthorDialogOpen(true) }}
+              onEditOption={(value) => { setEditingOldAuthorName(value); setNewAuthorName(value); setIsAddAuthorDialogOpen(true) }}
+              closeOnSelect={true} />
+          </div>
+        </div>
+
+        {/* メール */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">
+            メール
+            {formData.author && authorEmailMap.has(formData.author) && <span className="text-green-600 ml-1">✓</span>}
+          </span>
+          <Input id="author_email" type="email" value={formData.author_email || ''}
+            onChange={(e) => setFormData(prev => ({ ...prev, author_email: e.target.value }))}
+            placeholder="報告送信先" className="h-7 text-xs flex-1" />
+        </div>
+      </div>
+
+      {/* ── 説明 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <BookOpen className="h-3.5 w-3.5" />説明
+        </p>
+
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">あらすじ</span>
+          <div className="flex-1">
+            <Textarea id="description" value={formData.description}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              rows={3} placeholder="説明を入力（予約サイト表示用）" className="text-[11px]" />
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">特記事項</span>
+          <div className="flex-1">
+            <Textarea id="caution" value={formData.caution || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, caution: e.target.value }))}
+              rows={2} placeholder="例: ホラー表現あり / 暗い部屋での公演 / 激しい運動あり" className="text-[11px]" />
+            <p className="text-[11px] text-muted-foreground mt-0.5">シナリオ詳細ページに表示</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 設定 ── */}
+      <div className="rounded-lg border bg-slate-50/70 p-3 space-y-2">
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+          <Settings className="h-3.5 w-3.5" />設定
+        </p>
+
+        {/* キット数 */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right">キット数</span>
+          <div className="w-20">
+            <Select value={String(formData.kit_count || 1)} onValueChange={(value) => {
+              const kitCount = parseInt(value)
+              setFormData(prev => {
+                let newCosts = [...prev.production_costs]
+                const kitIndex = newCosts.findIndex(c => c.item === 'キット')
+                if (kitCount === 0) {
+                  newCosts = newCosts.filter(c => c.item !== 'キット')
+                } else if (kitIndex >= 0) {
+                  newCosts[kitIndex] = { ...newCosts[kitIndex], amount: kitCount * 30000 }
+                } else {
+                  newCosts = [{ item: 'キット', amount: kitCount * 30000 }, ...newCosts]
+                }
+                if (!newCosts.find(c => c.item === 'マニュアル')) newCosts.push({ item: 'マニュアル', amount: 10000 })
+                if (!newCosts.find(c => c.item === 'スライド')) newCosts.push({ item: 'スライド', amount: 10000 })
+                return { ...prev, kit_count: kitCount, production_costs: newCosts }
+              })
+            }}>
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[0,1,2,3,4,5,6,7,8,9,10].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* 公演可能店舗 */}
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">公演可能店舗</span>
+          <div className="flex-1">
+            <StoreMultiSelect stores={stores} selectedStoreIds={formData.available_stores || []}
+              onStoreIdsChange={(storeIds) => setFormData(prev => ({ ...prev, available_stores: storeIds }))}
+              hideLabel={true} placeholder="全店舗で公演可能" />
+          </div>
+        </div>
+
+        {/* 貸切受付時間枠 */}
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">貸切時間枠</span>
+          <div className="flex-1">
+            <div className="flex gap-2">
               {['朝公演', '昼公演', '夜公演'].map((slot) => {
                 const isSelected = (formData.private_booking_time_slots || []).includes(slot)
                 return (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => {
-                      setFormData(prev => {
-                        const currentSlots = prev.private_booking_time_slots || []
-                        const newSlots = isSelected
-                          ? currentSlots.filter(s => s !== slot)
-                          : [...currentSlots, slot]
-                        return { ...prev, private_booking_time_slots: newSlots }
-                      })
-                    }}
-                    className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
-                      isSelected
-                        ? 'bg-primary text-white border-primary'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
-                    }`}
-                  >
+                  <button key={slot} type="button"
+                    onClick={() => setFormData(prev => {
+                      const currentSlots = prev.private_booking_time_slots || []
+                      return { ...prev, private_booking_time_slots: isSelected ? currentSlots.filter(s => s !== slot) : [...currentSlots, slot] }
+                    })}
+                    className={`px-3 py-1 text-xs rounded-md border transition-colors ${isSelected ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}`}>
                     {slot}
                   </button>
                 )
               })}
             </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">未選択で全時間枠を受付</p>
           </div>
+        </div>
 
-          {/* 貸切募集期間 */}
-          <div>
-            <Label className={labelStyle}>貸切募集期間</Label>
-            <p className={hintStyle}>設定した期間のみ貸切予約を受け付けます。未設定の場合は常時受付。</p>
-            <div className="flex items-center gap-2 mt-1">
-              <Input
-                type="date"
-                value={formData.booking_start_date || ''}
+        {/* 貸切募集期間 */}
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-muted-foreground w-[72px] shrink-0 text-right pt-1.5">貸切募集期間</span>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Input type="date" value={formData.booking_start_date || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, booking_start_date: e.target.value || null }))}
-                className="w-40 text-xs"
-                placeholder="開始日"
-              />
+                className="w-36 text-xs h-7" />
               <span className="text-xs text-muted-foreground">〜</span>
-              <Input
-                type="date"
-                value={formData.booking_end_date || ''}
+              <Input type="date" value={formData.booking_end_date || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, booking_end_date: e.target.value || null }))}
-                className="w-40 text-xs"
-                placeholder="終了日"
-              />
+                className="w-36 text-xs h-7" />
               {(formData.booking_start_date || formData.booking_end_date) && (
-                <button
-                  type="button"
+                <button type="button"
                   onClick={() => setFormData(prev => ({ ...prev, booking_start_date: null, booking_end_date: null }))}
-                  className="text-xs text-red-500 hover:text-red-700 whitespace-nowrap"
-                >
-                  クリア
-                </button>
+                  className="text-xs text-red-500 hover:text-red-700">クリア</button>
               )}
             </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">未設定で常時受付</p>
             {(formData.booking_start_date || formData.booking_end_date) && (() => {
               const now = new Date()
               const jstOffset = 9 * 60
               const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60 * 1000)
               const todayStr = `${jstNow.getFullYear()}-${String(jstNow.getMonth() + 1).padStart(2, '0')}-${String(jstNow.getDate()).padStart(2, '0')}`
-              const isBeforeStart = formData.booking_start_date && todayStr < formData.booking_start_date
-              const isAfterEnd = formData.booking_end_date && todayStr > formData.booking_end_date
-              const isOutOfPeriod = isBeforeStart || isAfterEnd
+              const isOutOfPeriod = (formData.booking_start_date && todayStr < formData.booking_start_date) || (formData.booking_end_date && todayStr > formData.booking_end_date)
               return (
-                <p className={`text-xs mt-1 ${isOutOfPeriod ? 'text-orange-600' : 'text-green-600'}`}>
+                <p className={`text-[11px] mt-0.5 ${isOutOfPeriod ? 'text-orange-600' : 'text-green-600'}`}>
                   {isOutOfPeriod ? '※ 現在は募集期間外です' : '※ 現在は募集期間中です'}
                 </p>
               )
             })()}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* 作者追加・編集ダイアログ */}
       <Dialog open={isAddAuthorDialogOpen} onOpenChange={(open) => { if (!open) { setNewAuthorName(''); setEditingOldAuthorName(null) } setIsAddAuthorDialogOpen(open) }}>
@@ -538,26 +421,17 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
 
       {/* 削除ボタン（既存シナリオの場合のみ表示） */}
       {scenarioId && onDelete && (
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardContent className="p-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-medium text-destructive">シナリオを削除</Label>
-                <p className="text-xs text-muted-foreground mt-1">
-                  この操作は取り消せません。関連する公演データは残ります。
-                </p>
-              </div>
-              <Button 
-                variant="destructive" 
-                size="sm"
-                onClick={onDelete}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                削除
-              </Button>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-destructive">シナリオを削除</p>
+              <p className="text-xs text-muted-foreground mt-0.5">この操作は取り消せません。関連する公演データは残ります。</p>
             </div>
-          </CardContent>
-        </Card>
+            <Button variant="destructive" size="sm" onClick={onDelete}>
+              <Trash2 className="h-4 w-4 mr-2" />削除
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   )
